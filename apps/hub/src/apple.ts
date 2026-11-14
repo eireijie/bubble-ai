@@ -321,7 +321,7 @@ export class Apple {
     try {
       this.need(agent, req.app, 2);
       const done = await this.ask<unknown>(a.workspaceId, op);
-      const said = typeof done === "string" ? done : typeof done === "object" && done && "message" in done ? String((done as { message: unknown }).message) : "Done.";
+      const said = typeof done === "string" ? done : typeof done === "object" && done && "text" in done ? String((done as { text: unknown }).text) : "Done.";
       return `Allowed. ${said}${edited !== undefined && edited !== req.bubble ? ` (They edited it first; what was sent: "${edited}")` : ""}`;
     } catch (e) {
       return `Allowed, but it didn't work: ${e instanceof Error ? e.message : String(e)}`;

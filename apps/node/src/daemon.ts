@@ -27,9 +27,12 @@ import { NO_NODE, findNpmDir, withDir } from "./npm.ts";
 import { discoverAgents, readDiscovered } from "./discover.ts";
 import { agentFolder } from "./agent-dir.ts";
 import { bringBack, mergeBranch, prepareCheckout, prepareClone } from "./git.ts";
+import { AppleBridge } from "./apple/index.ts";
 
 /** How often a device looks again at whether its harnesses are signed in (someone may do it in a terminal). */
 const SIGN_IN_CHECK_MS = 20_000;
+/** How often a Mac looks again at its Apple permissions (someone may change them in System Settings). */
+const APPLE_CHECK_MS = 60_000;
 const MCP_BIN = fileURLToPath(new URL("../../../bin/wisp-mcp.mjs", import.meta.url));
 const BROWSER_BIN = fileURLToPath(new URL("../../../bin/wisp-browser.mjs", import.meta.url));
 
@@ -123,6 +126,11 @@ export class NodeDaemon {
   private signIns = new Map<string, { accounts: Record<string, boolean | null>; agentAccounts?: Record<string, string> }>();
   private vmSpecs = new Map<string, ComputerSpec>();
   private signInTimer: ReturnType<typeof setInterval> | null = null;
+  /** the Apple mod's bridge to Messages, Contacts, Calendar and Reminders: Macs only */
+  private apple = process.platform === "darwin" ? new AppleBridge() : null;
+  private appleTimer: ReturnType<typeof setInterval> | null = null;
+  /** the Apple status last sent with the capabilities */
+  private appleSent = "";
   /** sign-ins running for those accounts */
   private logins = new HarnessLogins();
   /** sign-ins to model providers this device runs for the hub (Settings → Models) */
@@ -381,7 +389,18 @@ export class NodeDaemon {
     if (apps.length) caps.remoteApps = apps;
     caps.paused = this.local.paused;
     caps.commands = this.commandsHere();
+    if (this.apple) {
+      caps.apple = await this.apple.status().catch(() => undefined);
+      this.appleSent = JSON.stringify(caps.apple ?? null);
+    }
     this.send({ type: "capabilities", capabilities: caps });
+  }
+
+  /** Look at the Mac's Apple permissions again; tell the hub when they changed. */
+  private async recheckApple() {
+    if (!this.apple || this.ws?.readyState !== WebSocket.OPEN) return;
+    const now = await this.apple.status(true).catch(() => null);
+    if (now && JSON.stringify(now) !== this.appleSent) await this.sendCapabilities();
   }
 
   start() {
@@ -400,6 +419,7 @@ export class NodeDaemon {
   async stop(wait = 5000) {
     this.stopped = true;
     if (this.signInTimer) clearInterval(this.signInTimer);
+    if (this.appleTimer) clearInterval(this.appleTimer);
     fs.unwatchFile(this.configFile, this.onLocalChange);
     for (const a of this.aborts.values()) a.abort();
     this.computers.stopAll();
@@ -519,6 +539,10 @@ export class NodeDaemon {
       void this.sendShelf();
       this.signInTimer ??= setInterval(() => void this.refreshSignIns().catch(() => {}), SIGN_IN_CHECK_MS);
       this.signInTimer.unref?.();
+      if (this.apple) {
+        this.appleTimer ??= setInterval(() => void this.recheckApple().catch(() => {}), APPLE_CHECK_MS);
+        this.appleTimer.unref?.();
+      }
     } else if (msg.type === "computer") {
       if (this.local.paused) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name} is paused; someone at the device has to run \`wisp node resume\`` });
       if (msg.computer.kind === "device" && !this.local.shareScreen) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name}'s screen is off; only someone at the device can turn it on (\`wisp node screen on\`)` });
@@ -623,6 +647,21 @@ export class NodeDaemon {
           this.send({ type: "result", requestId: msg.requestId, ok: true, result: { output } });
         },
         (err) => this.send({ type: "result", requestId: msg.requestId, ok: false, error: (err as Error).message }),
+      );
+    } else if (msg.type === "apple") {
+      const { requestId, op } = msg;
+      if (!this.apple) return this.send({ type: "result", requestId, ok: false, error: "Apple apps need a Mac" });
+      if (this.local.paused && op.op !== "status" && op.op !== "icons") return this.send({ type: "result", requestId, ok: false, error: `${this.cfg.name} is paused` });
+      this.apple.handle(op).then(
+        (result) => {
+          this.send({ type: "result", requestId, ok: true, result });
+          // a permission asked for or a send tried may have changed what the hub should show
+          if (op.op === "request_permission" || op.op === "status" || op.op === "messages_send") void this.recheckApple().catch(() => {});
+        },
+        (err) => {
+          this.send({ type: "result", requestId, ok: false, error: (err as Error).message });
+          void this.recheckApple().catch(() => {});
+        },
       );
     } else if (msg.type === "read_agent") {
       const agent = readDiscovered(msg.key, this.cfg.discoverHome);
