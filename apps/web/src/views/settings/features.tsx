@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, CircleDot, Clock, Ghost, HardDrive, ListChecks, MonitorSmartphone, Phone, SquareTerminal, UserPlus } from "lucide-react";
+import { Apple, Bell, CircleDot, Clock, Ghost, HardDrive, ListChecks, MonitorSmartphone, Phone, SquareTerminal, UserPlus } from "lucide-react";
 import { FEATURE_INFO, FEATURE_KEYS, UNLISTED_FEATURES, type FeatureKey, type Features } from "@wisp/core";
 import { useStore } from "../../store.ts";
 import { setFeatures, useFeatures } from "../../features.ts";
@@ -17,6 +17,7 @@ const ICONS: Record<FeatureKey, ReactNode> = {
   remoteDesktop: <MonitorSmartphone size={18} />,
   storage: <HardDrive size={18} />,
   code: <SquareTerminal size={18} />,
+  apple: <Apple size={18} />,
 };
 
 /**

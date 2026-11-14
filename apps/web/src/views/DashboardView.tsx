@@ -11,7 +11,7 @@ import { AgentAvatar, StatusChip, cx, timeAgo } from "../components/ui.tsx";
 import { MoreOptions } from "../components/MoreOptions.tsx";
 import { UserAvatarButton } from "../components/Rail.tsx";
 import { ChatAvatar, PulseDots, shortTime } from "../components/ChatList.tsx";
-import { ApprovalNeedCard, CardButton, runSummary, GroupCard, HelpNeedCard, LoginNeedCard, Rule, StorageNeedCard, SectionHead, useHelpSeen, helpKey } from "../components/InboxParts.tsx";
+import { ApprovalNeedCard, CardButton, runSummary, GroupCard, HelpNeedCard, LoginNeedCard, Rule, StorageNeedCard, AppleNeedCard, SectionHead, useHelpSeen, helpKey } from "../components/InboxParts.tsx";
 import { NEXT_STEP, homeReadiness, setupProgress, useOnboarding } from "../onboarding.ts";
 import { useDevices } from "../devices.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
@@ -239,7 +239,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
                   {teamNeeds.map((n) => (
                     <TeamNeedCard key={`${n.flow.id}-${n.lane.stepId}`} flow={n.flow} lane={n.lane} />
                   ))}
-                  {pending.map((p) => (p.login ? <LoginNeedCard key={p.id} approval={p} /> : p.storage ? <StorageNeedCard key={p.id} approval={p} /> : <ApprovalNeedCard key={p.id} approval={p} />))}
+                  {pending.map((p) => (p.login ? <LoginNeedCard key={p.id} approval={p} /> : p.storage ? <StorageNeedCard key={p.id} approval={p} /> : p.apple ? <AppleNeedCard key={p.id} approval={p} /> : <ApprovalNeedCard key={p.id} approval={p} />))}
                 </>
               ) : (
                 <CaughtUp guest={isGuest} compact={!nothingElse} />

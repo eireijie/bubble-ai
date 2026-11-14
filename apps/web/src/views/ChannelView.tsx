@@ -13,6 +13,7 @@ import { patchAgent, prettyModel, tokens, useAgentContext, type AgentContext } f
 import { ModelLine, RunPanel } from "../components/RunPanel.tsx";
 import { DiscussionCard } from "../components/Discussion.tsx";
 import { ApprovalCard, ChangeCard, ChatCard, ComputerPart, RoutineChip } from "../components/AgentCards.tsx";
+import { AppleReadLines } from "../components/AppleParts.tsx";
 import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Modal, Pill, Popover, StatusDot, UserAvatar, clockTime, cx, harnessLabel } from "../components/ui.tsx";
@@ -1003,6 +1004,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
             onFrom={m.context ? () => openChat(m.channelId, m.context!.conversationId) : undefined}
           />
         )}
+        {!m.deletedAt && <AppleReadLines parts={m.parts} />}
         {m.deletedAt ? (
           <div className="bubble them text-body text-muted italic">This message was deleted.</div>
         ) : (
@@ -1466,6 +1468,11 @@ function ThreadRoot({ m }: { m: Message; composerThread?: string }) {
           <div className="mt-2 text-body italic text-muted">This message was deleted.</div>
         ) : (
           <>
+            {m.parts.some((p) => p.type === "apple_read") && (
+              <div className="mt-2">
+                <AppleReadLines parts={m.parts} />
+              </div>
+            )}
             {html && <div className="prose-w mt-2 text-body" dangerouslySetInnerHTML={{ __html: html }} />}
             <CardAuthor.Provider value={m.author.kind === "agent" ? { agentId: m.author.id, channelId: m.channelId, threadId: m.threadId } : null}>
               <Parts parts={m.parts} body={m.body} agentName={agent?.name} agentId={agent?.id} />
