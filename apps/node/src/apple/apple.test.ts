@@ -204,9 +204,11 @@ describe("small pieces", () => {
     const plist = "<key>CFBundleName</key><string>Wisp</string>";
     expect(permissionHolder("/Applications/wisp.app/Contents/MacOS/wisp", {}, () => plist)).toBe("Wisp");
     expect(permissionHolder("/Applications/wisp.app/Contents/MacOS/wisp", {}, () => { throw new Error("no"); })).toBe("wisp");
-    expect(permissionHolder("/opt/homebrew/bin/node", { XPC_SERVICE_NAME: "ai.wisp.node" })).toBe("node (/opt/homebrew/bin/node)");
-    expect(permissionHolder("/opt/homebrew/bin/node", { TERM_PROGRAM: "Apple_Terminal" })).toBe("Terminal");
-    expect(permissionHolder("/opt/homebrew/bin/node", { TERM_PROGRAM: "iTerm.app", XPC_SERVICE_NAME: "0" })).toBe("iTerm");
+    expect(permissionHolder("/opt/homebrew/bin/node", { XPC_SERVICE_NAME: "ai.wisp.node" }, undefined, () => null)).toBe("node (/opt/homebrew/bin/node)");
+    expect(permissionHolder("/opt/homebrew/bin/node", { TERM_PROGRAM: "Apple_Terminal" }, undefined, () => null)).toBe("Terminal");
+    expect(permissionHolder("/opt/homebrew/bin/node", { TERM_PROGRAM: "iTerm.app", XPC_SERVICE_NAME: "0" }, undefined, () => null)).toBe("iTerm");
+    // started by another app (the Claude app, an editor): macOS credits that app
+    expect(permissionHolder("/opt/homebrew/bin/node", { TERM_PROGRAM: "Apple_Terminal" }, undefined, () => "Claude")).toBe("Claude");
   });
   it("finds an app's icon file", () => {
     expect(iconFileName("<key>CFBundleIconFile</key>\n\t<string>AppIcon</string>")).toBe("AppIcon.icns");
@@ -325,5 +327,18 @@ describe.skipIf(process.platform !== "darwin" || !fs.existsSync(SQLITE))("readin
     const waiting = await unansweredChats(1, 48, all, names, now, db);
     expect(waiting.map((c) => c.chatId)).toEqual(["SMS;-;+15550001111", "SMS;-;+15551234567"]);
     expect((await unansweredChats(1, 10, all, names, now, db)).map((c) => c.name)).toEqual(["Sam Lee"]);
+  });
+});
+
+describe("the Mac script", () => {
+  it("never hands null to a framework call (JXA makes it NSNull, which EventKit answers with nothing or an error)", () => {
+    // every line that calls into a framework (store.…, $.…) and passes null as an argument
+    const lines = APPLE_SCRIPT.split("\n").filter((l) => /(store|\$)\.[a-z][A-Za-z]*\(/.test(l));
+    expect(lines.length).toBeGreaterThan(5);
+    expect(lines.filter((l) => /[(,]\s*null\s*[,)]/.test(l))).toEqual([]);
+  });
+  it("finds contacts with one fetch over all of them, not by container", () => {
+    expect(APPLE_SCRIPT).toContain("enumerateContactsWithFetchRequestErrorUsingBlock");
+    expect(APPLE_SCRIPT).not.toContain("containersMatchingPredicateError");
   });
 });

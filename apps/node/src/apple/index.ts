@@ -60,6 +60,7 @@ export class AppleBridge {
       contacts: codes ? contactsPermission(codes.contacts) : "unknown",
       calendars: codes ? eventKitPermission(codes.calendars) : "unknown",
       reminders: codes ? eventKitPermission(codes.reminders) : "unknown",
+      grantTo: this.holder,
     };
     if (value.contacts !== "allowed") this.contacts = null;
     this.lastStatus = { at: Date.now(), value };
@@ -153,7 +154,11 @@ export class AppleBridge {
   /** A permission's macOS prompt (when it hasn't asked yet) or its System Settings pane; answers the new status. */
   private async requestPermission(pane: string): Promise<AppleMacStatus> {
     const before = await this.status(true);
-    const open = () => exec("/usr/bin/open", [`x-apple.systempreferences:com.apple.preference.security?${SETTINGS[pane]}`], { timeoutMs: 10_000 });
+    // the exact list (Full Disk Access, Calendars…); macOS 13 and later only know the newer address
+    const open = () =>
+      exec("/usr/bin/open", [`x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?${SETTINGS[pane]}`], { timeoutMs: 10_000 }).catch(() =>
+        exec("/usr/bin/open", [`x-apple.systempreferences:com.apple.preference.security?${SETTINGS[pane]}`], { timeoutMs: 10_000 }),
+      );
     if (pane === "fullDiskAccess") {
       // there's no prompt for it: the person adds the app in the list
       if (before.fullDiskAccess !== "allowed") await open();

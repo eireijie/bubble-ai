@@ -86,6 +86,8 @@ export const AppleMacStatus = z.object({
   reminders: ApplePermission,
   /** Messages has an account signed in on this Mac */
   messagesSignedIn: z.boolean().optional(),
+  /** the app macOS lists in System Settings for these permissions ("Wisp", "Terminal") */
+  grantTo: z.string().max(300).optional(),
 });
 export type AppleMacStatus = z.infer<typeof AppleMacStatus>;
 

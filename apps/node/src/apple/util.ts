@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { AppleContact, ApplePermission } from "@wisp/core";
@@ -222,16 +223,17 @@ export function automationPermission(code: number): ApplePermission | null {
  * to the "responsible" app: the app bundle the node runs from (the Wisp app, or its own binary as a
  * launchd service), else the terminal it was started in, else the bare `node` binary of a service.
  */
-export function permissionHolder(execPath = process.execPath, env: NodeJS.ProcessEnv = process.env, readFile: (p: string) => string = (p) => fs.readFileSync(p, "utf8")): string {
-  const bundle = execPath.match(/^(.*?\/([^/]+)\.app)\/Contents\//);
-  if (bundle) {
-    try {
-      const plist = readFile(path.join(bundle[1], "Contents", "Info.plist"));
-      const name = plist.match(/<key>CFBundleDisplayName<\/key>\s*<string>([^<]+)<\/string>/)?.[1] ?? plist.match(/<key>CFBundleName<\/key>\s*<string>([^<]+)<\/string>/)?.[1];
-      if (name) return name;
-    } catch {}
-    return bundle[2];
-  }
+export function permissionHolder(
+  execPath = process.execPath,
+  env: NodeJS.ProcessEnv = process.env,
+  readFile: (p: string) => string = (p) => fs.readFileSync(p, "utf8"),
+  appAncestor: () => string | null = () => appOfParents(readFile),
+): string {
+  const own = appName(execPath, readFile);
+  if (own) return own;
+  // macOS credits the app that started us (Wisp, Terminal, an editor), the outermost .app up the process chain
+  const app = appAncestor();
+  if (app) return app;
   const service = env.XPC_SERVICE_NAME;
   const underLaunchd = !!service && service !== "0" && !service.startsWith("application.");
   if (!underLaunchd) {
@@ -242,4 +244,35 @@ export function permissionHolder(execPath = process.execPath, env: NodeJS.Proces
   }
   // a bare binary (a launchd service run by Node.js): System Settings lists it by name; its path helps find it with "+"
   return `${path.basename(execPath)} (${execPath})`;
+}
+
+/** The display name of the outermost .app a path sits in ("/Applications/Claude.app/…/node" → "Claude"). */
+export function appName(file: string, readFile: (p: string) => string = (p) => fs.readFileSync(p, "utf8")): string | null {
+  const bundle = file.match(/^(.*?\/([^/]+)\.app)\//);
+  if (!bundle) return null;
+  try {
+    const plist = readFile(path.join(bundle[1], "Contents", "Info.plist"));
+    const name = plist.match(/<key>CFBundleDisplayName<\/key>\s*<string>([^<]+)<\/string>/)?.[1] ?? plist.match(/<key>CFBundleName<\/key>\s*<string>([^<]+)<\/string>/)?.[1];
+    if (name) return name;
+  } catch {}
+  return bundle[2];
+}
+
+/** Walk up the parent processes to the topmost one inside an .app, the one macOS credits (launchd, pid 1, ends it). */
+function appOfParents(readFile: (p: string) => string): string | null {
+  let pid = process.ppid;
+  let found: string | null = null;
+  for (let i = 0; i < 30 && pid > 1; i++) {
+    let line: string;
+    try {
+      line = execFileSync("/bin/ps", ["-o", "ppid=,comm=", "-p", String(pid)], { encoding: "utf8", timeout: 2000 }).trim();
+    } catch {
+      break;
+    }
+    const m = line.match(/^(\d+)\s+(.+)$/);
+    if (!m) break;
+    found = appName(m[2], readFile) ?? found;
+    pid = Number(m[1]);
+  }
+  return found;
 }

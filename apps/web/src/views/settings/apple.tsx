@@ -489,12 +489,14 @@ export function MacSheet({ mac, onView, onClose }: { mac: Mac; onView: (v: Apple
         {MAC_PERMISSIONS.map((p) => {
           const state = status?.[p.key] ?? "unknown";
           const ok = state === "allowed";
+          // macOS shows its own prompt the first time (not for Full Disk Access); after that it's a switch in System Settings
+          const asks = state === "not_asked" && p.pane !== "fullDiskAccess";
           return (
             <div key={p.key} className={cx("flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3 transition-colors duration-300", !ok && "bg-warn/[0.07]")}>
               <AppleIcon app={p.app} size={32} />
               <div className="min-w-0 flex-1 basis-36">
                 <div className="text-[14px] font-medium">{p.name}</div>
-                <div className={cx("text-[13px]", ok ? "text-muted" : "text-warn")}>{ok ? p.why : state === "unknown" ? "Not checked yet" : "Not allowed yet"}</div>
+                <div className={cx("text-[13px]", ok ? "text-muted" : "text-warn")}>{ok ? p.why : state === "unknown" ? "Not checked yet" : asks ? "Not allowed yet" : status?.grantTo ? `Turn on ${status.grantTo} in the list` : "Not allowed yet"}</div>
               </div>
               {ok ? (
                 <span key="ok" className="m-swap inline-flex items-center gap-1.5 text-[13px] text-ok">
@@ -503,7 +505,7 @@ export function MacSheet({ mac, onView, onClose }: { mac: Mac; onView: (v: Apple
                 </span>
               ) : (
                 <SmallButton disabled={!mac.online || asking !== null} onClick={() => void ask(p.pane)} className="max-sm:w-full">
-                  {state === "not_asked" && p.pane !== "fullDiskAccess" ? "Allow" : "Open System Settings"}
+                  {asks ? "Allow" : "Open Settings"}
                 </SmallButton>
               )}
             </div>

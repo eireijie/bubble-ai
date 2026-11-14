@@ -80,6 +80,7 @@ function contactsAll() {
 }
 
 // --- calendar --------------------------------------------------------------------------------
+// JXA turns null into NSNull, which EventKit chokes on; undefined is nil ("any")
 function eventStore() { return $.EKEventStore.alloc.init; }
 /** a recurring event's occurrences share one identifier, so their ids carry the start too */
 function eventId(e) {
@@ -97,7 +98,7 @@ function findEvent(store, id) {
   const cut = id.lastIndexOf("::");
   if (cut < 0) { const e = store.eventWithIdentifier(id); return e && !e.isNil() ? e : null; }
   const eid = id.slice(0, cut), at = Number(id.slice(cut + 2));
-  const pred = store.predicateForEventsWithStartDateEndDateCalendars(nsDate(at - 1000), nsDate(at + 1000), null);
+  const pred = store.predicateForEventsWithStartDateEndDateCalendars(nsDate(at - 1000), nsDate(at + 1000), undefined);
   for (const e of arr(store.eventsMatchingPredicate(pred))) {
     if (s(e.eventIdentifier) === eid && Math.abs(e.startDate.timeIntervalSince1970 * 1000 - at) < 1000) return e;
   }
@@ -106,7 +107,7 @@ function findEvent(store, id) {
 function calendarList(r) {
   needEvents();
   const store = eventStore();
-  const pred = store.predicateForEventsWithStartDateEndDateCalendars(nsDate(r.from), nsDate(r.to), null);
+  const pred = store.predicateForEventsWithStartDateEndDateCalendars(nsDate(r.from), nsDate(r.to), undefined);
   const evs = arr(store.eventsMatchingPredicate(pred)).map(eventOut);
   evs.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
   return evs.slice(0, r.limit);
@@ -186,7 +187,7 @@ function remindersList(r) {
     cals = cals.filter((c) => s(c.title).toLowerCase() === lower);
     if (!cals.length) fail("NO_SUCH_LIST", arr(store.calendarsForEntityType(1)).map((c) => s(c.title)).join(", "));
   }
-  const pred = r.includeDone ? store.predicateForRemindersInCalendars($(cals)) : store.predicateForIncompleteRemindersWithDueDateStartingEndingCalendars(null, null, $(cals));
+  const pred = r.includeDone ? store.predicateForRemindersInCalendars($(cals)) : store.predicateForIncompleteRemindersWithDueDateStartingEndingCalendars(undefined, undefined, $(cals));
   let got = null, done = false;
   // the answer comes on a background queue: keep only the array there, read it here
   store.fetchRemindersMatchingPredicateCompletion(pred, function (items) { got = items; done = true; });

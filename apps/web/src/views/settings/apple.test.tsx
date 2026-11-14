@@ -135,7 +135,7 @@ describe("Apple helpers", () => {
 });
 
 describe("Mac permissions sheet", () => {
-  it("lists each permission with Open System Settings for the ones not allowed, and polls while open", async () => {
+  it("lists each permission with Open Settings for the ones not allowed, and polls while open", async () => {
     vi.useFakeTimers();
     states = [];
     const mac = view().macs[0];
@@ -144,7 +144,7 @@ describe("Mac permissions sheet", () => {
     expect(text(tree)).toContain("To read and search Messages");
     expect(text(tree)).toContain("To send texts you approve");
     expect(text(tree)).toContain("Messages needs this Mac signed in to your Apple Account.");
-    const open = findAll(tree, (n) => text(n) === "Open System Settings" && typeof n.props?.onClick === "function");
+    const open = findAll(tree, (n) => text(n) === "Open Settings" && typeof n.props?.onClick === "function");
     expect(open).toHaveLength(1);
 
     vi.mocked(api).mockResolvedValue(view());
