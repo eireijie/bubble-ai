@@ -5,7 +5,7 @@ import type { Caller } from "./api.ts";
 import { id } from "./auth.ts";
 import { ComputerError } from "./computers.ts";
 import type { Hub } from "./hub.ts";
-import { modelsForHarness } from "./model-connections.ts";
+import { KeyRejected, modelsForHarness } from "./model-connections.ts";
 
 interface Helpers {
   need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean }): Caller | null;
@@ -34,6 +34,7 @@ const SIGN_IN_HARNESS = z.enum(["claude-code", "codex", "hermes"]);
  *   GET    /api/model-connections/login/:loginId    → ModelLogin
  *   POST   /api/model-connections/login/:loginId/input  { text } → ModelLogin   (the code Claude's page shows)
  *   DELETE /api/model-connections/login/:loginId    → { ok }
+ *   POST   /api/model-connections/import            { provider: "openai", nodeId } → ModelConnection  ("Use this sign-in": the device's own Codex sign-in, kept in step with it)
  *   GET    /api/harnesses                           → { computers: [...] }  (Settings → Harnesses, by computer)
  *
  * A sign-in's progress is also pushed on the browser socket as { type: "model_login", login } to the
@@ -119,6 +120,8 @@ export function registerModelsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     for (const a of agents) store.updateAgent(a.id, { settings: { connectionId: null } });
     hub.models.remove(r.id);
     hub.connectionRemoved(c.workspaceId);
+    // its device stops keeping its own sign-in in step with it (and keeps that sign-in)
+    if (r.shared_node_id) hub.sendSharedSignins(r.shared_node_id);
     if (agents.length) hub.broadcast(c.workspaceId, { type: "agents_changed" });
     changed(c);
     return { ok: true, agents: agents.map((a) => a.id) };
@@ -194,6 +197,49 @@ export function registerModelsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
       if (err instanceof ComputerError) return reply.code(err.status === 504 ? 502 : err.status).send({ error: err.status === 504 ? `${store.node(pick.nodeId)?.name ?? "The device"} didn't answer; update Wisp there and try again` : err.message });
       throw err;
     }
+  });
+
+  /**
+   * "Use this sign-in": the hub keeps the Codex sign-in already on one of your devices, checked
+   * first with a real call to ChatGPT. Codex renews it by replacing its refresh token (the old one
+   * stops working), so the device and the hub keep each other's newest copy from then on: one
+   * sign-in for the device and every agent. Importing again refreshes the same connection.
+   */
+  app.post("/api/model-connections/import", async (req, reply) => {
+    const c = need(req, reply, { member: true });
+    if (!c) return;
+    const body = parse(z.object({ provider: z.literal("openai"), nodeId: z.string().max(100), label: LABEL.optional() }).strict(), req.body, reply);
+    if (!body) return;
+    const node = store.node(body.nodeId);
+    if (!node || node.workspaceId !== c.workspaceId || node.ownerId !== c.actor.id) return reply.code(404).send({ error: "nodeId: that isn't one of your devices" });
+    if (!hub.isNodeOnline(node.id)) return reply.code(409).send({ error: `${node.name} is offline` });
+    let got: { secret: { auth?: Record<string, unknown> }; account?: string | null; plan?: string | null };
+    try {
+      got = (await hub.computers.nodeRequest(node.id, (requestId) => ({ type: "signin_import", requestId, provider: "openai" }), 20_000)) as typeof got;
+    } catch (err) {
+      if (err instanceof ComputerError) return reply.code(err.status === 504 ? 502 : 409).send({ error: err.status === 504 ? `${node.name} didn't answer; update Wisp there and try again` : err.message });
+      throw err;
+    }
+    if (!got?.secret?.auth) return reply.code(409).send({ error: `Codex isn't signed in to ChatGPT on ${node.name}` });
+    let plan: string | null;
+    try {
+      plan = (await hub.models.checkChatgpt(got.secret.auth)).plan ?? got.plan ?? null;
+    } catch (err) {
+      if (err instanceof KeyRejected) return reply.code(409).send({ error: `The Codex sign-in on ${node.name} didn't work: ${err.message}.` });
+      return reply.code(502).send({ error: `Couldn't check the sign-in with ChatGPT: ${(err as Error).message}` });
+    }
+    const existing = hub.models.sharedWith(node.id, "openai").find((r) => r.user_id === c.actor.id);
+    let cid: string;
+    if (existing) {
+      // keep the newer of the two: the hub's copy may have been renewed by a run since
+      const before = hub.models.secret(existing.id);
+      hub.models.replaceShared(existing.id, got.secret, got.account ?? null, plan);
+      if (before) hub.models.saveRenewed(existing.id, before);
+      cid = existing.id;
+    } else cid = hub.models.create({ workspaceId: c.workspaceId, userId: c.actor.id, provider: "openai", kind: "oauth", label: body.label ?? "ChatGPT", secret: got.secret, account: got.account ?? null, plan, sharedNodeId: node.id });
+    hub.sendSharedSignins(node.id);
+    changed(c);
+    return view(c, cid);
   });
 
   const myLogin = (c: Caller, loginId: string, reply: FastifyReply) => {

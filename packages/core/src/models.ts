@@ -192,6 +192,8 @@ export interface ModelConnection {
   harnesses: string[];
   /** whether the person asking owns it (only owners see their own connections in full, and only they assign them) */
   mine: boolean;
+  /** the device whose own sign-in it shares ("Use this sign-in"): kept in step with it both ways */
+  sharedWith?: { nodeId: string; name: string } | null;
 }
 
 /** A model a connection offers (GET /api/model-connections/:id/models). */

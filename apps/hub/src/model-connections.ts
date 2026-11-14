@@ -24,6 +24,7 @@ type Row = {
   updated_at: string;
   last_used_at: string | null;
   last_error: string | null;
+  shared_node_id: string | null;
 };
 
 /** How long a provider's model list is reused before it's fetched again. */
@@ -63,13 +64,46 @@ export class ModelConnections {
     private fetchFn: typeof fetch = (...a) => fetch(...a),
   ) {}
 
-  create(c: { workspaceId: string; userId: string; provider: ModelProvider; kind: ConnectionKind; label: string; secret: ConnectionSecret; account?: string | null; plan?: string | null }): string {
+  create(c: { workspaceId: string; userId: string; provider: ModelProvider; kind: ConnectionKind; label: string; secret: ConnectionSecret; account?: string | null; plan?: string | null; sharedNodeId?: string | null }): string {
     const cid = id("mc");
     const t = now();
     this.db
-      .prepare("INSERT INTO model_connections (id, workspace_id, user_id, provider, kind, label, account, plan, secret_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(cid, c.workspaceId, c.userId, c.provider, c.kind, c.label, c.account ?? null, c.plan ?? null, JSON.stringify(ConnectionSecret.parse(c.secret)), t, t);
+      .prepare("INSERT INTO model_connections (id, workspace_id, user_id, provider, kind, label, account, plan, secret_json, created_at, updated_at, shared_node_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(cid, c.workspaceId, c.userId, c.provider, c.kind, c.label, c.account ?? null, c.plan ?? null, JSON.stringify(ConnectionSecret.parse(c.secret)), t, t, c.sharedNodeId ?? null);
     return cid;
+  }
+
+  /** The connection that shares this device's own sign-in for a provider, if there is one. */
+  sharedWith(nodeId: string, provider?: ModelProvider): Row[] {
+    return (provider
+      ? this.db.prepare("SELECT * FROM model_connections WHERE shared_node_id = ? AND provider = ? ORDER BY created_at").all(nodeId, provider)
+      : this.db.prepare("SELECT * FROM model_connections WHERE shared_node_id = ? ORDER BY created_at").all(nodeId)) as Row[];
+  }
+
+  /** Put a fresh copy of the device's sign-in in an existing shared connection (imported again). */
+  replaceShared(connectionId: string, secret: ConnectionSecret, account: string | null, plan: string | null) {
+    this.db.prepare("UPDATE model_connections SET secret_json = ?, account = ?, plan = ?, last_error = NULL, updated_at = ? WHERE id = ?").run(JSON.stringify(ConnectionSecret.parse(secret)), account, plan, now(), connectionId);
+  }
+
+  /**
+   * Check a ChatGPT sign-in with a real call that changes nothing (Codex's own usage page): it
+   * answers for a working sign-in and turns down an expired or revoked one. Returns the plan.
+   */
+  async checkChatgpt(auth: Record<string, unknown>): Promise<{ plan: string | null }> {
+    const tokens = (auth.tokens ?? {}) as Record<string, unknown>;
+    const access = typeof tokens.access_token === "string" ? tokens.access_token : "";
+    if (!access) throw new KeyRejected("there's no ChatGPT sign-in in it");
+    const exp = jwtExpiry(access);
+    if (exp !== null && exp < Date.now()) throw new KeyRejected("it has expired. Open Codex on that computer once so it renews, then try again");
+    const res = await this.fetchFn("https://chatgpt.com/backend-api/wham/usage", {
+      headers: { authorization: `Bearer ${access}`, ...(typeof tokens.account_id === "string" ? { "chatgpt-account-id": tokens.account_id } : {}), "user-agent": "wisp" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.status === 401 || res.status === 403) throw new KeyRejected("ChatGPT didn't accept it. Sign in to Codex on that computer again, or use Sign in here");
+    if (!res.ok) throw new Error(`ChatGPT answered ${res.status}`);
+    const data = (await res.json().catch(() => ({}))) as { plan_type?: unknown };
+    // "plus" → "Plus", as other sign-ins show their plan
+    return { plan: typeof data.plan_type === "string" && data.plan_type ? data.plan_type[0].toUpperCase() + data.plan_type.slice(1) : null };
   }
 
   row(connectionId: string): Row | undefined {
@@ -100,6 +134,7 @@ export class ModelConnections {
       usedBy,
       harnesses: harnessesFor(r.provider, r.kind),
       mine: r.user_id === viewerId,
+      sharedWith: r.shared_node_id ? { nodeId: r.shared_node_id, name: sharedName(this.db, r.shared_node_id) } : null,
     };
   }
 
@@ -245,6 +280,10 @@ export class ModelConnections {
 }
 
 export class KeyRejected extends Error {}
+
+function sharedName(db: Db, nodeId: string): string {
+  return (db.prepare("SELECT name FROM nodes WHERE id = ?").get(nodeId) as { name?: string } | undefined)?.name ?? "a device";
+}
 
 function providerName(p: ModelProvider) {
   return { anthropic: "Anthropic", openai: "OpenAI", openrouter: "OpenRouter", google: "Google", xai: "xAI" }[p] ?? p;

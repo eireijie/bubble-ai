@@ -192,6 +192,11 @@ export const NodeToHub = z.discriminatedUnion("type", [
   z.object({ type: z.literal("model_login"), login: ModelLogin }),
   /** a model sign-in finished: on success, what the hub keeps as the new connection */
   z.object({ type: z.literal("model_login_done"), loginId: z.string().max(64), ok: z.boolean(), secret: ConnectionSecret.optional(), account: z.string().max(200).nullable().optional(), plan: z.string().max(40).nullable().optional(), error: z.string().max(1000).optional() }),
+  /**
+   * The device's own Codex sign-in changed (Codex renewed it there) and a connection shares it: the
+   * hub keeps the newer one, or the next run anywhere would use a dead refresh token.
+   */
+  z.object({ type: z.literal("shared_signin_renewed"), connectionId: z.string().max(64), secret: ConnectionSecret }),
   z.object({ type: z.literal("run_event"), runId: z.string(), event: AgentEvent }),
   z.object({ type: z.literal("run_done"), runId: z.string(), finalText: z.string() }),
   z.object({ type: z.literal("run_failed"), runId: z.string(), error: z.string() }),
@@ -299,6 +304,23 @@ export const HubToNode = z.discriminatedUnion("type", [
   z.object({ type: z.literal("connections_keep"), connectionIds: z.array(z.string()), computers: z.array(ComputerSpec) }),
   /** open a harness's config file in the device's own editor; answered with a result ({ path }) */
   z.object({ type: z.literal("harness_open_config"), requestId: z.string(), harness: z.string().max(60), account: z.string().max(64).optional() }),
+  /**
+   * First-run memory import: run this harness once, read-only, in the device owner's home folder,
+   * with Wisp's memory prompt (the device builds it itself; the hub sends no prompt). Answered with
+   * a result ({ answer }). `credential`: the person's own model connection for it, when they have one.
+   */
+  /**
+   * "Use this sign-in": read the device's own Codex sign-in (~/.codex/auth.json) so the hub can keep
+   * it as a connection. Answered with a result ({ secret, account, plan }) or an error.
+   */
+  z.object({ type: z.literal("signin_import"), requestId: z.string(), provider: z.literal("openai") }),
+  /**
+   * Connections that share this device's Codex sign-in, with the hub's copy of each. The device
+   * writes the hub's copy back when it's newer, sends its own with shared_signin_renewed when that's
+   * newer, and watches its sign-in for changes from then on. Sent on connect and after each change.
+   */
+  z.object({ type: z.literal("shared_signins"), signins: z.array(z.object({ connectionId: z.string().max(64), secret: ConnectionSecret })).max(5) }),
+  z.object({ type: z.literal("memory_ask"), requestId: z.string(), harness: z.enum(["claude-code", "codex"]), credential: RunCredential.optional(), timeoutMs: z.number().int().positive().max(15 * 60_000).optional() }),
 ]);
 export type HubToNode = z.infer<typeof HubToNode>;
 
