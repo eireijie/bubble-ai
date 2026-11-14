@@ -86,6 +86,17 @@ describe("harness sign-ins", () => {
     expect(done).toEqual(["done"]);
   });
 
+  it("sends Enter after a long code on its own, as a terminal screen needs (it takes a long chunk as a paste)", async () => {
+    const logins = new HarnessLogins();
+    // a reader that, like Claude Code's screen, ignores an Enter that comes in the same chunk as the text
+    const script = `console.log("Open https://claude.ai/oauth?x=1"); process.stdin.on("data", (d) => { const t = d.toString(); if (t === "\\n") { console.log("Login successful."); process.exit(0); } }); setInterval(() => {}, 1000);`;
+    const l = logins.start("claude-code", "model-long", { command: process.execPath, args: ["-e", script], env: {} }, 60_000);
+    await waitFor(() => logins.status(l.id).url);
+    logins.input(l.id, "A".repeat(120) + "#" + "B".repeat(43));
+    const end = await waitFor(() => (logins.status(l.id).status !== "running" ? logins.status(l.id) : undefined));
+    expect(end.status).toBe("done");
+  });
+
   it("stops a sign-in that never answers a pasted code, and says what it last showed", async () => {
     const logins = new HarnessLogins();
     const script = `console.log("Open https://claude.ai/oauth?x=1"); console.log("Paste code here if prompted >"); process.stdin.on("data", () => {}); setInterval(() => {}, 1000);`;

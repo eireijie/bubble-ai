@@ -11,6 +11,9 @@ import type { HarnessLogin } from "@wisp/core";
 /** How sign-ins say a pasted code was turned down (Claude Code: "OAuth error: That code wasn't accepted…"). */
 const REJECTED = /OAuth\s*error|wasn't\s*accepted|invalid\s*(?:code|grant)|invalid_grant|code\s*(?:has\s*)?expired/i;
 
+/** How long after a pasted code its Enter is sent (see `input`). */
+const ENTER_AFTER_MS = 400;
+
 interface Live {
   state: HarnessLogin;
   child: ChildProcess;
@@ -94,7 +97,12 @@ export class HarnessLogins {
   input(id: string, text: string): HarnessLogin {
     const l = this.live.get(id);
     if (!l) throw new Error("that sign-in isn't running anymore; start it again");
-    l.child.stdin!.write(`${text.replace(/[\r\n]+/g, "")}\n`);
+    // Enter goes on its own a moment later: a terminal screen (Claude Code's) takes a long chunk as
+    // a paste, and an Enter inside a paste is just part of the text, so the code was never sent
+    l.child.stdin!.write(text.replace(/[\r\n]+/g, ""));
+    setTimeout(() => {
+      if (this.live.get(id) === l) l.child.stdin!.write("\n");
+    }, ENTER_AFTER_MS);
     // what it prints from here is its answer to the code; it has `answerMs` to give one
     l.answer = "";
     l.retried = false;
