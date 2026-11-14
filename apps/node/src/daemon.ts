@@ -20,6 +20,7 @@ import { ScreenLock, type ScreenCode } from "./screen-lock.ts";
 import { TAKEOVER_HARNESSES, Terminals, deviceShell, sessionName, shellQuote, takeoverShell, vmShell } from "./terminals.ts";
 import { HarnessLogins } from "./harness-login.ts";
 import { ModelLogins } from "./model-login.ts";
+import { importCodexSignin, SharedSignins } from "./shared-signin.ts";
 import { recipeTag, type DockerVm } from "./computers/docker.ts";
 import { mcpBundle } from "./vm-tools.ts";
 import { NO_NODE, findNpmDir, withDir } from "./npm.ts";
@@ -126,6 +127,8 @@ export class NodeDaemon {
   private logins = new HarnessLogins();
   /** sign-ins to model providers this device runs for the hub (Settings → Models) */
   private modelLogins: ModelLogins;
+  /** this device's own Codex sign-in, kept in step with the connections that share it */
+  private sharedSignins: SharedSignins;
   /** connections whose folders may stay (null until the hub says); connections runs here are using right now */
   private keepConnections: Set<string> | null = null;
   private connectionsInUse = new Map<string, number>();
@@ -166,6 +169,7 @@ export class NodeDaemon {
     this.sessionHarness = readJson(path.join(cfg.dir, "session-harness.json"), {});
     this.agentTokens = readJson(this.tokensFile, {});
     this.modelLogins = new ModelLogins((m) => this.send(m), path.join(cfg.dir, "login-scratch"));
+    this.sharedSignins = new SharedSignins((m) => this.send(m), (l) => this.log(l));
     this.local = this.readLocal();
     this.lock = new ScreenLock(cfg.dir, () => this.local.code);
     this.remoteServer = new RemoteDesktopServer(cfg.dir, log);
@@ -480,7 +484,7 @@ export class NodeDaemon {
     if (this.ws?.readyState === WebSocket.OPEN) return this.ws.send(JSON.stringify(m));
     // a run's outcome must reach the hub, or the agent stays "busy" there; so must a renewed sign-in (the old one
     // is dead once a harness renews it) and a finished model sign-in; everything else is a snapshot the hub asks for again
-    if (m.type === "run_done" || m.type === "run_failed" || m.type === "credential_refreshed" || m.type === "model_login_done") {
+    if (m.type === "run_done" || m.type === "run_failed" || m.type === "credential_refreshed" || m.type === "model_login_done" || m.type === "shared_signin_renewed") {
       this.outbox.push(m);
       if (this.outbox.length > 200) this.outbox.shift();
       if (m.type === "run_done" || m.type === "run_failed") this.log(`hub is away; will report ${m.runId} when it's back`);
@@ -644,6 +648,15 @@ export class NodeDaemon {
       } catch (err) {
         this.send({ type: "result", requestId: msg.requestId, ok: false, error: (err as Error).message });
       }
+    } else if (msg.type === "signin_import") {
+      try {
+        this.log("sharing this computer's Codex sign-in with the hub");
+        this.send({ type: "result", requestId: msg.requestId, ok: true, result: importCodexSignin() });
+      } catch (err) {
+        this.send({ type: "result", requestId: msg.requestId, ok: false, error: (err as Error).message });
+      }
+    } else if (msg.type === "shared_signins") {
+      this.sharedSignins.update(msg.signins);
     } else if (msg.type === "computer_catalog") {
       void this.sendVmCatalog(msg.computer, true);
     } else if (msg.type === "connections_keep") {

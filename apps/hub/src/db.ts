@@ -312,6 +312,8 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 
 /** Columns added after a table first shipped. CREATE TABLE IF NOT EXISTS won't add them to existing databases. */
 const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
+  // the device whose own sign-in a connection shares ("Use this sign-in"), kept in step both ways
+  ["model_connections", "shared_node_id", "TEXT"],
   // the message a reply quotes (an inline quote, not a thread)
   ["messages", "reply_to_id", "TEXT"],
   // the chat a top-level message is part of (chats split after a quiet break), and an earlier one it brings back

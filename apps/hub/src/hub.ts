@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import { DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn } from "@wisp/core";
+import { DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret } from "@wisp/core";
 import { id } from "./auth.ts";
 import { Computers } from "./computers.ts";
 import { Terminals } from "./terminals.ts";
@@ -511,6 +511,25 @@ export class Hub {
     this.send(conn, { type: "connections_keep", connectionIds, computers });
   }
 
+  /**
+   * Hand a device the connections that share its own Codex sign-in ("Use this sign-in"), with the
+   * hub's copy of each, so it writes back whichever is newer. False when the device is offline (it
+   * gets them when it reconnects).
+   */
+  sendSharedSignins(nodeId: string): boolean {
+    const signins = this.models
+      .sharedWith(nodeId)
+      .slice(0, 5)
+      .map((r) => ({ connectionId: r.id, secret: JSON.parse(r.secret_json) as ConnectionSecret }));
+    return this.sendToNode(nodeId, { type: "shared_signins", signins });
+  }
+
+  /** A shared connection's sign-in changed on the hub (a run renewed it): its device gets the new one. */
+  private sharedRenewed(connectionId: string, fromNodeId?: string) {
+    const shared = this.models.row(connectionId)?.shared_node_id;
+    if (shared && shared !== fromNodeId) this.sendSharedSignins(shared);
+  }
+
   /** A connection was removed: devices that are online drop its folder now, the others when they reconnect. */
   connectionRemoved(workspaceId: string) {
     for (const conn of this.nodes.values()) if (conn.workspaceId === workspaceId) this.sendConnectionsKeep(conn);
@@ -607,6 +626,7 @@ export class Hub {
         for (const r of store.queuedRunsForNode(conn.nodeId)) this.dispatchRun(r.id);
         this.computers.nodeBack(conn.nodeId);
         this.sendConnectionsKeep(conn);
+        this.sendSharedSignins(conn.nodeId);
         return;
       }
       case "capabilities": {
@@ -682,6 +702,16 @@ export class Hub {
         const ok = msg.terminal ? this.terminals.handedOut.has(`${conn.nodeId}:${msg.connectionId}`) : !!msg.runId && this.mayRenew(conn, msg.runId, msg.connectionId);
         if (!ok) return;
         if (!this.models.rotates(msg.connectionId)) return;
+        if (this.models.saveRenewed(msg.connectionId, msg.secret)) {
+          this.connectionsChanged(msg.connectionId);
+          this.dispatchWaiting(msg.connectionId);
+          this.sharedRenewed(msg.connectionId, conn.nodeId);
+        }
+        return;
+      }
+      case "shared_signin_renewed": {
+        // only from the device whose own sign-in the connection shares
+        if (this.models.row(msg.connectionId)?.shared_node_id !== conn.nodeId) return;
         if (this.models.saveRenewed(msg.connectionId, msg.secret)) {
           this.connectionsChanged(msg.connectionId);
           this.dispatchWaiting(msg.connectionId);

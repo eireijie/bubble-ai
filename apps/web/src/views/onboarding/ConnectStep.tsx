@@ -100,6 +100,20 @@ export function ConnectStep({ device, onNext, onSkip }: { device: DeviceInfo | u
       setError((e as Error).message);
     }
   };
+  /** Codex already signed in on the computer: Wisp keeps that sign-in, in step with it both ways */
+  const share = async (id: string) => {
+    if (!device) return;
+    setBusy(id);
+    setError(null);
+    try {
+      await api("POST", "/api/model-connections/import", { provider: signInProvider(id), nodeId: device.id });
+      reload();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
   const connected = () => {
     setOpen(null);
     setKeyOpen(false);
@@ -113,7 +127,20 @@ export function ConnectStep({ device, onNext, onSkip }: { device: DeviceInfo | u
         {MAIN.map((id) => {
           const c = readyConnection(id, all);
           const provider = signInProvider(id)!;
-          const sub = c ? `${connectionSub(c, true)} · used for every agent` : open === id ? "Waiting for you to finish in the browser" : installed.includes(id) ? (signedIn(id) ? `On ${device?.name ?? "this computer"}. Sign in once for Wisp` : `On ${device?.name ?? "this computer"}, not signed in`) : "Wisp installs it";
+          // Codex shares the sign-in it has here; Claude Code's (in the Mac's Keychain) can't be shared, so it signs in once for Wisp
+          const shareable = id === "codex" && installed.includes(id) && signedIn(id) === true;
+          const here = device?.name ?? "this computer";
+          const sub = c
+            ? c.sharedWith
+              ? `${connectionSub(c, true)} · same sign-in as ${c.sharedWith.name}`
+              : `${connectionSub(c, true)} · used for every agent`
+            : open === id
+              ? "Waiting for you to finish in the browser"
+              : shareable
+                ? `Signed in on ${here}. Wisp can use that sign-in`
+                : installed.includes(id)
+                  ? `On ${here}. Sign in once for Wisp`
+                  : "Wisp installs it";
           return (
             <div key={id} className="ob-rule">
               <div className="ob-row">
@@ -131,6 +158,10 @@ export function ConnectStep({ device, onNext, onSkip }: { device: DeviceInfo | u
                 ) : open === id ? (
                   <button type="button" className="ob-b ob-q" onClick={() => setOpen(null)}>
                     Cancel
+                  </button>
+                ) : shareable ? (
+                  <button type="button" className={readyList.length ? "ob-b" : "ob-b ob-p"} disabled={busy === id} onClick={() => void share(id)}>
+                    {busy === id ? "Checking…" : "Use this sign-in"}
                   </button>
                 ) : (
                   <button type="button" className={readyList.length ? "ob-b" : "ob-b ob-p"} disabled={!device || busy === id} onClick={() => void signIn(id)}>
