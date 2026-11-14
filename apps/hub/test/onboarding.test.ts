@@ -74,6 +74,9 @@ beforeAll(async () => {
   const { node, token } = await owner.request("POST", "/api/nodes", { name: "box" });
   nodeId = node.id;
   me = (hub.store.db.prepare("SELECT id FROM users WHERE email = 'me@example.com'").get() as { id: string }).id;
+  // signed in to Claude Code where it runs, as Linux keeps it (macOS keeps it in the Keychain, which reads as "can't tell")
+  await fs.mkdir(path.join(dir, "harness-home", ".claude"), { recursive: true });
+  await fs.writeFile(path.join(dir, "harness-home", ".claude", ".credentials.json"), JSON.stringify({ claudeAiOauth: { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 3_600_000 } }));
   daemon = new NodeDaemon({ hub: url, token, name: "box", dir: path.join(dir, "node"), discoverHome: home, harnessHome: path.join(dir, "harness-home"), noPrepare: true }, () => {}, { "claude-code": fake });
   daemon.start();
   await waitFor(async () => (await owner.request<{ id: string; online: boolean }[]>("GET", "/api/nodes")).find((n) => n.online));
