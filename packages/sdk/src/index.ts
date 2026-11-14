@@ -1,4 +1,4 @@
-import type { Agent, Allowance, Approval, Channel, ComputerAction, ConnectionModel, HarnessSettings, HarnessSettingsChange, Message, ModelConnection, ModelLogin, ModelProvider, Routine, Followup, ChatLoop, Skill, StorageEntry, StorageFolder, StorageService, Watch, WatchService, WatchServiceInfo } from "@wisp/core";
+import type { Agent, AppleApp, AppleLevel, AppleOp, Allowance, Approval, Channel, ComputerAction, ConnectionModel, HarnessSettings, HarnessSettingsChange, Message, ModelConnection, ModelLogin, ModelProvider, Routine, Followup, ChatLoop, Skill, StorageEntry, StorageFolder, StorageService, Watch, WatchService, WatchServiceInfo } from "@wisp/core";
 
 export interface WispClientOptions {
   url: string; // hub base URL, e.g. http://localhost:4747
@@ -153,6 +153,18 @@ export class WispClient {
   /** Sign in to a website on this agent's own computer with a login from the person's password manager; may ask them first. */
   fillLogin(site: string, account?: string) {
     return this.request<{ status: "filled" | "not_filled" | "asked"; message: string; approvalId?: string }>("POST", "/api/logins/fill", { site, ...(account ? { account } : {}) });
+  }
+  /** Which Apple apps this agent may use and how far (1 read, 2 read and change); empty when none. */
+  appleMine() {
+    return this.request<Partial<Record<AppleApp, AppleLevel>>>("GET", "/api/apple/mine");
+  }
+  /** Read something in the person's Apple apps, or ask to change something (a person is always asked first). */
+  apple<T = unknown>(op: AppleOp) {
+    return this.request<{ status: "done"; result: T } | { status: "asked"; approvalId: string; message: string }>("POST", "/api/apple/agent", op);
+  }
+  /** Where the person is, from their iPhone (Location in the Apple mod). */
+  appleLocation() {
+    return this.request<{ latitude: number; longitude: number; accuracyMeters: number; at: string; ageMinutes: number; near?: string }>("POST", "/api/apple/agent/location", {});
   }
   /** The storage this agent may use (the Storage mod), with its folders; empty when it has none. */
   storageMine() {

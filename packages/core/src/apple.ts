@@ -113,10 +113,14 @@ export const AppleOp = z.discriminatedUnion("op", [
   z.object({ op: z.literal("messages_send"), to: z.string().trim().min(3).max(200), text: z.string().min(1).max(4000) }),
   z.object({ op: z.literal("contacts_search"), query: z.string().trim().min(1).max(200), limit: limit(50) }),
   z.object({ op: z.literal("calendar_list"), from: iso, to: iso, limit: limit(500) }),
+  /** one event by id (null when it's gone) */
+  z.object({ op: z.literal("calendar_get"), id: z.string().min(1).max(500) }),
   z.object({ op: z.literal("calendar_create"), calendar: z.string().max(200).optional(), title: z.string().trim().min(1).max(300), start: iso, end: iso, allDay: z.boolean().optional(), location: z.string().max(500).optional(), notes: z.string().max(4000).optional() }),
   z.object({ op: z.literal("calendar_move"), id: z.string().min(1).max(500), start: iso, end: iso }),
   z.object({ op: z.literal("calendar_delete"), id: z.string().min(1).max(500) }),
   z.object({ op: z.literal("reminders_list"), list: z.string().max(200).optional(), includeDone: z.boolean(), limit: limit(500) }),
+  /** one reminder by id (null when it's gone) */
+  z.object({ op: z.literal("reminders_get"), id: z.string().min(1).max(500) }),
   z.object({ op: z.literal("reminders_create"), list: z.string().max(200).optional(), title: z.string().trim().min(1).max(300), due: iso.optional(), notes: z.string().max(4000).optional() }),
   z.object({ op: z.literal("reminders_complete"), id: z.string().min(1).max(500) }),
 ]);

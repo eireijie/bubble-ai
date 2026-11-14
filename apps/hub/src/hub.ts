@@ -5,6 +5,7 @@ import { Computers } from "./computers.ts";
 import { Terminals } from "./terminals.ts";
 import { Logins } from "./logins.ts";
 import { Storage } from "./storage.ts";
+import { Apple } from "./apple.ts";
 import { Discussions } from "./discussions.ts";
 import { Apns } from "./apns.ts";
 import { Fcm } from "./fcm.ts";
@@ -91,6 +92,8 @@ export class Hub {
   readonly logins: Logins;
   /** files on the person's own storage (the Storage mod) */
   readonly storage: Storage;
+  /** Messages, Contacts, Calendar, Reminders and Location (the Apple mod) */
+  readonly apple: Apple;
   readonly routines: Routines;
   readonly schedules: TeamSchedules;
   readonly background: Background;
@@ -147,6 +150,7 @@ export class Hub {
     this.deviceUse = new DeviceUse(this);
     this.logins = new Logins(this);
     this.storage = new Storage(this);
+    this.apple = new Apple(this);
     this.routines = new Routines(this);
     this.schedules = new TeamSchedules(this);
     this.background = new Background(this);
@@ -639,6 +643,7 @@ export class Hub {
         else this.pausedNodes.delete(conn.nodeId);
         if (was && !msg.capabilities.paused) for (const r of store.queuedRunsForNode(conn.nodeId)) this.dispatchRun(r.id);
         for (const c of store.computersOnNode(conn.nodeId)) this.computers.changed(c.id);
+        this.apple.macReported(conn.workspaceId, conn.nodeId);
         return;
       }
       case "screen_event": {
@@ -802,7 +807,7 @@ export class Hub {
     const live = this.live.get(run.id) ?? { parts: [], text: "" };
     this.live.delete(run.id);
     // skills it learned or followed show under its reply (nothing when there's no reply)
-    const skillParts = this.skillParts(run.id);
+    const skillParts = [...this.apple.readParts(run.id), ...this.skillParts(run.id)];
     const taskReply = this.taskReplies.get(run.id);
     this.taskReplies.delete(run.id);
     const author: Actor = { kind: "agent", id: run.agentId };
@@ -852,7 +857,7 @@ export class Hub {
       // follow-ups it set and how it left the chat show under its answer
       this.loops.runEnded(run, reply?.id ?? (repeated && posted ? posted.id : null));
       // work worth remembering that it didn't save gets a memory pass once the chat goes quiet
-      this.autoMemory.runFinished(run, { reply: body || (posted?.body ?? ""), tools: live.parts.flatMap((p) => (p.type === "tool_call" ? [p.name] : [])), usedSkill: skillParts.length > 0 });
+      this.autoMemory.runFinished(run, { reply: body || (posted?.body ?? ""), tools: live.parts.flatMap((p) => (p.type === "tool_call" ? [p.name] : [])), usedSkill: skillParts.some((p) => p.type === "skill") });
     } else {
       this.loops.runEnded(run, null);
       this.autoMemory.finished(run.id);
@@ -1802,6 +1807,7 @@ export class Hub {
     const skills = this.skills.promptSection(agent.id, { learn: agentPolicy(this, agent.workspaceId).learnSkills });
     const connectors = this.connectors.promptSection(agent.id);
     const storage = this.storage.promptSection(agent);
+    const apple = this.apple.promptSection(agent);
     const soulNote = agent.settings.soulLocked
       ? "Your soul is locked by your owner; don't try to edit it."
       : "As you learn who you are, you may refine it with memory_write on me/SOUL.md. Keep it short.";
@@ -1835,6 +1841,7 @@ export class Hub {
       skills ? `\n${skills}` : "",
       connectors ? `\n${connectors}` : "",
       storage ? `\n${storage}` : "",
+      apple ? `\n${apple}` : "",
       routines ? `\n${routines}` : "",
       discussion ? `\n${discussion}` : "",
       background,

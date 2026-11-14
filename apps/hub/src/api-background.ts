@@ -392,6 +392,7 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
         undo.mods = Object.fromEntries(changed.map((k) => [k, was[k]]));
         lines.push(...changed.map((k) => `Mod ${FEATURE_INFO[k].name}: ${body.mods![k] ? "on" : "off"}`));
         hub.broadcast(c.workspaceId, { type: "features", features: setWorkspaceFeatures(store, c.workspaceId, body.mods) });
+        hub.apple.syncWatch(c.workspaceId);
       }
     }
     if (!lines.length) return { changed: [], note: "Nothing was different, so nothing changed." };
@@ -427,7 +428,10 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
     if (undo.mods) {
       const now = workspaceFeatures(store, c.workspaceId);
       const keep = Object.fromEntries((Object.keys(undo.mods) as FeatureKey[]).filter((k) => now[k] !== undo.mods![k]).map((k) => [k, undo.mods![k]]));
-      if (Object.keys(keep).length) hub.broadcast(c.workspaceId, { type: "features", features: setWorkspaceFeatures(store, c.workspaceId, keep) });
+      if (Object.keys(keep).length) {
+        hub.broadcast(c.workspaceId, { type: "features", features: setWorkspaceFeatures(store, c.workspaceId, keep) });
+        hub.apple.syncWatch(c.workspaceId);
+      }
     }
     store.markChangeUndone(ch.id);
     hub.broadcast(c.workspaceId, { type: "changes_changed" });

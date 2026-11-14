@@ -168,6 +168,7 @@ export function registerOrgApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     if (!body) return;
     const features = setWorkspaceFeatures(store, c.workspaceId, body);
     hub.broadcast(c.workspaceId, { type: "features", features });
+    hub.apple.syncWatch(c.workspaceId);
     return { features };
   });
 

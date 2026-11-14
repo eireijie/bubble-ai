@@ -6,7 +6,7 @@
  */
 
 /** Apps the hub can ask what changed, plus "browser" for the ones the agent checks itself. */
-export const WATCH_SERVICES = ["slack", "github", "notion", "linear", "jira", "stripe", "gdrive", "gmail", "gcal", "browser"] as const;
+export const WATCH_SERVICES = ["slack", "github", "notion", "linear", "jira", "stripe", "gdrive", "gmail", "gcal", "browser", "apple"] as const;
 export type WatchService = (typeof WATCH_SERVICES)[number];
 
 /** A watch as the API returns it. Secrets are never included. */
