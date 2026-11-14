@@ -51,31 +51,30 @@ function contactsAll() {
   needContacts();
   const store = $.CNContactStore.alloc.init;
   const keys = $(["identifier", "givenName", "familyName", "nickname", "organizationName", "phoneNumbers", "emailAddresses", "birthday"]);
-  const err = Ref();
-  const containers = arr(store.containersMatchingPredicateError(null, err));
+  // one pass over every unified contact (asking for containers first can come back empty)
+  const req = $.CNContactFetchRequest.alloc.initWithKeysToFetch(keys);
+  req.unifyResults = true;
+  const found = [];
+  store.enumerateContactsWithFetchRequestErrorUsingBlock(req, Ref(), (c) => { found.push(c); });
   const seen = {};
   const out = [];
-  for (const box of containers) {
-    const pred = $.CNContact.predicateForContactsInContainerWithIdentifier(box.identifier);
-    const found = arr(store.unifiedContactsMatchingPredicateKeysToFetchError(pred, keys, Ref()));
-    for (const c of found) {
-      const id = s(c.identifier);
-      if (seen[id]) continue;
-      seen[id] = true;
-      const org = s(c.organizationName);
-      const name = [s(c.givenName), s(c.familyName)].filter(Boolean).join(" ") || s(c.nickname) || org;
-      const phones = arr(c.phoneNumbers).map((p) => s(p.value.stringValue)).filter(Boolean);
-      const emails = arr(c.emailAddresses).map((e) => s(e.value)).filter(Boolean);
-      const item = { id: id, name: name, phones: phones, emails: emails };
-      if (org && org !== name) item.organization = org;
-      const b = c.birthday;
-      if (b && !b.isNil()) {
-        const m = Number(b.month), d = Number(b.day), y = Number(b.year);
-        const pad = (n) => (n < 10 ? "0" : "") + n;
-        if (m >= 1 && m <= 12 && d >= 1 && d <= 31) item.birthday = (y > 0 && y < 10000 ? y : "-") + "-" + pad(m) + "-" + pad(d);
-      }
-      out.push(item);
+  for (const c of found) {
+    const id = s(c.identifier);
+    if (seen[id]) continue;
+    seen[id] = true;
+    const org = s(c.organizationName);
+    const name = [s(c.givenName), s(c.familyName)].filter(Boolean).join(" ") || s(c.nickname) || org;
+    const phones = arr(c.phoneNumbers).map((p) => s(p.value.stringValue)).filter(Boolean);
+    const emails = arr(c.emailAddresses).map((e) => s(e.value)).filter(Boolean);
+    const item = { id: id, name: name, phones: phones, emails: emails };
+    if (org && org !== name) item.organization = org;
+    const b = c.birthday;
+    if (b && !b.isNil()) {
+      const m = Number(b.month), d = Number(b.day), y = Number(b.year);
+      const pad = (n) => (n < 10 ? "0" : "") + n;
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) item.birthday = (y > 0 && y < 10000 ? y : "-") + "-" + pad(m) + "-" + pad(d);
     }
+    out.push(item);
   }
   return out;
 }

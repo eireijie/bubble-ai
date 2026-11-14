@@ -503,7 +503,7 @@ export function MacSheet({ mac, onView, onClose }: { mac: Mac; onView: (v: Apple
                 </span>
               ) : (
                 <SmallButton disabled={!mac.online || asking !== null} onClick={() => void ask(p.pane)} className="max-sm:w-full">
-                  Open System Settings
+                  {state === "not_asked" && p.pane !== "fullDiskAccess" ? "Allow" : "Open System Settings"}
                 </SmallButton>
               )}
             </div>
