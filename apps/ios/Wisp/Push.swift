@@ -46,7 +46,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     // an agent checking back: answer it from the notification
     let reply = UNTextInputNotificationAction(identifier: CheckbackPush.reply, title: "Reply", options: [], textInputButtonTitle: "Send", textInputPlaceholder: "Reply")
     UNUserNotificationCenter.current().setNotificationCategories([UNNotificationCategory(identifier: CheckbackPush.category, actions: [reply], intentIdentifiers: [])])
+    // the Apple mod's places: iOS may have relaunched the app just to say you crossed one
+    AppleLocation.shared.launch(store: store)
     return true
+  }
+
+  /** A silent push: the hub asking where this phone is for an agent (the Apple mod). */
+  func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
+    guard let w = Route.payload(userInfo), w["kind"] as? String == "apple_location" else { return .noData }
+    return await AppleLocation.shared.report(requestId: w["requestId"] as? String) ? .newData : .failed
   }
 
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -137,6 +145,7 @@ extension Store {
 
   func pushTokenReceived(_ hex: String, retryDelay: Duration = .seconds(2)) {
     pushToken = hex
+    WispPreferences.standard.set(hex, forKey: AppleLocation.pushTokenKey)
     pushUploadTask?.cancel()
     guard api != nil else { return }
     let gen = session

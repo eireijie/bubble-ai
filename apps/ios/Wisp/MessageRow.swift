@@ -401,6 +401,8 @@ struct PartView: View {
       if !wrap.rows.isEmpty { WrapUpCard(wrap: wrap, message: message) }
     case .skill(let action, let id, let slug):
       SkillPartLine(action: action, skillId: id, slug: slug)
+    case .appleRead(let app, let text):
+      AppleReadLine(app: AppleApp(rawValue: app) ?? .messages, text: text)
     case .closed, .toolCall, .other:
       EmptyView()
     }
@@ -578,7 +580,9 @@ struct ApprovalBox: View {
   }
 
   var body: some View {
-    if inList {
+    if let apple = approval.apple {
+      AppleApprovalCard(approval: approval, request: apple, inList: inList)
+    } else if inList {
       (storage != nil ? AnyView(storageContent) : AnyView(content)).padding(.vertical, 6)
     } else if storage != nil {
       ChatCardShell(symbol: "lock", label: "Asking for your OK") { storageContent }

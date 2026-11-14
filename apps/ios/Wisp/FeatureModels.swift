@@ -15,19 +15,21 @@ struct Features: Codable, Hashable {
   var remoteDesktop = true
   /** needs setting up before it does anything, so it's off until someone adds it */
   var storage = false
+  /** needs a Mac or the iPhone app before it does anything, so it's off until someone adds it */
+  var apple = false
 
   static let everything = Features()
   static let simple = Features(background: false, routines: false, teach: false, tasks: false, voice: false, buddy: false, invite: false, remoteDesktop: false)
 
-  init(background: Bool = true, routines: Bool = true, teach: Bool = true, tasks: Bool = true, voice: Bool = true, buddy: Bool = true, invite: Bool = true, remoteDesktop: Bool = true, storage: Bool = false) {
+  init(background: Bool = true, routines: Bool = true, teach: Bool = true, tasks: Bool = true, voice: Bool = true, buddy: Bool = true, invite: Bool = true, remoteDesktop: Bool = true, storage: Bool = false, apple: Bool = false) {
     self.background = background; self.routines = routines; self.teach = teach
-    self.tasks = tasks; self.voice = voice; self.buddy = buddy; self.invite = invite; self.remoteDesktop = remoteDesktop; self.storage = storage
+    self.tasks = tasks; self.voice = voice; self.buddy = buddy; self.invite = invite; self.remoteDesktop = remoteDesktop; self.storage = storage; self.apple = apple
   }
 
   init(from decoder: Decoder) throws {
     let c = try decoder.container(keyedBy: FeatureKey.self)
     self.init()
-    for key in FeatureKey.allCases { self[key] = (try? c.decodeIfPresent(Bool.self, forKey: key)) ?? (key != .storage) }
+    for key in FeatureKey.allCases { self[key] = (try? c.decodeIfPresent(Bool.self, forKey: key)) ?? !FeatureKey.offUntilAdded.contains(key) }
   }
 
   func encode(to encoder: Encoder) throws {
@@ -47,6 +49,7 @@ struct Features: Codable, Hashable {
       case .invite: invite
       case .remoteDesktop: remoteDesktop
       case .storage: storage
+      case .apple: apple
       }
     }
     set {
@@ -60,18 +63,21 @@ struct Features: Codable, Hashable {
       case .invite: invite = newValue
       case .remoteDesktop: remoteDesktop = newValue
       case .storage: storage = newValue
+      case .apple: apple = newValue
       }
     }
   }
 
   var onCount: Int { FeatureKey.allCases.filter { self[$0] }.count }
-  /** Simple (all off), Everything (all on but Storage, which needs setting up) or Custom, as the Quick start control shows it. */
+  /** Simple (all off), Everything (all on but Storage and Apple, which need setting up) or Custom, as the Quick start control shows it. */
   var preset: String { onCount == 0 ? "simple" : self == .everything ? "everything" : "custom" }
 }
 
 enum FeatureKey: String, CaseIterable, CodingKey, Identifiable {
-  case background, routines, teach, tasks, voice, buddy, invite, remoteDesktop, storage
+  case background, routines, teach, tasks, voice, buddy, invite, remoteDesktop, storage, apple
   var id: String { rawValue }
+  /** mods that need setting up first, so they are off until someone adds them (OFF_UNTIL_ADDED in features.ts) */
+  static let offUntilAdded: Set<FeatureKey> = [.storage, .apple]
 
   enum Group: String, CaseIterable {
     case own, many, extras
@@ -96,6 +102,7 @@ enum FeatureKey: String, CaseIterable, CodingKey, Identifiable {
     case .invite: "Invite people"
     case .remoteDesktop: "Remote desktop"
     case .storage: "Storage"
+    case .apple: "Apple"
     }
   }
 
@@ -110,6 +117,7 @@ enum FeatureKey: String, CaseIterable, CodingKey, Identifiable {
     case .invite: "Let other people into this workspace. Adds a People page and lets agents answer more than just you."
     case .remoteDesktop: "Reach your devices from anywhere with RustDesk, from each device's page."
     case .storage: "Let agents use files on your Nextcloud, NAS, Google Drive or Dropbox."
+    case .apple: "Let agents use Messages, Contacts, Calendar, Reminders and Location through your Mac and iPhone."
     }
   }
 
@@ -117,7 +125,7 @@ enum FeatureKey: String, CaseIterable, CodingKey, Identifiable {
     switch self {
     case .background, .routines, .teach: .own
     case .tasks: .many
-    case .voice, .buddy, .invite, .remoteDesktop, .storage: .extras
+    case .voice, .buddy, .invite, .remoteDesktop, .storage, .apple: .extras
     }
   }
 
@@ -132,6 +140,7 @@ enum FeatureKey: String, CaseIterable, CodingKey, Identifiable {
     case .invite: "person.badge.plus"
     case .remoteDesktop: "display"
     case .storage: "externaldrive"
+    case .apple: "macbook.and.iphone"
     }
   }
 }

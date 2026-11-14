@@ -18,7 +18,7 @@ struct WispApp: App {
         }
     }
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active { store.resume() }
+      if phase == .active { store.resume(); AppleLocation.shared.appBecameActive() }
       if phase == .background { store.updateBadge() }
     }
   }
