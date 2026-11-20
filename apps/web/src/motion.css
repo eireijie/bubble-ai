@@ -61,6 +61,8 @@ a.rounded-full,
 @keyframes m-pop-out { to { opacity: 0; scale: 0.9; } }
 @keyframes m-zoom-in { from { opacity: 0; transform: scale(0.96) translateY(-8px); } }
 @keyframes m-zoom-out { to { opacity: 0; transform: scale(0.96) translateY(-8px); } }
+/* a dialog's own entry keeps opacity at 1, so a paused or background-tab animation never leaves it see-through */
+@keyframes m-dialog-in { from { transform: scale(0.96) translateY(-8px); } }
 @keyframes m-sheet-up { from { transform: translateY(110%); } }
 @keyframes m-slide-in { from { opacity: 0; transform: translateX(40px); } }
 
@@ -138,7 +140,7 @@ a.rounded-full,
 .m-dialog { animation: m-sheet-up 320ms var(--soft) backwards; }
 .m-drawer { animation: m-slide-in 320ms var(--settle) backwards; }
 @media (min-width: 640px) {
-  .m-dialog { animation: m-zoom-in 280ms var(--pop) backwards; transform-origin: 50% 50%; }
+  .m-dialog { animation: m-dialog-in 280ms var(--pop) backwards; transform-origin: 50% 50%; }
 }
 /* the command palette zooms from the top */
 .m-palette-scrim { animation: m-scrim-in 200ms ease-out backwards; }
