@@ -5,6 +5,7 @@ import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { unavailable } from "../../join.ts";
 import { ConnectModel } from "../../components/ConnectModel.tsx";
+import { switchOnRecommended } from "../../onboardingSetup.ts";
 import { OnboardingGhost } from "../../components/onboarding/OnboardingGhost.tsx";
 import { WHITE_WISP } from "../../components/SetupStage.tsx";
 import { canUse, readyConnection, signInProvider, useConnections } from "../../models.ts";
@@ -263,6 +264,8 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
         await wait(1000);
       }
     }
+    // what onboarding switches on by itself (calls, routines, a morning plan), each undoable on Here's your Wisp
+    if (agentId && phase === "ready") await switchOnRecommended(ws, agentId, person).catch(() => undefined);
     if (alive.current) onDone(agentId, channelId);
   };
 

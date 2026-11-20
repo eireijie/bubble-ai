@@ -75,6 +75,8 @@ export interface OnboardingAnswers {
   agentId?: string;
   /** page 4: the agent the person shaped; page 5 creates it once its AI is chosen */
   agentDraft?: AgentDraft;
+  /** page 5's Continue switched on calls, routines and the morning plan (onboardingSetup) */
+  setupDone?: boolean;
   savedAt?: number;
 }
 
