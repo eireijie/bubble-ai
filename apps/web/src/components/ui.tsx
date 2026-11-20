@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { type Agent } from "@wisp/core";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { Ghost, type GhostMood } from "./Ghost.tsx";
+import { familyColor } from "../ghostFamily.ts";
 import { useStore } from "../store.ts";
 import { agentMood } from "../ghostMood.ts";
 import { EASE, play, useOnChange, usePresence, useSheetBackdrop } from "../motion.ts";
@@ -16,7 +17,8 @@ export function cx(...c: (string | false | null | undefined)[]) {
 }
 
 /** Paperclip's buttons: a filled primary, an outlined default, a bare ghost. */
-export function Button({ variant = "default", className, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "primary" | "ghost" | "danger" }) {
+/** Buttons (canvas Foundations): ink primary, outlined default, bare ghost, and Wisp violet for app-level actions. */
+export function Button({ variant = "default", className, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "primary" | "ghost" | "danger" | "wisp" }) {
   return (
     <button
       {...p}
@@ -24,8 +26,10 @@ export function Button({ variant = "default", className, ...p }: ButtonHTMLAttri
         "inline-flex items-center justify-center gap-1.5 h-9 text-sm font-medium whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
         // every button is a capsule, like the iPhone app; the main action is filled
         "rounded-full",
-        variant === "primary" ? "px-4 bg-accent text-accent-ink hover:bg-accent/90 shadow-[inset_0_1px_0_oklch(1_0_0/0.18)]" : "px-3.5",
-        variant === "default" && "border border-input bg-panel dark:bg-input/30 hover:bg-hover dark:hover:bg-input/50",
+        variant === "primary" || variant === "wisp" ? "px-4 font-semibold" : "px-3.5",
+        variant === "primary" && "bg-accent text-accent-ink hover:bg-accent/90",
+        variant === "wisp" && "bg-wisp text-wisp-ink hover:bg-wisp/90",
+        variant === "default" && "border border-line2 bg-panel hover:bg-hover",
         variant === "ghost" && "text-ink/85 hover:bg-hover hover:text-ink",
         variant === "danger" && "border border-input text-bad hover:bg-hover",
         className,
@@ -129,14 +133,8 @@ type AgentLike = { name: string; handle?: string; settings?: Agent["settings"] }
  */
 export function agentColor(agent: AgentLike | undefined): string {
   const look = agent?.settings?.appearance ?? defaultAppearance(agent?.handle ?? agent?.name ?? "agent");
-  const vivid = (hex: string) => {
-    const n = parseInt(hex.slice(1), 16);
-    const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-    return Math.max(...c) - Math.min(...c);
-  };
-  const ok = (c?: string) => !!c && /^#[0-9a-fA-F]{6}$/.test(c);
-  if (!ok(look.color)) return "#8b8cf7";
-  return ok(look.color2) && vivid(look.color2!) > vivid(look.color) ? look.color2! : look.color;
+  // the same flat colour its ghost wears (ghost family)
+  return familyColor(look, agent?.handle ?? agent?.name ?? "agent");
 }
 
 /** Inline style that hands an agent's color to agent-ink / agent-tint. */
@@ -177,7 +175,7 @@ export function AgentAvatar({
   const mood: GhostMood = done && baseMood === "awake" ? "done" : baseMood;
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
-      <Ghost key={agent?.id} look={look} size={size} mood={mood} animate={animate ?? (live || interactive)} ambient={live} interactive={interactive} label={agent?.name ?? "agent"} />
+      <Ghost key={agent?.id} look={look} size={size} mood={mood} animate={animate ?? (live || interactive)} ambient={live} interactive={interactive} label={agent?.name ?? "agent"} seed={agent?.handle ?? agent?.name} />
       {badge && agent?.status && <StatusDot status={agent.status} needsSignIn={!!(agent as { signIn?: unknown }).signIn} className="absolute bottom-0 right-0 ring-2 ring-panel" />}
     </span>
   );
