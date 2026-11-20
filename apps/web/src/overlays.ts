@@ -35,7 +35,7 @@ const KEYLESS: OverlayKind[] = ["help"];
 
 /** True when `id` is the topmost overlay that handles keys (or nothing is registered at all). */
 export function isTopOverlay(id: symbol): boolean {
-  const top = stack.findLast((e) => !KEYLESS.includes(e.kind) || e.id === id);
+  const top = [...stack].reverse().find((e) => !KEYLESS.includes(e.kind) || e.id === id);
   return !top || top.id === id;
 }
 
