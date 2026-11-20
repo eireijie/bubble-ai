@@ -246,10 +246,10 @@ export function KnowStep({ name, workspaceId, onContinue, onSkip }: { name: stri
           <div className="flex flex-col gap-2.5">
             <div className="flex items-baseline gap-2.5">
               <h2 className="text-[15px] font-semibold">What I know so far</h2>
-              {!!facts.length && <span className="text-[13px] text-muted">{facts.length} {facts.length === 1 ? "thing" : "things"}, plus what you picked</span>}
+              {!!facts.length && <span className="text-[13px] text-muted">{facts.length} {facts.length === 1 ? "thing" : "things"}</span>}
             </div>
             <div className="min-h-[120px] rounded-[18px] bg-[var(--card)] p-4 flex flex-col gap-3">
-              {!facts.length && <span className="text-faint">Only your name and what you picked, so far. Say yes above and this fills in.</span>}
+              {!facts.length && <span className="text-faint">Only your name, so far. Say yes above and this fills in.</span>}
               {FACT_GROUPS.map((g) => {
                 const mine = facts.filter((f) => f.group === g);
                 if (!mine.length) return null;

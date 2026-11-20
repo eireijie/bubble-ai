@@ -63,7 +63,7 @@ export function roleLine(goals: readonly string[], other: string, facts: readonl
   if (extra) return `${cap(extra)}, so you can spend less time on it.`;
   const work = facts.find((f) => f.group === "Work");
   if (work) return `Help with ${work.text.replace(/[.\s]+$/, "").replace(/^./, (c) => c.toLowerCase())}, and whatever else you need.`;
-  return "Whatever you need help with, so you can spend less time on busywork.";
+  return "Helps with whatever you need, so you have more time.";
 }
 
 /** One thing it learned on page 3 that reads well after "then": work first, never "You're Sam". */

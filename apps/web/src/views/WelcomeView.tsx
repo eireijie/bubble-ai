@@ -21,9 +21,8 @@ import type { MemoryLine } from "@wisp/core/src/memory-import.ts";
 import { ConnectStep, type Powered } from "./onboarding/ConnectStep.tsx";
 import { NameStep } from "./onboarding/NameStep.tsx";
 import { SetupProgress } from "./onboarding/SetupProgress.tsx";
-import { GoalsStep } from "../components/onboarding/GoalsStep.tsx";
 import { HelloNext } from "../components/HelloStep.tsx";
-import { loadAnswers, rememberGoals, saveAnswers, saveGoals, skipGoals } from "../onboardingV3.ts";
+import { loadAnswers, saveAnswers } from "../onboardingV3.ts";
 import { KnowStep, StillLearning } from "../components/onboarding/KnowStep.tsx";
 import { flushNotes } from "../onboardingKnow.ts";
 import { saveAgentDraft } from "../onboardingV3.ts";
@@ -55,14 +54,14 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const agents = useStore((s) => s.agents);
   const { done } = useOnboarding(3000);
   const devices = useDevices(3000);
-  // onboarding v3, page 2 (what you want help with) comes first on a new setup, until answered or skipped
-  const [goals, setGoals] = useState(() => !!intro && !loadAnswers(me.workspace.id).goalsDone);
-  // page 3 (let me get to know you) after it; what it starts keeps running in the background
-  const [know, setKnow] = useState(() => !!intro && !loadAnswers(me.workspace.id).knowDone);
-  // page 4 (make the agent yours) after page 3, until its draft is saved; page 5 creates the agent from it
-  const [agentPage, setAgentPage] = useState(() => !!intro && !loadAnswers(me.workspace.id).agentDraft);
-  // page 5 (what it thinks with) makes the agent; on a new setup it replaces the old connect and name screens
-  const [aiPage, setAiPage] = useState(() => !!intro);
+  // a new setup (#/welcome/intro): away and address (the old screens), then v3's know, agent and AI
+  // pages in place of the old connect, name, memory and setup screens, then the agent's chat
+  type V3 = "know" | "agent" | "ai";
+  const firstV3 = (): V3 => {
+    const a = loadAnswers(me.workspace.id);
+    return !a.knowDone ? "know" : !a.agentDraft ? "agent" : "ai";
+  };
+  const [v3, setV3] = useState<V3 | null>(null);
   const [screen, setScreen] = useState<Screen>(() => {
     if (intro) return onPublicAddress() ? "address" : "anywhere";
     const next = nextStep(done) ?? "anywhere";
@@ -79,6 +78,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const advance = (step: StepId) => {
     completeSetupStep(me.workspace.id, step);
     const next = STEPS[STEPS.indexOf(step) + 1] ?? "devices";
+    if (next === "agent" && intro) return setV3(firstV3());
     setScreen(next === "agent" ? "connect" : next);
   };
   const finish = (channelId?: string | null) => {
@@ -95,32 +95,11 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const preAgent = screen === "anywhere" || screen === "address";
   // the steps before the agent were made for a narrow panel; they keep that width in the middle
   const narrow = (node: ReactNode) => <div className="ob-narrow">{node}</div>;
-  if (goals) {
-    const saved = loadAnswers(me.workspace.id);
-    return (
-      <HelloNext>
-        <GoalsStep
-          name={me.user.name}
-          initial={saved.goals}
-          initialOther={saved.other}
-          onContinue={(picked, other) => {
-            saveGoals(me.workspace.id, picked, other);
-            void rememberGoals(me.user.name, picked, other);
-            setGoals(false);
-          }}
-          onSkip={() => {
-            skipGoals(me.workspace.id);
-            setGoals(false);
-          }}
-        />
-      </HelloNext>
-    );
-  }
-  if (know) {
+  if (v3 === "know") {
     const done = () => {
       saveAnswers(me.workspace.id, { knowDone: true });
       void flushNotes();
-      setKnow(false);
+      setV3(firstV3());
     };
     return (
       <HelloNext>
@@ -134,7 +113,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
       <StillLearning />
     </div>
   );
-  if (agentPage) {
+  if (v3 === "agent") {
     return (
       <HelloNext>
         {learning}
@@ -144,13 +123,13 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
           onContinue={(draft) => {
             saveAgentDraft(me.workspace.id, draft);
             setName(draft.name);
-            setAgentPage(false);
+            setV3("ai");
           }}
         />
       </HelloNext>
     );
   }
-  if (aiPage) {
+  if (v3 === "ai") {
     return (
       <HelloNext>
         {learning}
@@ -158,7 +137,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
           device={device}
           person={me.user.name}
           onDone={(agentId, channelId) => {
-            setAiPage(false);
+            setV3(null);
             if (agentId) finish(channelId);
             else advance("agent");
           }}
