@@ -1160,6 +1160,14 @@ export class Hub {
         this.postSystem(msg, `Not waking ${this.handleOf(agentId)}: ${notAllowed}.`);
         continue;
       }
+      // /compact on a harness that isn't signed in has nothing to compact, and would start a run that never answers
+      if (msg.author.kind === "user" && parseCommand(msg.body, agent.handle)?.name === "compact" && this.commandFor(agent, msg.body)) {
+        const needs = this.signInNeeded(agent);
+        if (needs) {
+          this.postSystem({ ...msg, threadId }, `${harnessLabel(agent.harness)} on ${needs.where} isn't signed in. Open Settings → Harnesses, sign in to ${harnessLabel(agent.harness)} on ${needs.where}, then ask again.`);
+          continue;
+        }
+      }
       const policy = agentPolicy(this, workspaceId);
       const verdict = this.guard.allow(msg.channelId, msg.hop, Date.now(), { maxHops: policy.maxHops, maxRunsPerWindow: policy.maxRunsPerMinute });
       if (!verdict.ok) {
