@@ -220,6 +220,8 @@ enum MessagePart: Codable, Hashable {
   /** the run this message reports failed: try again, and what to sign in to first when that's the cause */
   case runFailed(runId: String, retry: Bool, fix: String?)
   case notice(String)
+  /** the summary a /compact asked for: shown collapsed, not as a normal message */
+  case summary
   case computer(computerId: String, request: String?)
   case approval(approvalId: String)
   case change(changeId: String)
@@ -263,6 +265,7 @@ enum MessagePart: Codable, Hashable {
     case "file": self = .file(fileId: (try? c.decode(String.self, forKey: .fileId)) ?? "", name: (try? c.decode(String.self, forKey: .name)) ?? "file")
     case "status": self = .status((try? c.decode(String.self, forKey: .text)) ?? "")
     case "run_failed": self = .runFailed(runId: (try? c.decode(String.self, forKey: .runId)) ?? "", retry: (try? c.decode(Bool.self, forKey: .retry)) ?? false, fix: try? c.decode(String.self, forKey: .fix))
+    case "summary": self = .summary
     case "notice": self = .notice((try? c.decode(String.self, forKey: .text)) ?? "")
     case "computer": self = .computer(computerId: (try? c.decode(String.self, forKey: .computerId)) ?? "", request: try? c.decode(String.self, forKey: .request))
     case "approval": self = .approval(approvalId: (try? c.decode(String.self, forKey: .approvalId)) ?? "")

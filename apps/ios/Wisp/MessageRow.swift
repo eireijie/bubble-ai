@@ -95,6 +95,7 @@ struct MessageRow: View {
     message.author.kind == .agent && store.channels.first { $0.id == message.channelId }.flatMap { store.dmAgent($0) }?.id == message.author.id
   }
 
+  private var isSummary: Bool { message.parts.contains { if case .summary = $0 { true } else { false } } }
   private var hasChange: Bool { message.parts.contains { if case .change = $0 { true } else { false } } }
   private var showsBubble: Bool { message.deletedAt == nil && (!message.body.isEmpty || message.replyTo != nil) && !hasChange }
 
@@ -194,7 +195,10 @@ struct MessageRow: View {
           Bubble(side: mine ? .mine : .theirs) {
             VStack(alignment: .leading, spacing: 6) {
               if let quote = message.replyTo { QuoteBlock(quote: quote, side: mine ? .mine : .theirs, chat: message.conversationId) }
-              if !message.body.isEmpty { MarkdownText(message.body, edited: message.editedAt != nil, selectable: false) }
+              if isSummary {
+                DisclosureGroup("Summary of the conversation") { MarkdownText(message.body, edited: false, selectable: false).padding(.top, 4) }
+                  .font(.system(size: 14)).foregroundStyle(Palette.muted)
+              } else if !message.body.isEmpty { MarkdownText(message.body, edited: message.editedAt != nil, selectable: false) }
             }
           }
           .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { bubbleBox.frame = $0 }
@@ -403,7 +407,7 @@ struct PartView: View {
       SkillPartLine(action: action, skillId: id, slug: slug)
     case .appleRead(let app, let text):
       AppleReadLine(app: AppleApp(rawValue: app) ?? .messages, text: text)
-    case .closed, .toolCall, .other:
+    case .closed, .toolCall, .summary, .other:
       EmptyView()
     }
   }

@@ -405,6 +405,8 @@ export type MessagePart =
   | { type: "run_failed"; runId: string; retry: boolean; fix?: "signin" | "computer" | "connection" }
   /** a quiet line from Wisp, e.g. "Round 2 of 3" */
   | { type: "notice"; text: string }
+  /** this message is the summary a /compact asked for: it seeds the next conversation, and clients show it collapsed, not as a normal message */
+  | { type: "summary" }
   /** the agent saved a new skill during this reply, or followed one */
   | { type: "skill"; action: "learned" | "used"; skillId: string; slug: string }
   /** this message starts a discussion; its thread is where it happens */

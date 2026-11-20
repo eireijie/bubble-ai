@@ -892,6 +892,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
   const colors = useHandleColors();
   const html = useMemo(() => (m.body ? renderMarkdown(m.body, { handles, colors }) : ""), [m.body, handles, colors]);
   const cards = useMemo(() => linkCards(m.body), [m.body]);
+  const isSummary = m.parts.some((p) => p.type === "summary");
   const [menu, setMenu] = useState<{ at: { x: number; y: number } | null } | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const colRef = useRef<HTMLDivElement>(null);
@@ -1028,7 +1029,14 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
                   <span className="line-clamp-2">{quote.deleted ? "This message was deleted." : quote.snippet}</span>
                 </button>
               )}
-              {html && <div className="prose-w" dangerouslySetInnerHTML={{ __html: m.editedAt ? withEditedMark(html, clockTime(m.editedAt, clock)) : html }} />}
+              {isSummary ? (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-muted">Summary of the conversation</summary>
+                  <div className="prose-w mt-2" dangerouslySetInnerHTML={{ __html: html }} />
+                </details>
+              ) : (
+                html && <div className="prose-w" dangerouslySetInnerHTML={{ __html: m.editedAt ? withEditedMark(html, clockTime(m.editedAt, clock)) : html }} />
+              )}
             </div>
           )
         )}
