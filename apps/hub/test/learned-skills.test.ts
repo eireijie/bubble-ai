@@ -412,7 +412,8 @@ describe("a harness's own list from its runs", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(sent).toBe(1);
     const { commands } = await owner.request("GET", `/api/agents/${agentId}/commands`);
-    expect(commands.filter((c: any) => c.group === "harness").map((c: any) => c.name)).toEqual(["compact", "simplify"]);
+    // /compact is Wisp's own command for every agent now, so the harness's copy isn't listed twice
+    expect(commands.filter((c: any) => c.group === "harness").map((c: any) => c.name)).toEqual(["simplify"]);
     reports = null;
     hub.store.setNodeCatalog = set;
   });
