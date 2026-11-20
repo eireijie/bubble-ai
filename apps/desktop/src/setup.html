@@ -1016,71 +1016,28 @@
   }
 </script>
 <script>
-  // The stage's wisps. Plain script, because this page runs before the app does; the drawing and the
-  // numbers come from the app's Ghost.tsx and GhostArms.tsx, so the same wisp carries on after this page.
+  // The stage's wisps. Plain script, because this page runs before the app does; the shapes and colours
+  // come from the app's ghost family (web/src/ghostFamily.ts), so the same wisp carries on after this page.
   (() => {
+// The ghost family (web/src/ghostFamily.ts): flat, one colour, two eyes, its own silhouette.
+// Paths are in the family's 40-unit space; the stage draws them 3× into its 120-unit box.
 const BODY = {
-  classic: { d: "M30 60 C30 32 44 18 60 18 C76 18 90 32 90 60 L90 96 Q85 104 80 96 Q75 88 70 96 Q65 104 60 96 Q55 88 50 96 Q45 104 40 96 Q35 88 30 96 Z", ey: 54, ex: [50, 70], my: 66, top: 18, bottom: 100, hs: 1, ground: 111 },
-  round: { d: "M22 64 C22 38 38 26 60 26 C82 26 98 38 98 64 L98 92 Q92 100 86 92 Q80 84 74 92 Q67 100 60 92 Q53 84 46 92 Q40 100 34 92 Q28 84 22 92 Z", ey: 58, ex: [47, 73], my: 70, top: 26, bottom: 96, hs: 1.38, ground: 107 },
-  tall: { d: "M38 52 C38 24 47 10 60 10 C73 10 82 24 82 52 L82 102 Q76.5 110 71 102 Q65.5 94 60 102 Q54.5 110 49 102 Q43.5 94 38 102 Z", ey: 44, ex: [52, 68], my: 56, top: 10, bottom: 106, hs: .77, ground: 115 },
-  sheet: { d: "M42 52 C42 28 50 16 60 16 C70 16 78 28 78 52 C80 72 92 86 100 100 Q93 95 86 102 Q78 95 70 102 Q60 95 50 102 Q42 95 34 102 Q27 95 20 100 C28 86 40 72 42 52 Z", ey: 46, ex: [53, 67], my: 57, top: 16, bottom: 102, hs: .65, ground: 110 },
-  wisp: { d: "M60 16 C80 16 90 32 90 52 C90 74 78 84 68 90 C60 95 58 104 66 108 C52 110 46 98 50 90 C36 84 30 72 30 52 C30 32 40 16 60 16 Z", ey: 50, ex: [50, 70], my: 62, top: 16, bottom: 109, hs: 1.09, ground: 115 },
+  ghost: { d: "M6 18.5a14 14 0 0 1 28 0V35l-4.7-3.3-4.6 3.3-4.7-3.3-4.7 3.3-4.6-3.3L6 35Z", ey: 18, top: 4.5, hat: 1.4 },
+  drop: { d: "M20 3c6 6 14 9 14 18v14l-4.7-3.3-4.6 3.3-4.7-3.3-4.7 3.3-4.6-3.3L6 35V21C6 12 14 9 20 3Z", ey: 21, top: 7.5, hat: 0.95 },
+  soft: { d: "M6 18a14 14 0 0 1 28 0v14a3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 1-7 0Z", ey: 18, top: 4, hat: 1.4 },
+  tall: { d: "M9 14a11 11 0 0 1 22 0v22l-3.7-2.6-3.6 2.6-3.7-2.6-3.7 2.6-3.6-2.6L9 36Z", ey: 15, top: 3, hat: 1.1 },
+  wide: { d: "M3 22a17 13 0 0 1 34 0v12l-5.7-3-5.6 3-5.7-3-5.7 3-5.6-3L3 34Z", ey: 21, top: 9, hat: 1.45 },
 };
-const COLORS = [["White", "#ffffff", "#ffffff"], ["Bubblegum sky", "#8bd4ff", "#ff51bf"], ["Orchid peach", "#e771ff", "#ffd87c"], ["Coral mint", "#beffe8", "#ff797b"], ["Arctic blue", "#97fff3", "#0084ff"], ["Solar flare", "#ecca5c", "#fe3c3f"], ["Violet ember", "#ff5c43", "#6262ff"], ["Ultraviolet tide", "#7516cf", "#00e8d1"]];
-const swap = (d, a, b) => d.replaceAll(a, "§").replaceAll(b, a).replaceAll("§", b);
-const SHEET_B = "M42 52 C42 28 50 16 60 16 C70 16 78 28 78 52 C80 72 92 86 100 100 Q93 105 86 98 Q78 105 70 98 Q60 105 50 98 Q42 105 34 98 Q27 105 20 100 C28 86 40 72 42 52 Z";
-const WISP_B = "M60 16 C80 16 90 32 90 52 C90 74 80 86 70 92 C62 97 64 106 72 110 C58 110 52 100 52 92 C38 86 30 72 30 52 C30 32 40 16 60 16 Z";
-const ALT = { classic: (d) => swap(d, "104", "88"), round: (d) => swap(d, "100", "84"), tall: (d) => swap(d, "110", "94"), sheet: () => SHEET_B, wisp: () => WISP_B };
-const RIG = { classic: { y: 66, x: [30, 90], tilt: [0, 0], s: .95 }, round: { y: 70, x: [22, 98], tilt: [0, 0], s: 1.08 }, tall: { y: 58, x: [38, 82], tilt: [0, 0], s: .82 }, sheet: { y: 67, x: [38.5, 81.5], tilt: [-20.4, -20.4], s: .86 }, wisp: { y: 62, x: [30.4, 89], tilt: [6.9, 11.4], s: .98 } };
-const r2 = (n) => Math.round(n * 100) / 100;
-const NONE = "M0 0";
-const armFrame = (shape, i) => { const r = RIG[shape]; return `translate(${r.x[i]}px,${r.y}px) scale(${i ? 1 : -1},1) rotate(${r.tilt[i]}deg) scale(${r.s}) translate(-3.8px,0px) rotate(calc(var(--ga-a) + var(--ga-w)))`; };
-function toBody(shape, i, angle) {
-  const rig = RIG[shape], a = angle * Math.PI / 180, t = rig.tilt[i] * Math.PI / 180;
-  const x0 = (10.6 * Math.cos(a) - 3.8) * rig.s, y0 = 10.6 * Math.sin(a) * rig.s;
-  const x = x0 * Math.cos(t) - y0 * Math.sin(t), y = x0 * Math.sin(t) + y0 * Math.cos(t);
-  return { x: r2(rig.x[i] + (i ? x : -x)), y: r2(rig.y + y) };
-}
-function laptop(shape, bottom) {
-  const rig = RIG[shape], hl = toBody(shape, 0, 120), hr = toBody(shape, 1, 120), hy = (hl.y + hr.y) / 2, hand = 3.6 * rig.s;
-  const lidTop = r2(hy + hand + .6), deckTop = r2(hy - 1.6 * rig.s), w = r2(hr.x - hl.x + 18 * rig.s), h = r2(Math.min(28, Math.max(18, bottom - lidTop + 1.5)));
-  const [x0, x1, b0, b1, y1, c] = [60 - w / 2, 60 + w / 2, 60 - (w - 5) / 2, 60 + (w - 5) / 2, lidTop + h, 3.2];
-  const [dt, db] = [(w - 11) / 2, (w - 2) / 2];
-  const keys = [.38, .75].flatMap((k) => { const ky = r2(deckTop + (lidTop - deckTop) * k), half = dt + (db - dt) * k - 3; return Array.from({ length: 7 }, (_, i) => `M${r2(60 - half + half / 3 * i - 1.3)} ${ky} h2.6`); }).join(" ");
-  return {
-    deck: `M${r2(60 - dt)} ${deckTop} H${r2(60 + dt)} L${r2(60 + db)} ${r2(lidTop + 1)} H${r2(60 - db)} Z`, keys,
-    lid2: `M${r2(x0 + c)} ${lidTop} H${r2(x1 - c)} Q${r2(x1)} ${lidTop} ${r2(x1 - .3)} ${r2(lidTop + c)} L${r2(b1 + .2)} ${r2(y1 - c)} Q${r2(b1)} ${r2(y1)} ${r2(b1 - c)} ${r2(y1)} H${r2(b0 + c)} Q${r2(b0)} ${r2(y1)} ${r2(b0 - .2)} ${r2(y1 - c)} L${r2(x0 + .3)} ${r2(lidTop + c)} Q${r2(x0)} ${lidTop} ${r2(x0 + c)} ${lidTop} Z`,
-    lidline: `M${r2(x0 + 3.5)} ${r2(lidTop + .9)} H${r2(x1 - 3.5)}`,
-  };
-}
-const oval = (cx, cy, rx, ry) => `M${cx - rx} ${cy} a${rx} ${ry} 0 1 0 ${2 * rx} 0 a${rx} ${ry} 0 1 0 ${-2 * rx} 0`;
-function eyesFor(style, x, y) {
-  const out = { whites: NONE, pupils: NONE, shine: NONE, arcs: NONE, pupilDark: false };
-  if (style === "happy") out.arcs = x.map((c) => `M${c - 4.8} ${y + 1.5} Q${c} ${y - 4.5} ${c + 4.8} ${y + 1.5}`).join(" ");
-  else if (style === "big") { out.whites = x.map((c) => oval(c, y, 6.2, 6.2)).join(" "); out.pupils = x.map((c) => oval(c, y + .5, 3.6, 3.6)).join(" "); out.shine = x.map((c) => oval(c + 1.4, y - 1, 1.2, 1.2)).join(" "); out.pupilDark = true; }
-  else if (style === "sparkle") { out.pupils = x.map((c) => oval(c, y, 4.4, 5.6)).join(" "); out.shine = x.map((c) => oval(c + 1.4, y - 2, 1.6, 1.6) + " " + oval(c - 1.4, y + 2, .9, .9)).join(" "); }
-  else if (style === "wink") { out.pupils = oval(x[0], y, 3.4, 4.4); out.arcs = `M${x[1] - 4.6} ${y} Q${x[1]} ${y - 3.6} ${x[1] + 4.6} ${y}`; }
-  else { out.pupils = x.map((c) => oval(c, y, 3.9, 4.9)).join(" "); out.shine = x.map((c) => oval(c + 1.3, y - 1.8, 1.4, 1.4) + " " + oval(c - 1.2, y + 1.9, .7, .7)).join(" "); }
-  return out;
-}
-function mouthFor(style, y) {
-  const x = 60, m = { mouthS: NONE, mouthF: NONE, mouthP: NONE, mouthW: NONE };
-  if (style === "open") { m.mouthF = oval(x, y + 1, 3.4, 4); m.mouthP = oval(x, y + 3, 2.2, 1.4); }
-  else if (style === "cat") m.mouthS = `M${x - 5.5} ${y} Q${x - 2.75} ${y + 3.6} ${x} ${y} Q${x + 2.75} ${y + 3.6} ${x + 5.5} ${y}`;
-  else if (style === "fangs") { m.mouthS = `M${x - 6} ${y} Q${x} ${y + 4.5} ${x + 6} ${y}`; m.mouthW = `M${x - 4} ${y + 1.6} l1.4 3.6 l1.4 -3.2 Z M${x + 1.2} ${y + 1.9} l1.4 3.2 l1.4 -3.6 Z`; }
-  else if (style === "tongue") { m.mouthS = `M${x - 5} ${y} Q${x} ${y + 4} ${x + 5} ${y}`; m.mouthP = `M${x + .2} ${y + 1.6} q0 5 3.2 5 q3.2 0 2.6 -5.8 Z`; }
-  else if (style === "flat") m.mouthS = `M${x - 3.2} ${y + 1.2} L${x + 3.2} ${y + 1.2}`;
-  else m.mouthS = `M${x - 4.5} ${y} Q${x} ${y + 4.2} ${x + 4.5} ${y}`;
-  return m;
-}
+const COLORS = ["#a98bf5", "#3cc0a6", "#f2a04a", "#6aa2f5", "#ef7fa8", "#cfd36a"];
+const HAT_SINK = { tophat: 3, beanie: 4.5, crown: 2.5 };
 // Each of the crew has its own face, way of moving and clock, so no two ever line up
 const T = (motion, ripple, left, right, blink) => ({ motion, ground: motion, ripple, left, right, blink });
 const CREW = [
-  { shape: "round", c: 1, hat: "none", eyes: "big", mouth: "open", cheeks: true, motion: "bounce", x: 20, y: 31, size: 132, time: T("animation-duration:2.1s;animation-delay:-.7s", "2.1s", "animation-duration:3.3s;animation-delay:-1s", "animation-duration:6.4s;animation-delay:-3.9s", "animation-duration:5.3s;animation-delay:-1.1s") },
+  { shape: "wide", c: 3, hat: "none", eyes: "big", mouth: "open", cheeks: true, motion: "bounce", x: 20, y: 31, size: 132, time: T("animation-duration:2.1s;animation-delay:-.7s", "2.1s", "animation-duration:3.3s;animation-delay:-1s", "animation-duration:6.4s;animation-delay:-3.9s", "animation-duration:5.3s;animation-delay:-1.1s") },
   { shape: "tall", c: 2, hat: "tophat", eyes: "sparkle", mouth: "cat", cheeks: false, motion: "sway", x: 80, y: 25, size: 156, time: T("animation-duration:4.3s;animation-delay:-2.2s", "3.4s", "animation-duration:4.9s;animation-delay:-2s", "animation-duration:9.1s;animation-delay:-.4s", "animation-duration:6.7s;animation-delay:-3s") },
-  { shape: "wisp", c: 4, hat: "none", eyes: "dots", mouth: "tongue", cheeks: true, motion: "float", arms: "cheer", x: 82, y: 71, size: 136, time: T("animation-duration:5.2s;animation-delay:-1.4s", "2.9s", "animation-duration:2.7s;animation-delay:-.3s", "animation-duration:3.1s;animation-delay:-1.7s", "animation-duration:4.1s;animation-delay:-2.4s") },
-  { shape: "sheet", c: 5, hat: "crown", eyes: "wink", mouth: "fangs", cheeks: false, motion: "sway", x: 18, y: 73, size: 118, time: T("animation-duration:3.1s;animation-delay:-.9s", "3.8s", "animation-duration:5.6s;animation-delay:-4s", "animation-duration:7.7s;animation-delay:-5.8s", "") },
-  { shape: "classic", c: 3, hat: "beanie", eyes: "big", mouth: "smile", cheeks: true, motion: "float", x: 50, y: 13, size: 104, time: T("animation-duration:3.9s;animation-delay:-3s", "2.3s", "animation-duration:4.2s;animation-delay:-2.7s", "animation-duration:11s;animation-delay:-7.5s", "animation-duration:7.3s;animation-delay:-5s") },
+  { shape: "drop", c: 4, hat: "none", eyes: "dots", mouth: "tongue", cheeks: true, motion: "float", arms: "cheer", x: 82, y: 71, size: 136, time: T("animation-duration:5.2s;animation-delay:-1.4s", "2.9s", "animation-duration:2.7s;animation-delay:-.3s", "animation-duration:3.1s;animation-delay:-1.7s", "animation-duration:4.1s;animation-delay:-2.4s") },
+  { shape: "soft", c: 1, hat: "crown", eyes: "wink", mouth: "fangs", cheeks: false, motion: "sway", x: 18, y: 73, size: 118, time: T("animation-duration:3.1s;animation-delay:-.9s", "3.8s", "animation-duration:5.6s;animation-delay:-4s", "animation-duration:7.7s;animation-delay:-5.8s", "") },
+  { shape: "ghost", c: 5, hat: "beanie", eyes: "big", mouth: "smile", cheeks: true, motion: "float", x: 50, y: 13, size: 104, time: T("animation-duration:3.9s;animation-delay:-3s", "2.3s", "animation-duration:4.2s;animation-delay:-2.7s", "animation-duration:11s;animation-delay:-7.5s", "animation-duration:7.3s;animation-delay:-5s") },
 ];
 
     const SCENE = {
@@ -1092,50 +1049,32 @@ const CREW = [
     const BOX = 300;
     const stage = document.getElementById("stage");
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    const WHITE = { shape: "classic", c: 0, hat: "none", eyes: "dots", mouth: "smile", cheeks: false, time: { right: "animation-duration:6.2s;animation-delay:-1.6s" } };
+    const WHITE = { shape: "drop", c: 0, hat: "none", eyes: "dots", mouth: "smile", cheeks: false, time: { right: "animation-duration:6.2s;animation-delay:-1.6s" } };
 
     function svg(i, look, mood) {
-      const b = BODY[look.shape], c = COLORS[look.c], rig = RIG[look.shape], t = look.time || {};
-      const ink = "#1d1d1f";
-      const e = eyesFor(mood === "done" ? "happy" : look.eyes, b.ex, b.ey), m = mouthFor(mood === "done" ? "open" : mood === "working" ? "flat" : look.mouth, b.my);
-      const rip = `<animate attributeName="d" dur="${t.ripple || "2.6s"}" repeatCount="indefinite" values="${b.d};${ALT[look.shape](b.d)};${b.d}" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>`;
-      const armC = { awake: ["ga ga-awake ga-breathe", "ga ga-awake ga-wave"], done: ["ga ga-cheer", "ga ga-cheer"], waiting: ["ga ga-awake ga-breathe", "ga ga-signarm"], working: ["ga ga-tap", "ga ga-tap"], cheer: ["ga ga-cheer", "ga ga-cheer"] }[look.arms || mood];
-      const armStyle = (side, extra) => `transform:${armFrame(look.shape, side)};${extra || ""}`;
-      const LIMB = "M0 -3.6 H10.6 A3.6 3.6 0 0 1 10.6 3.6 H0 A3.6 3.6 0 0 1 0 -3.6 Z";
-      const lap = mood === "working" ? laptop(look.shape, b.bottom) : null;
+      const b = BODY[look.shape], color = COLORS[look.c], t = look.time || {};
+      const ink = "rgba(20,20,20,.88)", ey = b.ey * 3, my = (b.ey + 5) * 3;
       const motion = { working: "", done: "mo-hop", waiting: "mo-wait" }[mood] ?? "mo-" + (look.motion || "float");
+      // mouth C: flat, a smile when it's happy, a pressed line while working
+      const mouth = mood === "done" ? `M54 ${my - 0.9}q6 5.1 12 0` : mood === "working" ? `M58.8 ${my + 0.6}h6.3` : `M56.1 ${my}h7.8`;
       const hats = {
         tophat: '<rect x="-13" y="-25" width="26" height="25" rx="3" fill="#2b2735"/><rect x="-13" y="-9" width="26" height="5" fill="#e5484d"/><rect x="-21" y="-2" width="42" height="5.5" rx="2.75" fill="#2b2735"/>',
-        crown: '<path d="M-15 3 L-15 -12 L-7.5 -4.5 L0 -17 L7.5 -4.5 L15 -12 L15 3 Z" fill="#ffcf3f" stroke="#e0a800" stroke-width="1.5" stroke-linejoin="round"/><circle cx="0" cy="-4" r="2.4" fill="#ff5d73"/><circle cx="-9" cy="-1.5" r="1.7" fill="#4dabf7"/><circle cx="9" cy="-1.5" r="1.7" fill="#4dabf7"/>',
+        crown: '<path d="M-15 3 L-15 -12 L-7.5 -4.5 L0 -17 L7.5 -4.5 L15 -12 L15 3 Z" fill="#ffcf3f"/><circle cx="0" cy="-4" r="2.4" fill="#ff5d73"/><circle cx="-9" cy="-1.5" r="1.7" fill="#4dabf7"/><circle cx="9" cy="-1.5" r="1.7" fill="#4dabf7"/>',
         beanie: '<path d="M-21 6 Q-21 -16 0 -16 Q21 -16 21 6 Z" fill="#5b8def"/><rect x="-22.5" y="0" width="45" height="8" rx="4" fill="#3f6fd8"/><circle cx="0" cy="-17" r="5" fill="#f8fafc"/>',
       };
-      return `<svg viewBox="-8 -18 136 140" aria-hidden="true"><defs>
-        <linearGradient id="g${i}" gradientUnits="userSpaceOnUse" x1="0" y1="${b.top}" x2="0" y2="${b.bottom}"><stop offset="0.08" stop-color="${c[1]}"/><stop offset="0.95" stop-color="${c[2]}"/></linearGradient>
-        <radialGradient id="l${i}" cx="0.5" cy="0.42" r="0.6"><stop offset="0" stop-color="white" stop-opacity="0.24"/><stop offset="0.65" stop-color="white" stop-opacity="0.06"/><stop offset="1" stop-color="white" stop-opacity="0"/></radialGradient>
-        <clipPath id="c${i}"><path d="${b.d}">${rip}</path></clipPath>
-        <clipPath id="k${i}"><path class="${armC[0]}" style="${armStyle(0, t.left)}" d="${LIMB}"/><path class="${armC[1]}" style="${armStyle(1, t.right)}" d="${LIMB}"/></clipPath>
-        <clipPath id="o${i}"><path d="${LIMB}"/></clipPath>
-        <radialGradient id="f${i}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="4.2"><stop offset="1" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.1"/></radialGradient>
-      </defs>
-      <ellipse class="ground" style="${t.ground || ""}" cx="60" cy="${b.ground}" rx="24" ry="3.4" fill="black" opacity="0.28"/>
+      const kit = mood === "working" ? `<g transform="scale(3)"><rect x="11.5" y="24.5" width="17" height="10" rx="1.4" fill="#2b2b2e"/><rect x="12.8" y="25.8" width="14.4" height="7.4" rx=".6" fill="rgba(255,255,255,.92)"/><rect class="keys" x="14.2" y="27.6" width="9" height="1" rx=".5" fill="${color}"/><rect x="14.2" y="30.2" width="6.5" height="1" rx=".5" fill="${color}"/><rect x="8.5" y="34.2" width="23" height="2.2" rx="1.1" fill="#3d3d42"/></g>` : "";
+      return `<svg viewBox="-8 -18 136 140" aria-hidden="true">
+      <ellipse class="ground" style="${t.ground || ""}" cx="60" cy="112" rx="24" ry="3.4" fill="black" opacity="0.18"/>
       <g class="tilt"><g class="mo ${motion}" style="${t.motion || ""}">
-        <path d="${b.d}" fill="url(#g${i})">${rip}</path><path d="${b.d}" fill="url(#l${i})">${rip}</path>
-        <path d="${b.d}" fill="none" stroke="black" stroke-opacity="0.1" stroke-width="7" clip-path="url(#c${i})">${rip}</path>
-        ${lap ? `<path d="${lap.deck}" fill="#4a4760" stroke="#4a4760" stroke-width="1.6" stroke-linejoin="round"/><path d="${lap.keys}" class="keys" stroke="#a6e8d4" stroke-opacity="0.7" stroke-width="1.1" stroke-linecap="round"/>` : ""}
-        ${mood === "waiting" ? `<g class="${armC[1]}" style="${armStyle(1)}"><g transform="translate(10.6 0) rotate(30)"><path d="M0 7.5 V-19" stroke="#8d8291" stroke-width="2.6" stroke-linecap="round"/><rect x="-9.5" y="-37" width="19" height="19" rx="5" fill="#f5c542"/><path d="M-3.4 -30.4 C-3.4 -35 3.7 -35 3.7 -30.7 C3.7 -28.4 0.2 -28.3 0.2 -25.4" stroke="#343244" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="0.2" cy="-21.7" r="1.5" fill="#343244"/></g></g>` : ""}
-        <rect x="-10" y="-10" width="140" height="140" fill="url(#g${i})" clip-path="url(#k${i})"/>
-        <path class="${armC[0]}" style="${armStyle(0, t.left)}" d="${LIMB}" fill="none" stroke="url(#f${i})" stroke-width="${r2(3.4 / rig.s)}" clip-path="url(#o${i})"/>
-        <path class="${armC[1]}" style="${armStyle(1, t.right)}" d="${LIMB}" fill="none" stroke="url(#f${i})" stroke-width="${r2(3.4 / rig.s)}" clip-path="url(#o${i})"/>
-        ${lap ? `<path d="${lap.lid2}" fill="#343244"/><path d="${lap.lidline}" stroke="#a6e8d4" stroke-opacity="0.75" stroke-width="1.1" stroke-linecap="round"/>` : ""}
+        <path d="${b.d}" transform="scale(3)" fill="${color}"/>
         <g class="face" transform="${mood === "working" ? "translate(0 3)" : ""}">
-          <ellipse cx="${b.ex[0] - 4}" cy="${b.ey + 8}" rx="4.5" ry="2.6" fill="#ff8fab" opacity="${look.cheeks ? 0.5 : 0.18}"/><ellipse cx="${b.ex[1] + 4}" cy="${b.ey + 8}" rx="4.5" ry="2.6" fill="#ff8fab" opacity="${look.cheeks ? 0.5 : 0.18}"/>
-          <g class="${mood === "done" || look.eyes === "wink" ? "" : "blink"}" style="${t.blink || ""}">
-            <path d="${e.whites}" fill="white"/><g class="pupils"><path d="${e.pupils}" fill="${e.pupilDark ? "#2a2340" : ink}"/><path d="${e.shine}" fill="white" opacity="0.95"/></g>
-            <path d="${e.arcs}" fill="none" stroke="${ink}" stroke-width="2.6" stroke-linecap="round"/>
+          <g class="${mood === "done" ? "" : "blink"}" style="${t.blink || ""}">
+            <g class="pupils"><ellipse cx="48" cy="${ey}" rx="5.7" ry="${mood === "done" ? 3.4 : 8.1}" fill="${ink}"/><ellipse cx="72" cy="${ey}" rx="5.7" ry="${mood === "done" ? 3.4 : 8.1}" fill="${ink}"/></g>
           </g>
-          <path d="${m.mouthS}" fill="none" stroke="${ink}" stroke-width="2.1" stroke-linecap="round"/><path d="${m.mouthF}" fill="${ink}"/><path d="${m.mouthP}" fill="#ff7a93"/><path d="${m.mouthW}" fill="white" stroke="${ink}" stroke-width="0.6" stroke-linejoin="round"/>
+          <path d="${mouth}" fill="none" stroke="${ink}" stroke-width="3.75" stroke-linecap="round"/>
         </g>
-        ${hats[look.hat] ? `<g transform="translate(60 ${b.top + 2.5}) scale(${b.hs})">${hats[look.hat]}</g>` : ""}
+        ${hats[look.hat] ? `<g transform="translate(60 ${b.top * 3}) scale(${b.hat}) translate(0 ${HAT_SINK[look.hat] ?? 0})">${hats[look.hat]}</g>` : ""}
+        ${kit}
       </g></g></svg>`;
     }
 

@@ -1,3 +1,4 @@
+import { SILHOUETTES } from "../../web/src/ghostFamily.ts";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
@@ -74,9 +75,8 @@ describe("Wisp first launch", () => {
     const clocks = [...crew.matchAll(/T\("(animation-duration:[^"]+)"/g)].map((m) => m[1]);
     expect(clocks).toHaveLength(5);
     expect(new Set(clocks).size).toBe(5);
-    // the first-launch crew keeps the rigged shapes the iPhone draws (the web app moved to the flat ghost family)
-    const ghost = readFileSync(new URL("../../ios/Wisp/GhostGeometry.swift", import.meta.url), "utf8");
-    expect(ghost).toContain(stage.match(/classic: \{ d: "([^"]+)"/)![1]);
+    // the first-launch crew is the app's flat ghost family, path for path
+    for (const k of ["ghost", "drop", "soft", "tall", "wide"] as const) expect(stage).toContain(`${k}: { d: "${SILHOUETTES[k].d}"`);
   });
 
   it("goes from Self-Host through installing to Continue, which opens the server", async () => {
