@@ -92,9 +92,13 @@ describe("a new agent speaks first", () => {
     expect(calls.length).toBe(before);
     const chats = await owner.request<{ id: string }[]>("GET", "/api/channels");
     expect(chats.some((c) => c.id === dmOf(id).id)).toBe(true);
-    // what the person says at setup stays between them and the agent
+    // what the person says at setup stays between them and the agent: only where its first chat is goes out
+    await owner.send(dmOf(id).id, "Plan my week, my partner is Alex");
+    await idle();
     const listed = (await owner.agents()).find((a) => a.id === id)!;
-    expect(listed.settings).not.toHaveProperty("setup");
+    expect(listed.settings.setup).toMatchObject({ channelId: dmOf(id).id, replies: [], steps: {} });
+    expect(listed.settings.setup?.greetingId).toBe(msgs[0].id);
+    expect(JSON.stringify(listed)).not.toContain("Alex");
   });
 
   it("never says hello twice", async () => {

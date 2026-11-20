@@ -32,6 +32,7 @@ export function OnboardingGhost({
   hop = false,
   working = false,
   follow = true,
+  look,
 }: {
   size?: number;
   talking?: boolean;
@@ -39,6 +40,8 @@ export function OnboardingGhost({
   hop?: boolean;
   working?: boolean;
   follow?: boolean;
+  /** the agent's own look once it's picked (Make me yours); violet before that */
+  look?: GhostAppearance;
 }) {
-  return <ClassicGhost look={ONBOARDING_LOOK} size={size} talking={talking} smiling={smiling} hop={hop} working={working} trackPointer={follow} />;
+  return <ClassicGhost look={look ?? ONBOARDING_LOOK} size={size} talking={talking} smiling={smiling} hop={hop} working={working} trackPointer={follow} />;
 }

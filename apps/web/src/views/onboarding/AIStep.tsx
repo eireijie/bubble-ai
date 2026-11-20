@@ -109,6 +109,8 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
   const [phase, setPhase] = useState<Phase>("idle");
   const [harness, setHarness] = useState(found?.harness ?? "claude-code");
   const [problem, setProblem] = useState<string | null>(null);
+  // its AI said "signed in" but its first run couldn't sign in (an expired session): sign in again
+  const [resign, setResign] = useState<string | null>(null);
   const [agentId, setAgentId] = useState<string | null>(() => loadAnswers(ws).agentId ?? null);
   const [hop, setHop] = useState(0);
   const [leaving, setLeaving] = useState(false);
@@ -132,7 +134,13 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
     setHarness(h);
     setPhase("checking");
     setProblem(null);
+    setResign(null);
     bump();
+    const needsSignIn = () => {
+      const e = new Error(`${harnessLabel(h)} on ${device.mine ? here : device.name} needs signing in again.`);
+      (e as Error & { resign?: string }).resign = h;
+      return e;
+    };
     try {
       const st = useStore.getState();
       const existing = agentId ? st.agents.find((a) => a.id === agentId) : undefined;
@@ -152,10 +160,23 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
       while (live() && Date.now() < deadline) {
         const r = await api<{ signedIn: boolean | null; inComputer?: boolean }>("GET", `/api/agents/${agent.id}/harness`).catch(() => null);
         if (r && (r.signedIn === true || (r.signedIn === null && !connectionId && !r.inComputer))) {
-          if (!live()) return;
-          setPhase("ready");
-          bump();
-          return;
+          // a status check can say "signed in" for a session that can't refresh: its hello is the real
+          // first run, and only a hello it wrote (or Wisp's, if it ran out of time) means it's ready
+          while (live() && Date.now() < deadline) {
+            // signed out since (its run failed on sign-in): sign in again before anything else runs
+            const now = await api<{ signedIn: boolean | null }>("GET", `/api/agents/${agent.id}/harness`).catch(() => null);
+            if (now?.signedIn === false) throw needsSignIn();
+            const g = await api<{ status: string }>("POST", `/api/agents/${agent.id}/greet`).catch(() => null);
+            if (g?.status === "signin") throw needsSignIn();
+            if (g?.status === "already" || g?.status === "sent") {
+              if (!live()) return;
+              setPhase("ready");
+              bump();
+              return;
+            }
+            await wait(1500);
+          }
+          break;
         }
         if (r?.signedIn === false) throw new Error(`${harnessLabel(h)} isn't signed in on ${device.name} yet.`);
         await wait(2000);
@@ -163,10 +184,15 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
       if (live()) throw new Error(`${harnessLabel(h)} took too long to start.`);
     } catch (e) {
       if (!live()) return;
-      setProblem(unavailable(e, harnessLabel(h)));
+      const re = (e as { resign?: string }).resign;
+      setResign(re ?? null);
+      setProblem(re ? (e as Error).message : unavailable(e, harnessLabel(h)));
       setPhase("failed");
     }
   };
+
+  /** Sign in again where this AI signs in: Claude and ChatGPT through Wisp, the rest on the computer. */
+  const signInAgain = (h: string) => (h === "claude-code" ? choose("claude") : h === "codex" ? choose("chatgpt") : void deviceHarness(h));
 
   const takeFound = async () => {
     if (!found || !device) return;
@@ -307,7 +333,7 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
 
           <div className="flex flex-col items-center gap-5 min-w-0">
             <span className={hop === 0 ? "block" : hop % 2 ? "block ob-hop-a" : "block ob-hop-b"} style={{ transformOrigin: "50% 100%" }}>
-              <OnboardingGhost size={140} working={phase === "checking"} smiling={phase === "ready"} talking={phase === "ready"} />
+              <OnboardingGhost size={140} look={draft ? look : undefined} working={phase === "checking"} smiling={phase === "ready"} talking={phase === "ready"} />
             </span>
             <div className="w-full max-w-[400px] min-h-[120px] flex flex-col gap-2 items-center text-center" aria-live="polite">
               {phase === "idle" && <span className="text-muted">Pick one and I'll try it right away.</span>}
@@ -332,9 +358,15 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
                   <span role="alert" className="ob-pop text-left">
                     {problem ?? "That didn't work."}
                   </span>
-                  <button type="button" className="h-9 px-4 rounded-full border border-[var(--line2)] text-[13px] font-medium hover:bg-hover" onClick={() => (cur === "found" ? void takeFound() : cur?.startsWith("h:") ? void deviceHarness(cur.slice(2)) : cur && choose(cur))}>
-                    Try again
-                  </button>
+                  {resign ? (
+                    <button type="button" className="h-9 px-4 rounded-full bg-ink text-panel text-[13px] font-semibold" onClick={() => signInAgain(resign)}>
+                      Sign in again
+                    </button>
+                  ) : (
+                    <button type="button" className="h-9 px-4 rounded-full border border-[var(--line2)] text-[13px] font-medium hover:bg-hover" onClick={() => (cur === "found" ? void takeFound() : cur?.startsWith("h:") ? void deviceHarness(cur.slice(2)) : cur && choose(cur))}>
+                      Try again
+                    </button>
+                  )}
                 </>
               )}
             </div>
