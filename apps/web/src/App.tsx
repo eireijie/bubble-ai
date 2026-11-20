@@ -194,12 +194,6 @@ function Workspace() {
   useEffect(() => {
     // the bare root is the Inbox on desktops (replace, so Back doesn't bounce here again)
     if (!phone && route.view === "chat" && !route.channelId) location.replace(href({ view: "dashboard" }));
-    // Chats on a desktop opens a chat beside the list: the last one you were in, else the newest
-    if (!phone && route.view === "chats" && loaded) {
-      const id = chatsTarget().includes("/c/") ? null : newestChat();
-      if (chatsTarget().includes("/c/")) location.replace(chatsTarget());
-      else if (id) location.replace(href({ view: "chat", channelId: id, threadId: null }));
-    }
     if (!phone && route.view === "you") go({ view: "settings" });
     if (!phone && route.view === "more") go({ view: "dashboard" });
     if (phone && route.view === "chat" && !route.channelId) go({ view: "chats" });
@@ -228,7 +222,7 @@ function Workspace() {
         if (!route.channelId) return phone ? <ChatsPage route={route} /> : <DashboardView />;
         return <ChannelView route={route} onBack={phone ? toChats : undefined} />;
       case "chats":
-        return phone ? <ChatsPage route={route} /> : <EmptyChat />;
+        return phone ? <ChatsPage route={route} /> : <DesktopChats route={route} />;
       case "you":
         return <YouPage />;
       case "more":
@@ -294,21 +288,14 @@ function Workspace() {
     </>
   );
 
-  // desktops: Chats is a column and the open chat side by side, like one panel split in two
-  const withColumn = !phone && (route.view === "chat" || route.view === "chats");
 
   return (
     <div ref={shellRef} className="h-full flex overflow-hidden bg-app">
       {!phone && <Rail route={route} />}
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="relative flex-1 min-h-0 flex">
-          {withColumn && (
-            <aside className="w-[340px] shrink-0 my-2 rounded-xl border border-edge bg-panel overflow-hidden" data-pane>
-              <ChatList route={route} />
-            </aside>
-          )}
           {/* the floating tab bar sits over the page, so pages leave room for it at the bottom */}
-          <main ref={mainRef} className={cx("flex-1 min-w-0 min-h-0 flex flex-col bg-panel overflow-hidden", !phone && "my-2 mr-2 rounded-xl border border-edge", !phone && withColumn && "ml-2")}>
+          <main ref={mainRef} className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel overflow-hidden">
             <OfflineBanner phone={phone} />
             {phone ? (
               // phones: the page, and over it the open chat. The page shifts back 96px and dims as the chat slides in
@@ -355,7 +342,7 @@ function Tab({ active, label, icon, target, badge, dot, accent }: { active: bool
     <a href={target} aria-current={active ? "page" : undefined} className={cx("relative z-[1] flex-1 flex flex-col items-center justify-center gap-[2px] h-[48px] rounded-full text-[11px]", active ? "text-ink font-medium" : "text-muted font-normal")}>
       <span ref={iconRef} className="m-tab-icon" style={active ? { color: `var(--accent-${accent})` } : undefined}>{icon}</span>
       {label}
-      {badge !== undefined && <PopBadge count={badge} label={badge > 99 ? "99+" : String(badge)} className="absolute top-1 left-[calc(50%+8px)] min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold text-black grid place-items-center tabular-nums" style={{ background: `var(--accent-${accent})` }} />}
+      {badge !== undefined && <PopBadge count={badge} label={badge > 99 ? "99+" : String(badge)} className="absolute top-1 left-[calc(50%+8px)] min-w-[18px] h-[18px] px-1 rounded-full bg-ink text-panel text-[11px] font-semibold grid place-items-center tabular-nums" />}
       {dot && <span className="absolute top-2 left-[calc(50%+10px)] size-2 rounded-full bg-st-working animate-pulse" aria-label="An agent is working" />}
     </a>
   );
@@ -383,6 +370,17 @@ function TabBar({ route, away }: { route: Route; away: boolean }) {
         {!isGuest && <Tab active={index === 3} label="Computers" icon={<ComputersIcon size={22} />} accent="computers" target={href({ view: "computers", computerId: null })} dot={working} />}
         <Tab active={index === moreIndex} label="More" icon={<Ellipsis size={22} strokeWidth={1.8} aria-hidden />} accent="more" target={href({ view: "more" })} />
       </nav>
+    </div>
+  );
+}
+
+/** Desktops: every chat, with search, sections and pins (the rail's search opens it). */
+function DesktopChats({ route }: { route: Route }) {
+  return (
+    <div className="flex-1 min-h-0 flex justify-center px-7">
+      <div className="w-full max-w-[720px] min-h-0">
+        <ChatList route={route} />
+      </div>
     </div>
   );
 }

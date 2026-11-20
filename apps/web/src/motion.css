@@ -12,6 +12,11 @@
   --pop: cubic-bezier(0.2, 0.9, 0.25, 1.15);
   --soft: cubic-bezier(0.2, 0.9, 0.25, 1.05);
   --settle: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* the drawer curve (canvas Foundations): panels and the sidebar slide on it in 350-500ms;
+     buttons, tabs and bubbles move in 150-200ms */
+  --drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --t-quick: 180ms;
+  --t-drawer: 400ms;
 }
 
 /* ---------- hover: backgrounds fade instead of snapping (a base default; utilities still win) ---------- */

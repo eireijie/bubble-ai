@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ChevronRight, ChevronUp, FileText, Mic, MicOff, Settings, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, FileText, MessageSquareText, Mic, MicOff, PhoneOff, Play, Settings, X } from "lucide-react";
 import type { Agent } from "@wisp/core";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { api, observeEvents } from "../api.ts";
 import { useStore } from "../store.ts";
 import { useMotionReduced } from "../theme.ts";
 import { Ghost, type GhostMood } from "../components/Ghost.tsx";
-import { Modal } from "../components/ui.tsx";
+import { Modal, cx } from "../components/ui.tsx";
+import { familyColor } from "../ghostFamily.ts";
 import { VoiceCall, INITIAL_CALL, type CallPhase, type CallState } from "./call.ts";
 import { callFacts, type CallFacts } from "./facts.ts";
 import { callPrefs, phaseLabel, setCallPrefs, SPEEDS, speedLabel, useCallPrefs } from "./prefs.ts";
@@ -43,7 +44,12 @@ function CallGhost({ agent, state, phase, size, offline, dim }: { agent: Agent; 
   );
 }
 
-export function CallScreen({ agent, channelId, onClose, barSlot }: { agent: Agent; channelId: string; onClose(): void; barSlot?: HTMLElement | null }) {
+/** One line said on the call, for the transcript and the record left in the chat. */
+export interface CallLine { who: "you" | "agent"; text: string }
+/** What stays in the chat when a call ends. */
+export interface CallRecord { agentId: string; seconds: number; lines: CallLine[]; endedAt: number }
+
+export function CallScreen({ agent, channelId, onClose, barSlot, floating = true }: { agent: Agent; channelId: string; onClose(record?: CallRecord): void; barSlot?: HTMLElement | null; floating?: boolean }) {
   const [state, setState] = useState(INITIAL_CALL);
   const [seconds, setSeconds] = useState(0);
   const [engine, setEngine] = useState<VoiceSettings["speak"] | null>(null);
@@ -101,7 +107,18 @@ export function CallScreen({ agent, channelId, onClose, barSlot }: { agent: Agen
     if (!connected) call.current?.disconnect();
     else if (call.current && !call.current.state.ready) void call.current.start();
   }, [connected]);
-  const close = () => { call.current?.stop(); onClose(); };
+  // the transcript: a new line each time the speaker changes, the newest line follows its caption
+  const [lines, setLines] = useState<CallLine[]>([]);
+  const said = (who: CallLine["who"], text: string) => {
+    if (!text.trim()) return;
+    setLines((all) => (all.length && all[all.length - 1].who === who ? [...all.slice(0, -1), { who, text }] : [...all, { who, text }]));
+  };
+  useEffect(() => said("you", state.userCaption), [state.userCaption]);
+  useEffect(() => said("agent", state.agentCaption), [state.agentCaption]);
+  const close = () => {
+    call.current?.stop();
+    onClose(state.startedAt !== null || lines.length ? { agentId: agent.id, seconds, lines, endedAt: Date.now() } : undefined);
+  };
   const retry = () => { if (call.current) void call.current.start(); else setAttempt((n) => n + 1); };
   const toggleMute = () => void call.current?.mute(!state.muted);
   const expand = useCallback(() => setShrunk(false), []);
@@ -109,6 +126,7 @@ export function CallScreen({ agent, channelId, onClose, barSlot }: { agent: Agen
   const facts = callFacts({ agent, state, connected, seconds, showActivity: prefs.showActivity });
   const style = { "--voice-color": look.color, "--voice-color2": look.color2 ?? look.color } as CSSProperties;
 
+  if (floating) return <CallCard agent={agent} state={state} facts={facts} lines={lines} engine={engine} engineLabel={engineLabel} onMute={toggleMute} onRetry={retry} onEnd={close} />;
   if (shrunk) {
     const bar = <CallBar agent={agent} state={state} facts={facts} style={style} onExpand={expand} onSettings={() => { setPanel(true); setShrunk(false); }} onMute={toggleMute} onEnd={close} />;
     if (barSlot) return createPortal(bar, barSlot);
@@ -251,5 +269,131 @@ export function CallBar({ agent, state, facts, style, onExpand, onSettings, onMu
       </div>
       <button className="voice-handle" aria-label="Expand the call" title="Expand the call" onPointerDown={down} onPointerUp={up} onClick={onExpand} />
     </div>
+  );
+}
+
+
+const BARS = [8, 14, 20, 12, 22, 16, 9, 18, 22, 13, 7, 17, 21, 11];
+
+/**
+ * The call (canvas Call): a card floating under the agent's name pill, over the chat. A waveform
+ * and what's happening, then settings, transcript, mute and end. The chat stays readable under it.
+ */
+export function CallCard({ agent, state, facts, lines, engine, engineLabel, onMute, onRetry, onEnd }: {
+  agent: Agent; state: CallState; facts: CallFacts; lines: CallLine[]; engine: VoiceSettings["speak"] | null; engineLabel: string;
+  onMute(): void; onRetry(): void; onEnd(): void;
+}) {
+  const [view, setView] = useState<"none" | "transcript" | "settings">("transcript");
+  const { offline, phase, paused, failed, micTrouble, label, activity, timer } = facts;
+  const look = agent.settings.appearance ?? defaultAppearance(agent.handle);
+  const color = familyColor(look, agent.handle);
+  const level = state.speaking ? state.speechLevel : state.micLevel;
+  const quiet = offline || state.muted || !state.ready || phase === "connecting";
+  const status = [state.muted ? "Muted" : offline ? `${agent.name} is asleep` : phase === "speaking" ? `${agent.name} is talking` : label, timer].filter(Boolean).join(" · ");
+  const btn = (on: boolean) => cx("call-btn grid size-11 shrink-0 place-items-center rounded-full", on ? "bg-side-active text-ink" : "bg-hover text-ink hover:bg-side-active");
+  const transcript = view === "transcript";
+  return (
+    <section className="call-card absolute left-1/2 top-[58px] z-30 w-[min(460px,calc(100%-24px))] -translate-x-1/2 overflow-hidden rounded-[22px] border border-line2 bg-float shadow-float" aria-label={`Call with ${agent.name}`} style={{ "--voice-color": color } as CSSProperties}>
+      <div className={cx("flex h-[72px] items-center gap-2.5 pl-3 pr-3.5", quiet && "call-muted")}>
+        <Ghost look={look} size={44} mood={offline ? "asleep" : phase === "working" || phase === "thinking" || phase === "speaking" ? "working" : "awake"} label="" seed={agent.handle} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="call-wave flex h-[22px] items-center gap-[3px]" aria-hidden style={{ "--amp": (0.45 + Math.min(1, level) * 0.55).toFixed(2) } as CSSProperties}>
+            {BARS.map((h, i) => <span key={i} className="call-bar w-[3px] rounded-[2px]" style={{ height: h, background: color, animationDelay: `-${((i * 0.13) % 0.9).toFixed(2)}s` }} />)}
+          </span>
+          <span className="truncate text-xs leading-4 text-muted" role="status">{status}</span>
+        </span>
+        <button type="button" onClick={() => setView(view === "settings" ? "none" : "settings")} aria-label="Call settings" aria-pressed={view === "settings"} title="Call settings" className={btn(view === "settings")}><Settings size={19} strokeWidth={1.7} /></button>
+        <button type="button" onClick={() => setView(transcript ? "none" : "transcript")} aria-label={transcript ? "Hide transcript" : "Show transcript"} aria-pressed={transcript} title="Transcript" className={btn(transcript)}><MessageSquareText size={19} strokeWidth={1.7} /></button>
+        <button type="button" onClick={onMute} aria-label={state.muted ? "Unmute" : "Mute"} aria-pressed={state.muted} title={state.muted ? "Unmute" : "Mute"} disabled={offline || (!state.ready && !state.muted)} className={cx(btn(state.muted), "disabled:opacity-40")}>{state.muted ? <MicOff size={19} strokeWidth={1.7} /> : <Mic size={19} strokeWidth={1.7} />}</button>
+        <button type="button" onClick={onEnd} aria-label="End call" title="End call" className="call-btn grid size-11 shrink-0 place-items-center rounded-full bg-[#e5484d] text-white hover:bg-[#d93d42]"><PhoneOff size={19} strokeWidth={1.8} /></button>
+      </div>
+
+      {(micTrouble || failed || paused) && (
+        <div className="flex flex-col gap-2.5 border-t border-line px-3.5 py-3 text-[13px] leading-5 text-muted" role="alert">
+          {micTrouble ? <p>Wisp needs your microphone to hear you. Allow it in your browser, then try again. {agent.name} still answers in chat.</p> : failed ? <p>{state.error || "Couldn't connect just yet."} Check that your Wisp is reachable and the voice has its key.</p> : <p>The call is on hold. {agent.name} keeps working; the full reply will be in chat.</p>}
+          <span className="flex gap-2">
+            <button type="button" onClick={onRetry} className="h-8 rounded-full bg-ink px-3.5 text-[13px] font-semibold text-panel">{paused ? "Resume" : "Try again"}</button>
+            {failed && <a href="#/settings/voice" onClick={onEnd} className="inline-flex h-8 items-center gap-1 rounded-full border border-line2 px-3.5 text-[13px] text-ink">Voice settings<ChevronRight size={14} aria-hidden /></a>}
+          </span>
+        </div>
+      )}
+
+      {transcript && (
+        <div className="call-lines flex max-h-[min(320px,45vh)] flex-col gap-2 overflow-y-auto border-t border-line px-3.5 pb-3.5 pt-3" aria-live="polite">
+          {lines.length === 0 && <p className="text-[13px] text-muted">{offline ? `Wake ${agent.name}'s computer to talk.` : "Say something. What you both say shows here."}</p>}
+          {lines.map((l, i) => (
+            <div key={i} className={cx("max-w-[340px] rounded-2xl px-[13px] py-[7px] text-[13px] leading-5", l.who === "you" ? "self-end bg-wisp text-wisp-ink" : "self-start bg-[var(--bubble-them)] text-ink")}>{l.text}</div>
+          ))}
+          {activity && (
+            <div className="flex items-center gap-[7px] self-start text-xs text-muted">
+              <Ghost look={look} size={18} mood="working" label="" seed={agent.handle} />
+              {activity}
+            </div>
+          )}
+          {state.longWork && <p className="text-xs text-muted">Feel free to hang up. The reply will wait in chat.</p>}
+        </div>
+      )}
+
+      {view === "settings" && <CardSettings agent={agent} engine={engine} engineLabel={engineLabel} />}
+    </section>
+  );
+}
+
+/** Speed, voice and language, inside the call card. */
+function CardSettings({ agent, engine, engineLabel }: { agent: Agent; engine: VoiceSettings["speak"] | null; engineLabel: string }) {
+  const prefs = useCallPrefs();
+  const [voices, setVoices] = useState(deviceVoices);
+  useEffect(() => {
+    const update = () => setVoices(deviceVoices());
+    window.speechSynthesis?.addEventListener("voiceschanged", update);
+    return () => window.speechSynthesis?.removeEventListener("voiceschanged", update);
+  }, []);
+  const language = typeof navigator === "undefined" ? "en" : navigator.language || "en";
+  const options = useMemo(() => {
+    if (engine === "openai") return OPENAI_VOICES.slice(0, 6).map((v) => ({ id: v, label: v[0].toUpperCase() + v.slice(1) }));
+    if (engine === "elevenlabs") return ELEVEN_VOICES.map((v) => ({ id: v.id, label: v.name }));
+    return recommendVoices(voices, language, 6).map((v) => ({ id: v.voiceURI, label: v.name.replace(/\s*\(.*$/, "") }));
+  }, [engine, voices, language]);
+  const picked = engine ? agent.settings.voice?.[engine] ?? "" : "";
+  const chooseVoice = (id: string) => { if (engine) void api("PATCH", `/api/agents/${agent.id}`, { settings: { voice: { ...agent.settings.voice, [engine]: id } } }).catch(() => {}); };
+  const sample = (id: string) => { if (engine) createSpeaker(engine, { ...agent.settings.voice, [engine]: id }, agent.handle, () => callPrefs().speed).speak(`Hi, I'm ${agent.name}.`, () => {}).catch(() => {}); };
+  const speedPct = ((prefs.speed - SPEEDS[0]) / (SPEEDS[SPEEDS.length - 1] - SPEEDS[0])) * 100;
+  return (
+    <div className="flex flex-col gap-3.5 border-t border-line p-3.5" role="group" aria-label="Call settings">
+      <label className="flex items-center gap-3">
+        <span className="w-[52px] text-[13px]">Speed</span>
+        <input type="range" min={0} max={SPEEDS.length - 1} step={1} value={Math.max(0, SPEEDS.indexOf(prefs.speed))} onChange={(e) => setCallPrefs({ speed: SPEEDS[Number(e.target.value)] })} aria-label="Speed" className="call-range flex-1" style={{ "--pct": `${speedPct}%` } as CSSProperties} />
+        <span className="w-10 text-right text-[13px] tabular-nums text-muted">{speedLabel(prefs.speed)}</span>
+      </label>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Voice">
+        <VoiceChoice name="Automatic" note={engineLabel.split(" · ")[0] || "Picked for you"} on={!picked} onPick={() => chooseVoice("")} />
+        {options.slice(0, 5).map((o) => <VoiceChoice key={o.id} name={o.label} note={!engine || engine === "device" ? "On this device" : "AI voice"} on={picked === o.id} onPick={() => chooseVoice(o.id)} onSample={() => sample(o.id)} />)}
+      </div>
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-[13px]">Language</span>
+        <span className="relative">
+          <select aria-label="Language" value={prefs.language} onChange={(e) => setCallPrefs({ language: e.target.value })} className="h-[30px] appearance-none rounded-[10px] border border-line2 bg-transparent pl-3 pr-7 text-[13px] text-ink">
+            {LANGUAGES.map(([tag, name]) => <option key={tag} value={tag}>{tag ? name : "Auto-detect"}</option>)}
+          </select>
+          <ChevronDown size={12} className="pointer-events-none absolute right-2.5 top-[9px] text-muted" aria-hidden />
+        </span>
+      </label>
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-[13px]">Show what it's doing</span>
+        <input type="checkbox" checked={prefs.showActivity} onChange={() => setCallPrefs({ showActivity: !prefs.showActivity })} className="size-4 accent-[var(--wisp)]" />
+      </label>
+    </div>
+  );
+}
+
+function VoiceChoice({ name, note, on, onPick, onSample }: { name: string; note: string; on: boolean; onPick(): void; onSample?(): void }) {
+  return (
+    <span className={cx("relative flex h-16 rounded-[14px] border", on ? "border-wisp bg-hover" : "border-line2")}>
+      <button type="button" role="radio" aria-checked={on} onClick={onPick} className="flex flex-1 flex-col items-start justify-start rounded-[14px] px-3 py-2.5 text-left">
+        <span className="font-semibold leading-5">{name}</span>
+        <span className="truncate text-xs leading-4 text-muted">{note}</span>
+      </button>
+      {onSample && <button type="button" onClick={onSample} aria-label={`Play ${name}`} title="Play a sample" className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink"><Play size={13} strokeWidth={1.8} /></button>}
+    </span>
   );
 }

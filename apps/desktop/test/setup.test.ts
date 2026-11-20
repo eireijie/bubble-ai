@@ -74,7 +74,8 @@ describe("Wisp first launch", () => {
     const clocks = [...crew.matchAll(/T\("(animation-duration:[^"]+)"/g)].map((m) => m[1]);
     expect(clocks).toHaveLength(5);
     expect(new Set(clocks).size).toBe(5);
-    const ghost = readFileSync(new URL("../../web/src/components/Ghost.tsx", import.meta.url), "utf8");
+    // the first-launch crew keeps the rigged shapes the iPhone draws (the web app moved to the flat ghost family)
+    const ghost = readFileSync(new URL("../../ios/Wisp/GhostGeometry.swift", import.meta.url), "utf8");
     expect(ghost).toContain(stage.match(/classic: \{ d: "([^"]+)"/)![1]);
   });
 
