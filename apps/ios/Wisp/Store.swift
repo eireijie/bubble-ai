@@ -52,8 +52,11 @@ final class Store {
   @ObservationIgnored var hubCommit: String?
   /** the optional features this organization has on (all on when the hub doesn't say) */
   var features: Features = .everything {
-    didSet { if features.apple != oldValue.apple { Task { await refreshApple() } } }
+    // not while setFeatures is still saving: the hub would answer "Apple mod is off" until the change lands
+    didSet { if features.apple != oldValue.apple && !savingFeatures { Task { await refreshApple() } } }
   }
+  /** setFeatures has shown a change but the hub hasn't saved it yet */
+  var savingFeatures = false
   /** the Apple mod's settings, Macs and iPhones (GET /api/apple), while the mod is on */
   var apple: AppleInfo?
   /** bumps when the hub says Apple changed, so icons a Mac just sent are fetched again */

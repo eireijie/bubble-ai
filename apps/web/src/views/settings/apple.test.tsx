@@ -6,11 +6,11 @@ import { AppleSeg } from "../../components/AppleParts.tsx";
 import { OwnersOnly } from "./parts.tsx";
 import { ApplePage, MacSheet, agentsPatch, needsPermission, speakValue } from "./apple.tsx";
 
-const state = vi.hoisted(() => ({ role: "owner" }));
+const state = vi.hoisted(() => ({ role: "owner", apple: false }));
 vi.mock("react", async (original) => ({ ...(await original<typeof import("react")>()), useState: vi.fn(), useEffect: vi.fn(), useLayoutEffect: vi.fn() }));
 vi.mock("../../api.ts", () => ({ api: vi.fn(), getToken: () => "t", observeEvents: vi.fn() }));
 vi.mock("../../theme.ts", () => ({ motionReduced: () => false }));
-vi.mock("../../store.ts", () => ({ usePrefs: () => ({ clock: "24h" }), useStore: (select: (s: unknown) => unknown) => select({ me: { role: state.role }, agents: [] }) }));
+vi.mock("../../store.ts", () => ({ usePrefs: () => ({ clock: "24h" }), useStore: (select: (s: unknown) => unknown) => select({ me: { role: state.role, features: { apple: state.apple } }, agents: [] }) }));
 
 const allowed: AppleMacStatus = { fullDiskAccess: "allowed", messagesControl: "allowed", contacts: "allowed", calendars: "allowed", reminders: "allowed", messagesSignedIn: true };
 const view = (over: Partial<AppleView> = {}): AppleView => ({
@@ -53,6 +53,7 @@ const text = (node: any): string => (typeof node === "string" ? node : Array.isA
 
 beforeEach(() => {
   state.role = "owner";
+  state.apple = false;
   vi.mocked(api).mockReset();
   vi.mocked(useEffect).mockReset();
   vi.mocked(observeEvents).mockReturnValue(vi.fn());
@@ -68,6 +69,23 @@ describe("Settings → Apple", () => {
     const listener = vi.mocked(observeEvents).mock.calls[0][0];
     listener({ type: "apple_changed" } as never);
     expect(api).toHaveBeenCalledTimes(2);
+  });
+
+  it("looks again when the hub says off right after the mod was switched on, and only then says it's off", async () => {
+    vi.useFakeTimers();
+    states = [];
+    state.apple = true;
+    const loaded = view();
+    vi.mocked(api).mockRejectedValueOnce({ status: 404, message: "The Apple mod is off. Turn it on in Mods." }).mockResolvedValue(loaded);
+    render(ApplePage);
+    vi.mocked(useEffect).mock.calls[0][0]();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(states[2]).not.toBe(true);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(api).toHaveBeenCalledTimes(2);
+    expect(states[0]).toBe(loaded);
+    expect(states[2]).toBe(false);
+    vi.useRealTimers();
   });
 
   it("lets owners change each app's level, and flags a missing Mac permission with Fix on the Mac", async () => {
