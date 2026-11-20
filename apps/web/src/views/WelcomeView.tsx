@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { api } from "../api.ts";
 import { awayEnabled, enableTailscale } from "../components/Access.tsx";
 import { onPublicAddress, skipAccess, useAccess, useAccessStore, type AccessInfo } from "../access.ts";
-import { completeSetupStep, nextStep, setDismissed, STEPS, useOnboarding, type StepId } from "../onboarding.ts";
+import { completeSetupStep, nextStep, savedSetup, setDismissed, STEPS, useOnboarding, type StepId } from "../onboarding.ts";
 import { usableDevices, useDevices, type DeviceInfo } from "../devices.ts";
 import { useStore } from "../store.ts";
 import { go } from "../router.ts";
@@ -61,7 +61,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     const a = loadAnswers(me.workspace.id);
     return !a.knowDone ? "know" : !a.agentDraft ? "agent" : "ai";
   };
-  const [v3, setV3] = useState<V3 | null>(null);
+  // after a reload mid-setup, pick up at the first v3 page not done yet (away and address are saved as done)
+  const [v3, setV3] = useState<V3 | null>(() => (intro && savedSetup(me.workspace.id).address ? firstV3() : null));
   const [screen, setScreen] = useState<Screen>(() => {
     if (intro) return onPublicAddress() ? "address" : "anywhere";
     const next = nextStep(done) ?? "anywhere";
