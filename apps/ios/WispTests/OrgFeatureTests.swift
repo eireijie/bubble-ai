@@ -28,11 +28,11 @@ final class OrgFeatureTests: XCTestCase {
     // Storage needs setting up first, so a hub that doesn't mention it means off
     XCTAssertFalse(empty.storage)
     XCTAssertTrue(try Wire.decoder.decode(Features.self, from: Data(#"{"storage":true}"#.utf8)).storage)
-    let some = try Wire.decoder.decode(Features.self, from: Data(#"{"buddy":false,"voice":false}"#.utf8))
-    XCTAssertFalse(some.buddy); XCTAssertFalse(some.voice); XCTAssertTrue(some.tasks)
+    let some = try Wire.decoder.decode(Features.self, from: Data(#"{"buddy":false,"voice":false}"#.utf8))  // an old workspace may still store voice; it is ignored
+    XCTAssertFalse(some.buddy); XCTAssertTrue(some.tasks)
     XCTAssertEqual(some.preset, "custom")
     XCTAssertEqual(Features.simple.preset, "simple")
-    let me = try Wire.decoder.decode(Me.self, from: Data(#"{"kind":"user","features":{"background":false,"routines":false,"teach":false,"tasks":false,"voice":false,"buddy":false,"invite":false,"remoteDesktop":false}}"#.utf8))
+    let me = try Wire.decoder.decode(Me.self, from: Data(#"{"kind":"user","features":{"background":false,"routines":false,"teach":false,"tasks":false,"buddy":false,"invite":false,"remoteDesktop":false}}"#.utf8))
     XCTAssertEqual(me.features, .simple)
     XCTAssertNil(try Wire.decoder.decode(Me.self, from: Data(#"{"kind":"user"}"#.utf8)).features)
     XCTAssertEqual(FeatureKey.allCases.count, 9)
@@ -63,14 +63,14 @@ final class OrgFeatureTests: XCTestCase {
 
   func testFeaturesSaveAndLiveEvent() async throws {
     let store = makeStore()
-    reply("PUT", "/api/features", #"{"features":{"background":false,"routines":false,"teach":false,"tasks":false,"voice":true,"buddy":false,"invite":false,"remoteDesktop":false}}"#)
+    reply("PUT", "/api/features", #"{"features":{"background":false,"routines":true,"teach":false,"tasks":false,"buddy":false,"invite":false,"remoteDesktop":false}}"#)
     var next = Features.simple
-    next.voice = true
+    next.routines = true
     try await store.setFeatures(next)
-    XCTAssertEqual(try body("PUT", "/api/features")["voice"] as? Bool, true)
-    XCTAssertTrue(store.features.voice); XCTAssertFalse(store.features.tasks)
-    store.handle(Data(#"{"type":"features","features":{"tasks":true,"voice":false}}"#.utf8))
-    XCTAssertTrue(store.features.tasks); XCTAssertFalse(store.features.voice)
+    XCTAssertEqual(try body("PUT", "/api/features")["routines"] as? Bool, true)
+    XCTAssertTrue(store.features.routines); XCTAssertFalse(store.features.tasks)
+    store.handle(Data(#"{"type":"features","features":{"tasks":true,"routines":false}}"#.utf8))
+    XCTAssertTrue(store.features.tasks); XCTAssertFalse(store.features.routines)
     // a failed save puts the old switches back
     reply("PUT", "/api/features", #"{"error":"owners only"}"#, status: 403)
     let before = store.features

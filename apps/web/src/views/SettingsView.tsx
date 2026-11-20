@@ -43,7 +43,7 @@ const NAV: NavSection[] = [
       { id: "notifications", label: "Notifications", icon: ic(Bell) },
       { id: "appearance", label: "Appearance", icon: ic(Palette) },
       { id: "preferences", label: "App behavior", icon: ic(SlidersHorizontal) },
-      { id: "voice", label: "Voice", icon: ic(Mic), feature: "voice", noGuests: true },
+      { id: "voice", label: "Voice", icon: ic(Mic), noGuests: true },
       { id: "security", label: "Security", icon: ic(ShieldCheck) },
     ],
   },

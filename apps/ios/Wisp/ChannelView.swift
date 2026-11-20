@@ -204,7 +204,7 @@ struct ChannelView: View {
   }
 
   /** a voice call is on offer in a chat with one agent when voice is on */
-  private var canCall: Bool { store.features.voice && current.archivedAt == nil && store.dmAgent(current) != nil }
+  private var canCall: Bool { current.archivedAt == nil && store.dmAgent(current) != nil }
 
   /** teams show their first two agents on the name pill */
   private var teamAgents: [Agent] {

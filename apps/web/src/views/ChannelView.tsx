@@ -91,7 +91,6 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const setActive = useStore((s) => s.setActive);
   const loadChannel = useStore((s) => s.loadChannel);
   const names = useNames();
-  const voice = useFeature("voice");
   const [calling, setCalling] = useState(!!route.call);
   const [callSlot, setCallSlot] = useState<HTMLElement | null>(null);
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
@@ -175,7 +174,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
                 </button>
               </span>
             )}
-            {dmAgent && voice && !calling && (
+            {dmAgent && !calling && (
               <span className="max-md:hidden">
                 <button onClick={() => setCalling(true)} className="circle" aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`}>
                   <Phone size={18} className="text-st-online" />
@@ -191,7 +190,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
               </span>
             )}
             {dmAgent ? (
-              <DmMore agent={dmAgent} channelId={channel.id} onDetails={() => openAgent(dmAgent.id, "details")} onComputer={() => openAgent(dmAgent.id, "computer")} onCall={voice ? () => setCalling(true) : undefined} />
+              <DmMore agent={dmAgent} channelId={channel.id} onDetails={() => openAgent(dmAgent.id, "details")} onComputer={() => openAgent(dmAgent.id, "computer")} onCall={() => setCalling(true)} />
             ) : (
               <TeamMore channel={channel} onInfo={(tab) => openSide({ kind: "info", tab })} onSettings={setSettings} />
             )}
@@ -206,7 +205,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <SignInNeededBar agent={dmFull} />
           </div>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={dmAgent && voice && !calling ? () => setCalling(true) : undefined} />}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} />}
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
       {sideAgent && side?.kind === "agent" && (

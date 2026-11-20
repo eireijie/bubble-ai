@@ -51,7 +51,6 @@ export function AgentPanel({ agent, tab, onTab, onClose, onCall, inDm = false }:
   ];
   const live = useStore((s) => s.live);
   const runs = Object.values(live).filter((r) => r.agentId === agent.id);
-  const voice = useFeature("voice");
   const [, tick] = useState(0);
   useEffect(() => {
     if (!runs.length) return;
@@ -86,7 +85,7 @@ export function AgentPanel({ agent, tab, onTab, onClose, onCall, inDm = false }:
         </div>
         <div className="mt-4 flex gap-2">
           {inDm ? (
-            voice && (
+            (
               <Button className="flex-1 h-9!" onClick={onCall}>
                 <Phone size={15} /> Call
               </Button>
@@ -149,7 +148,6 @@ function Details({ agent, onCall, runs, inDm }: { agent: Agent; onCall: () => vo
   const devices = useDevices();
   const readiness = agentReadiness(agent, devices);
   const teams = useTeams();
-  const voice = useFeature("voice");
   const next = setupNextStep(agent, devices);
   const device = devices?.find((d) => d.id === agent.nodeId);
   type Row = [string, ReactNode];
@@ -199,8 +197,8 @@ function Details({ agent, onCall, runs, inDm }: { agent: Agent; onCall: () => vo
       <MoreOptions title="More about it">
         <div className="space-y-4">
           {table([statusRow, deviceRow, computerRow, ...tail, ...technical])}
-          <div className={cx("grid gap-2", voice && !inDm ? "grid-cols-2" : "grid-cols-1")}>
-            {voice && !inDm && (
+          <div className={cx("grid gap-2", !inDm ? "grid-cols-2" : "grid-cols-1")}>
+            {!inDm && (
               <Button onClick={onCall}>
                 <Phone size={15} /> Call
               </Button>

@@ -119,7 +119,7 @@ describe("the Code mod switch", () => {
   it("is on by default, in Simple and for organizations that saved their mods before it existed", () => {
     expect(FEATURE_PRESETS.simple.code).toBe(true);
     expect(FEATURE_PRESETS.everything.code).toBe(true);
-    expect(resolveFeatures({ voice: true }).code).toBe(true);
+    expect(resolveFeatures({ tasks: true }).code).toBe(true);
     expect(resolveFeatures({ code: false }).code).toBe(false);
   });
 });

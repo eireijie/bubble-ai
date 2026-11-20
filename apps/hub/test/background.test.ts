@@ -684,12 +684,13 @@ describe("agents changing Wisp for their person", () => {
     const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
     const s = await agent.mySettings();
     expect(s.canChangeMods).toBe(true);
-    expect(s.mods.find((m) => m.key === "voice")?.on).toBe(true);
-    const r = await agent.changeSettings({ mods: { voice: false } });
-    expect(r.changed).toEqual(["Mod Voice calls: off"]);
-    expect((await owner.request("GET", "/api/features")).features.voice).toBe(false);
+    expect(s.mods.find((m) => m.key === "tasks")?.on).toBe(true);
+    expect(s.mods.find((m) => m.key === "voice")).toBeUndefined();
+    const r = await agent.changeSettings({ mods: { tasks: false } });
+    expect(r.changed).toEqual(["Mod Tasks board: off"]);
+    expect((await owner.request("GET", "/api/features")).features.tasks).toBe(false);
     await owner.request("POST", `/api/changes/${r.changeId}/undo`);
-    expect((await owner.request("GET", "/api/features")).features.voice).toBe(true);
+    expect((await owner.request("GET", "/api/features")).features.tasks).toBe(true);
   });
 });
 
