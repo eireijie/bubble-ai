@@ -24,6 +24,8 @@ import { SetupProgress } from "./onboarding/SetupProgress.tsx";
 import { GoalsStep } from "../components/onboarding/GoalsStep.tsx";
 import { HelloNext } from "../components/HelloStep.tsx";
 import { loadAnswers, rememberGoals, saveGoals, skipGoals } from "../onboardingV3.ts";
+import { saveAgentDraft } from "../onboardingV3.ts";
+import { AgentStep } from "./onboarding/AgentStep.tsx";
 export { makeFirstAgent } from "./onboarding/firstAgent.ts";
 
 export const SETUP_LABELS: Record<StepId, string> = { anywhere: "Away from home", address: "Your address", agent: "Make your first agent", devices: "Add your devices" };
@@ -52,6 +54,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const devices = useDevices(3000);
   // onboarding v3, page 2 (what you want help with) comes first on a new setup, until answered or skipped
   const [goals, setGoals] = useState(() => !!intro && !loadAnswers(me.workspace.id).goalsDone);
+  // page 4 (make the agent yours) after page 3, until its draft is saved; page 5 creates the agent from it
+  const [agentPage, setAgentPage] = useState(() => !!intro && !loadAnswers(me.workspace.id).agentDraft);
   const [screen, setScreen] = useState<Screen>(() => {
     if (intro) return onPublicAddress() ? "address" : "anywhere";
     const next = nextStep(done) ?? "anywhere";
@@ -100,6 +104,21 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
           onSkip={() => {
             skipGoals(me.workspace.id);
             setGoals(false);
+          }}
+        />
+      </HelloNext>
+    );
+  }
+  if (agentPage) {
+    return (
+      <HelloNext>
+        <AgentStep
+          workspaceId={me.workspace.id}
+          person={me.user.name}
+          onContinue={(draft) => {
+            saveAgentDraft(me.workspace.id, draft);
+            setName(draft.name);
+            setAgentPage(false);
           }}
         />
       </HelloNext>

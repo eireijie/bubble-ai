@@ -68,6 +68,8 @@ export interface OnboardingAnswers {
   /** page 2 was answered (Continue) or passed (Skip for now) */
   goalsDone: boolean;
   skipped?: boolean;
+  /** page 4: the agent the person shaped; page 5 creates it once its AI is chosen */
+  agentDraft?: AgentDraft;
   savedAt?: number;
 }
 
@@ -128,3 +130,40 @@ export async function rememberGoals(name: string, goals: readonly string[], othe
     return false;
   }
 }
+
+// --- page 4: your agent ------------------------------------------------------------------------
+
+/** Page 4's agent, saved on Continue; page 5 creates the real agent from it. */
+export interface AgentDraft {
+  name: string;
+  handle?: string;
+  /** "What I do", one line */
+  role: string;
+  /** one of FAMILY_COLORS */
+  color: string;
+  /** the shape the app stores (GhostAppearance.shape) */
+  shape: "classic" | "round" | "tall" | "sheet" | "wisp";
+  /** the family silhouette picked (the "block" one has no stored shape of its own, so it rides along here) */
+  silhouette?: "drop" | "soft" | "tall" | "wide" | "block" | "ghost";
+  /** the start of its instructions */
+  instructions: string;
+}
+
+/** "You are Juno, Sam's agent in Wisp. Your job: … Ask before connecting an account, spending money or sending anything as them." */
+export function agentInstructions(agent: string, person: string, role: string, goals: readonly string[], other = ""): string {
+  const who = person.trim().split(/\s+/)[0] || "the person";
+  const picks = pickedGoals(goals).map((g) => g.label.toLowerCase());
+  const want = picks.length ? picks.join(", ") : other.trim();
+  const job = role.trim().replace(/[.\s]+$/, "");
+  return [
+    `You are ${agent.trim()}, ${who}'s agent in Wisp.`,
+    job ? `Your job: ${job}.` : "",
+    want ? `${who} wants help with: ${want.replace(/[.\s]+$/, "")}.` : "",
+    "What you know about them is in your notes; use it without asking again.",
+    "Ask before connecting an account, spending money or sending anything as them.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export const saveAgentDraft = (workspaceId: string, agentDraft: AgentDraft) => saveAnswers(workspaceId, { agentDraft });
