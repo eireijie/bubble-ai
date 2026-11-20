@@ -9,11 +9,12 @@ struct CircleLabel: View {
   var symbol: String
   var size: CGFloat = 44
   var weight: Font.Weight = .medium
+  var tint: Color = Palette.text
 
   var body: some View {
     Image(systemName: symbol)
       .font(.system(size: size * 0.38, weight: weight))
-      .foregroundStyle(Palette.text)
+      .foregroundStyle(tint)
       .frame(width: size, height: size)
       .glassCircle()
       .contentShape(Circle())
@@ -46,10 +47,11 @@ struct CircleButton: View {
   var label: String
   var size: CGFloat = 44
   var id: String? = nil
+  var tint: Color = Palette.text
   var action: () -> Void
 
   var body: some View {
-    Button(action: action) { CircleLabel(symbol: symbol, size: size) }
+    Button(action: action) { CircleLabel(symbol: symbol, size: size, tint: tint) }
       .buttonStyle(.press)
       .accessibilityLabel(label)
       .accessibilityIdentifier(id ?? "")
