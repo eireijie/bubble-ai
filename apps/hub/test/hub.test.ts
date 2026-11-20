@@ -1014,6 +1014,8 @@ describe("the lead", () => {
     const db = openDb(file);
     const runId = run.type === "run" ? run.run.runId : "";
     db.prepare("UPDATE runs SET status = 'running' WHERE id = ?").run(runId);
+    // the stand-in device already answered, which finishes a task nobody marked; the real lead is still working it
+    db.prepare("UPDATE tasks SET status = 'in_progress' WHERE id = ?").run(parent.id);
     const asAtlas = { "x-wisp-agent": atlas.id };
     const sub = (await api<any>("POST", "/api/tasks", { to: "nova", title: "Run the release build", brief: "build it" }, nodeToken, asAtlas)).data;
     db.prepare("UPDATE runs SET status = 'done' WHERE id = ?").run(runId);

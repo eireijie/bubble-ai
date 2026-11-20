@@ -902,6 +902,8 @@ export class Hub {
     const { store } = this;
     const task = run.threadId ? store.taskByThread(run.threadId) : undefined;
     if (!task || task.toAgentId !== run.agentId || run.triggerMessageId !== task.threadId || (task.status !== "open" && task.status !== "in_progress")) return;
+    // a lead that handed out subtasks isn't finished until they are; the subtask reports bring it back
+    if (store.subtasks(task.id).some((s) => s.status !== "done" && s.status !== "cancelled")) return;
     store.updateTask(task.id, "done", result.slice(0, 40_000));
     this.broadcast(task.workspaceId, { type: "tasks_changed" });
     const updated = store.task(task.id)!;
