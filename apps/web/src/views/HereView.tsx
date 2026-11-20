@@ -13,6 +13,7 @@ import { OnboardingGhost } from "../components/onboarding/OnboardingGhost.tsx";
 import { hereSeenKey } from "../components/onboarding/FirstChat.tsx";
 import { PhonePairing } from "./settings/mobile.tsx";
 import { startNewAgent } from "../components/ChatList.tsx";
+import { openDm } from "../openDm.ts";
 
 /**
  * "Here's your Wisp" (#/here[/<agentId>], onboarding page 7): what setup really turned on, read from
@@ -203,8 +204,8 @@ export function HereView({ agentId }: { agentId?: string | null }) {
             })}
             {loading && <li className="px-4 py-3 text-[13px] text-faint">Checking…</li>}
           </ul>
-          {agent?.settings.setup?.channelId && (
-            <button type="button" onClick={() => go({ view: "chat", channelId: agent.settings.setup!.channelId, threadId: null })} className="here-btn mt-6 h-10 rounded-full bg-ink px-5 text-[14px] font-medium text-panel">
+          {agent && (
+            <button type="button" onClick={() => (agent.settings.setup?.channelId ? go({ view: "chat", channelId: agent.settings.setup.channelId, threadId: null }) : void openDm(agent.id))} className="here-btn mt-6 h-10 rounded-full bg-ink px-5 text-[14px] font-medium text-panel">
               Back to {agent.name}
             </button>
           )}
