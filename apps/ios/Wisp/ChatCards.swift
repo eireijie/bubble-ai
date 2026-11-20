@@ -252,7 +252,7 @@ struct ContextCard: View {
   /** "Roughly half full" for the card's headline. */
   static func words(_ fraction: Double?) -> String {
     guard let f = fraction else { return "Nothing used yet" }
-    return f < 0.35 ? "Roughly a third full" : f < 0.65 ? "Roughly half full" : f < 0.85 ? "Getting full" : "Nearly full"
+    return f < 0.10 ? "Nearly empty" : f < 0.25 ? "Under a quarter full" : f < 0.40 ? "Roughly a third full" : f < 0.60 ? "Roughly half full" : f < 0.75 ? "Over half full" : f < 0.90 ? "Getting full" : "Nearly full"
   }
 
   /** Ask the agent to shrink its conversation by sending its command, in the same thread. */

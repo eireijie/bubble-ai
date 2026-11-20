@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { FlowStrip } from "../team/Runs.tsx";
+import { contextWords } from "../contextWords.ts";
 import { LogIn, RotateCcw, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, Eye, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, MoreHorizontal, Monitor, Paperclip, Phone, Plus, Shield, ShieldAlert, SquareTerminal, UserPlus, Users, X, Zap, ChevronDown, Hash, Info, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { parseMentions, SCHEDULE_MARK, type AccessLevel, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
@@ -463,7 +464,7 @@ function ContextCard({ usage }: { usage: ContextUsage | null }) {
   return (
     <ChatCard icon={<AudioLines size={13} />} label="Context window">
       <div className="mt-2 flex items-baseline justify-between gap-3">
-        <span className="text-body font-medium">{pct === null ? "Nothing used yet" : pct < 35 ? "Roughly a third full" : pct < 65 ? "Roughly half full" : pct < 85 ? "Getting full" : "Nearly full"}</span>
+        <span className="text-body font-medium">{contextWords(pct)}</span>
         {usage?.model && <span className="text-xs text-muted truncate">{prettyModel(usage.model)}</span>}
       </div>
       {pct !== null && (
