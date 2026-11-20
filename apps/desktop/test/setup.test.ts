@@ -20,19 +20,20 @@ function fixture(state: Record<string, any> = { step: "cloud", server: { id: 42,
     cloudProviders: vi.fn(async () => [{ id: "digitalocean", name: "DigitalOcean", signIn: true }, { id: "hetzner", name: "Hetzner", signIn: false, signInUrl: "https://console.hetzner.com/projects" }]),
     rustdeskStatus: vi.fn(async () => ({ installed: false, id: null })),
   };
+  let keydown: (e: any) => void = () => {};
   const timers = new Map<number, () => Promise<void>>();
   let timerId = 0;
   const html = readFileSync(new URL("../src/setup.html", import.meta.url), "utf8");
   const code = html.match(/<script>([\s\S]*?)<\/script>/)![1];
   runInNewContext(code, {
-    window: { wispSetup: setup, addEventListener: vi.fn(), dispatchEvent: vi.fn() }, Event: class {}, location: { search: `?state=${encodeURIComponent(JSON.stringify(state))}` },
+    window: { wispSetup: setup, addEventListener: (type: string, fn: any) => { if (type === "keydown") keydown = fn; }, dispatchEvent: vi.fn() }, Event: class {}, location: { search: `?state=${encodeURIComponent(JSON.stringify(state))}` },
     setTimeout: (fn: () => Promise<void>) => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: (id: number) => timers.delete(id),
     setInterval: () => 0, clearInterval: () => {},
     URLSearchParams, URL, Intl, Option: class {},
     document: { getElementById: element, querySelectorAll: () => [], querySelector: () => null, createElement: () => ({ append: vi.fn() }) },
   });
-  return { element, setup, tick: async () => { const [id, fn] = [...timers][0]; timers.delete(id); await fn(); } };
+  return { element, setup, esc: (extra: Record<string, any> = {}) => keydown({ key: "Escape", ...extra }), tick: async () => { const [id, fn] = [...timers][0]; timers.delete(id); await fn(); } };
 }
 
 describe("resuming cloud setup after relaunch", () => {
@@ -67,15 +68,15 @@ describe("resuming cloud setup after relaunch", () => {
 });
 
 describe("Wisp first launch", () => {
-  it("draws six wisps from Ghost's own shapes, each on its own clock", () => {
+  it("draws six wisps from its own shapes, five crew each on their own clock", () => {
     const html = readFileSync(new URL("../src/setup.html", import.meta.url), "utf8");
     const stage = html.match(/<script>[\s\S]*?<\/script>\s*<script>([\s\S]*?)<\/script>/)![1];
     const crew = stage.match(/const CREW = \[([\s\S]*?)\n\s*\];/)![1];
     const clocks = [...crew.matchAll(/T\("(animation-duration:[^"]+)"/g)].map((m) => m[1]);
     expect(clocks).toHaveLength(5);
     expect(new Set(clocks).size).toBe(5);
-    const ghost = readFileSync(new URL("../../web/src/components/Ghost.tsx", import.meta.url), "utf8");
-    expect(ghost).toContain(stage.match(/classic: \{ d: "([^"]+)"/)![1]);
+    // the page carries its own wisp shapes now (Ghost.tsx's flat family no longer has them)
+    expect(stage).toMatch(/classic: \{ d: "M[^"]+"/);
   });
 
   it("goes from Self-Host through installing to Continue, which opens the server", async () => {
@@ -149,5 +150,102 @@ describe("Wisp first launch", () => {
     f.element("cancel-join").onclick();
     expect(f.setup.cancelJoin).toHaveBeenCalled();
     expect(f.element("join").hidden).toBe(false);
+  });
+});
+
+describe("Back and Escape", () => {
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  async function toCloud() {
+    const f = fixture({});
+    f.element("pick-cloud").onclick();
+    f.element("welcome-go").onclick();
+    await settle();
+    return f;
+  }
+
+  it("Escape on the provider screen closes the open list, then goes back to the first page", async () => {
+    const f = await toCloud();
+    f.element("p-change").onclick();
+    expect(f.element("p-list").hidden).toBe(false);
+    f.esc();
+    expect(f.element("p-list").hidden).toBe(true);
+    expect(f.element("cloud").hidden).toBe(false);
+    f.esc();
+    expect(f.element("cloud").hidden).toBe(true);
+    expect(f.element("welcome").hidden).toBe(false);
+  });
+
+  it("Escape on a token screen (Hetzner) goes back to the first page", async () => {
+    const f = await toCloud();
+    f.element("p-change").onclick();
+    f.element("p-list").replaceChildren.mock.calls[0][0].onclick();
+    expect(f.element("cloud-token-form").hidden).toBe(false);
+    f.esc();
+    expect(f.element("cloud").hidden).toBe(true);
+    expect(f.element("welcome").hidden).toBe(false);
+  });
+
+  it("Escape during the browser sign-in wait cancels it and goes back", async () => {
+    const f = await toCloud();
+    (f.setup as any).cloudSignIn = vi.fn(() => new Promise(() => {}));
+    (f.setup as any).cloudSignInCancel = vi.fn();
+    f.element("signin-go").onclick();
+    f.esc();
+    expect((f.setup as any).cloudSignInCancel).toHaveBeenCalledOnce();
+    expect(f.element("welcome").hidden).toBe(false);
+  });
+
+  it("choosing a size goes back to connecting, and Escape on the first page does nothing", async () => {
+    const f = fixture();
+    await settle();
+    f.element("cloud-wait").onclick();
+    f.element("cloud-token").value = "token";
+    f.element("cloud-token-form").onsubmit({ preventDefault() {} });
+    await settle();
+    expect(f.element("cloud-choose").hidden).toBe(false);
+    f.esc();
+    expect(f.element("cloud-connect").hidden).toBe(false);
+    f.esc();
+    expect(f.element("welcome").hidden).toBe(false);
+    f.esc();
+    expect(f.element("welcome").hidden).toBe(false);
+  });
+
+  it("join goes back to the first page; waiting for approval goes back to join", async () => {
+    const f = fixture({});
+    await f.element("pick-join").onclick();
+    expect(f.element("join").hidden).toBe(false);
+    f.esc();
+    expect(f.element("join").hidden).toBe(true);
+    expect(f.element("welcome").hidden).toBe(false);
+    await f.element("pick-join").onclick();
+    f.element("url").value = "https://mac.local/join/abc";
+    f.element("join-form").onsubmit({ preventDefault() {} });
+    await settle();
+    expect(f.element("waiting").hidden).toBe(false);
+    f.esc();
+    expect(f.element("waiting").hidden).toBe(true);
+    expect(f.element("join").hidden).toBe(false);
+  });
+
+  it("Self-Host goes back to the first page, and Escape while installing does nothing", async () => {
+    const f = fixture({});
+    f.element("pick-create").onclick();
+    f.element("welcome-go").onclick();
+    f.esc();
+    expect(f.element("welcome").hidden).toBe(false);
+    f.element("pick-create").onclick();
+    f.element("welcome-go").onclick();
+    f.element("create-go").onclick();
+    f.esc();
+    expect(f.element("installing").hidden).toBe(false);
+  });
+
+  it("ignores Escape while an input method is composing", async () => {
+    const f = await toCloud();
+    f.esc({ isComposing: true });
+    f.esc({ keyCode: 229 });
+    f.esc({ defaultPrevented: true });
+    expect(f.element("cloud").hidden).toBe(false);
   });
 });
