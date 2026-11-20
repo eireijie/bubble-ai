@@ -1,10 +1,10 @@
 import { useEffect, type ReactNode } from "react";
-import { Apple, Bell, BookOpen, ChevronLeft, ChevronRight, Cpu, Database, Gauge, HardDrive, Info, KeyRound, Link2, Mic, Monitor, Palette, Plug, Settings, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Store, User, Users, Wifi, Wrench, Building2, Bot, SquareTerminal, Brain, Wand2 } from "lucide-react";
+import { Apple, Bell, BookOpen, ChevronLeft, ChevronRight, Ghost, Database, Gauge, HardDrive, Info, KeyRound, Link2, Mic, Monitor, Palette, Plug, Settings, ShieldCheck, SlidersHorizontal, Store, User, Users, Wifi, Wrench, Building2, Bot, SquareTerminal, Wand2 } from "lucide-react";
 import { resolveFeatures, type Features } from "@wisp/core";
 import { useStore } from "../store.ts";
 import { go, href, type SettingsPage } from "../router.ts";
 import { cx } from "../components/ui.tsx";
-import { useFeatures } from "../features.ts";
+import { setFeatures, useFeatures } from "../features.ts";
 import { AppearancePage, NotificationsPage, PreferencesPage, ProfilePage, SecurityPage } from "./settings/account.tsx";
 import { AgentsPolicyPage, ComputersPage, ConnectionsPage, DataPage, GeneralPage, PeoplePage } from "./settings/workspace.tsx";
 import { RuntimesPage } from "./settings/runtimes.tsx";
@@ -25,7 +25,8 @@ import { AboutPage } from "./settings/about.tsx";
 import { SignOutButton } from "./settings/signout.tsx";
 import { MarketplaceView } from "./MarketplaceView.tsx";
 import { AccessPanel } from "../components/Access.tsx";
-import { PageHeader } from "./settings/parts.tsx";
+import { MergedPageContext, PageHeader, Row, Card } from "./settings/parts.tsx";
+import { Switch } from "./settings/features.tsx";
 
 /**
  * Settings: a short list of sections. A section with more than one page lists them under it
@@ -44,6 +45,7 @@ const NAV: NavSection[] = [
       { id: "appearance", label: "Appearance", icon: ic(Palette) },
       { id: "preferences", label: "App behavior", icon: ic(SlidersHorizontal) },
       { id: "voice", label: "Voice", icon: ic(Mic), noGuests: true },
+      { id: "buddy", label: "Desk buddy", icon: ic(Ghost), noGuests: true },
       { id: "security", label: "Security", icon: ic(ShieldCheck) },
     ],
   },
@@ -60,9 +62,7 @@ const NAV: NavSection[] = [
     pages: [
       { id: "agents", label: "Permissions", icon: ic(Bot), noGuests: true },
       { id: "agent-defaults", label: "Agent defaults", icon: ic(Wrench), noGuests: true },
-      { id: "models", label: "Models", icon: ic(Brain), noGuests: true },
-      { id: "harnesses", label: "Harnesses", icon: ic(SquareTerminal), noGuests: true },
-      { id: "runtimes", label: "Harness setup", icon: ic(Cpu), noGuests: true },
+      { id: "harnesses", label: "AI", icon: ic(SquareTerminal), noGuests: true },
       { id: "logins", label: "Logins", icon: ic(KeyRound), noGuests: true },
       { id: "storage", label: "Storage", icon: ic(HardDrive), feature: "storage", noGuests: true },
       { id: "apple", label: "Apple", icon: ic(Apple), feature: "apple", noGuests: true },
@@ -75,10 +75,8 @@ const NAV: NavSection[] = [
   {
     section: "Devices",
     pages: [
-      { id: "devices", label: "Devices", icon: ic(Monitor), noGuests: true },
-      { id: "computers", label: "Computers", icon: ic(Sparkles), noGuests: true },
+      { id: "devices", label: "Computers and devices", icon: ic(Monitor), noGuests: true },
       { id: "access", label: "Away from home", icon: ic(Wifi), noGuests: true },
-      { id: "mobile", label: "Mobile", icon: ic(Smartphone), noGuests: true },
     ],
   },
   {
@@ -95,6 +93,22 @@ export function settingsNav(guest: boolean, features: Features = resolveFeatures
   return NAV.map((s) => ({ ...s, pages: s.pages.filter((p) => !(guest && p.noGuests) && (!p.feature || features[p.feature])) })).filter((s) => s.pages.length);
 }
 
+/** The Desk buddy mod's switch, here so it can be found without opening Mods. It stays a mod. */
+function BuddyPage() {
+  const features = useFeatures();
+  const owner = useStore((s) => s.me?.role) === "owner";
+  return (
+    <>
+      <PageHeader title="Desk buddy">A small ghost on your desktop that shows what your agents are up to.</PageHeader>
+      <Card>
+        <Row label="Show the desk buddy" hint={owner ? undefined : "Only owners can change this."}>
+          <Switch on={features.buddy} label="Desk buddy" disabled={!owner} onChange={(v) => void setFeatures({ buddy: v })} />
+        </Row>
+      </Card>
+    </>
+  );
+}
+
 const PAGES: Record<Exclude<SettingsPage, "apps">, () => ReactNode> = {
   profile: () => <ProfilePage />,
   preferences: () => <PreferencesPage />,
@@ -102,8 +116,17 @@ const PAGES: Record<Exclude<SettingsPage, "apps">, () => ReactNode> = {
   voice: () => <VoicePage />,
   appearance: () => <AppearancePage />,
   security: () => <SecurityPage />,
-  devices: () => <DevicesPage />,
-  mobile: () => <MobilePage />,
+  // Devices holds Computers (defaults, cloud) and Mobile (phone pairing) too
+  devices: () => (
+    <>
+      <DevicesPage />
+      <MergedPageContext.Provider value>
+        <ComputersPage />
+        <MobilePage />
+      </MergedPageContext.Provider>
+    </>
+  ),
+  buddy: () => <BuddyPage />,
   usage: () => <UsagePage />,
   general: () => (
     <>
@@ -120,11 +143,17 @@ const PAGES: Record<Exclude<SettingsPage, "apps">, () => ReactNode> = {
   "agent-defaults": () => <AgentDefaultsPage />,
   people: () => <PeoplePage />,
   agents: () => <AgentsPolicyPage />,
-  runtimes: () => <RuntimesPage />,
-  models: () => <ModelsPage />,
-  harnesses: () => <HarnessesPage />,
+  // AI holds Harnesses, Models (connections and keys) and Harness setup (installs)
+  harnesses: () => (
+    <>
+      <HarnessesPage />
+      <MergedPageContext.Provider value>
+        <ModelsPage />
+        <RuntimesPage />
+      </MergedPageContext.Provider>
+    </>
+  ),
   memory: () => <MemoryPage />,
-  computers: () => <ComputersPage />,
   logins: () => <LoginsPage />,
   storage: () => <StoragePage />,
   apple: () => <ApplePage />,
@@ -136,7 +165,6 @@ const PAGES: Record<Exclude<SettingsPage, "apps">, () => ReactNode> = {
 
 /** A link in the list that isn't a settings page: it opens its own area. (Memory, Tasks, Marketplace, Mods and Help live under More in the rail, not here.) */
 const LINKS: { after: string; label: string; icon: ReactNode; to: () => string; noGuests?: boolean; feature?: keyof Features }[] = [
-  { after: "Devices", label: "Computers and devices", icon: ic(Monitor), to: () => href({ view: "computers", computerId: null }), noGuests: true },
 ];
 
 /** The links under a section, for a guest or not, with the organization's features. */

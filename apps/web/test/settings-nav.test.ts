@@ -10,10 +10,10 @@ const ids = (sections: ReturnType<typeof settingsNav>) => sections.map((s) => [s
 describe("settings navigation", () => {
   it("groups every page under You, Workspace, Agents, Devices and More", () => {
     expect(ids(settingsNav(false, FEATURE_PRESETS.everything))).toEqual([
-      ["You", ["profile", "notifications", "appearance", "preferences", "voice", "security"]],
+      ["You", ["profile", "notifications", "appearance", "preferences", "voice", "buddy", "security"]],
       ["Workspace", ["general", "people", "usage"]],
-      ["Agents", ["agents", "agent-defaults", "models", "harnesses", "runtimes", "logins", "apps", "skills", "connections", "memory"]],
-      ["Devices", ["devices", "computers", "access", "mobile"]],
+      ["Agents", ["agents", "agent-defaults", "harnesses", "logins", "apps", "skills", "connections", "memory"]],
+      ["Devices", ["devices", "access"]],
       ["More", ["data", "updates"]],
     ]);
   });
@@ -32,7 +32,7 @@ describe("settings navigation", () => {
 
   it("leaves out pages guests can't use", () => {
     const pages = settingsNav(true, FEATURE_PRESETS.everything).flatMap((s) => s.pages.map((p) => p.id));
-    for (const id of ["agents", "agent-defaults", "computers", "logins", "apps", "skills", "runtimes", "connections", "voice", "people", "general"]) expect(pages).not.toContain(id);
+    for (const id of ["agents", "agent-defaults", "devices", "harnesses", "logins", "apps", "skills", "connections", "voice", "people", "general"]) expect(pages).not.toContain(id);
   });
 
   it("hides pages for features that are off, and a section left empty", () => {
@@ -42,6 +42,13 @@ describe("settings navigation", () => {
     expect(pages).toContain("voice");
     expect(pages).not.toContain("people");
     expect(pages).not.toContain("usage");
+  });
+});
+
+describe("old settings routes", () => {
+  it("land on the page that holds them now", async () => {
+    const { parseRoute } = await import("../src/router.ts");
+    for (const [old, now] of [["models", "harnesses"], ["runtimes", "harnesses"], ["computers", "devices"], ["mobile", "devices"]]) expect(parseRoute(`#/settings/${old}`)).toMatchObject({ view: "settings", page: now });
   });
 });
 

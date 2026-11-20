@@ -1,12 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { cx } from "../../components/ui.tsx";
 
 /** The top of a settings page: its name and what it's for. */
+/** Set by a merged page that holds several pages: each one's header becomes a section heading under the merged page's title. */
+export const MergedPageContext = createContext(false);
+
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
+  const merged = useContext(MergedPageContext);
   return (
-    <div className="mb-6">
-      <h2 className="t-title max-md:hidden">{title}</h2>
+    <div className={merged ? "mb-4 mt-2" : "mb-6"}>
+      {merged ? <h3 className="text-[15px] font-semibold">{title}</h3> : <h2 className="t-title max-md:hidden">{title}</h2>}
       {children && <p className="mt-1.5 text-body leading-snug text-muted max-w-xl">{children}</p>}
     </div>
   );

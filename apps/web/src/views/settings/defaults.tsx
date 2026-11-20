@@ -106,7 +106,7 @@ export function AgentDefaultsPage() {
           ))}
         </Card>
       </Section>
-      {/* where new agents work is Wisp's pick, unless an owner chose to decide (Settings → Devices) */}
+      {/* where new agents work is Wisp's pick, unless an owner chose to decide (Settings → Computers and devices) */}
       {mode.advanced && (
       <Section title="Computer">
         <Card>

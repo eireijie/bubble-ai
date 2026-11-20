@@ -60,7 +60,7 @@ function RunFailedActions({ part, agentId }: { part: Extract<MessagePart, { type
   };
   // the agent still can't answer for want of a sign-in: open that sign-in right here
   const signIn = useStore((s) => (agentId && (part.fix === "signin" || part.fix === "computer") ? s.agents.find((a) => a.id === agentId)?.signIn : null));
-  const to = part.fix === "computer" && agentId ? href({ view: "agents", agentId, tab: "computer" }) : part.fix === "connection" ? href({ view: "settings", page: "models" }) : part.fix === "signin" ? href({ view: "settings", page: "harnesses" }) : null;
+  const to = part.fix === "computer" && agentId ? href({ view: "agents", agentId, tab: "computer" }) : part.fix === "connection" ? href({ view: "settings", page: "harnesses" }) : part.fix === "signin" ? href({ view: "settings", page: "harnesses" }) : null;
   if (sent) return <div className="mt-1 px-1 text-xs text-muted">Trying again…</div>;
   return (
     <div className="mt-1.5 px-1 flex flex-wrap items-center gap-2">
