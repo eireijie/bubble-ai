@@ -288,6 +288,9 @@ export function isGraphTeam(team: { steps?: Pick<TeamStep, "nexts" | "inputs">[]
 
 // --- checking ------------------------------------------------------------------------
 
+/** What a new schedule box asks the team until the person words it themselves (apps/ios mirrors this). */
+export const DEFAULT_SCHEDULE_PROMPT = "Do this team's usual work and tell me how it went.";
+
 /** What's wrong with a schedule box on its own, or null. */
 export function scheduleProblem(s: Pick<TeamStep, "schedule" | "timezone" | "prompt">): string | null {
   if (!(s.prompt ?? "").trim()) return "Say what the schedule asks the team.";

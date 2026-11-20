@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { ArrowRight, ChevronLeft, Hash, LayoutGrid, Loader2, Lock, PenLine, Sparkles, Workflow } from "lucide-react";
-import { TEAM_TEMPLATES, MIN_TEAM_AGENTS, teamProblem, teamSizeProblem, type Agent, type ChannelTeam, type FlowLine, type Section, type TeamDraft, type TeamTemplate } from "@wisp/core";
+import { TEAM_TEMPLATES, MIN_TEAM_AGENTS, teamProblem, teamSizeProblem, workSteps, type Agent, type ChannelTeam, type FlowLine, type Section, type TeamDraft, type TeamTemplate } from "@wisp/core";
 import { api } from "../api.ts";
 import { go } from "../router.ts";
 import { useStore } from "../store.ts";
@@ -442,7 +442,7 @@ function Review({ slug: id, topic, team, busy, error, onBack, onCreate }: { slug
           <Workflow size={19} className="text-muted" aria-hidden />
           <span className="flex-1 text-body font-medium">See the flowchart</span>
           <span className="text-sm text-muted">
-            {team.steps?.length ?? 0} {(team.steps?.length ?? 0) === 1 ? "step" : "steps"}
+            {workSteps(team.steps ?? []).length} {workSteps(team.steps ?? []).length === 1 ? "step" : "steps"}
           </span>
         </button>
         {(problem || error) && (
