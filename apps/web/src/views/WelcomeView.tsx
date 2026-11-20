@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { api } from "../api.ts";
 import { awayEnabled, enableTailscale } from "../components/Access.tsx";
 import { onPublicAddress, skipAccess, useAccess, useAccessStore, type AccessInfo } from "../access.ts";
-import { completeSetupStep, nextStep, setDismissed, STEPS, useOnboarding, type StepId } from "../onboarding.ts";
+import { completeSetupStep, devicesLine, nextStep, setDismissed, STEPS, stepsFinished, useOnboarding, type StepId } from "../onboarding.ts";
 import { usableDevices, useDevices, type DeviceInfo } from "../devices.ts";
 import { useStore } from "../store.ts";
 import { go } from "../router.ts";
@@ -34,7 +34,7 @@ const SCREENS: Record<Screen, { at: number; line: (name: string) => string; mood
   name: { at: 2, line: () => "What should I be called?" },
   memory: { at: 3, line: () => "Tell me what you're working on and I'll pick up from there." },
   setup: { at: 4, line: () => "Moving into my computer…", mood: "working" },
-  devices: { at: 5, line: (n) => `Say hi to ${n} from your phone too.` },
+  devices: { at: 5, line: (n) => devicesLine(n || null) },
 };
 
 /**
@@ -66,8 +66,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     setScreen(next === "agent" ? "connect" : next);
   };
   const finish = (channelId?: string | null) => {
-    completeSetupStep(me.workspace.id, "agent");
-    completeSetupStep(me.workspace.id, "devices");
+    for (const step of stepsFinished(!!channelId || agents.length > 0)) completeSetupStep(me.workspace.id, step);
     setDismissed(true);
     go(channelId ? { view: "chat", channelId, threadId: null } : { view: "dashboard" });
   };
@@ -80,7 +79,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   // the steps before the agent were made for a narrow panel; they keep that width in the middle
   const narrow = (node: ReactNode) => <div className="ob-narrow">{node}</div>;
   return (
-    <SetupShell at={s.at} line={s.line(name.trim() || "your agent")} look={preAgent ? undefined : look} mood={s.mood} stepKey={screen} onBack={canGoBack ? () => setScreen(before!) : null}>
+    <SetupShell at={s.at} line={s.line(agents.length ? name.trim() || "your agent" : "")} look={preAgent ? undefined : look} mood={s.mood} stepKey={screen} onBack={canGoBack ? () => setScreen(before!) : null}>
       {screen === "anywhere" && narrow(<AwayStep onScene={() => {}} onDone={() => advance("anywhere")} />)}
       {screen === "address" && narrow(<AddressStep onScene={() => {}} onNext={() => advance("address")} />)}
       {screen === "connect" && (
@@ -91,7 +90,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
             if (!r.some((x) => x.harness === harness)) setHarness(r[0]?.harness ?? "");
             setScreen("name");
           }}
-          onSkip={() => advance("agent")}
+          // skipping the AI makes no agent: the agent step stays open so setup resumes here
+          onSkip={() => setScreen("devices")}
         />
       )}
       {screen === "name" && powered && <NameStep name={name} setName={setName} look={look} ready={ready} harness={powered.harness} setHarness={setHarness} onBack={() => setScreen("connect")} onNext={() => setScreen("memory")} />}
