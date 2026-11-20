@@ -12,13 +12,12 @@ import { ConnectModel } from "./ConnectModel.tsx";
 import { BackHeader, GroupLabel, SegBar, ThinBar } from "./RunParts.tsx";
 
 /**
- * The chat's one quiet line about how an agent runs: "Hermes · Opus 5.5 · High ⌄" above the
- * message box on phones (it opens a sheet), "Opus 5.5 · High ⌄" inside the composer on larger
- * screens (it opens a popover). Either opens the same panel: harness, model, effort, context, plan.
+ * The chat's one quiet line about how an agent runs: "Hermes · Opus 5.5 · High ⌄", above the
+ * message box on phones (it opens a sheet) and inside the composer on larger screens (it opens a popover). Either opens the same panel: harness, model, effort, context, plan.
  */
 export function ModelLine({ place, agent, ctx, models, channelId, threadId, canEdit }: { place: "phone" | "desktop"; agent: Agent; ctx: AgentContext; models: AgentModels | null; channelId: string; threadId?: string; canEdit: boolean }) {
   const [sheet, setSheet] = useState(false);
-  const text = runLine(ctx, models, place === "phone");
+  const text = runLine(ctx, models);
   const trigger = (open: boolean, toggle: () => void) => (
     <button
       type="button"

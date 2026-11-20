@@ -44,9 +44,16 @@ const conn = (over: Partial<ModelConnection>): ModelConnection => ({
 });
 
 describe("the chat's model line", () => {
-  it("reads harness · model · effort on phones and model · effort on desktops", () => {
-    expect(runLine(ctx(), models(), true)).toBe("Hermes · Opus 5.5 · High");
-    expect(runLine(ctx(), models(), false)).toBe("Opus 5.5 · High");
+  it("reads harness · model · effort everywhere, and just the harness with no model", () => {
+    expect(runLine(ctx(), models())).toBe("Hermes · Opus 5.5 · High");
+    expect(runLine(ctx({ model: null, effort: null }), null)).toBe("Hermes");
+  });
+
+  it("keeps a Hermes model's provider out of the harness spot", () => {
+    const hermes = ctx({ model: "openai-codex:gpt-5.6-luna", effort: null, connection: null });
+    const catalog = { harness: "hermes", version: null, efforts: [], models: [{ id: "openai-codex:gpt-5.6-luna", label: "OpenAI Codex · gpt-5.6-luna" }] };
+    expect(runLine(hermes, models({ models: null, catalog }))).toBe("Hermes · gpt-5.6-luna");
+    expect(modelName(hermes, models({ models: null, catalog }))).toEqual({ name: "gpt-5.6-luna", provider: "OpenAI Codex" });
   });
 
   it("names the model from the computer's catalog, and its provider from the connection or the harness's own sign-in", () => {
@@ -57,7 +64,7 @@ describe("the chat's model line", () => {
   });
 
   it("leaves effort out when the model has none", () => {
-    expect(runLine(ctx({ effort: null }), models(), true)).toBe("Hermes · Opus 5.5");
+    expect(runLine(ctx({ effort: null }), models())).toBe("Hermes · Opus 5.5");
   });
 
   it("shortens effort names when many share the row", () => {
