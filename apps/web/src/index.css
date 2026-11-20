@@ -942,6 +942,22 @@ body {
   .wisp-root :is(.wisp-lean, .wisp-follow, .wisp-lid) { transition: none; }
 }
 
+/* mouth C (canvas Mouths, chosen 2026-11-20): one stroke in the eyes' ink. Flat idle, a small smile when
+   the pointer is near, a pressed line off to one side while working, opening and closing while it talks */
+.wisp-root .wisp-mouth > * { opacity: 0; transition: opacity 0.15s ease; }
+.wisp-root .wisp-mouth .m-flat { opacity: 1; }
+.wisp-root.working .wisp-mouth .m-flat, .wisp-root.following .wisp-mouth .m-flat, .wisp-root.talking .wisp-mouth .m-flat { opacity: 0; }
+.wisp-root.working:not(.following):not(.talking) .wisp-mouth .m-work { opacity: 1; }
+.wisp-root.following:not(.talking) .wisp-mouth .m-smile { opacity: 1; }
+.wisp-root.talking .wisp-mouth .m-talk { opacity: 1; transform-box: fill-box; transform-origin: center; animation: wisp-talk 0.62s ease-in-out infinite; }
+@keyframes wisp-talk { 0%, 100% { transform: scaleY(0.3); } 30% { transform: scaleY(1); } 55% { transform: scaleY(0.45); } 78% { transform: scaleY(0.85); } }
+.wisp-root.frozen .wisp-mouth .m-talk { animation: none; transform: scaleY(0.6); }
+.wisp-root.frozen .wisp-mouth > * { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .wisp-root .wisp-mouth .m-talk { animation: none !important; transform: scaleY(0.6); }
+  .wisp-root .wisp-mouth > * { transition: none; }
+}
+
 /* ---------- the desktop rail: 72px, opens to 300px over the page while the pointer rests on it ---------- */
 .rail { width: 72px; transition: width var(--t-drawer) var(--drawer), box-shadow var(--t-drawer) var(--drawer); }
 .rail-wrap:hover > .rail, .rail:has(:focus-visible) { width: 300px; box-shadow: var(--shadow-float); transition-delay: 120ms; }

@@ -218,7 +218,7 @@ export function TeamNeedCard({ flow, lane }: { flow: TeamFlow; lane: FlowLane })
   };
   if (!step) return null;
   return (
-    <div className="rounded-3xl bg-card border border-line p-4 md:px-5 md:py-[18px] flex flex-col gap-3">
+    <div className="rounded-2xl bg-card px-4 py-3.5 flex flex-col gap-2.5">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-base font-medium leading-snug">{team?.name ?? "A team"} needs you</div>

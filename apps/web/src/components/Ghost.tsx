@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { GhostAppearance } from "@wisp/core";
 import { useMotionReduced } from "../theme.ts";
 import { SILHOUETTES, eyeInk, familyColor, seedDelay, silhouetteOf } from "../ghostFamily.ts";
+import { GhostFacewear, GhostHat, GhostNeckwear } from "./GhostWear.tsx";
 
 /** How the ghost feels right now; follows the agent's status where it matters. */
 export type GhostMood = "awake" | "listening" | "thinking" | "asleep" | "working" | "done" | "waiting" | "error";
@@ -13,7 +14,9 @@ const clamp = (v: number, m: number) => Math.max(-m, Math.min(m, v));
  * An agent's ghost from the ghost family (canvas Avatar): one flat colour, two eyes, its own
  * silhouette. Idle, it sits and breathes and stares off; when the pointer comes near, its eyes and
  * body follow it; working, it wakes with a hop, wanders, types on a little laptop and thinks in
- * bubbles. Reduce Motion (the OS or Settings) stills all of it.
+ * bubbles. One mouth stroke in the eyes' ink (canvas Mouths, C): flat idle, a small smile when the
+ * pointer is near, a pressed line while working, opening and closing while it talks on a call. Hats
+ * and neckwear ride with the body, face wear with the eyes. Reduce Motion (the OS or Settings) stills all of it.
  */
 export function Ghost({
   look,
@@ -46,11 +49,18 @@ export function Ghost({
   const reduced = useMotionReduced();
   const animated = animate && !reduced;
   const still = !animated || !ambient;
-  const shape = SILHOUETTES[silhouetteOf(look)];
+  const sil = silhouetteOf(look);
+  const shape = SILHOUETTES[sil];
   const asleep = mood === "asleep";
   // speaking: Reduce Motion keeps the ghost as it is, so the level only counts while animated
   const level = speakingLevel !== undefined && animated ? Math.min(1, Math.max(0, speakingLevel)) : 0;
-  const working = !asleep && (mood === "working" || mood === "thinking" || level > 0.05);
+  const working = !asleep && (mood === "working" || mood === "thinking");
+  // talking on a call: the mouth opens and closes (held half open under Reduce Motion)
+  const talking = !asleep && speakingLevel !== undefined && speakingLevel > 0.05;
+  const my = shape.ey + 5;
+  const showMouth = look.mouth !== "none" && look.accessory !== "mustache";
+  const hat = look.hat ?? "none";
+  const wear = look.accessory ?? "none";
   const color = familyColor(look, seed ?? label ?? "");
   const eye = eyeInk(color);
   const delays = seedDelay(seed ?? label ?? color);
@@ -62,7 +72,8 @@ export function Ghost({
   // hover: the eyes and body follow the pointer while it is near (or anywhere, with trackPointer)
   useEffect(() => {
     const el = root.current;
-    if (!animated || size < 16 || !el || asleep) return;
+    // asleep ghosts still glance over and smile, with their sleepy eyes
+    if (!animated || size < 16 || !el) return;
     if (!window.matchMedia?.("(hover: hover)").matches && !trackPointer) return;
     let frame = 0;
     let on = false;
@@ -112,7 +123,7 @@ export function Ghost({
       document.documentElement.removeEventListener("pointerleave", leave);
       leave();
     };
-  }, [animated, size, trackPointer, asleep]);
+  }, [animated, size, trackPointer]);
 
   const small = size <= 44;
   const tiny = size <= 24;
@@ -125,6 +136,7 @@ export function Ghost({
       className={cx(
         "wisp-root ghost relative inline-block shrink-0",
         working ? "working" : asleep ? "asleep" : "idle",
+        talking && "talking",
         still && "still",
         !animated && "frozen",
         small && "small",
@@ -134,12 +146,13 @@ export function Ghost({
       style={{ width: size, height: size, background: tile ? `color-mix(in srgb, ${color} 22%, transparent)` : undefined, "--wd": delays.wd, "--wb": delays.wb } as CSSProperties}
       onPointerDown={interactive && animated ? () => setHop((h) => h + 1) : undefined}
     >
-      <svg width="100%" height="100%" viewBox={tile ? "-6 -6 52 52" : "0 0 40 40"} aria-hidden="true" style={{ overflow: "visible", display: "block" }}>
+      <svg width="100%" height="100%" viewBox={tile ? "-6 -6 52 52" : hat !== "none" ? "-4 -8 48 48" : "0 0 40 40"} aria-hidden="true" style={{ overflow: "visible", display: "block" }}>
         <g className="wisp-wander">
           <g key={`${working ? "w" : "i"}${hop}`} className={cx("wisp-wake", (hop > 0 || mood === "done") && "hop")}>
             <g className="wisp-bob" style={level ? { transform: `scale(${1 + level * 0.05},${1 - level * 0.04})` } : undefined}>
               <g ref={lean} className="wisp-lean">
                 <path d={shape.d} fill={color} />
+                <GhostNeckwear kind={wear} shape={sil} />
                 <g className="wisp-gaze">
                   <g ref={follow} className="wisp-follow">
                     <g className="wisp-lid">
@@ -148,8 +161,18 @@ export function Ghost({
                     <g className="wisp-lid">
                       <ellipse className="wisp-eye" cx="24" cy={shape.ey} rx="1.9" ry="2.7" fill={eye} />
                     </g>
+                    {showMouth && !tiny && (
+                      <g className="wisp-mouth" stroke={eye} strokeWidth="1.25" strokeLinecap="round" fill="none">
+                        <path className="m-flat" d={`M18.7 ${my}h2.6`} />
+                        <path className="m-smile" d={`M18 ${my - 0.3}q2 1.7 4 0`} />
+                        <path className="m-work" d={`M19.6 ${my + 0.2}h2.1`} />
+                        <ellipse className="m-talk" cx="20" cy={my} rx="1.5" ry="1.3" fill={eye} stroke="none" />
+                      </g>
+                    )}
+                    <GhostFacewear kind={wear} ey={shape.ey} />
                   </g>
                 </g>
+                <GhostHat kind={hat} shape={sil} animate={animated} />
               </g>
               {working && (
                 <g className="wisp-kit">
