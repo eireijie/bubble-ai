@@ -295,6 +295,8 @@ function Laptop({ y }: { y: number }) {
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
 
 /** Accessories worn on the face; neckwear stays with the body. */
+/** The sleeping "z"'s color (the old ghost's mark color). */
+const MARK = "#f5c542";
 const FACE_WEAR = new Set<GhostAppearance["accessory"]>(["glasses", "sunglasses", "monocle", "mustache"]);
 
 /**

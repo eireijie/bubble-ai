@@ -3,7 +3,7 @@ import { useMotionReduced } from "../../theme.ts";
 import { FACT_GROUPS, SCAN_PARTS } from "../../onboardingV3.ts";
 import { IMPORT_APPS, addFacts, copyQuestion, dropFact, initKnow, pickApp, questionText, startScan, stillLearning, takeAnswer, useKnow } from "../../onboardingKnow.ts";
 import { OnboardingGhost } from "./OnboardingGhost.tsx";
-import { OnboardingDots } from "./GoalsStep.tsx";
+import { PageTop } from "./PageTop.tsx";
 
 const STYLE = `
 @keyframes ob-pop { 0% { opacity: 0; transform: translateY(6px) scale(.96); } 100% { opacity: 1; transform: none; } }
@@ -43,7 +43,7 @@ const primary = "ob-btn h-10 px-[18px] rounded-full bg-ink text-panel font-semib
  * background so nobody waits: look around this computer (after one yes), or bring what another AI
  * knows. Every finding is a chip the person can remove; they're saved to memory as they arrive.
  */
-export function KnowStep({ name, workspaceId, onContinue, onSkip }: { name: string; workspaceId: string; onContinue: () => void; onSkip: () => void }) {
+export function KnowStep({ name, workspaceId, onContinue, onSkip, onBack }: { name: string; workspaceId: string; onContinue: () => void; onSkip: () => void; onBack?: () => void }) {
   const reduced = useMotionReduced();
   const first = name.trim().split(/\s+/)[0] ?? "";
   const k = useKnow();
@@ -115,10 +115,7 @@ export function KnowStep({ name, workspaceId, onContinue, onSkip }: { name: stri
   return (
     <div className="fixed inset-0 z-10 flex flex-col bg-panel text-ink text-[14px] leading-[22px]">
       <style>{STYLE}</style>
-      <div className="h-14 px-6 flex items-center justify-between shrink-0 safe-top">
-        <span className="text-[15px] font-[650] tracking-[-0.01em]">Wisp</span>
-        <OnboardingDots step={2} />
-      </div>
+      <PageTop step={2} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="ob-page mx-auto w-full max-w-[1072px] flex flex-col gap-6 px-4 sm:px-6 pt-4 pb-10">
           <div className="flex items-center gap-4">

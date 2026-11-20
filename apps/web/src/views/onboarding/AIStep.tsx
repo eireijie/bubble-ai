@@ -6,7 +6,6 @@ import { useStore } from "../../store.ts";
 import { unavailable } from "../../join.ts";
 import { ConnectModel } from "../../components/ConnectModel.tsx";
 import { OnboardingGhost } from "../../components/onboarding/OnboardingGhost.tsx";
-import { OnboardingDots } from "../../components/onboarding/GoalsStep.tsx";
 import { WHITE_WISP } from "../../components/SetupStage.tsx";
 import { canUse, readyConnection, signInProvider, useConnections } from "../../models.ts";
 import { useMotionReduced } from "../../theme.ts";
@@ -14,6 +13,7 @@ import { loadAnswers, saveAnswers, type AgentDraft } from "../../onboardingV3.ts
 import type { DeviceInfo } from "../../devices.ts";
 import type { HarnessesResponse, HarnessSignIn as HarnessSignInDialog } from "../settings/harnesses.tsx";
 import { makeFirstAgent } from "./firstAgent.ts";
+import { PageTop } from "../../components/onboarding/PageTop.tsx";
 
 const STYLE = `
 @keyframes ob-pop { 0% { opacity: 0; transform: translateY(6px) scale(.98); } 100% { opacity: 1; transform: none; } }
@@ -73,7 +73,7 @@ export function foundOn(device: DeviceInfo | undefined, connections: ModelConnec
 }
 
 /** "Juno", her look and what she's for: page 4's draft, else the first agent's defaults. */
-function draftOf(workspaceId: string): { name: string; look: GhostAppearance; draft: AgentDraft | null } {
+export function draftOf(workspaceId: string): { name: string; look: GhostAppearance; draft: AgentDraft | null } {
   const raw = (loadAnswers(workspaceId) as { agentDraft?: Partial<AgentDraft> }).agentDraft;
   const draft = raw && typeof raw === "object" && typeof raw.name === "string" && raw.name.trim() ? (raw as AgentDraft) : null;
   const look: GhostAppearance = { ...WHITE_WISP, color: "#8bd4ff", color2: "#ff51bf" };
@@ -93,7 +93,7 @@ type Phase = "idle" | "checking" | "ready" | "failed";
  * through Codex, Grok through Hermes); a key becomes a model connection. Any pick makes the agent
  * from page 4's draft (or updates the one made before) and checks it can answer before Continue.
  */
-export function AIStep({ device, person, onDone }: { device: DeviceInfo | undefined; person: string; onDone: (agentId: string | null, channelId: string | null) => void }) {
+export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo | undefined; person: string; onDone: (agentId: string | null, channelId: string | null) => void; onBack?: () => void }) {
   const me = useStore((s) => s.me)!;
   const ws = me.workspace.id;
   const reduced = useMotionReduced();
@@ -259,10 +259,7 @@ export function AIStep({ device, person, onDone }: { device: DeviceInfo | undefi
   return (
     <div className="fixed inset-0 z-10 flex flex-col bg-panel text-ink text-[14px] leading-[22px]">
       <style>{STYLE}</style>
-      <div className="h-14 px-6 flex items-center justify-between shrink-0 safe-top">
-        <span className="text-[15px] font-[650] tracking-[-0.01em]">Wisp</span>
-        <OnboardingDots step={4} />
-      </div>
+      <PageTop step={4} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="ob-page min-h-full grid grid-cols-1 lg:grid-cols-[minmax(0,560px)_minmax(0,400px)] gap-10 lg:gap-20 justify-center items-center px-4 sm:px-6 pt-4 pb-10">
           <div className="flex flex-col gap-[18px] min-w-0">
