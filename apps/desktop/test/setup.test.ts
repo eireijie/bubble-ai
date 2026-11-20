@@ -21,19 +21,20 @@ function fixture(state: Record<string, any> = { step: "cloud", server: { id: 42,
     cloudProviders: vi.fn(async () => [{ id: "digitalocean", name: "DigitalOcean", signIn: true }, { id: "hetzner", name: "Hetzner", signIn: false, signInUrl: "https://console.hetzner.com/projects" }]),
     rustdeskStatus: vi.fn(async () => ({ installed: false, id: null })),
   };
+  let keydown: (e: any) => void = () => {};
   const timers = new Map<number, () => Promise<void>>();
   let timerId = 0;
   const html = readFileSync(new URL("../src/setup.html", import.meta.url), "utf8");
   const code = html.match(/<script>([\s\S]*?)<\/script>/)![1];
   runInNewContext(code, {
-    window: { wispSetup: setup, addEventListener: vi.fn(), dispatchEvent: vi.fn() }, Event: class {}, location: { search: `?state=${encodeURIComponent(JSON.stringify(state))}` },
+    window: { wispSetup: setup, addEventListener: (type: string, fn: any) => { if (type === "keydown") keydown = fn; }, dispatchEvent: vi.fn() }, Event: class {}, location: { search: `?state=${encodeURIComponent(JSON.stringify(state))}` },
     setTimeout: (fn: () => Promise<void>) => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: (id: number) => timers.delete(id),
     setInterval: () => 0, clearInterval: () => {},
     URLSearchParams, URL, Intl, Option: class {},
     document: { getElementById: element, querySelectorAll: () => [], querySelector: () => null, createElement: () => ({ append: vi.fn() }) },
   });
-  return { element, setup, tick: async () => { const [id, fn] = [...timers][0]; timers.delete(id); await fn(); } };
+  return { element, setup, esc: (extra: Record<string, any> = {}) => keydown({ key: "Escape", ...extra }), tick: async () => { const [id, fn] = [...timers][0]; timers.delete(id); await fn(); } };
 }
 
 describe("resuming cloud setup after relaunch", () => {
@@ -182,5 +183,90 @@ describe("Wisp first launch", () => {
     f.element("cancel-join").onclick();
     expect(f.setup.cancelJoin).toHaveBeenCalled();
     expect(f.element("join").hidden).toBe(false);
+  });
+});
+
+describe("Back and Escape", () => {
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+  async function toCloud() {
+    const f = fixture({});
+    f.element("hello-cloud").onclick();
+    await settle();
+    return f;
+  }
+
+  it("on the provider screen, Escape closes the open provider list, then goes back to Hello", async () => {
+    const f = await toCloud();
+    f.element("p-change").onclick();
+    expect(f.element("p-list").hidden).toBe(false);
+    f.esc();
+    expect(f.element("p-list").hidden).toBe(true);
+    expect(f.element("cloud").hidden).toBe(false);
+    f.esc();
+    expect(f.element("cloud").hidden).toBe(true);
+    expect(f.element("hello").hidden).toBe(false);
+  });
+
+  it("on the token screen (Hetzner), Escape goes back to Hello", async () => {
+    const f = await toCloud();
+    f.element("p-change").onclick();
+    const row = f.element("p-list").replaceChildren.mock.calls[0][0];
+    row.onclick();
+    expect(f.element("cloud-token-form").hidden).toBe(false);
+    f.esc();
+    expect(f.element("cloud").hidden).toBe(true);
+    expect(f.element("hello").hidden).toBe(false);
+  });
+
+  it("Escape on the sign-in wait cancels the browser sign-in and goes back", async () => {
+    const f = await toCloud();
+    (f.setup as any).cloudSignIn = vi.fn(() => new Promise(() => {}));
+    (f.setup as any).cloudSignInCancel = vi.fn();
+    f.element("signin-go").onclick();
+    f.esc();
+    expect((f.setup as any).cloudSignInCancel).toHaveBeenCalledOnce();
+    expect(f.element("hello").hidden).toBe(false);
+  });
+
+  it("choosing a size goes back to connecting, and Escape on Hello does nothing", async () => {
+    const f = fixture();
+    await settle();
+    f.element("cloud-wait").onclick();
+    f.element("cloud-token").value = "token";
+    f.element("cloud-token-form").onsubmit({ preventDefault() {} });
+    await settle();
+    expect(f.element("cloud-choose").hidden).toBe(false);
+    f.esc();
+    expect(f.element("cloud-choose").hidden).toBe(true);
+    expect(f.element("cloud-connect").hidden).toBe(false);
+    f.esc();
+    expect(f.element("hello").hidden).toBe(false);
+    f.esc();
+    expect(f.element("hello").hidden).toBe(false);
+  });
+
+  it("I already have Wisp: Escape goes back to Hello; waiting for approval goes back to the join page", async () => {
+    const f = fixture({});
+    await f.element("pick-join").onclick();
+    expect(f.element("join").hidden).toBe(false);
+    f.esc();
+    expect(f.element("join").hidden).toBe(true);
+    expect(f.element("hello").hidden).toBe(false);
+    await f.element("pick-join").onclick();
+    f.element("url").value = "https://mac.local/join/abc";
+    f.element("join-form").onsubmit({ preventDefault() {} });
+    await settle();
+    expect(f.element("waiting").hidden).toBe(false);
+    f.esc();
+    expect(f.element("waiting").hidden).toBe(true);
+    expect(f.element("join").hidden).toBe(false);
+  });
+
+  it("ignores Escape while an input method is composing", async () => {
+    const f = await toCloud();
+    f.esc({ isComposing: true });
+    f.esc({ keyCode: 229 });
+    expect(f.element("cloud").hidden).toBe(false);
   });
 });
