@@ -14,7 +14,7 @@ struct NativeSettingsView: View {
         NavigationLink { NotificationSettingsView() } label: { RowLabel(title: "Notifications") }.accessibilityIdentifier("settings-notifications")
         NavigationLink { AppearanceSettingsView() } label: { RowLabel(title: "Appearance") }.accessibilityIdentifier("settings-appearance")
         NavigationLink { PreferencesView() } label: { RowLabel(title: "App behavior") }.accessibilityIdentifier("settings-behavior")
-        if store.features.voice && !guest { NavigationLink { VoiceSettingsView() } label: { RowLabel(title: "Voice") }.accessibilityIdentifier("settings-voice") }
+        if !guest { NavigationLink { VoiceSettingsView() } label: { RowLabel(title: "Voice") }.accessibilityIdentifier("settings-voice") }
         NavigationLink { SecuritySettingsView() } label: { RowLabel(title: "Security") }.accessibilityIdentifier("settings-security")
       }
       if !guest {

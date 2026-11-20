@@ -42,11 +42,9 @@ struct AgentEditSheet: View {
           NavigationLink { AgentInstructionsPage(agent: current) } label: {
             RowLabel(title: "Instructions", subtitle: instructionsLine)
           }.buttonStyle(.plain).accessibilityIdentifier("edit-instructions")
-          if store.features.voice {
-            Button { voiceSheet = true } label: {
-              RowLabel(title: "Voice", subtitle: voiceLine, leading: { rowIcon("waveform") })
-            }.buttonStyle(.plain).accessibilityIdentifier("edit-voice")
-          }
+          Button { voiceSheet = true } label: {
+            RowLabel(title: "Voice", subtitle: voiceLine, leading: { rowIcon("waveform") })
+          }.buttonStyle(.plain).accessibilityIdentifier("edit-voice")
         }
         AgentError(text: action.error)
         PillButton(title: "Save", busy: action.busy, id: "edit-save") { save() }

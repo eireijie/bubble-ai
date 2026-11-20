@@ -3,7 +3,7 @@
  * that needs setup or adds screens lives here, so a new organization starts small.
  */
 
-export const FEATURE_KEYS = ["background", "routines", "teach", "tasks", "voice", "buddy", "invite", "remoteDesktop", "storage", "code"] as const;
+export const FEATURE_KEYS = ["background", "routines", "teach", "tasks", "buddy", "invite", "remoteDesktop", "storage", "code"] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type Features = Record<FeatureKey, boolean>;
 
@@ -12,7 +12,6 @@ export const FEATURE_INFO: Record<FeatureKey, { name: string; description: strin
   routines: { name: "Routines", description: "Run a task on a schedule, like a morning summary.", group: "own" },
   teach: { name: "Teach a task", description: "Do something once while an agent watches, and it becomes a skill.", group: "own" },
   tasks: { name: "Tasks board", description: "Give out work and track it from start to done.", group: "many" },
-  voice: { name: "Voice calls", description: "Call an agent and talk instead of typing.", group: "extras" },
   buddy: { name: "Desk buddy", description: "A small ghost on your desktop that shows what your agents are up to.", group: "extras" },
   invite: { name: "Invite people", description: "Let other people into this workspace. Adds a People page and lets agents answer more than just you.", group: "extras" },
   remoteDesktop: { name: "Remote desktop", description: "Reach your devices from anywhere with RustDesk, from each device's page.", group: "extras" },

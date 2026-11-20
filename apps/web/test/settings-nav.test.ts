@@ -36,10 +36,10 @@ describe("settings navigation", () => {
   });
 
   it("hides pages for features that are off, and a section left empty", () => {
-    const off = { ...FEATURE_PRESETS.everything, voice: false, invite: false, background: false };
+    const off = { ...FEATURE_PRESETS.everything, invite: false, background: false };
     const nav = settingsNav(false, off);
     const pages = nav.flatMap((s) => s.pages.map((p) => p.id));
-    expect(pages).not.toContain("voice");
+    expect(pages).toContain("voice");
     expect(pages).not.toContain("people");
     expect(pages).not.toContain("usage");
   });

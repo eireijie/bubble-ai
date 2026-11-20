@@ -434,7 +434,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "settings_change",
     {
       description:
-        "Change how Wisp works for the person you work for, when they ask in plain words (\"check less often\", \"don't message me after 10pm\", \"turn on voice calls\"). Background fields change your own background work for them; mods switch optional parts of Wisp on or off (owners only). Only change what they asked for. They see what changed in your DM with an Undo button, so just confirm in a few words.",
+        "Change how Wisp works for the person you work for, when they ask in plain words (\"check less often\", \"don't message me after 10pm\", \"turn on routines\"). Background fields change your own background work for them; mods switch optional parts of Wisp on or off (owners only). Only change what they asked for. They see what changed in your DM with an Undo button, so just confirm in a few words.",
       inputSchema: {
         enabled: z.boolean().optional().describe("background work on or off"),
         every_minutes: z.number().int().min(10).max(1440).optional().describe("how often to check, 10–1440 minutes"),

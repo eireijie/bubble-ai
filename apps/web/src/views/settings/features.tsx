@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, CircleDot, Clock, Ghost, HardDrive, ListChecks, MonitorSmartphone, Phone, SquareTerminal, UserPlus } from "lucide-react";
+import { Bell, CircleDot, Clock, Ghost, HardDrive, ListChecks, MonitorSmartphone, SquareTerminal, UserPlus } from "lucide-react";
 import { FEATURE_INFO, FEATURE_KEYS, UNLISTED_FEATURES, type FeatureKey, type Features } from "@wisp/core";
 import { useStore } from "../../store.ts";
 import { setFeatures, useFeatures } from "../../features.ts";
@@ -11,7 +11,6 @@ const ICONS: Record<FeatureKey, ReactNode> = {
   routines: <Clock size={18} />,
   teach: <CircleDot size={18} />,
   tasks: <ListChecks size={18} />,
-  voice: <Phone size={18} />,
   buddy: <Ghost size={18} />,
   invite: <UserPlus size={18} />,
   remoteDesktop: <MonitorSmartphone size={18} />,
@@ -56,7 +55,7 @@ export function ModsPage() {
   return (
     <div className="space-y-8">
       <h2 className="t-title max-md:hidden">Mods</h2>
-      {isOwner ? <AskAgent placeholder={`Ask {name}, like "turn on voice calls"`} /> : <p className="text-sm text-muted">Only owners can turn mods on or off.</p>}
+      {isOwner ? <AskAgent placeholder={`Ask {name}, like "turn on routines"`} /> : <p className="text-sm text-muted">Only owners can turn mods on or off.</p>}
       {on.length > 0 && (
         <section className="space-y-2.5" aria-labelledby="mods-on">
           <h3 id="mods-on" className="text-body font-semibold text-muted">

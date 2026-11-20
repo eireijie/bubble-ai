@@ -45,7 +45,6 @@ extension FeatureKey {
     case .routines: .blue
     case .teach: .green
     case .tasks: .pink
-    case .voice: .teal
     case .buddy: .indigo
     case .invite: .gray
     case .remoteDesktop: .orange
