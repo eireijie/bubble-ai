@@ -52,6 +52,14 @@ jobs:
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\Wisp\Wisp.exe'
           if (-not (Test-Path $exe)) { Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 2 | Select-Object FullName; throw "Wisp.exe not installed at $exe" }
           "WISP_EXE=$exe" >> $env:GITHUB_ENV
+      # the installed app must not lean on the build folder (a junction pointing back into it would)
+      - name: hide the build folder
+        shell: pwsh
+        run: |
+          Rename-Item apps\desktop\build\wisp-runtime wisp-runtime-hidden
+          Rename-Item apps\desktop\dist dist-hidden
+          $res = Join-Path (Split-Path $env:WISP_EXE) 'resources\wisp'
+          Get-ChildItem "$res\node_modules\@wisp" | Select-Object Name, LinkType, Target | Format-Table -AutoSize | Out-String -Width 300
       - name: hub starts the way the app runs it (app binary as Node)
         shell: pwsh
         run: |
