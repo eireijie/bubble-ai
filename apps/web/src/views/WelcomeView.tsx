@@ -88,7 +88,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const onScene = (sc: StageScene) => setInner(sc.onBack ? { screen, back: sc.onBack } : null);
   const innerBack = inner && inner.screen === screen ? inner.back : null;
   // the first setup step goes back to what you picked to get help with
-  const goBack = innerBack ?? (canGoBack ? () => setScreen(before!) : intro && (screen === "anywhere" || (screen === "address" && onPublicAddress())) ? () => setGoals(true) : null);
+  const goBack = innerBack ?? (canGoBack ? () => setScreen(before!) : intro && (screen === "anywhere" || (screen === "address" && onPublicAddress())) ? () => setAgentPage(true) : null);
   const s = SCREENS[screen];
   const preAgent = screen === "anywhere" || screen === "address";
   // the steps before the agent were made for a narrow panel; they keep that width in the middle
