@@ -170,7 +170,10 @@ struct NewChannel: View {
               path.append(.builder)
             }
             startRow("Browse templates", "\(TeamTemplate.builtIn.count) ready-made teams.", "square.grid.2x2", "start-templates") { path.append(.templates) }
-            startRow("Have an agent build it", "Say it in one sentence.", "sparkles", "start-agent") { path.append(.describe) }
+            startRow("Have an agent build it", "Say it in one sentence.", "sparkles", "start-agent") {
+              if model.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { model.description = model.topic }
+              path.append(.describe)
+            }
           }
           InlineError(error: action.error)
         }
