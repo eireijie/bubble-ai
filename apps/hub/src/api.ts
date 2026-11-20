@@ -344,9 +344,11 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     return ch;
   }
 
-  // the setup answers are between the agent and the person it asked, so they stay on the hub
+  // the setup answers are between the agent and the person it asked, so they stay on the hub; only
+  // where and when its first chat started (and its hello) go out, for the first chat's extras
   const agentView = (a: NonNullable<ReturnType<typeof store.agent>>) => {
-    const { setup: _setup, ...settings } = a.settings;
+    const { setup, ...rest } = a.settings;
+    const settings = setup ? { ...rest, setup: { userId: setup.userId, channelId: setup.channelId, startedAt: setup.startedAt, greetingId: setup.greetingId, done: setup.done, replies: [], steps: {} } } : rest;
     return { ...a, settings, status: hub.agentStatus(a), signIn: hub.signInNeeded(a) };
   };
   const messageView = <T extends Parameters<typeof guestMessage>[0]>(c: Caller, m: T): T => c.viewer.role === "guest" ? guestMessage(m) : m;

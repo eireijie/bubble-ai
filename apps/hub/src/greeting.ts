@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { harnessInfo, harnessLabel, SETUP_STEPS, WATCH_SERVICES, type Agent, type AgentSetup, type Message, type SetupStep, type WatchService } from "@wisp/core";
+import { harnessInfo, harnessLabel, SETUP_STEPS, signInProblem, WATCH_SERVICES, type Agent, type AgentSetup, type Message, type SetupStep, type WatchService } from "@wisp/core";
 import type { Caller } from "./api.ts";
 import type { Hub } from "./hub.ts";
 import { importDir } from "./memory-import.ts";
@@ -154,7 +154,45 @@ const KNOWN_CHARS = 6000;
 
 const greetRun = (hub: Hub, agentId: string) => hub.store.db.prepare("SELECT id FROM runs WHERE agent_id = ? AND kind = 'greet' AND status IN ('queued','running') LIMIT 1").get(agentId) as { id: string } | undefined;
 
-export type GreetResult = { status: "already"; messageId: string | null } | { status: "writing"; runId: string } | { status: "sent"; messageId: string } | { status: "skipped" };
+export type GreetResult = { status: "already"; messageId: string | null } | { status: "writing"; runId: string } | { status: "sent"; messageId: string } | { status: "skipped" } | { status: "signin" };
+
+/**
+ * The last hello run failed because its AI's sign-in had expired (a status check can still say
+ * "signed in", as Claude Code does for an OAuth session it can't refresh). Its channel, so the
+ * hello can be tried again once the person signs in.
+ */
+function greetFailedOnSignIn(hub: Hub, agent: Agent): { channelId: string } | null {
+  // any other failure already posted Wisp's plain hello, so a failed run with no hello was a sign-in
+  // (whatever AI it ran on; the person may have picked another since)
+  if (hub.store.agent(agent.id)?.settings.setup?.greetingId) return null;
+  const last = hub.store.db.prepare("SELECT channel_id AS channelId, status FROM runs WHERE agent_id = ? AND kind = 'greet' ORDER BY created_at DESC LIMIT 1").get(agent.id) as { channelId: string; status: string } | undefined;
+  return last?.status === "failed" ? { channelId: last.channelId } : null;
+}
+
+/** A sign-in failure isn't a hello: the person signs in again and the hello is tried again (greetWithMemory). */
+export function greetSignInFailed(agent: Agent | undefined, error: string): boolean {
+  return !!agent && !!signInProblem(agent.harness, error);
+}
+
+/** Start the hello run; Wisp's plain hello goes instead if it takes longer than GREET_WAIT_MS. */
+function startGreetRun(hub: Hub, a: Agent, channelId: string, userId: string): GreetResult {
+  const { store } = hub;
+  const runId = store.createRun({ agentId: a.id, channelId, threadId: null, triggerMessageId: "", hop: 0, requestedBy: userId, kind: "greet" });
+  hub.dispatchRun(runId);
+  const timer = setTimeout(() => {
+    try {
+      if (store.agent(a.id)?.settings.setup?.greetingId) return;
+      hub.cancelRun(runId);
+      const fresh = store.agent(a.id);
+      // a run that failed on sign-in waits for the person to sign in again instead
+      if (fresh && !greetFailedOnSignIn(hub, fresh)) postGreeting(hub, a.id, staticGreeting(hub, fresh));
+    } catch {
+      // the hub shut down meanwhile; the next greet call says the plain hello
+    }
+  }, GREET_WAIT_MS);
+  timer.unref?.();
+  return { status: "writing", runId };
+}
 
 /**
  * Say hello with what the agent now knows about the person (POST /api/agents/:id/greet, after the
@@ -169,6 +207,9 @@ export function greetWithMemory(hub: Hub, agent: Agent, userId: string): GreetRe
     if (s.greetingId) return { status: "already", messageId: s.greetingId };
     const running = greetRun(hub, agent.id);
     if (running) return { status: "writing", runId: running.id };
+    // its AI's sign-in had expired: once signed in again, the hello is tried again
+    const failed = greetFailedOnSignIn(hub, agent);
+    if (failed) return hub.signInNeeded(agent) ? { status: "signin" } : startGreetRun(hub, agent, failed.channelId, userId);
     // a hello that never came (the hub restarted mid-run): the plain one now
     const msg = postGreeting(hub, agent.id, staticGreeting(hub, store.agent(agent.id)!));
     return msg ? { status: "sent", messageId: msg.id } : { status: "already", messageId: null };
@@ -180,20 +221,7 @@ export function greetWithMemory(hub: Hub, agent: Agent, userId: string): GreetRe
     const msg = postGreeting(hub, a.id, staticGreeting(hub, a));
     return msg ? { status: "sent", messageId: msg.id } : { status: "skipped" };
   }
-  const runId = store.createRun({ agentId: a.id, channelId: started.channelId, threadId: null, triggerMessageId: "", hop: 0, requestedBy: userId, kind: "greet" });
-  hub.dispatchRun(runId);
-  const timer = setTimeout(() => {
-    try {
-      if (store.agent(a.id)?.settings.setup?.greetingId) return;
-      hub.cancelRun(runId);
-      const fresh = store.agent(a.id);
-      if (fresh) postGreeting(hub, a.id, staticGreeting(hub, fresh));
-    } catch {
-      // the hub shut down meanwhile; the next greet call says the plain hello
-    }
-  }, GREET_WAIT_MS);
-  timer.unref?.();
-  return { status: "writing", runId };
+  return startGreetRun(hub, a, started.channelId, userId);
 }
 
 /** A hello run ended (hub.finishRun): its reply is the hello, or Wisp's plain one when it has none. */
