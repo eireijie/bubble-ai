@@ -116,12 +116,13 @@ extension Store {
 
   /**
    * Ask once, at a moment it makes sense: right after you've asked an agent for something, so
-   * you hear back when it answers. Never at launch.
+   * you hear back when it answers. Never at launch. A short explanation comes first (Turn on / Not now);
+   * the system prompt only follows "Turn on". Shown once.
    */
   func askForNotificationsIfDue() {
     guard pushAvailable, notificationStatus == .notDetermined, !WispPreferences.standard.bool(forKey: "wisp.askedPush") else { return }
     WispPreferences.standard.set(true, forKey: "wisp.askedPush")
-    Task { await enableNotifications() }
+    showNotificationPrimer = true
   }
 
   /** The system prompt (the first time), then registration. */

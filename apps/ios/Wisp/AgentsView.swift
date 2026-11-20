@@ -94,7 +94,7 @@ struct AgentTile: View {
   var body: some View {
     Button { openSettings() } label: {
       VStack(spacing: 6) {
-        GhostView(look: agent.settings?.appearance, seed: agent.handle, size: 76, mood: store.mood(for: agent))
+        GhostView(look: agent.settings?.appearance, seed: agent.handle, offline: store.isOffline(agent), size: 76, mood: store.mood(for: agent))
           .frame(width: 76, height: 76)
         Text(agent.name).font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1).padding(.top, 6)
         Text(harnessLabel).font(.system(size: 13)).foregroundStyle(Palette.faint).lineLimit(1)
