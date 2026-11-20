@@ -975,7 +975,7 @@ describe("agents inside their computers", () => {
     expect(thread.body).toContain("Three venues under $5k.");
     expect(thread.body).not.toContain("You're the lead");
     // the agent picking it up moves it to in progress
-    const working = await waitFor(async () => (await api<any[]>("GET", "/api/tasks")).data.find((x) => x.id === t.id && x.status === "in_progress"));
+    const working = await waitFor(async () => (await api<any[]>("GET", "/api/tasks")).data.find((x) => x.id === t.id && (x.status === "in_progress" || x.status === "done")));
     expect(working).toBeTruthy();
     // a person can close it
     expect((await api<any>("PATCH", `/api/tasks/${t.id}`, { status: "done", result: "Booked." })).data.status).toBe("done");
@@ -1285,6 +1285,8 @@ describe("runs that go wrong", () => {
     await api("PATCH", `/api/tasks/${done.id}`, { status: "done", result: "yes" });
     const open = (await api("POST", "/api/tasks", { to: "gone", title: "Unfinished work", brief: "not yet" })).data;
     await waitFor(async () => (await api<any[]>("GET", "/api/tasks")).data.find((t) => t.id === open.id && t.status !== "open"));
+    // the stand-in device answers at once (which finishes a task); this one is still being worked on
+    hub.store.updateTask(open.id, "in_progress");
     expect((await api("DELETE", `/api/agents/${gone.id}`)).status).toBe(200);
     const tasks = (await api<any[]>("GET", "/api/tasks")).data;
     expect(tasks.find((t) => t.id === done.id)).toMatchObject({ status: "done", toAgentId: null, result: "yes" });

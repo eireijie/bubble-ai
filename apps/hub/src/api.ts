@@ -76,7 +76,7 @@ import { registerReachApi } from "./api-reach.ts";
 import { registerLoginsApi } from "./api-logins.ts";
 import { registerStorageApi } from "./api-storage.ts";
 import { registerAppleApi } from "./api-apple.ts";
-import { registerTeamDraftApi } from "./team-drafts.ts";
+import { DRAFT_TITLE, registerTeamDraftApi } from "./team-drafts.ts";
 import { registerRemoteMcp } from "./remote-mcp.ts";
 import { agentPolicy } from "./policy.ts";
 import { FEATURE_PRESET, createOrganization, registerOrgApi } from "./api-orgs.ts";
@@ -1692,6 +1692,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   }
 
   hub.flows.delegate = (o) => delegate(o);
+  hub.reviewTask = (task, by) => requestReview(task, by);
 
   /** Delegate work to an agent. Posts a message so the agent wakes up and everyone can follow along. */
   app.post("/api/tasks", async (req, reply) => {
@@ -1796,7 +1797,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!body) return;
     const updated = store.updateTask(task.id, body.status, body.result)!;
     hub.broadcast(c.workspaceId, { type: "tasks_changed" });
-    if ((body.status === "done" || body.status === "failed") && task.channelId) {
+    // a drawn team's answer is JSON for the draft, not something to post in the person's chat
+    if ((body.status === "done" || body.status === "failed") && task.channelId && task.title !== DRAFT_TITLE) {
       const requester = task.from.kind === "agent" ? `@${store.agent(task.from.id)?.handle} ` : "";
       // a subtask says how far along its parent is, so whoever planned it knows when to wrap up
       const parent = task.parentId ? store.task(task.parentId) : undefined;
