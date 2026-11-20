@@ -41,6 +41,8 @@ const discovery = new Discovery(() => {
 });
 let joining = null;
 let openOnboarding = false;
+/** The name the setup page's Hello asked for, handed to the new Wisp's account form once. */
+let helloName = "";
 
 /** @type {{ autoUpdate?: boolean, mode?: "local" | "remote", hubUrl?: string, cloud?: { provider: "digitalocean" | "hetzner" | "vultr", id: number | string, name: string, ip: string, location: string, type: string }, cloudPending?: { server: { provider?: string, id: number | string, name: string, ip: string, location: string, type: string }, key: string, dismissed?: boolean }, wispDir?: string, device?: boolean, bounds?: Electron.Rectangle, buddyEnabled?: boolean, buddyOverFullscreen?: boolean, buddyAgents?: Record<string, string | null>, buddyPosition?: { x: number, y: number } }} */
 let config = {};
@@ -284,7 +286,10 @@ async function connect(restartDevice = false) {
   if (started.problem) return showSetup({ step: "create", ...started });
   // a new Wisp here: its setup link, so making the first account doesn't ask for the code
   const setupCode = engine.localSetupCode(config.wispDir);
-  openHub(LOCAL_HUB, setupCode ? `#/setup/${setupCode}` : openOnboarding ? "#/welcome/intro" : "");
+  // the name Hello asked for rides along, so the account form doesn't ask again
+  const named = helloName ? `?name=${encodeURIComponent(helloName)}` : "";
+  helloName = "";
+  openHub(LOCAL_HUB, setupCode ? `#/setup/${setupCode}${named}` : openOnboarding ? "#/welcome/intro" : "");
   openOnboarding = false;
   startDeviceIfWanted();
 }
@@ -860,19 +865,48 @@ setup("setup:check", async () => {
   return { problem: found.problem ?? null, platform: process.platform, hubUrl: config.hubUrl ?? "", mode: config.mode ?? null, device: config.device ?? true, deviceName: deviceName(), laptop };
 });
 
-/** Create: run a server on this computer; the setup page says when, then opens it (setup:open). */
-setup("setup:create", async ({ device: asDevice = true } = {}) => {
+/**
+ * Create: run a server on this computer; the setup page says when, then opens it (setup:open).
+ * `background`: the Hello page starts it the moment it opens, so it can be called off again
+ * (setup:cancel-create) if the person picks Cloud or joins another Wisp instead.
+ */
+let backgroundCreate = null;
+setup("setup:create", async ({ device: asDevice = true, background = false } = {}) => {
   const found = needs();
   if (found.problem) return { ok: false, error: found.problem };
+  const run = background ? { before: { mode: config.mode, hubUrl: config.hubUrl, cloud: config.cloud, device: config.device } } : null;
+  backgroundCreate = run;
   switchTo({ mode: "local", hubUrl: undefined, cloud: undefined, device: !!asDevice });
   openOnboarding = true;
   const started = await startLocalHub();
+  // called off while it started: stop the server this app just started for it
+  if (run && run.cancelled) {
+    if (hubBy === "app" && config.mode !== "local") hub.stop();
+    return { ok: false, error: "Cancelled." };
+  }
   return started.problem ? { ok: false, error: started.problem, log: started.log } : { ok: true };
 });
+setup("setup:cancel-create", () => {
+  const run = backgroundCreate;
+  if (!run || run.cancelled || config.mode !== "local") return { ok: true };
+  run.cancelled = true;
+  backgroundCreate = null;
+  if (hubBy === "app") hub.stop();
+  hubBy = "";
+  openOnboarding = false;
+  Object.assign(config, run.before);
+  save();
+  refresh();
+  return { ok: true };
+});
 
-/** Open the server that's now running (the window makes the first account). */
+/** Open the server that's now running (the window makes the first account), with the name Hello asked for. */
 setup("setup:return", () => returnToServer());
-setup("setup:open", () => connect());
+setup("setup:open", (name) => {
+  helloName = typeof name === "string" ? name.trim().slice(0, 80) : "";
+  backgroundCreate = null;
+  return connect();
+});
 
 setup("setup:discover", () => discovery.browse());
 setup("setup:cancel-join", () => { discovery.cancel(); joinClient.cancel(); return { ok: true }; });
