@@ -68,6 +68,11 @@ export interface OnboardingAnswers {
   /** page 2 was answered (Continue) or passed (Skip for now) */
   goalsDone: boolean;
   skipped?: boolean;
+  /** page 3: what Wisp knows about the person (kept chips), and that the page was passed */
+  facts?: Fact[];
+  knowDone?: boolean;
+  /** page 4: the agent it made */
+  agentId?: string;
   /** page 4: the agent the person shaped; page 5 creates it once its AI is chosen */
   agentDraft?: AgentDraft;
   savedAt?: number;
@@ -131,6 +136,53 @@ export async function rememberGoals(name: string, goals: readonly string[], othe
   }
 }
 
+// --- page 3: let me get to know you -------------------------------------------------------------
+
+export type FactGroup = "You" | "Work" | "Tools" | "Likes";
+export const FACT_GROUPS: FactGroup[] = ["You", "Work", "Tools", "Likes"];
+/** The memory note each group is saved under, in the person's About me. */
+export const NOTE_OF_GROUP: Record<FactGroup, string> = { You: "About me", Work: "Projects", Tools: "Tools and accounts", Likes: "Preferences and rules" };
+
+export interface Fact {
+  id: string;
+  group: FactGroup;
+  text: string;
+  /** shown on the chip: "git", "CLAUDE.md", "ChatGPT", "you" */
+  src: string;
+}
+
+export type ScanPart = "git" | "harnesses" | "notes" | "projects";
+export const SCAN_PARTS: { id: ScanPart; label: string }[] = [
+  { id: "git", label: "Your name in git" },
+  { id: "harnesses", label: "AI apps you're signed in to" },
+  { id: "notes", label: "Your notes for them" },
+  { id: "projects", label: "Projects you opened lately" },
+];
+
+/** What the agent is told about the notes, word for word from the design. */
+export const notesInstruction = (name: string) =>
+  `These notes are what you know about ${name}. Use them without asking again. In your first message, show you know them: mention one or two specifics from the notes, never a list.`;
+
+/** Where each heading of a memory-import answer goes; "People" stays out (nothing private about others). */
+const GROUP_OF_HEADING: Record<string, FactGroup | null> = {
+  "About me": "You",
+  Projects: "Work",
+  "In progress": "Work",
+  Decisions: "Work",
+  "Preferences and rules": "Likes",
+  Routines: "Likes",
+  "Tools and accounts": "Tools",
+  People: null,
+  Other: "You",
+};
+
+export function factsFromAnswer(lines: { heading: string; text: string; unsure: boolean }[], src: string): Omit<Fact, "id">[] {
+  return lines.flatMap((l) => {
+    const group = GROUP_OF_HEADING[l.heading];
+    return group && !l.unsure ? [{ group, text: l.text.replace(/\s*\((?:memory|chat[^)]*|CLAUDE\.md|AGENTS\.md)\)\s*$/i, "").slice(0, 200), src }] : [];
+  });
+}
+
 // --- page 4: your agent ------------------------------------------------------------------------
 
 /** Page 4's agent, saved on Continue; page 5 creates the real agent from it. */
@@ -167,3 +219,31 @@ export function agentInstructions(agent: string, person: string, role: string, g
 }
 
 export const saveAgentDraft = (workspaceId: string, agentDraft: AgentDraft) => saveAnswers(workspaceId, { agentDraft });
+
+/** What each pick reads like in "What I do" and in the preview message. */
+export const PHRASE: Record<GoalId, string> = {
+  email: "your inbox",
+  cal: "your calendar",
+  code: "your code",
+  research: "research",
+  writing: "your writing",
+  money: "your bills",
+  errands: "errands",
+  biz: "your business",
+  home: "home and family",
+  learn: "your learning",
+};
+
+export const listOf = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** "Helps with your inbox, your calendar and research, so you have more time." Every pick reads after "Helps with". */
+export function roleLine(goals: readonly string[], other: string, facts: readonly { group: string; text: string }[]): string {
+  const picks = pickedGoals(goals).map((g) => PHRASE[g.id]);
+  if (picks.length) return `Helps with ${listOf(picks.slice(0, 3))}, so you have more time.`;
+  const extra = other.trim().replace(/[.\s]+$/, "");
+  if (extra) return `${cap(extra)}, and whatever else you need.`;
+  const work = facts.find((f) => f.group === "Work");
+  if (work) return `Help with ${work.text.replace(/[.\s]+$/, "").replace(/^./, (c) => c.toLowerCase())}, and whatever else you need.`;
+  return "Helps with whatever you need, so you have more time.";
+}

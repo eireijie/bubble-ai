@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { api } from "../api.ts";
 import { awayEnabled, enableTailscale } from "../components/Access.tsx";
 import { onPublicAddress, skipAccess, useAccess, useAccessStore, type AccessInfo } from "../access.ts";
-import { completeSetupStep, devicesLine, nextStep, setDismissed, STEPS, stepsFinished, useOnboarding, type StepId } from "../onboarding.ts";
+import { completeSetupStep, nextStep, savedSetup, setDismissed, STEPS, useOnboarding, type StepId } from "../onboarding.ts";
 import { usableDevices, useDevices, type DeviceInfo } from "../devices.ts";
 import { useStore } from "../store.ts";
 import { go } from "../router.ts";
@@ -14,18 +14,20 @@ import { PhonePairing } from "./settings/mobile.tsx";
 import { cx } from "../components/ui.tsx";
 import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
 import { RowState, WHITE_WISP, type StageScene } from "../components/SetupStage.tsx";
-import { SetupShell, StepHead } from "../components/SetupShell.tsx";
+import { NEW_TRACK, SetupShell, StepHead } from "../components/SetupShell.tsx";
 import type { GhostMood } from "../components/Ghost.tsx";
 import { MemoryImport, type Askable } from "../components/MemoryImport.tsx";
 import type { MemoryLine } from "@wisp/core/src/memory-import.ts";
 import { ConnectStep, type Powered } from "./onboarding/ConnectStep.tsx";
 import { NameStep } from "./onboarding/NameStep.tsx";
 import { SetupProgress } from "./onboarding/SetupProgress.tsx";
-import { GoalsStep } from "../components/onboarding/GoalsStep.tsx";
 import { HelloNext } from "../components/HelloStep.tsx";
-import { loadAnswers, rememberGoals, saveGoals, skipGoals } from "../onboardingV3.ts";
+import { loadAnswers, saveAnswers } from "../onboardingV3.ts";
+import { KnowStep, StillLearning } from "../components/onboarding/KnowStep.tsx";
+import { flushNotes } from "../onboardingKnow.ts";
 import { saveAgentDraft } from "../onboardingV3.ts";
 import { AgentStep } from "./onboarding/AgentStep.tsx";
+import { AIStep, draftOf } from "./onboarding/AIStep.tsx";
 export { makeFirstAgent } from "./onboarding/firstAgent.ts";
 
 export const SETUP_LABELS: Record<StepId, string> = { anywhere: "Away from home", address: "Your address", agent: "Make your first agent", devices: "Add your devices" };
@@ -39,7 +41,7 @@ const SCREENS: Record<Screen, { at: number; line: (name: string) => string; mood
   name: { at: 2, line: () => "What should I be called?" },
   memory: { at: 3, line: () => "Tell me what you're working on and I'll pick up from there." },
   setup: { at: 4, line: () => "Moving into my computer…", mood: "working" },
-  devices: { at: 5, line: (n) => devicesLine(n || null) },
+  devices: { at: 5, line: (n) => `Say hi to ${n} from your phone too.` },
 };
 
 /**
@@ -52,12 +54,18 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const agents = useStore((s) => s.agents);
   const { done } = useOnboarding(3000);
   const devices = useDevices(3000);
-  // onboarding v3, page 2 (what you want help with) comes first on a new setup, until answered or skipped
-  const [goals, setGoals] = useState(() => !!intro && !loadAnswers(me.workspace.id).goalsDone);
-  // page 4 (make the agent yours) after page 3, until its draft is saved; page 5 creates the agent from it
-  const [agentPage, setAgentPage] = useState(() => !!intro && !loadAnswers(me.workspace.id).agentDraft);
+  // a new setup (#/welcome/intro): away and address (the old screens), then v3's know, agent and AI
+  // pages in place of the old connect, name, memory and setup screens, then the agent's chat
+  type V3 = "know" | "agent" | "ai";
+  const firstV3 = (): V3 => {
+    const a = loadAnswers(me.workspace.id);
+    return !a.knowDone ? "know" : !a.agentDraft ? "agent" : "ai";
+  };
+  // after a reload mid-setup, pick up at the first v3 page not done yet (away and address are saved as done)
+  const [v3, setV3] = useState<V3 | null>(() => (intro && savedSetup(me.workspace.id).address ? firstV3() : null));
   const [screen, setScreen] = useState<Screen>(() => {
-    if (intro) return onPublicAddress() ? "address" : "anywhere";
+    // resuming on a v3 page: Back from it lands on the address screen, the last one before it
+    if (intro) return onPublicAddress() || savedSetup(me.workspace.id).address ? "address" : "anywhere";
     const next = nextStep(done) ?? "anywhere";
     return next === "agent" ? "connect" : next;
   });
@@ -66,16 +74,20 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const [ready, setReady] = useState<Powered[]>([]);
   const [harness, setHarness] = useState("");
   const [name, setName] = useState("Atlas");
-  const [look] = useState<GhostAppearance>(() => agents[0]?.settings.appearance ?? START_LOOK);
+  // the look picked on Make me yours carries through every later step (the agent's own look once it exists)
+  const drafted = loadAnswers(me.workspace.id).agentDraft ? draftOf(me.workspace.id).look : null;
+  const look: GhostAppearance = agents[0]?.settings.appearance ?? drafted ?? START_LOOK;
   const [lines, setLines] = useState<MemoryLine[]>([]);
   const powered = ready.find((r) => r.harness === harness) ?? ready[0];
   const advance = (step: StepId) => {
     completeSetupStep(me.workspace.id, step);
     const next = STEPS[STEPS.indexOf(step) + 1] ?? "devices";
+    if (next === "agent" && intro) return setV3(firstV3());
     setScreen(next === "agent" ? "connect" : next);
   };
   const finish = (channelId?: string | null) => {
-    for (const step of stepsFinished(!!channelId || agents.length > 0)) completeSetupStep(me.workspace.id, step);
+    completeSetupStep(me.workspace.id, "agent");
+    completeSetupStep(me.workspace.id, "devices");
     setDismissed(true);
     go(channelId ? { view: "chat", channelId, threadId: null } : { view: "dashboard" });
   };
@@ -87,50 +99,74 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const [inner, setInner] = useState<{ screen: Screen; back: () => void } | null>(null);
   const onScene = (sc: StageScene) => setInner(sc.onBack ? { screen, back: sc.onBack } : null);
   const innerBack = inner && inner.screen === screen ? inner.back : null;
-  // the first setup step goes back to what you picked to get help with
-  const goBack = innerBack ?? (canGoBack ? () => setScreen(before!) : intro && (screen === "anywhere" || (screen === "address" && onPublicAddress())) ? () => setAgentPage(true) : null);
+  // in a new setup, the phone step (after skipping the AI) goes back to the AI page
+  const goBack = innerBack ?? (intro && screen === "devices" ? () => setV3("ai") : canGoBack ? () => setScreen(before!) : null);
+  // the v3 pages: Getting to know you goes back to the address (or away) screen, the rest to the page before
+  const backFromKnow = () => setV3(null);
   const s = SCREENS[screen];
-  const preAgent = screen === "anywhere" || screen === "address";
+  const preAgent = (screen === "anywhere" || screen === "address") && !drafted;
   // the steps before the agent were made for a narrow panel; they keep that width in the middle
   const narrow = (node: ReactNode) => <div className="ob-narrow">{node}</div>;
-  if (goals) {
-    const saved = loadAnswers(me.workspace.id);
+  if (v3 === "know") {
+    const done = () => {
+      saveAnswers(me.workspace.id, { knowDone: true });
+      void flushNotes();
+      setV3(firstV3());
+    };
     return (
       <HelloNext>
-        <GoalsStep
-          name={me.user.name}
-          initial={saved.goals}
-          initialOther={saved.other}
-          onContinue={(picked, other) => {
-            saveGoals(me.workspace.id, picked, other);
-            void rememberGoals(me.user.name, picked, other);
-            setGoals(false);
-          }}
-          onSkip={() => {
-            skipGoals(me.workspace.id);
-            setGoals(false);
-          }}
-        />
+        <KnowStep onBack={backFromKnow} name={me.user.name} workspaceId={me.workspace.id} onContinue={done} onSkip={done} />
       </HelloNext>
     );
   }
-  if (agentPage) {
+  // while page 3's look-around or import still runs, every later page shows it at the top
+  const learning = (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 safe-top">
+      <StillLearning />
+    </div>
+  );
+  if (v3 === "agent") {
     return (
       <HelloNext>
+        {learning}
         <AgentStep
+          onBack={() => setV3("know")}
           workspaceId={me.workspace.id}
           person={me.user.name}
           onContinue={(draft) => {
             saveAgentDraft(me.workspace.id, draft);
             setName(draft.name);
-            setAgentPage(false);
+            setV3("ai");
+          }}
+        />
+      </HelloNext>
+    );
+  }
+  if (v3 === "ai") {
+    return (
+      <HelloNext>
+        {learning}
+        <AIStep
+          onBack={() => setV3("agent")}
+          device={device}
+          person={me.user.name}
+          onDone={(agentId, channelId) => {
+            setV3(null);
+            if (agentId) finish(channelId);
+            else advance("agent");
           }}
         />
       </HelloNext>
     );
   }
   return (
-    <SetupShell at={s.at} line={s.line(agents.length ? name.trim() || "your agent" : "")} look={preAgent ? undefined : look} mood={s.mood} stepKey={screen} onBack={goBack}>
+    <>
+    {learning}
+    <SetupShell
+      // a new setup counts away and address as its first two of five dots, like the pages after them
+      at={intro ? ({ anywhere: 1, address: 2, devices: 5 } as Partial<Record<Screen, number>>)[screen] ?? s.at : s.at}
+      track={intro ? NEW_TRACK : undefined}
+      line={s.line(name.trim() || "your agent")} look={preAgent ? undefined : look} mood={s.mood} stepKey={screen} onBack={goBack}>
       {screen === "anywhere" && narrow(<AwayStep onScene={onScene} onDone={() => advance("anywhere")} />)}
       {screen === "address" && narrow(<AddressStep onScene={onScene} onNext={() => advance("address")} />)}
       {screen === "connect" && (
@@ -141,8 +177,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
             if (!r.some((x) => x.harness === harness)) setHarness(r[0]?.harness ?? "");
             setScreen("name");
           }}
-          // skipping the AI makes no agent: the agent step stays open so setup resumes here
-          onSkip={() => (done.devices ? finish() : setScreen("devices"))}
+          // skipping the AI makes no agent; the phone page shows once, never in a loop
+          onSkip={() => (done.devices ? finish() : advance("agent"))}
         />
       )}
       {screen === "name" && powered && <NameStep name={name} setName={setName} look={look} ready={ready} harness={powered.harness} setHarness={setHarness} onBack={() => setScreen("connect")} onNext={() => setScreen("memory")} />}
@@ -167,6 +203,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
       {screen === "setup" && device && powered && <SetupProgress device={device} powered={powered} name={name.trim()} look={look} lines={lines} onBack={() => setScreen("memory")} onDone={(_, channelId) => finish(channelId)} />}
       {screen === "devices" && narrow(<PhoneStep onScene={onScene} onFinish={() => finish()} />)}
     </SetupShell>
+    </>
   );
 }
 

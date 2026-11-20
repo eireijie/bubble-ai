@@ -19,6 +19,7 @@ import { useMemo, useSyncExternalStore } from "react";
  *   #/welcome[/intro]                first-run onboarding; /intro opens on "what Wisp is"
  *   #/help                           help: finish setup, why a helper isn't answering, words you'll see
  *   #/mods                           mods: optional parts of Wisp, switched on or off
+ *   #/here[/<agentId>]               "Here's your Wisp": what setup turned on, each undoable (onboarding's last page)
  *   #/code                           Code (a mod): terminals on your computers
  *   #/                               the dashboard on desktops, the chats list on phones (App.tsx)
  *   #/chats                          channel list (phones; desktops go to the dashboard)
@@ -41,6 +42,7 @@ export type Route =
   | { view: "welcome"; intro?: boolean }
   | { view: "help" }
   | { view: "mods" }
+  | { view: "here"; agentId?: string | null }
   | { view: "code" }
   | { view: "chats" }
   | { view: "you" }
@@ -110,6 +112,8 @@ export function parseRoute(hash: string): Route {
       return { view: "help" };
     case "mods":
       return { view: "mods" };
+    case "here":
+      return { view: "here", agentId: parts[1] ?? null };
     case "code":
       return { view: "code" };
     case "chats":
@@ -160,6 +164,8 @@ export function href(r: Route): string {
       return "#/help";
     case "mods":
       return "#/mods";
+    case "here":
+      return "#/here" + (r.agentId ? `/${r.agentId}` : "");
     case "code":
       return "#/code";
     case "chats":

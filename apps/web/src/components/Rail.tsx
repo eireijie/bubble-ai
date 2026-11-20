@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
-import { Apple, Blocks, BookOpen, Ghost as GhostIcon, HardDrive, LayoutGrid, LifeBuoy, ListTodo, MessageSquarePlus, Plus, Search, SquareTerminal, Store, Users } from "lucide-react";
+import { Apple, Blocks, BookOpen, Ghost as GhostIcon, HardDrive, LayoutGrid, LifeBuoy, ListChecks, ListTodo, MessageSquarePlus, Plus, Search, SquareTerminal, Store, Users } from "lucide-react";
+import { useReadyChecklist } from "../onboarding.ts";
 import type { Agent, FeatureKey } from "@wisp/core";
 import { useFeatures } from "../features.ts";
 import { useStore, useInboxCount, type ChannelInfo } from "../store.ts";
@@ -165,6 +166,7 @@ export function Rail({ route }: { route: Route }) {
   const isGuest = me.role === "guest";
   const features = useFeatures();
   const chats = useRailChats();
+  const ready = useReadyChecklist();
   const working = computers.some((c) => c.activity && Date.now() - new Date(c.activity.at).getTime() < 30_000);
   const active = route.view === "chat" ? route.channelId : null;
   const moreItems = useMoreItems(isGuest, 18, true).map((i) => ({ label: i.label, icon: i.icon, onSelect: () => go(i.to) }));
@@ -203,6 +205,7 @@ export function Rail({ route }: { route: Route }) {
           ))}
         </div>
 
+        {ready.started && ready.left > 0 && !isGuest && <ToolRow label="Finish setup" icon={<ListChecks size={20} strokeWidth={1.7} />} to={href({ view: "here" })} active={route.view === "here"} />}
         <Menu up items={addItems} trigger={(open, toggle) => <ToolRow label="New agent or team" icon={<Plus size={20} strokeWidth={1.7} />} onClick={toggle} aria={{ "aria-expanded": open, "aria-haspopup": "menu" }} />} />
         {!isGuest && <ToolRow label="Computers" icon={<ComputersIcon size={20} />} to={href({ view: "computers", computerId: null })} active={route.view === "computers"} dot={working} />}
         {!isGuest && modNav(features, "rail").map((m) => <ToolRow key={m.feature} label={m.label} icon={m.icon(20)} to={href(m.to)} active={m.views.includes(route.view)} />)}

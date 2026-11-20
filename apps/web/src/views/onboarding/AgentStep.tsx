@@ -3,8 +3,9 @@ import type { GhostShape } from "@wisp/core";
 import { useMotionReduced } from "../../theme.ts";
 import { FAMILY_COLORS, SHAPE_TO_SILHOUETTE, SILHOUETTES, eyeInk, type Silhouette } from "../../ghostFamily.ts";
 import { ONBOARDING_GHOST_STYLE } from "../../components/onboarding/OnboardingGhost.tsx";
-import { OnboardingDots } from "../../components/onboarding/GoalsStep.tsx";
-import { agentInstructions, loadAnswers, pickedGoals, type AgentDraft, type GoalId } from "../../onboardingV3.ts";
+import { agentInstructions, cap, loadAnswers, PHRASE, pickedGoals, roleLine, type AgentDraft } from "../../onboardingV3.ts";
+import { PageTop } from "../../components/onboarding/PageTop.tsx";
+export { roleLine };
 
 /** What page 3 learned (its Fact, read loosely so this page works before or without it). */
 type Fact = { group: string; text: string };
@@ -37,34 +38,6 @@ const NAME_POOL = ["Juno", "Atlas", "Pip", "Nova", "Milo", "Iris", "Otto", "Wren
 
 /** Family silhouette → the shape the app stores (block has none of its own, so it saves as classic). */
 const STORED: Record<Silhouette, GhostShape> = { ...(Object.fromEntries(Object.entries(SHAPE_TO_SILHOUETTE).map(([k, v]) => [v, k])) as Record<Silhouette, GhostShape>), block: "classic" };
-
-/** What each pick reads like in "What I do" and in the preview message. */
-const PHRASE: Record<GoalId, string> = {
-  email: "your inbox",
-  cal: "your calendar",
-  code: "your code",
-  research: "research",
-  writing: "your writing",
-  money: "your bills",
-  errands: "errands",
-  biz: "your business",
-  home: "home and family",
-  learn: "your learning",
-};
-
-const listOf = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** "Your inbox, your calendar and your code, so you can spend less time on them." */
-export function roleLine(goals: readonly string[], other: string, facts: readonly Fact[]): string {
-  const picks = pickedGoals(goals).map((g) => PHRASE[g.id]);
-  if (picks.length) return `${cap(listOf(picks.slice(0, 3)))}, so you can spend less time on them.`;
-  const extra = other.trim().replace(/[.\s]+$/, "");
-  if (extra) return `${cap(extra)}, so you can spend less time on it.`;
-  const work = facts.find((f) => f.group === "Work");
-  if (work) return `Help with ${work.text.replace(/[.\s]+$/, "").replace(/^./, (c) => c.toLowerCase())}, and whatever else you need.`;
-  return "Whatever you need help with, so you can spend less time on busywork.";
-}
 
 /** One thing it learned on page 3 that reads well after "then": work first, never "You're Sam". */
 function factLine(facts: readonly Fact[]): string | null {
@@ -142,14 +115,15 @@ type Field = "name" | "role" | "color" | "shape";
  * (and keeps following page 3's findings as they arrive, except a field the person changed).
  * Continue only saves a draft; page 5 creates the agent once its AI is chosen.
  */
-export function AgentStep({ workspaceId, person, onContinue }: { workspaceId: string; person: string; onContinue: (draft: AgentDraft) => void }) {
+export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspaceId: string; person: string; onContinue: (draft: AgentDraft) => void; onBack?: () => void }) {
   const reduced = useMotionReduced();
   const [answers, setAnswers] = useState(() => loadAnswers(workspaceId));
   const facts = factsOf(answers);
   const draft = answers.agentDraft;
   const touched = useRef<Set<Field>>(new Set(draft ? (["name", "role", "color", "shape"] as Field[]) : []));
   const [name, setName] = useState(draft?.name ?? "Juno");
-  const [role, setRole] = useState(() => draft?.role ?? roleLine(answers.goals, answers.other, facts));
+  // a draft saved with the old "so you can spend less time on them" wording gets the new line
+  const [role, setRole] = useState(() => (draft?.role && !/, so you can spend less time on (them|it)\.$/.test(draft.role) ? draft.role : roleLine(answers.goals, answers.other, facts)));
   const [color, setColor] = useState<string>(draft?.color ?? FAMILY_COLORS[0]);
   const [shape, setShape] = useState<Silhouette>(draft?.silhouette ?? (draft ? SHAPE_TO_SILHOUETTE[draft.shape] : "ghost"));
   const [hop, setHop] = useState(0);
@@ -229,10 +203,7 @@ export function AgentStep({ workspaceId, person, onContinue }: { workspaceId: st
   return (
     <div className="fixed inset-0 z-10 flex flex-col bg-panel text-ink text-[14px] leading-[22px]">
       <style>{STYLE}</style>
-      <div className="h-14 px-6 flex items-center justify-between shrink-0 safe-top">
-        <span className="text-[15px] font-[650] tracking-[-0.01em]">Wisp</span>
-        <OnboardingDots step={3} />
-      </div>
+      <PageTop step={3} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="ob-page min-h-full grid grid-cols-1 lg:grid-cols-[minmax(0,520px)_minmax(0,440px)] gap-10 lg:gap-20 justify-center items-center px-4 sm:px-6 pt-4 pb-10">
           <form

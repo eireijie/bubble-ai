@@ -22,8 +22,8 @@ const STYLE = `
   .ob-choice:active { transform: none; }
 }`;
 
-/** The 7-step track, top right: done ink, current an 18px ink pill, the rest faint. */
-export function OnboardingDots({ step, of = 7 }: { step: number; of?: number }) {
+/** The track after the account (away, address, know, agent, AI), top right: done ink, current an 18px ink pill, the rest faint. */
+export function OnboardingDots({ step, of = 5 }: { step: number; of?: number }) {
   return (
     <span className="flex gap-1.5 items-center" role="img" aria-label={`Step ${step + 1} of ${of}`}>
       {Array.from({ length: of }, (_, i) => (

@@ -36,6 +36,7 @@ import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, too
 import { openDm } from "../openDm.ts";
 import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
+import { FirstChatExtras } from "../components/onboarding/FirstChat.tsx";
 
 /** What's open in the pane beside the chat (a thread comes from the route instead). */
 type Side = { kind: "agent"; agentId: string; tab: AgentPanelTab } | { kind: "info"; tab: InfoTab };
@@ -202,6 +203,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <SignInNeededBar agent={dmFull} />
           </div>
         )}
+        {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
         {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onAgain={() => { setCallRecord(null); setCalling(true); }} onHide={() => setCallRecord(null)} />}
         {calling && dmAgent && <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} barSlot={callSlot} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />}
         {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} />}

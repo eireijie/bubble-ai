@@ -47,8 +47,8 @@
   h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.02em; line-height: 1.2; }
   header p { margin: 0; color: var(--muted); font-size: 14px; }
   header p:empty { display: none; }
-  /* every screen leads with its own title */
-  main header { display: none; }
+  /* only the first screen has the welcome; the others lead with their own title */
+  main[data-screen]:not([data-screen="welcome"]) header { display: none; }
   section { display: flex; flex-direction: column; flex: 1; }
   /* the screens that fill the panel: what you do next sits at the bottom */
   main > div:not([hidden]):not(.top) { display: flex; flex-direction: column; flex: 1; }
@@ -84,6 +84,20 @@
   .hint { font-size: 13px; color: var(--faint); margin: 8px 6px 0; }
   .error { color: var(--bad); margin: 10px 6px 0; font-size: 14px; }
   .group { background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  /* the choices on the first screen */
+  .choices { gap: 14px; }
+  .choice {
+    display: flex; align-items: center; gap: 14px; text-align: left; padding: 14px; border-radius: 8px; height: auto;
+    background: var(--card); border: 1px solid var(--line); box-shadow: none; font-weight: 400; width: 100%; flex: none;
+  }
+  .choice:hover { border-color: var(--faint); }
+  .choice:hover:not(:disabled) { transform: translateY(-2px); }
+  .choice.primary { background: var(--card); border-color: var(--line); color: var(--ink); }
+  .choice.primary:hover { border-color: var(--faint); }
+  .choice > svg { width: 22px; height: 22px; flex: none; }
+  .choice .text { flex: 1; display: grid; gap: 3px; }
+  .choice strong { font-size: 15px; font-weight: 500; }
+  .choice .text span { color: var(--muted); font-size: 13px; }
   a { color: var(--link); }
   /* found Wisps and waiting rows */
   .found { display: grid; margin: 0; }
@@ -123,9 +137,9 @@
   }
   .center { text-align: center; padding: 6px 0; }
   /* each screen's content eases in, a little after the last line */
-  main > section > *, main > div > section > * { animation: rise 460ms cubic-bezier(0.2, 0.85, 0.25, 1) both; }
-  main > section > :nth-child(2), main > div > section > :nth-child(2) { animation-delay: 50ms; }
-  main > section > :nth-child(3), main > div > section > :nth-child(3) { animation-delay: 100ms; }
+  #welcome > *, main > section > *, main > div > section > * { animation: rise 460ms cubic-bezier(0.2, 0.85, 0.25, 1) both; }
+  #welcome > :nth-child(2), main > section > :nth-child(2), main > div > section > :nth-child(2) { animation-delay: 50ms; }
+  #welcome > :nth-child(3), main > section > :nth-child(3), main > div > section > :nth-child(3) { animation-delay: 100ms; }
   main > section > :nth-child(n+4), main > div > section > :nth-child(n+4) { animation-delay: 150ms; }
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
   ol.steps { margin: 0 0 14px; padding-left: 20px; color: var(--muted); }
@@ -138,7 +152,21 @@
   .plan .spec small { display: block; color: var(--muted); font-size: 12.5px; }
   .plan .price { font-weight: 600; white-space: nowrap; }
   .tag { font-size: 11.5px; background: var(--chip); border-radius: 6px; padding: 1px 6px; margin-left: 6px; font-weight: 500; color: var(--muted); }
-  .tag.rec { background: var(--accent); color: var(--accent-ink); margin-left: 0; }
+  /* the two questions on the first screen, and the Recommended tag that follows the answers */
+  .q { margin-bottom: 14px; }
+  .q > p { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 7px 2px; }
+  .seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
+  .seg button { height: 34px; padding: 0 8px; font-size: 13.5px; font-weight: 500; border: 0; border-radius: 7px; background: transparent; color: var(--muted); box-shadow: none; transition: background 220ms, color 220ms, box-shadow 220ms, transform 160ms; }
+  .seg button:hover:not(:disabled) { transform: none; color: var(--ink); }
+  .seg button[aria-checked="true"] { background: var(--control); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 0 0 0.5px var(--control-line); }
+  .choice { transition: border-color 220ms, background 220ms, transform 200ms cubic-bezier(0.2, 0.9, 0.25, 1.3); align-items: flex-start; }
+  .choice > svg { margin-top: 1px; }
+  .choice[aria-pressed="true"], .choice.primary[aria-pressed="true"] { border-color: var(--ink); background: var(--panel); }
+  .choice strong { display: flex; align-items: center; gap: 8px; }
+  .choice .text .why { color: var(--ok); font-size: 12.5px; }
+  .choice .text .tag.rec { color: var(--accent-ink); font-size: 11.5px; }
+  .tag.rec { background: var(--accent); color: var(--accent-ink); margin-left: 0; animation: tagin 420ms cubic-bezier(0.2, 0.9, 0.25, 1.3) both; }
+  @keyframes tagin { from { opacity: 0; transform: translateX(-8px) scale(0.9); } }
   /* Cloud: which provider, signing in or pasting a token */
   .provider { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); background: var(--card); border-radius: 8px; margin-bottom: 14px; font-size: 14px; }
   .provider .n { flex: 1; font-weight: 500; }
@@ -178,61 +206,6 @@
   .fix { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
   .fix b { display: block; font-weight: 600; font-size: 14px; margin-bottom: 3px; }
   .fix p { margin: 0; color: var(--muted); font-size: 13.5px; }
-  /* Page 1, Hello: a calm white page over everything, one violet wisp, one question */
-  #hello { position: fixed; inset: 0; z-index: 10; background: var(--panel); color: var(--ink); display: flex; flex-direction: column; font-size: 14px; line-height: 22px; }
-  .h-top { height: 56px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; flex: none; -webkit-app-region: drag; }
-  .h-mark { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
-  .h-links { display: flex; gap: 16px; -webkit-app-region: no-drag; }
-  #hello button.h-link { height: auto; padding: 0; border: 0; background: none; box-shadow: none; color: var(--muted); font-size: 13px; font-weight: 400; }
-  #hello button.h-link:hover { color: var(--ink); transform: none; }
-  .h-mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 0 16px 56px; }
-  .h-words { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 440px; text-align: center; }
-  .h-words h1 { font-size: 24px; line-height: 30px; font-weight: 650; letter-spacing: -0.015em; margin: 0; }
-  .h-words p { font-size: 15px; line-height: 22px; color: var(--muted); margin: 0; }
-  .h-row { display: flex; gap: 8px; width: 100%; max-width: 400px; }
-  .h-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  #hello-name { flex: 1; min-width: 0; height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--control-line); background: var(--control); color: var(--ink); font-size: 15px; }
-  #hello-name:focus { border-color: var(--ink); }
-  #hello-go { height: 44px; padding: 0 20px; border: 0; border-radius: 22px; background: var(--chip); color: var(--ink); font-weight: 600; font-size: 14px; box-shadow: none; transition: background 200ms, color 200ms, transform 180ms cubic-bezier(0.2, 0.9, 0.25, 1.3); }
-  #hello.named #hello-go { background: var(--accent); color: var(--accent-ink); }
-  .h-foot { position: absolute; left: 0; right: 0; bottom: 24px; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: var(--muted); padding: 0 16px; flex-wrap: wrap; text-align: center; }
-  .h-dot { width: 6px; height: 6px; border-radius: 3px; background: #a98bf5; flex: none; animation: h-dot 1.4s ease-in-out infinite; }
-  .h-foot.ready .h-dot { animation: none; }
-  #hello button.h-cloud { height: auto; padding: 0; border: 0; background: none; box-shadow: none; color: var(--ink); font-size: 12px; font-weight: 400; text-decoration: underline; text-underline-offset: 2px; }
-  #hello button.h-cloud:hover { transform: none; }
-  @keyframes h-dot { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
-  @keyframes h-in { from { opacity: 0; transform: translateY(6px); } }
-  .h-in { animation: h-in 450ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-  .h-in2 { animation: h-in 450ms cubic-bezier(0.32, 0.72, 0, 1) 500ms both; }
-  .h-in3 { animation: h-in 450ms cubic-bezier(0.32, 0.72, 0, 1) 900ms both; }
-  /* the wisp (canvas Avatar): breathes, blinks, stares off; follows the cursor when it's near; talks */
-  .hg { display: block; position: relative; width: 128px; height: 128px; flex: none; }
-  .hg svg { display: block; }
-  .hg-hop { transform-box: fill-box; transform-origin: 50% 100%; }
-  .hg.hop .hg-hop { animation: hg-hop 0.5s cubic-bezier(0.32, 0.72, 0, 1) 1; }
-  @keyframes hg-hop { 0% { transform: scale(1, 1); } 25% { transform: scale(1.12, 0.82); } 55% { transform: scale(0.9, 1.14) translateY(-3px); } 100% { transform: scale(1, 1); } }
-  /* the next screen slides in from the right on the drawer curve */
-  .enter { animation: h-enter 450ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-  @keyframes h-enter { from { opacity: 0; transform: translateX(48px); } }
-  .hg-bob, .hg-gaze, .hg-eye, .hg-lid, .hg-lean, .hg-talk { transform-box: fill-box; }
-  .hg-bob { transform-origin: 50% 100%; animation: hg-breathe 5.6s ease-in-out infinite; }
-  .hg-gaze { animation: hg-abyss 16s cubic-bezier(0.45, 0, 0.2, 1) infinite; }
-  .hg-eye { transform-origin: center; animation: hg-blink 11s infinite; animation-delay: 1.3s; }
-  .hg-lid { transform-origin: center; transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1); }
-  .hg-lean { transform-origin: 50% 100%; transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
-  .hg-follow { transition: transform 0.12s ease-out; }
-  .hg-mouth { transition: d 0.22s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.15s ease; }
-  .hg-talk { transform-origin: center; opacity: 0; animation: hg-talk 0.62s ease-in-out infinite; }
-  .hg.talking .hg-talk { opacity: 1; }
-  .hg.talking .hg-mouth { opacity: 0; }
-  .hg.following .hg-gaze { animation: none; }
-  .hg.following .hg-lid { transform: scale(1.12, 1.26); }
-  .hg.following .hg-eye { animation: hg-blink-alert 3.6s infinite; }
-  @keyframes hg-breathe { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-1.2px) scale(1.015, 0.985); } }
-  @keyframes hg-abyss { 0%, 46% { transform: translate(-2.3px, -1.3px); } 54%, 90% { transform: translate(2.1px, -1.5px); } 96%, 100% { transform: translate(-2.3px, -1.3px); } }
-  @keyframes hg-blink { 0%, 24% { transform: scale(1, 1); } 26% { transform: scale(1.05, 0.1); } 28.5%, 42% { transform: scale(1, 1); } 50%, 63% { transform: scale(1.04, 0.42); } 66% { transform: scale(1.05, 0.1); } 69%, 80% { transform: scale(1, 1); } 82.5%, 88% { transform: scale(1.14, 1.3); } 91.5%, 94% { transform: scale(1, 1); } 95.3% { transform: scale(1.05, 0.1); } 96.6% { transform: scale(1, 1); } 97.9% { transform: scale(1.05, 0.1); } 99.2%, 100% { transform: scale(1, 1); } }
-  @keyframes hg-blink-alert { 0%, 86% { transform: scale(1, 1); } 90% { transform: scale(1.05, 0.1); } 94%, 100% { transform: scale(1, 1); } }
-  @keyframes hg-talk { 0%, 100% { transform: scaleY(0.3); } 30% { transform: scaleY(1); } 55% { transform: scaleY(0.45); } 78% { transform: scaleY(0.85); } }
   :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
   /* the wisps: the same drawing and motion as the app's ghost */
   .w { position: absolute; left: 0; top: 0; width: 300px; height: 300px; pointer-events: none; transition: left 850ms cubic-bezier(0.3, 0.85, 0.3, 1), top 850ms cubic-bezier(0.3, 0.85, 0.3, 1), transform 850ms cubic-bezier(0.3, 0.85, 0.3, 1), opacity 600ms; }
@@ -273,9 +246,7 @@
   .spark { position: absolute; color: var(--ink); animation: spark 1.4s ease-in-out infinite both; }
   @keyframes spark { 0%, 100% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) {
-    .status-row .dots i, .dot::after, .plist, .waitbox, .found-token, .digit, .prop, .spark, .ga, .mo, .ground, .keys, .blink, main > section > *, main > div > section > *, .h-in, .h-in2, .h-in3, .h-dot, .hg-bob, .hg-gaze, .hg-eye, .hg-talk, .hg-hop, .enter { animation: none !important; }
-    .hg-lean, .hg-follow, .hg-lid, .hg-mouth { transition: none; }
-    .hg-talk { transform: scaleY(0.6); }
+    .status-row .dots i, .dot::after, .tag.rec, .plist, .waitbox, .found-token, .digit, .prop, .spark, .ga, .mo, .ground, .keys, .blink, #welcome > *, main > section > *, main > div > section > * { animation: none !important; }
     .w, #fill { transition: opacity 200ms; }
     .spark { opacity: 0.6; }
   }
@@ -290,38 +261,6 @@
 </style>
 </head>
 <body>
-<!-- Page 1, Hello: the first wisp says hi and asks your name, while Self-Host gets ready behind it -->
-<div id="hello" hidden>
-  <div class="h-top">
-    <span class="h-mark">Wisp</span>
-    <span class="h-links"><button class="h-link" id="hello-return" hidden>Back to my Wisp</button><button class="h-link" id="pick-join">I already have Wisp</button></span>
-  </div>
-  <div class="h-mid">
-    <span class="hg h-in" id="hello-ghost" aria-hidden="true">
-      <svg width="100%" height="100%" viewBox="0 0 40 40" style="overflow:visible">
-        <g class="hg-hop" id="hg-hop"><g class="hg-bob"><g class="hg-lean" id="hg-lean">
-          <path d="M6 18.5a14 14 0 0 1 28 0V35l-4.7-3.3-4.6 3.3-4.7-3.3-4.7 3.3-4.6-3.3L6 35Z" fill="#a98bf5"/>
-          <g class="hg-gaze"><g class="hg-follow" id="hg-follow">
-            <g class="hg-lid"><ellipse class="hg-eye" cx="16" cy="18" rx="1.9" ry="2.7" fill="rgba(20,20,20,.88)"/></g>
-            <g class="hg-lid"><ellipse class="hg-eye" cx="24" cy="18" rx="1.9" ry="2.7" fill="rgba(20,20,20,.88)"/></g>
-            <path class="hg-mouth" d="M18.7 23h2.6" fill="none" stroke="rgba(20,20,20,.88)" stroke-width="1.25" stroke-linecap="round"/>
-            <ellipse class="hg-talk" cx="20" cy="23" rx="1.5" ry="1.3" fill="rgba(20,20,20,.88)"/>
-          </g></g>
-        </g></g></g>
-      </svg>
-    </span>
-    <div class="h-words" aria-live="polite">
-      <h1 id="hello-title" class="h-in">Hi. I'm your first wisp.</h1>
-      <p id="hello-sub" class="h-in2">What should I call you?</p>
-    </div>
-    <form id="hello-form" class="h-row h-in3">
-      <label for="hello-name" class="h-sr">Your name</label>
-      <input id="hello-name" autofocus placeholder="Your name" autocomplete="given-name" spellcheck="false" maxlength="80" />
-      <button type="submit" id="hello-go">Continue</button>
-    </form>
-  </div>
-  <div class="h-foot" id="hello-foot"><span class="h-dot" aria-hidden="true"></span><span id="hello-runs">Wisp runs on this computer. Getting it ready…</span><button class="h-cloud" id="hello-cloud">Use Cloud instead</button></div>
-</div>
 <div id="stage" aria-hidden="true"></div>
 <div class="side">
 <main>
@@ -335,6 +274,27 @@
       <p id="subtitle">One question, then pick where your agents live.</p>
     </div>
   </header>
+
+  <div id="welcome" class="choices" hidden>
+    <div class="q">
+      <p id="q-on">Is this computer on all day?</p>
+      <div class="seg" role="radiogroup" aria-labelledby="q-on">
+        <button type="button" role="radio" data-q="on" data-v="no">No, it sleeps or travels</button>
+        <button type="button" role="radio" data-q="on" data-v="yes">Yes, it stays on</button>
+      </div>
+    </div>
+    <button class="choice" id="pick-cloud" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.25 4.25 0 0 1-.5 8.5Z"/></svg>
+      <span class="text"><strong>Cloud<span class="tag rec" id="rec-cloud" hidden>Recommended</span></strong><span>Always on, about $24 a month on your own cloud account.</span><span class="why" id="why-cloud" hidden></span></span>
+    </button>
+    <button class="choice" id="pick-create" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 20h20"/></svg>
+      <span class="text"><strong>Self-Host<span class="tag rec" id="rec-self" hidden>Recommended</span></strong><span>Free, on this computer. Agents work while it's awake.</span><span class="why" id="why-self" hidden>Because this computer stays on.</span></span>
+    </button>
+    <div class="push"></div>
+    <button class="primary wide" id="welcome-go">Continue</button>
+    <button class="link wide" id="pick-join">Already have a Wisp? Join it</button>
+  </div>
 
   <div id="create" hidden>
     <section>
@@ -475,81 +435,54 @@
   const $ = (id) => document.getElementById(id);
   const state = JSON.parse(new URLSearchParams(location.search).get("state") || "{}");
   const setup = window.wispSetup;
-  const SCREENS = ["hello", "create", "installing", "ready", "join", "cloud", "waiting", "starting", "unreachable"];
-  let currentScreen = "hello";
+  const SCREENS = ["welcome", "create", "installing", "ready", "join", "cloud", "waiting", "starting", "unreachable"];
   const show = (id) => {
-    currentScreen = id;
     SCREENS.forEach((s) => ($(s).hidden = s !== id));
     document.querySelector("main")?.setAttribute("data-screen", id);
-    $("back").hidden = ["hello", "installing", "ready", "waiting", "starting", "unreachable"].includes(id);
+    $("back").hidden = ["welcome", "installing", "ready", "waiting", "starting", "unreachable"].includes(id) && !(id === "welcome" && state.canReturn);
   };
   const err = (id, msg) => { $(id).hidden = !msg; $(id).textContent = msg || ""; };
 
-  // ------------------------------------------------ Page 1, Hello
-  // The first wisp says hi and asks a name. Self-Host is the default, so on a first run its server
-  // starts the moment this page opens (setup.create, in the background) and Continue only waits for
-  // what's left. Use Cloud instead and I already have Wisp stop that start and go their own way.
-  // Either way this computer joins as a device; whether an agent may use it is a switch, later.
-  let helloName = "";
-  let selfStart = null; // the background Self-Host start: setup.create's answer, once it comes
-  const autoStart = !state.step && !state.canReturn;
-  const firstName = () => helloName.split(/\s+/)[0] || "";
-  function renderHello() {
-    const first = firstName();
-    $("hello").classList[first ? "add" : "remove"]("named");
-    $("hello-title").textContent = first ? `Nice to meet you, ${first}.` : "Hi. I'm your first wisp.";
-    $("hello-sub").textContent = first ? "I'll remember that." : "What should I call you?";
+  // ------------------------------------------------ the question, and the recommended start
+  // On all day: Self-Host is free there and recommended. Otherwise (a laptop, or not sure) Cloud,
+  // because a server never sleeps. Either way this computer joins as a device, its screen off until
+  // someone turns it on there; whether an agent may use it is a switch on that agent, later.
+  const answers = { on: "no" };
+  let picked = null;
+  const recommended = () => (answers.on === "yes" ? "self" : "cloud");
+  function renderWelcome() {
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-checked", String(answers[b.dataset.q] === b.dataset.v)));
+    const rec = recommended();
+    const choice = picked || rec;
+    for (const [id, which] of [["cloud", "cloud"], ["self", "self"]]) {
+      const tag = $(`rec-${id}`);
+      if (tag.hidden !== (rec !== which)) { tag.hidden = rec !== which; tag.style.animation = "none"; void tag.offsetWidth; tag.style.animation = ""; }
+      $(`why-${id}`).hidden = rec !== which;
+    }
+    $("why-cloud").textContent = "Because this computer sleeps, and a server never does.";
+    $("pick-cloud").setAttribute("aria-pressed", String(choice === "cloud"));
+    $("pick-create").setAttribute("aria-pressed", String(choice === "self"));
+    $("welcome-go").textContent = `Continue with ${choice === "cloud" ? "Cloud" : "Self-Host"}`;
+    window.dispatchEvent(new Event("wisp:scene"));
   }
-  let startDone = false;
-  /** The footer: where Wisp runs, and while its server starts, a pulsing dot. */
-  function renderFoot() {
-    $("hello-foot").classList[selfStart && !startDone ? "remove" : "add"]("ready");
-    $("hello-runs").textContent = `Wisp runs on this ${computer}.${selfStart && !startDone ? " Getting it ready…" : ""}`;
-  }
-  function startInBackground() {
-    if (selfStart || !autoStart) return renderFoot();
-    startDone = false;
-    const run = (selfStart = Promise.resolve(setup.create({ device: true, background: true })).catch((e) => ({ ok: false, error: e?.message })));
-    renderFoot();
-    run.then(() => { if (run === selfStart) { startDone = true; renderFoot(); } });
-  }
-  /** Stop the background start, so Cloud or joining another Wisp isn't racing a server here. */
-  function abandonSelfHost() {
-    if (!selfStart) return;
-    selfStart = null;
-    setup.cancelCreate?.();
-  }
-  const keepName = () => {
-    helloName = $("hello-name").value.trim();
-    if (helloName && !$("cloud-name").value) $("cloud-name").value = helloName;
-  };
-  $("hello-name").oninput = () => { keepName(); renderHello(); };
-  $("hello-form").onsubmit = async (e) => {
-    e?.preventDefault?.();
-    keepName();
-    if (window.helloLeave) await window.helloLeave();
-    // no start running here (a second Wisp, from an existing one): the Self-Host screen as before
-    if (!selfStart) return show("create");
-    const run = selfStart;
-    show("installing");
-    const r = await run;
-    if (run !== selfStart) return;
-    if (r?.ok) return openWisp("Opening your Wisp…");
-    selfStart = null;
-    show("create");
-    err("create-error", r?.error || "The server didn't start.");
-    if (r?.log) { $("log").hidden = false; $("log").textContent = r.log; }
-  };
-  $("hello-cloud").onclick = async () => { keepName(); abandonSelfHost(); if (window.helloLeave) await window.helloLeave(false); goCloud(); };
-  $("hello-return").hidden = !state.canReturn;
-  $("hello-return").onclick = () => setup.returnToServer();
+  document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => {
+    answers[b.dataset.q] = b.dataset.v;
+    if (b.dataset.q === "on") picked = null;
+    renderWelcome();
+  }));
+  $("pick-cloud").onclick = () => { picked = "cloud"; renderWelcome(); };
+  $("pick-create").onclick = () => { picked = "self"; renderWelcome(); };
+  $("pick-cloud").ondblclick = () => goCloud();
+  $("pick-create").ondblclick = () => show("create");
+  $("welcome-go").onclick = () => ((picked || recommended()) === "cloud" ? goCloud() : show("create"));
+  renderWelcome();
 
   let computer = "computer";
   setup.check().then((c) => {
     computer = c.platform === "darwin" ? "Mac" : c.platform === "win32" ? "PC" : "computer";
     $("ready-computer").textContent = computer;
     document.querySelectorAll("[data-computer]").forEach((el) => (el.textContent = computer));
-    renderFoot();
+    if (c.laptop === false) { answers.on = "yes"; renderWelcome(); }
     if (state.step === "create" && c.problem && !state.problem) err("create-error", c.problem);
   });
 
@@ -684,9 +617,9 @@
 
   function goWelcome() {
     stopJoin();
-    show("hello");
-    renderHello();
-    startInBackground();
+    $("title").textContent = "Welcome to Wisp";
+    $("subtitle").textContent = "Two questions, then pick where your agents live.";
+    show("welcome");
   }
 
   if (state.step === "starting") {
@@ -703,31 +636,19 @@
     if (state.log) { $("log").hidden = false; $("log").textContent = state.log; }
   } else goWelcome();
 
-  $("pick-join").onclick = async () => { keepName(); abandonSelfHost(); if (window.helloLeave) await window.helloLeave(false); goJoin(); };
+  $("pick-join").onclick = goJoin;
   $("scan").onclick = scan;
   $("cancel-join").onclick = goJoin;
   $("join-again").onclick = goJoin;
   window.addEventListener("beforeunload", stopJoin);
-  // One Back for the button and Esc. Every step goes back one: choose a size to connect, the provider
-  // list closes, connect to Hello, the join pages to Hello. Hello is the start; installing, ready and
-  // starting have nothing to go back to. A server being created isn't dropped silently: Back waits.
-  function goBack() {
-    const screen = currentScreen;
-    if (screen === "waiting") return $("cancel-join").onclick();
-    if (screen === "join" || screen === "create") return goWelcome();
-    if (screen !== "cloud") return;
-    if (!$("cloud-progress").hidden && running) return;
+  document.querySelectorAll("[data-back]").forEach((b) => (b.onclick = () => {
+    const screen = document.querySelector("main")?.getAttribute("data-screen");
+    if (screen === "welcome" && state.canReturn) return setup.returnToServer();
     // within Cloud, back from choosing a size goes to connecting
-    if (!$("cloud-choose").hidden) return cloudCard("cloud-connect");
-    if (!$("p-list").hidden) { $("p-list").hidden = true; $("p-change").setAttribute("aria-expanded", "false"); return; }
-    cancelSignIn();
+    if (screen === "cloud" && !$("cloud-choose").hidden) return cloudCard("cloud-connect");
+    if (screen === "cloud") cancelSignIn();
     goWelcome();
-  }
-  document.querySelectorAll("[data-back]").forEach((b) => (b.onclick = goBack));
-  window.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape" || e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
-    goBack();
-  });
+  }));
   $("retry").onclick = () => { show("starting"); setup.retry(); };
   $("switch").onclick = goWelcome;
   async function startWisp() {
@@ -1091,69 +1012,130 @@
   function openWisp(opening) {
     $("starting-title").textContent = opening;
     show("starting");
-    setup.open(helloName);
+    setup.open();
   }
 </script>
 <script>
-  // The stage's wisps. Plain script, because this page runs before the app does; the shapes and colours
-  // come from the app's ghost family (web/src/ghostFamily.ts), so the same wisp carries on after this page.
+  // The stage's wisps. Plain script, because this page runs before the app does; the drawing and the
+  // numbers come from the app's Ghost.tsx and GhostArms.tsx, so the same wisp carries on after this page.
   (() => {
-// The ghost family (web/src/ghostFamily.ts): flat, one colour, two eyes, its own silhouette.
-// Paths are in the family's 40-unit space; the stage draws them 3× into its 120-unit box.
 const BODY = {
-  ghost: { d: "M6 18.5a14 14 0 0 1 28 0V35l-4.7-3.3-4.6 3.3-4.7-3.3-4.7 3.3-4.6-3.3L6 35Z", ey: 18, top: 4.5, hat: 1.4 },
-  drop: { d: "M20 3c6 6 14 9 14 18v14l-4.7-3.3-4.6 3.3-4.7-3.3-4.7 3.3-4.6-3.3L6 35V21C6 12 14 9 20 3Z", ey: 21, top: 7.5, hat: 0.95 },
-  soft: { d: "M6 18a14 14 0 0 1 28 0v14a3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 1-7 0Z", ey: 18, top: 4, hat: 1.4 },
-  tall: { d: "M9 14a11 11 0 0 1 22 0v22l-3.7-2.6-3.6 2.6-3.7-2.6-3.7 2.6-3.6-2.6L9 36Z", ey: 15, top: 3, hat: 1.1 },
-  wide: { d: "M3 22a17 13 0 0 1 34 0v12l-5.7-3-5.6 3-5.7-3-5.7 3-5.6-3L3 34Z", ey: 21, top: 9, hat: 1.45 },
+  classic: { d: "M30 60 C30 32 44 18 60 18 C76 18 90 32 90 60 L90 96 Q85 104 80 96 Q75 88 70 96 Q65 104 60 96 Q55 88 50 96 Q45 104 40 96 Q35 88 30 96 Z", ey: 54, ex: [50, 70], my: 66, top: 18, bottom: 100, hs: 1, ground: 111 },
+  round: { d: "M22 64 C22 38 38 26 60 26 C82 26 98 38 98 64 L98 92 Q92 100 86 92 Q80 84 74 92 Q67 100 60 92 Q53 84 46 92 Q40 100 34 92 Q28 84 22 92 Z", ey: 58, ex: [47, 73], my: 70, top: 26, bottom: 96, hs: 1.38, ground: 107 },
+  tall: { d: "M38 52 C38 24 47 10 60 10 C73 10 82 24 82 52 L82 102 Q76.5 110 71 102 Q65.5 94 60 102 Q54.5 110 49 102 Q43.5 94 38 102 Z", ey: 44, ex: [52, 68], my: 56, top: 10, bottom: 106, hs: .77, ground: 115 },
+  sheet: { d: "M42 52 C42 28 50 16 60 16 C70 16 78 28 78 52 C80 72 92 86 100 100 Q93 95 86 102 Q78 95 70 102 Q60 95 50 102 Q42 95 34 102 Q27 95 20 100 C28 86 40 72 42 52 Z", ey: 46, ex: [53, 67], my: 57, top: 16, bottom: 102, hs: .65, ground: 110 },
+  wisp: { d: "M60 16 C80 16 90 32 90 52 C90 74 78 84 68 90 C60 95 58 104 66 108 C52 110 46 98 50 90 C36 84 30 72 30 52 C30 32 40 16 60 16 Z", ey: 50, ex: [50, 70], my: 62, top: 16, bottom: 109, hs: 1.09, ground: 115 },
 };
-const COLORS = ["#a98bf5", "#3cc0a6", "#f2a04a", "#6aa2f5", "#ef7fa8", "#cfd36a"];
-const HAT_SINK = { tophat: 3, beanie: 4.5, crown: 2.5 };
+const COLORS = [["White", "#ffffff", "#ffffff"], ["Bubblegum sky", "#8bd4ff", "#ff51bf"], ["Orchid peach", "#e771ff", "#ffd87c"], ["Coral mint", "#beffe8", "#ff797b"], ["Arctic blue", "#97fff3", "#0084ff"], ["Solar flare", "#ecca5c", "#fe3c3f"], ["Violet ember", "#ff5c43", "#6262ff"], ["Ultraviolet tide", "#7516cf", "#00e8d1"]];
+const swap = (d, a, b) => d.replaceAll(a, "§").replaceAll(b, a).replaceAll("§", b);
+const SHEET_B = "M42 52 C42 28 50 16 60 16 C70 16 78 28 78 52 C80 72 92 86 100 100 Q93 105 86 98 Q78 105 70 98 Q60 105 50 98 Q42 105 34 98 Q27 105 20 100 C28 86 40 72 42 52 Z";
+const WISP_B = "M60 16 C80 16 90 32 90 52 C90 74 80 86 70 92 C62 97 64 106 72 110 C58 110 52 100 52 92 C38 86 30 72 30 52 C30 32 40 16 60 16 Z";
+const ALT = { classic: (d) => swap(d, "104", "88"), round: (d) => swap(d, "100", "84"), tall: (d) => swap(d, "110", "94"), sheet: () => SHEET_B, wisp: () => WISP_B };
+const RIG = { classic: { y: 66, x: [30, 90], tilt: [0, 0], s: .95 }, round: { y: 70, x: [22, 98], tilt: [0, 0], s: 1.08 }, tall: { y: 58, x: [38, 82], tilt: [0, 0], s: .82 }, sheet: { y: 67, x: [38.5, 81.5], tilt: [-20.4, -20.4], s: .86 }, wisp: { y: 62, x: [30.4, 89], tilt: [6.9, 11.4], s: .98 } };
+const r2 = (n) => Math.round(n * 100) / 100;
+const NONE = "M0 0";
+const armFrame = (shape, i) => { const r = RIG[shape]; return `translate(${r.x[i]}px,${r.y}px) scale(${i ? 1 : -1},1) rotate(${r.tilt[i]}deg) scale(${r.s}) translate(-3.8px,0px) rotate(calc(var(--ga-a) + var(--ga-w)))`; };
+function toBody(shape, i, angle) {
+  const rig = RIG[shape], a = angle * Math.PI / 180, t = rig.tilt[i] * Math.PI / 180;
+  const x0 = (10.6 * Math.cos(a) - 3.8) * rig.s, y0 = 10.6 * Math.sin(a) * rig.s;
+  const x = x0 * Math.cos(t) - y0 * Math.sin(t), y = x0 * Math.sin(t) + y0 * Math.cos(t);
+  return { x: r2(rig.x[i] + (i ? x : -x)), y: r2(rig.y + y) };
+}
+function laptop(shape, bottom) {
+  const rig = RIG[shape], hl = toBody(shape, 0, 120), hr = toBody(shape, 1, 120), hy = (hl.y + hr.y) / 2, hand = 3.6 * rig.s;
+  const lidTop = r2(hy + hand + .6), deckTop = r2(hy - 1.6 * rig.s), w = r2(hr.x - hl.x + 18 * rig.s), h = r2(Math.min(28, Math.max(18, bottom - lidTop + 1.5)));
+  const [x0, x1, b0, b1, y1, c] = [60 - w / 2, 60 + w / 2, 60 - (w - 5) / 2, 60 + (w - 5) / 2, lidTop + h, 3.2];
+  const [dt, db] = [(w - 11) / 2, (w - 2) / 2];
+  const keys = [.38, .75].flatMap((k) => { const ky = r2(deckTop + (lidTop - deckTop) * k), half = dt + (db - dt) * k - 3; return Array.from({ length: 7 }, (_, i) => `M${r2(60 - half + half / 3 * i - 1.3)} ${ky} h2.6`); }).join(" ");
+  return {
+    deck: `M${r2(60 - dt)} ${deckTop} H${r2(60 + dt)} L${r2(60 + db)} ${r2(lidTop + 1)} H${r2(60 - db)} Z`, keys,
+    lid2: `M${r2(x0 + c)} ${lidTop} H${r2(x1 - c)} Q${r2(x1)} ${lidTop} ${r2(x1 - .3)} ${r2(lidTop + c)} L${r2(b1 + .2)} ${r2(y1 - c)} Q${r2(b1)} ${r2(y1)} ${r2(b1 - c)} ${r2(y1)} H${r2(b0 + c)} Q${r2(b0)} ${r2(y1)} ${r2(b0 - .2)} ${r2(y1 - c)} L${r2(x0 + .3)} ${r2(lidTop + c)} Q${r2(x0)} ${lidTop} ${r2(x0 + c)} ${lidTop} Z`,
+    lidline: `M${r2(x0 + 3.5)} ${r2(lidTop + .9)} H${r2(x1 - 3.5)}`,
+  };
+}
+const oval = (cx, cy, rx, ry) => `M${cx - rx} ${cy} a${rx} ${ry} 0 1 0 ${2 * rx} 0 a${rx} ${ry} 0 1 0 ${-2 * rx} 0`;
+function eyesFor(style, x, y) {
+  const out = { whites: NONE, pupils: NONE, shine: NONE, arcs: NONE, pupilDark: false };
+  if (style === "happy") out.arcs = x.map((c) => `M${c - 4.8} ${y + 1.5} Q${c} ${y - 4.5} ${c + 4.8} ${y + 1.5}`).join(" ");
+  else if (style === "big") { out.whites = x.map((c) => oval(c, y, 6.2, 6.2)).join(" "); out.pupils = x.map((c) => oval(c, y + .5, 3.6, 3.6)).join(" "); out.shine = x.map((c) => oval(c + 1.4, y - 1, 1.2, 1.2)).join(" "); out.pupilDark = true; }
+  else if (style === "sparkle") { out.pupils = x.map((c) => oval(c, y, 4.4, 5.6)).join(" "); out.shine = x.map((c) => oval(c + 1.4, y - 2, 1.6, 1.6) + " " + oval(c - 1.4, y + 2, .9, .9)).join(" "); }
+  else if (style === "wink") { out.pupils = oval(x[0], y, 3.4, 4.4); out.arcs = `M${x[1] - 4.6} ${y} Q${x[1]} ${y - 3.6} ${x[1] + 4.6} ${y}`; }
+  else { out.pupils = x.map((c) => oval(c, y, 3.9, 4.9)).join(" "); out.shine = x.map((c) => oval(c + 1.3, y - 1.8, 1.4, 1.4) + " " + oval(c - 1.2, y + 1.9, .7, .7)).join(" "); }
+  return out;
+}
+function mouthFor(style, y) {
+  const x = 60, m = { mouthS: NONE, mouthF: NONE, mouthP: NONE, mouthW: NONE };
+  if (style === "open") { m.mouthF = oval(x, y + 1, 3.4, 4); m.mouthP = oval(x, y + 3, 2.2, 1.4); }
+  else if (style === "cat") m.mouthS = `M${x - 5.5} ${y} Q${x - 2.75} ${y + 3.6} ${x} ${y} Q${x + 2.75} ${y + 3.6} ${x + 5.5} ${y}`;
+  else if (style === "fangs") { m.mouthS = `M${x - 6} ${y} Q${x} ${y + 4.5} ${x + 6} ${y}`; m.mouthW = `M${x - 4} ${y + 1.6} l1.4 3.6 l1.4 -3.2 Z M${x + 1.2} ${y + 1.9} l1.4 3.2 l1.4 -3.6 Z`; }
+  else if (style === "tongue") { m.mouthS = `M${x - 5} ${y} Q${x} ${y + 4} ${x + 5} ${y}`; m.mouthP = `M${x + .2} ${y + 1.6} q0 5 3.2 5 q3.2 0 2.6 -5.8 Z`; }
+  else if (style === "flat") m.mouthS = `M${x - 3.2} ${y + 1.2} L${x + 3.2} ${y + 1.2}`;
+  else m.mouthS = `M${x - 4.5} ${y} Q${x} ${y + 4.2} ${x + 4.5} ${y}`;
+  return m;
+}
 // Each of the crew has its own face, way of moving and clock, so no two ever line up
 const T = (motion, ripple, left, right, blink) => ({ motion, ground: motion, ripple, left, right, blink });
 const CREW = [
-  { shape: "wide", c: 3, hat: "none", eyes: "big", mouth: "open", cheeks: true, motion: "bounce", x: 20, y: 31, size: 132, time: T("animation-duration:2.1s;animation-delay:-.7s", "2.1s", "animation-duration:3.3s;animation-delay:-1s", "animation-duration:6.4s;animation-delay:-3.9s", "animation-duration:5.3s;animation-delay:-1.1s") },
+  { shape: "round", c: 1, hat: "none", eyes: "big", mouth: "open", cheeks: true, motion: "bounce", x: 20, y: 31, size: 132, time: T("animation-duration:2.1s;animation-delay:-.7s", "2.1s", "animation-duration:3.3s;animation-delay:-1s", "animation-duration:6.4s;animation-delay:-3.9s", "animation-duration:5.3s;animation-delay:-1.1s") },
   { shape: "tall", c: 2, hat: "tophat", eyes: "sparkle", mouth: "cat", cheeks: false, motion: "sway", x: 80, y: 25, size: 156, time: T("animation-duration:4.3s;animation-delay:-2.2s", "3.4s", "animation-duration:4.9s;animation-delay:-2s", "animation-duration:9.1s;animation-delay:-.4s", "animation-duration:6.7s;animation-delay:-3s") },
-  { shape: "drop", c: 4, hat: "none", eyes: "dots", mouth: "tongue", cheeks: true, motion: "float", arms: "cheer", x: 82, y: 71, size: 136, time: T("animation-duration:5.2s;animation-delay:-1.4s", "2.9s", "animation-duration:2.7s;animation-delay:-.3s", "animation-duration:3.1s;animation-delay:-1.7s", "animation-duration:4.1s;animation-delay:-2.4s") },
-  { shape: "soft", c: 1, hat: "crown", eyes: "wink", mouth: "fangs", cheeks: false, motion: "sway", x: 18, y: 73, size: 118, time: T("animation-duration:3.1s;animation-delay:-.9s", "3.8s", "animation-duration:5.6s;animation-delay:-4s", "animation-duration:7.7s;animation-delay:-5.8s", "") },
-  { shape: "ghost", c: 5, hat: "beanie", eyes: "big", mouth: "smile", cheeks: true, motion: "float", x: 50, y: 13, size: 104, time: T("animation-duration:3.9s;animation-delay:-3s", "2.3s", "animation-duration:4.2s;animation-delay:-2.7s", "animation-duration:11s;animation-delay:-7.5s", "animation-duration:7.3s;animation-delay:-5s") },
+  { shape: "wisp", c: 4, hat: "none", eyes: "dots", mouth: "tongue", cheeks: true, motion: "float", arms: "cheer", x: 82, y: 71, size: 136, time: T("animation-duration:5.2s;animation-delay:-1.4s", "2.9s", "animation-duration:2.7s;animation-delay:-.3s", "animation-duration:3.1s;animation-delay:-1.7s", "animation-duration:4.1s;animation-delay:-2.4s") },
+  { shape: "sheet", c: 5, hat: "crown", eyes: "wink", mouth: "fangs", cheeks: false, motion: "sway", x: 18, y: 73, size: 118, time: T("animation-duration:3.1s;animation-delay:-.9s", "3.8s", "animation-duration:5.6s;animation-delay:-4s", "animation-duration:7.7s;animation-delay:-5.8s", "") },
+  { shape: "classic", c: 3, hat: "beanie", eyes: "big", mouth: "smile", cheeks: true, motion: "float", x: 50, y: 13, size: 104, time: T("animation-duration:3.9s;animation-delay:-3s", "2.3s", "animation-duration:4.2s;animation-delay:-2.7s", "animation-duration:11s;animation-delay:-7.5s", "animation-duration:7.3s;animation-delay:-5s") },
 ];
 
     const SCENE = {
-      hello: [50, 47, 260, "awake"], create: [50, 42, 170, "awake"], installing: [50, 46, 240, "working"], ready: [50, 40, 190, "done"],
+      welcome: [50, 47, 260, "awake"], create: [50, 42, 170, "awake"], installing: [50, 46, 240, "working"], ready: [50, 40, 190, "done"],
       join: [50, 47, 190, "waiting"], waiting: [50, 47, 190, "waiting"], cloud: [50, 56, 170, "awake"], "cloud-progress": [50, 56, 240, "working"],
       starting: [50, 46, 210, "awake"], unreachable: [50, 46, 190, "waiting"], "cloud-choose": [50, 56, 170, "awake"],
     };
-    const PROGRESS = { hello: 4, create: 12, installing: 22, ready: 36, cloud: 14, "cloud-choose": 24, "cloud-progress": 34, starting: 40, join: 4, waiting: 4, unreachable: 4 };
+    const PROGRESS = { welcome: 4, create: 12, installing: 22, ready: 36, cloud: 14, "cloud-choose": 24, "cloud-progress": 34, starting: 40, join: 4, waiting: 4, unreachable: 4 };
     const BOX = 300;
     const stage = document.getElementById("stage");
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    const WHITE = { shape: "drop", c: 0, hat: "none", eyes: "dots", mouth: "smile", cheeks: false, time: { right: "animation-duration:6.2s;animation-delay:-1.6s" } };
+    const WHITE = { shape: "classic", c: 0, hat: "none", eyes: "dots", mouth: "smile", cheeks: false, time: { right: "animation-duration:6.2s;animation-delay:-1.6s" } };
 
     function svg(i, look, mood) {
-      const b = BODY[look.shape], color = COLORS[look.c], t = look.time || {};
-      const ink = "rgba(20,20,20,.88)", ey = b.ey * 3, my = (b.ey + 5) * 3;
+      const b = BODY[look.shape], c = COLORS[look.c], rig = RIG[look.shape], t = look.time || {};
+      const ink = "#1d1d1f";
+      const e = eyesFor(mood === "done" ? "happy" : look.eyes, b.ex, b.ey), m = mouthFor(mood === "done" ? "open" : mood === "working" ? "flat" : look.mouth, b.my);
+      const rip = `<animate attributeName="d" dur="${t.ripple || "2.6s"}" repeatCount="indefinite" values="${b.d};${ALT[look.shape](b.d)};${b.d}" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>`;
+      const armC = { awake: ["ga ga-awake ga-breathe", "ga ga-awake ga-wave"], done: ["ga ga-cheer", "ga ga-cheer"], waiting: ["ga ga-awake ga-breathe", "ga ga-signarm"], working: ["ga ga-tap", "ga ga-tap"], cheer: ["ga ga-cheer", "ga ga-cheer"] }[look.arms || mood];
+      const armStyle = (side, extra) => `transform:${armFrame(look.shape, side)};${extra || ""}`;
+      const LIMB = "M0 -3.6 H10.6 A3.6 3.6 0 0 1 10.6 3.6 H0 A3.6 3.6 0 0 1 0 -3.6 Z";
+      const lap = mood === "working" ? laptop(look.shape, b.bottom) : null;
       const motion = { working: "", done: "mo-hop", waiting: "mo-wait" }[mood] ?? "mo-" + (look.motion || "float");
-      // mouth C: flat, a smile when it's happy, a pressed line while working
-      const mouth = mood === "done" ? `M54 ${my - 0.9}q6 5.1 12 0` : mood === "working" ? `M58.8 ${my + 0.6}h6.3` : `M56.1 ${my}h7.8`;
       const hats = {
         tophat: '<rect x="-13" y="-25" width="26" height="25" rx="3" fill="#2b2735"/><rect x="-13" y="-9" width="26" height="5" fill="#e5484d"/><rect x="-21" y="-2" width="42" height="5.5" rx="2.75" fill="#2b2735"/>',
-        crown: '<path d="M-15 3 L-15 -12 L-7.5 -4.5 L0 -17 L7.5 -4.5 L15 -12 L15 3 Z" fill="#ffcf3f"/><circle cx="0" cy="-4" r="2.4" fill="#ff5d73"/><circle cx="-9" cy="-1.5" r="1.7" fill="#4dabf7"/><circle cx="9" cy="-1.5" r="1.7" fill="#4dabf7"/>',
+        crown: '<path d="M-15 3 L-15 -12 L-7.5 -4.5 L0 -17 L7.5 -4.5 L15 -12 L15 3 Z" fill="#ffcf3f" stroke="#e0a800" stroke-width="1.5" stroke-linejoin="round"/><circle cx="0" cy="-4" r="2.4" fill="#ff5d73"/><circle cx="-9" cy="-1.5" r="1.7" fill="#4dabf7"/><circle cx="9" cy="-1.5" r="1.7" fill="#4dabf7"/>',
         beanie: '<path d="M-21 6 Q-21 -16 0 -16 Q21 -16 21 6 Z" fill="#5b8def"/><rect x="-22.5" y="0" width="45" height="8" rx="4" fill="#3f6fd8"/><circle cx="0" cy="-17" r="5" fill="#f8fafc"/>',
       };
-      const kit = mood === "working" ? `<g transform="scale(3)"><rect x="11.5" y="24.5" width="17" height="10" rx="1.4" fill="#2b2b2e"/><rect x="12.8" y="25.8" width="14.4" height="7.4" rx=".6" fill="rgba(255,255,255,.92)"/><rect class="keys" x="14.2" y="27.6" width="9" height="1" rx=".5" fill="${color}"/><rect x="14.2" y="30.2" width="6.5" height="1" rx=".5" fill="${color}"/><rect x="8.5" y="34.2" width="23" height="2.2" rx="1.1" fill="#3d3d42"/></g>` : "";
-      return `<svg viewBox="-8 -18 136 140" aria-hidden="true">
-      <ellipse class="ground" style="${t.ground || ""}" cx="60" cy="112" rx="24" ry="3.4" fill="black" opacity="0.18"/>
+      return `<svg viewBox="-8 -18 136 140" aria-hidden="true"><defs>
+        <linearGradient id="g${i}" gradientUnits="userSpaceOnUse" x1="0" y1="${b.top}" x2="0" y2="${b.bottom}"><stop offset="0.08" stop-color="${c[1]}"/><stop offset="0.95" stop-color="${c[2]}"/></linearGradient>
+        <radialGradient id="l${i}" cx="0.5" cy="0.42" r="0.6"><stop offset="0" stop-color="white" stop-opacity="0.24"/><stop offset="0.65" stop-color="white" stop-opacity="0.06"/><stop offset="1" stop-color="white" stop-opacity="0"/></radialGradient>
+        <clipPath id="c${i}"><path d="${b.d}">${rip}</path></clipPath>
+        <clipPath id="k${i}"><path class="${armC[0]}" style="${armStyle(0, t.left)}" d="${LIMB}"/><path class="${armC[1]}" style="${armStyle(1, t.right)}" d="${LIMB}"/></clipPath>
+        <clipPath id="o${i}"><path d="${LIMB}"/></clipPath>
+        <radialGradient id="f${i}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="4.2"><stop offset="1" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.1"/></radialGradient>
+      </defs>
+      <ellipse class="ground" style="${t.ground || ""}" cx="60" cy="${b.ground}" rx="24" ry="3.4" fill="black" opacity="0.28"/>
       <g class="tilt"><g class="mo ${motion}" style="${t.motion || ""}">
-        <path d="${b.d}" transform="scale(3)" fill="${color}"/>
+        <path d="${b.d}" fill="url(#g${i})">${rip}</path><path d="${b.d}" fill="url(#l${i})">${rip}</path>
+        <path d="${b.d}" fill="none" stroke="black" stroke-opacity="0.1" stroke-width="7" clip-path="url(#c${i})">${rip}</path>
+        ${lap ? `<path d="${lap.deck}" fill="#4a4760" stroke="#4a4760" stroke-width="1.6" stroke-linejoin="round"/><path d="${lap.keys}" class="keys" stroke="#a6e8d4" stroke-opacity="0.7" stroke-width="1.1" stroke-linecap="round"/>` : ""}
+        ${mood === "waiting" ? `<g class="${armC[1]}" style="${armStyle(1)}"><g transform="translate(10.6 0) rotate(30)"><path d="M0 7.5 V-19" stroke="#8d8291" stroke-width="2.6" stroke-linecap="round"/><rect x="-9.5" y="-37" width="19" height="19" rx="5" fill="#f5c542"/><path d="M-3.4 -30.4 C-3.4 -35 3.7 -35 3.7 -30.7 C3.7 -28.4 0.2 -28.3 0.2 -25.4" stroke="#343244" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="0.2" cy="-21.7" r="1.5" fill="#343244"/></g></g>` : ""}
+        <rect x="-10" y="-10" width="140" height="140" fill="url(#g${i})" clip-path="url(#k${i})"/>
+        <path class="${armC[0]}" style="${armStyle(0, t.left)}" d="${LIMB}" fill="none" stroke="url(#f${i})" stroke-width="${r2(3.4 / rig.s)}" clip-path="url(#o${i})"/>
+        <path class="${armC[1]}" style="${armStyle(1, t.right)}" d="${LIMB}" fill="none" stroke="url(#f${i})" stroke-width="${r2(3.4 / rig.s)}" clip-path="url(#o${i})"/>
+        ${lap ? `<path d="${lap.lid2}" fill="#343244"/><path d="${lap.lidline}" stroke="#a6e8d4" stroke-opacity="0.75" stroke-width="1.1" stroke-linecap="round"/>` : ""}
         <g class="face" transform="${mood === "working" ? "translate(0 3)" : ""}">
-          <g class="${mood === "done" ? "" : "blink"}" style="${t.blink || ""}">
-            <g class="pupils"><ellipse cx="48" cy="${ey}" rx="5.7" ry="${mood === "done" ? 3.4 : 8.1}" fill="${ink}"/><ellipse cx="72" cy="${ey}" rx="5.7" ry="${mood === "done" ? 3.4 : 8.1}" fill="${ink}"/></g>
+          <ellipse cx="${b.ex[0] - 4}" cy="${b.ey + 8}" rx="4.5" ry="2.6" fill="#ff8fab" opacity="${look.cheeks ? 0.5 : 0.18}"/><ellipse cx="${b.ex[1] + 4}" cy="${b.ey + 8}" rx="4.5" ry="2.6" fill="#ff8fab" opacity="${look.cheeks ? 0.5 : 0.18}"/>
+          <g class="${mood === "done" || look.eyes === "wink" ? "" : "blink"}" style="${t.blink || ""}">
+            <path d="${e.whites}" fill="white"/><g class="pupils"><path d="${e.pupils}" fill="${e.pupilDark ? "#2a2340" : ink}"/><path d="${e.shine}" fill="white" opacity="0.95"/></g>
+            <path d="${e.arcs}" fill="none" stroke="${ink}" stroke-width="2.6" stroke-linecap="round"/>
           </g>
-          <path d="${mouth}" fill="none" stroke="${ink}" stroke-width="3.75" stroke-linecap="round"/>
+          <path d="${m.mouthS}" fill="none" stroke="${ink}" stroke-width="2.1" stroke-linecap="round"/><path d="${m.mouthF}" fill="${ink}"/><path d="${m.mouthP}" fill="#ff7a93"/><path d="${m.mouthW}" fill="white" stroke="${ink}" stroke-width="0.6" stroke-linejoin="round"/>
         </g>
-        ${hats[look.hat] ? `<g transform="translate(60 ${b.top * 3}) scale(${b.hat}) translate(0 ${HAT_SINK[look.hat] ?? 0})">${hats[look.hat]}</g>` : ""}
-        ${kit}
+        ${hats[look.hat] ? `<g transform="translate(60 ${b.top + 2.5}) scale(${b.hs})">${hats[look.hat]}</g>` : ""}
       </g></g></svg>`;
     }
 
@@ -1182,13 +1164,13 @@ const CREW = [
 
     function update() {
       const m = document.querySelector("main");
-      let id = m.getAttribute("data-screen") || "hello";
+      let id = m.getAttribute("data-screen") || "welcome";
       if (id === "cloud" && !document.getElementById("cloud-progress").hidden) id = "cloud-progress";
       if (id === "cloud" && !document.getElementById("cloud-choose").hidden) id = "cloud-choose";
-      const s = SCENE[id] || SCENE.hello;
+      const s = SCENE[id] || SCENE.welcome;
       document.getElementById("fill").style.width = (PROGRESS[id] ?? 4) + "%";
       // on the first screen, the cloud shows while Cloud is the choice
-      const cloudy = id === "cloud" || id === "cloud-choose" || id === "cloud-progress";
+      const cloudy = id === "cloud" || id === "cloud-choose" || id === "cloud-progress" || (id === "welcome" && document.getElementById("pick-cloud").getAttribute("aria-pressed") === "true");
       if (id === last && cloudy === lastCloudy) return;
       const same = id === last;
       last = id;
@@ -1196,7 +1178,7 @@ const CREW = [
       if (same) { props.innerHTML = cloudy ? CLOUD : ""; return; }
       place(main, s[0], s[1], s[2]);
       if (s[3] !== mood) { mood = s[3]; main.innerHTML = svg(0, WHITE, mood); }
-      const shown = id === "hello" ? 1 : id === "join" || id === "waiting" ? 0.32 : 0;
+      const shown = id === "welcome" ? 1 : id === "join" || id === "waiting" ? 0.32 : 0;
       crew.forEach((el) => (el.style.opacity = shown));
       props.innerHTML = (id === "create" || id === "ready" ? LAPTOP : "") + (cloudy ? CLOUD : "") + (id === "ready" ? spark(30, 24, 26, 0) + spark(68, 20, 34, 0.35) + spark(74, 50, 20, 0.7) + spark(24, 54, 22, 0.2) : "");
     }
@@ -1241,61 +1223,6 @@ const CREW = [
     const wake = () => { if (!frame) frame = requestAnimationFrame(tick); };
     addEventListener("pointermove", (e) => { pointer = { x: e.clientX, y: e.clientY }; wake(); });
     document.documentElement.addEventListener("pointerleave", () => { pointer = null; wake(); });
-  })();
-</script>
-<script>
-  // Hello's wisp (canvas Avatar): it says its line for ~2s when the page opens and briefly while you
-  // type, follows the cursor when it comes near (eyes, a slight lean, a smile), and smiles at a name.
-  (() => {
-    const ghost = document.getElementById("hello-ghost");
-    const follow = document.getElementById("hg-follow");
-    const lean = document.getElementById("hg-lean");
-    const mouth = ghost.querySelector(".hg-mouth");
-    const name = document.getElementById("hello-name");
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    const clamp = (v, m) => Math.max(-m, Math.min(m, v));
-    let near = false, timer = 0;
-    const paintMouth = () => {
-      const smile = near || !!name.value.trim();
-      mouth.setAttribute("d", smile ? "M18 22.7q2 1.7 4 0" : "M18.7 23h2.6");
-    };
-    const talk = (ms) => {
-      clearTimeout(timer);
-      ghost.classList.add("talking");
-      timer = setTimeout(() => ghost.classList.remove("talking"), ms);
-    };
-    talk(2200);
-    // leaving Hello: a small hop on Continue, then the next screen slides in from the right
-    const side = document.querySelector(".side"), stage = document.getElementById("stage");
-    window.helloLeave = (hop = true) => new Promise((done) => {
-      const still = reduced.matches;
-      if (hop && !still) { ghost.classList.remove("hop"); void ghost.getBoundingClientRect(); ghost.classList.add("hop"); }
-      setTimeout(() => {
-        ghost.classList.remove("hop");
-        if (!still) for (const el of [side, stage]) { el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter"); el.addEventListener("animationend", () => el.classList.remove("enter"), { once: true }); }
-        done();
-      }, hop && !still ? 480 : 0);
-    });
-    name.addEventListener("input", () => { if (name.value.trim()) talk(900); else ghost.classList.remove("talking"); paintMouth(); });
-    let frame = 0, last = null;
-    const paint = () => {
-      frame = 0;
-      const r = ghost.getBoundingClientRect();
-      const reach = r.width * 0.9;
-      const on = !!last && !reduced.matches && !document.getElementById("hello").hidden &&
-        last.clientX > r.left - reach && last.clientX < r.right + reach && last.clientY > r.top - reach && last.clientY < r.bottom + reach;
-      if (on) {
-        const fx = clamp((last.clientX - (r.left + r.width / 2)) / (r.width * 0.9), 1);
-        const fy = clamp((last.clientY - (r.top + r.height * 0.45)) / (r.height * 0.9), 1);
-        follow.style.transform = `translate(${(fx * 2.6).toFixed(2)}px,${(fy * 2).toFixed(2)}px)`;
-        lean.style.transform = `rotate(${(fx * 6).toFixed(1)}deg)`;
-      } else {
-        follow.style.transform = lean.style.transform = "";
-      }
-      if (on !== near) { near = on; ghost.classList[on ? "add" : "remove"]("following"); paintMouth(); }
-    };
-    addEventListener("pointermove", (e) => { last = e; if (!frame) frame = requestAnimationFrame(paint); });
-    document.documentElement.addEventListener("pointerleave", () => { last = null; if (!frame) frame = requestAnimationFrame(paint); });
   })();
 </script>
 </body>
