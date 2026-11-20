@@ -150,7 +150,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   return (
     <div className="flex-1 min-h-0 flex">
       <div className={cx("flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
-        <header className="shrink-0 px-3 md:px-6 h-[4.75rem] md:h-20 grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
+        <header className="shrink-0 px-3 md:px-6 h-[4.75rem] md:h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
             {onBack && (
               <span className="md:hidden">
@@ -171,13 +171,6 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
               <span className="max-md:hidden">
                 <button onClick={() => (dmPanel === "computer" ? setSide(null) : openAgent(dmAgent.id, "computer"))} className={cx("circle", dmPanel === "computer" && "bg-hover")} aria-label={`${dmAgent.name}'s computer`} title={`${dmAgent.name}'s computer`}>
                   <Monitor size={18} className="text-accent-computers" />
-                </button>
-              </span>
-            )}
-            {dmAgent && voice && !calling && (
-              <span className="max-md:hidden">
-                <button onClick={() => setCalling(true)} className="circle" aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`}>
-                  <Phone size={18} className="text-st-online" />
                 </button>
               </span>
             )}
@@ -1926,23 +1919,26 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             })}
           </div>
         )}
-        <Popover
-          className="w-60 p-1.5 !rounded-3xl"
-          trigger={(open, toggle) => (
-            <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("circle circle-lg", open && "bg-hover")}>
-              {uploading ? <Loader2 size={20} className="animate-spin" /> : <Plus size={22} strokeWidth={2} />}
-            </button>
-          )}
-        >
-          {(close) => (
-            <div role="menu">
-              <ComposerMenuItem icon={<Camera size={18} />} label="Photos" onClick={() => (close(), photoInput.current?.click())} />
-              <ComposerMenuItem icon={<Paperclip size={18} />} label="Files" onClick={() => (close(), fileInput.current?.click())} />
-              {channel?.kind !== "dm" && <ComposerMenuItem icon={<AtSign size={18} />} label="Mention an agent" onClick={() => (close(), insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@"))} />}
-            </div>
-          )}
-        </Popover>
-        <div className="flex min-h-[52px] md:min-h-[42px] min-w-0 flex-1 items-end gap-1 rounded-[26px] md:rounded-[21px] border border-control-line bg-control pl-4 md:pl-4 pr-1.5 py-1.5 md:py-[3px] focus-within:border-ring">
+        {/* one pill (canvas Main): attach on the left, the voice orb on the right */}
+        <div className="flex min-h-[52px] md:min-h-[50px] min-w-0 flex-1 items-end gap-2 rounded-[26px] md:rounded-[25px] border border-transparent bg-[var(--bubble-them)] pl-[9px] pr-[9px] py-[5px] md:py-[8px] focus-within:border-line2 transition-colors">
+          <span className="self-center shrink-0">
+          <Popover
+            className="w-60 p-1.5 !rounded-3xl"
+            trigger={(open, toggle) => (
+              <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-10 md:size-8 rounded-full grid place-items-center bg-hover text-ink hover:bg-side-active", open && "bg-side-active")}>
+                {uploading ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} strokeWidth={2} />}
+              </button>
+            )}
+          >
+            {(close) => (
+              <div role="menu">
+                <ComposerMenuItem icon={<Camera size={18} />} label="Photos" onClick={() => (close(), photoInput.current?.click())} />
+                <ComposerMenuItem icon={<Paperclip size={18} />} label="Files" onClick={() => (close(), fileInput.current?.click())} />
+                {channel?.kind !== "dm" && <ComposerMenuItem icon={<AtSign size={18} />} label="Mention an agent" onClick={() => (close(), insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@"))} />}
+              </div>
+            )}
+          </Popover>
+          </span>
           <textarea
             ref={ta}
             rows={1}
@@ -1979,7 +1975,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 send();
               }
             }}
-            className="block min-w-[11rem] flex-1 resize-none bg-transparent py-[11px] md:py-[7px] text-[15px] md:text-[15px] outline-none placeholder:text-faint placeholder:truncate"
+            className="block min-w-[9rem] flex-1 resize-none bg-transparent py-[9px] md:py-[5px] text-[15px] md:text-[14px] leading-[22px] outline-none placeholder:text-muted placeholder:truncate"
           />
           {dmAgent && ctx && (
             <span className="self-center min-w-0 max-w-[45%] shrink pr-1.5 max-md:hidden">
@@ -1987,20 +1983,20 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             </span>
           )}
           {(!hasContent || dictation.on) && dictation.supported && (
-            <button type="button" onClick={dictation.toggle} aria-label={dictation.on ? "Stop dictating" : "Dictate"} aria-pressed={dictation.on} title="Dictate" className={cx("size-10 md:size-9 shrink-0 self-center rounded-full grid place-items-center", swapped && "m-swap", dictation.on ? "bg-bad/15 text-bad" : "text-muted hover:text-ink")}>
-              <Mic size={20} />
+            <button type="button" onClick={dictation.toggle} aria-label={dictation.on ? "Stop dictating" : "Dictate"} aria-pressed={dictation.on} title="Dictate" className={cx("size-10 md:size-8 shrink-0 self-center rounded-full grid place-items-center", swapped && "m-swap", dictation.on ? "bg-bad/15 text-bad" : "text-muted hover:text-ink")}>
+              <Mic size={18} strokeWidth={1.8} />
             </button>
           )}
           {showCall && (
-            <button type="button" onClick={onCall} aria-label={`Call ${dmAgent?.name ?? "agent"}`} title="Call" className={cx("h-11 md:h-9 w-14 md:w-12 shrink-0 self-center rounded-full bg-st-online/16 text-st-online grid place-items-center md:hidden", swapped && "m-swap")}>
-              <AudioLines size={22} />
+            <button type="button" onClick={onCall} aria-label={`Call ${dmAgent?.name ?? "agent"}`} title={`Call ${dmAgent?.name ?? "agent"}`} className={cx("m-press size-10 md:size-[34px] shrink-0 self-center rounded-full bg-wisp text-wisp-ink grid place-items-center hover:bg-wisp/90", swapped && "m-swap")}>
+              <AudioLines size={17} strokeWidth={2.2} />
             </button>
           )}
           {(hasContent || !dictation.supported) && !showCall && (
             <button
               onClick={send}
               disabled={!!uploading || sending || (!text.trim() && !files.length)}
-              className={cx("h-11 md:h-9 w-14 md:w-12 shrink-0 self-center rounded-full bg-accent-chats text-white grid place-items-center disabled:bg-chip disabled:text-faint transition-colors", swapped && "m-swap")}
+              className={cx("m-press size-10 md:size-[34px] shrink-0 self-center rounded-full bg-ink text-panel grid place-items-center disabled:bg-chip disabled:text-faint transition-colors", swapped && "m-swap")}
               aria-label="Send"
             >
               <ArrowUp size={19} strokeWidth={2.5} />

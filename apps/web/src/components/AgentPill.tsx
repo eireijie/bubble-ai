@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
 import type { Agent } from "@wisp/core";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { useStore } from "../store.ts";
@@ -7,7 +6,7 @@ import { agentMood } from "../ghostMood.ts";
 import { Ghost, type GhostMood } from "./Ghost.tsx";
 import { cx } from "./ui.tsx";
 
-const MOOD_TEXT: Partial<Record<GhostMood, string>> = { working: "working…", thinking: "thinking…", waiting: "needs you", error: "having trouble", asleep: "offline", done: "done!" };
+const MOOD_TEXT: Partial<Record<GhostMood, string>> = { working: "working", thinking: "thinking", waiting: "needs you", error: "having trouble", asleep: "asleep", done: "done", awake: "online" };
 
 /**
  * Where an agent lives in its DM: a pill at the top of the conversation with its pet ghost, which
@@ -35,22 +34,17 @@ export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boole
       onClick={onClick}
       aria-expanded={open}
       className={cx(
-        "agent-pill inline-flex items-center gap-2.5 h-14 pl-2 pr-5 rounded-full backdrop-blur border shadow-panel transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        open ? "bg-hover border-input" : "bg-panel/95 border-line hover:bg-hover",
+        "agent-pill inline-flex items-center gap-[9px] h-10 pl-2 pr-4 rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        open ? "bg-side-active" : "hover:bg-hover",
       )}
       aria-label={`${agent.name}${note ? `, ${note}` : ""}. About ${agent.name}`}
     >
       {/* poking the ghost plays with it instead of opening the panel */}
       <span onClick={(e) => e.stopPropagation()} className="grid place-items-center">
-        <Ghost look={look} size={46} mood={mood} trackPointer interactive label={agent.name} />
+        <Ghost look={look} size={26} mood={mood} interactive label={agent.name} seed={agent.handle} />
       </span>
-      <span className="flex flex-col items-start leading-tight">
-        <span className={cx("font-medium text-base", mood === "asleep" && "text-muted")}>{agent.name}</span>
-        {note && <span className={cx("text-[11px]", mood === "waiting" ? "text-st-needs" : mood === "error" ? "text-st-problem" : mood === "working" || mood === "thinking" ? "text-st-working" : mood === "done" ? "text-st-online" : "text-muted")}>{note}</span>}
-      </span>
-      <span className="agent-pill-arrow text-muted">
-        <ChevronRight size={18} />
-      </span>
+      <span className="font-semibold">{agent.name}</span>
+      {note && <span className={cx("text-xs", mood === "waiting" ? "text-st-needs" : mood === "error" ? "text-st-problem" : "text-muted")}>{note}</span>}
     </button>
   );
 }

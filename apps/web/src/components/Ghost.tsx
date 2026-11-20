@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { GhostAppearance } from "@wisp/core";
 import { useMotionReduced } from "../theme.ts";
-import { ASLEEP_COLOR, SILHOUETTES, eyeInk, familyColor, seedDelay, silhouetteOf } from "../ghostFamily.ts";
+import { SILHOUETTES, eyeInk, familyColor, seedDelay, silhouetteOf } from "../ghostFamily.ts";
 
 /** How the ghost feels right now; follows the agent's status where it matters. */
 export type GhostMood = "awake" | "listening" | "thinking" | "asleep" | "working" | "done" | "waiting" | "error";
@@ -49,7 +49,7 @@ export function Ghost({
   const shape = SILHOUETTES[silhouetteOf(look)];
   const asleep = mood === "asleep";
   const working = !asleep && (mood === "working" || mood === "thinking" || (speakingLevel !== undefined && speakingLevel > 0.05));
-  const color = asleep ? ASLEEP_COLOR : familyColor(look, seed ?? label ?? "");
+  const color = familyColor(look, seed ?? label ?? "");
   const eye = eyeInk(color);
   const delays = seedDelay(seed ?? label ?? color);
   const root = useRef<HTMLSpanElement>(null);
