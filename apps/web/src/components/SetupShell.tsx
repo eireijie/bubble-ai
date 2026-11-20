@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
 import { Ghost, type GhostMood } from "./Ghost.tsx";
@@ -13,6 +13,19 @@ export const TRACK = ["Connect your AI", "Name your agent", "Bring your memory",
  * those steps, 0 before them (server, account, outside your home), where no dot is current yet.
  */
 export function SetupShell({ at, line, look, mood = "awake", stepKey, onBack, children }: { at: number; line: string; look?: GhostAppearance; mood?: GhostMood; stepKey: string; onBack?: (() => void) | null; children: ReactNode }) {
+  // Esc is Back too, unless it's closing something else (a dialog) or would throw away typing
+  useEffect(() => {
+    if (!onBack) return;
+    const on = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.("[role=dialog]")) return;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA") && (t as HTMLInputElement).value) return;
+      onBack();
+    };
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  }, [onBack]);
   return (
     <div className="ob-frame" data-testid="setup">
       <aside className="ob-side">

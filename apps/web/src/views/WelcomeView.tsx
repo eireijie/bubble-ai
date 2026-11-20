@@ -76,9 +76,15 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     go(channelId ? { view: "chat", channelId, threadId: null } : { view: "dashboard" });
   };
   // Back goes to the screen before, unless that would redo something done
-  const back: Partial<Record<Screen, Screen>> = { address: "anywhere", name: "connect", memory: "name" };
+  const back: Partial<Record<Screen, Screen>> = { address: "anywhere", connect: onPublicAddress() ? "address" : "anywhere", name: "connect", memory: "name", devices: "connect" };
   const before = back[screen];
   const canGoBack = !!before && !(screen === "address" && onPublicAddress());
+  // a step's own inner screen (Tailscale, Cloudflare) goes back to that step's choices first
+  const [inner, setInner] = useState<{ screen: Screen; back: () => void } | null>(null);
+  const onScene = (sc: StageScene) => setInner(sc.onBack ? { screen, back: sc.onBack } : null);
+  const innerBack = inner && inner.screen === screen ? inner.back : null;
+  // the first setup step goes back to what you picked to get help with
+  const goBack = innerBack ?? (canGoBack ? () => setScreen(before!) : intro && (screen === "anywhere" || (screen === "address" && onPublicAddress())) ? () => setGoals(true) : null);
   const s = SCREENS[screen];
   const preAgent = screen === "anywhere" || screen === "address";
   // the steps before the agent were made for a narrow panel; they keep that width in the middle
@@ -105,9 +111,9 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     );
   }
   return (
-    <SetupShell at={s.at} line={s.line(agents.length ? name.trim() || "your agent" : "")} look={preAgent ? undefined : look} mood={s.mood} stepKey={screen} onBack={canGoBack ? () => setScreen(before!) : null}>
-      {screen === "anywhere" && narrow(<AwayStep onScene={() => {}} onDone={() => advance("anywhere")} />)}
-      {screen === "address" && narrow(<AddressStep onScene={() => {}} onNext={() => advance("address")} />)}
+    <SetupShell at={s.at} line={s.line(agents.length ? name.trim() || "your agent" : "")} look={preAgent ? undefined : look} mood={s.mood} stepKey={screen} onBack={goBack}>
+      {screen === "anywhere" && narrow(<AwayStep onScene={onScene} onDone={() => advance("anywhere")} />)}
+      {screen === "address" && narrow(<AddressStep onScene={onScene} onNext={() => advance("address")} />)}
       {screen === "connect" && (
         <ConnectStep
           device={device}
@@ -117,7 +123,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
             setScreen("name");
           }}
           // skipping the AI makes no agent: the agent step stays open so setup resumes here
-          onSkip={() => setScreen("devices")}
+          onSkip={() => (done.devices ? finish() : setScreen("devices"))}
         />
       )}
       {screen === "name" && powered && <NameStep name={name} setName={setName} look={look} ready={ready} harness={powered.harness} setHarness={setHarness} onBack={() => setScreen("connect")} onNext={() => setScreen("memory")} />}
@@ -140,7 +146,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
         </>
       )}
       {screen === "setup" && device && powered && <SetupProgress device={device} powered={powered} name={name.trim()} look={look} lines={lines} onBack={() => setScreen("memory")} onDone={(_, channelId) => finish(channelId)} />}
-      {screen === "devices" && narrow(<PhoneStep onScene={() => {}} onFinish={() => finish()} />)}
+      {screen === "devices" && narrow(<PhoneStep onScene={onScene} onFinish={() => finish()} />)}
     </SetupShell>
   );
 }
@@ -331,6 +337,8 @@ function AwayStep({ onScene, onDone }: { onScene: (s: StageScene) => void; onDon
     void useAccessStore.getState().refresh(true);
   };
   const startCloudflare = async () => {
+    // a Cloudflare tunnel token is long; anything short is a partial paste
+    if (credential.trim().length < 20) return setError("That isn't a whole Cloudflare setup code. Copy all of it from Cloudflare and paste it here.");
     setBusy(true);
     setError(null);
     setHint(null);
