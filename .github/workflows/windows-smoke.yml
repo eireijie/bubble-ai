@@ -49,8 +49,11 @@ jobs:
         run: |
           $p = Start-Process -FilePath apps\desktop\dist\Wisp-win-x64.exe -ArgumentList '/S' -Wait -PassThru
           "installer exit: $($p.ExitCode)"
-          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Wisp\Wisp.exe'
-          if (-not (Test-Path $exe)) { Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 2 | Select-Object FullName; throw "Wisp.exe not installed at $exe" }
+          $found = @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Programs'), $env:ProgramFiles -Filter Wisp.exe -Recurse -Depth 2 -ErrorAction SilentlyContinue)
+          if (-not $found) { throw "Wisp.exe wasn't installed" }
+          $exe = $found[0].FullName
+          "installed at $exe"
+          Get-ChildItem (Split-Path $exe) | Select-Object Name | Format-Wide -Column 4
           "WISP_EXE=$exe" >> $env:GITHUB_ENV
       # the installed app must not lean on the build folder (a junction pointing back into it would)
       - name: hide the build folder
