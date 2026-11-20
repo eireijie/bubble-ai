@@ -5,6 +5,8 @@ struct GhostView: View {
   var look: GhostLook?
   var seed: String
   var asleep = false
+  /** the agent's device is disconnected: the only time a wisp is drawn gray */
+  var offline = false
   var size: CGFloat = 36
   var mood: GhostMood = .awake
   var interactive = false
@@ -31,7 +33,7 @@ struct GhostView: View {
         let time = animated ? timeline.date.timeIntervalSinceReferenceDate + phase : 0
         let poke = animated ? pokeAt.map { timeline.date.timeIntervalSince($0) } : nil
         GhostRenderer(look: appearance, mood: currentMood, size: size, time: time, animated: animated,
-          poke: poke, pokeCount: pokeCount, darkMode: colorScheme == .dark).draw(context)
+          poke: poke, pokeCount: pokeCount, darkMode: colorScheme == .dark, offline: offline || asleep).draw(context)
       }
       // SVG overflow is visible on the web, including hats and hops.
       .frame(width: size + overflow * 2, height: size + overflow * 2)

@@ -9,6 +9,8 @@ struct GhostRenderer {
   var poke: Double?
   var pokeCount: Int
   var darkMode: Bool
+  /** only a ghost whose device is disconnected turns gray; a sleepy but online one keeps its colour */
+  var offline = false
 
   /** worn clipped to the side of the head rather than on top of it */
   static let clipped: Set<String> = ["bow", "flower"]
@@ -18,9 +20,10 @@ struct GhostRenderer {
   func draw(_ context: GraphicsContext) {
     let g = GhostGeometry.shapes[look.shape ?? "classic"]!
     let sleeping = mood == .asleep, details = size >= 26
-    let top = sleeping ? "#a6aaad" : look.color
-    let bottom = sleeping ? "#44464a" : look.color2 ?? GhostColor.shade(top)
-    let ink = GhostColor.ink(top: top, bottom: sleeping ? bottom : look.color2)
+    let gray = offline && sleeping
+    let top = gray ? "#a6aaad" : look.color
+    let bottom = gray ? "#44464a" : look.color2 ?? GhostColor.shade(top)
+    let ink = GhostColor.ink(top: top, bottom: gray ? bottom : look.color2)
     let gradient = GraphicsContext.Shading.linearGradient(Gradient(stops: [
       .init(color: Color(hex: top), location: 0.08), .init(color: Color(hex: bottom), location: 0.95),
     ]), startPoint: CGPoint(x: 0, y: g.top), endPoint: CGPoint(x: 0, y: g.bottom))

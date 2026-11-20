@@ -117,6 +117,8 @@ final class Store {
   var route: Route?
   /** whether this hub has an APNs key (push is optional for self-hosters) */
   var pushAvailable = false
+  /** the short "Get a note when…" explanation that comes before the system's notification prompt */
+  var showNotificationPrimer = false
   var notificationStatus: UNAuthorizationStatus = .notDetermined
   var pushRegistrationError: String?
   @ObservationIgnored var pushToken: String?
@@ -371,6 +373,12 @@ final class Store {
     } catch let error as API.Failure where error.status == 404 {
       return false
     }
+  }
+
+  /** Its device is disconnected: the only state a wisp is drawn gray for (paused or idle ones just look sleepy). */
+  func isOffline(_ agent: Agent?) -> Bool {
+    guard let agent else { return false }
+    return agent.status == .offline || computers.first { $0.id == agent.computerId }?.status == "offline"
   }
 
   /** Offline wins, then approval requests and failures, then current work. */
