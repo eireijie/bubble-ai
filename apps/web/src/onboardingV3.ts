@@ -153,7 +153,7 @@ export interface Fact {
 
 export type ScanPart = "git" | "harnesses" | "notes" | "projects";
 export const SCAN_PARTS: { id: ScanPart; label: string }[] = [
-  { id: "git", label: "Your name in git" },
+  { id: "git", label: "Who you are in git" },
   { id: "harnesses", label: "AI apps you're signed in to" },
   { id: "notes", label: "Your notes for them" },
   { id: "projects", label: "Projects you opened lately" },

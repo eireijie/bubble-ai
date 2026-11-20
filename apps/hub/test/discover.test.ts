@@ -36,6 +36,9 @@ describe("look around this computer", () => {
   it("reads notes and recent projects from a home folder", async () => {
     const home = await fs.mkdtemp(path.join(os.tmpdir(), "wisp-discover-"));
     await fs.mkdir(path.join(home, ".claude/projects/-Users-sam-code-shop"), { recursive: true });
+    // generic folder names say nothing about the work
+    await fs.mkdir(path.join(home, ".claude/projects/-Users-sam-files"), { recursive: true });
+    await fs.mkdir(path.join(home, ".claude/projects/-Users-sam-code-shop-src"), { recursive: true });
     await fs.writeFile(path.join(home, ".claude/CLAUDE.md"), "- Prefer plain words over jargon\n");
     const notes = await discoverPart("notes", home);
     expect(notes).toEqual({ found: "1 file", facts: [{ group: "Likes", text: "Prefer plain words over jargon", src: "CLAUDE.md" }] });
