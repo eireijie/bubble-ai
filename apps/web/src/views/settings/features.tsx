@@ -1,10 +1,25 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Apple, Bell, CircleDot, Clock, Ghost, HardDrive, ListChecks, MonitorSmartphone, SquareTerminal, UserPlus } from "lucide-react";
 import { FEATURE_INFO, FEATURE_KEYS, UNLISTED_FEATURES, type FeatureKey, type Features } from "@wisp/core";
 import { useStore } from "../../store.ts";
 import { setFeatures, useFeatures } from "../../features.ts";
 import { AskAgent } from "../../components/AskAgent.tsx";
 import { Button, cx } from "../../components/ui.tsx";
+import { go, type Route } from "../../router.ts";
+
+/** Where each mod shows up once it is on: a short place name for the toast, and the page to open (none when it lives outside the app window). */
+export const MOD_HOME: Record<FeatureKey, { place: string; to: Route | null }> = {
+  background: { place: "the Inbox, and each agent's Background tab", to: { view: "dashboard" } },
+  routines: { place: "each agent's Routines tab", to: { view: "agents", agentId: null } },
+  teach: { place: "an agent's page, under Teach", to: { view: "agents", agentId: null } },
+  tasks: { place: "Tasks", to: { view: "tasks" } },
+  buddy: { place: "a small ghost on your desktop", to: null },
+  invite: { place: "Settings, People", to: { view: "settings", page: "people" } },
+  remoteDesktop: { place: "Settings, Devices", to: { view: "settings", page: "devices" } },
+  storage: { place: "Settings, Storage", to: { view: "settings", page: "storage" } },
+  code: { place: "Code", to: { view: "code" } },
+  apple: { place: "Settings, Apple", to: { view: "settings", page: "apple" } },
+};
 
 const ICONS: Record<FeatureKey, ReactNode> = {
   background: <Bell size={18} />,
@@ -27,11 +42,19 @@ export function ModsPage() {
   const features = useFeatures();
   const isOwner = useStore((s) => s.me?.role) === "owner";
   const [error, setError] = useState<string | null>(null);
+  const [added, setAdded] = useState<FeatureKey | null>(null);
+  useEffect(() => {
+    if (!added) return;
+    const t = setTimeout(() => setAdded(null), 8000);
+    return () => clearTimeout(t);
+  }, [added]);
 
   const save = async (patch: Partial<Features>) => {
     setError(null);
     try {
       await setFeatures(patch);
+      const turnedOn = FEATURE_KEYS.find((k) => patch[k] === true);
+      setAdded(turnedOn ?? null);
     } catch (e) {
       setError(`Couldn't save that: ${(e as Error).message}`);
     }
@@ -83,6 +106,24 @@ export function ModsPage() {
         </section>
       )}
       {error && <p className="text-sm text-bad">{error}</p>}
+      {added && (
+        <div role="status" className="m-toast glass fixed z-50 right-6 bottom-6 w-[380px] max-md:inset-x-[18px] max-md:w-auto max-md:right-auto max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] rounded-3xl pl-5 pr-4 py-4 flex items-center gap-2.5">
+          <span className="flex-1 text-body font-medium">
+            {FEATURE_INFO[added].name} is on — in {MOD_HOME[added].place}
+          </span>
+          {MOD_HOME[added].to && (
+            <button
+              className="h-11 px-[18px] rounded-full bg-accent text-accent-ink text-body font-medium"
+              onClick={() => {
+                go(MOD_HOME[added].to!);
+                setAdded(null);
+              }}
+            >
+              Open
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
