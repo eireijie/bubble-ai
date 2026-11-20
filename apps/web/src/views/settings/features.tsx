@@ -15,7 +15,7 @@ export const MOD_HOME: Record<FeatureKey, { place: string; to: Route | null }> =
   tasks: { place: "Tasks", to: { view: "tasks" } },
   buddy: { place: "a small ghost on your desktop", to: null },
   invite: { place: "Settings, People", to: { view: "settings", page: "people" } },
-  remoteDesktop: { place: "Settings, Devices", to: { view: "settings", page: "devices" } },
+  remoteDesktop: { place: "Settings, Computers and devices", to: { view: "settings", page: "devices" } },
   storage: { place: "Settings, Storage", to: { view: "settings", page: "storage" } },
   code: { place: "Code", to: { view: "code" } },
   apple: { place: "Settings, Apple", to: { view: "settings", page: "apple" } },
