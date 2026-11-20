@@ -171,6 +171,19 @@ describe("/ commands", () => {
     expect(hub.commandFor({ ...atlas, harness: "claude-code" }, "/compact")).toMatchObject({ via: "raw", name: "compact", compact: true });
   });
 
+  it("answers /compact right away when the harness isn't signed in, without starting a run", async () => {
+    const nodeId = atlas.nodeId;
+    const cat = hub.store.nodeCatalog(nodeId);
+    hub.store.setNodeCatalog(nodeId, cat.map((h) => (h.harness === "hermes" ? { ...h, accounts: { default: false } } : h)));
+    const before = hub.store.activeRuns(atlas.id).length;
+    const msg = await post("@atlas /compact");
+    expect(hub.store.activeRuns(atlas.id).filter((r) => r.triggerMessageId === msg.id)).toHaveLength(0);
+    expect(hub.store.activeRuns(atlas.id).length).toBe(before);
+    const notes = hub.store.messages(general.id, { limit: 10 }).flatMap((m) => m.parts.flatMap((p) => (p.type === "status" ? [p.text] : [])));
+    expect(notes.at(-1)).toMatch(/isn't signed in/);
+    hub.store.setNodeCatalog(nodeId, cat);
+  });
+
   it("asks a Codex agent for a summary on /compact, and starts the next chat with it", async () => {
     const msg = await post("@codexer /compact");
     expect(await hub.buildPrompt(codexer.id, general.id, null, msg.id)).toBe(SUMMARY_REQUEST);
