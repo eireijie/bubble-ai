@@ -40,15 +40,15 @@ export function draftBrief(description: string, agents: { handle: string; name: 
   return [
     `A person wants a team of agents that works like this:\n> ${description.trim().replace(/\n/g, "\n> ")}`,
     "Draw it as a flowchart of steps. Reply with ONLY a JSON object (no code fence, no other text) and finish this task with task_update (status done) with that JSON as the result:",
-    `{"name": "short team name", "steps": [{"id": "s1", "title": "Plan the work", "agent": "@handle", "prompt": "what this agent does here, in 1-3 sentences", "kind": "do", "inputs": []}]}`,
+    `{"name": "short team name", "steps": [{"id": "s1", "title": "Plan the work", "agent": "handle", "prompt": "what this agent does here, in 1-3 sentences", "kind": "do", "inputs": []}]}`,
     [
       "Rules:",
-      "- Each step has an id, a short imperative title, an agent (a handle from the list below), and its own prompt.",
+      "- Each step has an id, a short imperative title, an agent (a handle from the list below, written without @), and its own prompt.",
       '- "inputs" lists the ids of steps whose results this one uses; it waits for all of them. Steps with no inputs start together, at the same time. Steps that don\'t need each other should be side by side, not in a line.',
       '- kind is "do" (an agent does it), "repeat" (an agent checks and sends it back to the step in "sendBackTo" until approved; add "maxRounds", 1 to 10), "ask" (a person approves; add "show" for what they see and optionally "sendBackTo"), "handoff" (gives the work to another team named in "team"; add "waitForReply": true to wait for its answer) or "if" (an agent answers a yes/no "condition"; "yes" and "no" are step ids, or null to end; no/yes may point back to an earlier step to loop).',
       "- Every loop must go through a repeat, ask or if step. Keep it to the fewest steps that do the job (at most 12).",
     ].join("\n"),
-    `Agents you can use:\n${agents.map((a) => `- @${a.handle} (${a.name}, ${a.harness})`).join("\n")}`,
+    `Agents you can use:\n${agents.map((a) => `- ${a.handle} (${a.name}, ${a.harness})`).join("\n")}`,
     teams.length ? `Other teams you can hand work to: ${teams.join(", ")}.` : "",
   ]
     .filter(Boolean)
@@ -193,4 +193,23 @@ export function registerTeamDraftApi(app: FastifyInstance, hub: Hub, h: Helpers)
   });
 }
 
-const DRAFT_TITLE = "Draw a team flowchart";
+export const DRAFT_TITLE = "Draw a team flowchart";
+
+/**
+ * The drawing agent's run ended with `text`. When that run was working a "Draw a team flowchart"
+ * task, the draft is settled here, from the agent's reply, even if it never called task_update:
+ * readable steps finish the task with them; anything else fails it. Returns true for a draft run,
+ * whose reply is not posted in the chat (it is JSON, and its @handles would wake the other agents).
+ */
+export function settleDraftOfRun(hub: Hub, run: { agentId: string; threadId: string | null }, text: string): boolean {
+  const { store } = hub;
+  const task = run.threadId ? store.taskByThread(run.threadId) : undefined;
+  if (!task || task.title !== DRAFT_TITLE || task.toAgentId !== run.agentId) return false;
+  if (task.status === "open" || task.status === "in_progress") {
+    const drawn = text.trim() ? stepsFromDraftJson(hub, task.workspaceId, run.agentId, text) : null;
+    store.updateTask(task.id, drawn ? "done" : "failed", drawn ? text.trim() : "The agent finished without a flowchart I could read. Try again, or build it yourself.");
+    hub.broadcast(task.workspaceId, { type: "tasks_changed" });
+    hub.flows.taskFinished(store.task(task.id)!, null);
+  }
+  return true;
+}

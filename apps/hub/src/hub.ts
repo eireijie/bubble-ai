@@ -28,6 +28,7 @@ import type { Vaults } from "./vaults.ts";
 import { MemoryAccess } from "./access.ts";
 import { ASK_BEFORE_TEXT, agentPolicy } from "./policy.ts";
 import { AgentMemory } from "./memory.ts";
+import { settleDraftOfRun } from "./team-drafts.ts";
 import { failTaskOfRun, leadSection, taskInstructions } from "./lead.ts";
 import { spawnSection } from "./spawn.ts";
 import { greetingPrompt, greetingWritten, recordSetupReply, setupChat, setupSection } from "./greeting.ts";
@@ -864,9 +865,13 @@ export class Hub {
       const parts = [...live.parts, ...(screen ? [screen] : []), ...skillParts];
       // files it sent go out even when it said nothing with them
       const sentFiles = live.parts.some((p) => p.type === "file");
-      const reply = (body || sentFiles) && !gone && !repeated ? this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body, parts, hop: run.hop + 1, route, onBehalfOf: run.requestedBy, conversationId: this.chatOfRun(run) }) : null;
+      // a team drawn by an agent: the draft is settled from its answer, which is not chat
+      const drawing = !gone && settleDraftOfRun(this, run, body || (posted?.body ?? ""));
+      const reply = (body || sentFiles) && !gone && !repeated && !drawing ? this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body, parts, hop: run.hop + 1, route, onBehalfOf: run.requestedBy, conversationId: this.chatOfRun(run) }) : null;
       // follow-ups it set and how it left the chat show under its answer
       this.loops.runEnded(run, reply?.id ?? (repeated && posted ? posted.id : null));
+      // an agent that answered a task without calling task_update still finished it: its reply is the result
+      if (!drawing && !gone && body) this.finishTaskOfRun(run, body);
       // work worth remembering that it didn't save gets a memory pass once the chat goes quiet
       this.autoMemory.runFinished(run, { reply: body || (posted?.body ?? ""), tools: live.parts.flatMap((p) => (p.type === "tool_call" ? [p.name] : [])), usedSkill: skillParts.some((p) => p.type === "skill") });
     } else {
@@ -884,6 +889,24 @@ export class Hub {
     if (agent) this.broadcast(workspaceId, { type: "agent_status", agentId: agent.id, status: this.agentStatus(agent) });
     if (run.discussionId) void this.discussions.onRunFinished(run, body);
     this.releaseConnection(run.id);
+  }
+
+  /** Set by the API: asks someone else to check a finished coding task. */
+  reviewTask: ((task: NonNullable<ReturnType<Store["task"]>>, requestedBy: string | null) => void) | null = null;
+
+  /**
+   * The run that was handed a task ended with a reply but the task is still open (the agent never
+   * called task_update): the reply is the result, so the team's next step (or the lead) isn't left waiting.
+   */
+  private finishTaskOfRun(run: { agentId: string; threadId: string | null; triggerMessageId: string; requestedBy: string | null }, result: string) {
+    const { store } = this;
+    const task = run.threadId ? store.taskByThread(run.threadId) : undefined;
+    if (!task || task.toAgentId !== run.agentId || run.triggerMessageId !== task.threadId || (task.status !== "open" && task.status !== "in_progress")) return;
+    store.updateTask(task.id, "done", result.slice(0, 40_000));
+    this.broadcast(task.workspaceId, { type: "tasks_changed" });
+    const updated = store.task(task.id)!;
+    const flowReviews = this.flows.taskFinished(updated, null);
+    if (!flowReviews && !this.flows.inFlow(updated)) this.reviewTask?.(updated, run.requestedBy);
   }
 
   /**
