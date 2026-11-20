@@ -811,6 +811,7 @@
 						TestTargetID = 9FED08DA26E69D96AED0CA8F;
 					};
 					9FED08DA26E69D96AED0CA8F = {
+						DevelopmentTeam = 388D9S7Y7P;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -1282,6 +1283,7 @@
 				CODE_SIGN_ENTITLEMENTS = Wisp/Wisp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 388D9S7Y7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wisp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wisp;
@@ -1331,6 +1333,7 @@
 				CODE_SIGN_ENTITLEMENTS = Wisp/Wisp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 388D9S7Y7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wisp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wisp;

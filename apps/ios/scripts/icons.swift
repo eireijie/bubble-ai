@@ -26,9 +26,9 @@ func ghost(in rect: CGRect) -> (body: CGPath, eyes: CGPath) {
   return (b, e)
 }
 
-func png(_ size: Int, _ path: String, draw: (CGContext, CGFloat) -> Void) {
+func png(_ size: Int, _ path: String, opaque: Bool = false, draw: (CGContext, CGFloat) -> Void) {
   let cs = CGColorSpace(name: CGColorSpace.sRGB)!
-  let ctx = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+  let ctx = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: (opaque ? CGImageAlphaInfo.noneSkipLast : .premultipliedLast).rawValue)!
   // SVG coordinates: y grows downward
   ctx.translateBy(x: 0, y: CGFloat(size)); ctx.scaleBy(x: 1, y: -1)
   draw(ctx, CGFloat(size))
@@ -52,8 +52,8 @@ func tile(_ ctx: CGContext, _ s: CGFloat, inset: CGFloat, radius: CGFloat) {
 
 // macOS/Windows/Linux app icon: a rounded tile with the usual margin
 png(1024, "\(root)/desktop/build/icon.png") { ctx, s in tile(ctx, s, inset: 100, radius: 185) }
-// iOS app icon: full bleed, the system rounds it
-png(1024, "\(root)/ios/Wisp/Assets.xcassets/AppIcon.appiconset/icon-1024.png") { ctx, s in
+// iOS app icon: full bleed, the system rounds it; no alpha channel, or App Store Connect rejects the upload
+png(1024, "\(root)/ios/Wisp/Assets.xcassets/AppIcon.appiconset/icon-1024.png", opaque: true) { ctx, s in
   ctx.setFillColor(ink); ctx.fill(CGRect(x: 0, y: 0, width: s, height: s))
   let g = ghost(in: CGRect(x: s * 0.22, y: s * 0.17, width: s * 0.56, height: s * 0.66))
   ctx.addPath(g.body); ctx.setFillColor(paper); ctx.fillPath()

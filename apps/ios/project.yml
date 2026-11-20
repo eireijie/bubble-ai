@@ -38,6 +38,8 @@ targets:
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: When an agent asks where you are, Wisp tells it. Only when it asks, never a running track.
         INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: Wisp tells your agents when you arrive at or leave a place you added. Never where you are in between.
         CODE_SIGN_STYLE: Automatic
+        # YuVi LLC, the paid Apple developer team that publishes Wisp
+        DEVELOPMENT_TEAM: 388D9S7Y7P
         # push notifications; Xcode switches this to production when you archive for TestFlight / the App Store
         CODE_SIGN_ENTITLEMENTS: Wisp/Wisp.entitlements
     info:
