@@ -4,6 +4,7 @@ import SwiftUI
 struct FeaturesView: View {
   @Environment(Store.self) private var store
   @State private var action = FormAction()
+  @State private var justAdded: FeatureKey?
 
   private var on: [FeatureKey] { FeatureKey.allCases.filter { store.features[$0] } }
   private var off: [FeatureKey] { FeatureKey.allCases.filter { !store.features[$0] } }
@@ -20,6 +21,7 @@ struct FeaturesView: View {
       }
       if !store.isOwner { OwnersOnlyNote() }
       StatusLine(error: action.error)
+      if let key = justAdded { CardHint("\(key.name) is on — in \(key.home).") }
     }
     .task { await store.refreshFeatures() }
   }
@@ -28,6 +30,7 @@ struct FeaturesView: View {
     ToggleRow(title: key.name, subtitle: key.detail, symbol: key.symbol, isOn: Binding(get: { store.features[key] }, set: { on in
       var next = store.features
       next[key] = on
+      justAdded = on ? key : nil
       save(next)
     }), id: "feature-\(key.rawValue)")
     .disabled(!store.isOwner || action.busy)
@@ -39,6 +42,21 @@ struct FeaturesView: View {
 }
 
 extension FeatureKey {
+  /** where the mod shows up once it is on */
+  var home: String {
+    switch self {
+    case .background: "each agent's Background tab"
+    case .routines: "each agent's Routines tab"
+    case .teach: "an agent's page, under Teach"
+    case .tasks: "Tasks, in More"
+    case .buddy: "a small ghost on your desktop"
+    case .invite: "Settings, People"
+    case .remoteDesktop: "each device's page"
+    case .storage: "Settings, Storage"
+    case .apple: "Settings, Apple"
+    }
+  }
+
   var tint: Color {
     switch self {
     case .background: .purple
