@@ -7,7 +7,7 @@ import { WispClient } from "@wisp/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
-import { SETUP_REPLIES, greetNewAgent, recordSetupStep, setupNotePath } from "../src/greeting.ts";
+import { SETUP_REPLIES, dropRepeatedEnd, greetNewAgent, greetingPrompt, recordSetupStep, setupNotePath } from "../src/greeting.ts";
 
 let dir: string;
 let close: () => Promise<void>;
@@ -186,7 +186,7 @@ describe("a new agent speaks first", () => {
   });
 
   it("starts watches for the accounts only in its reply to the person's yes", async () => {
-    const id = await make("kit");
+    const id = await make("wren");
     const ws = hub.store.agent(id)!.workspaceId;
     const ads = { service: "browser" as const, label: "Google Ads", url: "https://ads.google.com", lookFor: "campaigns paused or over budget" };
     // not answering anyone (a background check, a stray call): refused
@@ -330,5 +330,24 @@ describe("a new agent speaks first", () => {
   it("leaves agents another app runs to speak for themselves", async () => {
     const id = await make("ivy", { harness: "grok", nodeId: null });
     expect(said(id)).toEqual([]);
+  });
+
+  it("writes its own hello as one offer when it has notes, and keeps the plain hello without them", async () => {
+    const id = await make("quill");
+    const plain = await greetingPrompt(hub, id, me);
+    expect(plain).toMatch(/one question about what to start on, asked once/);
+    expect(plain).not.toMatch(/under 70 words/);
+    await hub.vault(hub.store.agent(id)!.workspaceId).write(`agents/${id}/memories/notes.md`, "Sam is getting shop-web ready for the spring sale on March 3.", { name: "t", email: "t@t" }, "t");
+    const known = await greetingPrompt(hub, id, me);
+    expect(known).toMatch(/shop-web/);
+    expect(known).toMatch(/never a list/);
+    expect(known).toMatch(/yes\/no question/);
+    expect(known).toMatch(/under 70 words/);
+  });
+
+  it("keeps a hello's repeated last sentence once", () => {
+    expect(dropRepeatedEnd("Hi, I'm Juno. What should we start on?What should we start on?")).toBe("Hi, I'm Juno. What should we start on?");
+    expect(dropRepeatedEnd("Want me to start? \nWant me to start?")).toBe("Want me to start?");
+    expect(dropRepeatedEnd("Hi. Want me to start with today's?")).toBe("Hi. Want me to start with today's?");
   });
 });
