@@ -81,3 +81,22 @@ html[data-motion="reduce"] :is(.voice-modal, .voice-bar, .voice-breathe, .voice-
   .voice-modal, .voice-bar, .voice-breathe, .voice-arc, .voice-bob, .voice-halo, .voice-hero, .voice-ring { animation: none; transition: none; }
 }
 @media (max-height: 700px) { .voice-ring { width: 104px; height: 104px; } .voice-scene[data-phase="connecting"] .voice-ring { width: 150px; height: 150px; } }
+
+/* ---------- the floating call card (canvas Call) ---------- */
+@keyframes call-bar { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+@keyframes call-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
+.call-card { animation: call-in 320ms var(--drawer) both; }
+.call-wave { transform: scaleY(var(--amp, 1)); transition: transform 120ms ease-out; }
+.call-bar { transform-origin: center; animation: call-bar 0.9s ease-in-out infinite; }
+.call-muted .call-bar { animation: none; transform: scaleY(0.18); opacity: 0.45; }
+.call-btn { transition: background-color 150ms ease, transform 150ms var(--drawer); }
+.call-btn:active:not(:disabled) { transform: scale(0.92); }
+.call-range { appearance: none; height: 22px; background: transparent; }
+.call-range::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--wisp) var(--pct), var(--line2) var(--pct)); }
+.call-range::-moz-range-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--wisp) var(--pct), var(--line2) var(--pct)); }
+.call-range::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 9px; background: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 0.35); }
+.call-range::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 9px; background: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 0.35); }
+@keyframes call-record-in { from { opacity: 0; transform: translateY(6px); } }
+.call-record { animation: call-record-in 320ms var(--drawer) both; }
+@media (prefers-reduced-motion: reduce) { .call-card, .call-bar, .call-record { animation: none; } .call-wave { transform: none; } }
+:root[data-motion="reduce"] :is(.call-card, .call-bar, .call-record) { animation: none; }

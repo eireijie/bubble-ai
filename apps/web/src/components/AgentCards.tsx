@@ -37,7 +37,7 @@ export function ComputerPart({ computerId, request, agentName }: { computerId: s
 /** A chat card: a small label with an icon, then the card's own content. Shared by every card an agent posts. */
 export function ChatCard({ icon, label, tone = "muted", children, className, ariaLabel }: { icon: React.ReactNode; label: string; tone?: "muted" | "warn"; children: React.ReactNode; className?: string; ariaLabel?: string }) {
   return (
-    <section aria-label={ariaLabel ?? label} className={cx("mt-1 w-full max-w-md rounded-3xl bg-card px-4 py-3.5", className)}>
+    <section aria-label={ariaLabel ?? label} className={cx("mt-1 w-full max-w-[420px] rounded-[18px] bg-[var(--bubble-them)] px-4 py-3.5", className)}>
       <div className={cx("flex items-center gap-1.5 text-[13px] font-medium", tone === "warn" ? "text-warn" : "text-muted")}>
         <span className="shrink-0 grid place-items-center">{icon}</span>
         {label}
@@ -59,7 +59,7 @@ function Decided({ ok, text, at }: { ok: boolean; text: string; at?: string | nu
   );
 }
 
-const CARD_BUTTON = "h-11 rounded-full px-5 text-body font-medium disabled:opacity-50";
+const CARD_BUTTON = "m-press h-[34px] rounded-full px-4 text-sm font-medium disabled:opacity-50";
 
 /** "Can I go ahead?" with Approve / Not now, and the outcome once someone decides. */
 export function ApprovalCard({ id }: { id: string }) {
@@ -97,12 +97,12 @@ export function ApprovalCard({ id }: { id: string }) {
         me?.role !== "guest" && (
           <div className="mt-2.5 space-y-2.5">
             <div className="text-sm text-muted">Can I go ahead?</div>
-            <input value={note} onChange={(e) => setNote(e.target.value)} aria-label="Add a note" placeholder="Add a note (optional)" className="h-11 w-full rounded-2xl border border-control-line bg-control px-3.5 text-sm outline-none placeholder:text-faint focus:border-ring" />
+            <input value={note} onChange={(e) => setNote(e.target.value)} aria-label="Add a note" placeholder="Add a note (optional)" className="h-9 w-full rounded-[10px] border border-line2 bg-panel px-3 text-sm outline-none placeholder:text-muted focus:border-ring" />
             <div className="flex gap-2">
-              <button disabled={busy} onClick={() => decide(true)} className={cx(CARD_BUTTON, "flex-1 bg-accent text-accent-ink")}>
+              <button disabled={busy} onClick={() => decide(true)} className={cx(CARD_BUTTON, "bg-ink text-panel font-semibold")}>
                 Approve
               </button>
-              <button disabled={busy} onClick={() => decide(false)} className={cx(CARD_BUTTON, "flex-1 border border-control-line bg-control")}>
+              <button disabled={busy} onClick={() => decide(false)} className={cx(CARD_BUTTON, "border border-line2 bg-transparent hover:bg-hover")}>
                 Not now
               </button>
             </div>
@@ -164,10 +164,10 @@ function LoginApprovalCard({ approval }: { approval: Approval }) {
           <p className="mt-2.5 text-xs text-muted">Waiting for {owner}: only they can let agents use their logins.</p>
         ) : (
           <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={busy} onClick={() => decide(true)} className={cx(CARD_BUTTON, "flex-1 bg-accent text-accent-ink")}>
+            <button disabled={busy} onClick={() => decide(true)} className={cx(CARD_BUTTON, "bg-ink text-panel font-semibold")}>
               Approve
             </button>
-            <button disabled={busy} onClick={() => decide(false)} className={cx(CARD_BUTTON, "flex-1 border border-control-line bg-control")}>
+            <button disabled={busy} onClick={() => decide(false)} className={cx(CARD_BUTTON, "border border-line2 bg-transparent hover:bg-hover")}>
               Not now
             </button>
             <button disabled={busy} onClick={() => decide(true, true)} className="w-full text-center text-[13px] text-muted hover:text-ink">
@@ -231,15 +231,15 @@ function StorageApprovalCard({ approval }: { approval: Approval }) {
           <p className="mt-2.5 text-xs text-muted">Waiting for an owner to answer.</p>
         ) : (
           <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={busy} onClick={() => decide(true)} className={cx("h-10 rounded-full px-4 text-sm font-medium disabled:opacity-50", req.action === "delete" ? "bg-bad text-white" : "bg-accent text-accent-ink")}>
+            <button disabled={busy} onClick={() => decide(true)} className={cx("h-[34px] rounded-full px-4 text-sm font-semibold disabled:opacity-50", req.action === "delete" ? "bg-bad text-white" : "bg-ink text-panel")}>
               {req.action === "delete" ? "Delete" : req.action === "replace" ? "Replace" : "Allow"}
             </button>
             {req.action !== "delete" && (
-              <button disabled={busy} onClick={() => decide(true, true)} className="h-10 rounded-full border border-control-line bg-control px-4 text-sm font-medium disabled:opacity-50">
+              <button disabled={busy} onClick={() => decide(true, true)} className="h-[34px] rounded-full border border-line2 bg-transparent px-4 text-sm font-medium hover:bg-hover disabled:opacity-50">
                 Always in this folder
               </button>
             )}
-            <button disabled={busy} onClick={() => decide(false)} className="h-10 rounded-full border border-control-line bg-control px-4 text-sm font-medium disabled:opacity-50">
+            <button disabled={busy} onClick={() => decide(false)} className="h-[34px] rounded-full border border-line2 bg-transparent px-4 text-sm font-medium hover:bg-hover disabled:opacity-50">
               No
             </button>
           </div>

@@ -17,7 +17,7 @@ import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Modal, Pill, Popover, StatusDot, UserAvatar, clockTime, cx, harnessLabel } from "../components/ui.tsx";
 import { AgentPill } from "../components/AgentPill.tsx";
-import { CallScreen } from "../voice/CallScreen.tsx";
+import { CallScreen, type CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
 import { AgentPanel, type AgentPanelTab } from "../components/AgentPanel.tsx";
 import { slashQuery, useAgentCommands, useSlashMenu, type SlashItem } from "../components/SlashMenu.tsx";
@@ -93,6 +93,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const voice = useFeature("voice");
   const [calling, setCalling] = useState(!!route.call);
   const [callSlot, setCallSlot] = useState<HTMLElement | null>(null);
+  // the record a finished call leaves in the chat, with Call again
+  const [callRecord, setCallRecord] = useState<(CallRecord & { channelId: string }) | null>(null);
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
   const [settings, setSettings] = useState<ChannelSettingsTab | null>(null);
 
@@ -149,7 +151,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
 
   return (
     <div className="flex-1 min-h-0 flex">
-      <div className={cx("flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
+      <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         <header className="shrink-0 px-3 md:px-6 h-[4.75rem] md:h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
             {onBack && (
@@ -198,6 +200,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <SignInNeededBar agent={dmFull} />
           </div>
         )}
+        {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onAgain={voice ? () => { setCallRecord(null); setCalling(true); } : undefined} onHide={() => setCallRecord(null)} />}
+        {calling && dmAgent && <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} barSlot={callSlot} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />}
         {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={dmAgent && voice && !calling ? () => setCalling(true) : undefined} />}
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
@@ -213,8 +217,32 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
         />
       )}
       {infoOpen && side?.kind === "info" && <TeamInfo channel={channel} tab={side.tab} onTab={(tab) => setSide({ kind: "info", tab })} onClose={() => setSide(null)} onSettings={setSettings} />}
-      {calling && dmAgent && <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} barSlot={callSlot} onClose={() => { setCalling(false); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />}
       {settings && <ChannelSettings key={settings} channel={channel} tab={settings} onClose={() => setSettings(null)} />}
+    </div>
+  );
+}
+
+/** What a finished call leaves in the chat: how long it was, what was said, and Call again. */
+function CallRecordCard({ agent, record, onAgain, onHide }: { agent: Agent; record: CallRecord; onAgain?: () => void; onHide: () => void }) {
+  const m = Math.floor(record.seconds / 60);
+  const length = `${String(m).padStart(2, "0")}:${String(record.seconds % 60).padStart(2, "0")}`;
+  return (
+    <div className="shrink-0 px-3 md:px-5 w-full max-w-3xl mx-auto">
+      <section className="call-record overflow-hidden rounded-[18px] border border-line bg-card" aria-label={`Call with ${agent.name}`}>
+        <div className="flex h-11 items-center gap-2 border-b border-line pl-3.5 pr-2 text-[13px] text-muted">
+          <AudioLines size={15} strokeWidth={1.7} aria-hidden />
+          <span className="flex-1 truncate">Call with {agent.name} · {length}</span>
+          {onAgain && <button type="button" onClick={onAgain} className="h-7 rounded-full border border-line2 px-3 text-xs text-ink hover:bg-hover">Call again</button>}
+          <button type="button" onClick={onHide} aria-label="Hide" title="Hide" className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink"><X size={14} strokeWidth={1.8} /></button>
+        </div>
+        {record.lines.length > 0 && (
+          <div className="flex max-h-48 flex-col gap-2 overflow-y-auto px-3.5 py-3">
+            {record.lines.map((l, i) => (
+              <div key={i} className={cx("max-w-[480px] rounded-2xl px-[13px] py-[7px] text-[13px] leading-5", l.who === "you" ? "self-end bg-wisp text-wisp-ink" : "self-start bg-[var(--bubble-them)]")}>{l.text}</div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
