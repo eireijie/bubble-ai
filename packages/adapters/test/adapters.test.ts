@@ -308,7 +308,7 @@ describe("harness commands on the device", () => {
 
   it("reads an ACP agent's announced commands", async () => {
     const { acpCommands } = await import("../src/acp.ts");
-    expect(acpCommands([{ name: "tools", description: "List tools", input: { hint: "name" } }, { name: "" }])).toEqual([{ name: "tools", description: "List tools", hint: "name", kind: "command", via: "raw" }]);
+    expect(acpCommands([{ name: "tools", description: "List tools", input: { hint: "name" } }, { name: "" }])).toEqual([{ name: "tools", description: "List tools", hint: "name", kind: "command", via: "raw", builtIn: true }]);
     // commands Wisp has its own of, or that need a running turn, are left out of chat
     expect(acpCommands(["help", "reset", "compress", "model", "context", "steer", "queue", "version"].map((name) => ({ name }))).map((c) => c.name)).toEqual(["help", "version"]);
     expect(acpCommands(null)).toEqual([]);

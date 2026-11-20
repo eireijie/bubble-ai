@@ -409,7 +409,7 @@ export function acpCommands(list: Json): CommandOption[] {
   return list
     .filter((c: Json) => typeof c?.name === "string" && c.name.trim() && !ACP_CHAT_SKIP.has(c.name.trim().replace(/^\//, "")))
     .slice(0, 500)
-    .map((c: Json) => ({ name: c.name.trim().replace(/^\//, ""), description: shortDescription(c.description), hint: typeof c.input?.hint === "string" ? c.input.hint.slice(0, 120) : undefined, kind: "command" as const, via: "raw" as const }));
+    .map((c: Json) => ({ name: c.name.trim().replace(/^\//, ""), description: shortDescription(c.description), hint: typeof c.input?.hint === "string" ? c.input.hint.slice(0, 120) : undefined, kind: "command" as const, via: "raw" as const, builtIn: true }));
 }
 
 /** Models and effort levels from a session/new response. Exported for tests. */
