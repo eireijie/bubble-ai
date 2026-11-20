@@ -107,16 +107,16 @@ describe("the / menu", () => {
   const cmd = (name: string, o: Partial<AgentCommand> = {}): AgentCommand => ({ name, description: "", kind: "command", via: "raw", group: "harness", ...o }) as AgentCommand;
   const rows = (list: AgentCommand[], a: Agent = ghosty) => list.map((command) => ({ agent: a, command }));
 
-  it("orders sections learned, harness, Wisp, skills", () => {
+  it("orders sections Wisp, learned, harness, skills", () => {
     const list = rows([cmd("model", { kind: "wisp", via: "wisp", group: "wisp" }), cmd("docx", { kind: "wisp-skill", via: "prompt", group: "skill" }), cmd("review"), cmd("order-pizza", { kind: "wisp-skill", group: "learned", learnedBy: "Ghosty", isNew: true })]);
     const ordered = orderSlashRows(list);
-    expect(ordered.map((r) => r.command.name)).toEqual(["order-pizza", "review", "model", "docx"]);
-    expect(ordered.map((r) => slashSection(r).label)).toEqual(["Learned by Ghosty", "Codex", "Wisp", "Skills"]);
+    expect(ordered.map((r) => r.command.name)).toEqual(["model", "order-pizza", "review", "docx"]);
+    expect(ordered.map((r) => slashSection(r).label)).toEqual(["Wisp", "Learned by Ghosty", "Codex", "Skills"]);
   });
 
   it("puts names that start with what was typed first, inside each section", () => {
     const list = rows([cmd("security-review"), cmd("review"), cmd("context", { kind: "wisp", group: "wisp" })]);
-    expect(orderSlashRows(list, "rev").map((r) => r.command.name)).toEqual(["review", "security-review", "context"]);
+    expect(orderSlashRows(list, "rev").map((r) => r.command.name)).toEqual(["context", "review", "security-review"]);
   });
 
   it("keeps two harnesses apart, in the order they come", () => {

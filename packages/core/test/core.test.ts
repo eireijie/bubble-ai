@@ -254,13 +254,13 @@ describe("/ commands", () => {
     expect(agentCommands([{ name: "context", kind: "command", via: "raw" }], [{ slug: "pdf", description: "PDFs" }]).map((c) => c.kind)).toEqual(["wisp", "wisp", "wisp", "wisp", "wisp", "wisp", "wisp", "wisp-skill"]);
   });
 
-  it("groups the menu: learned skills, the harness's own, Wisp's, then other skills", async () => {
+  it("groups the menu: Wisp's, learned skills, the harness's own, then other skills", async () => {
     const { agentCommands } = await import("../src/commands.ts");
     const now = Date.parse("2026-10-29T12:00:00Z");
     const list = agentCommands(
       [
         { name: "review", description: "Harness review", kind: "command", via: "raw", builtIn: true },
-        { name: "pdf", description: "Harness PDFs", kind: "skill", via: "raw" },
+        { name: "pdf", description: "Harness PDFs", kind: "skill", via: "raw", builtIn: true },
         { name: "model", kind: "command", via: "raw" },
       ],
       [
@@ -272,10 +272,14 @@ describe("/ commands", () => {
       ],
       now,
     );
-    expect(list.map((c) => `${c.name}:${c.group}`)).toEqual(["review:learned", "pizza:learned", "pdf:harness", "context:wisp", "compact:wisp", "new:wisp", "stop:wisp", "model:wisp", "effort:wisp", "harness:wisp", "notes:skill"]);
-    expect(list[0]).toEqual({ name: "review", description: "My way", kind: "wisp-skill", via: "prompt", group: "learned", learnedBy: "Ghosty", isNew: true });
-    expect(list[1].isNew).toBeUndefined();
-    expect(list[2]).toEqual({ name: "pdf", description: "Harness PDFs", kind: "skill", via: "raw", group: "harness" });
+    expect(list.map((c) => `${c.name}:${c.group}`)).toEqual(["context:wisp", "compact:wisp", "new:wisp", "stop:wisp", "model:wisp", "effort:wisp", "harness:wisp", "review:learned", "pizza:learned", "pdf:harness", "notes:skill"]);
+    expect(list[7]).toEqual({ name: "review", description: "My way", kind: "wisp-skill", via: "prompt", group: "learned", learnedBy: "Ghosty", isNew: true });
+    expect(list[8].isNew).toBeUndefined();
+    expect(list[9]).toEqual({ name: "pdf", description: "Harness PDFs", kind: "skill", via: "raw", group: "harness" });
+    // the person's own harness skills stay out unless the agent's switch is on
+    const own = [{ name: "anki", kind: "skill" as const, via: "raw" as const }, { name: "pdf", kind: "skill" as const, via: "raw" as const, builtIn: true }];
+    expect(agentCommands(own, []).filter((c) => c.group === "harness").map((c) => c.name)).toEqual(["pdf"]);
+    expect(agentCommands(own, [], Date.now(), true).filter((c) => c.group === "harness").map((c) => c.name)).toEqual(["anki", "pdf"]);
   });
 
   it("reads front matter, block values included", async () => {

@@ -1163,7 +1163,7 @@ export class Hub {
     const catalog = this.catalogFor(agent);
     const name = (id: string | null) => (id && this.store.agent(id)?.name) || "an agent";
     const skills = this.skills.forAgent(agent.id).map((s) => ({ slug: s.slug, description: s.description, createdAt: s.createdAt, ...(s.source === "learned" ? { learnedBy: name(s.learnedBy) } : {}) }));
-    return agentCommands(catalog?.commands, skills);
+    return agentCommands(catalog?.commands, skills, Date.now(), agent.settings?.ownPlugins === true);
   }
 
   /** The command a message runs for this agent ("/name args", or "@handle /name args" in a channel), if it names one it has. */
