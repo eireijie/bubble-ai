@@ -49,14 +49,35 @@ final class ChatParityTests: XCTestCase {
     // hub order is kept inside a section; sections come learned, harness, wisp, skill
     let shuffled = [list[3], list[4], list[2], list[0], list[5], list[1]].map { SlashRow(agent: a, command: $0) }
     let sections = SlashMenu.sections(shuffled)
-    XCTAssertEqual(sections.map(\.title), ["Learned by Ghosty", "Learned by Nova", "Claude Code", "Wisp", "Skills"])
-    XCTAssertEqual(sections[2].rows.map(\.command.name), ["review", "imagegen"])
+    XCTAssertEqual(sections.map(\.title), ["Wisp", "Learned by Ghosty", "Learned by Nova", "Claude Code", "Skills"])
+    XCTAssertEqual(sections[3].rows.map(\.command.name), ["review", "imagegen"])
     // an older hub sends no group: it comes from the kind
     XCTAssertEqual(command("compact", kind: "command", via: "raw").section, "harness")
     XCTAssertEqual(command("context", kind: "wisp", via: "wisp").section, "wisp")
     XCTAssertEqual(command("pdf", kind: "wisp-skill").section, "skill")
     XCTAssertEqual(command("x", kind: "skill").section, "harness")
-    XCTAssertEqual(SlashMenu.sections([SlashRow(agent: a, command: command("compact", kind: "command", via: "raw")), SlashRow(agent: a, command: command("model", kind: "wisp", via: "wisp"))]).map(\.title), ["Claude Code", "Wisp"])
+    XCTAssertEqual(SlashMenu.sections([SlashRow(agent: a, command: command("compact", kind: "command", via: "raw")), SlashRow(agent: a, command: command("model", kind: "wisp", via: "wisp"))]).map(\.title), ["Wisp", "Claude Code"])
+  }
+
+  func testWispCommandsListFirstWithUniqueRowIdsAndStMatchesStop() throws {
+    let a = agent("a1", "ghosty")
+    let json = ##"""
+    [{"name":"new","kind":"wisp","via":"wisp","group":"wisp"},{"name":"stop","kind":"wisp","via":"wisp","group":"wisp"},
+     {"name":"context","kind":"wisp","via":"wisp","group":"wisp"},
+     {"name":"deploy","kind":"wisp-skill","via":"prompt","group":"learned","learnedBy":"Ghosty"},
+     {"name":"status","kind":"command","via":"raw","group":"harness"},
+     {"name":"new","kind":"skill","via":"prompt","group":"harness"},
+     {"name":"docx","kind":"wisp-skill","via":"prompt","group":"skill"}]
+    """##
+    let list = try Wire.decoder.decode([AgentCommand].self, from: Data(json.utf8))
+    let rows = SlashMenu.groups(here: [a], lists: ["a1": list], only: nil, query: "").flatMap { g in g.items.map { SlashRow(agent: g.agent, command: $0) } }
+    let sections = SlashMenu.sections(rows)
+    XCTAssertEqual(sections.map(\.title), ["Wisp", "Learned by Ghosty", "Claude Code", "Skills"])
+    XCTAssertEqual(sections[0].rows.map(\.command.name), ["new", "stop", "context"])
+    XCTAssertEqual(Set(rows.map(\.id)).count, rows.count, "same-named rows in different sections need distinct ids")
+    let st = SlashMenu.groups(here: [a], lists: ["a1": list], only: nil, query: "st")[0].items
+    XCTAssertEqual(st.first?.name, "stop")
+    XCTAssertTrue(st.map(\.name).contains("status"))
   }
 
   func testSkillPartDecodes() throws {
