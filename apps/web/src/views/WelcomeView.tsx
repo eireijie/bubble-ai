@@ -23,7 +23,9 @@ import { NameStep } from "./onboarding/NameStep.tsx";
 import { SetupProgress } from "./onboarding/SetupProgress.tsx";
 import { GoalsStep } from "../components/onboarding/GoalsStep.tsx";
 import { HelloNext } from "../components/HelloStep.tsx";
-import { loadAnswers, rememberGoals, saveGoals, skipGoals } from "../onboardingV3.ts";
+import { loadAnswers, rememberGoals, saveAnswers, saveGoals, skipGoals } from "../onboardingV3.ts";
+import { KnowStep, StillLearning } from "../components/onboarding/KnowStep.tsx";
+import { flushNotes } from "../onboardingKnow.ts";
 import { saveAgentDraft } from "../onboardingV3.ts";
 import { AgentStep } from "./onboarding/AgentStep.tsx";
 import { AIStep } from "./onboarding/AIStep.tsx";
@@ -55,6 +57,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const devices = useDevices(3000);
   // onboarding v3, page 2 (what you want help with) comes first on a new setup, until answered or skipped
   const [goals, setGoals] = useState(() => !!intro && !loadAnswers(me.workspace.id).goalsDone);
+  // page 3 (let me get to know you) after it; what it starts keeps running in the background
+  const [know, setKnow] = useState(() => !!intro && !loadAnswers(me.workspace.id).knowDone);
   // page 4 (make the agent yours) after page 3, until its draft is saved; page 5 creates the agent from it
   const [agentPage, setAgentPage] = useState(() => !!intro && !loadAnswers(me.workspace.id).agentDraft);
   // page 5 (what it thinks with) makes the agent; on a new setup it replaces the old connect and name screens
@@ -112,9 +116,28 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
       </HelloNext>
     );
   }
+  if (know) {
+    const done = () => {
+      saveAnswers(me.workspace.id, { knowDone: true });
+      void flushNotes();
+      setKnow(false);
+    };
+    return (
+      <HelloNext>
+        <KnowStep name={me.user.name} workspaceId={me.workspace.id} onContinue={done} onSkip={done} />
+      </HelloNext>
+    );
+  }
+  // while page 3's look-around or import still runs, every later page shows it at the top
+  const learning = (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 safe-top">
+      <StillLearning />
+    </div>
+  );
   if (agentPage) {
     return (
       <HelloNext>
+        {learning}
         <AgentStep
           workspaceId={me.workspace.id}
           person={me.user.name}
@@ -130,6 +153,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   if (aiPage) {
     return (
       <HelloNext>
+        {learning}
         <AIStep
           device={device}
           person={me.user.name}
@@ -143,6 +167,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     );
   }
   return (
+    <>
+    {learning}
     <SetupShell at={s.at} line={s.line(name.trim() || "your agent")} look={preAgent ? undefined : look} mood={s.mood} stepKey={screen} onBack={canGoBack ? () => setScreen(before!) : null}>
       {screen === "anywhere" && narrow(<AwayStep onScene={() => {}} onDone={() => advance("anywhere")} />)}
       {screen === "address" && narrow(<AddressStep onScene={() => {}} onNext={() => advance("address")} />)}
@@ -179,6 +205,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
       {screen === "setup" && device && powered && <SetupProgress device={device} powered={powered} name={name.trim()} look={look} lines={lines} onBack={() => setScreen("memory")} onDone={(_, channelId) => finish(channelId)} />}
       {screen === "devices" && narrow(<PhoneStep onScene={() => {}} onFinish={() => finish()} />)}
     </SetupShell>
+    </>
   );
 }
 

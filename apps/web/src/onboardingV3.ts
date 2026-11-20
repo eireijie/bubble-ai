@@ -68,6 +68,11 @@ export interface OnboardingAnswers {
   /** page 2 was answered (Continue) or passed (Skip for now) */
   goalsDone: boolean;
   skipped?: boolean;
+  /** page 3: what Wisp knows about the person (kept chips), and that the page was passed */
+  facts?: Fact[];
+  knowDone?: boolean;
+  /** page 4: the agent it made */
+  agentId?: string;
   /** page 4: the agent the person shaped; page 5 creates it once its AI is chosen */
   agentDraft?: AgentDraft;
   savedAt?: number;
@@ -129,6 +134,53 @@ export async function rememberGoals(name: string, goals: readonly string[], othe
   } catch {
     return false;
   }
+}
+
+// --- page 3: let me get to know you -------------------------------------------------------------
+
+export type FactGroup = "You" | "Work" | "Tools" | "Likes";
+export const FACT_GROUPS: FactGroup[] = ["You", "Work", "Tools", "Likes"];
+/** The memory note each group is saved under, in the person's About me. */
+export const NOTE_OF_GROUP: Record<FactGroup, string> = { You: "About me", Work: "Projects", Tools: "Tools and accounts", Likes: "Preferences and rules" };
+
+export interface Fact {
+  id: string;
+  group: FactGroup;
+  text: string;
+  /** shown on the chip: "git", "CLAUDE.md", "ChatGPT", "you" */
+  src: string;
+}
+
+export type ScanPart = "git" | "harnesses" | "notes" | "projects";
+export const SCAN_PARTS: { id: ScanPart; label: string }[] = [
+  { id: "git", label: "Your name in git" },
+  { id: "harnesses", label: "AI apps you're signed in to" },
+  { id: "notes", label: "Your notes for them" },
+  { id: "projects", label: "Projects you opened lately" },
+];
+
+/** What the agent is told about the notes, word for word from the design. */
+export const notesInstruction = (name: string) =>
+  `These notes are what you know about ${name}. Use them without asking again. In your first message, show you know them: mention one or two specifics from the notes, never a list.`;
+
+/** Where each heading of a memory-import answer goes; "People" stays out (nothing private about others). */
+const GROUP_OF_HEADING: Record<string, FactGroup | null> = {
+  "About me": "You",
+  Projects: "Work",
+  "In progress": "Work",
+  Decisions: "Work",
+  "Preferences and rules": "Likes",
+  Routines: "Likes",
+  "Tools and accounts": "Tools",
+  People: null,
+  Other: "You",
+};
+
+export function factsFromAnswer(lines: { heading: string; text: string; unsure: boolean }[], src: string): Omit<Fact, "id">[] {
+  return lines.flatMap((l) => {
+    const group = GROUP_OF_HEADING[l.heading];
+    return group && !l.unsure ? [{ group, text: l.text.replace(/\s*\((?:memory|chat[^)]*|CLAUDE\.md|AGENTS\.md)\)\s*$/i, "").slice(0, 200), src }] : [];
+  });
 }
 
 // --- page 4: your agent ------------------------------------------------------------------------
