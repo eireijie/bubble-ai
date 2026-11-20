@@ -16,7 +16,8 @@ struct AgentCommand: Decodable, Hashable, Identifiable {
   var isNew: Bool?
   /** for "learned": who learned it ("Ghosty") */
   var learnedBy: String?
-  var id: String { name }
+  /** unique across sections: a skill and a harness command can share a name */
+  var id: String { "\(section):\(name)" }
 
   /** the section it goes in, worked out from its kind on hubs that don't say */
   var section: String {
@@ -44,9 +45,10 @@ struct SlashSection: Identifiable {
   var id: String { title }
 }
 
-struct SlashRow {
+struct SlashRow: Identifiable {
   var agent: Agent
   var command: AgentCommand
+  var id: String { "\(agent.id):\(command.id)" }
 }
 
 struct SlashGroup: Identifiable {
@@ -210,7 +212,7 @@ struct SlashMenuView: View {
               .font(.system(size: 12, weight: .medium)).tracking(0.5).foregroundStyle(Palette.faint)
               .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 4)
               .accessibilityAddTraits(.isHeader)
-            ForEach(Array(section.rows.enumerated()), id: \.offset) { _, row in rowView(row) }
+            ForEach(section.rows) { row in rowView(row) }
           }
         }
         .padding(.vertical, 4)
