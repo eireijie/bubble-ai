@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
-import { Ghost, type GhostMood } from "./Ghost.tsx";
+import type { GhostMood } from "./Ghost.tsx";
+import { ClassicGhost } from "./onboarding/ClassicGhost.tsx";
 import { WHITE_WISP } from "./SetupStage.tsx";
 
 /** The five steps after the account: connect, name, memory, setting up, meet. */
@@ -21,8 +22,8 @@ export function SetupShell({ at, line, look, mood = "awake", stepKey, onBack, ch
           <span>Wisp</span>
         </div>
         <div className="ob-ghost">
-          <div className="ob-bob">
-            <Ghost look={look ?? WHITE_WISP} size={132} mood={mood} trackPointer label="" />
+          <div>
+            <ClassicGhost look={look ?? WHITE_WISP} size={132} mood={mood} trackPointer label="" />
           </div>
           <p key={line} className="ob-line" aria-live="polite">
             {line}
