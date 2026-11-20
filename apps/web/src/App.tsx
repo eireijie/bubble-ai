@@ -22,6 +22,7 @@ import { AuthScreen } from "./views/AuthScreen.tsx";
 import { JoinApproval } from "./components/JoinApproval.tsx";
 import { HelpPopup } from "./components/HelpPopup.tsx";
 import { WelcomeView } from "./views/WelcomeView.tsx";
+import { HereView } from "./views/HereView.tsx";
 import { AboutView } from "./views/AboutView.tsx";
 import { ComputersView } from "./views/ComputersView.tsx";
 import { NewTask, TasksView } from "./views/TasksView.tsx";
@@ -252,6 +253,8 @@ function Workspace() {
         return <SettingsView page={route.page ?? null} onBack={toYou} fullWindow={!phone} />;
       case "welcome":
         return <WelcomeView intro={route.intro} />;
+      case "here":
+        return <HereView agentId={route.agentId} />;
       case "help":
         return <HelpView onBack={phone ? toMore : undefined} />;
       case "mods":
