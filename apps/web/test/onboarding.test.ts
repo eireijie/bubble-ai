@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Agent } from "@wisp/core";
-import { completeSetupStep, helperChecklist, homeReadiness, isLocalOnlyHost, nextStep, savedSetup, setupProgress, stepsDone, type OnboardingState } from "../src/onboarding.ts";
+import { completeSetupStep, devicesLine, helperChecklist, homeReadiness, isLocalOnlyHost, nextStep, savedSetup, setupProgress, stepsDone, stepsFinished, type OnboardingState } from "../src/onboarding.ts";
 
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false }));
 afterEach(() => vi.unstubAllGlobals());
@@ -34,6 +34,22 @@ describe("setup progress", () => {
     vi.stubGlobal("localStorage", { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } });
     expect(() => completeSetupStep("one", "address")).not.toThrow();
     expect(savedSetup("one")).toEqual({});
+  });
+});
+describe("skipping the AI", () => {
+  it("keeps the agent step open, shows 3 of 4, and resumes at the agent step", () => {
+    // skipping marks no agent step; finishing the rest marks only the phone step
+    const choices = Object.fromEntries(["anywhere", "address", ...stepsFinished(false)].map((k) => [k, true]));
+    const done = stepsDone(empty, choices);
+    expect(done.agent).toBe(false);
+    expect(setupProgress(done)).toEqual({ progress: 3, steps: 4, complete: false });
+    expect(nextStep(done)).toBe("agent");
+    expect(homeReadiness(done, [], null)).toEqual({ kind: "setup", next: "agent" });
+  });
+  it("marks the agent done only when one exists, and names no agent when none does", () => {
+    expect(stepsFinished(true)).toEqual(["agent", "devices"]);
+    expect(devicesLine("Atlas")).toBe("Say hi to Atlas from your phone too.");
+    expect(devicesLine(null)).not.toMatch(/Atlas|Say hi/);
   });
 });
 describe("isLocalOnlyHost", () => {

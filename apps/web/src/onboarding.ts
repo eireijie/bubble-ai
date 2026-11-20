@@ -46,6 +46,16 @@ export function stepsDone(s: OnboardingState | null, choices: SetupChoices = {})
   };
 }
 
+/** The phone step's line; with no agent yet (the AI step was skipped) it names none. */
+export function devicesLine(agentName: string | null): string {
+  return agentName ? `Say hi to ${agentName} from your phone too.` : "Add your phone so you can reach Wisp from it.";
+}
+
+/** Steps that finishing setup marks done: the agent only when one exists (a skipped AI leaves it open). */
+export function stepsFinished(hasAgent: boolean): StepId[] {
+  return hasAgent ? ["agent", "devices"] : ["devices"];
+}
+
 const DISMISS_KEY = "wisp.onboarding.dismissed";
 
 export function isDismissed(): boolean {
