@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { api } from "../api.ts";
 import { setupCodeFromHash } from "../setup-link.ts";
 import { AuthButton, AuthError, AuthField, AuthHero, AuthInput, AuthLink, AuthPage } from "../components/auth.tsx";
+import { HelloNext, HelloStep, linkedHelloName } from "../components/HelloStep.tsx";
 
 /** An invite link: #/join/<code>. */
 const inviteCode = () => location.hash.match(/^#\/join\/([\w-]+)/)?.[1] ?? null;
@@ -14,7 +15,15 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
   const [needsCode, setNeedsCode] = useState(false);
   const [linkedCode, setLinkedCode] = useState(linkedSetupCode);
-  const [form, setForm] = useState({ email: "", password: "", name: "", setupCode: linkedCode });
+  // the name the desktop app's Hello already asked for; then this page doesn't say hello again
+  const [helloName] = useState(linkedHelloName);
+  const [form, setForm] = useState({ email: "", password: "", name: helloName, setupCode: linkedCode });
+  /** Page 1 (Hello) before the first account: done once a name came along or Continue was pressed */
+  const [greeted, setGreeted] = useState(!!helloName);
+  /** the name Hello was given; the account form asks only when it was left empty */
+  const [given, setGiven] = useState(helloName);
+  /** "I already have Wisp" on Hello: the sign-in form, even on a new Wisp */
+  const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState(inviteCode);
@@ -51,7 +60,8 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
     setInviteBad(false);
     api<{ workspace: string; role: string }>("GET", `/api/invites/check?code=${encodeURIComponent(code)}`).then(setInvite, () => setInviteBad(true));
   }, [code]);
-  const joining = !!code && !needsSetup;
+  const creating = !!needsSetup && !signingIn;
+  const joining = !!code && !creating;
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
 
@@ -60,17 +70,17 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
     setBusy(true);
     setError(null);
     try {
-      const r = needsSetup
+      const r = creating
         ? await api<{ token: string }>("POST", "/api/setup", { ...form, workspaceName: `${form.name.trim()}'s Wisp`, features: "simple", setupCode: form.setupCode.trim() || undefined })
         : joining
           ? await api<{ token: string }>("POST", "/api/invites/accept", { code, name: form.name, email: form.email, password: form.password })
           : await api<{ token: string }>("POST", "/api/auth/login", { email: form.email, password: form.password });
-      if (needsSetup || joining) {
+      if (creating || joining) {
         // New account: start it on this device's time zone so agents and routines don't fall back to UTC. Best-effort.
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         if (timezone) await api("PATCH", "/api/me", { timezone }, { headers: { authorization: `Bearer ${r.token}` } }).catch(() => {});
       }
-      if (needsSetup) location.hash = "#/welcome/intro";
+      if (creating) location.hash = "#/welcome/intro";
       else if (joining) location.hash = "#/";
       onAuthed(r.token);
     } catch (err) {
@@ -124,8 +134,25 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
       </AuthPage>
     );
   }
+  // a new Wisp: page 1, Hello, comes before the account form
+  if (creating && !greeted) {
+    return (
+      <HelloStep
+        initialName={form.name}
+        onContinue={(name) => {
+          setForm((f) => ({ ...f, name }));
+          setGiven(name);
+          setGreeted(true);
+        }}
+        onHaveWisp={() => {
+          setError(null);
+          setSigningIn(true);
+        }}
+      />
+    );
+  }
   // an invite that doesn't work
-  if (!needsSetup && code && inviteBad) {
+  if (!creating && code && inviteBad) {
     return (
       <AuthPage>
         <AuthHero title="This invite didn't work">It may have expired or been revoked. Ask the person who invited you for a new link.</AuthHero>
@@ -145,7 +172,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
     );
   }
   // a place to paste an invite link
-  if (!needsSetup && !code && pasting) {
+  if (!creating && !code && pasting) {
     return (
       <AuthPage>
         <AuthHero title="Join with an invite">Paste the invite link you were sent.</AuthHero>
@@ -178,7 +205,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
 
   const page = (
       <form onSubmit={submit} className="flex flex-col">
-        {needsSetup ? (
+        {creating ? (
           <div className="flex flex-col gap-2">
             <h1 className="text-[22px] font-semibold tracking-[-0.02em] leading-tight">Create your account</h1>
             <p className="text-sm text-muted">You'll use this to sign in from your other devices.</p>
@@ -195,12 +222,12 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
           </p>
         )}
         <div className="mt-8 flex flex-col gap-3.5">
-          {(joining || needsSetup) && (
+          {(joining || (creating && !given)) && (
             <AuthField label="Your name">
               <AuthInput value={form.name} onChange={set("name")} autoComplete="name" placeholder="Your name" aria-label="Your name" required />
             </AuthField>
           )}
-          {needsSetup && needsCode && !linkedCode && (
+          {creating && needsCode && !linkedCode && (
             <AuthField label="Setup code" hint="On the computer Wisp runs on, run wisp setup-code.">
               <AuthInput value={form.setupCode} onChange={set("setupCode")} placeholder="abcd-efgh-jkmn" autoComplete="off" autoCapitalize="none" spellCheck={false} aria-label="Setup code" required />
             </AuthField>
@@ -213,9 +240,9 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
               type="password"
               value={form.password}
               onChange={set("password")}
-              autoComplete={needsSetup || joining ? "new-password" : "current-password"}
-              minLength={needsSetup || joining ? 8 : undefined}
-              placeholder={needsSetup || joining ? "At least 8 characters" : "Password"}
+              autoComplete={creating || joining ? "new-password" : "current-password"}
+              minLength={creating || joining ? 8 : undefined}
+              placeholder={creating || joining ? "At least 8 characters" : "Password"}
               aria-label="Password"
               required
             />
@@ -223,9 +250,19 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
           <AuthError>{error}</AuthError>
         </div>
         <div className="mt-8 flex flex-col items-center gap-1.5">
-          <AuthButton className={needsSetup ? "setup-press h-[42px] rounded-lg" : undefined} disabled={busy || (joining && !invite)}>{needsSetup ? "Continue" : joining ? (invite ? `Join ${invite.workspace}` : "Join") : "Sign in"}</AuthButton>
+          <AuthButton className={creating ? "setup-press h-[42px] rounded-lg" : undefined} disabled={busy || (joining && !invite)}>{creating ? "Continue" : joining ? (invite ? `Join ${invite.workspace}` : "Join") : "Sign in"}</AuthButton>
           {joining && <AuthLink onClick={leaveInvite}>I already have an account</AuthLink>}
-          {!needsSetup && !joining && (
+          {signingIn && needsSetup && (
+            <AuthLink
+              onClick={() => {
+                setError(null);
+                setSigningIn(false);
+              }}
+            >
+              New here? Make your account
+            </AuthLink>
+          )}
+          {!creating && !joining && (
             <AuthLink
               onClick={() => {
                 setError(null);
@@ -239,10 +276,12 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
       </form>
   );
   // the first run's account screen stands on the setup stage, with the wisp beside it
-  return needsSetup ? (
-    <SetupShell at={0} stepKey="account" line="Hi. Make your account first. It's how you sign in to Wisp from any device.">
-      <div className="ob-narrow">{page}</div>
-    </SetupShell>
+  return creating ? (
+    <HelloNext>
+      <SetupShell at={0} stepKey="account" line={given ? `Thanks, ${given.split(/\s+/)[0]}. Make your account. It's how you sign in to Wisp from any device.` : "Hi. Make your account first. It's how you sign in to Wisp from any device."}>
+        <div className="ob-narrow">{page}</div>
+      </SetupShell>
+    </HelloNext>
   ) : (
     <AuthPage>{page}</AuthPage>
   );

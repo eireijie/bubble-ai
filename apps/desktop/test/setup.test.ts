@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 
-function fixture(state: Record<string, any> = { step: "cloud", server: { id: 42, name: "saved-server", ip: "203.0.113.7", type: "cx23", location: "fsn1" } }) {
+function fixture(state: Record<string, any> = { step: "cloud", server: { id: 42, name: "saved-server", ip: "203.0.113.7", type: "cx23", location: "fsn1" } }, create?: () => Promise<any>) {
   const elements = new Map<string, any>();
   const element = (id: string) => {
     if (!elements.has(id)) {
@@ -16,7 +16,7 @@ function fixture(state: Record<string, any> = { step: "cloud", server: { id: 42,
     cancelJoin: vi.fn(), discover: vi.fn(async () => ({ ok: true, wisps: [] })),
     requestJoin: vi.fn(async () => ({ ok: true, code: "482913", host: "mac.local", expiresAt: new Date(Date.now() + 600000).toISOString() })),
     pollJoin: vi.fn(async (): Promise<any> => ({ ok: true, status: "pending" })),
-    create: vi.fn(async (): Promise<any> => ({ ok: true })), open: vi.fn(),
+    create: vi.fn(create ?? (async (): Promise<any> => ({ ok: true }))), open: vi.fn(), cancelCreate: vi.fn(), returnToServer: vi.fn(),
     cloudKeep: vi.fn(), check: async () => ({}), onCloudStep: vi.fn(), cloudPlans: vi.fn(async () => ({ ok: true, locations: [], choices: {}, currency: "EUR" })), cloudCreate: vi.fn(async () => ({ ok: true, url: "https://hub" })),
     cloudProviders: vi.fn(async () => [{ id: "digitalocean", name: "DigitalOcean", signIn: true }, { id: "hetzner", name: "Hetzner", signIn: false, signInUrl: "https://console.hetzner.com/projects" }]),
     rustdeskStatus: vi.fn(async () => ({ installed: false, id: null })),
@@ -79,24 +79,56 @@ describe("Wisp first launch", () => {
     for (const k of ["ghost", "drop", "soft", "tall", "wide"] as const) expect(stage).toContain(`${k}: { d: "${SILHOUETTES[k].d}"`);
   });
 
-  it("goes from Self-Host through installing to Continue, which opens the server", async () => {
+  it("says hello and starts Self-Host in the background; Continue opens it with the name", async () => {
     const f = fixture({});
-    await new Promise((resolve) => setImmediate(resolve));
-    expect(f.element("welcome").hidden).toBe(false);
-    // a desktop that stays on: Self-Host is recommended, and Continue goes there
-    f.element("pick-create").onclick();
-    f.element("welcome-go").onclick();
-    expect(f.element("create").hidden).toBe(false);
-    expect(f.setup.create).not.toHaveBeenCalled();
-    const installing = f.element("create-go").onclick();
-    expect(f.element("installing").hidden).toBe(false);
-    await installing;
-    expect(f.setup.create).toHaveBeenCalledWith({ device: true });
-    expect(f.element("ready").hidden).toBe(false);
-    expect(f.setup.open).not.toHaveBeenCalled();
-    await f.element("ready-go").onclick();
-    expect(f.setup.open).toHaveBeenCalledOnce();
+    expect(f.element("hello").hidden).toBe(false);
+    // the server starts the moment the page opens, before anything is clicked
+    expect(f.setup.create).toHaveBeenCalledWith({ device: true, background: true });
+    f.element("hello-name").value = "Ada Lovelace";
+    f.element("hello-name").oninput();
+    expect(f.element("hello-title").textContent).toBe("Nice to meet you, Ada.");
+    expect(f.element("hello-sub").textContent).toBe("I'll remember that.");
+    await f.element("hello-form").onsubmit({ preventDefault() {} });
+    expect(f.setup.create).toHaveBeenCalledOnce();
+    expect(f.setup.open).toHaveBeenCalledWith("Ada Lovelace");
     expect(f.element("starting").hidden).toBe(false);
+  });
+
+  it("continues with no name, waiting on the installing screen while the start finishes", async () => {
+    let finish: (r: any) => void = () => {};
+    const f = fixture({}, () => new Promise((r) => (finish = r)));
+    const going = f.element("hello-form").onsubmit({ preventDefault() {} });
+    expect(f.element("installing").hidden).toBe(false);
+    expect(f.setup.open).not.toHaveBeenCalled();
+    finish({ ok: true });
+    await going;
+    expect(f.setup.open).toHaveBeenCalledWith("");
+    expect(f.element("starting").hidden).toBe(false);
+  });
+
+  it("shows the reason on Self-Host when the background start failed", async () => {
+    const f = fixture({}, async () => ({ ok: false, error: "The server didn't start.", log: "port in use" }));
+    await f.element("hello-form").onsubmit({ preventDefault() {} });
+    expect(f.element("create").hidden).toBe(false);
+    expect(f.element("create-error").textContent).toBe("The server didn't start.");
+    expect(f.setup.open).not.toHaveBeenCalled();
+  });
+
+  it("Use Cloud instead calls off the background start and goes to Cloud with the name", async () => {
+    const f = fixture({});
+    f.element("hello-name").value = "Ada";
+    f.element("hello-cloud").onclick();
+    expect(f.setup.cancelCreate).toHaveBeenCalledOnce();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(f.element("cloud").hidden).toBe(false);
+    expect(f.element("cloud-name").value).toBe("Ada");
+  });
+
+  it("a second Wisp from an existing one doesn't start a server until asked", () => {
+    const f = fixture({ canReturn: true });
+    expect(f.setup.create).not.toHaveBeenCalled();
+    f.element("hello-form").onsubmit({ preventDefault() {} });
+    expect(f.element("create").hidden).toBe(false);
   });
 
   it("goes back to Self-Host with the reason when the server doesn't start", async () => {
