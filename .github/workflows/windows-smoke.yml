@@ -1,0 +1,98 @@
+name: Windows smoke
+# Proves the Windows desktop app builds, installs, starts its hub and gets through first-run setup.
+# It never publishes: no tags, no releases. The installer is a workflow artifact only.
+on:
+  push:
+    branches: [claude/windows-fix]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: git config --global user.email ci@example.com && git config --global user.name CI
+      - name: desktop tests
+        run: npx vitest run apps/desktop
+      - name: hub, device and core tests
+        if: always()
+        run: npx vitest run apps/hub apps/node packages
+
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run bundle -w @wisp/desktop
+      - run: npx electron-builder --win --x64 --publish never
+        shell: bash
+        working-directory: apps/desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wisp-win-x64-installer
+          path: apps/desktop/dist/Wisp-win-x64.exe
+          if-no-files-found: error
+      - name: install silently
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath apps\desktop\dist\Wisp-win-x64.exe -ArgumentList '/S' -Wait -PassThru
+          "installer exit: $($p.ExitCode)"
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Wisp\Wisp.exe'
+          if (-not (Test-Path $exe)) { Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 2 | Select-Object FullName; throw "Wisp.exe not installed at $exe" }
+          "WISP_EXE=$exe" >> $env:GITHUB_ENV
+      - name: hub starts the way the app runs it (app binary as Node)
+        shell: pwsh
+        run: |
+          $res = Join-Path (Split-Path $env:WISP_EXE) 'resources\wisp'
+          $env:ELECTRON_RUN_AS_NODE = '1'; $env:PORT = '4848'; $env:WISP_DATA_DIR = "$env:RUNNER_TEMP\hubdata"
+          $p = Start-Process -FilePath $env:WISP_EXE -ArgumentList "`"$res\bin\wisp.mjs`"", 'hub', 'start' -WorkingDirectory $res -RedirectStandardOutput "$env:RUNNER_TEMP\hub.out" -RedirectStandardError "$env:RUNNER_TEMP\hub.err" -PassThru
+          $ok = $false
+          for ($i = 0; $i -lt 90 -and -not $ok; $i++) {
+            Start-Sleep 1
+            try { $r = Invoke-RestMethod http://127.0.0.1:4848/api/setup; "api/setup: $($r | ConvertTo-Json -Compress)"; $ok = $true } catch {}
+            if ($p.HasExited) { break }
+          }
+          Get-Content "$env:RUNNER_TEMP\hub.out","$env:RUNNER_TEMP\hub.err" -ErrorAction SilentlyContinue | Select-Object -Last 60
+          if (-not $ok) { throw 'hub never answered /api/setup' }
+          $html = (Invoke-WebRequest http://127.0.0.1:4848/ -UseBasicParsing).Content
+          if ($html -notmatch '<div id="root"') { $html.Substring(0, [Math]::Min(500, $html.Length)); throw 'web app not served at /' }
+          'web app served at /'
+          Stop-Process -Id $p.Id -Force
+      - name: drive first-run setup in the installed app
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\drive" | Out-Null
+          Copy-Item .github\windows-smoke\drive.mjs "$env:RUNNER_TEMP\drive\"
+          Push-Location "$env:RUNNER_TEMP\drive"
+          npm init -y | Out-Null
+          npm install --no-audit --no-fund playwright-core@1.55.0
+          node drive.mjs $env:WISP_EXE "$env:GITHUB_WORKSPACE\shots"
+          if ($LASTEXITCODE -ne 0) { throw "first-run drive failed" }
+      - name: collect logs
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force logs | Out-Null
+          Copy-Item -Recurse -ErrorAction SilentlyContinue "$env:APPDATA\Wisp\logs" logs\app-logs
+          Copy-Item -ErrorAction SilentlyContinue "$env:USERPROFILE\.wisp\*.log" logs\
+          Copy-Item -ErrorAction SilentlyContinue "$env:RUNNER_TEMP\hub.out","$env:RUNNER_TEMP\hub.err" logs\
+          Get-ChildItem -Recurse logs | ForEach-Object { "== $($_.FullName)"; if (-not $_.PSIsContainer) { Get-Content $_.FullName -Tail 80 } }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: first-run-screens-and-logs
+          path: |
+            shots
+            logs
