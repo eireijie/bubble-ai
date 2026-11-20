@@ -36,6 +36,8 @@ targets:
         INFOPLIST_KEY_NSMicrophoneUsageDescription: Wisp uses the microphone so you can talk with your agents in a voice call.
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Wisp turns what you say into text so your agent can answer.
         CODE_SIGN_STYLE: Automatic
+        # YuVi LLC, the paid Apple developer team that publishes Wisp
+        DEVELOPMENT_TEAM: 388D9S7Y7P
         # push notifications; Xcode switches this to production when you archive for TestFlight / the App Store
         CODE_SIGN_ENTITLEMENTS: Wisp/Wisp.entitlements
     info:

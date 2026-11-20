@@ -29,12 +29,19 @@ Everything is set up. These steps add the credentials. Until they're done, Mac b
 
 1. Under [Identifiers](https://developer.apple.com/account/resources/identifiers/list), register `ai.wisp.ios` with **Push Notifications** on.
 2. In [App Store Connect](https://appstoreconnect.apple.com), create the app with that bundle ID.
-3. Under **Users and Access → Integrations**, create a team key with the **App Manager** role. Save the `.p8`, the Key ID and the Issuer ID.
-4. Upload a build:
+3. Upload a build. With the Apple account that's signed in to **Xcode → Settings → Accounts** (Admin or Account Holder on the team), nothing else is needed:
 
 ```bash
-APPLE_TEAM_ID=… ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_PATH=~/AuthKey_….p8 apps/ios/scripts/testflight.sh
+apps/ios/scripts/testflight.sh
 ```
+
+   For CI or another Mac, create a team key under **Users and Access → Integrations** with the **App Manager** role and pass it instead:
+
+```bash
+ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_PATH=~/private_keys/AuthKey_….p8 apps/ios/scripts/testflight.sh
+```
+
+4. When the build finishes processing, open **TestFlight → Internal Testing**, make a group, add testers and the build.
 
 Before App Store review, you also need a privacy policy link and a hub the reviewer can sign in to.
 
