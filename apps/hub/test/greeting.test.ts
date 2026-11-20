@@ -97,6 +97,25 @@ describe("a new agent speaks first", () => {
     expect(listed.settings).not.toHaveProperty("setup");
   });
 
+  it("doesn't ask what to do when it was made with a job: says it back and asks about accounts", async () => {
+    const id = await make("nova", { name: "Nova", settings: { role: "Researches and writes short notes" } });
+    const body = said(id)[0].body;
+    expect(body).toMatch(/^Hey, I'm Nova!/);
+    expect(body).toContain("Researches and writes short notes");
+    expect(body).not.toContain("What would you like me to do");
+    expect(body).toContain("Which accounts");
+    // the goal step is already known, so the setup moves on
+    expect(setupOf(id).steps.goal).toBe("Researches and writes short notes");
+    const prompt = await answer(id, "Google and Notion");
+    expect(prompt).not.toContain("- goal:");
+  });
+
+  it("uses the instructions when there's no role", async () => {
+    const id = await make("sage", { instructions: "Keep my inbox tidy.\nArchive newsletters." });
+    expect(said(id)[0].body).toContain("Keep my inbox tidy");
+    expect(setupOf(id).steps.goal).toBe("Keep my inbox tidy.");
+  });
+
   it("never says hello twice", async () => {
     const id = await make("bo");
     expect(greetNewAgent(hub, hub.store.agent(id)!, me)).toBeNull();

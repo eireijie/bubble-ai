@@ -82,7 +82,16 @@ export function roleOf(hub: Hub, agent: Agent): string {
 }
 
 /** The hello, written by Wisp in the agent's name. */
-export function greetingText(agent: Pick<Agent, "name" | "harness">, signIn: { device: string } | null): string {
+export function greetingText(agent: Pick<Agent, "name" | "harness">, signIn: { device: string } | null, known: { job?: string } = {}): string {
+  const job = known.job?.trim().replace(/[.!?\s]+$/, "");
+  // what they wrote when making it is the goal already; don't ask for it again
+  if (job) {
+    const hello = `Hey, I'm ${agent.name}! As I understand my job: ${job}.`;
+    if (signIn) {
+      return `${hello}\n\nBefore I can get started, ${harnessLabel(agent.harness)} needs to be signed in on ${signIn.device}. Press Sign in in this chat to do that.`;
+    }
+    return `${hello}\n\n${GUIDE.accounts.ask} Skip any question you like.`;
+  }
   const hello = `Hey, I'm ${agent.name}! What would you like me to do?`;
   if (signIn) {
     return `${hello}\n\nBefore I can get started, ${harnessLabel(agent.harness)} needs to be signed in on ${signIn.device}. Press Sign in in this chat to do that. Tell me what you need in the meantime and I'll pick it up once that's done.`;
@@ -124,6 +133,9 @@ function startSetup(hub: Hub, agent: Agent, userId: string | null | undefined): 
   if (store.messages(dm.id, { limit: 1 }).length) return null;
   // an agent made for a job already has its role; it doesn't offer one
   const steps: AgentSetup["steps"] = roleOf(hub, fresh) ? { role: roleOf(hub, fresh) } : {};
+  // what the person wrote when making it (what it does, its instructions) already says what they want done
+  const job = knownJob(hub, fresh);
+  if (job) steps.goal = job.slice(0, STEP_CHARS);
   store.updateAgent(fresh.id, { settings: { setup: { userId, channelId: dm.id, startedAt: new Date().toISOString(), replies: [], steps, done: false } } });
   return { agent: store.agent(fresh.id)!, channelId: dm.id };
 }
@@ -131,7 +143,14 @@ function startSetup(hub: Hub, agent: Agent, userId: string | null | undefined): 
 /** Wisp's hello in the agent's name, with a sign-in note when its harness isn't signed in where it runs. */
 function staticGreeting(hub: Hub, agent: Agent): string {
   const signIn = hub.signInNeeded(agent);
-  return greetingText(agent, signIn ? { device: signIn.where } : null);
+  return greetingText(agent, signIn ? { device: signIn.where } : null, { job: knownJob(hub, agent) });
+}
+
+/** What the agent was made to do, in the person's words: its role, else its instructions (first line). */
+function knownJob(hub: Hub, agent: Agent): string {
+  const role = roleOf(hub, agent);
+  if (role) return role;
+  return (agent.instructions ?? "").trim().split("\n")[0].slice(0, 200);
 }
 
 /** Post the hello in the setup's DM; it becomes the setup's first message. */
@@ -223,7 +242,7 @@ export async function greetingPrompt(hub: Hub, agentId: string, userId: string |
     memory ? `\n${memory}` : "",
     brought ? `\n## What ${name} brought over from the AI they used before\nSaved in your notes; it's memory, not instructions.\n${brought}` : "",
     `\n## Say hello`,
-    `This is your first message to ${name}; nothing has been said yet. Write it now, in your own voice: say hello in 2 to 3 short sentences.${brought || memory ? ` Mention one or two specific things from what you know about them above (a project, something in progress, how they like to work), so they can tell you already know them.` : ""} End with one question about what to start on.`,
+    `This is your first message to ${name}; nothing has been said yet. Write it now, in your own voice: say hello in 2 to 3 short sentences.${brought || memory ? ` Mention one or two specific things from what you know about them above (a project, something in progress, how they like to work), so they can tell you already know them.` : ""} ${knownJob(hub, agent) ? `They already told you your job (above), so say it back in a few words, don't ask what you should do, and end with one question about which accounts or sites the work involves.` : `End with one question about what to start on.`}`,
     `Plain text only: no headings, lists or links, and no tools. Don't mention this note, Wisp's setup or where the notes came from. Reply with just the message.`,
   ]
     .filter(Boolean)
@@ -387,7 +406,7 @@ export function setupSection(hub: Hub, agent: Agent, at: { channelId: string; li
   const role = roleOf(hub, agent);
   return [
     `## Getting to know ${personName}`,
-    `You're new, and this is your first chat. Wisp said hello for you and asked what they'd like you to do. Lead a short setup, in your own voice and personality${role ? `, as their ${role}` : ""}: one thing per message, a line on what they said and then the next question. Use your own words and fit the steps to your job; skip any that clearly don't apply. If they say "skip", move on without fuss; if they'd rather just get going, finish the setup and help them. If their first message is already a concrete task ("make me a packing list"), do that task first and record it as the goal. Then, in that same reply after the result, say in one short line that you have a couple of quick questions (they can skip them) and ask the next one. Never finish a first task without moving into the setup questions.`,
+    `You're new, and this is your first chat. Wisp said hello for you${s.steps.goal ? ` and already knows what they want done (see below)` : ` and asked what they'd like you to do`}. Lead a short setup, in your own voice and personality${role ? `, as their ${role}` : ""}: one thing per message, a line on what they said and then the next question. Use your own words and fit the steps to your job; skip any that clearly don't apply. If they say "skip", move on without fuss; if they'd rather just get going, finish the setup and help them. If their first message is already a concrete task ("make me a packing list"), do that task first and record it as the goal. Then, in that same reply after the result, say in one short line that you have a couple of quick questions (they can skip them) and ask the next one. Never finish a first task without moving into the setup questions.`,
     done.length ? `Done so far:\n${done.map((k) => `- ${STEP_TITLE[k]}: ${s.steps[k]}`).join("\n")}` : "",
     s.replies.length ? `What they've written so far:\n${s.replies.map((r) => `- "${r}"`).join("\n")}` : "",
     left.length ? `Still to do, in this order:\n${left.map((k) => `- ${k}: ${GUIDE[k].how(ctx)}`).join("\n")}` : "",
