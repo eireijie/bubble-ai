@@ -26,6 +26,7 @@ import { HelloNext } from "../components/HelloStep.tsx";
 import { loadAnswers, rememberGoals, saveGoals, skipGoals } from "../onboardingV3.ts";
 import { saveAgentDraft } from "../onboardingV3.ts";
 import { AgentStep } from "./onboarding/AgentStep.tsx";
+import { AIStep } from "./onboarding/AIStep.tsx";
 export { makeFirstAgent } from "./onboarding/firstAgent.ts";
 
 export const SETUP_LABELS: Record<StepId, string> = { anywhere: "Away from home", address: "Your address", agent: "Make your first agent", devices: "Add your devices" };
@@ -56,6 +57,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const [goals, setGoals] = useState(() => !!intro && !loadAnswers(me.workspace.id).goalsDone);
   // page 4 (make the agent yours) after page 3, until its draft is saved; page 5 creates the agent from it
   const [agentPage, setAgentPage] = useState(() => !!intro && !loadAnswers(me.workspace.id).agentDraft);
+  // page 5 (what it thinks with) makes the agent; on a new setup it replaces the old connect and name screens
+  const [aiPage, setAiPage] = useState(() => !!intro);
   const [screen, setScreen] = useState<Screen>(() => {
     if (intro) return onPublicAddress() ? "address" : "anywhere";
     const next = nextStep(done) ?? "anywhere";
@@ -119,6 +122,21 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
             saveAgentDraft(me.workspace.id, draft);
             setName(draft.name);
             setAgentPage(false);
+          }}
+        />
+      </HelloNext>
+    );
+  }
+  if (aiPage) {
+    return (
+      <HelloNext>
+        <AIStep
+          device={device}
+          person={me.user.name}
+          onDone={(agentId, channelId) => {
+            setAiPage(false);
+            if (agentId) finish(channelId);
+            else advance("agent");
           }}
         />
       </HelloNext>
