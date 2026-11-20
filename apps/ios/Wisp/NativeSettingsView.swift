@@ -41,6 +41,9 @@ struct NativeSettingsView: View {
           if store.features.storage {
             NavigationLink { StorageView() } label: { RowLabel(title: "Storage") }.accessibilityIdentifier("settings-storage")
           }
+          if store.features.apple {
+            NavigationLink { AppleView() } label: { RowLabel(title: "Apple") }.accessibilityIdentifier("settings-apple")
+          }
           NavigationLink { AgentRuntimesView() } label: { RowLabel(title: "Harness setup") }.accessibilityIdentifier("settings-runtimes")
         }
       }

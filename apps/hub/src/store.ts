@@ -417,11 +417,11 @@ export class Store {
 
   // --- approvals ------------------------------------------------------------
 
-  createApproval(a: { workspaceId: string; agentId: string; channelId: string; threadId: string | null; summary: string; details: string; login?: Approval["login"]; flow?: Approval["flow"]; storage?: Approval["storage"]; device?: Approval["device"] }): Approval {
+  createApproval(a: { workspaceId: string; agentId: string; channelId: string; threadId: string | null; summary: string; details: string; login?: Approval["login"]; flow?: Approval["flow"]; storage?: Approval["storage"]; device?: Approval["device"]; apple?: Approval["apple"] }): Approval {
     const approvalId = id("apr");
     this.db
-      .prepare("INSERT INTO approvals (id, workspace_id, agent_id, channel_id, thread_id, summary, details, status, created_at, login_json, flow_json, storage_json, device_json) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)")
-      .run(approvalId, a.workspaceId, a.agentId, a.channelId, a.threadId, a.summary, a.details, now(), a.login ? JSON.stringify(a.login) : null, a.flow ? JSON.stringify(a.flow) : null, a.storage ? JSON.stringify(a.storage) : null, a.device ? JSON.stringify(a.device) : null);
+      .prepare("INSERT INTO approvals (id, workspace_id, agent_id, channel_id, thread_id, summary, details, status, created_at, login_json, flow_json, storage_json, device_json, apple_json) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)")
+      .run(approvalId, a.workspaceId, a.agentId, a.channelId, a.threadId, a.summary, a.details, now(), a.login ? JSON.stringify(a.login) : null, a.flow ? JSON.stringify(a.flow) : null, a.storage ? JSON.stringify(a.storage) : null, a.device ? JSON.stringify(a.device) : null, a.apple ? JSON.stringify(a.apple) : null);
     return this.approval(approvalId)!;
   }
 
@@ -1537,6 +1537,7 @@ type ApprovalRow = {
   login_json: string | null;
   flow_json: string | null;
   storage_json: string | null;
+  apple_json: string | null;
   device_json?: string | null;
 };
 
@@ -1557,6 +1558,7 @@ function toApproval(r: ApprovalRow): Approval {
     login: r.login_json ? JSON.parse(r.login_json) : null,
     flow: r.flow_json ? JSON.parse(r.flow_json) : null,
     storage: r.storage_json ? JSON.parse(r.storage_json) : null,
+    apple: r.apple_json ? JSON.parse(r.apple_json) : null,
     device: r.device_json ? JSON.parse(r.device_json) : null,
   };
 }

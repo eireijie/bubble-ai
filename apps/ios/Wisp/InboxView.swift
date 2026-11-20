@@ -99,7 +99,8 @@ struct InboxView: View {
         HelpNeedCard(computer: c, open: { computerId = c.id }, notNow: { putOff.insert(helpKey(c)) })
       }
       ForEach(pending) { a in
-        if a.login != nil { LoginNeedCard(approval: a) }
+        if let apple = a.apple { AppleNeedCard(approval: a, request: apple, openChat: { openApprovalChat(a) }) }
+        else if a.login != nil { LoginNeedCard(approval: a) }
         else { ApprovalNeedCard(approval: a, openChat: { openApprovalChat(a) }) }
       }
     }

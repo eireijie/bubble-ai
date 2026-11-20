@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AppleOp } from "./apple.ts";
 import { ComputerAction, DeviceCapabilities } from "./computers.ts";
 import { ConnectorSpec } from "./connectors.ts";
 import { HarnessAccountOp, HarnessSettingsChange } from "./harness-settings.ts";
@@ -236,6 +237,8 @@ export const HubToNode = z.discriminatedUnion("type", [
   /** do something on a computer this device runs */
   /** `agentId`: the agent doing it, so a device can let agents whose harness runs on it use its screen */
   z.object({ type: z.literal("computer"), requestId: z.string(), computer: ComputerSpec, action: ComputerAction, agentId: z.string().optional() }),
+  /** the Apple mod: read or (after a person approved it) change Messages, Contacts, Calendar or Reminders on this Mac; answered with `result` */
+  z.object({ type: z.literal("apple"), requestId: z.string(), op: AppleOp }),
   /** start or stop streaming a computer's screen to people watching it */
   z.object({ type: z.literal("screen_watch"), computer: ComputerSpec, on: z.boolean(), fps: z.number().min(0.2).max(10).optional() }),
   /** relay a computer's VNC server: binary frames carry the bytes (see tunnelFrame) */
@@ -377,7 +380,9 @@ export type ClientEvent =
   /** a model sign-in moved on (sent to the person who started it only) */
   | { type: "model_login"; login: ModelLogin }
   /** an owner switched optional features on or off (Settings → General → Mods) */
-  | { type: "features"; features: import("./features.ts").Features };
+  | { type: "features"; features: import("./features.ts").Features }
+  /** Apple mod settings, a Mac's permissions or the iPhone list changed: refetch GET /api/apple */
+  | { type: "apple_changed" };
 
 /** Terminal ids start with this, so a binary frame goes to the right place. */
 export const TERM_PREFIX = "term_";

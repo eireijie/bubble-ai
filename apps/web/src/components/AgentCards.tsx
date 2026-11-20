@@ -8,6 +8,7 @@ import { undoChange, useChanges } from "../changes.ts";
 import { href } from "../router.ts";
 import { ComputerMini } from "../views/ComputersView.tsx";
 import { StorageLogo } from "../views/settings/storage.tsx";
+import { AppleApprovalCard } from "./AppleParts.tsx";
 import { Pill, cx, clockTime } from "./ui.tsx";
 
 /** An agent's request on its computer ("Sign in to Zendesk…"): a card that takes you there; with no request, the screen live. */
@@ -75,6 +76,7 @@ export function ApprovalCard({ id }: { id: string }) {
   if (!approval) return null;
   if (approval.login) return <LoginApprovalCard approval={approval} />;
   if (approval.storage) return <StorageApprovalCard approval={approval} />;
+  if (approval.apple) return <AppleApprovalCard approval={approval} />;
   const decide = async (approve: boolean) => {
     setBusy(true);
     setError(null);

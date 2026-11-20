@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from "react";
-import { Blocks, BookOpen, Ellipsis, HardDrive, LifeBuoy, ListTodo, SquareTerminal, Store } from "lucide-react";
+import { Apple, Blocks, BookOpen, Ellipsis, HardDrive, LifeBuoy, ListTodo, SquareTerminal, Store } from "lucide-react";
 import type { FeatureKey } from "@wisp/core";
 import { useFeatures } from "../features.ts";
 import { useStore, useInboxCount, useChatsUnread } from "../store.ts";
@@ -65,6 +65,7 @@ function NavItem({ to, label, icon, active, badge, dot, accent }: { to: string; 
 const MOD_NAV: { feature: FeatureKey; place: "rail" | "more"; label: string; icon: (size: number) => ReactNode; to: Route; views: Route["view"][] }[] = [
   { feature: "code", place: "rail", label: "Code", icon: (size) => <SquareTerminal size={size} strokeWidth={1.8} />, to: { view: "code" }, views: ["code"] },
   { feature: "storage", place: "more", label: "Storage", icon: (size) => <HardDrive size={size} strokeWidth={1.8} />, to: { view: "settings", page: "storage" }, views: [] },
+  { feature: "apple", place: "more", label: "Apple", icon: (size) => <Apple size={size} strokeWidth={1.8} />, to: { view: "settings", page: "apple" }, views: [] },
 ];
 
 function modNav(features: Record<FeatureKey, boolean>, place: "rail" | "more") {

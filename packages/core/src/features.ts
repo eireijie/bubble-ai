@@ -3,7 +3,7 @@
  * that needs setup or adds screens lives here, so a new organization starts small.
  */
 
-export const FEATURE_KEYS = ["background", "routines", "teach", "tasks", "voice", "buddy", "invite", "remoteDesktop", "storage", "code"] as const;
+export const FEATURE_KEYS = ["background", "routines", "teach", "tasks", "voice", "buddy", "invite", "remoteDesktop", "storage", "code", "apple"] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type Features = Record<FeatureKey, boolean>;
 
@@ -17,6 +17,7 @@ export const FEATURE_INFO: Record<FeatureKey, { name: string; description: strin
   invite: { name: "Invite people", description: "Let other people into this workspace. Adds a People page and lets agents answer more than just you.", group: "extras" },
   remoteDesktop: { name: "Remote desktop", description: "Reach your devices from anywhere with RustDesk, from each device's page.", group: "extras" },
   storage: { name: "Storage", description: "Let agents use files on your Nextcloud, NAS, Google Drive or Dropbox.", group: "extras" },
+  apple: { name: "Apple", description: "Let agents use Messages, Contacts, Calendar, Reminders and Location through your Mac and iPhone.", group: "extras" },
   code: { name: "Code", description: "A terminal view where agents code side by side and you can jump in.", group: "extras" },
 };
 
@@ -27,7 +28,7 @@ const ON_UNLESS_REMOVED: readonly FeatureKey[] = ["code"];
 export const UNLISTED_FEATURES: readonly FeatureKey[] = ["code"];
 
 /** Mods that stay off until someone adds them, even for organizations from before Features. */
-const OFF_UNTIL_ADDED: readonly FeatureKey[] = ["storage"];
+const OFF_UNTIL_ADDED: readonly FeatureKey[] = ["storage", "apple"];
 
 const all = (on: boolean) => Object.fromEntries(FEATURE_KEYS.map((k) => [k, on])) as Features;
 const on = (keys: readonly FeatureKey[]) => Object.fromEntries(keys.map((k) => [k, true])) as Partial<Features>;

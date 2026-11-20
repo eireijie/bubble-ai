@@ -50,6 +50,7 @@ extension FeatureKey {
     case .invite: .gray
     case .remoteDesktop: .orange
     case .storage: .cyan
+    case .apple: .gray
     }
   }
 }

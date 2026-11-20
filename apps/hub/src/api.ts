@@ -75,6 +75,7 @@ import { registerPairingApi } from "./pairing.ts";
 import { registerReachApi } from "./api-reach.ts";
 import { registerLoginsApi } from "./api-logins.ts";
 import { registerStorageApi } from "./api-storage.ts";
+import { registerAppleApi } from "./api-apple.ts";
 import { registerTeamDraftApi } from "./team-drafts.ts";
 import { registerRemoteMcp } from "./remote-mcp.ts";
 import { agentPolicy } from "./policy.ts";
@@ -2653,6 +2654,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   registerReachApi(app, hub, { need, parse });
   registerLoginsApi(app, hub, { need, parse, requesterOf });
   registerStorageApi(app, hub, { need, parse, requesterOf, channelVisible, dataDir: opts.dataDir, filesDir: opts.filesDir });
+  registerAppleApi(app, hub, { need, parse, requesterOf, dataDir: opts.dataDir });
   registerTeamDraftApi(app, hub, { need, parse });
   registerRemoteMcp(app, hub, { need, parse, deviceOwnerOf });
 

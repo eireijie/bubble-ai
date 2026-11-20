@@ -582,7 +582,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (!c) return;
     const a = store.approval((req.params as { id: string }).id);
     if (!a || !canSeeApproval(c, a)) return reply.code(404).send({ error: "not found" });
-    const body = parse(z.object({ approve: z.boolean(), note: z.string().max(4000).default(""), always: z.boolean().optional(), code: SCREEN_CODE.optional() }), req.body, reply);
+    const body = parse(z.object({ approve: z.boolean(), note: z.string().max(4000).default(""), always: z.boolean().optional(), code: SCREEN_CODE.optional(), text: z.string().min(1).max(4000).optional() }), req.body, reply);
     if (!body) return;
     if (a.status !== "pending") return reply.code(409).send({ error: `already ${a.status}` });
     const agent = store.agent(a.agentId);
@@ -614,6 +614,19 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
       const decided = store.decideApproval(a.id, body.approve ? "approved" : "denied", c.actor.id, body.note)!;
       hub.broadcast(c.workspaceId, { type: "approval", approval: decided }, hub.audience(a.channelId));
       if (agent && store.channel(a.channelId)) hub.postMessage({ channelId: a.channelId, threadId: a.threadId, author: c.actor, body: `@${agent.handle} ${verdict}${note}` });
+      return decided;
+    }
+    if (a.apple) {
+      // texts go out as the person and events are theirs: the owner of the workspace decides, like Settings → Apple
+      if (c.viewer.role !== "owner") return reply.code(403).send({ error: "Only owners can answer for the Apple apps" });
+      if (body.text !== undefined && a.apple.op.op !== "messages_send") return reply.code(400).send({ error: "Only a text can be edited" });
+      // the card shows what was actually sent
+      if (body.approve && body.text !== undefined) store.db.prepare("UPDATE approvals SET apple_json = ? WHERE id = ?").run(JSON.stringify({ ...a.apple, bubble: body.text }), a.id);
+      const decided = store.decideApproval(a.id, body.approve ? "approved" : "denied", c.actor.id, body.note)!;
+      hub.broadcast(c.workspaceId, { type: "approval", approval: decided }, hub.audience(a.channelId));
+      void hub.apple.decide(a, body.approve, body.approve ? body.text : undefined).then((verdict) => {
+        if (agent && store.channel(a.channelId)) hub.postMessage({ channelId: a.channelId, threadId: a.threadId, author: c.actor, body: `@${agent.handle} ${verdict}${note}`, onBehalfOf: a.apple!.requestedBy ?? c.actor.id });
+      });
       return decided;
     }
     if (a.storage) {

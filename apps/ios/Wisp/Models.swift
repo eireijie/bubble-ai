@@ -238,6 +238,8 @@ enum MessagePart: Codable, Hashable {
   case closed
   /** the agent saved a skill during this reply ("learned") or followed one ("used"): a quiet line under it */
   case skill(action: String, skillId: String, slug: String)
+  /** what an agent read through the Apple mod during this reply ("Read your last 5 texts with Sam"): a quiet line with the app's icon */
+  case appleRead(app: String, text: String)
   case other(String)
 
   /** what an agent saved about someone during a reply (the "Remembered" chip): the kind of note, its words, and the note it went to */
@@ -247,7 +249,7 @@ enum MessagePart: Codable, Hashable {
     var path: String?
   }
 
-  private enum K: String, CodingKey { case runId, retry, fix, type, name, fileId, text, computerId, request, approvalId, changeId, taskId, routineId, discussionId, usage, input, output, replies, did, saved, next, action, skillId, slug }
+  private enum K: String, CodingKey { case runId, retry, fix, type, name, fileId, text, computerId, request, approvalId, changeId, taskId, routineId, discussionId, usage, input, output, replies, did, saved, next, action, skillId, slug, app }
 
   init(from decoder: Decoder) throws {
     let c = try decoder.container(keyedBy: K.self)
@@ -282,6 +284,10 @@ enum MessagePart: Codable, Hashable {
       let slug = (try? c.decode(String.self, forKey: .slug)) ?? ""
       guard !slug.isEmpty else { self = .other(type); return }
       self = .skill(action: (try? c.decode(String.self, forKey: .action)) ?? "used", skillId: (try? c.decode(String.self, forKey: .skillId)) ?? "", slug: slug)
+    case "apple_read":
+      let text = (try? c.decode(String.self, forKey: .text)) ?? ""
+      guard !text.isEmpty else { self = .other(type); return }
+      self = .appleRead(app: (try? c.decode(String.self, forKey: .app)) ?? "", text: text)
     default: self = .other(type)
     }
   }
@@ -452,6 +458,8 @@ struct Approval: Codable, Identifiable, Hashable {
     var path: String
     var size: Int?
   }
+  /** set when an agent asks to send a text or change an event or reminder (the Apple mod) */
+  var apple: AppleRequest? = nil
 }
 
 struct Frame { var image: Data; var width: Int; var height: Int }

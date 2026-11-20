@@ -2,6 +2,7 @@ import { aboutKey, watchEstimate, WATCH_SERVICES, type AppEvent, type Watch, typ
 import { id, now } from "./auth.ts";
 import { inQuietHours, SLOW_DOWN_AT } from "./background.ts";
 import { isPublicUrl } from "./connector-auth.ts";
+import { APPLE_WATCH_MINUTES } from "./apple.ts";
 import { featureOn } from "./features.ts";
 import type { Hub } from "./hub.ts";
 import { addedLines, lineKey, readPage } from "./page-diff.ts";
@@ -237,7 +238,8 @@ export class Watches {
   /** Start watching. The first look happens now, so a wrong key is caught while someone is there to fix it. */
   async create(input: WatchInput): Promise<Watch | { error: string }> {
     const { service } = input;
-    if (!(WATCH_SERVICES as readonly string[]).includes(service)) return { error: `can't watch "${service}"; pick one of ${WATCH_SERVICES.join(", ")}` };
+    if (!(WATCH_SERVICES as readonly string[]).includes(service)) return { error: `can't watch "${service}"; pick one of ${WATCH_SERVICES.filter((s) => s !== "apple").join(", ")}` };
+    if (service === "apple") return { error: "Apple apps are watched from Settings → Apple (the Apple mod), not as a watch of their own." };
     const agentIds = [...new Set(input.agentIds)];
     if (!agentIds.length) return { error: "pick at least one agent" };
     const config = input.config ?? {};
@@ -312,7 +314,7 @@ export class Watches {
       // agents taken off it don't get what was waiting for them
       this.db.prepare(`DELETE FROM app_events WHERE watch_id = ? AND run_id IS NULL AND agent_id NOT IN (${patch.agentIds.map(() => "?").join(",") || "''"})`).run(watchId, ...patch.agentIds);
     }
-    const min = r.service === "browser" ? BROWSER_MIN_MINUTES : watcherFor(r.service)!.minMinutes;
+    const min = r.service === "browser" ? BROWSER_MIN_MINUTES : r.service === "apple" ? APPLE_WATCH_MINUTES : watcherFor(r.service)!.minMinutes;
     if (patch.everyMinutes !== undefined) this.db.prepare("UPDATE watches SET every_minutes = ? WHERE id = ?").run(Math.min(24 * 60, Math.max(min, Math.round(patch.everyMinutes))), watchId);
     if (patch.config) this.db.prepare("UPDATE watches SET config_json = ? WHERE id = ?").run(JSON.stringify(patch.config), watchId);
     if (patch.label?.trim()) this.db.prepare("UPDATE watches SET label = ? WHERE id = ?").run(patch.label.trim().slice(0, 80), watchId);
@@ -333,6 +335,39 @@ export class Watches {
     this.db.prepare("DELETE FROM watches WHERE id = ?").run(watchId);
     this.changed(r.workspace_id, agents);
     return true;
+  }
+
+  // --- the Apple mod's watch (kept by Settings → Apple, not made through the watch API) ------------
+
+  createApple(workspaceId: string, userId: string, agentIds: string[], everyMinutes: number) {
+    const wid = id("watch");
+    const at = new Date();
+    // the first look soon, which only learns what's already there
+    this.db
+      .prepare("INSERT INTO watches (id, workspace_id, user_id, service, label, connector_id, secret_json, config_json, cursor, every_minutes, paused, last_polled_at, next_poll_at, created_by, created_at) VALUES (?, ?, ?, 'apple', 'Apple', NULL, '{}', '{}', NULL, ?, 0, NULL, ?, NULL, ?)")
+      .run(wid, workspaceId, userId, everyMinutes, at.toISOString(), now());
+    for (const a of new Set(agentIds)) this.db.prepare("INSERT OR IGNORE INTO watch_agents (watch_id, agent_id) VALUES (?, ?)").run(wid, a);
+    this.changed(workspaceId, agentIds);
+    return wid;
+  }
+
+  /** Who the Apple watch is for and which agents hear it, as Settings → Apple says now. */
+  setApple(watchId: string, userId: string, agentIds: string[]) {
+    const r = this.row(watchId);
+    if (!r) return;
+    const before = this.agentIds(watchId);
+    if (r.user_id !== userId) this.db.prepare("UPDATE watches SET user_id = ? WHERE id = ?").run(userId, watchId);
+    if (before.length === agentIds.length && before.every((a) => agentIds.includes(a)) && r.user_id === userId) return;
+    this.db.prepare("DELETE FROM watch_agents WHERE watch_id = ?").run(watchId);
+    for (const a of new Set(agentIds)) this.db.prepare("INSERT INTO watch_agents (watch_id, agent_id) VALUES (?, ?)").run(watchId, a);
+    this.db.prepare(`DELETE FROM app_events WHERE watch_id = ? AND run_id IS NULL AND agent_id NOT IN (${agentIds.map(() => "?").join(",") || "''"})`).run(watchId, ...agentIds);
+    this.changed(r.workspace_id, [...before, ...agentIds]);
+  }
+
+  /** Changes found outside a look (the iPhone arriving at a place), delivered like any other. */
+  recordFound(watchId: string, events: FoundEvent[], at = new Date()) {
+    const r = this.row(watchId);
+    if (r && !r.paused) this.record(r, events, at);
   }
 
   /** One agent stops; the watch goes when nobody is left on it. */
@@ -370,10 +405,10 @@ export class Watches {
   private async look(r: WatchRow, at: Date) {
     const after = (minutes: number) => new Date(at.getTime() + minutes * 60_000).toISOString();
     if (r.service === "browser") return this.lookAtSite(r, at);
-    const w = watcherFor(r.service);
-    if (!w) return;
+    const w = r.service === "apple" ? null : watcherFor(r.service);
+    if (!w && r.service !== "apple") return;
     try {
-      const res = await w.poll({ creds: this.creds(r), config: JSON.parse(r.config_json), cursor: r.cursor, fetch: this.fetch, now: at });
+      const res = w ? await w.poll({ creds: this.creds(r), config: JSON.parse(r.config_json), cursor: r.cursor, fetch: this.fetch, now: at }) : await this.hub.apple.look(r.workspace_id, r.cursor, at);
       this.record(r, res.events, at);
       this.db.prepare("UPDATE watches SET cursor = ?, last_polled_at = ?, next_poll_at = ?, last_error = NULL WHERE id = ?").run(res.cursor, at.toISOString(), after(r.every_minutes), r.id);
       if (r.last_error) this.changed(r.workspace_id, this.agentIds(r.id));

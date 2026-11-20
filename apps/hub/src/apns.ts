@@ -234,12 +234,30 @@ export class Apns {
     return result;
   }
 
-  private post(cfg: ApnsConfig, env: "production" | "sandbox", d: PushDevice, body: string) {
+  /**
+   * Wake this person's iPhones without showing anything (a background push), e.g. to ask for the
+   * location an agent needs. The phone answers through the API; nothing is shown or counted.
+   */
+  async sendSilent(workspaceId: string, userId: string, wisp: Record<string, string>): Promise<{ sent: number }> {
+    const devices = this.devices(userId).filter((d) => d.workspaceId === workspaceId && d.platform !== "android");
+    const cfg = devices.length ? this.config(workspaceId) : null;
+    if (!cfg) return { sent: 0 };
+    const body = JSON.stringify({ aps: { "content-available": 1 }, wisp });
+    let sent = 0;
+    for (const d of devices) {
+      const r = await this.post(cfg, d.environment ?? cfg.environment, d, body, true).catch((err: Error) => ({ status: 0, reason: err.message }) as PushResult);
+      if (r.status === 200) sent++;
+    }
+    return { sent };
+  }
+
+  private post(cfg: ApnsConfig, env: "production" | "sandbox", d: PushDevice, body: string, background = false) {
     const headers = {
       authorization: `bearer ${this.providerToken(cfg)}`,
       "apns-topic": d.bundleId || cfg.topic,
-      "apns-push-type": "alert",
-      "apns-priority": "10",
+      // a background push must be priority 5, or APNs refuses it
+      "apns-push-type": background ? "background" : "alert",
+      "apns-priority": background ? "5" : "10",
       "content-type": "application/json",
     };
     return this.transport(this.origin ?? ORIGINS[env], `/3/device/${d.token}`, headers, body);

@@ -428,7 +428,9 @@ export type MessagePart =
   /** the agent finished what this chat was about */
   | { type: "wrapup"; did: string; saved: string; next: string }
   /** the agent dropped what this chat was about after the person didn't answer */
-  | { type: "closed" };
+  | { type: "closed" }
+  /** what an agent read through the Apple mod during this reply ("Read your last 5 texts with Sam") */
+  | import("./apple.ts").AppleReadPart;
 
 /** An agent asking a person's OK before it acts ("Send these 3 intros?"). */
 export interface Approval {
@@ -452,6 +454,8 @@ export interface Approval {
   flow?: { flowId: string; stepId: string } | null;
   /** set when an agent asks to add, replace or delete a file on a storage (the Storage mod) */
   storage?: import("./storage.ts").StorageRequest | null;
+  /** set when an agent asks to send a text or change an event or reminder (the Apple mod) */
+  apple?: import("./apple.ts").AppleRequest | null;
   /** set when an agent asks to use a person's own computer for a task ("Use my computers", ask first) */
   device?: DeviceUseRequest | null;
 }

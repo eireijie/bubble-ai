@@ -5,6 +5,7 @@ import { useStore, type ComputerInfo, type LiveRun } from "../store.ts";
 import { go } from "../router.ts";
 import { AgentAvatar, cx, timeAgo } from "./ui.tsx";
 import { StorageLogo } from "../views/settings/storage.tsx";
+import { AppleApprovalCard } from "./AppleParts.tsx";
 
 /** "Needs you", "New replies"…: the small grey heading over a group, with a count or a link on the right. */
 export function SectionHead({ title, right, needs }: { title: string; right?: ReactNode; needs?: boolean }) {
@@ -254,6 +255,22 @@ export function StorageNeedCard({ approval: a }: { approval: Approval }) {
         )}
         {error && <p className="text-xs text-bad">{error}</p>}
       </section>
+    </GroupCard>
+  );
+}
+
+/** An agent wants to send a text or change an event or reminder (the Apple mod): the same card as in chat, under who's asking. */
+export function AppleNeedCard({ approval: a }: { approval: Approval }) {
+  const agent = useStore((s) => s.agents.find((x) => x.id === a.agentId));
+  return (
+    <GroupCard className="p-4 md:px-5 md:py-[18px] flex flex-col gap-3">
+      <CardHead agent={agent} title={`${agent?.name ?? "An agent"} wants your OK`} sub={timeAgo(a.createdAt)} />
+      <AppleApprovalCard approval={a} className="!mt-0 max-w-none" />
+      <div>
+        <CardButton tone="ghost" onClick={() => go({ view: "chat", channelId: a.channelId, threadId: a.threadId })} className="!px-0">
+          Open chat
+        </CardButton>
+      </div>
     </GroupCard>
   );
 }

@@ -15,5 +15,10 @@
 	<!-- lending this Mac's screen: apps/node/src/computers/macos.ts -->
 	<key>com.apple.security.automation.apple-events</key>
 	<true/>
+	<!-- the Apple mod: apps/node/src/apple (Contacts, Calendar and Reminders through their frameworks) -->
+	<key>com.apple.security.personal-information.addressbook</key>
+	<true/>
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
 </dict>
 </plist>
