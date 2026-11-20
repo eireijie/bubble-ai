@@ -19,6 +19,6 @@ describe("setupNextStep", () => {
   it("points to install", () => {
     const s = setupNextStep(agent({ harness: "acp:foo" }), [dev({ harnesses: [{ id: "codex", version: null }] })]);
     expect(s?.text).toBe("Install foo on my-mac.");
-    expect(s).toMatchObject({ href: "#/settings/runtimes", action: "Install it" });
+    expect(s).toMatchObject({ href: "#/settings/harnesses", action: "Install it" });
   });
 });

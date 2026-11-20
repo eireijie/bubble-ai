@@ -276,7 +276,7 @@ export function setupNextStep(agent: Pick<Agent, "id" | "nodeId" | "harness" | "
     const inVm = agent.settings?.runIn === "computer" && !!agent.computerId;
     return { text: `Sign in to ${harnessLabel(agent.harness)} ${inVm ? `on ${agent.name}'s computer` : `on ${device.name}`} so ${agent.name} can answer.`, href: href(inVm ? { view: "agents", agentId: agent.id, tab: "computer" } : { view: "settings", page: "harnesses" }), action: "Sign in" };
   }
-  return { text: `Install ${harnessLabel(agent.harness)} on ${device.name}.`, href: href({ view: "settings", page: "runtimes" }), action: "Install it" };
+  return { text: `Install ${harnessLabel(agent.harness)} on ${device.name}.`, href: href({ view: "settings", page: "harnesses" }), action: "Install it" };
 }
 
 /** "Setup incomplete · my-mac is offline": what's still missing before it can answer. */

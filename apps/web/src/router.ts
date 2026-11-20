@@ -48,8 +48,10 @@ export type Route =
 
 export const AGENT_TABS = ["overview", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "remove"] as const;
 export type AgentTab = (typeof AGENT_TABS)[number];
-export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "mobile", "general", "access", "agent-defaults", "people", "agents", "runtimes", "models", "harnesses", "memory", "computers", "logins", "storage", "apple", "apps", "skills", "connections", "data", "updates"] as const;
+export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "general", "access", "agent-defaults", "people", "agents", "harnesses", "memory", "buddy", "logins", "storage", "apple", "apps", "skills", "connections", "data", "updates"] as const;
 export type SettingsPage = (typeof SETTINGS_PAGES)[number];
+/** Settings pages that were merged into another: an old link lands on the page that holds them now. */
+export const SETTINGS_REDIRECTS: Record<string, SettingsPage> = { models: "harnesses", runtimes: "harnesses", computers: "devices", mobile: "devices" };
 export const MARKET_SECTIONS = ["all", "apps", "skills", "devices", "installed"] as const;
 export type MarketSection = (typeof MARKET_SECTIONS)[number];
 
@@ -98,7 +100,7 @@ export function parseRoute(hash: string): Route {
       // devices live inside Computers now
       return { view: "computers", computerId: null, ...(parts[1] ? { deviceId: parts[1] } : {}) };
     case "settings": {
-      const page = SETTINGS_PAGES.find((p) => p === parts[1]) ?? null;
+      const page = SETTINGS_PAGES.find((p) => p === parts[1]) ?? SETTINGS_REDIRECTS[parts[1] ?? ""] ?? null;
       // one thing inside a page, e.g. a skill: #/settings/skills/<id>
       return { view: "settings", page, ...(page && parts[2] ? { item: parts.slice(2).join("/") } : {}) };
     }

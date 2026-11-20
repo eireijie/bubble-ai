@@ -71,7 +71,7 @@ export function HarnessesPage() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Harnesses">What runs your agents on each computer. Pick the model separately.</PageHeader>
+      <PageHeader title="AI">What runs your agents on each computer. Pick the model separately.</PageHeader>
       {error && <p className="mb-4 px-1 text-[13px] text-bad">{error}</p>}
       {computers === null ? (
         !error && (

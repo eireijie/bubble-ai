@@ -152,7 +152,7 @@ export function ApplePage() {
       ) : (
         <div className="flex flex-col gap-7">
           <Group title="Through">
-            {view.macs.length === 0 && <DeviceRow icon={<Laptop size={18} strokeWidth={1.7} />} name="No Mac yet" sub={<a className="text-accent-text hover:underline" href={href({ view: "settings", page: "devices" })}>Add a Mac in Devices</a>} />}
+            {view.macs.length === 0 && <DeviceRow icon={<Laptop size={18} strokeWidth={1.7} />} name="No Mac yet" sub={<a className="text-accent-text hover:underline" href={href({ view: "settings", page: "devices" })}>Add a Mac in Computers and devices</a>} />}
             {view.macs.map((m) => {
               const used = m.nodeId === mac?.nodeId;
               return (

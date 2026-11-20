@@ -87,7 +87,7 @@ export function ModsPage() {
   );
 }
 
-function Switch({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) {
+export function Switch({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) {
   return (
     <button
       type="button"
