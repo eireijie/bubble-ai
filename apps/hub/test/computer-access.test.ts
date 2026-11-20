@@ -115,6 +115,15 @@ describe("terminals (the Code mod)", () => {
   });
 });
 
+describe("the Voice mod switch", () => {
+  it("is on in Simple and for a new install, but an explicit off is kept", () => {
+    expect(FEATURE_PRESETS.simple.voice).toBe(true);
+    expect(FEATURE_PRESETS.simple.background).toBe(false);
+    expect(resolveFeatures({ code: true }).voice).toBe(true);
+    expect(resolveFeatures({ voice: false }).voice).toBe(false);
+  });
+});
+
 describe("the Code mod switch", () => {
   it("is on by default, in Simple and for organizations that saved their mods before it existed", () => {
     expect(FEATURE_PRESETS.simple.code).toBe(true);

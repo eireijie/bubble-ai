@@ -21,7 +21,7 @@ export const FEATURE_INFO: Record<FeatureKey, { name: string; description: strin
 };
 
 /** Mods that are on unless someone turns them off, even in Simple and for organizations from before they existed. */
-const ON_UNLESS_REMOVED: readonly FeatureKey[] = ["code"];
+const ON_UNLESS_REMOVED: readonly FeatureKey[] = ["code", "voice"];
 
 /** Mods kept out of the Mods page (and agents' list) until their screens are built. */
 export const UNLISTED_FEATURES: readonly FeatureKey[] = ["code"];
