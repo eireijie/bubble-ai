@@ -217,6 +217,7 @@ export function NewTeamFlow({ onClose, sectionId = null, onBrowse, SectionPick, 
     return (
       <Describe
         slug={id}
+        initial={topic.trim()}
         onBack={() => setPage("start")}
         busy={busy}
         error={error}
@@ -265,9 +266,9 @@ export function NewTeamFlow({ onClose, sectionId = null, onBrowse, SectionPick, 
 }
 
 /** "Have an agent build it": one sentence in, the agent's flowchart out, read before anything is created. */
-function Describe({ slug: id, onBack, onEdit, onCreate, busy, error }: { slug: string; onBack: () => void; onEdit: (t: ChannelTeam) => void; onCreate: (t: ChannelTeam) => void; busy: boolean; error: string | null }) {
+function Describe({ slug: id, initial, onBack, onEdit, onCreate, busy, error }: { slug: string; initial: string; onBack: () => void; onEdit: (t: ChannelTeam) => void; onCreate: (t: ChannelTeam) => void; busy: boolean; error: string | null }) {
   const agents = useStore((s) => s.agents);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initial);
   const [builderId, setBuilderId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle" | "working" | "ready" | "failed">("idle");
   const [draft, setDraft] = useState<TeamDraft | null>(null);
