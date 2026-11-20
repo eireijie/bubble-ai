@@ -4,6 +4,9 @@ import { api } from "../api.ts";
 import { useStore, type ChannelInfo } from "../store.ts";
 import type { ChannelMember } from "./Channels.tsx";
 import { agentVar, cx } from "./ui.tsx";
+import { slashQuery } from "../slashCommand.ts";
+
+export { slashQuery };
 
 /**
  * The "/" menu, like Discord's: type "/" at the start of a message and every agent here shows
@@ -77,12 +80,6 @@ export function useAgentCommands(agentId: string | undefined) {
 export interface SlashItem {
   agent: Agent;
   command: AgentCommand;
-}
-
-/** "/que" (or "@poopy /que") from the start of the message up to the caret, or null when the menu shouldn't show. */
-export function slashQuery(beforeCaret: string): { handle: string | null; query: string } | null {
-  const m = /^\s*(?:@([\w-]+)\s+)?\/([\w:.-]*)$/.exec(beforeCaret);
-  return m ? { handle: m[1]?.toLowerCase() ?? null, query: m[2].toLowerCase() } : null;
 }
 
 export function useSlashMenu({ query, channel, dmAgent, agents }: { query: { handle: string | null; query: string } | null; channel: ChannelInfo | undefined; dmAgent: Agent | undefined; agents: Agent[] }) {

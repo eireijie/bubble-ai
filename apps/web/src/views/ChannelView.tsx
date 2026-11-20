@@ -22,6 +22,7 @@ import { AgentPill } from "../components/AgentPill.tsx";
 import { CallScreen, type CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
 import { AgentPanel, type AgentPanelTab } from "../components/AgentPanel.tsx";
+import { slashEnterAction } from "../slashCommand.ts";
 import { slashQuery, useAgentCommands, useSlashMenu, type SlashItem } from "../components/SlashMenu.tsx";
 import { ActivityPill, runActivity, stopRuns } from "../components/ActivityPill.tsx";
 import { RightPane } from "../components/RightPane.tsx";
@@ -1999,6 +2000,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 if (e.key === "Escape") return (e.preventDefault(), setSlashHidden(slashText));
                 if (slash.current && (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing))) {
                   e.preventDefault();
+                  if (e.key === "Enter" && slashEnterAction(slashText, slash.current.command) === "send") return send();
                   return pickCommand(slash.current);
                 }
               }
