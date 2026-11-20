@@ -177,6 +177,17 @@ describe("/ commands", () => {
     for (const r of hub.store.activeRuns(codexer.id)) hub.cancelRun(r.id);
   });
 
+  it("marks the summary and keeps empty notes out of the chat list preview", async () => {
+    const ch = general;
+    const author = { kind: "agent" as const, id: codexer.id };
+    hub.postMessage({ channelId: ch.id, author, body: "hi there", route: false });
+    const sum = hub.postMessage({ channelId: ch.id, author, body: "Summary of our last conversation:\n\nPrivate memory prefix: agents/x", parts: [{ type: "summary" }], route: false });
+    expect(hub.store.message(sum.id)?.parts).toEqual([{ type: "summary" }]);
+    expect(hub.store.lastMessages([ch.id])[ch.id].body).toBe("Compacted the conversation");
+    hub.postMessage({ channelId: ch.id, author, body: "", parts: [{ type: "notice", text: "Started a new conversation." }], route: false });
+    expect(hub.store.lastMessages([ch.id])[ch.id].body).toBe("Compacted the conversation");
+  });
+
   it("starts a new chat on /new and says so", async () => {
     const before = await post("@atlas hello there");
     const msg = await post("@atlas /new");

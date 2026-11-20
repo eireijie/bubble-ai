@@ -846,7 +846,7 @@ export class Hub {
       if (agent && trigger && body && !gone && this.isSummaryCompact(agent, trigger.body)) {
         const u = store.latestUsage(agent.id, run.channelId, run.threadId);
         const was = u?.contextUsed && u.contextWindow ? `${Math.round((100 * u.contextUsed) / u.contextWindow)}%` : null;
-        this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body: `Summary of our last conversation:\n\n${body}`, hop: run.hop + 1, route: false, startsChat: !run.threadId });
+        this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body: `Summary of our last conversation:\n\n${body}`, parts: [{ type: "summary" }], hop: run.hop + 1, route: false, startsChat: !run.threadId });
         this.postSystem({ ...trigger, threadId: run.threadId }, `Compacted${was ? `: ${was} → a fresh conversation that starts from a summary` : ": started a fresh conversation from a summary"}.`);
         body = "";
       }
