@@ -3,6 +3,7 @@ import { Check, ChevronRight, Laptop, Smartphone, X } from "lucide-react";
 import { APPLE_APPS, APPLE_APP_INFO, type AppleApp, type AppleLevel, type AppleMacStatus, type ApplePlace, type AppleSettings, type AppleView, type APPLE_SETTINGS_PANES } from "@wisp/core";
 import { api, observeEvents } from "../../api.ts";
 import { href } from "../../router.ts";
+import { useFeature } from "../../features.ts";
 import { useStore } from "../../store.ts";
 import { AppleIcon, AppleSeg } from "../../components/AppleParts.tsx";
 import { Switch } from "../../components/MarketParts.tsx";
@@ -73,9 +74,12 @@ export function ApplePage() {
   const [sheet, setSheet] = useState<string | null>(null);
   const [speak, setSpeak] = useState<SpeakKind | null>(null);
 
+  const modOn = useFeature("apple");
   useEffect(() => {
     let live = true;
-    const load = () =>
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const load = (): Promise<void> =>
       api<AppleView>("GET", "/api/apple").then(
         (v) => {
           if (!live) return;
@@ -84,17 +88,21 @@ export function ApplePage() {
         },
         (e: { status?: number; message?: string }) => {
           if (!live) return;
-          if (e.status === 404) setOff(true);
-          else setError(e.message ?? "Couldn't load Apple settings.");
+          if (e.status === 404) {
+            // switched on a moment ago and the hub may not have saved it yet: look again before saying it's off
+            if (modOn && tries++ < 3) timer = setTimeout(() => void load(), 700);
+            else setOff(true);
+          } else setError(e.message ?? "Couldn't load Apple settings.");
         },
       );
     void load();
     const stop = observeEvents((e) => e.type === "apple_changed" && void load());
     return () => {
       live = false;
+      clearTimeout(timer);
       stop();
     };
-  }, []);
+  }, [modOn]);
 
   const save = async (patch: ApplePatch) => {
     if (!view) return;

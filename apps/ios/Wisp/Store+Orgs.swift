@@ -65,11 +65,16 @@ extension Store {
   func setFeatures(_ next: Features) async throws {
     let gen = session
     let previous = features
+    savingFeatures = true
     features = next
     do {
       let data = try await fetch { try await $0.put("/api/features", next) }
       if let result = try? Wire.decoder.decode(FeaturesResponse.self, from: data) { features = result.features }
+      savingFeatures = false
+      // the hub has saved it now, so ask for what the mod needs
+      if features.apple != previous.apple { await refreshApple() }
     } catch {
+      savingFeatures = false
       if gen == session { features = previous }
       throw error
     }

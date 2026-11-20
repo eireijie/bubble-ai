@@ -144,17 +144,18 @@ struct AppleMacStatus: Codable, Hashable {
   var messagesSignedIn: Bool?
 
   /** what's missing on the Mac for an app, in a few words, or nil when it's ready */
-  func problem(for app: AppleApp) -> String? {
+  func problem(for app: AppleApp, mac: String? = nil) -> String? {
+    let on = mac.map { "on \($0)" } ?? "on the Mac"
     func missing(_ s: String) -> Bool { s == "denied" || s == "not_asked" }
     switch app {
     case .messages:
-      if missing(fullDiskAccess) { return "Needs Full Disk Access on the Mac" }
-      if messagesSignedIn == false { return "Messages isn't signed in on the Mac" }
-      if missing(messagesControl) { return "Can't send yet: allow it on the Mac" }
+      if missing(fullDiskAccess) { return "Needs Full Disk Access \(on). Open System Settings on that Mac." }
+      if messagesSignedIn == false { return "Messages isn't signed in \(on). Open Messages on that Mac." }
+      if missing(messagesControl) { return "Can't send yet. Allow Messages control \(on), in System Settings on that Mac." }
       return nil
-    case .contacts: return missing(contacts) ? "Needs access on the Mac" : nil
-    case .calendar: return missing(calendars) ? "Needs access on the Mac" : nil
-    case .reminders: return missing(reminders) ? "Needs access on the Mac" : nil
+    case .contacts: return missing(contacts) ? "Needs access \(on). Open System Settings on that Mac." : nil
+    case .calendar: return missing(calendars) ? "Needs access \(on). Open System Settings on that Mac." : nil
+    case .reminders: return missing(reminders) ? "Needs access \(on). Open System Settings on that Mac." : nil
     case .location: return nil
     }
   }
@@ -226,6 +227,8 @@ extension Store {
       apple = info
       AppleLocation.shared.sync(info)
     } catch is Stale {
+    } catch let e as API.Failure where e.status == 404 {
+      // the hub hasn't caught up with the mod being switched on: not an error to show
     } catch {
       recordSyncError(error)
     }

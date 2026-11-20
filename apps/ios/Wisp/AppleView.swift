@@ -14,6 +14,7 @@ struct AppleView: View {
   private var location = AppleLocation.shared
   @State private var error: String?
   @State private var loaded = false
+  @State private var retried = 0
   @State private var editing: ApplePlace?
   @State private var adding = false
 
@@ -169,8 +170,18 @@ struct AppleView: View {
           macRow(info)
         }
       }
+      if let problem = messagesProblem(info) {
+        Text(problem).font(.system(size: 13)).foregroundStyle(MarketColor.warn).padding(.horizontal, 4).fixedSize(horizontal: false, vertical: true)
+          .accessibilityIdentifier("apple-messages-problem")
+      }
       caption("Apple only lets a Mac read and send Messages.")
     }
+  }
+
+  /** what Messages still needs on the Mac, once the Mac is online and Messages is on */
+  private func messagesProblem(_ info: AppleInfo) -> String? {
+    guard let mac = info.mac, mac.online, info.settings.levels[.messages] > 0 else { return nil }
+    return mac.status?.problem(for: .messages, mac: mac.name)
   }
 
   private func macRow(_ info: AppleInfo) -> some View {
@@ -181,9 +192,9 @@ struct AppleView: View {
         Spacer(minLength: 8)
         HStack(spacing: 6) {
           Circle().fill(mac.online ? Palette.statusOnline : Palette.statusOffline).frame(width: 7, height: 7)
-          Text(mac.online ? "Connected" : "Offline")
+          Text(!mac.online ? "Offline" : messagesProblem(info) != nil ? "Needs permission" : "Connected")
         }
-        .font(.system(size: 15)).foregroundStyle(mac.online ? Palette.statusOnlineText : Palette.statusOfflineText)
+        .font(.system(size: 15)).foregroundStyle(!mac.online ? Palette.statusOfflineText : messagesProblem(info) != nil ? MarketColor.warn : Palette.statusOnlineText)
       } else {
         VStack(alignment: .leading, spacing: 2) {
           Text(info.macs.isEmpty ? "No Mac yet" : "Pick a Mac").font(.system(size: 15)).foregroundStyle(Palette.text)
@@ -205,7 +216,7 @@ struct AppleView: View {
       CardGroup {
         ForEach(AppleApp.mac) { app in
           let level = info.settings.levels[app]
-          let problem = level > 0 ? info.mac?.status?.problem(for: app) : nil
+          let problem = level > 0 ? info.mac?.status?.problem(for: app, mac: info.mac?.name) : nil
           levelMenu(app, level: level) {
             AppleRowFace(title: app.name, subtitle: problem, warn: problem != nil, value: app.level(level), menu: owner) { AppleIcon(app: app) }
           }
