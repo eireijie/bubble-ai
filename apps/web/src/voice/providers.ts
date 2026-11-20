@@ -1,6 +1,7 @@
 import type { AgentSettings } from "@wisp/core";
 import { getToken } from "../api.ts";
 import { voiceIndex } from "./text.ts";
+import { planListening, type ListenPlan } from "./engine.ts";
 
 export interface VoiceSettings {
   listen: "device" | "openai";
@@ -39,10 +40,14 @@ const recognitionClass = () => {
   const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 };
-// The desktop app has no speech service behind the browser's recognition, so it listens through OpenAI instead.
+// The desktop app has no speech service behind the browser's recognition, so it can only listen through OpenAI (with a key).
 export const inDesktopApp = () => typeof window !== "undefined" && !!window.wispDesktop;
 export function canRecognize() { return !inDesktopApp() && !!recognitionClass(); }
-export const effectiveListen = (listen: VoiceSettings["listen"]): VoiceSettings["listen"] => (inDesktopApp() ? "openai" : listen);
+export const hasOpenaiKey = (settings: Pick<VoiceSettings, "openaiKey">) => !!settings.openaiKey;
+/** The engine that will really listen, and what to set up when none can. */
+export const listenPlan = (settings: Pick<VoiceSettings, "listen" | "openaiKey">): ListenPlan =>
+  planListening({ chosen: settings.listen, desktop: inDesktopApp(), recognition: !!recognitionClass(), hasKey: hasOpenaiKey(settings) });
+export const effectiveListen = (settings: Pick<VoiceSettings, "listen" | "openaiKey">): VoiceSettings["listen"] => listenPlan(settings).engine;
 export function deviceVoices() { return window.speechSynthesis?.getVoices().slice().sort((a, b) => a.voiceURI.localeCompare(b.voiceURI)) ?? []; }
 
 async function voiceRequest(body: unknown, signal: AbortSignal): Promise<Response> {
@@ -106,8 +111,8 @@ class Microphone {
   }
 }
 
-export function createListener(chosen: VoiceSettings["listen"], callbacks: ListenCallbacks, language: () => string = () => ""): VoiceListener {
-  const engine = effectiveListen(chosen);
+export function createListener(settings: Pick<VoiceSettings, "listen" | "openaiKey">, callbacks: ListenCallbacks, language: () => string = () => ""): VoiceListener {
+  const engine = effectiveListen(settings);
   const mic = new Microphone();
   let active = false, generation = 0;
   let recognition: Recognition | undefined;
@@ -136,7 +141,8 @@ export function createListener(chosen: VoiceSettings["listen"], callbacks: Liste
     stop,
     async start() {
       if (active) return;
-      if (engine === "device" && !canRecognize()) throw new Error("This browser doesn't offer speech recognition. Try Chrome or Safari, or choose OpenAI in Settings → Notifications → Voice.");
+      const plan = listenPlan(settings);
+      if (plan.problem) throw new Error(plan.problem);
       active = true;
       const current = ++generation;
       try {

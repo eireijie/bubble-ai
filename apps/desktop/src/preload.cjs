@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld("wispDesktop", {
   focus: () => ipcRenderer.send("desktop:focus"),
   info: () => ipcRenderer.invoke("desktop:info"),
   connectDevice: (claim) => ipcRenderer.invoke("desktop:connect-device", claim),
+  microphone: {
+    status: () => ipcRenderer.invoke("microphone:status"),
+    request: () => ipcRenderer.invoke("microphone:request"),
+    openSettings: () => ipcRenderer.invoke("microphone:open-settings"),
+  },
   removal: {
     available: () => ipcRenderer.invoke("removal:available"),
     open: () => ipcRenderer.invoke("removal:open"),

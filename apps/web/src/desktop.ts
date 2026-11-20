@@ -22,6 +22,12 @@ declare global {
       info(): Promise<{ version: string; platform: string; device: boolean }>;
       /** with a claim, this computer becomes that waiting device; without one, a new device */
       connectDevice(claim?: { token: string; name: string }): Promise<void>;
+      /** the computer's own microphone permission for calls (macOS asks once; only System Settings changes it after) */
+      microphone?: {
+        status(): Promise<string>;
+        request(): Promise<boolean>;
+        openSettings(): Promise<void>;
+      };
       /** the app decides who may; removing happens in its own window, never from a page */
       removal?: {
         available(): Promise<boolean>;
