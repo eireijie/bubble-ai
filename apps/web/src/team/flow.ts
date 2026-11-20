@@ -15,6 +15,7 @@ import {
   stepOrder,
   stepsAfter,
   stepsProblem,
+  DEFAULT_SCHEDULE_PROMPT,
   scheduleProblem,
   startSteps,
   workSteps,
@@ -302,7 +303,7 @@ export function newStep(team: ChannelTeam, kind: AddKind, anchor: string | null,
   const base = { id, roleId: "", next: null, x: 0, y: 0 };
   switch (kind) {
     case "schedule":
-      return { ...base, kind: "schedule", action: "", schedule: "0 9 * * 1", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", prompt: "", enabled: true };
+      return { ...base, kind: "schedule", action: "", schedule: "0 9 * * 1", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", prompt: DEFAULT_SCHEDULE_PROMPT, enabled: true };
     case "agent":
     case "beside":
       return { ...base, kind: "do", action: "New step", agentId: fallback };
