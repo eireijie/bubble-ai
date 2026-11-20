@@ -76,10 +76,10 @@
   /* color pops: each tab owns an accent, status always uses the same five colors, tools in control
      have one each. Pops only (icons, dots, badges, 16% tints), never text or fills. Light values are
      deeper (4.5:1 or better on white) because they also color small icons and text. */
-  --accent-inbox: #b25e00;
-  --accent-chats: #0062cc;
-  --accent-agents: #8e3fc2;
-  --accent-computers: #0072a3;
+  --accent-inbox: var(--ink);
+  --accent-chats: var(--ink);
+  --accent-agents: var(--ink);
+  --accent-computers: var(--ink);
   --accent-more: var(--ink);
   --st-online: #1a7f37;
   --st-working: #0062cc;
@@ -130,10 +130,10 @@
   --kind-groups: #f2c14b;
   --kind-other: #97a6b4;
   --kind-ghost: oklch(0.45 0 0);
-  --accent-inbox: #ff9f0a;
-  --accent-chats: #0a84ff;
-  --accent-agents: #bf5af2;
-  --accent-computers: #64d2ff;
+  --accent-inbox: var(--ink);
+  --accent-chats: var(--ink);
+  --accent-agents: var(--ink);
+  --accent-computers: var(--ink);
   --accent-more: var(--ink);
   --st-online: #30d158;
   --st-working: #0a84ff;

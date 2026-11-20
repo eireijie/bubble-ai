@@ -28,8 +28,8 @@ describe("guest computer UI", () => {
     role(viewer);
     const html = renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
     expect(html.includes('href="#/computers"')).toBe(viewer !== "guest");
-    // everyone gets the other places on the rail
-    for (const place of ["Inbox", "Chats", "Agents"]) expect(html).toContain(place);
+    // everyone gets the other places on the rail (agents sit in More as "All agents")
+    for (const place of ["Inbox", "All chats", "New agent or team", "Apps, skills and mods"]) expect(html).toContain(place);
   });
 
   it.each([null, "private-screen"])("hides the computers page from guests, including a cached detail (%s)", (computerId) => {

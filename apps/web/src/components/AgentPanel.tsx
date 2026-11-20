@@ -63,25 +63,23 @@ export function AgentPanel({ agent, tab, onTab, onClose, onCall, inDm = false }:
   const status = agent.signIn && agent.status === "online" ? NEEDS_SIGN_IN : AGENT_STATUS[agent.status];
   return (
     <RightPane label={`${agent.name}'s details`}>
-      <div className="h-15 shrink-0 flex items-center gap-1.5 px-4 border-b border-line">
-        <span className="font-medium flex-1">Agent</span>
-        <button onClick={() => go({ view: "agents", agentId: agent.id, tab: "overview" })} className="size-8 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-hover" aria-label="Open its full page" title="Open its full page">
-          <ExternalLink size={16} />
+      {/* canvas Main: the ghost, name and label centred, close and full page at the top */}
+      <div className="h-14 shrink-0 flex items-center justify-end gap-1.5 px-4">
+        <button onClick={() => go({ view: "agents", agentId: agent.id, tab: "overview" })} className="size-[34px] rounded-full grid place-items-center text-muted hover:text-ink hover:bg-hover" aria-label="Open its full page" title="Open its full page">
+          <ExternalLink size={15} />
         </button>
-        <button onClick={onClose} className="size-8 rounded-lg grid place-items-center text-muted hover:text-ink hover:bg-hover" aria-label="Close panel" title="Close">
-          <X size={17} />
+        <button onClick={onClose} className="size-[34px] rounded-full grid place-items-center border border-line2 text-ink hover:bg-hover" aria-label="Close panel" title="Close">
+          <X size={14} strokeWidth={2} />
         </button>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-6">
-        <div className="flex items-center gap-3.5 pt-5">
-          <AgentAvatar agent={agent} size={64} live />
-          <div className="min-w-0 flex-1">
-            <h2 className="t-title truncate">{agent.name}</h2>
-            <RoleLabel agent={agent} />
-            <div className={cx("mt-0.5 flex items-center gap-1.5 text-[13px] font-medium", working ? "text-st-working" : "text-muted")}>
-              <span className={cx("size-1.5 rounded-full", working ? "bg-st-working animate-pulse" : "bg-faint")} style={working ? undefined : { background: status.dot ?? status.hue }} aria-hidden />
-              {working ? `Working${since ? ` · ${minutesSince(since)}` : ""}` : <span className="capitalize">{status.label}</span>}
-            </div>
+      <div className="flex-1 min-h-0 overflow-y-auto px-[18px] pb-6">
+        <div className="-mt-3 flex flex-col items-center gap-1.5 text-center">
+          <AgentAvatar agent={agent} size={76} live />
+          <h2 className="mt-1.5 truncate text-[19px] font-semibold leading-[26px]">{agent.name}</h2>
+          <div className="[&_input]:text-center"><RoleLabel agent={agent} /></div>
+          <div className={cx("flex items-center gap-1.5 text-xs", working ? "text-ink" : "text-muted")}>
+            <span className={cx("size-1.5 rounded-full", working ? "bg-wisp animate-pulse" : "bg-faint")} style={working ? undefined : { background: status.dot ?? status.hue }} aria-hidden />
+            {working ? `Working${since ? ` · ${minutesSince(since)}` : ""}` : <span className="capitalize">{status.label}</span>}
           </div>
         </div>
         <div className="mt-4 flex gap-2">
@@ -100,9 +98,9 @@ export function AgentPanel({ agent, tab, onTab, onClose, onCall, inDm = false }:
             <Square size={13} /> Stop
           </Button>
         </div>
-        <nav className="mt-5 flex gap-1" role="tablist">
+        <nav className="mt-5 flex justify-center gap-1" role="tablist">
           {tabs.map((t) => (
-            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={cx("h-8 px-3 rounded-full text-sm", tab === t.id ? "bg-chip text-ink font-medium" : "text-muted hover:text-ink")}>
+            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={cx("h-[30px] px-3 rounded-full text-[13px]", tab === t.id ? "bg-side-active text-ink" : "text-muted hover:text-ink")}>
               {t.label}
             </button>
           ))}

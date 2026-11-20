@@ -342,7 +342,7 @@ function Tab({ active, label, icon, target, badge, dot, accent }: { active: bool
     <a href={target} aria-current={active ? "page" : undefined} className={cx("relative z-[1] flex-1 flex flex-col items-center justify-center gap-[2px] h-[48px] rounded-full text-[11px]", active ? "text-ink font-medium" : "text-muted font-normal")}>
       <span ref={iconRef} className="m-tab-icon" style={active ? { color: `var(--accent-${accent})` } : undefined}>{icon}</span>
       {label}
-      {badge !== undefined && <PopBadge count={badge} label={badge > 99 ? "99+" : String(badge)} className="absolute top-1 left-[calc(50%+8px)] min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold text-black grid place-items-center tabular-nums" style={{ background: `var(--accent-${accent})` }} />}
+      {badge !== undefined && <PopBadge count={badge} label={badge > 99 ? "99+" : String(badge)} className="absolute top-1 left-[calc(50%+8px)] min-w-[18px] h-[18px] px-1 rounded-full bg-ink text-panel text-[11px] font-semibold grid place-items-center tabular-nums" />}
       {dot && <span className="absolute top-2 left-[calc(50%+10px)] size-2 rounded-full bg-st-working animate-pulse" aria-label="An agent is working" />}
     </a>
   );

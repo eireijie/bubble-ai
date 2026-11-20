@@ -48,7 +48,9 @@ export function Ghost({
   const still = !animated || !ambient;
   const shape = SILHOUETTES[silhouetteOf(look)];
   const asleep = mood === "asleep";
-  const working = !asleep && (mood === "working" || mood === "thinking" || (speakingLevel !== undefined && speakingLevel > 0.05));
+  // speaking: Reduce Motion keeps the ghost as it is, so the level only counts while animated
+  const level = speakingLevel !== undefined && animated ? Math.min(1, Math.max(0, speakingLevel)) : 0;
+  const working = !asleep && (mood === "working" || mood === "thinking" || level > 0.05);
   const color = familyColor(look, seed ?? label ?? "");
   const eye = eyeInk(color);
   const delays = seedDelay(seed ?? label ?? color);
@@ -114,7 +116,6 @@ export function Ghost({
 
   const small = size <= 44;
   const tiny = size <= 24;
-  const level = speakingLevel !== undefined && animated ? Math.min(1, Math.max(0, speakingLevel)) : 0;
   return (
     <span
       ref={root}
