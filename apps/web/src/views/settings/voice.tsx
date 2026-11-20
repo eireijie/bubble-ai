@@ -4,7 +4,7 @@ import { Button, Input } from "../../components/ui.tsx";
 import { MoreOptions } from "../../components/MoreOptions.tsx";
 import { href } from "../../router.ts";
 import { useStore } from "../../store.ts";
-import { canRecognize, createSpeaker, DEFAULT_VOICE, effectiveListen, inDesktopApp, type VoiceSettings, type VoiceSpeaker } from "../../voice/providers.ts";
+import { canRecognize, createSpeaker, DEFAULT_VOICE, inDesktopApp, type VoiceSettings, type VoiceSpeaker } from "../../voice/providers.ts";
 import { Card, PageHeader, Row, Section, Select } from "./parts.tsx";
 
 type Result = { ok: boolean; text: string } | null;
@@ -103,7 +103,7 @@ export function VoicePage() {
   };
   const canListen = typeof window !== "undefined" && canRecognize();
   // the engines come from the draft (picking OpenAI asks for its key right away); whether a key exists comes from the hub
-  const listen = effectiveListen(settings.listen);
+  const listen = inDesktopApp() ? "openai" : settings.listen; // the draft choice: picking OpenAI asks for its key right away
   const needOpenai = (listen === "openai" || settings.speak === "openai") && !saved.openaiKey;
   const needEleven = settings.speak === "elevenlabs" && !saved.elevenlabsKey;
   const openaiRow = <Row key="openai" label="OpenAI key" hint="Needed for OpenAI listening and voices. OpenAI bills you for it."><Input aria-label="OpenAI API key" type="password" autoComplete="off" disabled={!loaded} value={settings.openaiKey} onChange={(e) => setSettings({ ...settings, openaiKey: e.target.value })} /></Row>;

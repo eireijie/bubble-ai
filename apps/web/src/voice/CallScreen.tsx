@@ -12,7 +12,8 @@ import { familyColor } from "../ghostFamily.ts";
 import { VoiceCall, INITIAL_CALL, type CallPhase, type CallState } from "./call.ts";
 import { callFacts, type CallFacts } from "./facts.ts";
 import { callPrefs, phaseLabel, setCallPrefs, SPEEDS, speedLabel, useCallPrefs } from "./prefs.ts";
-import { createListener, createSpeaker, effectiveListen, ELEVEN_VOICES, OPENAI_VOICES, deviceVoices, type VoiceSettings, type VoiceSpeaker } from "./providers.ts";
+import { NEEDS_KEY_BROWSER, NEEDS_KEY_DESKTOP } from "./engine.ts";
+import { createListener, createSpeaker, effectiveListen, inDesktopApp, ELEVEN_VOICES, OPENAI_VOICES, deviceVoices, type VoiceSettings, type VoiceSpeaker } from "./providers.ts";
 import { recommendVoices } from "./VoicePicker.tsx";
 import "./voice.css";
 
@@ -49,6 +50,28 @@ export interface CallLine { who: "you" | "agent"; text: string }
 /** What stays in the chat when a call ends. */
 export interface CallRecord { agentId: string; seconds: number; lines: CallLine[]; endedAt: number }
 
+/** What to do about a blocked microphone, in the words of the place Wisp is running. */
+export function micHelp(agentName: string, desktop = inDesktopApp()): string {
+  const where = desktop
+    ? "Allow it in System Settings → Privacy & Security → Microphone → Wisp, then try again."
+    : "Allow it in your browser (the lock beside the address), then try again.";
+  return `Wisp needs your microphone to hear you. ${where} ${agentName} will still answer in chat.`;
+}
+
+/** When no listening engine works, the card says what to set up instead of blaming the microphone. */
+export const micCardText = (agentName: string, error: string) => (error === NEEDS_KEY_DESKTOP || error === NEEDS_KEY_BROWSER ? error : micHelp(agentName));
+
+/** In the desktop app, ask the computer for the microphone, or open its Microphone settings when it was already refused. */
+async function askForMicrophone() {
+  const mic = window.wispDesktop?.microphone;
+  if (!mic) return;
+  try {
+    const status = await mic.status();
+    if (status === "not-determined") await mic.request();
+    else if (status === "denied" || status === "restricted") await mic.openSettings();
+  } catch { /* the call tries the microphone again either way */ }
+}
+
 export function CallScreen({ agent, channelId, onClose, barSlot, floating = true }: { agent: Agent; channelId: string; onClose(record?: CallRecord): void; barSlot?: HTMLElement | null; floating?: boolean }) {
   const [state, setState] = useState(INITIAL_CALL);
   const [seconds, setSeconds] = useState(0);
@@ -72,7 +95,7 @@ export function CallScreen({ agent, channelId, onClose, barSlot, floating = true
     void api<VoiceSettings>("GET", "/api/voice/settings").then(async (settings) => {
       if (disposed) return;
       setEngine(settings.speak);
-      setEngineLabel(`${effectiveListen(settings.listen) === "openai" ? "OpenAI listening · " : ""}${settings.speak === "device" ? "On this device" : settings.speak === "openai" ? "OpenAI · AI voice" : "ElevenLabs · AI voice"}`);
+      setEngineLabel(`${effectiveListen(settings) === "openai" ? "OpenAI listening · " : ""}${settings.speak === "device" ? "On this device" : settings.speak === "openai" ? "OpenAI · AI voice" : "ElevenLabs · AI voice"}`);
       // the voice and speed are read at every reply, so changing them in the panel is heard right away
       let current: VoiceSpeaker | null = null;
       const speaker: VoiceSpeaker = {
@@ -82,8 +105,8 @@ export function CallScreen({ agent, channelId, onClose, barSlot, floating = true
         prepare(text) { createSpeaker(settings.speak, voiceRef.current, agent.handle).prepare?.(text); },
       };
       const session = new VoiceCall({
-        agentId: agent.id, channelId, cloudListening: effectiveListen(settings.listen) === "openai",
-        listener: (cb) => createListener(settings.listen, cb, () => callPrefs().language),
+        agentId: agent.id, channelId, cloudListening: effectiveListen(settings) === "openai",
+        listener: (cb) => createListener(settings, cb, () => callPrefs().language),
         speaker,
         send: (body) => api("POST", `/api/channels/${channelId}/messages`, { body, voice: true }),
         update: setState,
@@ -119,7 +142,10 @@ export function CallScreen({ agent, channelId, onClose, barSlot, floating = true
     call.current?.stop();
     onClose(state.startedAt !== null || lines.length ? { agentId: agent.id, seconds, lines, endedAt: Date.now() } : undefined);
   };
-  const retry = () => { if (call.current) void call.current.start(); else setAttempt((n) => n + 1); };
+  const retry = async () => {
+    if (state.needsMic) await askForMicrophone();
+    if (call.current) void call.current.start(); else setAttempt((n) => n + 1);
+  };
   const toggleMute = () => void call.current?.mute(!state.muted);
   const expand = useCallback(() => setShrunk(false), []);
 
@@ -134,16 +160,16 @@ export function CallScreen({ agent, channelId, onClose, barSlot, floating = true
   }
   return (
     <Modal title={null} headerless onClose={() => setShrunk(true)} label={`Voice call with ${agent.name}`} className="voice-modal" contentClassName="voice-content">
-      <CallScene agent={agent} state={state} facts={facts} style={style} panel={panel} engine={engine} engineLabel={engineLabel} onShrink={() => setShrunk(true)} onPanel={() => setPanel(!panel)} onMute={toggleMute} onRetry={retry} onEnd={close} />
+      <CallScene agent={agent} state={state} facts={facts} style={style} panel={panel} engine={engine} engineLabel={engineLabel} onShrink={() => setShrunk(true)} onText={close} onPanel={() => setPanel(!panel)} onMute={toggleMute} onRetry={retry} onEnd={close} />
     </Modal>
   );
 }
 
 
 /** The full-screen call. */
-export function CallScene({ agent, state, facts, style, panel, engine, engineLabel, onShrink, onPanel, onMute, onRetry, onEnd }: {
+export function CallScene({ agent, state, facts, style, panel, engine, engineLabel, onShrink, onText, onPanel, onMute, onRetry, onEnd }: {
   agent: Agent; state: CallState; facts: CallFacts; style: CSSProperties; panel: boolean; engine: VoiceSettings["speak"] | null; engineLabel: string;
-  onShrink(): void; onPanel(): void; onMute(): void; onRetry(): void; onEnd(): void;
+  onShrink(): void; onText(): void; onPanel(): void; onMute(): void; onRetry(): void; onEnd(): void;
 }) {
   const { offline, phase, paused, failed, micTrouble, label, tone, activity, timer, seconds, connected } = facts;
   return (
@@ -164,9 +190,9 @@ export function CallScene({ agent, state, facts, style, panel, engine, engineLab
       {micTrouble ? (
         <div className="voice-card" role="alert">
           <h3><span className="voice-badge"><MicOff size={20} aria-hidden /></span>A little help with the microphone?</h3>
-          <p>Wisp needs your microphone to hear you. Allow it in your browser (the lock beside the address), then try again. {agent.name} will still answer in chat.</p>
+          <p>{micCardText(agent.name, state.error)}</p>
           <button className="voice-pill" data-primary onClick={onRetry}>Try again</button>
-          <button className="voice-pill" onClick={onShrink}>Keep chatting by text</button>
+          <button className="voice-pill" onClick={onText}>Keep chatting by text</button>
         </div>
       ) : failed ? (
         <div className="voice-card" role="alert">
@@ -310,7 +336,7 @@ export function CallCard({ agent, state, facts, lines, engine, engineLabel, onMu
 
       {(micTrouble || failed || paused) && (
         <div className="flex flex-col gap-2.5 border-t border-line px-3.5 py-3 text-[13px] leading-5 text-muted" role="alert">
-          {micTrouble ? <p>Wisp needs your microphone to hear you. Allow it in your browser, then try again. {agent.name} still answers in chat.</p> : failed ? <p>{state.error || "Couldn't connect just yet."} Check that your Wisp is reachable and the voice has its key.</p> : <p>The call is on hold. {agent.name} keeps working; the full reply will be in chat.</p>}
+          {micTrouble ? <p>{micCardText(agent.name, state.error)}</p> : failed ? <p>{state.error || "Couldn't connect just yet."} Check that your Wisp is reachable and the voice has its key.</p> : <p>The call is on hold. {agent.name} keeps working; the full reply will be in chat.</p>}
           <span className="flex gap-2">
             <button type="button" onClick={onRetry} className="h-8 rounded-full bg-ink px-3.5 text-[13px] font-semibold text-panel">{paused ? "Resume" : "Try again"}</button>
             {failed && <a href="#/settings/voice" onClick={onEnd} className="inline-flex h-8 items-center gap-1 rounded-full border border-line2 px-3.5 text-[13px] text-ink">Voice settings<ChevronRight size={14} aria-hidden /></a>}

@@ -1,7 +1,7 @@
 // Wisp desktop: the workspace in its own window, plus what only an app on this computer can do:
 // run a hub here, connect this computer as a device for agents (one click, no token to copy), and
 // keep both going from the menu bar after the window closes.
-const { app, BrowserWindow, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, shell, Notification } = require("electron");
+const { app, BrowserWindow, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, shell, Notification, systemPreferences } = require("electron");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -1056,6 +1056,14 @@ ipcMain.on("badge", (_e, n) => {
   if (process.platform === "darwin") app.dock?.setBadge(count ? String(count) : "");
 });
 ipcMain.handle("desktop:info", async () => ({ version: app.getVersion(), platform: process.platform, device: await readDeviceStatus() }));
+// Microphone for calls: macOS asks once, then only System Settings can change the answer.
+ipcMain.handle("microphone:status", (e) => (fromHub(e) && process.platform === "darwin" ? systemPreferences.getMediaAccessStatus("microphone") : "unknown"));
+ipcMain.handle("microphone:request", async (e) => (fromHub(e) && process.platform === "darwin" ? systemPreferences.askForMediaAccess("microphone") : false));
+ipcMain.handle("microphone:open-settings", async (e) => {
+  if (!fromHub(e)) return;
+  if (process.platform === "darwin") await shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone");
+  else if (process.platform === "win32") await shell.openExternal("ms-settings:privacy-microphone");
+});
 ipcMain.handle("removal:available", (e) => (fromHub(e) ? canRemove() : false));
 ipcMain.handle("removal:open", async (e) => {
   if (fromHub(e) && (await canRemove())) showRemovalWindow();
