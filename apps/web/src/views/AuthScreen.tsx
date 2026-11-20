@@ -2,17 +2,18 @@ import { useEffect, useState, type FormEvent } from "react";
 import { SetupShell } from "../components/SetupShell.tsx";
 import { Check } from "lucide-react";
 import { api } from "../api.ts";
+import { setupCodeFromHash } from "../setup-link.ts";
 import { AuthButton, AuthError, AuthField, AuthHero, AuthInput, AuthLink, AuthPage } from "../components/auth.tsx";
 
 /** An invite link: #/join/<code>. */
 const inviteCode = () => location.hash.match(/^#\/join\/([\w-]+)/)?.[1] ?? null;
 /** The link the desktop app and installer open on a new Wisp: #/setup/<setup code>. */
-const linkedSetupCode = () => location.hash.match(/^#\/setup\/([\w-]+)/)?.[1] ?? "";
+const linkedSetupCode = () => setupCodeFromHash(location.hash);
 
 export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
   const [needsCode, setNeedsCode] = useState(false);
-  const [linkedCode] = useState(linkedSetupCode);
+  const [linkedCode, setLinkedCode] = useState(linkedSetupCode);
   const [form, setForm] = useState({ email: "", password: "", name: "", setupCode: linkedCode });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,6 +26,17 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
   const [pasted, setPasted] = useState("");
   const [attempt, setAttempt] = useState(0);
 
+  // Pasting the link into a tab that's already open only changes the hash (no reload), so pick the code up then too.
+  useEffect(() => {
+    const on = () => {
+      const next = linkedSetupCode();
+      if (!next) return;
+      setLinkedCode(next);
+      setForm((f) => ({ ...f, setupCode: next }));
+    };
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
   useEffect(() => {
     api<{ needsSetup: boolean; needsCode?: boolean }>("GET", "/api/setup")
       .then((r) => {
