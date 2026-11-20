@@ -76,11 +76,11 @@ export interface CommandSkill {
 const NEW_FOR_MS = 7 * 24 * 3600_000;
 
 /**
- * Everything an agent offers after "/", in the menu's order: skills agents learned, the harness's
- * own, Wisp's commands, then other Wisp skills. Wisp's commands keep their names; a learned skill
+ * Everything an agent offers after "/", in the menu's order: Wisp's commands, skills agents learned, the
+ * harness's own (only its built-ins unless `ownPlugins`), then other Wisp skills. Wisp's commands keep their names; a learned skill
  * wins over a same-named harness entry (it's the agent's own way), and a harness entry over a Wisp skill.
  */
-export function agentCommands(harness: CommandOption[] | undefined, wispSkills: CommandSkill[], now = Date.now()): AgentCommand[] {
+export function agentCommands(harness: CommandOption[] | undefined, wispSkills: CommandSkill[], now = Date.now(), ownPlugins = false): AgentCommand[] {
   const taken = new Set(WISP_COMMANDS.map((c) => c.name));
   const learned: AgentCommand[] = [];
   for (const s of wispSkills) {
@@ -91,6 +91,8 @@ export function agentCommands(harness: CommandOption[] | undefined, wispSkills: 
   }
   const own: AgentCommand[] = [];
   for (const c of harness ?? []) {
+    // the person's own harness skills and plugins stay out unless this agent's switch (settings.ownPlugins) is on
+    if (!c.builtIn && !ownPlugins) continue;
     if (taken.has(c.name)) continue;
     taken.add(c.name);
     const { builtIn: _b, ...rest } = c;
@@ -103,7 +105,7 @@ export function agentCommands(harness: CommandOption[] | undefined, wispSkills: 
     taken.add(s.slug);
     skills.push({ name: s.slug, description: s.description, kind: "wisp-skill", via: "prompt", group: "skill" });
   }
-  return [...learned, ...own, ...wisp, ...skills];
+  return [...wisp, ...learned, ...own, ...skills];
 }
 
 /** "/name args" at the start of a message, after an optional @mention of the agent it's for. */

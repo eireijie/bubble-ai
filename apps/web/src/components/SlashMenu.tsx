@@ -7,12 +7,11 @@ import { agentVar, cx } from "./ui.tsx";
 
 /**
  * The "/" menu, like Discord's: type "/" at the start of a message and every agent here shows
- * what it can do, in sections: skills agents learned, the harness's own commands and skills, Wisp's
- * commands, then other Wisp skills. Picking one writes "/name " (and "@handle " in a channel, so it
+ * what it can do, in sections: Wisp's commands, skills agents learned, the harness's own commands and skills, then other Wisp skills. Picking one writes "/name " (and "@handle " in a channel, so it
  * goes to that agent).
  */
 
-const GROUP_ORDER: Record<AgentCommand["group"], number> = { learned: 0, harness: 1, wisp: 2, skill: 3 };
+const GROUP_ORDER: Record<AgentCommand["group"], number> = { wisp: 0, learned: 1, harness: 2, skill: 3 };
 
 /** The menu section a command belongs in (older hubs don't say, so it's worked out from its kind). */
 export function commandGroup(c: Pick<AgentCommand, "kind"> & { group?: AgentCommand["group"] }): AgentCommand["group"] {

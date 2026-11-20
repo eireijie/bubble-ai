@@ -95,8 +95,8 @@ enum SlashMenu {
     }
   }
 
-  /** the order sections come in: what agents learned, the harness's own, Wisp's, then other skills */
-  static let sectionOrder = ["learned", "harness", "wisp", "skill"]
+  /** the order sections come in: Wisp's, what agents learned, the harness's own, then other skills */
+  static let sectionOrder = ["wisp", "learned", "harness", "skill"]
 
   static func harnessLabel(_ harness: String) -> String {
     HarnessChoice.all.first { $0.id == harness }?.label ?? harness.replacingOccurrences(of: "-", with: " ").capitalized
