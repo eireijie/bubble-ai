@@ -28,7 +28,8 @@ import type { Hub } from "./hub.ts";
 
 const run = promisify(execFile);
 const ZERO = "0".repeat(40);
-const NO_CONFIG = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: os.devNull, GIT_TERMINAL_PROMPT: "0" };
+// Git for Windows can't open os.devNull (\\.\nul) as a config file, but maps "/dev/null" itself
+const NO_CONFIG = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "/dev/null" : os.devNull, GIT_TERMINAL_PROMPT: "0" };
 const git = (cwd: string, args: string[]) => run("git", args, { cwd, env: { ...process.env, ...NO_CONFIG }, maxBuffer: 256 * 1024 * 1024 });
 
 export const GIT_PATH = "/git/vault.git";

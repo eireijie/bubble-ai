@@ -46,7 +46,9 @@ export class HarnessLogins {
     for (const [id, l] of this.live) if (l.state.harness === harness && l.state.account === account) this.cancel(id);
     const id = `login_${crypto.randomBytes(6).toString("hex")}`;
     const state: HarnessLogin = { id, harness, account, status: "running", output: "" };
-    const child = spawn(cmd.command, cmd.args, { env: { ...process.env, ...cmd.env, NO_COLOR: "1", BROWSER: "none" }, stdio: ["pipe", "pipe", "pipe"], shell: process.platform === "win32" });
+    // On Windows a harness is a .cmd shim, which needs the shell; a path with spaces must be quoted for it
+    const win = process.platform === "win32";
+    const child = spawn(win && /\s/.test(cmd.command) && !cmd.command.startsWith('"') ? `"${cmd.command}"` : cmd.command, cmd.args, { env: { ...process.env, ...cmd.env, NO_COLOR: "1", BROWSER: "none" }, stdio: ["pipe", "pipe", "pipe"], shell: process.platform === "win32" });
     const timer = setTimeout(() => this.finish(id, "failed", "The sign-in took too long, so it was stopped. Start it again."), timeoutMs);
     const l: Live = { state, child, timer, answerMs: opts.answerMs ?? 60_000, answer: null, retried: false, onChange: opts.onChange };
     this.live.set(id, l);
