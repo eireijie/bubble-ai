@@ -4,7 +4,8 @@ import { useMotionReduced } from "../../theme.ts";
 import { FAMILY_COLORS, SHAPE_TO_SILHOUETTE, SILHOUETTES, eyeInk, type Silhouette } from "../../ghostFamily.ts";
 import { ONBOARDING_GHOST_STYLE } from "../../components/onboarding/OnboardingGhost.tsx";
 import { OnboardingDots } from "../../components/onboarding/GoalsStep.tsx";
-import { agentInstructions, loadAnswers, pickedGoals, type AgentDraft, type GoalId } from "../../onboardingV3.ts";
+import { agentInstructions, cap, loadAnswers, PHRASE, pickedGoals, roleLine, type AgentDraft } from "../../onboardingV3.ts";
+export { roleLine };
 
 /** What page 3 learned (its Fact, read loosely so this page works before or without it). */
 type Fact = { group: string; text: string };
@@ -37,34 +38,6 @@ const NAME_POOL = ["Juno", "Atlas", "Pip", "Nova", "Milo", "Iris", "Otto", "Wren
 
 /** Family silhouette → the shape the app stores (block has none of its own, so it saves as classic). */
 const STORED: Record<Silhouette, GhostShape> = { ...(Object.fromEntries(Object.entries(SHAPE_TO_SILHOUETTE).map(([k, v]) => [v, k])) as Record<Silhouette, GhostShape>), block: "classic" };
-
-/** What each pick reads like in "What I do" and in the preview message. */
-const PHRASE: Record<GoalId, string> = {
-  email: "your inbox",
-  cal: "your calendar",
-  code: "your code",
-  research: "research",
-  writing: "your writing",
-  money: "your bills",
-  errands: "errands",
-  biz: "your business",
-  home: "home and family",
-  learn: "your learning",
-};
-
-const listOf = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** "Your inbox, your calendar and your code, so you can spend less time on them." */
-export function roleLine(goals: readonly string[], other: string, facts: readonly Fact[]): string {
-  const picks = pickedGoals(goals).map((g) => PHRASE[g.id]);
-  if (picks.length) return `${cap(listOf(picks.slice(0, 3)))}, so you can spend less time on them.`;
-  const extra = other.trim().replace(/[.\s]+$/, "");
-  if (extra) return `${cap(extra)}, so you can spend less time on it.`;
-  const work = facts.find((f) => f.group === "Work");
-  if (work) return `Help with ${work.text.replace(/[.\s]+$/, "").replace(/^./, (c) => c.toLowerCase())}, and whatever else you need.`;
-  return "Helps with whatever you need, so you have more time.";
-}
 
 /** One thing it learned on page 3 that reads well after "then": work first, never "You're Sam". */
 function factLine(facts: readonly Fact[]): string | null {

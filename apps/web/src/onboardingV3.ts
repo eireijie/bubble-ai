@@ -219,3 +219,31 @@ export function agentInstructions(agent: string, person: string, role: string, g
 }
 
 export const saveAgentDraft = (workspaceId: string, agentDraft: AgentDraft) => saveAnswers(workspaceId, { agentDraft });
+
+/** What each pick reads like in "What I do" and in the preview message. */
+export const PHRASE: Record<GoalId, string> = {
+  email: "your inbox",
+  cal: "your calendar",
+  code: "your code",
+  research: "research",
+  writing: "your writing",
+  money: "your bills",
+  errands: "errands",
+  biz: "your business",
+  home: "home and family",
+  learn: "your learning",
+};
+
+export const listOf = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** "Helps with your inbox, your calendar and research, so you have more time." Every pick reads after "Helps with". */
+export function roleLine(goals: readonly string[], other: string, facts: readonly { group: string; text: string }[]): string {
+  const picks = pickedGoals(goals).map((g) => PHRASE[g.id]);
+  if (picks.length) return `Helps with ${listOf(picks.slice(0, 3))}, so you have more time.`;
+  const extra = other.trim().replace(/[.\s]+$/, "");
+  if (extra) return `${cap(extra)}, and whatever else you need.`;
+  const work = facts.find((f) => f.group === "Work");
+  if (work) return `Help with ${work.text.replace(/[.\s]+$/, "").replace(/^./, (c) => c.toLowerCase())}, and whatever else you need.`;
+  return "Helps with whatever you need, so you have more time.";
+}
