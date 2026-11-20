@@ -81,7 +81,7 @@ describe("still ghosts", () => {
 });
 
 describe("ghost family", () => {
-  const look = { ...defaultAppearance("ghost"), color: "#3cc0a6", color2: undefined };
+  const look = { ...defaultAppearance("ghost"), color: "#3cc0a6", color2: undefined, hat: "none" as const, accessory: "none" as const };
   const render = (size: number, mood: Parameters<typeof Ghost>[0]["mood"] = "awake", shape = look.shape) => renderToStaticMarkup(createElement(Ghost, { look: { ...look, shape }, size, mood }));
   it("is one flat colour with two eyes and its own silhouette", () => {
     const html = render(40);
@@ -100,6 +100,24 @@ describe("ghost family", () => {
     // tiny avatars keep the laptop but drop the bubbles
     expect(render(22, "working")).toContain("wisp-kit");
     expect(render(22, "working")).not.toContain("wisp-thoughts");
+  });
+  it("has one mouth in the eyes' ink: flat, a smile for the pointer, pressed while working, open while talking", () => {
+    const html = render(40);
+    for (const m of ["m-flat", "m-smile", "m-work", "m-talk"]) expect(html).toContain(m);
+    expect(html).toMatch(/class="wisp-mouth" stroke="rgba\(20,20,20,.88\)"/);
+    // a mustache or a look with no mouth hides it; tiny avatars skip it
+    expect(renderToStaticMarkup(createElement(Ghost, { look: { ...look, accessory: "mustache" }, size: 40 }))).not.toContain("wisp-mouth");
+    expect(renderToStaticMarkup(createElement(Ghost, { look: { ...look, mouth: "none" }, size: 40 }))).not.toContain("wisp-mouth");
+    expect(render(22)).not.toContain("wisp-mouth");
+  });
+  it("still wears its hat and neckwear, and makes room for the hat", () => {
+    const worn = renderToStaticMarkup(createElement(Ghost, { look: { ...look, hat: "tophat", accessory: "bowtie" }, size: 40 }));
+    expect(worn).toContain('fill="#2b2735"');
+    expect(worn).toContain('fill="#e5484d"');
+    expect(worn).toContain('viewBox="-4 -8 48 48"');
+    expect(render(40)).toContain('viewBox="0 0 40 40"');
+    const glasses = renderToStaticMarkup(createElement(Ghost, { look: { ...look, accessory: "glasses" }, size: 40 }));
+    expect(glasses).toContain('stroke="#2b2735"');
   });
   it("gives white looks a family colour instead of a white ghost", () => {
     const white = renderToStaticMarkup(createElement(Ghost, { look: { ...look, color: "#ffffff", color2: "#ffffff" }, size: 40, seed: "nova" }));
