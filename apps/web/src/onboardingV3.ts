@@ -75,6 +75,8 @@ export interface OnboardingAnswers {
   agentId?: string;
   /** page 4: the agent the person shaped; page 5 creates it once its AI is chosen */
   agentDraft?: AgentDraft;
+  /** page 5's Continue switched on calls, routines and the morning plan (onboardingSetup) */
+  setupDone?: boolean;
   savedAt?: number;
 }
 
@@ -153,7 +155,7 @@ export interface Fact {
 
 export type ScanPart = "git" | "harnesses" | "notes" | "projects";
 export const SCAN_PARTS: { id: ScanPart; label: string }[] = [
-  { id: "git", label: "Your name in git" },
+  { id: "git", label: "Who you are in git" },
   { id: "harnesses", label: "AI apps you're signed in to" },
   { id: "notes", label: "Your notes for them" },
   { id: "projects", label: "Projects you opened lately" },

@@ -69,7 +69,8 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   const [shown, setShown] = useState(0);
   const [pairing, setPairing] = useState(false);
   // mods that were on when the page opened: undoing one keeps its row, as "Undone."
-  const [mods] = useState<FeatureKey[]>(() => FEATURE_KEYS.filter((k) => features[k] && !FEATURE_PRESETS.simple[k]));
+  // (calls have their own row below)
+  const [mods] = useState<FeatureKey[]>(() => FEATURE_KEYS.filter((k) => k !== "voice" && features[k] && !FEATURE_PRESETS.simple[k]));
 
   const load = useCallback(() => {
     if (!agent) return;
@@ -96,7 +97,7 @@ export function HereView({ agentId }: { agentId?: string | null }) {
     const computer = agent.computerId ? onboarding?.computers.find((c) => c.id === agent.computerId) : undefined;
     if (computer) {
       const shared = agents.filter((a) => a.computerId === computer.id).length > 1;
-      rows.push({ id: "computer", icon: <Monitor {...ICON} />, title: shared ? "Shared computer" : computer.name, sub: computer.status === "running" ? `Started. ${shared ? "Your agents take turns on it." : `${agent.name} works on it.`}` : `Starts when ${agent.name} needs it.` });
+      rows.push({ id: "computer", icon: <Monitor {...ICON} />, title: shared ? "Shared computer" : computer.name, sub: computer.status === "running" ? `Started. ${shared ? "Your agents take turns on it." : `${agent.name} works on it.`}` : `Starts when ${agent.name} needs it.`, action: { label: "Change", run: () => go({ view: "agents", agentId: agent.id, tab: null }) } });
     }
     for (const r of routines ?? []) {
       rows.push({
@@ -143,7 +144,10 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   rows.push({ id: "notif", icon: <Bell {...ICON} />, title: "Notifications", sub: notifOn ? "On. Only when something's done or needs a yes." : perm === "denied" ? "Off. Blocked in this browser's settings." : "Off.", action: notifOn ? undefined : { label: "Settings", run: () => go({ view: "settings", page: "notifications" }) } });
   if (agent) {
     const listen = inDesktopApp() ? openaiKey : canRecognize();
-    if (listen === true) rows.push({ id: "calls", icon: <Phone {...ICON} />, title: "Calls", sub: `Ready. Call ${agent.name} from the name pill.` });
+    // calls are switched on by onboarding; Undo switches them off (owners only: it's a workspace switch)
+    const callsToggle = owner ? { toggle: { off: !features.voice, run: async (off: boolean) => void (await setFeatures({ voice: !off })) } } : {};
+    if (!features.voice) rows.push({ id: "calls", icon: <Phone {...ICON} />, title: "Calls", sub: "Off.", ...callsToggle });
+    else if (listen === true) rows.push({ id: "calls", icon: <Phone {...ICON} />, title: "Calls", sub: `Ready. Call ${agent.name} from the name pill.`, ...callsToggle });
     else if (listen === false)
       rows.push({
         id: "calls",

@@ -120,6 +120,8 @@ export function projectNameFromDir(dir: string): string | null {
 }
 
 const PROJECTS = 5;
+/** Folder names that say nothing about the work: never shown as a project. */
+const GENERIC = new Set(["files", "file", "src", "source", "app", "apps", "code", "projects", "project", "dev", "repos", "repo", "git", "github", "desktop", "documents", "downloads", "tmp", "temp", "test", "tests", "home", "work", "workspace", "workspaces", "scratch", "scratchpad", "worktrees", "users", "private", "var", "lib", "bin", "build", "dist", "packages", "new", "untitled", "misc", "stuff"]);
 
 async function projectsPart(home: string): Promise<DiscoverResult> {
   const root = path.join(home, ".claude", "projects");
@@ -130,7 +132,7 @@ async function projectsPart(home: string): Promise<DiscoverResult> {
   const facts: Fact[] = [];
   for (const { d } of dated.filter((x) => x.at >= monthAgo).sort((a, b) => b.at - a.at)) {
     const name = projectNameFromDir(d);
-    if (!name || seen.has(name.toLowerCase()) || looksSecret(name)) continue;
+    if (!name || seen.has(name.toLowerCase()) || GENERIC.has(name.toLowerCase()) || looksSecret(name)) continue;
     seen.add(name.toLowerCase());
     facts.push({ group: "Work", text: name, src: "projects" });
     if (facts.length >= PROJECTS) break;

@@ -75,12 +75,15 @@ export function modelName(ctx: Pick<AgentContext, "model" | "harness" | "connect
   const id = ctx.model;
   const entry = models?.models?.find((m) => m.id === id) ?? models?.catalog?.models.find((m) => m.id === id);
   const provider = ctx.connection?.provider ?? OWN_PROVIDER[ctx.harness] ?? null;
-  return { name: id ? prettyModel(entry?.label ?? id) : "Default model", provider: provider ? providerLabel(provider) : null };
+  // Hermes labels its models "OpenAI Codex · gpt-5.6-luna": the part before the dot is its provider, not the harness
+  const [own, model] = /^(.+?) · (.+)$/.exec(entry?.label ?? "")?.slice(1) ?? [];
+  const label = model ?? entry?.label ?? id;
+  return { name: label ? prettyModel(label) : "Default model", provider: provider ? providerLabel(provider) : (own ?? null) };
 }
 
-/** The chat's quiet line: "Hermes · Opus 5.5 · High" on phones, "Opus 5.5 · High" in the desktop composer. */
-export function runLine(ctx: AgentContext, models: AgentModels | null, withHarness: boolean): string {
-  return [withHarness ? harnessLabel(ctx.harness) : null, modelName(ctx, models).name, ctx.effort ? effortLabel(ctx.effort) : null].filter(Boolean).join(" · ");
+/** The chat's quiet line about who runs: "Hermes · Opus 5.5 · High", or just "Hermes" with no model set. */
+export function runLine(ctx: AgentContext, models: AgentModels | null): string {
+  return [harnessLabel(ctx.harness), ctx.model ? modelName(ctx, models).name : null, ctx.effort ? effortLabel(ctx.effort) : null].filter(Boolean).join(" · ");
 }
 
 /** How full the context is: the share, and "98K of 258K". */
