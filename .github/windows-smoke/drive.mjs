@@ -149,7 +149,14 @@ if (aiPage) {
   console.log(`\n=== AI page (${page.url()})\n${text.slice(0, 1500)}`);
   await shot(page, "ai-page");
   proven.push("onboarding reached the AI page");
-  if (/On Windows, use an API key/.test(text)) proven.push("Claude subscription says up front it needs an API key on Windows");
+  // the device's details (its platform) arrive a moment after the page
+  let upFront = false;
+  for (let i = 0; i < 20 && !upFront; i++) {
+    upFront = /On Windows, use an API key/.test(await visibleText(page));
+    if (!upFront) await sleep(1000);
+  }
+  await shot(page, "ai-page-device-known");
+  if (upFront) proven.push("Claude subscription says up front it needs an API key on Windows");
   else failures.push("Claude subscription doesn't say it needs an API key on Windows");
   for (const want of ["Claude subscription", "ChatGPT subscription", "I have an API key"]) if (!text.includes(want)) failures.push(`AI page has no "${want}" option`);
   // Claude subscription on Windows: it must say plainly what to do, not fail silently
@@ -165,7 +172,7 @@ if (aiPage) {
   await shot(page, "ai-claude-after");
   const after = await visibleText(page);
   console.log(`\n=== after Claude subscription\n${after.slice(0, 1500)}`);
-  if (/API key/i.test(after) && /Windows|Mac or Linux/i.test(after)) proven.push("Claude subscription explains it needs an API key on Windows");
+  if (/API key/i.test(after) && /Windows|Mac or Linux/i.test(after)) proven.push("after Sign in, Claude subscription still says to use an API key on Windows");
   else console.log("NOTE: no Windows-specific explanation seen after picking Claude subscription (see screenshot)");
 } else failures.push(`onboarding never reached the AI page (stuck on "${last}")`);
 
