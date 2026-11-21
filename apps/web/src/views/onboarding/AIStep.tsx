@@ -274,7 +274,8 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
     ...(found
       ? [{ id: "found" as const, title: harnessLabel(found.harness), sub: found.connectionId ? "Already connected to Wisp." : found.harness === "claude-code" ? `Signed in on ${here}. Uses your Claude plan.` : `Signed in on ${here}.`, icon: ICON.found, found: true, harness: found.harness }]
       : []),
-    { id: "claude", title: "Claude subscription", sub: "Pro or Max. Sign in, then paste the code it shows.", icon: ICON.claude, harness: "claude-code" },
+    // Claude's sign-in runs `claude setup-token` in a terminal on the device, which Windows can't do yet
+    { id: "claude", title: "Claude subscription", sub: device?.capabilities?.platform === "win32" ? "Needs a Mac or Linux computer for now. On Windows, use an API key." : "Pro or Max. Sign in, then paste the code it shows.", icon: ICON.claude, harness: "claude-code" },
     { id: "chatgpt", title: "ChatGPT subscription", sub: "Plus or higher. Sign in with ChatGPT.", icon: ICON.chatgpt, harness: "codex" },
     { id: "grok", title: "Grok subscription", sub: "Sign in with your Grok account.", icon: ICON.grok, harness: "hermes" },
     { id: "key", title: "I have an API key", sub: "Claude, OpenAI, OpenRouter, Gemini or Grok.", icon: ICON.key, harness: harnessFor(keyFor, "key", support) },

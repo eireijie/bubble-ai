@@ -94,7 +94,7 @@ if (/Create your account/i.test(await visibleText(page))) await page.getByRole("
 await sleep(3000);
 
 // 3. onboarding pages up to the AI page; at each new page, log it, screenshot it, move on
-const FORWARD = /^(Continue|Skip|Skip for now|Not now|Next|Later|Maybe later|Use this|Done|Start)$/i;
+const FORWARD = /^(Continue|Skip|Skip for now|Not now|Next|Later|Maybe later|Use this|Done|Start|Only at home for now)$/i;
 let last = "";
 let same = 0;
 let aiPage = false;
@@ -120,7 +120,7 @@ while (Date.now() < until) {
   }
   const buttons = await page.locator("button:visible").all();
   const labels = [];
-  for (const b of buttons) labels.push(((await b.innerText().catch(() => "")) || "").trim());
+  for (const b of buttons) labels.push(((await b.innerText().catch(() => "")) || "").trim().split("\n")[0].trim());
   let target = null;
   // after a few tries on the same page, pick its first choice before moving on
   if (same >= 2) {
@@ -134,7 +134,7 @@ while (Date.now() < until) {
     if (!FORWARD.test(label)) continue;
     if (await buttons[i].isDisabled().catch(() => true)) continue;
     // prefer skipping optional things over setting them up
-    if (!target || /skip|not now|later/i.test(label)) target = { b: buttons[i], label };
+    if (!target || /skip|not now|later|only at home/i.test(label)) target = { b: buttons[i], label };
   }
   if (target) {
     console.log(`click "${target.label}" (buttons: ${labels.filter(Boolean).join(" | ")})`);
@@ -149,6 +149,15 @@ if (aiPage) {
   console.log(`\n=== AI page (${page.url()})\n${text.slice(0, 1500)}`);
   await shot(page, "ai-page");
   proven.push("onboarding reached the AI page");
+  // the device's details (its platform) arrive a moment after the page
+  let upFront = false;
+  for (let i = 0; i < 20 && !upFront; i++) {
+    upFront = /On Windows, use an API key/.test(await visibleText(page));
+    if (!upFront) await sleep(1000);
+  }
+  await shot(page, "ai-page-device-known");
+  if (upFront) proven.push("Claude subscription says up front it needs an API key on Windows");
+  else failures.push("Claude subscription doesn't say it needs an API key on Windows");
   for (const want of ["Claude subscription", "ChatGPT subscription", "I have an API key"]) if (!text.includes(want)) failures.push(`AI page has no "${want}" option`);
   // Claude subscription on Windows: it must say plainly what to do, not fail silently
   await page.getByText("Claude subscription", { exact: true }).first().click({ timeout: 5000 }).catch((e) => failures.push(`couldn't pick Claude subscription: ${e.message}`));
@@ -163,7 +172,7 @@ if (aiPage) {
   await shot(page, "ai-claude-after");
   const after = await visibleText(page);
   console.log(`\n=== after Claude subscription\n${after.slice(0, 1500)}`);
-  if (/API key/i.test(after) && /Windows|Mac or Linux/i.test(after)) proven.push("Claude subscription explains it needs an API key on Windows");
+  if (/API key/i.test(after) && /Windows|Mac or Linux/i.test(after)) proven.push("after Sign in, Claude subscription still says to use an API key on Windows");
   else console.log("NOTE: no Windows-specific explanation seen after picking Claude subscription (see screenshot)");
 } else failures.push(`onboarding never reached the AI page (stuck on "${last}")`);
 
