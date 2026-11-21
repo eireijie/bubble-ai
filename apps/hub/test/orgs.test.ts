@@ -348,8 +348,10 @@ describe("organizations", () => {
     const t = await login("me@example.com");
     const solo = (await api("POST", "/api/members", { email: "solo@example.com", name: "Solo", password: "password123" }, (await api("POST", `/api/orgs/${firstOrg}/switch`, undefined, t)).data.token)).data;
     expect(solo.id).toBeTruthy();
-    const s = await login("solo@example.com");
-    const own = (await api("POST", "/api/orgs", { name: "Solo's" }, s)).data;
+    // only the hub's owner makes organizations: Alex makes Solo's and hands it to Solo
+    const made = (await api("POST", "/api/orgs", { name: "Solo's" }, await login("me@example.com"))).data;
+    hub.store.addMember(made.org.id, solo.id, "owner");
+    const own = { org: made.org, token: (await api("POST", `/api/orgs/${made.org.id}/switch`, undefined, await login("solo@example.com"))).data.token };
     // leave Home so Solo's is the only one
     hub.store.removeMember(firstOrg, solo.id);
     expect((await api("DELETE", `/api/orgs/${own.org.id}`, { name: "Solo's" }, own.token)).status).toBe(409);

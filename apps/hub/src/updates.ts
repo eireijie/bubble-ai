@@ -92,7 +92,7 @@ export class Updates {
   }
 }
 
-type Need = (req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean }) => { workspaceId: string } | null;
+type Need = (req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; hubOwner?: boolean }) => { workspaceId: string } | null;
 
 export function registerUpdateApi(app: FastifyInstance, hub: Hub, { need }: { need: Need }) {
   const { store, updates } = hub;
@@ -109,7 +109,7 @@ export function registerUpdateApi(app: FastifyInstance, hub: Hub, { need }: { ne
   });
 
   app.post("/api/updates/hub", async (req, reply) => {
-    if (!need(req, reply, { owner: true })) return;
+    if (!need(req, reply, { hubOwner: true })) return;
     try {
       updates.updateHub();
     } catch (e) {

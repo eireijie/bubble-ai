@@ -9,7 +9,7 @@ import { GIT_PATH, newSyncToken, syncProblem } from "./vault-git.ts";
 import { resolveVaultLocation, saveVaultLocation, type MoveResult, type VaultLocation } from "./vault-location.ts";
 
 interface Helpers {
-  need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean }): Caller | null;
+  need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean; hubOwner?: boolean }): Caller | null;
   parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null;
   dataDir: string;
   /** where the vault was opened from when the hub started, and what happened to an earlier vault */
@@ -66,7 +66,7 @@ export function registerMemoryStorageApi(app: FastifyInstance, hub: Hub, h: Help
   });
 
   app.post("/api/memory/storage/restart", async (req, reply) => {
-    const c = need(req, reply, { owner: true });
+    const c = need(req, reply, { hubOwner: true });
     if (!c) return;
     if (!underKeeper()) return reply.code(400).send({ error: "Wisp can't restart itself here. Stop it and start it again." });
     setTimeout(() => h.restart(), 300);

@@ -223,15 +223,18 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
 
   /**
    * The caller, or a 401/403. `user`: people only; `member`: people who aren't guests; `owner`:
-   * workspace owners; `notGuest`: people who aren't guests, and agents (which act for a member).
+   * workspace owners; `notGuest`: people who aren't guests, and agents (which act for a member);
+   * `hubOwner`: an owner of the hub's first workspace, wherever they are now. Hub-wide controls
+   * (reach, updates, restart, looking around the hub's computer, creating organizations) use it,
+   * because anyone can own a workspace of their own.
    */
-  function need(req: FastifyRequest, reply: FastifyReply, opts: { owner?: boolean; user?: boolean; member?: boolean; notGuest?: boolean } = {}): Caller | null {
+  function need(req: FastifyRequest, reply: FastifyReply, opts: { owner?: boolean; user?: boolean; member?: boolean; notGuest?: boolean; hubOwner?: boolean } = {}): Caller | null {
     const c = caller(req);
     if (!c || (c.actor.kind === "agent" && !c.actor.id)) {
       reply.code(401).send({ error: "unauthorized" });
       return null;
     }
-    if ((opts.user || opts.owner || opts.member) && c.actor.kind !== "user") {
+    if ((opts.user || opts.owner || opts.member || opts.hubOwner) && c.actor.kind !== "user") {
       reply.code(403).send({ error: "users only" });
       return null;
     }
@@ -243,7 +246,17 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       reply.code(403).send({ error: "owner only" });
       return null;
     }
+    if (opts.hubOwner && !isHubOwner(c)) {
+      reply.code(403).send({ error: "only the hub's owner can do this" });
+      return null;
+    }
     return c;
+  }
+
+  /** Whether this caller is a person who owns the hub's first workspace (the hub's owner). */
+  function isHubOwner(c: Caller): boolean {
+    const first = store.firstWorkspace();
+    return c.actor.kind === "user" && !!first && store.role(first.id, c.actor.id) === "owner";
   }
 
   function parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null {
