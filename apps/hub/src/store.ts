@@ -417,11 +417,11 @@ export class Store {
 
   // --- approvals ------------------------------------------------------------
 
-  createApproval(a: { workspaceId: string; agentId: string; channelId: string; threadId: string | null; summary: string; details: string; login?: Approval["login"]; flow?: Approval["flow"]; storage?: Approval["storage"]; device?: Approval["device"]; apple?: Approval["apple"] }): Approval {
+  createApproval(a: { workspaceId: string; agentId: string; channelId: string; threadId: string | null; summary: string; details: string; login?: Approval["login"]; flow?: Approval["flow"]; storage?: Approval["storage"]; device?: Approval["device"]; apple?: Approval["apple"]; mods?: Approval["mods"] }): Approval {
     const approvalId = id("apr");
     this.db
-      .prepare("INSERT INTO approvals (id, workspace_id, agent_id, channel_id, thread_id, summary, details, status, created_at, login_json, flow_json, storage_json, device_json, apple_json) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)")
-      .run(approvalId, a.workspaceId, a.agentId, a.channelId, a.threadId, a.summary, a.details, now(), a.login ? JSON.stringify(a.login) : null, a.flow ? JSON.stringify(a.flow) : null, a.storage ? JSON.stringify(a.storage) : null, a.device ? JSON.stringify(a.device) : null, a.apple ? JSON.stringify(a.apple) : null);
+      .prepare("INSERT INTO approvals (id, workspace_id, agent_id, channel_id, thread_id, summary, details, status, created_at, login_json, flow_json, storage_json, device_json, apple_json, mods_json) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)")
+      .run(approvalId, a.workspaceId, a.agentId, a.channelId, a.threadId, a.summary, a.details, now(), a.login ? JSON.stringify(a.login) : null, a.flow ? JSON.stringify(a.flow) : null, a.storage ? JSON.stringify(a.storage) : null, a.device ? JSON.stringify(a.device) : null, a.apple ? JSON.stringify(a.apple) : null, a.mods ? JSON.stringify(a.mods) : null);
     return this.approval(approvalId)!;
   }
 
@@ -1540,6 +1540,7 @@ type ApprovalRow = {
   storage_json: string | null;
   apple_json: string | null;
   device_json?: string | null;
+  mods_json?: string | null;
 };
 
 function toApproval(r: ApprovalRow): Approval {
@@ -1561,6 +1562,7 @@ function toApproval(r: ApprovalRow): Approval {
     storage: r.storage_json ? JSON.parse(r.storage_json) : null,
     apple: r.apple_json ? JSON.parse(r.apple_json) : null,
     device: r.device_json ? JSON.parse(r.device_json) : null,
+    mods: r.mods_json ? JSON.parse(r.mods_json) : null,
   };
 }
 

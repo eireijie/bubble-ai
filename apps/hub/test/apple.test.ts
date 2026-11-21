@@ -173,6 +173,12 @@ describe("speaking up", () => {
   it("keeps one Apple watch, learns what's there on the first look, then raises only new things", async () => {
     const row = () => hub.store.db.prepare("SELECT * FROM watches WHERE workspace_id = ? AND service = 'apple'").get(ws) as any;
     expect(row()).toBeTruthy();
+    // unanswered texts stay out of agents' prompts until the person turns them on
+    expect((await api("GET", "/api/apple")).data.settings.speakUp.unanswered).toBe(false);
+    const before = asked.length;
+    await hub.apple.look(ws, null, new Date("2026-11-14T07:00:00Z"));
+    expect(asked.slice(before).some((o) => o.op === "messages_unanswered")).toBe(false);
+    await api("PUT", "/api/apple/settings", { speakUp: { unanswered: true } });
     unanswered = [{ chatId: "c1", name: "Mom", handles: ["+15550000000"], isGroup: false, lastText: "coming Sunday?", lastAt: "2026-11-13T22:00:00Z", lastFromMe: false }];
     const first = await hub.apple.look(ws, null, new Date("2026-11-14T08:00:00Z"));
     expect(first.events).toEqual([]);

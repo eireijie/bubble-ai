@@ -449,6 +449,7 @@ export class Apple {
       const from = s.speakUp.unansweredFrom.map((f) => f.toLowerCase());
       for (const c of chats ?? []) {
         if (from.length && !from.some((f) => c.name.toLowerCase().includes(f) || c.handles.some((h) => h.toLowerCase().includes(f)))) continue;
+        // someone else's words: the watch's prompt frames them as outside content (frameOutside in watches.ts)
         events.push({ kind: "text_unanswered", itemId: `chat:${c.chatId}`, title: `${c.name} texted you and hasn't had an answer`, actor: c.name, preview: c.lastText.slice(0, 200), happenedAt: c.lastAt });
       }
     }

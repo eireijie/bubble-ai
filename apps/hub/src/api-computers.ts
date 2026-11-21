@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ComputerAction, DEVICE_HARNESS, FileName, MAX_TRANSFER_BYTES, HARNESS_IDS, parseCron, runsInVm, soulPath, soulTemplate, type Computer, type DiscoveredAgent, type FileData, type FolderListing, type RecordedStep } from "@wisp/core";
 import type { Caller } from "./api.ts";
 import { ComputerError } from "./computers.ts";
+import { decideModsApproval } from "./api-background.ts";
 import { OrgoClient, OrgoError } from "./orgo.ts";
 import { routineSlug } from "./routines.ts";
 import type { Hub } from "./hub.ts";
@@ -637,6 +638,15 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
       void hub.storage.decide(a, body.approve, !!body.always).then((verdict) => {
         if (agent && store.channel(a.channelId)) hub.postMessage({ channelId: a.channelId, threadId: a.threadId, author: c.actor, body: `@${agent.handle} ${verdict}${note}`, onBehalfOf: a.storage!.requestedBy ?? c.actor.id });
       });
+      return decided;
+    }
+    if (a.mods) {
+      // turning on mods is an owner's call, like Settings → Mods
+      if (c.viewer.role !== "owner") return reply.code(403).send({ error: "Only owners can turn mods on" });
+      const decided = store.decideApproval(a.id, body.approve ? "approved" : "denied", c.actor.id, body.note)!;
+      hub.broadcast(c.workspaceId, { type: "approval", approval: decided }, hub.audience(a.channelId));
+      const verdict = decideModsApproval(hub, a, body.approve);
+      if (agent && store.channel(a.channelId)) hub.postMessage({ channelId: a.channelId, threadId: a.threadId, author: c.actor, body: `@${agent.handle} ${verdict}${note}`, onBehalfOf: a.mods.requestedBy });
       return decided;
     }
     const decided = store.decideApproval(a.id, body.approve ? "approved" : "denied", c.actor.id, body.note)!;
