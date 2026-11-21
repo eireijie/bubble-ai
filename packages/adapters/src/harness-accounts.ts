@@ -45,7 +45,9 @@ export const SIGN_IN_STATUS: Record<string, { binary: string; args: string[]; re
 const askHarness: SignInProbe = (harness, binary, env) =>
   new Promise((resolve) => {
     const s = SIGN_IN_STATUS[harness];
-    execFile(binary, s.args, { env: { ...process.env, ...env }, timeout: 15_000 }, (err, stdout, stderr) => {
+    // On Windows an npm-installed harness is a claude.cmd / codex.cmd shim, which only a shell can start
+    const win = process.platform === "win32";
+    execFile(win && /\s/.test(binary) ? `"${binary}"` : binary, s.args, { env: { ...process.env, ...env }, timeout: 15_000, shell: win, windowsHide: true }, (err, stdout, stderr) => {
       const code = err ? (err as { code?: unknown }).code : 0;
       // it didn't run at all (not installed, timed out): that says nothing about the sign-in
       resolve(typeof code === "number" ? s.read(stdout, code, stderr) : null);

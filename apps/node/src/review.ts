@@ -122,7 +122,7 @@ export async function runChecks(dir: string, w: { repo: string; branch: string; 
   for (const name of names) {
     const started = Date.now();
     try {
-      const r = await exec(npm, ["run", "--silent", name], { cwd, timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024, env: { ...process.env, CI: "1", FORCE_COLOR: "0" } });
+      const r = await exec(npm, ["run", "--silent", name], { cwd, shell: process.platform === "win32", timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024, env: { ...process.env, CI: "1", FORCE_COLOR: "0" } });
       out.push({ name, ok: true, output: tail(`${r.stdout}\n${r.stderr}`), ms: Date.now() - started });
     } catch (e) {
       const err = e as { stdout?: string; stderr?: string; killed?: boolean; message: string };
