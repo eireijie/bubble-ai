@@ -812,7 +812,7 @@ body {
 .ob-dot { display: block; height: 8px; width: 8px; border-radius: 4px; background: var(--line); transition: width 450ms cubic-bezier(0.2, 0.9, 0.25, 1), background-color 350ms; }
 .ob-dot[data-state="done"], .ob-dot[data-state="now"] { background: var(--ink); }
 .ob-dot[data-state="now"] { width: 28px; }
-.ob-step { width: min(620px, calc(100% - 32px)); margin: 24px auto 48px; display: flex; flex-direction: column; gap: 22px; animation: ob-in 450ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+.ob-step { width: min(620px, calc(100% - 32px)); margin: 24px auto 48px; display: flex; flex-direction: column; gap: 22px; animation: ob-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .ob-narrow { width: 100%; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
 .ob-head { display: flex; flex-direction: column; gap: 8px; }
 .ob-head h1 { margin: 0; font-size: 28px; font-weight: 650; letter-spacing: -0.025em; line-height: 1.15; }
@@ -877,7 +877,6 @@ body {
   .ob-side { width: auto; flex-direction: row; align-items: center; padding: 12px 16px; gap: 12px; border-right: 0; border-bottom: 1px solid var(--line); }
   .ob-brand span { display: none; }
   .ob-ghost { flex-direction: row; justify-content: flex-start; gap: 10px; }
-  .ob-ghost svg { width: 44px; height: 44px; }
   .ob-line { text-align: left; max-width: none; }
   .ob-main { overflow: visible; }
   .ob-top { padding: 0 12px; height: 52px; }
@@ -890,6 +889,49 @@ body {
   .ob-dot, .ob-bar > div { transition: none; }
 }
 .ob-card > .ob-rule:first-child { border-top: 0; }
+
+/* First run, alive (2026-11-21 design): one spring, blocks rise in 60 ms apart, picks slide, things land one by one */
+.ob-stagger > * { animation: ob-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ob-stagger > :nth-child(2) { animation-delay: 60ms; }
+.ob-stagger > :nth-child(3) { animation-delay: 120ms; }
+.ob-stagger > :nth-child(4) { animation-delay: 180ms; }
+.ob-stagger > :nth-child(5) { animation-delay: 240ms; }
+.ob-stagger > :nth-child(6) { animation-delay: 300ms; }
+.ob-stagger > :nth-child(n+7) { animation-delay: 360ms; }
+/* a choice list whose selection slides between rows instead of jumping */
+.ob-slide { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.ob-slide-mark { position: absolute; left: 0; right: 0; z-index: 1; border: 1.5px solid var(--ink); border-radius: var(--ob-slide-r, 10px); pointer-events: none; transition: top 450ms cubic-bezier(0.22, 1, 0.36, 1), height 450ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms; }
+.ob-slide > .setup-choice[aria-checked="true"] { border-color: transparent; }
+/* a block that slides open below what you picked */
+.ob-open { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 450ms cubic-bezier(0.22, 1, 0.36, 1), opacity 300ms; }
+.ob-open[data-open="true"] { grid-template-rows: 1fr; opacity: 1; }
+.ob-open > div { min-height: 0; overflow: hidden; }
+/* what a first hello already knows: underlined, with where it learned it on hover */
+.ob-known { text-decoration: underline dotted color-mix(in srgb, currentColor 55%, transparent); text-underline-offset: 3px; text-decoration-thickness: 1.5px; cursor: help; }
+/* the host putting on its colour */
+.ob-dress stop { transition: stop-color 600ms cubic-bezier(0.22, 1, 0.36, 1); }
+/* a check that draws itself */
+.ob-draw path { stroke-dasharray: 24; stroke-dashoffset: 0; animation: setup-draw 380ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* the password meter: four bars that fill as it gets stronger */
+.ob-meter { display: flex; gap: 4px; margin-top: 6px; }
+.ob-meter i { flex: 1; height: 3px; border-radius: 2px; background: var(--line); transition: background-color 300ms; }
+.ob-meter i[data-on="true"] { background: var(--ink); }
+/* a sweep across a tile while it looks around */
+.ob-sweep { position: relative; overflow: hidden; }
+.ob-sweep::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 7%, transparent), transparent); transform: translateX(-100%); animation: ob-sweep 1.2s ease-in-out infinite; pointer-events: none; }
+@keyframes ob-sweep { to { transform: translateX(100%); } }
+/* typing: a thin caret after the text while it's still being written */
+.ob-caret::after { content: ""; display: inline-block; width: 1.5px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: currentColor; animation: ob-caret 900ms steps(1) infinite; }
+@keyframes ob-caret { 50% { opacity: 0; } }
+/* three live steps: a dot, a spinner, a check */
+.ob-steps { display: flex; flex-direction: column; gap: 8px; }
+.ob-steps li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; transition: color 300ms; }
+.ob-steps li[data-state="later"] { color: var(--faint); }
+@media (prefers-reduced-motion: reduce) {
+  .ob-stagger > *, .ob-draw path, .ob-sweep::after, .ob-caret::after { animation: none; }
+  .ob-slide-mark, .ob-open, .ob-meter i, .ob-steps li { transition: none; }
+  .ob-sweep::after { display: none; }
+}
 
 /* ---------- the desktop rail: 72px, opens to 300px over the page while the pointer rests on it ---------- */
 .rail { width: 72px; transition: width var(--t-drawer) var(--drawer), box-shadow var(--t-drawer) var(--drawer); }

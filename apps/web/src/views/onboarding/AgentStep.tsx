@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { GhostShape } from "@wisp/core";
-import { useMotionReduced } from "../../theme.ts";
+import { motionReduced, useMotionReduced } from "../../theme.ts";
 import { FAMILY_COLORS } from "../../ghostFamily.ts";
 import { Ghost } from "../../components/Ghost.tsx";
 import { agentInstructions, cap, loadAnswers, PHRASE, pickedGoals, roleLine, type AgentDraft } from "../../onboardingV3.ts";
 import { PageTop } from "../../components/onboarding/PageTop.tsx";
+import { HOST_LOOK, HostGhost, OB_EASE, hostReact } from "../../components/onboarding/HostGhost.tsx";
+import { WHITE_WISP } from "../../components/SetupStage.tsx";
 export { roleLine };
 
 /** What page 3 learned (its Fact, read loosely so this page works before or without it). */
@@ -89,8 +91,24 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
   const [role, setRole] = useState(() => (draft?.role && !/, so you can spend less time on (them|it)\.$/.test(draft.role) ? draft.role : roleLine(answers.goals, answers.other, facts)));
   const [color, setColor] = useState<string>(draft?.color ?? FAMILY_COLORS[0]);
   const [shape, setShape] = useState<GhostShape>(draft?.shape && SHAPES.includes(draft.shape) ? draft.shape : "classic");
-  const [hop, setHop] = useState(0);
   const [smile, setSmile] = useState(false);
+  // a new shape morphs in (a quick shrink and twist back to rest), never a cut
+  const morph = useRef<HTMLDivElement>(null);
+  const shownShape = useRef(shape);
+  useEffect(() => {
+    if (shownShape.current === shape) return;
+    shownShape.current = shape;
+    const el = morph.current;
+    if (!el || motionReduced() || typeof el.animate !== "function") return;
+    el.animate([{ transform: "scale(0.86) rotate(-6deg)", opacity: 0.55 }, { transform: "none", opacity: 1 }], { duration: 300, easing: OB_EASE });
+  }, [shape]);
+  // the white host puts on the agent's colour a beat after the page opens (already dressed when coming back)
+  const [dressed, setDressed] = useState(!!draft);
+  useEffect(() => {
+    if (dressed) return;
+    const t = setTimeout(() => (setDressed(true), hostReact("hop")), reduced ? 0 : 650);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -118,15 +136,16 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
   const first = person.trim().split(/\s+/)[0] ?? "";
   const names = NAME_POOL.filter((n) => n.toLowerCase() !== first.toLowerCase()).slice(0, 3);
 
-  const bump = () => {
+  const bump = (kind: "hop" | "nod" = "hop") => {
+    setDressed(true);
+    hostReact(kind);
     if (reduced) return;
-    setHop((h) => h + 1);
     setSmile(true);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setSmile(false), 1100);
   };
   const change = (f: Field) => touched.current.add(f);
-  const pickName = (n: string) => (change("name"), setName(n), bump());
+  const pickName = (n: string) => (change("name"), setName(n), bump("nod"));
   const pickColor = (c: string) => (change("color"), setColor(c), bump());
   const pickShape = (s: GhostShape) => (change("shape"), setShape(s), bump());
   const surprise = () => {
@@ -167,7 +186,7 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
       <style>{STYLE}</style>
       <PageTop step={3} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="ob-page min-h-full grid grid-cols-1 lg:grid-cols-[minmax(0,520px)_minmax(0,440px)] gap-10 lg:gap-20 justify-center items-center px-4 sm:px-6 pt-4 pb-10">
+        <div className="ob-stagger min-h-full grid grid-cols-1 lg:grid-cols-[minmax(0,520px)_minmax(0,440px)] gap-10 lg:gap-20 justify-center items-center px-4 sm:px-6 pt-4 pb-10">
           <form
             className="flex flex-col gap-[22px] min-w-0 order-2 lg:order-1"
             onSubmit={(e) => {
@@ -258,7 +277,7 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
                     aria-pressed={shape === s}
                     onClick={() => pickShape(s)}
                     className="ob-btn w-14 h-14 rounded-[14px] border flex items-center justify-center p-0"
-                    style={{ borderColor: shape === s ? "var(--ink)" : "var(--line2)", background: shape === s ? `${color}1f` : "var(--panel)" }}
+                    style={{ borderColor: shape === s ? "var(--ink)" : "var(--line2)", boxShadow: shape === s ? "inset 0 0 0 1px var(--ink)" : "none", background: shape === s ? `${color}1f` : "var(--panel)" }}
                   >
                     <AgentGhost size={38} color={color} shape={s} still />
                   </button>
@@ -277,10 +296,14 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
           </form>
 
           <div className="flex flex-col items-center gap-[22px] min-w-0 order-1 lg:order-2">
-            <div className="w-full max-w-[440px] h-[220px] lg:h-[300px] rounded-[24px] bg-[var(--card)] flex items-center justify-center">
-              <span className={hop === 0 ? "block" : hop % 2 ? "block ob-hop-a" : "block ob-hop-b"} style={{ transformOrigin: "50% 100%" }}>
-                <AgentGhost size={168} color={color} shape={shape} smiling={smile} />
-              </span>
+            <div className="w-full max-w-[440px] h-[240px] lg:h-[320px] rounded-[24px] bg-[var(--card)] flex flex-col items-center justify-center gap-3">
+              <div ref={morph} data-ghost-glance="">
+                <HostGhost className="ob-dress" look={dressed ? { ...WHITE_WISP, shape, color, color2: undefined } : { ...HOST_LOOK, shape }} size={150} happy={smile} talking={smile} follow={false} />
+              </div>
+              <div className="flex flex-col items-center gap-0.5 min-w-0 max-w-full px-6 text-center">
+                <span className="text-[15px] font-semibold truncate max-w-full">{agent}</span>
+                <span className="text-[13px] text-muted line-clamp-2">{role.trim() || suggestedRole}</span>
+              </div>
             </div>
             <div className="w-full max-w-[440px] flex gap-2.5 items-start" aria-live="polite">
               <AgentGhost size={28} color={color} shape={shape} />
