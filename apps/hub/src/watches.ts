@@ -1,4 +1,4 @@
-import { aboutKey, watchEstimate, WATCH_SERVICES, type AppEvent, type Watch, type WatchService, type WatchServiceInfo } from "@wisp/core";
+import { aboutKey, frameOutside, watchEstimate, WATCH_SERVICES, type AppEvent, type Watch, type WatchService, type WatchServiceInfo } from "@wisp/core";
 import { id, now } from "./auth.ts";
 import { inQuietHours, SLOW_DOWN_AT } from "./background.ts";
 import { isPublicUrl } from "./connector-auth.ts";
@@ -578,7 +578,11 @@ export class Watches {
       const label = new Map(watches.map((w) => [w.id, w.label]));
       out.push(
         `\nThis check is because something changed in ${name}'s apps:`,
-        ...apps.map((e) => `- [${label.get(e.watchId) ?? e.service}] ${e.kind.replace(/_/g, " ")}: ${e.title}${e.actor ? ` (by ${e.actor})` : ""}, ${fmt(e.happenedAt)}${e.preview ? ` — "${e.preview}"` : ""}${e.url ? ` ${e.url}` : ""} [about: ${e.service}:${e.itemId}]`),
+        // titles, senders and previews are written by whoever sent them, not by the person
+        frameOutside(
+          `${[...new Set(apps.map((e) => e.service))].join(", ")} watch events`,
+          apps.map((e) => `- [${label.get(e.watchId) ?? e.service}] ${e.kind.replace(/_/g, " ")}: ${e.title}${e.actor ? ` (by ${e.actor})` : ""}, ${fmt(e.happenedAt)}${e.preview ? ` — "${e.preview}"` : ""}${e.url ? ` ${e.url}` : ""} [about: ${e.service}:${e.itemId}]`).join("\n"),
+        ),
         `Open what matters with your connectors if you need more than this. If it looks like ${name} is working on something you could help with, you may offer once ("I see you're working on <thing>, want a hand?"). Most changes need nothing from you.`,
       );
     }
@@ -586,7 +590,7 @@ export class Watches {
       const [lookFor, added] = (s.preview ?? "").split(NEW_ON_PAGE);
       out.push(
         added
-          ? `\n${s.title} changed. Wisp read ${s.url} and these lines are new since it last looked:\n${added.split("\n").map((l) => `  ${l}`).join("\n")}\nYou're watching it for: ${lookFor}. If these lines answer that, you don't need to open the site; open it only to see more. Most changes need nothing from you. Only tell ${name} what's new and matters.`
+          ? `\n${s.title} changed. Wisp read ${s.url} and these lines are new since it last looked:\n${frameOutside(`the web page ${s.url}`, added.split("\n").map((l) => `  ${l}`).join("\n"))}\nYou're watching it for: ${lookFor}. If these lines answer that, you don't need to open the site; open it only to see more. Most changes need nothing from you. Only tell ${name} what's new and matters.`
           : `\nTime to look at ${s.title}: open ${s.url} in your computer's browser (if it asks you to sign in, use login_fill or ask ${name}), and look for: ${lookFor}. Compare with your watch notes and write down what you saw. Only tell ${name} what's new and matters.`,
       );
     }

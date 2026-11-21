@@ -26,6 +26,13 @@ const ON_UNLESS_REMOVED: readonly FeatureKey[] = ["code"];
 /** Mods kept out of the Mods page (and agents' list) until their screens are built. */
 export const UNLISTED_FEATURES: readonly FeatureKey[] = ["code"];
 
+/**
+ * Mods that widen what agents can reach (personal data, other people, the network, a shell, the
+ * screen). An agent can ask to turn one on, but it only turns on once the person approves the card;
+ * the rest (and turning any mod off) an agent may change directly, with an Undo.
+ */
+export const MODS_NEED_OK: readonly FeatureKey[] = ["background", "teach", "invite", "remoteDesktop", "storage", "code", "apple"];
+
 /** Mods that stay off until someone adds them, even for organizations from before Features. */
 const OFF_UNTIL_ADDED: readonly FeatureKey[] = ["storage", "apple"];
 

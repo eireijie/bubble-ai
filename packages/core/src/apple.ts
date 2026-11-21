@@ -66,7 +66,8 @@ export const APPLE_DEFAULTS: AppleSettings = {
   levels: { messages: 1, contacts: 1, calendar: 1, reminders: 1, location: 1 },
   allAgents: true,
   agentIds: [],
-  speakUp: { unanswered: true, unansweredFrom: [], calendar: true, reminders: true, places: true },
+  // off until the person turns it on: it puts the last words of other people's texts in front of agents
+  speakUp: { unanswered: false, unansweredFrom: [], calendar: true, reminders: true, places: true },
   iphoneId: null,
   places: [],
 };

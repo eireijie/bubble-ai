@@ -257,7 +257,7 @@ export class WispClient {
   }
   /** Change background settings or mods for the person this agent works for; they see what changed and can undo it. */
   changeSettings(patch: { background?: Partial<{ enabled: boolean; everyMinutes: number; quietStart: string; quietEnd: string; focus: string }>; mods?: Record<string, boolean> }) {
-    return this.request<{ changed: string[]; changeId?: string; note?: string }>("POST", "/api/agent/settings", patch);
+    return this.request<{ changed: string[]; changeId?: string; note?: string; asked?: string }>("POST", "/api/agent/settings", patch);
   }
   /** When this agent's next background check should be. */
   nextCheck(minutes: number, reason = "") {

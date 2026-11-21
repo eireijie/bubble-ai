@@ -434,7 +434,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "settings_change",
     {
       description:
-        "Change how Wisp works for the person you work for, when they ask in plain words (\"check less often\", \"don't message me after 10pm\", \"turn on routines\"). Background fields change your own background work for them; mods switch optional parts of Wisp on or off (owners only). Only change what they asked for. They see what changed in your DM with an Undo button, so just confirm in a few words.",
+        "Change how Wisp works for the person you work for, when they ask in plain words (\"check less often\", \"don't message me after 10pm\", \"turn on routines\"). Background fields change your own background work for them; mods switch optional parts of Wisp on or off (owners only); turning on a mod that widens your reach (like Apple, Storage or Background agents) posts a card and waits for their OK. Only change what they asked for. They see what changed in your DM with an Undo button, so just confirm in a few words.",
       inputSchema: {
         enabled: z.boolean().optional().describe("background work on or off"),
         every_minutes: z.number().int().min(10).max(1440).optional().describe("how often to check, 10–1440 minutes"),
@@ -447,7 +447,8 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     safe(async ({ enabled, every_minutes, quiet_start, quiet_end, focus, mods }) => {
       const background = Object.fromEntries(Object.entries({ enabled, everyMinutes: every_minutes, quietStart: quiet_start, quietEnd: quiet_end, focus }).filter(([, v]) => v !== undefined));
       const r = await client.changeSettings({ ...(Object.keys(background).length ? { background } : {}), ...(mods && Object.keys(mods).length ? { mods } : {}) });
-      return text(r.changed.length ? `Changed:\n${r.changed.map((l) => `- ${l}`).join("\n")}\nThey can see it in your DM and undo it.` : (r.note ?? "Nothing changed."));
+      const done = r.changed.length ? `Changed:\n${r.changed.map((l) => `- ${l}`).join("\n")}\nThey can see it in your DM and undo it.` : r.asked ? "" : (r.note ?? "Nothing changed.");
+      return text([done, r.asked ?? ""].filter(Boolean).join("\n"));
     }),
   );
 

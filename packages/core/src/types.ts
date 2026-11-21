@@ -460,6 +460,8 @@ export interface Approval {
   apple?: import("./apple.ts").AppleRequest | null;
   /** set when an agent asks to use a person's own computer for a task ("Use my computers", ask first) */
   device?: DeviceUseRequest | null;
+  /** set when an agent asks to turn on mods that widen its reach: an owner decides, and a yes turns them on */
+  mods?: { mods: Partial<Record<import("./features.ts").FeatureKey, boolean>>; requestedBy: string } | null;
 }
 
 /** An agent asking to use someone's own computer for the task at hand. */

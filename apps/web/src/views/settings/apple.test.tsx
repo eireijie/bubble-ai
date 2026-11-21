@@ -143,7 +143,9 @@ describe("Apple helpers", () => {
   });
 
   it("sums up each Speak up row", () => {
-    const s = { ...APPLE_DEFAULTS, places: [{ id: "p1", name: "Home", latitude: 0, longitude: 0, radius: 100, arrive: true, leave: true }] };
+    // unanswered texts are off until the person turns them on
+    expect(speakValue("unanswered", APPLE_DEFAULTS)).toBe("Off");
+    const s = { ...APPLE_DEFAULTS, speakUp: { ...APPLE_DEFAULTS.speakUp, unanswered: true }, places: [{ id: "p1", name: "Home", latitude: 0, longitude: 0, radius: 100, arrive: true, leave: true }] };
     expect(speakValue("unanswered", s)).toBe("Anyone in Contacts");
     expect(speakValue("unanswered", { ...s, speakUp: { ...s.speakUp, unansweredFrom: ["Mom", "Sam"] } })).toBe("From 2 people");
     expect(speakValue("calendar", s)).toBe("On");
