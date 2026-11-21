@@ -17,7 +17,7 @@ export async function switchOnRecommended(workspaceId: string, agentId: string, 
   const owner = st.me?.role === "owner";
   const draft: AgentDraft | undefined = answers.agentDraft;
   const plan = recommendedSetup(person, draft?.role ?? "", answers.facts ?? []);
-  if (owner) await setFeatures({ voice: true, ...(plan.routine ? { routines: true } : {}) }).catch(() => undefined);
+  if (owner && plan.routine) await setFeatures({ routines: true }).catch(() => undefined);
   if (plan.routine) {
     const channelId = st.channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`))?.id ?? null;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";

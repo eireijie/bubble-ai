@@ -70,7 +70,7 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   const [pairing, setPairing] = useState(false);
   // mods that were on when the page opened: undoing one keeps its row, as "Undone."
   // (calls have their own row below)
-  const [mods] = useState<FeatureKey[]>(() => FEATURE_KEYS.filter((k) => k !== "voice" && features[k] && !FEATURE_PRESETS.simple[k]));
+  const [mods] = useState<FeatureKey[]>(() => FEATURE_KEYS.filter((k) => features[k] && !FEATURE_PRESETS.simple[k]));
 
   const load = useCallback(() => {
     if (!agent) return;
@@ -144,10 +144,7 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   rows.push({ id: "notif", icon: <Bell {...ICON} />, title: "Notifications", sub: notifOn ? "On. Only when something's done or needs a yes." : perm === "denied" ? "Off. Blocked in this browser's settings." : "Off.", action: notifOn ? undefined : { label: "Settings", run: () => go({ view: "settings", page: "notifications" }) } });
   if (agent) {
     const listen = inDesktopApp() ? openaiKey : canRecognize();
-    // calls are switched on by onboarding; Undo switches them off (owners only: it's a workspace switch)
-    const callsToggle = owner ? { toggle: { off: !features.voice, run: async (off: boolean) => void (await setFeatures({ voice: !off })) } } : {};
-    if (!features.voice) rows.push({ id: "calls", icon: <Phone {...ICON} />, title: "Calls", sub: "Off.", ...callsToggle });
-    else if (listen === true) rows.push({ id: "calls", icon: <Phone {...ICON} />, title: "Calls", sub: `Ready. Call ${agent.name} from the name pill.`, ...callsToggle });
+    if (listen === true) rows.push({ id: "calls", icon: <Phone {...ICON} />, title: "Calls", sub: `Ready. Call ${agent.name} from the name pill.` });
     else if (listen === false)
       rows.push({
         id: "calls",
