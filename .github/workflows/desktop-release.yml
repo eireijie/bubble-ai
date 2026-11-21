@@ -34,8 +34,9 @@ jobs:
           - os: macos-15
             dist: --mac --x64
             arch: x64
+          # installs to %LOCALAPPDATA%\Programs\Wisp (a per-user installer names its folder after the package)
           - os: windows-latest
-            dist: --win --x64
+            dist: --win --x64 -c.extraMetadata.name=Wisp
           - os: ubuntu-latest
             dist: --linux --x64
     runs-on: ${{ matrix.os }}
