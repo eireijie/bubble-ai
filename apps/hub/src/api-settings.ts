@@ -297,7 +297,12 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     const c = need(req, reply, { owner: true });
     if (!c) return;
     const m = memberOf(c, (req.params as { id: string }).id);
-    if (!m) return reply.code(404).send({ error: "not a member" });
+    if (!m) return reply.code(403).send({ error: "They aren't in this organization." });
+    // accounts are hub-wide: someone who's also in another organization is only the hub owner's to reset
+    const first = store.firstWorkspace();
+    const hubOwner = !!first && store.role(first.id, c.actor.id) === "owner";
+    const elsewhere = db.prepare("SELECT 1 FROM memberships WHERE user_id = ? AND workspace_id != ? LIMIT 1").get(m.id, c.workspaceId);
+    if (elsewhere && !hubOwner) return reply.code(403).send({ error: "They're also in another organization, so only the hub's owner can reset their password." });
     const body = parse(z.object({ password: z.string().min(8).max(200) }), req.body, reply);
     if (!body) return;
     store.updateUser(m.id, { passwordHash: hashPassword(body.password) });

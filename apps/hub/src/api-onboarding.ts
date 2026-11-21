@@ -12,7 +12,7 @@ import { computerLabel, discoverAvailable, discoverPart, DISCOVER_PARTS, type Di
 import { httpOrigin } from "./reachable-addresses.ts";
 
 interface Helpers {
-  need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean }): Caller | null;
+  need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean; hubOwner?: boolean }): Caller | null;
   parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null;
 }
 
@@ -212,12 +212,15 @@ export function registerOnboardingApi(app: FastifyInstance, hub: Hub, h: Helpers
   app.get("/api/onboarding/discover", async (req, reply) => {
     const c = need(req, reply, { owner: true });
     if (!c) return;
-    return { available: discoverAvailable(), label: computerLabel(), parts: DISCOVER_PARTS };
+    // the hub's computer is its owner's: an owner of another organization on it can't look around
+    const first = store.firstWorkspace();
+    const hubOwner = !!first && store.role(first.id, c.actor.id) === "owner";
+    return { available: hubOwner && discoverAvailable(), label: computerLabel(), parts: DISCOVER_PARTS };
   });
 
   /** One part of the look, after the person said yes: { found, facts }. Never fails; slow parts give up. */
   app.post("/api/onboarding/discover/:part", async (req, reply) => {
-    const c = need(req, reply, { owner: true });
+    const c = need(req, reply, { hubOwner: true });
     if (!c) return;
     if (!discoverAvailable()) return reply.code(409).send({ error: "Wisp isn't running on your computer, so it can't look around it." });
     const part = (req.params as { part: string }).part;

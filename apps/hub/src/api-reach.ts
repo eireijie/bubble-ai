@@ -6,7 +6,7 @@ import { lanAddresses } from "./reach.ts";
 import { reachableAddresses } from "./reachable-addresses.ts";
 
 interface Helpers {
-  need(req: FastifyRequest, reply: FastifyReply, opts?: { user?: boolean; owner?: boolean }): Caller | null;
+  need(req: FastifyRequest, reply: FastifyReply, opts?: { user?: boolean; owner?: boolean; hubOwner?: boolean }): Caller | null;
   parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null;
 }
 
@@ -48,7 +48,7 @@ export function registerReachApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   });
 
   app.post("/api/reach/tailscale", async (req, reply) => {
-    const c = need(req, reply, { owner: true });
+    const c = need(req, reply, { hubOwner: true });
     if (!c) return;
     const body = parse(z.object({ action: z.enum(["login", "up", "serve", "unserve", "funnel", "unfunnel", "connectors", "unconnectors"]) }), req.body, reply);
     if (!body) return;
@@ -64,7 +64,7 @@ export function registerReachApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   });
 
   app.post("/api/reach/cloudflare", async (req, reply) => {
-    const c = need(req, reply, { owner: true });
+    const c = need(req, reply, { hubOwner: true });
     if (!c) return;
     const body = parse(z.discriminatedUnion("action", [
       z.object({ action: z.literal("start"), token: z.string().trim().min(20).max(16384), url: z.string().url().optional() }),

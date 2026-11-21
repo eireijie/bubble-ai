@@ -11,7 +11,7 @@ import { setWorkspaceFeatures, workspaceFeatures } from "./features.ts";
 import type { Hub } from "./hub.ts";
 
 interface Helpers {
-  need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean }): Caller | null;
+  need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean; hubOwner?: boolean }): Caller | null;
   parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null;
 }
 
@@ -85,8 +85,9 @@ export function registerOrgApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     }));
   });
 
+  /** Only the hub's owner makes organizations: whoever owns one gets owner controls in it. */
   app.post("/api/orgs", async (req, reply) => {
-    const c = need(req, reply, { user: true });
+    const c = need(req, reply, { hubOwner: true });
     if (!c) return;
     const body = parse(z.object({ name: z.string().trim().min(1).max(80), features: FEATURE_PRESET.default("simple") }), req.body, reply);
     if (!body) return;
