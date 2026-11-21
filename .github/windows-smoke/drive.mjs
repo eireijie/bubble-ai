@@ -88,7 +88,9 @@ await page.getByLabel("Your name").fill("Smoke Test");
 await page.getByLabel("Email").fill("smoke@example.test");
 await page.locator('input[type="password"]').first().fill(`Smoke-${crypto.randomBytes(6).toString("hex")}`);
 await shot(page, "create-account-filled");
-await page.locator('button[type="submit"]').first().click();
+await page.locator('input[type="password"]').first().press("Enter");
+await sleep(1500);
+if (/Create your account/i.test(await visibleText(page))) await page.getByRole("button", { name: "Continue" }).first().click({ timeout: 5000 }).catch(() => {});
 await sleep(3000);
 
 // 3. onboarding pages up to the AI page; at each new page, log it, screenshot it, move on
