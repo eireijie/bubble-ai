@@ -94,7 +94,7 @@ if (/Create your account/i.test(await visibleText(page))) await page.getByRole("
 await sleep(3000);
 
 // 3. onboarding pages up to the AI page; at each new page, log it, screenshot it, move on
-const FORWARD = /^(Continue|Skip|Skip for now|Not now|Next|Later|Maybe later|Use this|Done|Start)$/i;
+const FORWARD = /^(Continue|Skip|Skip for now|Not now|Next|Later|Maybe later|Use this|Done|Start|Only at home for now)$/i;
 let last = "";
 let same = 0;
 let aiPage = false;
@@ -120,7 +120,7 @@ while (Date.now() < until) {
   }
   const buttons = await page.locator("button:visible").all();
   const labels = [];
-  for (const b of buttons) labels.push(((await b.innerText().catch(() => "")) || "").trim());
+  for (const b of buttons) labels.push(((await b.innerText().catch(() => "")) || "").trim().split("\n")[0].trim());
   let target = null;
   // after a few tries on the same page, pick its first choice before moving on
   if (same >= 2) {
@@ -134,7 +134,7 @@ while (Date.now() < until) {
     if (!FORWARD.test(label)) continue;
     if (await buttons[i].isDisabled().catch(() => true)) continue;
     // prefer skipping optional things over setting them up
-    if (!target || /skip|not now|later/i.test(label)) target = { b: buttons[i], label };
+    if (!target || /skip|not now|later|only at home/i.test(label)) target = { b: buttons[i], label };
   }
   if (target) {
     console.log(`click "${target.label}" (buttons: ${labels.filter(Boolean).join(" | ")})`);
