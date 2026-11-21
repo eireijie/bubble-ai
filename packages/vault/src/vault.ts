@@ -117,6 +117,9 @@ export class Vault {
     } catch {
       await this.git(["init", "-q"]);
     }
+    // Git for Windows turns on core.autocrlf system-wide: notes would be checked out with CRLF and an
+    // Obsidian push would leave the vault looking edited. Notes are kept byte for byte.
+    if (process.platform === "win32") await this.git(["config", "core.autocrlf", "false"]);
     const started = !!(await this.head());
     const ignoreChanged = await this.ensureIgnore();
     if (!started) {

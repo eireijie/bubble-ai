@@ -36,7 +36,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run bundle -w @wisp/desktop
-      - run: npx electron-builder --win --x64 --publish never
+      - run: npx electron-builder --win --x64 -c.extraMetadata.name=Wisp --publish never
         shell: bash
         working-directory: apps/desktop
       - uses: actions/upload-artifact@v4
@@ -53,6 +53,7 @@ jobs:
           if (-not $found) { throw "Wisp.exe wasn't installed" }
           $exe = $found[0].FullName
           "installed at $exe"
+          if ($exe -notlike '*\Programs\Wisp\Wisp.exe') { throw "expected ...\Programs\Wisp\Wisp.exe, got $exe" }
           Get-ChildItem (Split-Path $exe) | Select-Object Name | Format-Wide -Column 4
           "WISP_EXE=$exe" >> $env:GITHUB_ENV
       # the installed app must not lean on the build folder (a junction pointing back into it would)

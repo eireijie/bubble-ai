@@ -11,7 +11,7 @@
     "bundle": "node scripts/bundle-wisp.mjs",
     "dist": "npm run bundle && electron-builder --dir",
     "dist:mac": "npm run bundle && electron-builder --mac",
-    "dist:win": "npm run bundle && electron-builder --win",
+    "dist:win": "npm run bundle && electron-builder --win -c.extraMetadata.name=Wisp",
     "dist:linux": "npm run bundle && electron-builder --linux"
   },
   "build": {
@@ -55,6 +55,7 @@
     },
     "win": {
       "icon": "build/icon.png",
+      "executableName": "Wisp",
       "target": [
         "nsis"
       ],
