@@ -31,7 +31,7 @@ import { AgentMemory } from "./memory.ts";
 import { settleDraftOfRun } from "./team-drafts.ts";
 import { failTaskOfRun, leadSection, taskInstructions } from "./lead.ts";
 import { spawnSection } from "./spawn.ts";
-import { greetingPrompt, greetingWritten, recordSetupReply, setupChat, setupSection } from "./greeting.ts";
+import { greetingPrompt, greetingWritten, greetSignInFailed, recordSetupReply, setupChat, setupSection } from "./greeting.ts";
 import { foldTeams } from "./fold-teams.ts";
 import { TeamFlows } from "./team-flows.ts";
 import type { RunKind, Store } from "./store.ts";
@@ -826,7 +826,9 @@ export class Hub {
     } else if (run.kind === "greet") {
       // its own hello, or Wisp's when it couldn't write one: either way the person gets a hello
       store.setRunStatus(run.id, "finalText" in result ? "done" : "failed", "error" in result ? result.error : undefined);
-      if (!gone) greetingWritten(this, run, "finalText" in result ? result.finalText.trim() || live.text.trim() : null);
+      // an expired sign-in posts no hello: the person signs in again and the hello is tried again
+      const signIn = "error" in result && greetSignInFailed(agent, result.error);
+      if (!gone && !signIn) greetingWritten(this, run, "finalText" in result ? result.finalText.trim() || live.text.trim() : null);
     } else if (run.kind === "background") {
       store.setRunStatus(run.id, "finalText" in result ? "done" : "failed", "error" in result ? result.error : undefined);
       this.background.finished(run, "finalText" in result ? result.finalText.trim() || live.text.trim() : `The check failed: ${result.error}`);

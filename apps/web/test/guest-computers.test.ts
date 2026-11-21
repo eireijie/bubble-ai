@@ -13,6 +13,7 @@ vi.mock("../src/onboarding.ts", () => ({
   useOnboarding: () => ({ done: {} }),
   useDismissed: () => false,
   setupProgress: () => ({ progress: 6, steps: 6, complete: true }),
+  useReadyChecklist: () => ({ items: [], left: 0, started: false, workspaceId: "" }),
 }));
 
 const initial = useStore.getInitialState();

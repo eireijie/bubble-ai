@@ -144,7 +144,7 @@ describe("a hello written from what it knows", () => {
     expect(msgs[0].body).toMatch(/Lighthouse/);
     const prompt = calls[before].prompt;
     expect(prompt).toContain("Lighthouse: a boat-tracking site");
-    expect(prompt).toContain("2 to 3 short sentences");
+    expect(prompt).toContain("Keep it under 70 words");
     // Wisp's prompt never shows as a message
     expect(hub.store.messages(dmOf(id).id).every((m) => m.author.kind === "agent" || m.author.id === "system")).toBe(true);
     const setup = hub.store.agent(id)!.settings.setup!;
@@ -228,5 +228,27 @@ describe("one-time answer link", () => {
     expect((await raw("POST", new URL(link.url).pathname, { answer: "x".repeat(60_001) })).status).toBe(413);
     expect((await raw("POST", new URL(link.url).pathname, { answer: "from json" })).data).toEqual({ ok: true });
     expect((await owner.request<{ answer: string }>("GET", `/api/memory-links/${link.id}`)).answer).toBe("from json");
+  });
+});
+
+// last: an expired sign-in marks the shared test device signed out for every test after it
+describe("a hello when the sign-in expired", () => {
+  it("posts no hello when the AI's sign-in expired, and tries the hello again once asked", async () => {
+    const id = await make("sol", { greet: "later" });
+    onRun = async () => {
+      throw new Error("Failed to authenticate: OAuth session expired and could not be refreshed");
+    };
+    await owner.request("POST", `/api/agents/${id}/greet`, {});
+    await waitFor(() => hub.store.db.prepare("SELECT 1 FROM runs WHERE agent_id = ? AND kind = 'greet' AND status = 'failed'").get(id) || undefined);
+    await new Promise((r) => setTimeout(r, 200));
+    // no plain hello: the person signs in again first
+    expect(said(id)).toHaveLength(0);
+    expect(hub.store.agent(id)!.settings.setup?.greetingId).toBeFalsy();
+    // asked again: either it still needs a sign-in, or (signed in again) the hello runs and comes
+    onRun = async () => "Hey, I'm Sol! Want to start with your inbox?";
+    const r = await owner.request<{ status: string }>("POST", `/api/agents/${id}/greet`, {});
+    expect(["signin", "writing"]).toContain(r.status);
+    if (r.status === "writing") expect((await waitFor(() => (said(id).length ? said(id) : undefined)))[0].body).toMatch(/^Hey, I'm Sol!/);
+    else expect(said(id)).toHaveLength(0);
   });
 });

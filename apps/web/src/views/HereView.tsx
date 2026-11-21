@@ -179,7 +179,7 @@ export function HereView({ agentId }: { agentId?: string | null }) {
       <div className="mx-auto grid w-full max-w-5xl gap-8 px-4 py-8 md:grid-cols-[minmax(0,1fr)_300px] md:px-8 md:py-12">
         <main className="min-w-0">
           <div className="here-hop w-fit">
-            <OnboardingGhost size={64} smiling follow={false} />
+            <OnboardingGhost size={64} smiling follow={false} look={agent?.settings.appearance} />
           </div>
           <h1 className="mt-4 text-[26px] font-semibold leading-tight tracking-[-0.01em] text-ink">Here's your Wisp, {first}.</h1>
           <p className="mt-1.5 text-[15px] text-muted">I set this up from your answers. Undo anything.</p>
