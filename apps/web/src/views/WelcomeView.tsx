@@ -394,6 +394,7 @@ function AwayStep({ onScene, onDone }: { onScene: (s: StageScene) => void; onDon
   };
   const startCloudflare = async () => {
     // a Cloudflare tunnel token is long; anything short is a partial paste
+    if (!credential.trim()) return setError("Paste your Cloudflare setup code first.");
     if (credential.trim().length < 20) return setError("That isn't a whole Cloudflare setup code. Copy all of it from Cloudflare and paste it here.");
     setBusy(true);
     setError(null);
@@ -441,7 +442,7 @@ function AwayStep({ onScene, onDone }: { onScene: (s: StageScene) => void; onDon
           <Problem>{error}</Problem>
         </Thread>
         <Actions>
-          <SetupButton disabled={busy || !allowed || !credential.trim()}>
+          <SetupButton disabled={busy || !allowed}>
             {busy && <Loader2 size={16} className="animate-spin" />}Continue
           </SetupButton>
         </Actions>

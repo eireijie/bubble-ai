@@ -82,10 +82,12 @@ export function OrgList({ onDone, onNewOrg }: { onDone: () => void; onNewOrg?: (
         );
       })}
       <div className="h-px bg-line mx-2 my-1.5" />
-      <button role="menuitem" onClick={() => (onNewOrg ? onNewOrg() : setNewOrg(true))} className={row}>
-        <Plus size={20} strokeWidth={1.7} className="text-muted" />
-        <span className="flex-1">New workspace</span>
-      </button>
+      {me.hubOwner !== false && (
+        <button role="menuitem" onClick={() => (onNewOrg ? onNewOrg() : setNewOrg(true))} className={row}>
+          <Plus size={20} strokeWidth={1.7} className="text-muted" />
+          <span className="flex-1">New workspace</span>
+        </button>
+      )}
       <div className={cx(row, "hover:bg-transparent pointer-events-none")}>
         <Link2 size={20} strokeWidth={1.7} className="text-muted" />
         <span className="flex-1">Join with an invite link</span>

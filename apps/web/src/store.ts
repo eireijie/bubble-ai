@@ -12,6 +12,8 @@ export interface Me {
   /** how Wisp behaves for this person, on every device (Settings → Preferences) */
   prefs: UserPrefs;
   role: "owner" | "member" | "guest";
+  /** owner of the hub's first workspace: only they can make new workspaces (missing on older hubs) */
+  hubOwner?: boolean;
   workspace: { id: string; name: string };
   /** the organization's optional features (features.ts); missing from older hubs, which means all on */
   features?: Features;

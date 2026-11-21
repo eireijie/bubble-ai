@@ -331,6 +331,12 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
                   More agents ({others.length})
                 </button>
               )}
+              {/* nothing working yet: no one is stuck here; it can be set up later in Settings */}
+              {phase !== "ready" && phase !== "checking" && cur !== "found" && (
+                <button type="button" disabled={leaving} onClick={() => onDone(agentId, null)} className="h-11 px-3.5 rounded-full text-muted hover:text-ink">
+                  Set up later
+                </button>
+              )}
             </div>
           </div>
 

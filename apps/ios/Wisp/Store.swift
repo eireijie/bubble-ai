@@ -11,6 +11,8 @@ final class Store {
   var phase: Phase = .signedOut
   var api: API?
   var me: User?
+  /** only the hub owner can make new workspaces (true on older hubs, which don't say) */
+  var hubOwner = true
   var role: String = "member" {
     didSet {
       if !canViewComputers {
@@ -277,6 +279,7 @@ final class Store {
       guard gen == session else { return }
       self.me = me.user
       self.role = me.role ?? "member"
+      self.hubOwner = me.hubOwner ?? true
       self.prefs = me.prefs
       self.workspace = me.workspace
       self.features = me.features ?? .everything
@@ -636,6 +639,7 @@ final class Store {
       self.me = me.user
       prefs = me.prefs
       role = me.role ?? "member"
+      hubOwner = me.hubOwner ?? true
       features = me.features ?? .everything
       syncError = nil
     }

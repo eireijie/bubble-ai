@@ -28,6 +28,8 @@ struct Me: Codable {
   var kind: String
   var user: User?
   var role: String?
+  /** owner of the hub's first workspace: only they can make new workspaces; missing on older hubs */
+  var hubOwner: Bool?
   var workspace: Workspace?
   /** resolved by the hub for the current organization; missing on older hubs (everything on) */
   var features: Features?

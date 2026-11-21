@@ -519,7 +519,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!c) return;
     const ws = store.workspace(c.workspaceId);
     const features = workspaceFeatures(store, c.workspaceId);
-    if (c.actor.kind === "user") return { kind: "user", user: store.user(c.actor.id), prefs: store.prefs(c.actor.id), role: c.viewer.role, workspace: ws, features };
+    if (c.actor.kind === "user") return { kind: "user", user: store.user(c.actor.id), prefs: store.prefs(c.actor.id), role: c.viewer.role, hubOwner: isHubOwner(c), workspace: ws, features };
     return { kind: "agent", agent: agentView(store.agent(c.actor.id)!), workspace: ws, features };
   });
 

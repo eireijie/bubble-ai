@@ -97,6 +97,12 @@ describe("hub-wide controls", () => {
     });
   }
 
+  it("tell the app who the hub owner is, so others aren't offered New workspace", async () => {
+    expect((await api("GET", "/api/me")).data.hubOwner).toBe(true);
+    expect((await api("GET", "/api/me", undefined, acmeToken)).data.hubOwner).toBe(true);
+    for (const t of [member, guest, boss]) expect((await api("GET", "/api/me", undefined, t)).data.hubOwner).toBe(false);
+  });
+
   it("hide looking around the hub's computer from an owner of another organization", async () => {
     expect((await api("GET", "/api/onboarding/discover", undefined, boss)).data.available).toBe(false);
   });
