@@ -149,6 +149,8 @@ if (aiPage) {
   console.log(`\n=== AI page (${page.url()})\n${text.slice(0, 1500)}`);
   await shot(page, "ai-page");
   proven.push("onboarding reached the AI page");
+  if (/On Windows, use an API key/.test(text)) proven.push("Claude subscription says up front it needs an API key on Windows");
+  else failures.push("Claude subscription doesn't say it needs an API key on Windows");
   for (const want of ["Claude subscription", "ChatGPT subscription", "I have an API key"]) if (!text.includes(want)) failures.push(`AI page has no "${want}" option`);
   // Claude subscription on Windows: it must say plainly what to do, not fail silently
   await page.getByText("Claude subscription", { exact: true }).first().click({ timeout: 5000 }).catch((e) => failures.push(`couldn't pick Claude subscription: ${e.message}`));
