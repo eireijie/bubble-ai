@@ -769,7 +769,7 @@ describe("agent settings", () => {
     await api("PATCH", `/api/agents/${nova.id}`, { settings: { effort: "high" } });
     const r = await api("PATCH", `/api/agents/${nova.id}`, { settings: { access: "read-only" }, model: "gpt-6-astra" });
     // new agents also record who made them and start out answering only them
-    expect(r.data.settings).toEqual({ effort: "high", access: "read-only", respondTo: "me", createdBy: expect.any(String) });
+    expect(r.data.settings).toEqual({ effort: "high", access: "read-only", respondTo: "me", createdBy: expect.any(String), setup: expect.objectContaining({ done: false }) });
     expect(r.data.model).toBe("gpt-6-astra");
     expect((await api("PATCH", `/api/agents/${nova.id}`, { settings: { access: "root" } })).status).toBe(400);
     expect((await api("PATCH", `/api/agents/${nova.id}`, { settings: { sudo: true } })).status).toBe(400);
