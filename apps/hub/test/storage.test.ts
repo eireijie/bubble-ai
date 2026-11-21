@@ -368,7 +368,10 @@ describe("agent tools", () => {
     const mcp = await connect(scoutToken);
     const names = (await mcp.listTools()).tools.map((t) => t.name).filter((n) => n.startsWith("storage_")).sort();
     expect(names).toEqual(["storage_delete", "storage_download", "storage_list", "storage_mkdir", "storage_read", "storage_search", "storage_upload"]);
-    expect(await call(mcp, "storage_read", { storage: "NAS", path: "/Clients/Acme/notes.txt" })).toBe("Acme likes blue.");
+    // a file's text is outside content: framed as data, not instructions
+    const read = await call(mcp, "storage_read", { storage: "NAS", path: "/Clients/Acme/notes.txt" });
+    expect(read).toMatch(/^Outside content \(from the file notes\.txt on the person's storage\)/);
+    expect(read).toContain("<<<outside\nAcme likes blue.\n>>>outside");
     expect(await call(mcp, "storage_read", { storage: "NAS", path: "/Private/diary.txt" })).toMatch(/^Error: .*outside the folders/);
     const local = path.join(dir, "out");
     expect(await call(mcp, "storage_download", { storage: "NAS", path: "/Photos/cat.txt", dest_dir: local })).toMatch(/^Saved to /);

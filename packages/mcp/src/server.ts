@@ -4,7 +4,7 @@ import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { WispClient } from "@wisp/sdk";
-import { SETTINGS_HARNESSES, SETUP_STEPS, WATCH_SERVICES, type Screenshot } from "@wisp/core";
+import { SETTINGS_HARNESSES, SETUP_STEPS, WATCH_SERVICES, frameOutside, type Screenshot } from "@wisp/core";
 
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
 const text = (t: string): { content: Content[] } => ({ content: [{ type: "text" as const, text: t }] });
@@ -746,7 +746,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
       { description: "Read a file on the person's storage: text comes back as text and pictures are shown to you. For anything else, or files over 5 MB, use storage_download.", inputSchema: { storage: which, path: z.string() } },
       safe(async ({ storage, path: p }) => {
         const f = await client.storageRead(storage, p);
-        if (f.text !== undefined) return text(f.text.slice(0, 100_000));
+        if (f.text !== undefined) return text(frameOutside(`the file ${f.name} on the person's storage`, f.text.slice(0, 100_000)));
         if (/^image\/(png|jpeg|gif|webp)$/.test(f.mime) && f.base64) return { content: [{ type: "image" as const, data: f.base64, mimeType: f.mime }, { type: "text" as const, text: f.name }] };
         return text(`${f.name} is ${f.mime} (${f.size} bytes); use storage_download to get it as a file.`);
       }),
@@ -810,7 +810,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
   const appleLv = await client.appleMine().catch(() => ({}) as Awaited<ReturnType<typeof client.appleMine>>);
   const appleRead = async (op: Parameters<typeof client.apple>[0]) => {
     const r = await client.apple(op);
-    return r.status === "done" ? json(r.result) : text(r.message);
+    return r.status === "done" ? text(frameOutside("the person's Apple apps", JSON.stringify(r.result, null, 2))) : text(r.message);
   };
   const appleAsk = async (op: Parameters<typeof client.apple>[0]) => {
     const r = await client.apple(op);
