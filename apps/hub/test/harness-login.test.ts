@@ -61,6 +61,54 @@ describe("harness sign-ins", () => {
     expect(done).toEqual(["done"]);
   });
 
+  it("shows a turned-down code, starts over with a new link, and finishes on the token while the screen stays open", async () => {
+    let raw = "";
+    const changes: { url?: string; error?: string }[] = [];
+    const done: string[] = [];
+    const logins = new HarnessLogins((l) => done.push(l.status));
+    // like claude setup-token: a wrong code gets "OAuth error … Press Enter to retry", Enter brings a
+    // new link, a right code prints the token, and it keeps running after that
+    const script = `let n = 1; const link = () => console.log("Browser didn't open? https://claude.com/cai/oauth/authorize?state=s" + n + "\\nPaste code here if prompted >"); link(); let wait = "code"; process.stdin.on("data", (d) => { const t = d.toString().trim(); if (wait === "enter") { n++; wait = "code"; return link(); } if (t === "good#s2") { console.log("Your OAuth token (valid for 1 year):\\n\\nsk-ant-oat01-abcdefghijklmnopqrstuvwxyz0123\\n\\nStore this token securely."); return; } console.log("OAuth error: That code wasn't accepted. It may be incomplete, expired, already used, or from an earlier sign-in attempt."); setTimeout(() => console.log("Press Enter to retry."), 30); wait = "enter"; }); setInterval(() => {}, 1000);`;
+    const l = logins.start("claude-code", "model-r", { command: process.execPath, args: ["-e", script], env: {} }, 60_000, { redact: /sk-ant-oat\d*-[A-Za-z0-9_-]+/, redactStart: "sk-ant-oat", doneWhen: /sk-ant-oat\d*-[A-Za-z0-9_-]{20,}(?=[^A-Za-z0-9_-])/, onRaw: (t) => (raw += t), onChange: (s) => changes.push({ url: s.url, error: s.error }) });
+    await waitFor(() => logins.status(l.id).url);
+    logins.input(l.id, "old#s1-wrong");
+    // the problem shows, the sign-in keeps going, and the new link replaces the old one
+    const problem = await waitFor(() => (logins.status(l.id).url?.endsWith("state=s2") ? logins.status(l.id) : undefined));
+    expect(problem.status).toBe("running");
+    expect(problem.error).toMatch(/wasn't accepted/);
+    expect(changes.some((c) => c.error && /wasn't accepted/.test(c.error))).toBe(true);
+    logins.input(l.id, "good#s2");
+    const end = await waitFor(() => (logins.status(l.id).status !== "running" ? logins.status(l.id) : undefined));
+    expect(end.status).toBe("done");
+    expect(end.error).toBeUndefined();
+    expect(end.output).not.toContain("sk-ant-oat01");
+    expect(raw).toContain("sk-ant-oat01-abcdefghijklmnopqrstuvwxyz0123");
+    expect(done).toEqual(["done"]);
+  });
+
+  it("sends Enter after a long code on its own, as a terminal screen needs (it takes a long chunk as a paste)", async () => {
+    const logins = new HarnessLogins();
+    // a reader that, like Claude Code's screen, ignores an Enter that comes in the same chunk as the text
+    const script = `console.log("Open https://claude.ai/oauth?x=1"); process.stdin.on("data", (d) => { const t = d.toString(); if (t === "\\n") { console.log("Login successful."); process.exit(0); } }); setInterval(() => {}, 1000);`;
+    const l = logins.start("claude-code", "model-long", { command: process.execPath, args: ["-e", script], env: {} }, 60_000);
+    await waitFor(() => logins.status(l.id).url);
+    logins.input(l.id, "A".repeat(120) + "#" + "B".repeat(43));
+    const end = await waitFor(() => (logins.status(l.id).status !== "running" ? logins.status(l.id) : undefined));
+    expect(end.status).toBe("done");
+  });
+
+  it("stops a sign-in that never answers a pasted code, and says what it last showed", async () => {
+    const logins = new HarnessLogins();
+    const script = `console.log("Open https://claude.ai/oauth?x=1"); console.log("Paste code here if prompted >"); process.stdin.on("data", () => {}); setInterval(() => {}, 1000);`;
+    const l = logins.start("claude-code", "model-s", { command: process.execPath, args: ["-e", script], env: {} }, 60_000, { answerMs: 300 });
+    await waitFor(() => logins.status(l.id).url);
+    logins.input(l.id, "code#state");
+    const end = await waitFor(() => (logins.status(l.id).status !== "running" ? logins.status(l.id) : undefined));
+    expect(end.status).toBe("failed");
+    expect(end.error).toMatch(/Nothing came back after the code was sent/);
+    expect(end.error).toContain("Paste code here if prompted");
+  });
+
   it("can be cancelled, and a failed one says why", async () => {
     const logins = new HarnessLogins();
     const slow = logins.start("codex", "a", { command: process.execPath, args: ["-e", "setTimeout(() => {}, 60000)"], env: {} });

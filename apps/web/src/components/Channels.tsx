@@ -93,6 +93,12 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
   const name = slug(q.replace(/^#/, ""));
   const exists = channels.some((c) => c.name === name);
 
+  // a dialog opened from the sidebar belongs to the page it was opened on: going elsewhere (a link, the back button) closes it
+  useEffect(() => {
+    window.addEventListener("hashchange", onClose);
+    return () => window.removeEventListener("hashchange", onClose);
+  }, [onClose]);
+
   async function open(id: string, joined: boolean) {
     if (!joined) await api("POST", `/api/channels/${id}/join`);
     await refreshChannels();

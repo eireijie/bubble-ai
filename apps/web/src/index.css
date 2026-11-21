@@ -12,36 +12,44 @@
  * colors. index.html sets data-mode and data-theme before first paint; theme.ts keeps them in sync.
  */
 :root {
+  /* Wisp's calm look (2026-11-20 canvas, Foundations): ink on white, a gray sidebar, the only
+     colour is each agent's own; Wisp violet marks app-level actions and your own bubbles. */
   --gc: 0;
   --gh: 0;
-  --app: oklch(0.97 var(--gc) var(--gh)); /* window + sidebar */
-  --panel: oklch(1 0 0); /* content */
-  --bg: oklch(0.975 var(--gc) var(--gh)); /* quiet surfaces inside content */
+  --app: #f5f5f5; /* window + sidebar */
+  --panel: #ffffff; /* content */
+  --bg: #f6f6f6; /* quiet surfaces inside content */
   --sidebar: var(--app);
-  --side-hover: oklch(0.3 calc(var(--gc) * 3) var(--gh) / 0.05);
-  --side-active: oklch(0.915 calc(var(--gc) * 1.5) var(--gh));
-  --ink: oklch(0.16 calc(var(--gc) * 2.5) var(--gh));
-  --muted: oklch(0.52 calc(var(--gc) * 3) var(--gh));
-  --faint: oklch(0.68 calc(var(--gc) * 2.5) var(--gh));
-  --line: oklch(0.922 var(--gc) var(--gh));
-  --edge: oklch(0 0 0 / 0.08); /* 1px border on cards and panels */
-  --input: oklch(0.87 calc(var(--gc) * 1.75) var(--gh));
-  --hover: oklch(0.97 var(--gc) var(--gh));
-  --chip: oklch(0.95 calc(var(--gc) * 1.25) var(--gh));
-  --code: oklch(0.965 var(--gc) var(--gh));
+  --side-hover: rgb(28 28 28 / 0.05);
+  --side-active: rgb(28 28 28 / 0.07);
+  --ink: #1c1c1c;
+  --muted: rgb(28 28 28 / 0.64);
+  --faint: rgb(28 28 28 / 0.5);
+  --line: rgb(28 28 28 / 0.08);
+  --line2: rgb(28 28 28 / 0.14);
+  --edge: rgb(28 28 28 / 0.1);
+  --input: rgb(28 28 28 / 0.16);
+  --hover: rgb(28 28 28 / 0.05);
+  --chip: rgb(28 28 28 / 0.055);
+  --code: #f6f6f6;
   --ok: var(--st-online);
   --warn: var(--st-needs);
   --bad: var(--st-problem);
   --info: var(--st-working);
-  /* unread counts and the "you" bubble: Wisp blue */
-  --badge: #0a84ff;
-  --badge-ink: #ffffff;
-  /* cards inside a panel (24px radius) and controls (circle and pill buttons, search fields) */
-  --card: oklch(0.965 var(--gc) var(--gh));
-  --control: oklch(1 0 0);
-  --control-line: oklch(0 0 0 / 0.1);
-  --glass-bg: oklch(1 0 0);
-  --shadow: 0 2px 8px oklch(0.2 0 0 / 0.08);
+  /* Wisp violet: app-level actions (New agent), your bubbles, the call orb */
+  --wisp: #a98bf5;
+  --wisp-ink: #161616;
+  /* unread counts: ink, like the canvas sidebar */
+  --badge: var(--ink);
+  --badge-ink: var(--panel);
+  /* cards inside a panel and controls (circle and pill buttons, search fields) */
+  --card: #f6f6f6;
+  --control: #ffffff;
+  --control-line: rgb(28 28 28 / 0.14);
+  --glass-bg: #ffffff;
+  --float: #ffffff; /* floating cards: the call, menus */
+  --shadow: 0 2px 8px rgb(0 0 0 / 0.06);
+  --shadow-float: 0 18px 50px rgb(0 0 0 / 0.16);
   --ghost-shadow: oklch(0.2 0 0 / 0.14);
   /* status hues: chips and dots mix these with the surface, so one value works in both modes */
   --status-idle: #a8aeb2;
@@ -68,10 +76,10 @@
   /* color pops: each tab owns an accent, status always uses the same five colors, tools in control
      have one each. Pops only (icons, dots, badges, 16% tints), never text or fills. Light values are
      deeper (4.5:1 or better on white) because they also color small icons and text. */
-  --accent-inbox: #b25e00;
-  --accent-chats: #0062cc;
-  --accent-agents: #8e3fc2;
-  --accent-computers: #0072a3;
+  --accent-inbox: var(--ink);
+  --accent-chats: var(--ink);
+  --accent-agents: var(--ink);
+  --accent-computers: var(--ink);
   --accent-more: var(--ink);
   --st-online: #1a7f37;
   --st-working: #0062cc;
@@ -86,26 +94,28 @@
 }
 
 :root[data-mode="dark"] {
-  /* the approved Wisp dark palette: desktop ground, panels and cards (phones override below) */
-  --app: #111113;
-  --panel: #18181b;
-  --bg: #202023;
-  --card: #1e1e21;
-  --control: #2a2a2e;
-  --control-line: rgb(255 255 255 / 0.1);
-  --side-hover: rgb(255 255 255 / 0.04);
-  --side-active: #26262a;
-  --ink: #f2f2f4;
-  --muted: #a1a1aa;
-  --faint: #8e8e96;
+  --app: #101010;
+  --panel: #161616;
+  --bg: #1e1e1e;
+  --card: #1e1e1e;
+  --control: #252525;
+  --control-line: rgb(255 255 255 / 0.14);
+  --side-hover: rgb(255 255 255 / 0.05);
+  --side-active: rgb(255 255 255 / 0.09);
+  --ink: #ececec;
+  --muted: rgb(236 236 236 / 0.62);
+  --faint: rgb(236 236 236 / 0.48);
   --line: rgb(255 255 255 / 0.07);
+  --line2: rgb(255 255 255 / 0.14);
   --edge: rgb(255 255 255 / 0.08);
-  --input: rgb(255 255 255 / 0.1);
-  --hover: rgb(255 255 255 / 0.05);
-  --chip: #2a2a2e;
-  --code: #131315;
-  --glass-bg: #2a2a2e;
+  --input: rgb(255 255 255 / 0.14);
+  --hover: rgb(255 255 255 / 0.07);
+  --chip: #252525;
+  --code: #101010;
+  --glass-bg: #202020;
+  --float: #202020;
   --shadow: 0 2px 8px oklch(0 0 0 / 0.25);
+  --shadow-float: 0 18px 50px rgb(0 0 0 / 0.55);
   --ghost-shadow: oklch(0 0 0 / 0.42);
   --org-1: oklch(0.58 0.1 180);
   --org-2: oklch(0.58 0.16 295);
@@ -120,10 +130,10 @@
   --kind-groups: #f2c14b;
   --kind-other: #97a6b4;
   --kind-ghost: oklch(0.45 0 0);
-  --accent-inbox: #ff9f0a;
-  --accent-chats: #0a84ff;
-  --accent-agents: #bf5af2;
-  --accent-computers: #64d2ff;
+  --accent-inbox: var(--ink);
+  --accent-chats: var(--ink);
+  --accent-agents: var(--ink);
+  --accent-computers: var(--ink);
   --accent-more: var(--ink);
   --st-online: #30d158;
   --st-working: #0a84ff;
@@ -140,11 +150,8 @@
 /* phones: the ground is #161618 and pages sit straight on it; cards are a step lighter */
 @media (max-width: 767px) {
   :root[data-mode="dark"] {
-    --app: #161618;
-    --panel: #161618;
-    --bg: #1e1e21;
-    --card: #1e1e21;
-    --code: #1c1c1f;
+    --app: #161616;
+    --panel: #161616;
   }
 }
 
@@ -157,11 +164,11 @@
 /* Mono: near-black controls on white, white on near-black (like Grok Bot); links are ink */
 [data-theme="mono"] {
   --gc: 0; --gh: 0;
-  --accent: oklch(0.2 0 0); --accent-ink: oklch(0.99 0 0); --accent-text: var(--ink);
-  --accent-soft: oklch(0 0 0 / 0.06); --ring: oklch(0.7 0 0); --loader: var(--faint);
+  --accent: #1c1c1c; --accent-ink: #ffffff; --accent-text: var(--ink);
+  --accent-soft: rgb(28 28 28 / 0.07); --ring: #a98bf5; --loader: var(--faint);
 }
 [data-theme="mono"][data-mode="dark"] {
-  --accent: #f2f2f4; --accent-ink: #111113; --accent-soft: oklch(1 0 0 / 0.09); --ring: oklch(0.55 0 0);
+  --accent: #ececec; --accent-ink: #161616; --accent-soft: rgb(255 255 255 / 0.09); --ring: #a98bf5;
 }
 
 [data-theme="mint"] {
@@ -241,21 +248,26 @@
   --color-tool-keys: var(--tool-keys);
   --color-tool-shot: var(--tool-shot);
   --color-card: var(--card);
+  --color-wisp: var(--wisp);
+  --color-wisp-ink: var(--wisp-ink);
+  --color-line2: var(--line2);
+  --color-float: var(--float);
+  --shadow-float: var(--shadow-float);
   --color-control: var(--control);
   --color-control-line: var(--control-line);
   --shadow-panel: var(--shadow);
   /* Apple's system font everywhere */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Segoe UI", Roboto, sans-serif;
-  --text-base: 0.9375rem;
+  --text-base: 0.875rem;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   /* sharper corners: small controls 6-10px, cards, groups, menus and panels 12px. Circles and
      pills use rounded-full; sheets use rounded-t-[16px] */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
-  --radius-lg: 0.625rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 0.75rem;
-  --radius-3xl: 0.75rem;
+  --radius-lg: 0.625rem; /* rows 10 */
+  --radius-xl: 0.875rem; /* cards 14 */
+  --radius-2xl: 0.875rem;
+  --radius-3xl: 1.125rem; /* bubbles 18 */
 }
 
 /* A status chip: a full pill tinted from its status hue (set --sc), like Paperclip's. */
@@ -332,13 +344,11 @@ body {
 .circle {
   width: 38px; height: 38px; border-radius: 50%; flex: none; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--control); color: var(--ink);
-  border: 1px solid var(--control-line);
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.5);
-  transition: background-color 120ms;
+  background: transparent; color: var(--ink);
+  border: 1px solid var(--line2);
+  transition: background-color 150ms;
 }
-:root[data-mode="dark"] .circle { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08); }
-.circle:hover { background: color-mix(in oklab, var(--control) 88%, var(--ink)); }
+.circle:hover { background: var(--hover); }
 @media (max-width: 767px) { .circle { width: 44px; height: 44px; } }
 .circle-lg { width: 38px; height: 38px; }
 @media (max-width: 767px) { .circle-lg { width: 44px; height: 44px; } }
@@ -388,21 +398,21 @@ body {
 .prose-w .tag { color: var(--muted); }
 
 /* chat bubbles, like Messages: yours blue on the right, everyone else's grey on the left */
-:root { --bubble-me: #0a84ff; --bubble-me-ink: #ffffff; --bubble-them: oklch(0.93 calc(var(--gc) * 1.25) var(--gh)); }
-:root[data-mode="dark"] { --bubble-them: #242428; }
-.bubble { padding: 0.5em 0.75em; border-radius: 16px; width: fit-content; max-width: min(36rem, 100%); line-height: 1.4; }
-.bubble.them { border-bottom-left-radius: 4px; background: var(--bubble-them); color: var(--ink); }
-.bubble.me { border-bottom-right-radius: 4px; background: var(--bubble-me); color: var(--bubble-me-ink); margin-left: auto; }
+:root { --bubble-me: var(--wisp); --bubble-me-ink: var(--wisp-ink); --bubble-them: rgb(28 28 28 / 0.055); }
+:root[data-mode="dark"] { --bubble-them: #252525; }
+.bubble { padding: 9px 14px; border-radius: 18px; width: fit-content; max-width: min(35rem, 100%); line-height: 22px; }
+.bubble.them { background: var(--bubble-them); color: var(--ink); }
+.bubble.me { background: var(--bubble-me); color: var(--bubble-me-ink); margin-left: auto; }
 .bubble.me a, .bubble.me .wikilink { color: inherit; background: none; }
-.bubble.me code, .bubble.me pre { background: rgb(0 0 0 / 0.18); }
+.bubble.me code, .bubble.me pre { background: rgb(0 0 0 / 0.1); }
 .bubble.me .mention, .bubble.me .mention.user, .bubble.me .mention.agent,
-:root .bubble.me .prose-w .mention.agent, :root[data-mode="dark"] .bubble.me .prose-w .mention.agent { background: rgb(255 255 255 / 0.22); color: inherit; }
-.bubble.me blockquote { color: inherit; opacity: 0.85; border-color: rgb(255 255 255 / 0.4); }
+:root .bubble.me .prose-w .mention.agent, :root[data-mode="dark"] .bubble.me .prose-w .mention.agent { background: rgb(0 0 0 / 0.1); color: inherit; }
+.bubble.me blockquote { color: inherit; opacity: 0.85; border-color: rgb(0 0 0 / 0.3); }
 .bubble.them pre, .bubble.them code { background: var(--panel); }
 /* the quoted message above a reply, inside its bubble */
 .bubble .quote { display: block; text-align: left; border-left: 2px solid currentColor; padding-left: 0.6rem; margin-bottom: 0.35rem; font-size: 0.8125rem; line-height: 1.3; opacity: 0.8; cursor: pointer; }
 .bubble.them .quote { border-color: var(--faint); }
-.bubble.me .quote { border-color: rgb(255 255 255 / 0.6); }
+.bubble.me .quote { border-color: rgb(0 0 0 / 0.35); }
 /* three pulsing dots: an agent is working */
 @keyframes dot-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 .work-dots { display: inline-flex; gap: 4px; }
@@ -641,7 +651,6 @@ body {
 }
 
 /* the agent's home in a DM: a pill at the top, where its ghost hops when you come say hi */
-.agent-pill:hover .ghost { animation: ghost-hop 520ms cubic-bezier(0.3, 0.7, 0.3, 1); }
 .agent-pill-arrow { display: inline-flex; max-width: 0; opacity: 0; margin-left: -6px; overflow: hidden; transition: max-width 200ms ease-out, opacity 200ms ease-out, margin 200ms ease-out; }
 .agent-pill:hover .agent-pill-arrow, .agent-pill:focus-visible .agent-pill-arrow, .agent-pill[aria-expanded="true"] .agent-pill-arrow { max-width: 18px; opacity: 1; margin-left: 0; }
 @keyframes ghost-hop { 0% { transform: translateY(0); } 35% { transform: translateY(-6px) rotate(-4deg); } 65% { transform: translateY(-2px) rotate(3deg); } 100% { transform: translateY(0); } }
@@ -876,3 +885,83 @@ body {
   .ob-dot, .ob-bar > div { transition: none; }
 }
 .ob-card > .ob-rule:first-child { border-top: 0; }
+
+/* ---------- the ghost family (canvas Avatar): idle stares off, hover follows, working wakes and types ---------- */
+@keyframes wisp-breathe { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-1.2px) scale(1.015, 0.985); } }
+@keyframes wisp-abyss { 0%, 46% { transform: translate(-2.3px, -1.3px); } 54%, 90% { transform: translate(2.1px, -1.5px); } 96%, 100% { transform: translate(-2.3px, -1.3px); } }
+@keyframes wisp-blink { 0%, 24% { transform: scale(1, 1); } 26% { transform: scale(1.05, 0.1); } 28.5%, 42% { transform: scale(1, 1); } 50%, 63% { transform: scale(1.04, 0.42); } 66% { transform: scale(1.05, 0.1); } 69%, 80% { transform: scale(1, 1); } 82.5%, 88% { transform: scale(1.14, 1.3); } 91.5%, 94% { transform: scale(1, 1); } 95.3% { transform: scale(1.05, 0.1); } 96.6% { transform: scale(1, 1); } 97.9% { transform: scale(1.05, 0.1); } 99.2%, 100% { transform: scale(1, 1); } }
+@keyframes wisp-wake { 0% { transform: scale(1, 1); } 25% { transform: scale(1.12, 0.82); } 55% { transform: scale(0.9, 1.14) translateY(-3px); } 100% { transform: scale(1, 1); } }
+@keyframes wisp-wander { 0%, 100% { transform: translateX(-3px); } 25% { transform: translateX(0) translateY(-1.5px); } 50% { transform: translateX(3px); } 75% { transform: translateX(0) translateY(-1.5px); } }
+@keyframes wisp-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.2px); } }
+@keyframes wisp-read { 0%, 100% { transform: translate(-1.2px, 1.8px); } 50% { transform: translate(1.2px, 1.8px); } }
+@keyframes wisp-blink-fast { 0%, 38% { transform: scale(1, 1); } 42% { transform: scale(1.05, 0.1); } 46%, 68% { transform: scale(1, 1); } 72%, 80% { transform: scale(1.12, 1.24); } 85%, 100% { transform: scale(1, 1); } }
+@keyframes wisp-blink-alert { 0%, 86% { transform: scale(1, 1); } 90% { transform: scale(1.05, 0.1); } 94%, 100% { transform: scale(1, 1); } }
+@keyframes wisp-pull { 0% { transform: translateY(7px) scale(0.4); opacity: 0; } 60% { transform: translateY(-1px) scale(1.05); opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes wisp-screen { 0%, 100% { opacity: 0.95; } 50% { opacity: 0.7; } }
+@keyframes wisp-line { 0% { transform: scaleX(0.2); } 100% { transform: scaleX(1); } }
+@keyframes wisp-think { 0%, 10% { opacity: 0; transform: translateY(2px) scale(0.5); } 25%, 80% { opacity: 1; transform: none; } 95%, 100% { opacity: 0; transform: translateY(-2px) scale(0.9); } }
+
+.wisp-root :is(.wisp-wake, .wisp-wander, .wisp-bob, .wisp-gaze, .wisp-eye, .wisp-lid, .wisp-kit, .wisp-th, .wisp-lean, .wisp-code) { transform-box: fill-box; }
+.wisp-root .wisp-wake { transform-origin: 50% 100%; }
+.wisp-root .wisp-bob { transform-origin: 50% 100%; animation: wisp-breathe 5.6s ease-in-out infinite; animation-delay: var(--wd, 0s); }
+.wisp-root .wisp-gaze { animation: wisp-abyss 16s cubic-bezier(0.45, 0, 0.2, 1) infinite; animation-delay: var(--wd, 0s); }
+.wisp-root .wisp-eye { transform-origin: center; animation: wisp-blink 11s infinite; animation-delay: var(--wb, 0s); }
+.wisp-root .wisp-lid { transform-origin: center; transition: transform 0.2s var(--drawer); }
+.wisp-root.following .wisp-lid { transform: scale(1.12, 1.26); }
+.wisp-root.working .wisp-lid { transform: scale(1.02, 0.8); }
+.wisp-root.working.following .wisp-lid { transform: scale(1.08, 1.12); }
+.wisp-root.asleep .wisp-lid { transform: scale(1.06, 0.55); }
+.wisp-root .wisp-lean { transform-origin: 50% 100%; transition: transform 0.35s var(--drawer); }
+.wisp-root .wisp-follow { transition: transform 0.12s ease-out; }
+.wisp-root .wisp-wake.hop { animation: wisp-wake 0.55s var(--drawer) 1; }
+
+.wisp-root.working .wisp-wake { animation: wisp-wake 0.55s var(--drawer) 1; }
+.wisp-root.working .wisp-wander { animation: wisp-wander 3.4s ease-in-out infinite; animation-delay: var(--wd, 0s); }
+.wisp-root.working .wisp-bob { animation: wisp-bob 0.9s ease-in-out infinite; }
+.wisp-root.working .wisp-gaze { animation: wisp-read 1.4s ease-in-out infinite; }
+.wisp-root.working .wisp-eye { animation: wisp-blink-fast 3.2s infinite; animation-delay: var(--wb, 0s); }
+.wisp-root.working .wisp-kit { transform-origin: 50% 100%; animation: wisp-pull 0.5s var(--drawer) 0.15s both; }
+.wisp-root.working .wisp-glow { animation: wisp-screen 1.1s ease-in-out infinite; }
+.wisp-root.working .wisp-code { transform-origin: 0 50%; animation: wisp-line 0.9s steps(5) infinite; }
+.wisp-root.working .wisp-code.b { animation-delay: -0.45s; }
+.wisp-root.working .wisp-th { transform-origin: 50% 100%; animation: wisp-think 2.4s ease-in-out infinite; }
+.wisp-root.working .wisp-th.t2 { animation-delay: 0.25s; }
+.wisp-root.working .wisp-th.t3 { animation-delay: 0.5s; }
+.wisp-root.following .wisp-gaze { animation: none; }
+.wisp-root.following .wisp-eye { animation: wisp-blink-alert 3.6s infinite; }
+.wisp-root.asleep :is(.wisp-gaze, .wisp-eye) { animation: none; }
+/* small sizes (sidebar 38, chat 28): one bubble, no code lines; tiny (24 and under): laptop only */
+.wisp-root.small :is(.wisp-th.t1, .wisp-th.t2, .wisp-code) { display: none; }
+/* still (ambient off): no idle loops, but hover and hops still play */
+.wisp-root.still:not(.working) :is(.wisp-bob, .wisp-gaze, .wisp-eye) { animation: none; }
+/* Reduce Motion (OS or Settings): everything stops */
+.wisp-root.frozen :is(.wisp-wake, .wisp-wander, .wisp-bob, .wisp-gaze, .wisp-eye, .wisp-kit, .wisp-glow, .wisp-code, .wisp-th) { animation: none !important; }
+.wisp-root.frozen :is(.wisp-lean, .wisp-follow, .wisp-lid) { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .wisp-root :is(.wisp-wake, .wisp-wander, .wisp-bob, .wisp-gaze, .wisp-eye, .wisp-kit, .wisp-glow, .wisp-code, .wisp-th) { animation: none !important; }
+  .wisp-root :is(.wisp-lean, .wisp-follow, .wisp-lid) { transition: none; }
+}
+
+/* mouth C (canvas Mouths, chosen 2026-11-20): one stroke in the eyes' ink. Flat idle, a small smile when
+   the pointer is near, a pressed line off to one side while working, opening and closing while it talks */
+.wisp-root .wisp-mouth > * { opacity: 0; transition: opacity 0.15s ease; }
+.wisp-root .wisp-mouth .m-flat { opacity: 1; }
+.wisp-root.working .wisp-mouth .m-flat, .wisp-root.following .wisp-mouth .m-flat, .wisp-root.talking .wisp-mouth .m-flat { opacity: 0; }
+.wisp-root.working:not(.following):not(.talking) .wisp-mouth .m-work { opacity: 1; }
+.wisp-root.following:not(.talking) .wisp-mouth .m-smile { opacity: 1; }
+.wisp-root.talking .wisp-mouth .m-talk { opacity: 1; transform-box: fill-box; transform-origin: center; animation: wisp-talk 0.62s ease-in-out infinite; }
+@keyframes wisp-talk { 0%, 100% { transform: scaleY(0.3); } 30% { transform: scaleY(1); } 55% { transform: scaleY(0.45); } 78% { transform: scaleY(0.85); } }
+.wisp-root.frozen .wisp-mouth .m-talk { animation: none; transform: scaleY(0.6); }
+.wisp-root.frozen .wisp-mouth > * { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .wisp-root .wisp-mouth .m-talk { animation: none !important; transform: scaleY(0.6); }
+  .wisp-root .wisp-mouth > * { transition: none; }
+}
+
+/* ---------- the desktop rail: 72px, opens to 300px over the page while the pointer rests on it ---------- */
+.rail { width: 72px; transition: width var(--t-drawer) var(--drawer), box-shadow var(--t-drawer) var(--drawer); }
+.rail-wrap:hover > .rail, .rail:has(:focus-visible) { width: 300px; box-shadow: var(--shadow-float); transition-delay: 120ms; }
+.rail .rail-label { opacity: 0; transition: opacity 180ms ease-out; pointer-events: none; }
+.rail-wrap:hover > .rail .rail-label, .rail:has(:focus-visible) .rail-label { opacity: 1; transition-delay: 180ms; pointer-events: auto; }
+.rail-chats { scrollbar-width: none; }
+.rail-chats::-webkit-scrollbar { display: none; }

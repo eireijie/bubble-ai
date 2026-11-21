@@ -4,7 +4,7 @@ import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { WispClient } from "@wisp/sdk";
-import { SETTINGS_HARNESSES, SETUP_STEPS, WATCH_SERVICES, type Screenshot } from "@wisp/core";
+import { SETTINGS_HARNESSES, SETUP_STEPS, WATCH_SERVICES, frameOutside, type Screenshot } from "@wisp/core";
 
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
 const text = (t: string): { content: Content[] } => ({ content: [{ type: "text" as const, text: t }] });
@@ -434,7 +434,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "settings_change",
     {
       description:
-        "Change how Wisp works for the person you work for, when they ask in plain words (\"check less often\", \"don't message me after 10pm\", \"turn on voice calls\"). Background fields change your own background work for them; mods switch optional parts of Wisp on or off (owners only). Only change what they asked for. They see what changed in your DM with an Undo button, so just confirm in a few words.",
+        "Change how Wisp works for the person you work for, when they ask in plain words (\"check less often\", \"don't message me after 10pm\", \"turn on routines\"). Background fields change your own background work for them; mods switch optional parts of Wisp on or off (owners only); turning on a mod that widens your reach (like Apple, Storage or Background agents) posts a card and waits for their OK. Only change what they asked for. They see what changed in your DM with an Undo button, so just confirm in a few words.",
       inputSchema: {
         enabled: z.boolean().optional().describe("background work on or off"),
         every_minutes: z.number().int().min(10).max(1440).optional().describe("how often to check, 10–1440 minutes"),
@@ -447,7 +447,8 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     safe(async ({ enabled, every_minutes, quiet_start, quiet_end, focus, mods }) => {
       const background = Object.fromEntries(Object.entries({ enabled, everyMinutes: every_minutes, quietStart: quiet_start, quietEnd: quiet_end, focus }).filter(([, v]) => v !== undefined));
       const r = await client.changeSettings({ ...(Object.keys(background).length ? { background } : {}), ...(mods && Object.keys(mods).length ? { mods } : {}) });
-      return text(r.changed.length ? `Changed:\n${r.changed.map((l) => `- ${l}`).join("\n")}\nThey can see it in your DM and undo it.` : (r.note ?? "Nothing changed."));
+      const done = r.changed.length ? `Changed:\n${r.changed.map((l) => `- ${l}`).join("\n")}\nThey can see it in your DM and undo it.` : r.asked ? "" : (r.note ?? "Nothing changed.");
+      return text([done, r.asked ?? ""].filter(Boolean).join("\n"));
     }),
   );
 
@@ -533,7 +534,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
         role: z.string().optional().describe("for step role, once they agree: \"Business manager\""),
         accounts: z.array(z.string()).optional().describe("for step accounts: [\"Google Ads\", \"Instagram\"]"),
         watch: z
-          .array(z.object({ service: z.enum(WATCH_SERVICES), label: z.string().optional(), url: z.string().optional().describe("browser: the site"), lookFor: z.string().optional().describe("browser: what to look for there") }))
+          .array(z.object({ service: z.enum(WATCH_SERVICES).refine((s) => s !== "apple", "Apple apps are set up in Settings → Apple"), label: z.string().optional(), url: z.string().optional().describe("browser: the site"), lookFor: z.string().optional().describe("browser: what to look for there") }))
           .optional()
           .describe("after they said yes: [{service: \"gmail\"}, {service: \"browser\", label: \"Google Ads\", url: \"https://ads.google.com\", lookFor: \"campaigns paused or over budget\"}]"),
         done: z.boolean().optional(),
@@ -745,7 +746,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
       { description: "Read a file on the person's storage: text comes back as text and pictures are shown to you. For anything else, or files over 5 MB, use storage_download.", inputSchema: { storage: which, path: z.string() } },
       safe(async ({ storage, path: p }) => {
         const f = await client.storageRead(storage, p);
-        if (f.text !== undefined) return text(f.text.slice(0, 100_000));
+        if (f.text !== undefined) return text(frameOutside(`the file ${f.name} on the person's storage`, f.text.slice(0, 100_000)));
         if (/^image\/(png|jpeg|gif|webp)$/.test(f.mime) && f.base64) return { content: [{ type: "image" as const, data: f.base64, mimeType: f.mime }, { type: "text" as const, text: f.name }] };
         return text(`${f.name} is ${f.mime} (${f.size} bytes); use storage_download to get it as a file.`);
       }),
@@ -803,6 +804,102 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
       safe(async ({ storage, path: p }) => asked(await client.storageChange(storage, "delete", p))),
     );
   }
+
+  // --- Apple (the Apple mod: only the apps and levels this agent has) ---------------------------
+
+  const appleLv = await client.appleMine().catch(() => ({}) as Awaited<ReturnType<typeof client.appleMine>>);
+  const appleRead = async (op: Parameters<typeof client.apple>[0]) => {
+    const r = await client.apple(op);
+    return r.status === "done" ? text(frameOutside("the person's Apple apps", JSON.stringify(r.result, null, 2))) : text(r.message);
+  };
+  const appleAsk = async (op: Parameters<typeof client.apple>[0]) => {
+    const r = await client.apple(op);
+    return r.status === "asked" ? text(r.message) : json(r.result);
+  };
+  const isoTime = z.string().describe('ISO 8601 with offset, e.g. "2026-11-20T10:30:00-05:00"');
+
+  if (appleLv.messages) {
+    server.registerTool(
+      "apple_messages_recent",
+      { description: "The person's latest iMessage/SMS conversations on their Mac, newest first: who, the last message and when.", inputSchema: { limit: z.number().int().min(1).max(50).optional() } },
+      safe(async ({ limit }) => appleRead({ op: "messages_recent", limit: limit ?? 20 })),
+    );
+    server.registerTool(
+      "apple_messages_read",
+      { description: "Read one conversation's latest messages. `chat` is a chat id from apple_messages_recent, a phone number, an email, or a contact's name.", inputSchema: { chat: z.string(), limit: z.number().int().min(1).max(200).optional() } },
+      safe(async ({ chat, limit }) => appleRead({ op: "messages_read", chat, limit: limit ?? 30 })),
+    );
+    server.registerTool(
+      "apple_messages_search",
+      { description: "Search the person's messages for some text.", inputSchema: { query: z.string(), limit: z.number().int().min(1).max(100).optional() } },
+      safe(async ({ query, limit }) => appleRead({ op: "messages_search", query, limit: limit ?? 30 })),
+    );
+    if (appleLv.messages >= 2)
+      server.registerTool(
+        "apple_messages_send",
+        { description: "Send a text from the person's Messages. `to` is a phone number or email (look the person up with apple_contacts_search first). The person sees a card and can edit or stop it; end your turn after and you'll get their answer.", inputSchema: { to: z.string(), text: z.string() } },
+        safe(async ({ to, text: body }) => appleAsk({ op: "messages_send", to, text: body })),
+      );
+  }
+
+  if (appleLv.contacts)
+    server.registerTool(
+      "apple_contacts_search",
+      { description: "Find people in the person's Contacts by name, phone number or email: names, numbers, emails, company, birthday.", inputSchema: { query: z.string(), limit: z.number().int().min(1).max(50).optional() } },
+      safe(async ({ query, limit }) => appleRead({ op: "contacts_search", query, limit: limit ?? 10 })),
+    );
+
+  if (appleLv.calendar) {
+    server.registerTool(
+      "apple_calendar_list",
+      { description: "Events on the person's calendars between two times (all their calendars on the Mac).", inputSchema: { from: isoTime, to: isoTime, limit: z.number().int().min(1).max(500).optional() } },
+      safe(async ({ from, to, limit }) => appleRead({ op: "calendar_list", from, to, limit: limit ?? 100 })),
+    );
+    if (appleLv.calendar >= 2) {
+      server.registerTool(
+        "apple_calendar_create",
+        { description: "Add an event to the person's calendar. They're asked first; end your turn after.", inputSchema: { title: z.string(), start: isoTime, end: isoTime, calendar: z.string().optional(), all_day: z.boolean().optional(), location: z.string().optional(), notes: z.string().optional() } },
+        safe(async ({ title, start, end, calendar, all_day, location, notes }) => appleAsk({ op: "calendar_create", title, start, end, ...(calendar ? { calendar } : {}), ...(all_day ? { allDay: true } : {}), ...(location ? { location } : {}), ...(notes ? { notes } : {}) })),
+      );
+      server.registerTool(
+        "apple_calendar_move",
+        { description: "Move an event (its id from apple_calendar_list) to a new time. They're asked first; end your turn after.", inputSchema: { id: z.string(), start: isoTime, end: isoTime } },
+        safe(async ({ id, start, end }) => appleAsk({ op: "calendar_move", id, start, end })),
+      );
+      server.registerTool(
+        "apple_calendar_delete",
+        { description: "Delete an event (its id from apple_calendar_list). They're asked first; end your turn after.", inputSchema: { id: z.string() } },
+        safe(async ({ id }) => appleAsk({ op: "calendar_delete", id })),
+      );
+    }
+  }
+
+  if (appleLv.reminders) {
+    server.registerTool(
+      "apple_reminders_list",
+      { description: "The person's reminders (open ones unless include_done), with due dates and lists.", inputSchema: { list: z.string().optional(), include_done: z.boolean().optional(), limit: z.number().int().min(1).max(500).optional() } },
+      safe(async ({ list, include_done, limit }) => appleRead({ op: "reminders_list", ...(list ? { list } : {}), includeDone: !!include_done, limit: limit ?? 100 })),
+    );
+    if (appleLv.reminders >= 2) {
+      server.registerTool(
+        "apple_reminders_create",
+        { description: "Add a reminder. They're asked first; end your turn after.", inputSchema: { title: z.string(), due: isoTime.optional(), list: z.string().optional(), notes: z.string().optional() } },
+        safe(async ({ title, due, list, notes }) => appleAsk({ op: "reminders_create", title, ...(due ? { due } : {}), ...(list ? { list } : {}), ...(notes ? { notes } : {}) })),
+      );
+      server.registerTool(
+        "apple_reminders_complete",
+        { description: "Mark a reminder done (its id from apple_reminders_list). They're asked first; end your turn after.", inputSchema: { id: z.string() } },
+        safe(async ({ id }) => appleAsk({ op: "reminders_complete", id })),
+      );
+    }
+  }
+
+  if (appleLv.location)
+    server.registerTool(
+      "apple_location",
+      { description: "Where the person is right now, from their iPhone: coordinates, accuracy, how old the fix is, and the name of a saved place if they're at one. Only ask when the task needs it.", inputSchema: {} },
+      safe(async () => json(await client.appleLocation())),
+    );
 
   return server;
 }

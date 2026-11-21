@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { FEATURE_INFO, FEATURE_KEYS, UNLISTED_FEATURES, type BackgroundWork, type FeatureKey, type MessagePart } from "@wisp/core";
+import { FEATURE_INFO, FEATURE_KEYS, MODS_NEED_OK, UNLISTED_FEATURES, type Agent, type Approval, type BackgroundWork, type FeatureKey, type MessagePart } from "@wisp/core";
 import type { Caller } from "./api.ts";
 import { DEFAULT_DAILY_CAP, parseWhen } from "./background.ts";
 import { setWorkspaceFeatures, workspaceFeatures } from "./features.ts";
@@ -48,6 +48,17 @@ function backgroundLines(was: BackgroundPatch, now: BackgroundPatch): string[] {
   return out;
 }
 
+/** The person answered an agent's ask to turn mods on: a yes turns them on. Returns what the agent is told. */
+export function decideModsApproval(hub: Hub, a: Approval, approve: boolean): string {
+  const keys = Object.keys(a.mods?.mods ?? {}).filter((k): k is FeatureKey => (FEATURE_KEYS as readonly string[]).includes(k));
+  const names = keys.map((k) => FEATURE_INFO[k].name).join(", ");
+  if (!approve) return `Not approved: leave ${names} off.`;
+  const patch = Object.fromEntries(keys.map((k) => [k, true])) as Partial<Record<FeatureKey, boolean>>;
+  hub.broadcast(a.workspaceId, { type: "features", features: setWorkspaceFeatures(hub.store, a.workspaceId, patch) });
+  hub.apple.syncWatch(a.workspaceId);
+  return `Approved: ${names} ${keys.length === 1 ? "is" : "are"} on now.`;
+}
+
 /**
  * Background work (an agent checking in on its own for a person), follow-ups (one-off "come
  * back to this at 8am"), messaging the person first, and web push so it reaches their phone.
@@ -58,6 +69,21 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
 
   /** The person an agent's call is for: whoever it's working for now, or the workspace owner. */
   const personFor = (c: Caller) => requesterOf(c) ?? store.members(c.workspaceId).find((m) => m.role === "owner")?.id ?? null;
+
+  /** An agent wants mods on that widen its reach: post a card for the person, one at a time per agent. */
+  const askForMods = (agent: Agent, userId: string, keys: FeatureKey[]): string => {
+    const names = keys.map((k) => FEATURE_INFO[k].name).join(", ");
+    const open = store.approvals(agent.workspaceId, "pending").find((a) => a.agentId === agent.id && a.mods);
+    if (open) return "You already asked to turn on mods; wait for the answer before asking again.";
+    const where = hub.whereIs(agent.id);
+    if (!where) return `Nobody to ask, so ${names} stayed off.`;
+    const mods = Object.fromEntries(keys.map((k) => [k, true])) as Partial<Record<FeatureKey, boolean>>;
+    const details = keys.map((k) => `${FEATURE_INFO[k].name}: ${FEATURE_INFO[k].description}`).join("\n");
+    const approval = store.createApproval({ workspaceId: agent.workspaceId, agentId: agent.id, ...where, summary: `Turn on ${names}`, details, mods: { mods, requestedBy: userId } });
+    hub.postMessage({ ...where, author: { kind: "agent", id: agent.id }, body: `Can I turn on ${names}?`, parts: [{ type: "approval", approvalId: approval.id }], route: false, onBehalfOf: userId });
+    hub.broadcast(agent.workspaceId, { type: "approval", approval }, hub.audience(approval.channelId));
+    return `Asked to turn on ${names}. ${keys.length === 1 ? "It stays" : "They stay"} off until the person approves; end your turn now, you'll get a message once they answer.`;
+  };
 
   const agentFor = (c: Caller, agentId: string, reply: FastifyReply) => {
     const agent = store.agent(agentId);
@@ -371,6 +397,7 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
     const userId = personFor(c);
     if (!userId) return reply.code(409).send({ error: "nobody to work for" });
     const undo: Undo = {};
+    let asked: string | undefined;
     const lines: string[] = [];
     if (body.background && Object.keys(body.background).length) {
       const notAllowed = hub.whyNotAllowed(agent, userId);
@@ -387,20 +414,26 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
     if (body.mods && Object.keys(body.mods).length) {
       if (!store.members(c.workspaceId).some((m) => m.id === userId && m.role === "owner")) return reply.code(403).send({ error: "only an owner can turn mods on or off; ask them to" });
       const was = workspaceFeatures(store, c.workspaceId);
-      const changed = (Object.keys(body.mods) as FeatureKey[]).filter((k) => was[k] !== body.mods![k]);
+      const differs = (Object.keys(body.mods) as FeatureKey[]).filter((k) => was[k] !== body.mods![k]);
+      // turning on a mod that widens an agent's reach waits for the person's OK on a card
+      const needOk = differs.filter((k) => body.mods![k] && MODS_NEED_OK.includes(k));
+      const changed = differs.filter((k) => !needOk.includes(k));
+      if (needOk.length) asked = askForMods(agent, userId, needOk);
       if (changed.length) {
+        const patch = Object.fromEntries(changed.map((k) => [k, body.mods![k]])) as Partial<Record<FeatureKey, boolean>>;
         undo.mods = Object.fromEntries(changed.map((k) => [k, was[k]]));
-        lines.push(...changed.map((k) => `Mod ${FEATURE_INFO[k].name}: ${body.mods![k] ? "on" : "off"}`));
-        hub.broadcast(c.workspaceId, { type: "features", features: setWorkspaceFeatures(store, c.workspaceId, body.mods) });
+        lines.push(...changed.map((k) => `Mod ${FEATURE_INFO[k].name}: ${patch[k] ? "on" : "off"}`));
+        hub.broadcast(c.workspaceId, { type: "features", features: setWorkspaceFeatures(store, c.workspaceId, patch) });
+        hub.apple.syncWatch(c.workspaceId);
       }
     }
-    if (!lines.length) return { changed: [], note: "Nothing was different, so nothing changed." };
+    if (!lines.length) return asked ? { changed: [], asked } : { changed: [], note: "Nothing was different, so nothing changed." };
     const change = store.createChange({ workspaceId: c.workspaceId, userId, agentId: agent.id, lines, undo });
     // the person sees what changed in your DM, with an Undo
     const channel = store.dmChannel(c.workspaceId, userId, agent.id);
     hub.postMessage({ channelId: channel.id, author: c.actor, body: lines.join("\n"), parts: [{ type: "change", changeId: change.id }], route: false, onBehalfOf: userId });
     hub.broadcast(c.workspaceId, { type: "changes_changed" });
-    return { changed: lines, changeId: change.id };
+    return asked ? { changed: lines, changeId: change.id, asked } : { changed: lines, changeId: change.id };
   });
 
   app.get("/api/changes", async (req, reply) => {
@@ -427,7 +460,10 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
     if (undo.mods) {
       const now = workspaceFeatures(store, c.workspaceId);
       const keep = Object.fromEntries((Object.keys(undo.mods) as FeatureKey[]).filter((k) => now[k] !== undo.mods![k]).map((k) => [k, undo.mods![k]]));
-      if (Object.keys(keep).length) hub.broadcast(c.workspaceId, { type: "features", features: setWorkspaceFeatures(store, c.workspaceId, keep) });
+      if (Object.keys(keep).length) {
+        hub.broadcast(c.workspaceId, { type: "features", features: setWorkspaceFeatures(store, c.workspaceId, keep) });
+        hub.apple.syncWatch(c.workspaceId);
+      }
     }
     store.markChangeUndone(ch.id);
     hub.broadcast(c.workspaceId, { type: "changes_changed" });

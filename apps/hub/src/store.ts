@@ -417,11 +417,11 @@ export class Store {
 
   // --- approvals ------------------------------------------------------------
 
-  createApproval(a: { workspaceId: string; agentId: string; channelId: string; threadId: string | null; summary: string; details: string; login?: Approval["login"]; flow?: Approval["flow"]; storage?: Approval["storage"]; device?: Approval["device"] }): Approval {
+  createApproval(a: { workspaceId: string; agentId: string; channelId: string; threadId: string | null; summary: string; details: string; login?: Approval["login"]; flow?: Approval["flow"]; storage?: Approval["storage"]; device?: Approval["device"]; apple?: Approval["apple"]; mods?: Approval["mods"] }): Approval {
     const approvalId = id("apr");
     this.db
-      .prepare("INSERT INTO approvals (id, workspace_id, agent_id, channel_id, thread_id, summary, details, status, created_at, login_json, flow_json, storage_json, device_json) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)")
-      .run(approvalId, a.workspaceId, a.agentId, a.channelId, a.threadId, a.summary, a.details, now(), a.login ? JSON.stringify(a.login) : null, a.flow ? JSON.stringify(a.flow) : null, a.storage ? JSON.stringify(a.storage) : null, a.device ? JSON.stringify(a.device) : null);
+      .prepare("INSERT INTO approvals (id, workspace_id, agent_id, channel_id, thread_id, summary, details, status, created_at, login_json, flow_json, storage_json, device_json, apple_json, mods_json) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)")
+      .run(approvalId, a.workspaceId, a.agentId, a.channelId, a.threadId, a.summary, a.details, now(), a.login ? JSON.stringify(a.login) : null, a.flow ? JSON.stringify(a.flow) : null, a.storage ? JSON.stringify(a.storage) : null, a.device ? JSON.stringify(a.device) : null, a.apple ? JSON.stringify(a.apple) : null, a.mods ? JSON.stringify(a.mods) : null);
     return this.approval(approvalId)!;
   }
 
@@ -757,10 +757,10 @@ export class Store {
   /** The newest top-level message in each channel, for the chats list's preview line and its order. */
   lastMessages(channelIds: string[]): Record<string, { at: string; body: string; author: { kind: string; id: string } }> {
     const out: Record<string, { at: string; body: string; author: { kind: string; id: string } }> = {};
-    const stmt = this.db.prepare("SELECT body, author_kind, author_id, created_at FROM messages WHERE channel_id = ? AND thread_id IS NULL AND deleted_at IS NULL AND NOT (author_kind = 'user' AND author_id = 'system') ORDER BY created_at DESC LIMIT 1");
+    const stmt = this.db.prepare("SELECT body, parts_json, author_kind, author_id, created_at FROM messages WHERE channel_id = ? AND thread_id IS NULL AND deleted_at IS NULL AND NOT (author_kind = 'user' AND author_id = 'system') AND (body != '' OR parts_json LIKE '%\"file\"%' OR parts_json LIKE '%\"summary\"%') ORDER BY created_at DESC LIMIT 1");
     for (const id of channelIds) {
-      const r = stmt.get(id) as { body: string; author_kind: string; author_id: string; created_at: string } | undefined;
-      if (r) out[id] = { at: r.created_at, body: r.body.slice(0, 400), author: { kind: r.author_kind, id: r.author_id } };
+      const r = stmt.get(id) as { body: string; parts_json: string; author_kind: string; author_id: string; created_at: string } | undefined;
+      if (r) out[id] = { at: r.created_at, body: r.parts_json.includes('"summary"') ? "Compacted the conversation" : r.body.slice(0, 400), author: { kind: r.author_kind, id: r.author_id } };
     }
     return out;
   }
@@ -840,7 +840,7 @@ export class Store {
 
   // --- messages -------------------------------------------------------------
 
-  insertMessage(m: { channelId: string; threadId?: string | null; author: Actor; body: string; parts?: MessagePart[]; hop?: number; replyToId?: string | null; conversationId?: string | null; contextId?: string | null }): Message {
+  insertMessage(m: { channelId: string; threadId?: string | null; author: Actor; body: string; parts?: MessagePart[]; hop?: number; replyToId?: string | null; conversationId?: string | null; contextId?: string | null; startsChat?: boolean }): Message {
     const msg: Message = { id: id("msg"), channelId: m.channelId, threadId: m.threadId ?? null, author: m.author, body: m.body, parts: m.parts ?? [], hop: m.hop ?? 0, createdAt: now(), ...(m.replyToId ? { replyToId: m.replyToId } : {}) };
     // the top of a DM or team splits into chats after a quiet break; threads don't
     let contextId = m.contextId ?? null;
@@ -850,7 +850,8 @@ export class Store {
       // a reply to an earlier request stays in that request's chat, unless someone has written in a
       // newer chat since: then it lands in the chat going on now and brings its own back with it
       const current = latest && (latest.conversationId || latest.id);
-      if (m.conversationId && (!latest || current === m.conversationId)) msg.conversationId = m.conversationId;
+      if (m.startsChat) msg.conversationId = msg.id;
+      else if (m.conversationId && (!latest || current === m.conversationId)) msg.conversationId = m.conversationId;
       else {
         msg.conversationId = natural;
         if (m.conversationId) contextId = m.conversationId;
@@ -1537,7 +1538,9 @@ type ApprovalRow = {
   login_json: string | null;
   flow_json: string | null;
   storage_json: string | null;
+  apple_json: string | null;
   device_json?: string | null;
+  mods_json?: string | null;
 };
 
 function toApproval(r: ApprovalRow): Approval {
@@ -1557,7 +1560,9 @@ function toApproval(r: ApprovalRow): Approval {
     login: r.login_json ? JSON.parse(r.login_json) : null,
     flow: r.flow_json ? JSON.parse(r.flow_json) : null,
     storage: r.storage_json ? JSON.parse(r.storage_json) : null,
+    apple: r.apple_json ? JSON.parse(r.apple_json) : null,
     device: r.device_json ? JSON.parse(r.device_json) : null,
+    mods: r.mods_json ? JSON.parse(r.mods_json) : null,
   };
 }
 

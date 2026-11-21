@@ -46,6 +46,16 @@ export function stepsDone(s: OnboardingState | null, choices: SetupChoices = {})
   };
 }
 
+/** The phone step's line; with no agent yet (the AI step was skipped) it names none. */
+export function devicesLine(agentName: string | null): string {
+  return agentName ? `Say hi to ${agentName} from your phone too.` : "Add your phone so you can reach Wisp from it.";
+}
+
+/** Steps that finishing setup marks done: the agent only when one exists (a skipped AI leaves it open). */
+export function stepsFinished(hasAgent: boolean): StepId[] {
+  return hasAgent ? ["agent", "devices"] : ["devices"];
+}
+
 const DISMISS_KEY = "wisp.onboarding.dismissed";
 
 export function isDismissed(): boolean {
@@ -228,4 +238,39 @@ export { isLocalOnlyHost } from "./loopback.ts";
 /** The features an owner's Simple or Advanced choice sets for the organization: Simple keeps the extras off, Advanced turns them all on. */
 export function featuresForExperience(choice: "simple" | "advanced"): Features {
   return { ...(choice === "simple" ? FEATURE_PRESETS.simple : FEATURE_PRESETS.everything) };
+}
+
+/**
+ * "When you're ready" (onboarding's last page, #/here): what's left after the first chat. It stays
+ * in the sidebar as "Finish setup" until every item is done. "second" is done once there are two
+ * agents; the others are ticked by the person.
+ */
+export const READY_ITEMS = [
+  { id: "phone", label: "Get Wisp on your phone" },
+  { id: "logins", label: "Add your password manager" },
+  { id: "email", label: "Connect your email" },
+  { id: "second", label: "Make a second agent" },
+] as const;
+export type ReadyItem = (typeof READY_ITEMS)[number]["id"];
+const readyKey = (workspaceId: string) => `wisp.ready.v1.${workspaceId}`;
+const useReadyStore = create<{ revision: number }>(() => ({ revision: 0 }));
+
+function readyTicks(workspaceId: string): Partial<Record<ReadyItem | "started", boolean>> {
+  try { return JSON.parse(localStorage.getItem(readyKey(workspaceId)) ?? "{}") ?? {}; } catch { return {}; }
+}
+
+/** `started`: the person has seen "Here's your Wisp", so the list shows in the sidebar from then on. */
+export function setReadyItem(workspaceId: string, id: ReadyItem | "started", done: boolean) {
+  try { localStorage.setItem(readyKey(workspaceId), JSON.stringify({ ...readyTicks(workspaceId), [id]: done })); } catch {}
+  useReadyStore.setState((s) => ({ revision: s.revision + 1 }));
+}
+
+/** Each "When you're ready" item and whether it's done; `left` counts what isn't. */
+export function useReadyChecklist(): { items: { id: ReadyItem; label: string; done: boolean }[]; left: number; started: boolean; workspaceId: string } {
+  useReadyStore((s) => s.revision);
+  const workspaceId = useStore((s) => s.me?.workspace.id) ?? "";
+  const agentCount = useStore((s) => s.agents.length);
+  const ticks = readyTicks(workspaceId);
+  const items = READY_ITEMS.map((i) => ({ id: i.id, label: i.label, done: i.id === "second" ? agentCount >= 2 || !!ticks.second : !!ticks[i.id] }));
+  return { items, left: items.filter((i) => !i.done).length, started: !!ticks.started, workspaceId };
 }

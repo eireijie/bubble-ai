@@ -367,6 +367,10 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   ["approvals", "storage_json", "TEXT"],
   // an agent asking to use a person's own computer for a task
   ["approvals", "device_json", "TEXT"],
+  // an agent asking to send a text or change an event or reminder (the Apple mod)
+  ["approvals", "apple_json", "TEXT"],
+  // an agent asking to turn on mods that widen its reach (Apple, Storage, ...)
+  ["approvals", "mods_json", "TEXT"],
   // last_run_at is when a run was requested; this is when one actually finished
   ["routines", "last_completed_at", "TEXT"],
   ["messages", "edited_at", "TEXT"],

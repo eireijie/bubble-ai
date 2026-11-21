@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AppleMacStatus } from "./apple.ts";
 
 /**
  * Agents work on computers, like people do. A computer is one of:
@@ -96,6 +97,8 @@ export const DeviceCapabilities = z.object({
   paused: z.boolean().optional(),
   /** which commands connectors need are on the device's PATH (npx, uvx, docker…), so a connector that can't start is caught before it's enabled */
   commands: z.record(z.string().max(100), z.boolean()).optional(),
+  /** a Mac: what the Apple mod's bridge can reach (Messages, Contacts, Calendar, Reminders) */
+  apple: AppleMacStatus.optional(),
 });
 export type DeviceCapabilities = z.infer<typeof DeviceCapabilities>;
 

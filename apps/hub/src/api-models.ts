@@ -265,7 +265,8 @@ export function registerModelsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     if (!body) return;
     try {
       const s = (await hub.computers.nodeRequest(l.nodeId, (requestId) => ({ type: "model_login", requestId, op: "input", loginId: l.state.id, text: body.text }), 20_000)) as ModelLogin;
-      if (l.state.status === "running") l.state = { ...l.state, output: s.output };
+      // its answer so far (a turned-down code shows as `error` while it keeps running)
+      if (l.state.status === "running" && s.status === "running") l.state = { ...s, id: l.state.id, provider: l.state.provider };
       return l.state;
     } catch (err) {
       if (err instanceof ComputerError) return reply.code(err.status).send({ error: err.message });

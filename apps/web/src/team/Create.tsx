@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { ArrowRight, ChevronLeft, Hash, LayoutGrid, Loader2, Lock, PenLine, Sparkles, Workflow } from "lucide-react";
-import { TEAM_TEMPLATES, MIN_TEAM_AGENTS, teamProblem, teamSizeProblem, type Agent, type ChannelTeam, type FlowLine, type Section, type TeamDraft, type TeamTemplate } from "@wisp/core";
+import { TEAM_TEMPLATES, MIN_TEAM_AGENTS, teamProblem, teamSizeProblem, workSteps, type Agent, type ChannelTeam, type FlowLine, type Section, type TeamDraft, type TeamTemplate } from "@wisp/core";
 import { api } from "../api.ts";
 import { go } from "../router.ts";
 import { useStore } from "../store.ts";
@@ -217,6 +217,7 @@ export function NewTeamFlow({ onClose, sectionId = null, onBrowse, SectionPick, 
     return (
       <Describe
         slug={id}
+        initial={topic.trim()}
         onBack={() => setPage("start")}
         busy={busy}
         error={error}
@@ -265,9 +266,9 @@ export function NewTeamFlow({ onClose, sectionId = null, onBrowse, SectionPick, 
 }
 
 /** "Have an agent build it": one sentence in, the agent's flowchart out, read before anything is created. */
-function Describe({ slug: id, onBack, onEdit, onCreate, busy, error }: { slug: string; onBack: () => void; onEdit: (t: ChannelTeam) => void; onCreate: (t: ChannelTeam) => void; busy: boolean; error: string | null }) {
+function Describe({ slug: id, initial, onBack, onEdit, onCreate, busy, error }: { slug: string; initial: string; onBack: () => void; onEdit: (t: ChannelTeam) => void; onCreate: (t: ChannelTeam) => void; busy: boolean; error: string | null }) {
   const agents = useStore((s) => s.agents);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initial);
   const [builderId, setBuilderId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle" | "working" | "ready" | "failed">("idle");
   const [draft, setDraft] = useState<TeamDraft | null>(null);
@@ -442,7 +443,7 @@ function Review({ slug: id, topic, team, busy, error, onBack, onCreate }: { slug
           <Workflow size={19} className="text-muted" aria-hidden />
           <span className="flex-1 text-body font-medium">See the flowchart</span>
           <span className="text-sm text-muted">
-            {team.steps?.length ?? 0} {(team.steps?.length ?? 0) === 1 ? "step" : "steps"}
+            {workSteps(team.steps ?? []).length} {workSteps(team.steps ?? []).length === 1 ? "step" : "steps"}
           </span>
         </button>
         {(problem || error) && (

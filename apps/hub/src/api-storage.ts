@@ -6,7 +6,7 @@ import { LoginError } from "./logins.ts";
 import { STORAGE_CALLBACK, StorageError } from "./storage.ts";
 
 interface Helpers {
-  need(req: FastifyRequest, reply: FastifyReply, opts?: { user?: boolean; owner?: boolean; member?: boolean }): Caller | null;
+  need(req: FastifyRequest, reply: FastifyReply, opts?: { user?: boolean; owner?: boolean; member?: boolean; hubOwner?: boolean }): Caller | null;
   parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null;
   requesterOf(c: Caller): string | null;
   channelVisible(c: Caller, channelId: string): unknown;
@@ -33,7 +33,7 @@ export function registerStorageApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     throw err;
   };
   /** The caller, if the mod is on for their workspace. */
-  const caller = (req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; member?: boolean }) => {
+  const caller = (req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; member?: boolean; hubOwner?: boolean }) => {
     const c = need(req, reply, opts);
     if (!c) return null;
     if (!storage.on(c.workspaceId)) {
@@ -69,7 +69,7 @@ export function registerStorageApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   });
 
   app.post("/api/storage/webdav", async (req, reply) => {
-    const c = caller(req, reply, { owner: true });
+    const c = caller(req, reply, { owner: true, hubOwner: true });
     if (!c) return;
     const body = parse(
       z.object({
@@ -92,7 +92,7 @@ export function registerStorageApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   });
 
   app.post("/api/storage/nextcloud/start", async (req, reply) => {
-    const c = caller(req, reply, { owner: true });
+    const c = caller(req, reply, { owner: true, hubOwner: true });
     if (!c) return;
     const body = parse(z.object({ server: z.string().trim().min(1).max(2000) }), req.body, reply);
     if (!body) return;
@@ -105,7 +105,7 @@ export function registerStorageApi(app: FastifyInstance, hub: Hub, h: Helpers) {
 
   /** The page asks every couple of seconds until the person has approved Wisp in Nextcloud. */
   app.post("/api/storage/nextcloud/poll", async (req, reply) => {
-    const c = caller(req, reply, { owner: true });
+    const c = caller(req, reply, { owner: true, hubOwner: true });
     if (!c) return;
     const body = parse(z.object({ pendingId: z.string().min(1).max(100) }), req.body, reply);
     if (!body) return;

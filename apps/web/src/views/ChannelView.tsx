@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { FlowStrip } from "../team/Runs.tsx";
+import { contextWords } from "../contextWords.ts";
 import { LogIn, RotateCcw, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, Eye, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, MoreHorizontal, Monitor, Paperclip, Phone, Plus, Shield, ShieldAlert, SquareTerminal, UserPlus, Users, X, Zap, ChevronDown, Hash, Info, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { parseMentions, SCHEDULE_MARK, type AccessLevel, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
@@ -13,13 +14,15 @@ import { patchAgent, prettyModel, tokens, useAgentContext, type AgentContext } f
 import { ModelLine, RunPanel } from "../components/RunPanel.tsx";
 import { DiscussionCard } from "../components/Discussion.tsx";
 import { ApprovalCard, ChangeCard, ChatCard, ComputerPart, RoutineChip } from "../components/AgentCards.tsx";
+import { AppleReadLines } from "../components/AppleParts.tsx";
 import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Modal, Pill, Popover, StatusDot, UserAvatar, clockTime, cx, harnessLabel } from "../components/ui.tsx";
 import { AgentPill } from "../components/AgentPill.tsx";
-import { CallScreen } from "../voice/CallScreen.tsx";
+import { CallScreen, type CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
 import { AgentPanel, type AgentPanelTab } from "../components/AgentPanel.tsx";
+import { slashEnterAction } from "../slashCommand.ts";
 import { slashQuery, useAgentCommands, useSlashMenu, type SlashItem } from "../components/SlashMenu.tsx";
 import { ActivityPill, runActivity, stopRuns } from "../components/ActivityPill.tsx";
 import { RightPane } from "../components/RightPane.tsx";
@@ -33,6 +36,7 @@ import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, too
 import { openDm } from "../openDm.ts";
 import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
+import { FirstChatExtras } from "../components/onboarding/FirstChat.tsx";
 
 /** What's open in the pane beside the chat (a thread comes from the route instead). */
 type Side = { kind: "agent"; agentId: string; tab: AgentPanelTab } | { kind: "info"; tab: InfoTab };
@@ -57,7 +61,7 @@ function RunFailedActions({ part, agentId }: { part: Extract<MessagePart, { type
   };
   // the agent still can't answer for want of a sign-in: open that sign-in right here
   const signIn = useStore((s) => (agentId && (part.fix === "signin" || part.fix === "computer") ? s.agents.find((a) => a.id === agentId)?.signIn : null));
-  const to = part.fix === "computer" && agentId ? href({ view: "agents", agentId, tab: "computer" }) : part.fix === "connection" ? href({ view: "settings", page: "models" }) : part.fix === "signin" ? href({ view: "settings", page: "harnesses" }) : null;
+  const to = part.fix === "computer" && agentId ? href({ view: "agents", agentId, tab: "computer" }) : part.fix === "connection" ? href({ view: "settings", page: "harnesses" }) : part.fix === "signin" ? href({ view: "settings", page: "harnesses" }) : null;
   if (sent) return <div className="mt-1 px-1 text-xs text-muted">Trying again…</div>;
   return (
     <div className="mt-1.5 px-1 flex flex-wrap items-center gap-2">
@@ -90,9 +94,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const setActive = useStore((s) => s.setActive);
   const loadChannel = useStore((s) => s.loadChannel);
   const names = useNames();
-  const voice = useFeature("voice");
   const [calling, setCalling] = useState(!!route.call);
   const [callSlot, setCallSlot] = useState<HTMLElement | null>(null);
+  // the record a finished call leaves in the chat, with Call again
+  const [callRecord, setCallRecord] = useState<(CallRecord & { channelId: string }) | null>(null);
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
   const [settings, setSettings] = useState<ChannelSettingsTab | null>(null);
 
@@ -149,8 +154,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
 
   return (
     <div className="flex-1 min-h-0 flex">
-      <div className={cx("flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
-        <header className="shrink-0 px-3 md:px-6 h-[4.75rem] md:h-20 grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
+      <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
+        <header className="shrink-0 px-3 md:px-6 h-[4.75rem] md:h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
             {onBack && (
               <span className="md:hidden">
@@ -174,13 +179,6 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
                 </button>
               </span>
             )}
-            {dmAgent && voice && !calling && (
-              <span className="max-md:hidden">
-                <button onClick={() => setCalling(true)} className="circle" aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`}>
-                  <Phone size={18} className="text-st-online" />
-                </button>
-              </span>
-            )}
             {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} />}
             {channel.kind === "channel" && (
               <span className="max-md:hidden">
@@ -190,7 +188,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
               </span>
             )}
             {dmAgent ? (
-              <DmMore agent={dmAgent} channelId={channel.id} onDetails={() => openAgent(dmAgent.id, "details")} onComputer={() => openAgent(dmAgent.id, "computer")} onCall={voice ? () => setCalling(true) : undefined} />
+              <DmMore agent={dmAgent} channelId={channel.id} onDetails={() => openAgent(dmAgent.id, "details")} onComputer={() => openAgent(dmAgent.id, "computer")} onCall={() => setCalling(true)} />
             ) : (
               <TeamMore channel={channel} onInfo={(tab) => openSide({ kind: "info", tab })} onSettings={setSettings} />
             )}
@@ -205,7 +203,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <SignInNeededBar agent={dmFull} />
           </div>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={dmAgent && voice && !calling ? () => setCalling(true) : undefined} />}
+        {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
+        {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onAgain={() => { setCallRecord(null); setCalling(true); }} onHide={() => setCallRecord(null)} />}
+        {calling && dmAgent && <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} barSlot={callSlot} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} />}
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
       {sideAgent && side?.kind === "agent" && (
@@ -220,8 +221,32 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
         />
       )}
       {infoOpen && side?.kind === "info" && <TeamInfo channel={channel} tab={side.tab} onTab={(tab) => setSide({ kind: "info", tab })} onClose={() => setSide(null)} onSettings={setSettings} />}
-      {calling && dmAgent && <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} barSlot={callSlot} onClose={() => { setCalling(false); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />}
       {settings && <ChannelSettings key={settings} channel={channel} tab={settings} onClose={() => setSettings(null)} />}
+    </div>
+  );
+}
+
+/** What a finished call leaves in the chat: how long it was, what was said, and Call again. */
+function CallRecordCard({ agent, record, onAgain, onHide }: { agent: Agent; record: CallRecord; onAgain?: () => void; onHide: () => void }) {
+  const m = Math.floor(record.seconds / 60);
+  const length = `${String(m).padStart(2, "0")}:${String(record.seconds % 60).padStart(2, "0")}`;
+  return (
+    <div className="shrink-0 px-3 md:px-5 w-full max-w-3xl mx-auto">
+      <section className="call-record overflow-hidden rounded-[18px] border border-line bg-card" aria-label={`Call with ${agent.name}`}>
+        <div className="flex h-11 items-center gap-2 border-b border-line pl-3.5 pr-2 text-[13px] text-muted">
+          <AudioLines size={15} strokeWidth={1.7} aria-hidden />
+          <span className="flex-1 truncate">Call with {agent.name} · {length}</span>
+          {onAgain && <button type="button" onClick={onAgain} className="h-7 rounded-full border border-line2 px-3 text-xs text-ink hover:bg-hover">Call again</button>}
+          <button type="button" onClick={onHide} aria-label="Hide" title="Hide" className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink"><X size={14} strokeWidth={1.8} /></button>
+        </div>
+        {record.lines.length > 0 && (
+          <div className="flex max-h-48 flex-col gap-2 overflow-y-auto px-3.5 py-3">
+            {record.lines.map((l, i) => (
+              <div key={i} className={cx("max-w-[480px] rounded-2xl px-[13px] py-[7px] text-[13px] leading-5", l.who === "you" ? "self-end bg-wisp text-wisp-ink" : "self-start bg-[var(--bubble-them)]")}>{l.text}</div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -463,7 +488,7 @@ function ContextCard({ usage }: { usage: ContextUsage | null }) {
   return (
     <ChatCard icon={<AudioLines size={13} />} label="Context window">
       <div className="mt-2 flex items-baseline justify-between gap-3">
-        <span className="text-body font-medium">{pct === null ? "Nothing used yet" : pct < 35 ? "Roughly a third full" : pct < 65 ? "Roughly half full" : pct < 85 ? "Getting full" : "Nearly full"}</span>
+        <span className="text-body font-medium">{contextWords(pct)}</span>
         {usage?.model && <span className="text-xs text-muted truncate">{prettyModel(usage.model)}</span>}
       </div>
       {pct !== null && (
@@ -891,6 +916,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
   const colors = useHandleColors();
   const html = useMemo(() => (m.body ? renderMarkdown(m.body, { handles, colors }) : ""), [m.body, handles, colors]);
   const cards = useMemo(() => linkCards(m.body), [m.body]);
+  const isSummary = m.parts.some((p) => p.type === "summary");
   const [menu, setMenu] = useState<{ at: { x: number; y: number } | null } | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const colRef = useRef<HTMLDivElement>(null);
@@ -1003,6 +1029,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
             onFrom={m.context ? () => openChat(m.channelId, m.context!.conversationId) : undefined}
           />
         )}
+        {!m.deletedAt && <AppleReadLines parts={m.parts} />}
         {m.deletedAt ? (
           <div className="bubble them text-body text-muted italic">This message was deleted.</div>
         ) : (
@@ -1026,7 +1053,14 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
                   <span className="line-clamp-2">{quote.deleted ? "This message was deleted." : quote.snippet}</span>
                 </button>
               )}
-              {html && <div className="prose-w" dangerouslySetInnerHTML={{ __html: m.editedAt ? withEditedMark(html, clockTime(m.editedAt, clock)) : html }} />}
+              {isSummary ? (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-muted">Summary of the conversation</summary>
+                  <div className="prose-w mt-2" dangerouslySetInnerHTML={{ __html: html }} />
+                </details>
+              ) : (
+                html && <div className="prose-w" dangerouslySetInnerHTML={{ __html: m.editedAt ? withEditedMark(html, clockTime(m.editedAt, clock)) : html }} />
+              )}
             </div>
           )
         )}
@@ -1466,6 +1500,11 @@ function ThreadRoot({ m }: { m: Message; composerThread?: string }) {
           <div className="mt-2 text-body italic text-muted">This message was deleted.</div>
         ) : (
           <>
+            {m.parts.some((p) => p.type === "apple_read") && (
+              <div className="mt-2">
+                <AppleReadLines parts={m.parts} />
+              </div>
+            )}
             {html && <div className="prose-w mt-2 text-body" dangerouslySetInnerHTML={{ __html: html }} />}
             <CardAuthor.Provider value={m.author.kind === "agent" ? { agentId: m.author.id, channelId: m.channelId, threadId: m.threadId } : null}>
               <Parts parts={m.parts} body={m.body} agentName={agent?.name} agentId={agent?.id} />
@@ -1926,23 +1965,26 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             })}
           </div>
         )}
-        <Popover
-          className="w-60 p-1.5 !rounded-3xl"
-          trigger={(open, toggle) => (
-            <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("circle circle-lg", open && "bg-hover")}>
-              {uploading ? <Loader2 size={20} className="animate-spin" /> : <Plus size={22} strokeWidth={2} />}
-            </button>
-          )}
-        >
-          {(close) => (
-            <div role="menu">
-              <ComposerMenuItem icon={<Camera size={18} />} label="Photos" onClick={() => (close(), photoInput.current?.click())} />
-              <ComposerMenuItem icon={<Paperclip size={18} />} label="Files" onClick={() => (close(), fileInput.current?.click())} />
-              {channel?.kind !== "dm" && <ComposerMenuItem icon={<AtSign size={18} />} label="Mention an agent" onClick={() => (close(), insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@"))} />}
-            </div>
-          )}
-        </Popover>
-        <div className="flex min-h-[52px] md:min-h-[42px] min-w-0 flex-1 items-end gap-1 rounded-[26px] md:rounded-[21px] border border-control-line bg-control pl-4 md:pl-4 pr-1.5 py-1.5 md:py-[3px] focus-within:border-ring">
+        {/* one pill (canvas Main): attach on the left, the voice orb on the right */}
+        <div className="flex min-h-[52px] md:min-h-[50px] min-w-0 flex-1 items-end gap-2 rounded-[26px] md:rounded-[25px] border border-transparent bg-[var(--bubble-them)] pl-[9px] pr-[9px] py-[5px] md:py-[8px] focus-within:border-line2 transition-colors">
+          <span className="self-center shrink-0">
+          <Popover
+            className="w-60 p-1.5 !rounded-3xl"
+            trigger={(open, toggle) => (
+              <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-10 md:size-8 rounded-full grid place-items-center bg-hover text-ink hover:bg-side-active", open && "bg-side-active")}>
+                {uploading ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} strokeWidth={2} />}
+              </button>
+            )}
+          >
+            {(close) => (
+              <div role="menu">
+                <ComposerMenuItem icon={<Camera size={18} />} label="Photos" onClick={() => (close(), photoInput.current?.click())} />
+                <ComposerMenuItem icon={<Paperclip size={18} />} label="Files" onClick={() => (close(), fileInput.current?.click())} />
+                {channel?.kind !== "dm" && <ComposerMenuItem icon={<AtSign size={18} />} label="Mention an agent" onClick={() => (close(), insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@"))} />}
+              </div>
+            )}
+          </Popover>
+          </span>
           <textarea
             ref={ta}
             rows={1}
@@ -1960,6 +2002,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 if (e.key === "Escape") return (e.preventDefault(), setSlashHidden(slashText));
                 if (slash.current && (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing))) {
                   e.preventDefault();
+                  if (e.key === "Enter" && slashEnterAction(slashText, slash.current.command) === "send") return send();
                   return pickCommand(slash.current);
                 }
               }
@@ -1979,7 +2022,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 send();
               }
             }}
-            className="block min-w-[11rem] flex-1 resize-none bg-transparent py-[11px] md:py-[7px] text-[15px] md:text-[15px] outline-none placeholder:text-faint placeholder:truncate"
+            className="block min-w-[9rem] flex-1 resize-none bg-transparent py-[9px] md:py-[5px] text-[15px] md:text-[14px] leading-[22px] outline-none placeholder:text-muted placeholder:truncate"
           />
           {dmAgent && ctx && (
             <span className="self-center min-w-0 max-w-[45%] shrink pr-1.5 max-md:hidden">
@@ -1987,20 +2030,20 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             </span>
           )}
           {(!hasContent || dictation.on) && dictation.supported && (
-            <button type="button" onClick={dictation.toggle} aria-label={dictation.on ? "Stop dictating" : "Dictate"} aria-pressed={dictation.on} title="Dictate" className={cx("size-10 md:size-9 shrink-0 self-center rounded-full grid place-items-center", swapped && "m-swap", dictation.on ? "bg-bad/15 text-bad" : "text-muted hover:text-ink")}>
-              <Mic size={20} />
+            <button type="button" onClick={dictation.toggle} aria-label={dictation.on ? "Stop dictating" : "Dictate"} aria-pressed={dictation.on} title="Dictate" className={cx("size-10 md:size-8 shrink-0 self-center rounded-full grid place-items-center", swapped && "m-swap", dictation.on ? "bg-bad/15 text-bad" : "text-muted hover:text-ink")}>
+              <Mic size={18} strokeWidth={1.8} />
             </button>
           )}
           {showCall && (
-            <button type="button" onClick={onCall} aria-label={`Call ${dmAgent?.name ?? "agent"}`} title="Call" className={cx("h-11 md:h-9 w-14 md:w-12 shrink-0 self-center rounded-full bg-st-online/16 text-st-online grid place-items-center md:hidden", swapped && "m-swap")}>
-              <AudioLines size={22} />
+            <button type="button" onClick={onCall} aria-label={`Call ${dmAgent?.name ?? "agent"}`} title={`Call ${dmAgent?.name ?? "agent"}`} className={cx("m-press size-10 md:size-[34px] shrink-0 self-center rounded-full bg-wisp text-wisp-ink grid place-items-center hover:bg-wisp/90", swapped && "m-swap")}>
+              <AudioLines size={17} strokeWidth={2.2} />
             </button>
           )}
           {(hasContent || !dictation.supported) && !showCall && (
             <button
               onClick={send}
               disabled={!!uploading || sending || (!text.trim() && !files.length)}
-              className={cx("h-11 md:h-9 w-14 md:w-12 shrink-0 self-center rounded-full bg-accent-chats text-white grid place-items-center disabled:bg-chip disabled:text-faint transition-colors", swapped && "m-swap")}
+              className={cx("m-press size-10 md:size-[34px] shrink-0 self-center rounded-full bg-ink text-panel grid place-items-center disabled:bg-chip disabled:text-faint transition-colors", swapped && "m-swap")}
               aria-label="Send"
             >
               <ArrowUp size={19} strokeWidth={2.5} />

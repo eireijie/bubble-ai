@@ -684,12 +684,41 @@ describe("agents changing Wisp for their person", () => {
     const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
     const s = await agent.mySettings();
     expect(s.canChangeMods).toBe(true);
-    expect(s.mods.find((m) => m.key === "voice")?.on).toBe(true);
-    const r = await agent.changeSettings({ mods: { voice: false } });
-    expect(r.changed).toEqual(["Mod Voice calls: off"]);
-    expect((await owner.request("GET", "/api/features")).features.voice).toBe(false);
+    expect(s.mods.find((m) => m.key === "tasks")?.on).toBe(true);
+    expect(s.mods.find((m) => m.key === "voice")).toBeUndefined();
+    const r = await agent.changeSettings({ mods: { tasks: false } });
+    expect(r.changed).toEqual(["Mod Tasks board: off"]);
+    expect((await owner.request("GET", "/api/features")).features.tasks).toBe(false);
     await owner.request("POST", `/api/changes/${r.changeId}/undo`);
-    expect((await owner.request("GET", "/api/features")).features.voice).toBe(true);
+    expect((await owner.request("GET", "/api/features")).features.tasks).toBe(true);
+  });
+
+  it("asks before turning on a mod that widens its reach, and only a yes turns it on", async () => {
+    const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
+    expect((await owner.request("GET", "/api/features")).features.apple).toBe(false);
+    const r = await agent.changeSettings({ mods: { apple: true } });
+    expect(r.changed).toEqual([]);
+    expect(r.asked).toMatch(/Asked to turn on Apple/);
+    expect((await owner.request("GET", "/api/features")).features.apple).toBe(false);
+    const pending = (await owner.request("GET", "/api/approvals?status=pending")).filter((a: any) => a.mods);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({ agentId, summary: "Turn on Apple", mods: { mods: { apple: true }, requestedBy: me } });
+    expect(hub.store.messages(dm().id).some((m) => m.parts.some((p) => p.type === "approval" && p.approvalId === pending[0].id))).toBe(true);
+    // asking again while the card is open doesn't stack cards
+    await agent.changeSettings({ mods: { apple: true } });
+    expect((await owner.request("GET", "/api/approvals?status=pending")).filter((a: any) => a.mods)).toHaveLength(1);
+    // a no leaves it off
+    await owner.request("POST", `/api/approvals/${pending[0].id}/decide`, { approve: false });
+    expect((await owner.request("GET", "/api/features")).features.apple).toBe(false);
+    // a yes turns it on
+    await agent.changeSettings({ mods: { apple: true } });
+    const card = (await owner.request("GET", "/api/approvals?status=pending")).find((a: any) => a.mods);
+    await owner.request("POST", `/api/approvals/${card.id}/decide`, { approve: true });
+    expect((await owner.request("GET", "/api/features")).features.apple).toBe(true);
+    // turning it off needs no OK
+    const off = await agent.changeSettings({ mods: { apple: false } });
+    expect(off.changed).toEqual(["Mod Apple: off"]);
+    expect((await owner.request("GET", "/api/features")).features.apple).toBe(false);
   });
 });
 

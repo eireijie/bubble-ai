@@ -30,9 +30,13 @@ export function topOverlay(): OverlayKind | null {
   return stack.at(-1)?.kind ?? null;
 }
 
-/** True when `id` is the topmost overlay (or nothing is registered at all). */
+/** Overlays with no key handling of their own (the "needs your help" card): they never take Escape or Tab from a dialog under them. */
+const KEYLESS: OverlayKind[] = ["help"];
+
+/** True when `id` is the topmost overlay that handles keys (or nothing is registered at all). */
 export function isTopOverlay(id: symbol): boolean {
-  return !stack.length || stack[stack.length - 1]!.id === id;
+  const top = [...stack].reverse().find((e) => !KEYLESS.includes(e.kind) || e.id === id);
+  return !top || top.id === id;
 }
 
 /** Render an overlay into <body>, where its place in the DOM (later = on top) matches its place in the stack. */

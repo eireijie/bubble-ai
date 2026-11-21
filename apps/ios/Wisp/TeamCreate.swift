@@ -54,7 +54,7 @@ struct NewChannel: View {
               if ready { path.append(.preview) }
             }
           case .preview: PreviewPage(model: model, slug: slug, busy: action.busy, error: action.error, back: pop, edit: { path.append(.builder) }, create: { createTeam() })
-          case .builder: TeamBuilder(team: Bindable(model).team, name: slug, saving: action.busy, error: action.error, onBack: pop) { path.append(.review) }
+          case .builder: TeamBuilder(team: Bindable(model).team, name: shownName, saving: action.busy, error: action.error, onBack: pop) { path.append(.review) }
           case .review: ReviewPage(model: model, slug: slug, busy: action.busy, error: action.error, back: pop, create: { createTeam() })
           }
         }
@@ -170,7 +170,10 @@ struct NewChannel: View {
               path.append(.builder)
             }
             startRow("Browse templates", "\(TeamTemplate.builtIn.count) ready-made teams.", "square.grid.2x2", "start-templates") { path.append(.templates) }
-            startRow("Have an agent build it", "Say it in one sentence.", "sparkles", "start-agent") { path.append(.describe) }
+            startRow("Have an agent build it", "Say it in one sentence.", "sparkles", "start-agent") {
+              if model.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { model.description = model.topic }
+              path.append(.describe)
+            }
           }
           InlineError(error: action.error)
         }
@@ -465,7 +468,7 @@ private struct ReviewPage: View {
           .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
     .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
           Button(action: back) {
-            RowLabel(title: "See the flowchart", value: "\(team.steps?.count ?? 0) steps") {
+            RowLabel(title: "See the flowchart", value: "\(team.orderedSteps.count) \(team.orderedSteps.count == 1 ? "step" : "steps")") {
               Image(systemName: "point.3.connected.trianglepath.dotted").font(.system(size: 18)).foregroundStyle(Palette.muted).frame(width: 28)
             }
             .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))

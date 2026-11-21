@@ -14,7 +14,8 @@ struct NativeSettingsView: View {
         NavigationLink { NotificationSettingsView() } label: { RowLabel(title: "Notifications") }.accessibilityIdentifier("settings-notifications")
         NavigationLink { AppearanceSettingsView() } label: { RowLabel(title: "Appearance") }.accessibilityIdentifier("settings-appearance")
         NavigationLink { PreferencesView() } label: { RowLabel(title: "App behavior") }.accessibilityIdentifier("settings-behavior")
-        if store.features.voice && !guest { NavigationLink { VoiceSettingsView() } label: { RowLabel(title: "Voice") }.accessibilityIdentifier("settings-voice") }
+        if !guest { NavigationLink { VoiceSettingsView() } label: { RowLabel(title: "Voice") }.accessibilityIdentifier("settings-voice") }
+        if !guest { NavigationLink { DeskBuddySettingsView() } label: { RowLabel(title: "Desk buddy") }.accessibilityIdentifier("settings-buddy") }
         NavigationLink { SecuritySettingsView() } label: { RowLabel(title: "Security") }.accessibilityIdentifier("settings-security")
       }
       if !guest {
@@ -34,23 +35,22 @@ struct NativeSettingsView: View {
           NavigationLink { AgentDefaultsView() } label: { RowLabel(title: "Agent defaults") }.accessibilityIdentifier("settings-agent-defaults")
           NavigationLink { ConnectionsSettingsView() } label: { RowLabel(title: "Outside agents") }.accessibilityIdentifier("settings-connections")
           NavigationLink { MemoryStorageView() } label: { RowLabel(title: "Memory storage") }.accessibilityIdentifier("settings-memory-storage")
-          NavigationLink { ModelsSettingsView() } label: { RowLabel(title: "Models") }.accessibilityIdentifier("settings-models")
-          NavigationLink { HarnessesView() } label: { RowLabel(title: "Harnesses") }.accessibilityIdentifier("settings-harnesses")
+          NavigationLink { AISettingsView() } label: { RowLabel(title: "AI") }.accessibilityIdentifier("settings-ai")
           NavigationLink { SkillsView() } label: { RowLabel(title: "Skills") }.accessibilityIdentifier("settings-skills")
           NavigationLink { LoginsView() } label: { RowLabel(title: "Logins") }.accessibilityIdentifier("settings-logins")
           if store.features.storage {
             NavigationLink { StorageView() } label: { RowLabel(title: "Storage") }.accessibilityIdentifier("settings-storage")
           }
-          NavigationLink { AgentRuntimesView() } label: { RowLabel(title: "Harness setup") }.accessibilityIdentifier("settings-runtimes")
+          if store.features.apple {
+            NavigationLink { AppleView() } label: { RowLabel(title: "Apple") }.accessibilityIdentifier("settings-apple")
+          }
         }
       }
       if !guest {
         CardLabel("Devices")
         CardGroup {
-          Button { store.route = .device(id: nil) } label: { RowLabel(title: "Computers and devices") }.buttonStyle(.plain).accessibilityIdentifier("settings-computers")
+          NavigationLink { ComputersAndDevicesSettingsView() } label: { RowLabel(title: "Computers and devices") }.accessibilityIdentifier("settings-computers")
           NavigationLink { DevicesSettingsView() } label: { RowLabel(title: "Away from home") }.accessibilityIdentifier("settings-devices")
-          if store.canManage { NavigationLink { ComputerSettingsView() } label: { RowLabel(title: "Computers") }.accessibilityIdentifier("settings-agent-computers") }
-          NavigationLink { MobileSettingsView() } label: { RowLabel(title: "Mobile") }.accessibilityIdentifier("settings-mobile")
           Button { store.route = .inbox } label: { RowLabel(title: "Approvals") }.buttonStyle(.plain).accessibilityIdentifier("settings-approvals")
         }
       }
@@ -287,5 +287,53 @@ enum QRImage {
     guard let image = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)),
           let cg = CIContext().createCGImage(image, from: image.extent) else { return nil }
     return UIImage(cgImage: cg)
+  }
+}
+
+/** Settings → AI: Harnesses, Models and Harness setup under one entry. */
+struct AISettingsView: View {
+  var body: some View {
+    SettingsPage("AI", subtitle: "What runs your agents, which models they use, and what is installed.", id: "ai") {
+      CardGroup {
+        NavigationLink { HarnessesView() } label: { RowLabel(title: "Harnesses") }.accessibilityIdentifier("ai-harnesses")
+        NavigationLink { ModelsSettingsView() } label: { RowLabel(title: "Models") }.accessibilityIdentifier("ai-models")
+        NavigationLink { AgentRuntimesView() } label: { RowLabel(title: "Harness setup") }.accessibilityIdentifier("ai-runtimes")
+      }
+    }
+  }
+}
+
+/** Settings → Computers and devices: the list of computers, plus their defaults and phone pairing, under one entry. */
+struct ComputersAndDevicesSettingsView: View {
+  @Environment(Store.self) private var store
+  var body: some View {
+    SettingsPage("Computers and devices", id: "computers-and-devices") {
+      CardGroup {
+        Button { store.route = .device(id: nil) } label: { RowLabel(title: "Your computers and devices") }.buttonStyle(.plain).accessibilityIdentifier("computers-list")
+        if store.canManage { NavigationLink { ComputerSettingsView() } label: { RowLabel(title: "Computer defaults") }.accessibilityIdentifier("settings-agent-computers") }
+        NavigationLink { MobileSettingsView() } label: { RowLabel(title: "Mobile") }.accessibilityIdentifier("settings-mobile")
+      }
+    }
+  }
+}
+
+/** Settings → Desk buddy: the mod's switch, so it can be found without opening Mods. It stays a mod. */
+struct DeskBuddySettingsView: View {
+  @Environment(Store.self) private var store
+  @State private var action = FormAction()
+  var body: some View {
+    SettingsPage("Desk buddy", id: "buddy") {
+      CardGroup {
+        ToggleRow(title: FeatureKey.buddy.name, subtitle: FeatureKey.buddy.detail, symbol: FeatureKey.buddy.symbol, isOn: Binding(get: { store.features.buddy }, set: { on in
+          var next = store.features
+          next.buddy = on
+          action.run { try await store.setFeatures(next) }
+        }), id: "feature-buddy")
+        .disabled(!store.isOwner || action.busy)
+      }
+      if !store.isOwner { OwnersOnlyNote() }
+      StatusLine(error: action.error)
+    }
+    .task { await store.refreshFeatures() }
   }
 }

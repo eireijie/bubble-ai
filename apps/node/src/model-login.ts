@@ -35,6 +35,8 @@ export class ModelLogins {
       // Claude prints the token it made; it goes to the hub, never into what people see
       redact: /sk-ant-oat\d*-[A-Za-z0-9_-]+/,
       redactStart: "sk-ant-oat",
+      // and once it has printed it whole, it's done (it may keep its screen open after that)
+      ...(provider === "anthropic" ? { doneWhen: /sk-ant-oat\d*-[A-Za-z0-9_-]{20,}(?=[^A-Za-z0-9_-])/ } : {}),
       onRaw: (t) => (entry.raw = (entry.raw + t).slice(-64_000)),
       onChange: (l) => this.send({ type: "model_login", login: this.view(loginId, l) }),
     });

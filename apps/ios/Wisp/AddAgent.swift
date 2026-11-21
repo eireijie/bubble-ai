@@ -90,7 +90,14 @@ struct AddAgent: View {
 
   var body: some View {
     NavigationStack {
-      AgentFrame(title: "New agent", close: true) {
+      AgentFrame(title: "New agent", close: true, trailing: {
+        Button { create() } label: {
+          Text(action.busy ? "Creating" : "Create").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
+            .padding(.horizontal, 16).frame(height: 44).glassPill()
+        }
+        .buttonStyle(.press).disabled(!valid || action.busy).opacity(!valid || action.busy ? 0.4 : 1)
+        .accessibilityLabel("Create agent").accessibilityIdentifier("new-create-top")
+      }) {
         VStack(spacing: 12) {
           GhostView(look: draft.look, seed: draft.finalHandle(), size: 96, interactive: true).frame(width: 96, height: 96).accessibilityHidden(true)
           HStack(spacing: 8) {

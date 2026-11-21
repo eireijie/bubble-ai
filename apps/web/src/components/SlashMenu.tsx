@@ -4,15 +4,17 @@ import { api } from "../api.ts";
 import { useStore, type ChannelInfo } from "../store.ts";
 import type { ChannelMember } from "./Channels.tsx";
 import { agentVar, cx } from "./ui.tsx";
+import { slashQuery } from "../slashCommand.ts";
+
+export { slashQuery };
 
 /**
  * The "/" menu, like Discord's: type "/" at the start of a message and every agent here shows
- * what it can do, in sections: skills agents learned, the harness's own commands and skills, Wisp's
- * commands, then other Wisp skills. Picking one writes "/name " (and "@handle " in a channel, so it
+ * what it can do, in sections: Wisp's commands, skills agents learned, the harness's own commands and skills, then other Wisp skills. Picking one writes "/name " (and "@handle " in a channel, so it
  * goes to that agent).
  */
 
-const GROUP_ORDER: Record<AgentCommand["group"], number> = { learned: 0, harness: 1, wisp: 2, skill: 3 };
+const GROUP_ORDER: Record<AgentCommand["group"], number> = { wisp: 0, learned: 1, harness: 2, skill: 3 };
 
 /** The menu section a command belongs in (older hubs don't say, so it's worked out from its kind). */
 export function commandGroup(c: Pick<AgentCommand, "kind"> & { group?: AgentCommand["group"] }): AgentCommand["group"] {
@@ -78,12 +80,6 @@ export function useAgentCommands(agentId: string | undefined) {
 export interface SlashItem {
   agent: Agent;
   command: AgentCommand;
-}
-
-/** "/que" (or "@poopy /que") from the start of the message up to the caret, or null when the menu shouldn't show. */
-export function slashQuery(beforeCaret: string): { handle: string | null; query: string } | null {
-  const m = /^\s*(?:@([\w-]+)\s+)?\/([\w:.-]*)$/.exec(beforeCaret);
-  return m ? { handle: m[1]?.toLowerCase() ?? null, query: m[2].toLowerCase() } : null;
 }
 
 export function useSlashMenu({ query, channel, dmAgent, agents }: { query: { handle: string | null; query: string } | null; channel: ChannelInfo | undefined; dmAgent: Agent | undefined; agents: Agent[] }) {

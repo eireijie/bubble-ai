@@ -18,7 +18,7 @@ struct WispApp: App {
         }
     }
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active { store.resume() }
+      if phase == .active { store.resume(); AppleLocation.shared.appBecameActive() }
       if phase == .background { store.updateBadge() }
     }
   }
@@ -50,6 +50,13 @@ struct RootView: View {
     case .ready:
       MainTabs()
         .joinApproval()
+        // after the first message: say what notifications are for before the system asks
+        .alert("Get a note when an agent finishes or needs you", isPresented: Binding(get: { store.showNotificationPrimer }, set: { store.showNotificationPrimer = $0 })) {
+          Button("Turn on") { Task { await store.enableNotifications() } }
+          Button("Not now", role: .cancel) {}
+        } message: {
+          Text("Wisp only sends a note when an agent replies, finishes or needs your OK. You can change this in Settings.")
+        }
         // a pairing code scanned while signed in: offer to switch to that Wisp
         .alert("Pair with another Wisp?", isPresented: Binding(get: { store.pendingPair != nil }, set: { if !$0 { store.pendingPair = nil } })) {
           Button("Sign out and pair", role: .destructive) {

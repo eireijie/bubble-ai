@@ -38,6 +38,7 @@
 		2392BF60C9C3937AEF0254E7 /* SectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA47825041EA545E5176D37 /* SectionViews.swift */; };
 		2588D41243B495B8DD6EEF34 /* ChatLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1006C4E7E05CCEF6C27228E /* ChatLive.swift */; };
 		266C4A29FAF623521743A0B5 /* appearance-fixtures.json in Resources */ = {isa = PBXBuildFile; fileRef = 763D7814574EAA5171BC3676 /* appearance-fixtures.json */; };
+		2697D78C305830D2ABF2EBCF /* AppleChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8794BD8F79D8C938401898 /* AppleChat.swift */; };
 		270442CE78DB08C309EB7257 /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A38BC200A15F9051F7A174A7 /* SettingsSheet.swift */; };
 		2895D8EE60D60AB7138458BE /* ConnectorEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2325426E118CD3C955594E73 /* ConnectorEditor.swift */; };
 		29D258DB824DF5450D6FD2FF /* MarketplaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCBD96D24910314C1CB1A02 /* MarketplaceModels.swift */; };
@@ -77,12 +78,14 @@
 		4EDD3768794FFBE9EE2F2449 /* ChatParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26BA89596C4F0A27057B9F11 /* ChatParityTests.swift */; };
 		4FE1F4E3CCB363C676C1B63C /* InboxSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13AE60963F6011A5A95B8789 /* InboxSections.swift */; };
 		5043E9BF3D6F47609EEA74BD /* TeamInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EE3B6BDC311BBF054D08283 /* TeamInfo.swift */; };
+		5086EFFE1DE5DEEE283CD87A /* AppleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43002E29D81FA74B16F1C496 /* AppleView.swift */; };
 		51A2BDACE5C20FFA2786A5E9 /* MemoryActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 217D5A678FB609ADC4F1767D /* MemoryActivity.swift */; };
 		5252B088AF79F80945506387 /* TeamTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA7DFFC44414D8B5C4E1796 /* TeamTemplates.swift */; };
 		530EEE876E35E34EE391C216 /* Store+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AAB244B72E06949B68EF8F3 /* Store+Settings.swift */; };
 		535AA04B5362091ABDF23DC0 /* AgentModelPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFE0B5610275BE53EFDDC5C /* AgentModelPage.swift */; };
 		54CA2C7F59F09DB98682DFD7 /* ChatCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ECC38BC098F4F329AC9AF25 /* ChatCards.swift */; };
 		574103FA1858E0C80FD0D969 /* AgentComputerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 481E171E84A0C9E6CF428E40 /* AgentComputerView.swift */; };
+		59E6DBA73EB5E6039D02607C /* AppleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E1A265782CE57F7C78E0C4 /* AppleModels.swift */; };
 		5A1254CC9F6C4E909FC69BE7 /* AddDeviceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E84583FBFBDA6B693F6E2F96 /* AddDeviceSheet.swift */; };
 		5A41C7C089B42A4C0E635B5A /* MemoryGraphModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A863FA85F1AC578F79064890 /* MemoryGraphModels.swift */; };
 		5ADBCB149572D684C4ABC6A6 /* GhostColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69BC5265E54B97E7FA844E8A /* GhostColors.swift */; };
@@ -170,6 +173,7 @@
 		C03895055349C35915D0F970 /* TeamCreate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41DB4CDA5F2A634C11F3A294 /* TeamCreate.swift */; };
 		C04E4A07BA0F53E6C4FF955D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C2A90671A2F5BBFBF9872468 /* PrivacyInfo.xcprivacy */; };
 		C11460AB716439B3C07CCC94 /* NativeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3B0C971974EB93B639D13A4 /* NativeSettingsView.swift */; };
+		C13E5447E0368869281BCF5B /* AppleLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F12735B9E40D42AEF85ABC1 /* AppleLocation.swift */; };
 		C1A22933F51796110E4DE1A8 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FA90C1F1FB2001767DEF1EB /* SearchView.swift */; };
 		C1A79C694F9FE2A81956625A /* ManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BFD397FED073DBA9C951B94 /* ManagementTests.swift */; };
 		C2C8C78CF39CCE833F97E9F4 /* ChangesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1C5ED729A713227BDFE33B /* ChangesView.swift */; };
@@ -296,6 +300,7 @@
 		41DB4CDA5F2A634C11F3A294 /* TeamCreate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamCreate.swift; sourceTree = "<group>"; };
 		4235F3FE692A7FDD3450FF69 /* StorageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageView.swift; sourceTree = "<group>"; };
 		427014BD7056144AB66EB153 /* ComputerSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComputerSheets.swift; sourceTree = "<group>"; };
+		43002E29D81FA74B16F1C496 /* AppleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleView.swift; sourceTree = "<group>"; };
 		436D2142FE91CCAE42633EE1 /* MemoryAccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryAccessView.swift; sourceTree = "<group>"; };
 		461B0D858BB1689720B5B994 /* OrgFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrgFeatureTests.swift; sourceTree = "<group>"; };
 		461CA50681B82AD94C6D39B1 /* ComputerFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComputerFiles.swift; sourceTree = "<group>"; };
@@ -312,6 +317,7 @@
 		51C17561F670F6FEF5EAC56F /* Chrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chrome.swift; sourceTree = "<group>"; };
 		52997108BFB2FA23A03D0935 /* SettingsKitMore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsKitMore.swift; sourceTree = "<group>"; };
 		529E3A264685FF6C6DCFE695 /* MessageRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRow.swift; sourceTree = "<group>"; };
+		53E1A265782CE57F7C78E0C4 /* AppleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleModels.swift; sourceTree = "<group>"; };
 		5426E91C311555AC0E59CFF8 /* AgentEdit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentEdit.swift; sourceTree = "<group>"; };
 		54CC3C93A7213E88AF1A9BF5 /* Pairing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pairing.swift; sourceTree = "<group>"; };
 		56F8FF8A38701C1F31FD17C1 /* BackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundView.swift; sourceTree = "<group>"; };
@@ -320,6 +326,7 @@
 		5E045924FC78AA7A1EFA19CD /* Store+Voice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Voice.swift"; sourceTree = "<group>"; };
 		5E82C1A0EDF072A656171B27 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		5ECC38BC098F4F329AC9AF25 /* ChatCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatCards.swift; sourceTree = "<group>"; };
+		5F12735B9E40D42AEF85ABC1 /* AppleLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleLocation.swift; sourceTree = "<group>"; };
 		5F516ECDEDEFFAAF329815CE /* TypingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingTests.swift; sourceTree = "<group>"; };
 		626CDF1EBB9F9A04DC4ED0CC /* UsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageView.swift; sourceTree = "<group>"; };
 		629B181B6D387EAAFA58B32D /* Store+Tasks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Tasks.swift"; sourceTree = "<group>"; };
@@ -390,6 +397,7 @@
 		A988A382E8F1607AC2E5A8BF /* AccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessView.swift; sourceTree = "<group>"; };
 		AC465397B6DE253FCA1D3484 /* GhostArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhostArt.swift; sourceTree = "<group>"; };
 		AD61D165F59F3B30C5351782 /* AutomationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationModels.swift; sourceTree = "<group>"; };
+		AF8794BD8F79D8C938401898 /* AppleChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleChat.swift; sourceTree = "<group>"; };
 		B01D45586C56D6F566BADEF7 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		B0B74DE2D6E01C2BC32E5502 /* JoinApproval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinApproval.swift; sourceTree = "<group>"; };
 		B3B0C971974EB93B639D13A4 /* NativeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSettingsView.swift; sourceTree = "<group>"; };
@@ -570,6 +578,10 @@
 				7ABBE05F1006B4D3A53EF579 /* AgentVoicePicker.swift */,
 				FABFBF67ADFF41E1ABCF8EEC /* AgentVoiceView.swift */,
 				7D958988B1ED63DCC56FDE20 /* API.swift */,
+				AF8794BD8F79D8C938401898 /* AppleChat.swift */,
+				5F12735B9E40D42AEF85ABC1 /* AppleLocation.swift */,
+				53E1A265782CE57F7C78E0C4 /* AppleModels.swift */,
+				43002E29D81FA74B16F1C496 /* AppleView.swift */,
 				F967BF9B869E77B6B41CEAAC /* AppLogo.swift */,
 				9FD6DE3A8E6EC9FB4A81DD72 /* AppModels.swift */,
 				099181E9B8BFE6F3475C5D36 /* Assets.xcassets */,
@@ -799,6 +811,7 @@
 						TestTargetID = 9FED08DA26E69D96AED0CA8F;
 					};
 					9FED08DA26E69D96AED0CA8F = {
+						DevelopmentTeam = 388D9S7Y7P;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -932,6 +945,10 @@
 				D817B25643F45C35D1866EE4 /* AgentsView.swift in Sources */,
 				37C0A18BAFB91CFA88B67BC5 /* AppLogo.swift in Sources */,
 				C3996E4891C45ABFF60EEACC /* AppModels.swift in Sources */,
+				2697D78C305830D2ABF2EBCF /* AppleChat.swift in Sources */,
+				C13E5447E0368869281BCF5B /* AppleLocation.swift in Sources */,
+				59E6DBA73EB5E6039D02607C /* AppleModels.swift in Sources */,
+				5086EFFE1DE5DEEE283CD87A /* AppleView.swift in Sources */,
 				45CEFDD8D372D3F2B2603C01 /* AuthKit.swift in Sources */,
 				D383F851D4CADE1CAB4D6F08 /* AutomationModels.swift in Sources */,
 				9130A34CE308490EA5D3B70B /* BackgroundView.swift in Sources */,
@@ -1266,11 +1283,14 @@
 				CODE_SIGN_ENTITLEMENTS = Wisp/Wisp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 388D9S7Y7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wisp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wisp;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Wisp uses the camera to scan the pairing code on your computer.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Wisp connects to Wisp on your computer over your own network.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wisp tells your agents when you arrive at or leave a place you added. Never where you are in between.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "When an agent asks where you are, Wisp tells it. Only when it asks, never a running track.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wisp uses the microphone so you can talk with your agents in a voice call.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wisp turns what you say into text so your agent can answer.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -1313,11 +1333,14 @@
 				CODE_SIGN_ENTITLEMENTS = Wisp/Wisp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 388D9S7Y7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wisp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wisp;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Wisp uses the camera to scan the pairing code on your computer.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Wisp connects to Wisp on your computer over your own network.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wisp tells your agents when you arrive at or leave a place you added. Never where you are in between.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "When an agent asks where you are, Wisp tells it. Only when it asks, never a running track.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wisp uses the microphone so you can talk with your agents in a voice call.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wisp turns what you say into text so your agent can answer.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

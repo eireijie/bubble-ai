@@ -12,6 +12,8 @@ export interface Me {
   /** how Wisp behaves for this person, on every device (Settings → Preferences) */
   prefs: UserPrefs;
   role: "owner" | "member" | "guest";
+  /** owner of the hub's first workspace: only they can make new workspaces (missing on older hubs) */
+  hubOwner?: boolean;
   workspace: { id: string; name: string };
   /** the organization's optional features (features.ts); missing from older hubs, which means all on */
   features?: Features;
@@ -385,7 +387,10 @@ export const useStore = create<State>((set, get) => ({
           messages: s.messages[m.channelId] ? { ...s.messages, [m.channelId]: dedupe([...s.messages[m.channelId], m]) } : s.messages,
           channels: s.channels.map((c) => {
             if (c.id !== m.channelId) return c;
-            const last = { at: m.createdAt, body: m.body.slice(0, 400), author: m.author };
+            const summary = m.parts.some((p) => p.type === "summary");
+            // a divider or empty note from Wisp isn't what the chat is about
+            if (m.author.id === "system" || (!m.body && !summary && !m.parts.some((p) => p.type === "file"))) return c;
+            const last = { at: m.createdAt, body: summary ? "Compacted the conversation" : m.body.slice(0, 400), author: m.author };
             return !mine && s.activeChannel !== m.channelId && c.notify !== "mute" ? { ...c, last, unread: c.unread + 1 } : { ...c, last };
           }),
         }));

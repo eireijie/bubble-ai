@@ -213,7 +213,7 @@ export function PeoplePage() {
                 <p className="text-xs text-warn">
                   {originReach(made.url) === "this-computer" ? "This link only works on this computer." : "This link only works on this Wi-Fi."} To invite someone elsewhere, turn on an address that works from anywhere in{" "}
                   <a href={href({ view: "settings", page: "access" })} className="underline">
-                    Settings → Devices → Access
+                    Settings → Computers and devices → Access
                   </a>{" "}
                   first, then make a new link.
                 </p>

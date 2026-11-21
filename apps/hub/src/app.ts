@@ -108,11 +108,13 @@ export async function buildHub(opts: HubOptions) {
   // and one rate limit. Only this computer is trusted to say so, never the network.
   const app = Fastify({ logger, bodyLimit: 5 * 1024 * 1024, trustProxy: "loopback" });
   const setupCode = new SetupCode(path.resolve(opts.dataDir), store.userCount() === 0, opts.setupCode ?? (envVar("SETUP_CODE") || undefined));
-  // the consent and approve screens can't be framed by another site and clicked through
+  // the consent and approve screens can't be framed by another site and clicked through; pictures,
+  // sound and fonts come only from the hub itself (or the page's own data/blob), so nothing an agent
+  // or a message writes can make the app load a tracker from somewhere else
   app.addHook("onSend", async (_req, reply, payload) => {
     if (!reply.hasHeader("x-frame-options")) reply.header("x-frame-options", "SAMEORIGIN");
     const csp = reply.getHeader("content-security-policy");
-    if (!csp) reply.header("content-security-policy", "frame-ancestors 'self'");
+    if (!csp) reply.header("content-security-policy", "frame-ancestors 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:");
     return payload;
   });
   await app.register(websocket);

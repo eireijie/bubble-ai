@@ -37,7 +37,7 @@ function browser() {
 describe("device listening", () => {
   it("waits for recognition to go live and cancels a blocked recognition attempt", async () => {
     const { track } = browser(); Recognition.autoStart = false;
-    const cb = callbacks(), listener = createListener("device", cb), ready = vi.fn();
+    const cb = callbacks(), listener = createListener({ listen: "device", openaiKey: "" }, cb), ready = vi.fn();
     const starting = listener.start().then(ready);
     await vi.advanceTimersByTimeAsync(4000);
     expect(ready).not.toHaveBeenCalled();
@@ -54,7 +54,7 @@ describe("device listening", () => {
   });
   it("settles a denied recognition start with the existing error copy", async () => {
     browser(); Recognition.autoStart = false;
-    const cb = callbacks(), listener = createListener("device", cb);
+    const cb = callbacks(), listener = createListener({ listen: "device", openaiKey: "" }, cb);
     const starting = listener.start();
     await vi.advanceTimersByTimeAsync(0);
     Recognition.instances[0].onerror?.({ error: "not-allowed" });
@@ -65,14 +65,14 @@ describe("device listening", () => {
     const { capture, track, stream } = browser();
     let allow!: (s: typeof stream) => void;
     capture.mockImplementationOnce(() => new Promise((resolve) => { allow = resolve; }));
-    const listener = createListener("device", callbacks());
+    const listener = createListener({ listen: "device", openaiKey: "" }, callbacks());
     expect(capture).not.toHaveBeenCalled();
     const starting = listener.start(); listener.stop(); allow(stream); await starting;
     expect(track.stop).toHaveBeenCalledOnce();
     expect(Recognition.instances).toHaveLength(0);
   });
   it("commits after short silence, restarts, and does not duplicate a cumulative result", async () => {
-    browser(); const cb = callbacks(), listener = createListener("device", cb);
+    browser(); const cb = callbacks(), listener = createListener({ listen: "device", openaiKey: "" }, cb);
     await listener.start();
     const first = Recognition.instances[0];
     first.result("Hello");
@@ -92,7 +92,7 @@ describe("device listening", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
   it("discards partial speech on mute and makes permission failures terminal", async () => {
-    const { track } = browser(); const cb = callbacks(), listener = createListener("device", cb);
+    const { track } = browser(); const cb = callbacks(), listener = createListener({ listen: "device", openaiKey: "" }, cb);
     await listener.start();
     Recognition.instances[0].result("Unfinished");
     listener.stop();
@@ -106,7 +106,7 @@ describe("device listening", () => {
   });
   it("explains missing recognition without requesting the microphone", async () => {
     const { capture } = browser(); vi.stubGlobal("window", {});
-    await expect(createListener("device", callbacks()).start()).rejects.toThrow("doesn't offer speech recognition");
+    await expect(createListener({ listen: "device", openaiKey: "" }, callbacks()).start()).rejects.toThrow("can't listen on its own");
     expect(capture).not.toHaveBeenCalled();
   });
 });
@@ -153,7 +153,7 @@ it("records cloud turns with leading audio, discards silence, and aborts transcr
     return new Promise<Response>((_resolve, reject) => requestSignal!.addEventListener("abort", () => reject(new Error("aborted"))));
   });
   vi.stubGlobal("fetch", fetcher);
-  const cb = callbacks(), listener = createListener("openai", cb);
+  const cb = callbacks(), listener = createListener({ listen: "openai", openaiKey: "sk-test" }, cb);
   await listener.start();
   expect(recordings).toHaveLength(1); // record before speech, so the opening syllable survives VAD
   await vi.advanceTimersByTimeAsync(1500);

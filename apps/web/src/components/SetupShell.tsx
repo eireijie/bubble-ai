@@ -1,18 +1,22 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
-import { Ghost, type GhostMood } from "./Ghost.tsx";
+import type { GhostMood } from "./Ghost.tsx";
+import { ClassicGhost } from "./onboarding/ClassicGhost.tsx";
 import { WHITE_WISP } from "./SetupStage.tsx";
 
 /** The five steps after the account: connect, name, memory, setting up, meet. */
 export const TRACK = ["Connect your AI", "Name your agent", "Bring your memory", "Set up", "Meet your agent"] as const;
+/** A new setup's five pages: the old away and address screens, then Getting to know you, Make me yours, Its AI. */
+export const NEW_TRACK = ["Away from home", "Your address", "Getting to know you", "Make me yours", "Its AI"] as const;
 
 /**
  * First-run setup's frame: on the left the agent's wisp with one short line from it, at the top a
  * track of five dots (the current one stretched), and the step in the middle. `at` is 1–5 for
  * those steps, 0 before them (server, account, outside your home), where no dot is current yet.
  */
-export function SetupShell({ at, line, look, mood = "awake", stepKey, onBack, children }: { at: number; line: string; look?: GhostAppearance; mood?: GhostMood; stepKey: string; onBack?: (() => void) | null; children: ReactNode }) {
+export function SetupShell({ at, track = TRACK, line, look, mood = "awake", stepKey, onBack, children }: { at: number; track?: readonly string[]; line: string; look?: GhostAppearance; mood?: GhostMood; stepKey: string; onBack?: (() => void) | null; children: ReactNode }) {
+  useEscBack(onBack);
   return (
     <div className="ob-frame" data-testid="setup">
       <aside className="ob-side">
@@ -21,8 +25,8 @@ export function SetupShell({ at, line, look, mood = "awake", stepKey, onBack, ch
           <span>Wisp</span>
         </div>
         <div className="ob-ghost">
-          <div className="ob-bob">
-            <Ghost look={look ?? WHITE_WISP} size={132} mood={mood} trackPointer label="" />
+          <div>
+            <ClassicGhost look={look ?? WHITE_WISP} size={132} mood={mood} trackPointer label="" />
           </div>
           <p key={line} className="ob-line" aria-live="polite">
             {line}
@@ -38,7 +42,7 @@ export function SetupShell({ at, line, look, mood = "awake", stepKey, onBack, ch
               </button>
             )}
           </div>
-          <Track at={at} />
+          <Track at={at} track={track} />
           <div className="ob-back-slot" />
         </div>
         <section key={stepKey} className="ob-step">
@@ -49,11 +53,27 @@ export function SetupShell({ at, line, look, mood = "awake", stepKey, onBack, ch
   );
 }
 
+/** Esc is Back too, unless it's closing something else (a dialog) or would throw away typing. */
+export function useEscBack(onBack: (() => void) | null | undefined) {
+  useEffect(() => {
+    if (!onBack) return;
+    const on = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.("[role=dialog]")) return;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA") && (t as HTMLInputElement).value) return;
+      onBack();
+    };
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  }, [onBack]);
+}
+
 /** Five dots; the current one is a 28px pill, the ones done and current are ink. */
-export function Track({ at }: { at: number }) {
+export function Track({ at, track = TRACK }: { at: number; track?: readonly string[] }) {
   return (
-    <div role="progressbar" aria-label={at ? `Step ${at} of 5: ${TRACK[at - 1]}` : "Getting started"} aria-valuemin={0} aria-valuemax={5} aria-valuenow={at} className="ob-track">
-      {TRACK.map((name, i) => (
+    <div role="progressbar" aria-label={at ? `Step ${at} of 5: ${track[at - 1]}` : "Getting started"} aria-valuemin={0} aria-valuemax={5} aria-valuenow={at} className="ob-track">
+      {track.map((name, i) => (
         <span key={name} className="ob-dot" data-state={i + 1 === at ? "now" : i + 1 < at ? "done" : "later"} />
       ))}
     </div>

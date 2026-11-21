@@ -436,10 +436,12 @@
   const state = JSON.parse(new URLSearchParams(location.search).get("state") || "{}");
   const setup = window.wispSetup;
   const SCREENS = ["welcome", "create", "installing", "ready", "join", "cloud", "waiting", "starting", "unreachable"];
+  let currentScreen = "welcome";
   const show = (id) => {
+    currentScreen = id;
     SCREENS.forEach((s) => ($(s).hidden = s !== id));
     document.querySelector("main")?.setAttribute("data-screen", id);
-    $("back").hidden = ["welcome", "installing", "ready", "waiting", "starting", "unreachable"].includes(id) && !(id === "welcome" && state.canReturn);
+    $("back").hidden = ["welcome", "installing", "ready", "starting", "unreachable"].includes(id) && !(id === "welcome" && state.canReturn);
   };
   const err = (id, msg) => { $(id).hidden = !msg; $(id).textContent = msg || ""; };
 
@@ -618,7 +620,7 @@
   function goWelcome() {
     stopJoin();
     $("title").textContent = "Welcome to Wisp";
-    $("subtitle").textContent = "Two questions, then pick where your agents live.";
+    $("subtitle").textContent = "One question, then pick where your agents live.";
     show("welcome");
   }
 
@@ -641,14 +643,27 @@
   $("cancel-join").onclick = goJoin;
   $("join-again").onclick = goJoin;
   window.addEventListener("beforeunload", stopJoin);
-  document.querySelectorAll("[data-back]").forEach((b) => (b.onclick = () => {
-    const screen = document.querySelector("main")?.getAttribute("data-screen");
-    if (screen === "welcome" && state.canReturn) return setup.returnToServer();
-    // within Cloud, back from choosing a size goes to connecting
-    if (screen === "cloud" && !$("cloud-choose").hidden) return cloudCard("cloud-connect");
-    if (screen === "cloud") cancelSignIn();
+  // One Back for the button and Esc: each step goes back one. The provider list closes, a browser sign-in
+  // wait is cancelled, choosing a size goes to connecting, the join pages go to the start. The first page
+  // returns to the server only when there is one; installing, ready and starting have nothing to go back to,
+  // and a server being created isn't dropped silently.
+  function goBack() {
+    const screen = currentScreen;
+    if (screen === "welcome") return state.canReturn ? setup.returnToServer() : undefined;
+    if (screen === "waiting") return $("cancel-join").onclick();
+    if (screen === "join" || screen === "create") return goWelcome();
+    if (screen !== "cloud") return;
+    if (!$("cloud-progress").hidden && running) return;
+    if (!$("cloud-choose").hidden) return cloudCard("cloud-connect");
+    if (!$("p-list").hidden) { $("p-list").hidden = true; $("p-change").setAttribute("aria-expanded", "false"); return; }
+    cancelSignIn();
     goWelcome();
-  }));
+  }
+  document.querySelectorAll("[data-back]").forEach((b) => (b.onclick = goBack));
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
+    goBack();
+  });
   $("retry").onclick = () => { show("starting"); setup.retry(); };
   $("switch").onclick = goWelcome;
   async function startWisp() {

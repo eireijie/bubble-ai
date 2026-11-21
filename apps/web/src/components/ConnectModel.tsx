@@ -52,6 +52,8 @@ function SignIn({ provider, big, onDone, onKey }: { provider: ModelProvider; big
   const [error, setError] = useState<string | null>(null);
   const [paste, setPaste] = useState("");
   const [sending, setSending] = useState(false);
+  // a code went to the sign-in and it hasn't answered yet
+  const [checking, setChecking] = useState(false);
   const [copied, setCopied] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const pushed = useStore((s) => (loginId ? s.modelLogins[loginId] : undefined));
@@ -104,6 +106,7 @@ function SignIn({ provider, big, onDone, onKey }: { provider: ModelProvider; big
     try {
       setPolled(await api<ModelLogin>("POST", `/api/model-connections/login/${loginId}/input`, { text: paste.trim() }));
       setPaste("");
+      setChecking(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -118,6 +121,11 @@ function SignIn({ provider, big, onDone, onKey }: { provider: ModelProvider; big
       setTimeout(() => setCopied(false), 1500);
     } catch {}
   };
+  // its answer: a turned-down code comes back as a problem while the sign-in keeps going
+  const problem = login?.status === "running" ? login.error : undefined;
+  useEffect(() => {
+    if (problem) setChecking(false);
+  }, [problem]);
   const site = siteName(login?.url ?? info.site);
   const btn = cx("inline-flex items-center gap-1.5 rounded-lg px-3 font-medium", big ? "h-10 text-[15px]" : "h-8 text-[13px]");
 
@@ -187,10 +195,14 @@ function SignIn({ provider, big, onDone, onKey }: { provider: ModelProvider; big
               </button>
             </form>
           )}
-          {error && <p className="text-[12px] text-bad">{error}</p>}
+          {(problem || error) && (
+            <p role="alert" className="text-[12px] leading-snug text-bad">
+              {problem ?? error}
+            </p>
+          )}
           <p className="flex items-center gap-2 text-[12px] text-muted">
-            <span className="m-wait size-1.5 rounded-full bg-warn" aria-hidden />
-            Waiting for you to finish…
+            {checking && !problem ? <Loader2 size={12} className="animate-spin" /> : <span className="m-wait size-1.5 rounded-full bg-warn" aria-hidden />}
+            {checking && !problem ? "Checking the code…" : "Waiting for you to finish…"}
           </p>
         </>
       )}

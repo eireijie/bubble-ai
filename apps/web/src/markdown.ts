@@ -3,7 +3,59 @@ import DOMPurify from "dompurify";
 
 const marked = new Marked({ gfm: true, breaks: true });
 
+const pageOrigin = () => (typeof location !== "undefined" && location.origin && location.origin !== "null" ? location.origin : "http://localhost");
+
+/** True for an image address that would make the browser contact another host. */
+export function isRemoteImage(src: string): boolean {
+  const s = src.trim();
+  if (/^(data|blob):/i.test(s)) return false;
+  try {
+    const u = new URL(s, pageOrigin());
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    return u.origin !== pageOrigin();
+  } catch {
+    return true;
+  }
+}
+
+// Remote images would let any message make the viewer's browser fetch a tracking URL; show a link instead.
+let hooked = false;
+function hookImages() {
+  if (hooked) return;
+  hooked = true;
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.nodeName !== "IMG") return;
+    const src = node.getAttribute("src") ?? "";
+    const srcset = node.getAttribute("srcset");
+    if (!isRemoteImage(src) && !(srcset && /\bhttps?:|\/\//i.test(srcset))) return;
+    let host = "";
+    try { host = new URL(src, pageOrigin()).host; } catch { /* keep empty */ }
+    const alt = (node.getAttribute("alt") ?? "").trim();
+    const a = node.ownerDocument.createElement("a");
+    a.setAttribute("href", src);
+    a.setAttribute("target", "_blank");
+    a.setAttribute("rel", "noopener noreferrer");
+    a.setAttribute("class", "remote-image");
+    a.textContent = `Image: ${alt || host || "link"}`;
+    node.replaceWith(a);
+  });
+}
+
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+function remoteImageLink(src: string, alt: string): string {
+  let host = "";
+  try { host = new URL(src, pageOrigin()).host; } catch { /* keep empty */ }
+  return `<a class="remote-image" href="${escape(src)}" target="_blank" rel="noopener noreferrer">Image: ${escape(alt.trim() || host || "link")}</a>`;
+}
+
+marked.use({
+  renderer: {
+    image({ href, text }) {
+      return isRemoteImage(href) ? remoteImageLink(href, text) : false;
+    },
+  },
+});
 
 // lucide "bot" icon, inlined so mention chips need no extra requests
 const BOT_ICON =
@@ -42,6 +94,7 @@ export function renderMarkdown(src: string, opts: { known?: (target: string) => 
   text = text.replace(/(^|\s)#([a-zA-Z][\w/-]*)/g, (_m, pre: string, tag: string) => `${pre}<span class="tag">#${escape(tag)}</span>`);
   text = text.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => stash[Number(i)]);
 
+  hookImages();
   const html = marked.parse(text, { async: false }) as string;
   return DOMPurify.sanitize(html, { ADD_ATTR: ["data-wikilink", "target"], ADD_TAGS: ["svg", "path", "rect"] });
 }

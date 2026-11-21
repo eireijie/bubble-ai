@@ -211,9 +211,10 @@ struct TeamBuilder: View {
     return ScrollView {
       VStack(spacing: 0) {
         if !problems.isEmpty || error != nil { problemBanner.padding(.bottom, 16) }
-        // a schedule box heads the chart instead (its sheet says a message still starts the team)
+        // a schedule box starts the team too, beside a message coming in
         let scheduled = steps.contains { $0.kind == .schedule }
-        if !scheduled { Chip(symbol: "bubble.left", text: "A message comes in") }
+        Chip(symbol: "bubble.left", text: "A message comes in")
+        if scheduled { Text("or").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.vertical, 8) }
         ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
           let before = i == 0 ? 0 : rows[i - 1].count
           if i > 0 || !scheduled {
@@ -298,7 +299,7 @@ struct TeamBuilder: View {
     let agent = anchorStep.flatMap { team.agentId(of: $0) } ?? steps.compactMap { team.agentId(of: $0) }.last ?? store.agents.first?.id
     switch kind {
     case .schedule:
-      var s = ChannelTeam.Step(id: id, kind: .schedule, action: "", prompt: "")
+      var s = ChannelTeam.Step(id: id, kind: .schedule, action: "", prompt: "Do this team's usual work and tell me how it went.")
       s.schedule = "0 9 * * 1"; s.timezone = TimeZone.current.identifier; s.enabled = true
       return s
     case .agent, .beside: return .init(id: id, kind: .do, action: "New step", agentId: agent)
@@ -629,6 +630,8 @@ struct TeamHowLine: View {
     let step = team.step(line.stepId)
     if let step, step.kind == .ask {
       Image(systemName: "person.crop.circle").font(.system(size: size * 0.7)).foregroundStyle(Palette.muted).frame(width: size, height: size)
+    } else if step?.kind == .schedule {
+      Image(systemName: "clock").font(.system(size: size * 0.6)).foregroundStyle(Palette.muted).frame(width: size, height: size)
     } else if let step, step.kind == .handoff {
       Image(systemName: "arrow.up.forward.square").font(.system(size: size * 0.55)).foregroundStyle(Palette.muted).frame(width: size, height: size)
     } else if let step, let agent = team.agentId(of: step).flatMap({ store.agent($0) }) {

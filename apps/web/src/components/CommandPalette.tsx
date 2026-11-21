@@ -170,6 +170,8 @@ function Palette({ onClose, onNewOrg }: { onClose: () => void; onNewOrg: () => v
   const members = useStore((s) => s.members);
   const teams = useTeams();
   const guest = useStore((s) => s.me?.role) === "guest";
+  // only the hub owner can make a new workspace (older hubs don't say: offer it)
+  const hubOwner = useStore((s) => s.me?.hubOwner) !== false;
   const features = useFeatures();
   const [q, setQ] = useState(() => useStore.getState().paletteSeed);
   const [results, setResults] = useState<Results | null>(null);
@@ -246,7 +248,7 @@ function Palette({ onClose, onNewOrg }: { onClose: () => void; onNewOrg: () => v
       create("browse-teams", <Users size={15} />, "Browse teams", () => useStore.setState({ channelBrowser: { sectionId: null } }), "find join public archived teams channels"),
       ...(!guest ? [create("team", <Users size={15} />, "New team", () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }), "add create browse teams channels group")] : []),
       ...(!guest && features.tasks ? [create("task", <SquarePen size={15} />, "New task", () => useStore.setState({ newTaskOpen: true }), "create assign work")] : []),
-      create("org", <Building2 size={15} />, "New workspace", onNewOrg, "create workspace"),
+      ...(hubOwner ? [create("org", <Building2 size={15} />, "New workspace", onNewOrg, "create workspace")] : []),
     ];
     // every page, including the ones that no longer have a place on the rail
     const pageRow = (key: string, icon: ReactNode, label: string, run: () => void, also = "", hint?: string): Row & { words: string } => ({ key: `p:${key}`, group: "Go to", kind: "Page", icon, label, hint, run, words: `${label} ${also}` });
@@ -270,7 +272,7 @@ function Palette({ onClose, onNewOrg }: { onClose: () => void; onNewOrg: () => v
     if (!needle) return [...actions, ...out, ...pages];
     out.push(...actions.filter(match), ...pages.filter(match));
     return out;
-  }, [q, results, channels, agents, members, teams, guest, features, onNewOrg]);
+  }, [q, results, channels, agents, members, teams, guest, hubOwner, features, onNewOrg]);
 
   const id = useRef(Symbol("palette")).current;
   useOverlay(id, "palette");

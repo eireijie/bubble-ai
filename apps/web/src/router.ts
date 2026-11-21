@@ -19,6 +19,7 @@ import { useMemo, useSyncExternalStore } from "react";
  *   #/welcome[/intro]                first-run onboarding; /intro opens on "what Wisp is"
  *   #/help                           help: finish setup, why a helper isn't answering, words you'll see
  *   #/mods                           mods: optional parts of Wisp, switched on or off
+ *   #/here[/<agentId>]               "Here's your Wisp": what setup turned on, each undoable (onboarding's last page)
  *   #/code                           Code (a mod): terminals on your computers
  *   #/                               the dashboard on desktops, the chats list on phones (App.tsx)
  *   #/chats                          channel list (phones; desktops go to the dashboard)
@@ -41,6 +42,7 @@ export type Route =
   | { view: "welcome"; intro?: boolean }
   | { view: "help" }
   | { view: "mods" }
+  | { view: "here"; agentId?: string | null }
   | { view: "code" }
   | { view: "chats" }
   | { view: "you" }
@@ -48,8 +50,10 @@ export type Route =
 
 export const AGENT_TABS = ["overview", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "remove"] as const;
 export type AgentTab = (typeof AGENT_TABS)[number];
-export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "mobile", "general", "access", "agent-defaults", "people", "agents", "runtimes", "models", "harnesses", "memory", "computers", "logins", "storage", "apps", "skills", "connections", "data", "updates"] as const;
+export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "general", "access", "agent-defaults", "people", "agents", "harnesses", "memory", "buddy", "logins", "storage", "apple", "apps", "skills", "connections", "data", "updates"] as const;
 export type SettingsPage = (typeof SETTINGS_PAGES)[number];
+/** Settings pages that were merged into another: an old link lands on the page that holds them now. */
+export const SETTINGS_REDIRECTS: Record<string, SettingsPage> = { models: "harnesses", runtimes: "harnesses", computers: "devices", mobile: "devices" };
 export const MARKET_SECTIONS = ["all", "apps", "skills", "devices", "installed"] as const;
 export type MarketSection = (typeof MARKET_SECTIONS)[number];
 
@@ -98,7 +102,7 @@ export function parseRoute(hash: string): Route {
       // devices live inside Computers now
       return { view: "computers", computerId: null, ...(parts[1] ? { deviceId: parts[1] } : {}) };
     case "settings": {
-      const page = SETTINGS_PAGES.find((p) => p === parts[1]) ?? null;
+      const page = SETTINGS_PAGES.find((p) => p === parts[1]) ?? SETTINGS_REDIRECTS[parts[1] ?? ""] ?? null;
       // one thing inside a page, e.g. a skill: #/settings/skills/<id>
       return { view: "settings", page, ...(page && parts[2] ? { item: parts.slice(2).join("/") } : {}) };
     }
@@ -108,6 +112,8 @@ export function parseRoute(hash: string): Route {
       return { view: "help" };
     case "mods":
       return { view: "mods" };
+    case "here":
+      return { view: "here", agentId: parts[1] ?? null };
     case "code":
       return { view: "code" };
     case "chats":
@@ -158,6 +164,8 @@ export function href(r: Route): string {
       return "#/help";
     case "mods":
       return "#/mods";
+    case "here":
+      return "#/here" + (r.agentId ? `/${r.agentId}` : "");
     case "code":
       return "#/code";
     case "chats":

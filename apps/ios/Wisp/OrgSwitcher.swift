@@ -28,9 +28,11 @@ struct OrgSwitcherSheet: View {
             }
           }
           CardGroup {
-            Button { creating = true } label: {
-              RowLabel(title: "New workspace", chevron: false) { Image(systemName: "plus").foregroundStyle(Palette.muted).frame(width: 26) }
-            }.buttonStyle(.plain).accessibilityIdentifier("org-new")
+            if store.hubOwner {
+              Button { creating = true } label: {
+                RowLabel(title: "New workspace", chevron: false) { Image(systemName: "plus").foregroundStyle(Palette.muted).frame(width: 26) }
+              }.buttonStyle(.plain).accessibilityIdentifier("org-new")
+            }
             Button { withAnimation(.snappy) { joining.toggle() } } label: {
               RowLabel(title: "Join with an invite link", chevron: false) { Image(systemName: "link").foregroundStyle(Palette.muted).frame(width: 26) }
             }.buttonStyle(.plain).accessibilityIdentifier("org-join")

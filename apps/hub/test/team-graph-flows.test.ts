@@ -580,7 +580,8 @@ describe("an agent drawing a team from a sentence", () => {
     expect(started.data.status).toBe("working");
     const task = hub.store.task(started.data.id)!;
     expect(task.toAgentId).toBe(agents.atlas.id);
-    expect(task.brief).toMatch(/@forge/);
+    expect(task.brief).toMatch(/forge/);
+    expect(task.brief).not.toMatch(/@forge/);
     expect(task.brief).toMatch(/Atlas plans while Sol researches/);
     await finish("atlas", task.id, JSON.stringify({
       name: "Release crew",

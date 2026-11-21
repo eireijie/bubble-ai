@@ -182,7 +182,7 @@ struct ChannelView: View {
   private var composer: some View {
     Composer(placeholder: placeholder, channelId: channel.id, refresh: list.count, draft: draft, attachTrigger: attachTrigger, send: { text, files, replyTo in
             try await store.send(text, in: channel.id, files: files, replyTo: replyTo)
-          }, onCall: canCall && call == nil ? { startCall() } : nil, callLabel: "Call \(store.dmAgent(current)?.name ?? "agent")", onModelCommand: store.dmAgent(current).map { _ in { showRun = true } }, callLive: call != nil)
+          }, onModelCommand: store.dmAgent(current).map { _ in { showRun = true } }, callLive: call != nil)
   }
 
   /** only really leaving the chat hangs up; opening a thread, the profile or the full-screen call doesn't */
@@ -204,7 +204,7 @@ struct ChannelView: View {
   }
 
   /** a voice call is on offer in a chat with one agent when voice is on */
-  private var canCall: Bool { store.features.voice && current.archivedAt == nil && store.dmAgent(current) != nil }
+  private var canCall: Bool { current.archivedAt == nil && store.dmAgent(current) != nil }
 
   /** teams show their first two agents on the name pill */
   private var teamAgents: [Agent] {
@@ -213,8 +213,13 @@ struct ChannelView: View {
 
   /** the top of a chat: a glass back circle, the name on a pill with the ghost, and a ... circle */
   private var chrome: some View {
-    TopBar(inset: store.dmAgent(current) != nil && run.context != nil ? 100 : 64) {
-      CircleButton(symbol: "chevron.left", label: "Back", id: "chat-back") { dismiss() }
+    TopBar(inset: store.dmAgent(current) != nil && (canCall || run.context != nil) ? 112 : 64) {
+      HStack(spacing: 6) {
+        CircleButton(symbol: "chevron.left", label: "Back", id: "chat-back") { dismiss() }
+        if let agent = store.dmAgent(current), canCall, call == nil {
+          CircleButton(symbol: "phone", label: "Call \(agent.name)", id: "chat-call", tint: Palette.call) { startCall() }
+        }
+      }
     } center: {
       Button { showDetails = true } label: {
         NamePill(title: store.title(of: current)) {
@@ -650,9 +655,6 @@ struct Composer: View {
   /** bump to open the file picker (the intro's "Add files") */
   var attachTrigger = 0
   var send: (String, [String], String?) async throws -> Void
-  /** starts a voice call with the agent: the white voice button shows while the field is empty */
-  var onCall: (() -> Void)? = nil
-  var callLabel = "Start a voice call"
   /** a plain "/model" opens the model sheet after it's sent */
   var onModelCommand: (() -> Void)? = nil
   /** a call is on: dictating would take the microphone and speaker away from it */
@@ -676,8 +678,7 @@ struct Composer: View {
 
   private var empty: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && files.isEmpty }
   private var blocked: Bool { empty || sending || !uploading.isEmpty }
-  /** the send arrow shows (else the voice button) */
-  private var showsSend: Bool { !empty || sending || onCall == nil }
+  private var showsSend: Bool { !empty || sending }
   private var replyTarget: ReplyTarget? { channelId.flatMap { store.replyTarget(channel: $0, thread: thread) } }
 
   private var caret: Int {
@@ -752,7 +753,7 @@ struct Composer: View {
             .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
             .accessibilityLabel(dictation.active ? "Stop dictating" : "Dictate")
           }
-          if !empty || sending || onCall == nil {
+          do {
             Button { submit() } label: {
               Image(systemName: sending ? "ellipsis" : "arrow.up")
                 .font(.system(size: 15, weight: .bold))
@@ -767,18 +768,6 @@ struct Composer: View {
             .padding(.bottom, 6).padding(.trailing, 6)
             .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
             .accessibilityLabel("Send").accessibilityIdentifier("composer-send")
-          } else if let onCall {
-            Button(action: onCall) {
-              Image(systemName: "waveform")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Palette.call)
-                .frame(width: 56, height: 44)
-                .background(Capsule().fill(Palette.call.tint16))
-            }
-            .buttonStyle(.press)
-            .padding(.bottom, 6).padding(.trailing, 6)
-            .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
-            .accessibilityLabel(callLabel).accessibilityIdentifier("composer-call")
           }
         }
         .frame(minHeight: 44)

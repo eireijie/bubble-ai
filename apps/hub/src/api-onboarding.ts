@@ -8,10 +8,11 @@ import { id } from "./auth.ts";
 import { ComputerError } from "./computers.ts";
 import type { Hub } from "./hub.ts";
 import { saveImportedMemory } from "./memory-import.ts";
+import { computerLabel, discoverAvailable, discoverPart, DISCOVER_PARTS, type DiscoverResult } from "./discover.ts";
 import { httpOrigin } from "./reachable-addresses.ts";
 
 interface Helpers {
-  need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean }): Caller | null;
+  need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean; hubOwner?: boolean }): Caller | null;
   parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null;
 }
 
@@ -203,6 +204,37 @@ export function registerOnboardingApi(app: FastifyInstance, hub: Hub, h: Helpers
     // used: the code no longer opens anything
     byHash.delete(sha(code));
     return { ok: true };
+  });
+
+  // --- onboarding v3, page 3: look around this computer (discover.ts) ---------------------------
+
+  /** Whether the hub can look around: only on the person's own Mac or PC, never a Cloud server. Reads nothing. */
+  app.get("/api/onboarding/discover", async (req, reply) => {
+    const c = need(req, reply, { owner: true });
+    if (!c) return;
+    // the hub's computer is its owner's: an owner of another organization on it can't look around
+    const first = store.firstWorkspace();
+    const hubOwner = !!first && store.role(first.id, c.actor.id) === "owner";
+    return { available: hubOwner && discoverAvailable(), label: computerLabel(), parts: DISCOVER_PARTS };
+  });
+
+  /** One part of the look, after the person said yes: { found, facts }. Never fails; slow parts give up. */
+  app.post("/api/onboarding/discover/:part", async (req, reply) => {
+    const c = need(req, reply, { hubOwner: true });
+    if (!c) return;
+    if (!discoverAvailable()) return reply.code(409).send({ error: "Wisp isn't running on your computer, so it can't look around it." });
+    const part = (req.params as { part: string }).part;
+    if (part === "harnesses") {
+      // signed in where the person's own devices run them (the same check the device list uses)
+      const labels = new Set<string>();
+      for (const n of store.nodes(c.workspaceId).filter((n) => n.ownerId === c.actor.id)) {
+        for (const h of store.nodeCatalog(n.id)) if (h.accounts && Object.values(h.accounts).some((v) => v === true)) labels.add(harnessLabel(h.harness));
+      }
+      const list = [...labels];
+      return { found: list.length ? list.join(", ") : "None yet", facts: list.map((text) => ({ group: "Tools", text, src: "signed in" })) } satisfies DiscoverResult;
+    }
+    if (part !== "git" && part !== "notes" && part !== "projects") return reply.code(404).send({ error: "no such part" });
+    return discoverPart(part);
   });
 
   /** The address people's AIs reach this hub at: its public one, else the one this request came to. */

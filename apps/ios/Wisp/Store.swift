@@ -11,6 +11,8 @@ final class Store {
   var phase: Phase = .signedOut
   var api: API?
   var me: User?
+  /** only the hub owner can make new workspaces (true on older hubs, which don't say) */
+  var hubOwner = true
   var role: String = "member" {
     didSet {
       if !canViewComputers {
@@ -51,7 +53,16 @@ final class Store {
   var hubUpdated = false
   @ObservationIgnored var hubCommit: String?
   /** the optional features this organization has on (all on when the hub doesn't say) */
-  var features: Features = .everything
+  var features: Features = .everything {
+    // not while setFeatures is still saving: the hub would answer "Apple mod is off" until the change lands
+    didSet { if features.apple != oldValue.apple && !savingFeatures { Task { await refreshApple() } } }
+  }
+  /** setFeatures has shown a change but the hub hasn't saved it yet */
+  var savingFeatures = false
+  /** the Apple mod's settings, Macs and iPhones (GET /api/apple), while the mod is on */
+  var apple: AppleInfo?
+  /** bumps when the hub says Apple changed, so icons a Mac just sent are fetched again */
+  var appleIconsVersion = 0
   /** every organization you belong to, for the switcher at the top of Chats */
   var orgs: [OrgSummary] = []
   var agentDefaults: AgentDefaults?
@@ -108,6 +119,8 @@ final class Store {
   var route: Route?
   /** whether this hub has an APNs key (push is optional for self-hosters) */
   var pushAvailable = false
+  /** the short "Get a note when…" explanation that comes before the system's notification prompt */
+  var showNotificationPrimer = false
   var notificationStatus: UNAuthorizationStatus = .notDetermined
   var pushRegistrationError: String?
   @ObservationIgnored var pushToken: String?
@@ -245,7 +258,7 @@ final class Store {
     onboarding = nil; allowance = nil
     tasks = []; notes = []; profiles = [:]; routines = []; backgrounds = [:]
     skills = []; connectors = []; sessions = []; invites = []; prefs = nil
-    taskLead = nil; taskLeadOverride = nil; memoryStorage = nil; agentPolicy = nil
+    taskLead = nil; taskLeadOverride = nil; memoryStorage = nil; agentPolicy = nil; apple = nil
     channels = []; agents = []; members = []; computers = []; screenCodes = [:]; approvals = []
     messages = [:]; threads = [:]; roots = [:]; replyCounts = [:]; activity = [:]; activityChannel = [:]
     activityThread = [:]; activityPath = [:]; discussions = [:]
@@ -266,6 +279,7 @@ final class Store {
       guard gen == session else { return }
       self.me = me.user
       self.role = me.role ?? "member"
+      self.hubOwner = me.hubOwner ?? true
       self.prefs = me.prefs
       self.workspace = me.workspace
       self.features = me.features ?? .everything
@@ -362,6 +376,12 @@ final class Store {
     } catch let error as API.Failure where error.status == 404 {
       return false
     }
+  }
+
+  /** Its device is disconnected: the only state a wisp is drawn gray for (paused or idle ones just look sleepy). */
+  func isOffline(_ agent: Agent?) -> Bool {
+    guard let agent else { return false }
+    return agent.status == .offline || computers.first { $0.id == agent.computerId }?.status == "offline"
   }
 
   /** Offline wins, then approval requests and failures, then current work. */
@@ -599,6 +619,8 @@ final class Store {
     // the new socket's "ready" does the catch-up, so it isn't done twice
     connect()
     Task { await setUpPush() }
+    // Apple settings may have changed while away; a fresh copy also sends the "app opened" location
+    if features.apple { Task { await refreshApple() } }
   }
 
   /** Events missed while offline aren't replayed. Reload every collection those events maintain. */
@@ -617,6 +639,7 @@ final class Store {
       self.me = me.user
       prefs = me.prefs
       role = me.role ?? "member"
+      hubOwner = me.hubOwner ?? true
       features = me.features ?? .everything
       syncError = nil
     }
@@ -803,6 +826,10 @@ final class Store {
       if allowance != nil { Task { try? await refreshAllowance() } }
     case "join_request", "join_request_done":
       handleJoinEvent(env.type, data)
+    case "apple_changed":
+      AppleIconCache.shared.retryMisses()
+      appleIconsVersion += 1
+      Task { await refreshApple() }
     case "changes_changed":
       Task { try? await refreshChanges() }
     case "skills_changed":

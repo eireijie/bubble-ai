@@ -194,5 +194,7 @@ describe("page protection", () => {
     const res = await built.app.inject({ method: "GET", url: "/api/join/requests" });
     expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
     expect(String(res.headers["content-security-policy"])).toContain("frame-ancestors");
+    // pictures only from the hub itself, so a message can't make the app call out to a tracker
+    expect(String(res.headers["content-security-policy"])).toContain("img-src 'self' data: blob:");
   });
 });

@@ -11,7 +11,7 @@
     "bundle": "node scripts/bundle-wisp.mjs",
     "dist": "npm run bundle && electron-builder --dir",
     "dist:mac": "npm run bundle && electron-builder --mac",
-    "dist:win": "npm run bundle && electron-builder --win",
+    "dist:win": "npm run bundle && electron-builder --win -c.extraMetadata.name=Wisp",
     "dist:linux": "npm run bundle && electron-builder --linux"
   },
   "build": {
@@ -40,7 +40,12 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Wisp uses your microphone when you call an agent.",
-        "NSAppleEventsUsageDescription": "Wisp uses this to let your agents work on this Mac's screen when you lend it to them.",
+        "NSAppleEventsUsageDescription": "Wisp uses this to send texts you approve through Messages, and to let your agents work on this Mac's screen when you lend it to them.",
+        "NSContactsUsageDescription": "Wisp lets your agents look people up in Contacts when you turn on the Apple mod.",
+        "NSCalendarsFullAccessUsageDescription": "Wisp lets your agents read your calendar, and add or move events you approve, when you turn on the Apple mod.",
+        "NSCalendarsUsageDescription": "Wisp lets your agents read your calendar, and add or move events you approve, when you turn on the Apple mod.",
+        "NSRemindersFullAccessUsageDescription": "Wisp lets your agents read your reminders, and add or complete ones you approve, when you turn on the Apple mod.",
+        "NSRemindersUsageDescription": "Wisp lets your agents read your reminders, and add or complete ones you approve, when you turn on the Apple mod.",
         "NSLocalNetworkUsageDescription": "Wisp finds and connects to Wisp on your other computers over your own network.",
         "NSBonjourServices": [
           "_wisp._tcp"
@@ -50,6 +55,7 @@
     },
     "win": {
       "icon": "build/icon.png",
+      "executableName": "Wisp",
       "target": [
         "nsis"
       ],

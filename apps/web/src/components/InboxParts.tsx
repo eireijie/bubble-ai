@@ -5,25 +5,26 @@ import { useStore, type ComputerInfo, type LiveRun } from "../store.ts";
 import { go } from "../router.ts";
 import { AgentAvatar, cx, timeAgo } from "./ui.tsx";
 import { StorageLogo } from "../views/settings/storage.tsx";
+import { AppleApprovalCard } from "./AppleParts.tsx";
 
 /** "Needs you", "New replies"…: the small grey heading over a group, with a count or a link on the right. */
 export function SectionHead({ title, right, needs }: { title: string; right?: ReactNode; needs?: boolean }) {
   return (
-    <div className="flex items-center justify-between px-1.5 pt-1.5 text-[13px] font-medium text-faint">
+    <div className="flex items-baseline justify-between gap-2.5 px-0.5 pt-4 first:pt-0 text-[13px] font-semibold text-muted">
       <h2>{title}</h2>
       {right !== undefined && right !== null && <span className={cx("font-medium", needs && "text-st-needs")}>{right}</span>}
     </div>
   );
 }
 
-/** A rounded card, 24px like the rest of Wisp. */
+/** A flat card on the page (canvas Inbox: 16px, no border). */
 export function GroupCard({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("rounded-3xl bg-card border border-line overflow-hidden", className)}>{children}</div>;
+  return <div className={cx("rounded-2xl bg-card overflow-hidden", className)}>{children}</div>;
 }
 
 /** A thin rule between rows, inset like the phone's lists. */
 export function Rule() {
-  return <div className="h-px bg-line ml-[18px]" role="separator" />;
+  return <div className="h-px bg-line mx-4" role="separator" />;
 }
 
 /** The big pill buttons on a card: filled for the main answer, soft for the other, bare for "Open chat". */
@@ -33,11 +34,11 @@ export function CardButton({ tone = "soft", className, ...p }: ButtonHTMLAttribu
       type="button"
       {...p}
       className={cx(
-        "h-11 md:h-10 px-5 rounded-full text-[15px] md:text-sm font-medium whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
-        tone === "primary" && "bg-accent text-accent-ink hover:bg-accent/90",
+        "m-press h-9 md:h-8 px-[15px] rounded-full text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
+        tone === "primary" && "bg-ink text-panel hover:bg-ink/85",
         tone === "danger" && "bg-bad text-white hover:bg-bad/90",
-        tone === "soft" && "bg-chip text-ink hover:bg-hover border border-line",
-        tone === "ghost" && "bg-transparent text-muted hover:text-ink px-3.5 font-medium",
+        tone === "soft" && "bg-transparent text-ink hover:bg-hover border border-line2 font-medium",
+        tone === "ghost" && "bg-transparent text-muted hover:text-ink px-3 font-medium",
         className,
       )}
     />
@@ -93,13 +94,12 @@ export function dismissHelp(c: ComputerInfo) {
 
 function CardHead({ agent, title, sub }: { agent: Agent | undefined; title: ReactNode; sub: ReactNode }) {
   return (
-    <div className="flex items-center gap-3">
-      <AgentAvatar agent={agent} size={34} live />
-      <div className="min-w-0 flex-1">
-        <div className="text-base font-medium leading-snug">{title}</div>
-        <div className="text-[13px] text-faint truncate">{sub}</div>
+    <div className="flex items-start gap-3">
+      <AgentAvatar agent={agent} size={32} live />
+      <div className="min-w-0 flex-1 flex flex-col">
+        <div className="text-[13px] text-muted truncate">{sub}</div>
+        <div className="font-semibold leading-snug">{title}</div>
       </div>
-      <span role="img" aria-label="Needs you" className="shrink-0 size-2.5 rounded-full bg-st-needs" />
     </div>
   );
 }
@@ -126,9 +126,9 @@ export function ApprovalNeedCard({ approval: a }: { approval: Approval }) {
     }
   };
   return (
-    <GroupCard className="p-4 md:px-5 md:py-[18px] flex flex-col gap-3">
-      <CardHead agent={agent} title={`${agent?.name ?? "An agent"} wants your OK`} sub={`${where ? `${where} · ` : ""}${timeAgo(a.createdAt)}`} />
-      <div className="rounded-xl bg-panel px-3 py-2.5 font-mono text-[13px] leading-snug text-ink/80 break-words">{a.summary}</div>
+    <GroupCard className="px-4 py-3.5 flex flex-col gap-2.5">
+      <CardHead agent={agent} title={`${agent?.name ?? "An agent"} wants your OK`} sub={`${agent?.name ?? "Agent"} · ${where ? `${where} · ` : ""}${timeAgo(a.createdAt)}`} />
+      <div className="rounded-xl bg-[var(--bubble-them)] px-3 py-2.5 text-[13px] leading-[19px] text-muted break-words">{a.summary}</div>
       {a.details && (
         <div>
           <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="text-xs text-muted hover:text-ink">
@@ -142,17 +142,15 @@ export function ApprovalNeedCard({ approval: a }: { approval: Approval }) {
         placeholder="Add a note (optional)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        className="h-11 md:h-10 rounded-full border border-control-line bg-panel px-4 text-[15px] md:text-sm outline-none placeholder:text-faint focus:border-ring"
+        className="h-9 rounded-[10px] border border-line2 bg-transparent px-3 text-sm outline-none placeholder:text-faint focus:border-ring"
       />
-      <div className="flex flex-wrap gap-2.5">
-        <CardButton tone="primary" disabled={busy} onClick={() => decide(true)} className="flex-1 md:flex-none">
+      <div className="flex flex-wrap gap-2">
+        <CardButton tone="primary" disabled={busy} onClick={() => decide(true)}>
           Approve
         </CardButton>
-        <CardButton disabled={busy} onClick={() => decide(false)} className="flex-1 md:flex-none">
+        <CardButton onClick={() => go({ view: "chat", channelId: a.channelId, threadId: a.threadId })}>Open chat</CardButton>
+        <CardButton tone="ghost" disabled={busy} onClick={() => decide(false)}>
           Not now
-        </CardButton>
-        <CardButton tone="ghost" onClick={() => go({ view: "chat", channelId: a.channelId, threadId: a.threadId })} className="md:ml-0 max-md:basis-full">
-          Open chat
         </CardButton>
       </div>
       {error && <p className="text-xs text-bad">{error}</p>}
@@ -182,7 +180,7 @@ export function LoginNeedCard({ approval: a }: { approval: Approval }) {
     }
   };
   return (
-    <GroupCard className="p-4 md:px-5 md:py-[18px] flex flex-col gap-3" >
+    <GroupCard className="px-4 py-3.5 flex flex-col gap-2.5">
       <section aria-label="Login request" className="contents">
         <CardHead agent={agent} title={`${name} wants to sign in to ${login.site}`} sub={`${login.username ? `Account ${login.username} · ` : ""}from ${LOGIN_SOURCE_LABEL[login.source] ?? "your password manager"}`} />
         <p className="text-xs text-muted">Wisp types it into {login.site} on {name}'s computer, so the password never goes in chat.</p>
@@ -228,7 +226,7 @@ export function StorageNeedCard({ approval: a }: { approval: Approval }) {
     }
   };
   return (
-    <GroupCard className="p-4 md:px-5 md:py-[18px] flex flex-col gap-3">
+    <GroupCard className="px-4 py-3.5 flex flex-col gap-2.5">
       <section aria-label="Storage request" className="contents">
         <CardHead agent={agent} title={`${name} wants your OK`} sub={timeAgo(a.createdAt)} />
         <div className="flex items-center gap-3 rounded-xl bg-panel px-3 py-2.5">
@@ -258,11 +256,27 @@ export function StorageNeedCard({ approval: a }: { approval: Approval }) {
   );
 }
 
+/** An agent wants to send a text or change an event or reminder (the Apple mod): the same card as in chat, under who's asking. */
+export function AppleNeedCard({ approval: a }: { approval: Approval }) {
+  const agent = useStore((s) => s.agents.find((x) => x.id === a.agentId));
+  return (
+    <GroupCard className="p-4 md:px-5 md:py-[18px] flex flex-col gap-3">
+      <CardHead agent={agent} title={`${agent?.name ?? "An agent"} wants your OK`} sub={timeAgo(a.createdAt)} />
+      <AppleApprovalCard approval={a} className="!mt-0 max-w-none" />
+      <div>
+        <CardButton tone="ghost" onClick={() => go({ view: "chat", channelId: a.channelId, threadId: a.threadId })} className="!px-0">
+          Open chat
+        </CardButton>
+      </div>
+    </GroupCard>
+  );
+}
+
 /** An agent asked you to take over on its computer. */
 export function HelpNeedCard({ computer: c }: { computer: ComputerInfo }) {
   const agent = useStore((s) => s.agents.find((x) => x.id === c.help!.agentId));
   return (
-    <GroupCard className="p-4 md:px-5 md:py-[18px] flex flex-col gap-3">
+    <GroupCard className="px-4 py-3.5 flex flex-col gap-2.5">
       <CardHead agent={agent} title={`${agent?.name ?? "An agent"} needs you on ${c.name}`} sub={`Asked for help on a computer · ${timeAgo(c.help!.at)}`} />
       {c.help!.request && <p className="rounded-xl bg-panel px-3 py-2.5 text-sm text-ink/85">“{c.help!.request}”</p>}
       <div className="flex flex-wrap gap-2.5">

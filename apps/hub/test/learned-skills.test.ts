@@ -402,7 +402,8 @@ describe("a harness's own list from its runs", () => {
     (daemon as any).catalog = Promise.resolve([{ harness: "custom", version: "1", models: [], efforts: [], commands: [{ name: "compact", kind: "command", via: "raw", builtIn: true }] }]);
     reports = [
       { name: "compact", description: "Summarize this chat to free up space", kind: "command", via: "raw", builtIn: true },
-      { name: "simplify", kind: "skill", via: "raw" },
+      { name: "simplify", kind: "skill", via: "raw", builtIn: true },
+      { name: "anki", kind: "skill", via: "raw" },
     ];
     await replyTo("hi");
     await waitFor(() => hub.store.nodeCatalog(node).find((c) => c.harness === "custom")?.commands?.some((c) => c.name === "simplify"));
@@ -412,7 +413,14 @@ describe("a harness's own list from its runs", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(sent).toBe(1);
     const { commands } = await owner.request("GET", `/api/agents/${agentId}/commands`);
-    expect(commands.filter((c: any) => c.group === "harness").map((c: any) => c.name)).toEqual(["compact", "simplify"]);
+    // /compact is Wisp's own command for every agent now, so the harness's copy isn't listed twice
+    expect(commands.filter((c: any) => c.group === "harness").map((c: any) => c.name)).toEqual(["simplify"]);
+    // Wisp's own commands come first; the person's own skill ("anki") shows only with the agent's switch on
+    expect(commands[0].group).toBe("wisp");
+    hub.store.updateAgent(agentId, { settings: { ...hub.store.agent(agentId)!.settings, ownPlugins: true } });
+    const on = await owner.request("GET", `/api/agents/${agentId}/commands`);
+    expect(on.commands.filter((c: any) => c.group === "harness").map((c: any) => c.name)).toEqual(["simplify", "anki"]);
+    hub.store.updateAgent(agentId, { settings: { ...hub.store.agent(agentId)!.settings, ownPlugins: false } });
     reports = null;
     hub.store.setNodeCatalog = set;
   });

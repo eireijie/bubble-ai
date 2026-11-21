@@ -11,7 +11,7 @@ import { AgentAvatar, StatusChip, cx, timeAgo } from "../components/ui.tsx";
 import { MoreOptions } from "../components/MoreOptions.tsx";
 import { UserAvatarButton } from "../components/Rail.tsx";
 import { ChatAvatar, PulseDots, shortTime } from "../components/ChatList.tsx";
-import { ApprovalNeedCard, CardButton, runSummary, GroupCard, HelpNeedCard, LoginNeedCard, Rule, StorageNeedCard, SectionHead, useHelpSeen, helpKey } from "../components/InboxParts.tsx";
+import { ApprovalNeedCard, CardButton, runSummary, GroupCard, HelpNeedCard, LoginNeedCard, Rule, StorageNeedCard, AppleNeedCard, SectionHead, useHelpSeen, helpKey } from "../components/InboxParts.tsx";
 import { NEXT_STEP, homeReadiness, setupProgress, useOnboarding } from "../onboarding.ts";
 import { useDevices } from "../devices.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
@@ -155,17 +155,15 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
     return <ChatAvatar chat={{ kind: c.kind === "dm" ? "dm" : "team", agent: agent ?? null, channel: c }} size={size} />;
   };
   const chatRow = (c: (typeof channels)[number], title: string) => (
-    <a key={c.id} href={href({ view: "chat", channelId: c.id, threadId: null })} className="flex items-center gap-3 min-h-14 px-4 py-2 hover:bg-hover min-w-0">
-      <span className="shrink-0 w-[46px] grid place-items-center">{chatAvatar(c, 40)}</span>
-      <span className="min-w-0 flex-1 flex flex-col gap-0.5">
-        <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-base font-medium">{title}</span>
-          <span className="text-[13px] text-faint shrink-0">{c.last ? shortTime(Date.parse(c.last.at), prefs.clock) : ""}</span>
+    <a key={c.id} href={href({ view: "chat", channelId: c.id, threadId: null })} className="flex items-start gap-3 px-1.5 py-1.5 rounded-xl hover:bg-hover min-w-0">
+      <span className="shrink-0 pt-0.5">{chatAvatar(c, 28)}</span>
+      <span className="min-w-0 flex-1 flex flex-col">
+        <span className="flex items-baseline gap-1.5 min-w-0">
+          <span className="truncate font-semibold">{title}</span>
+          <span className="text-muted shrink-0">{c.last ? shortTime(Date.parse(c.last.at), prefs.clock) : ""}</span>
+          {c.unread > 0 && <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-ink text-panel text-[11px] font-semibold grid place-items-center tabular-nums self-center">{c.unread}</span>}
         </span>
-        <span className="flex items-center gap-2">
-          <span className="truncate text-sm text-faint flex-1">{c.last ? cleanPreview(c.last.body, 90) : "No messages yet"}</span>
-          {c.unread > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-accent-chats text-white text-[11px] font-medium grid place-items-center tabular-nums">{c.unread}</span>}
-        </span>
+        <span className={cx("line-clamp-2", c.unread > 0 ? "text-ink" : "text-muted")}>{c.last ? cleanPreview(c.last.body, 160) : "No messages yet"}</span>
       </span>
     </a>
   );
@@ -175,14 +173,14 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
   const canNewTask = !isGuest && features.tasks && agents.length > 0;
 
   const switcher = (
-    <div role="tablist" aria-label="Inbox" className="flex rounded-full bg-chip/60 dark:bg-[#222225] p-1 max-md:w-full">
+    <div role="tablist" aria-label="Inbox" className="flex rounded-full bg-[var(--bubble-them)] p-[3px] max-md:w-full">
       {(
         [
           ["needs", `Needs you${needsCount ? ` · ${needsCount}` : ""}`],
           ["done", "Done"],
         ] as const
       ).map(([id, label]) => (
-        <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cx("h-9 md:h-8 px-3.5 rounded-full text-sm md:text-[13px] max-md:flex-1 transition-colors", tab === id ? "bg-card dark:bg-[#34343a] text-ink font-medium" : "text-muted font-medium hover:text-ink")}>
+        <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cx("h-9 md:h-8 px-3.5 rounded-full text-sm md:text-[13px] max-md:flex-1 transition-colors", tab === id ? "bg-panel shadow-sm text-ink font-semibold" : "text-muted font-medium hover:text-ink")}>
           {label}
         </button>
       ))}
@@ -191,8 +189,8 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <header className="shrink-0 px-[18px] md:px-7 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-[max(30px,env(safe-area-inset-top))] pb-2">
-        <div className="mx-auto max-w-[820px] flex items-center gap-3 justify-between">
+      <header className="shrink-0 px-4 md:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-[max(36px,env(safe-area-inset-top))] pb-2">
+        <div className="mx-auto max-w-[720px] flex items-center gap-3 justify-between">
           {onBack ? (
             <button className="md:hidden! circle" onClick={onBack} aria-label="Back">
               <ChevronRight size={22} className="rotate-180" />
@@ -202,7 +200,10 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
               <UserAvatarButton size={52} />
             </span>
           )}
-          <h1 className="t-title md:flex-1 max-md:text-center">Inbox</h1>
+          <h1 className="md:flex-1 max-md:text-center flex items-baseline gap-3 max-md:justify-center">
+            <span className="text-[22px] md:text-[24px] leading-[30px] font-semibold">Inbox</span>
+            {needsCount > 0 && <span className="max-md:hidden text-base font-normal text-muted">{needsCount} need{needsCount === 1 ? "s" : ""} you</span>}
+          </h1>
           <span className="hidden md:flex items-center gap-3">
             {switcher}
             {canNewTask && (
@@ -223,7 +224,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div data-stagger className="mx-auto max-w-[820px] px-[18px] md:px-7 pt-2 pb-28 md:pb-10 flex flex-col gap-3">
+        <div data-stagger className="mx-auto w-full max-w-[784px] px-4 md:px-8 pt-4 pb-28 md:pb-10 flex flex-col gap-2.5">
           {tab === "done" ? (
             <DoneTab approvals={Object.values(approvals)} tasks={tasks} />
           ) : (
@@ -239,7 +240,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
                   {teamNeeds.map((n) => (
                     <TeamNeedCard key={`${n.flow.id}-${n.lane.stepId}`} flow={n.flow} lane={n.lane} />
                   ))}
-                  {pending.map((p) => (p.login ? <LoginNeedCard key={p.id} approval={p} /> : p.storage ? <StorageNeedCard key={p.id} approval={p} /> : <ApprovalNeedCard key={p.id} approval={p} />))}
+                  {pending.map((p) => (p.login ? <LoginNeedCard key={p.id} approval={p} /> : p.storage ? <StorageNeedCard key={p.id} approval={p} /> : p.apple ? <AppleNeedCard key={p.id} approval={p} /> : <ApprovalNeedCard key={p.id} approval={p} />))}
                 </>
               ) : (
                 <CaughtUp guest={isGuest} compact={!nothingElse} />
@@ -248,19 +249,18 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
               {/* only the agents at work, one line each (every agent is under More options below) */}
               {activeAgents.length > 0 && (
                 <>
-                  <SectionHead title="What agents are doing" right={`${activeAgents.length} working`} />
-                  <GroupCard className="py-1.5 px-3.5">
+                  <SectionHead title="Working now" right={<span className="font-normal">{activeAgents.length} working</span>} />
+                  <GroupCard className="py-1.5 px-4">
                     {activeAgents.map((a, i) => {
                       const now = doing[a.id];
                       return (
                         <div key={a.id}>
                           {i > 0 && <div className="h-px bg-line" />}
-                          <button onClick={() => openDm(a)} className="w-full flex items-center gap-3 px-1 py-2 text-left min-w-0 rounded-2xl hover:bg-hover">
-                            <AgentAvatar agent={a} size={36} live />
-                            <span className="min-w-0 flex-1 flex flex-col gap-0.5">
-                              <span className="text-base font-medium">{a.name}</span>
-                              <span className="text-sm text-st-working truncate">{now?.text ?? "Working"}</span>
-                              {now?.where && <span className="text-[13px] text-faint truncate">{now.where}</span>}
+                          <button onClick={() => openDm(a)} className="w-full flex items-center gap-3 min-h-14 py-1.5 text-left min-w-0 hover:opacity-80">
+                            <AgentAvatar agent={a} size={28} live />
+                            <span className="min-w-0 flex-1 flex flex-col">
+                              <span className="font-semibold leading-5 truncate">{now?.text ?? "Working"}</span>
+                              <span className="text-xs leading-4 text-muted truncate">{[a.name, now?.where].filter(Boolean).join(" · ")}</span>
                             </span>
                             <PulseDots />
                           </button>
@@ -274,19 +274,12 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
               {unreadChats.length > 0 && (
                 <>
                   <SectionHead title="New replies" right={unreadChats.reduce((n, c) => n + c.unread, 0)} />
-                  <GroupCard>
-                    {unreadChats.map((c, i) => (
-                      <div key={c.id}>
-                        {i > 0 && <Rule />}
-                        {chatRow(c, c.kind === "dm" ? `${chatName(c)} replied to you` : chatName(c))}
-                      </div>
-                    ))}
-                  </GroupCard>
+                  <div className="flex flex-col gap-0.5">{unreadChats.map((c) => chatRow(c, chatName(c)))}</div>
                 </>
               )}
 
               {/* guests only see conversations here, so say so rather than leave the page blank */}
-              {isGuest && recentAll.length === 0 && <p className="rounded-3xl border border-dashed border-line px-4 py-4 text-sm text-muted">Conversations you're invited to show up here.</p>}
+              {isGuest && recentAll.length === 0 && <p className="rounded-2xl border border-dashed border-line px-4 py-4 text-sm text-muted">Conversations you're invited to show up here.</p>}
 
               {unreadChats.length === 0 && recentChats.length > 0 && (
                 <>
@@ -300,14 +293,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
                       )
                     }
                   />
-                  <GroupCard>
-                    {recentChats.map((c, i) => (
-                      <div key={c.id}>
-                        {i > 0 && <Rule />}
-                        {chatRow(c, chatName(c))}
-                      </div>
-                    ))}
-                  </GroupCard>
+                  <div className="flex flex-col gap-0.5">{recentChats.map((c) => chatRow(c, chatName(c)))}</div>
                 </>
               )}
 
@@ -511,7 +497,7 @@ function ReadinessCard() {
   const { done } = useOnboarding();
   const devices = useDevices();
   // devices are null while loading; show a quiet placeholder instead of guessing a state
-  if (devices === null) return <div className="h-24 rounded-3xl bg-card animate-pulse" aria-hidden />;
+  if (devices === null) return <div className="h-24 rounded-2xl bg-card animate-pulse" aria-hidden />;
   const r: ReturnType<typeof homeReadiness<Agent>> = homeReadiness(done, agents, devices);
   const { progress, steps } = setupProgress(done);
 

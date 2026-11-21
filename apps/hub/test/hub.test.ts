@@ -769,7 +769,7 @@ describe("agent settings", () => {
     await api("PATCH", `/api/agents/${nova.id}`, { settings: { effort: "high" } });
     const r = await api("PATCH", `/api/agents/${nova.id}`, { settings: { access: "read-only" }, model: "gpt-6-astra" });
     // new agents also record who made them and start out answering only them
-    expect(r.data.settings).toEqual({ effort: "high", access: "read-only", respondTo: "me", createdBy: expect.any(String) });
+    expect(r.data.settings).toEqual({ effort: "high", access: "read-only", respondTo: "me", createdBy: expect.any(String), setup: expect.objectContaining({ done: false }) });
     expect(r.data.model).toBe("gpt-6-astra");
     expect((await api("PATCH", `/api/agents/${nova.id}`, { settings: { access: "root" } })).status).toBe(400);
     expect((await api("PATCH", `/api/agents/${nova.id}`, { settings: { sudo: true } })).status).toBe(400);
@@ -975,7 +975,7 @@ describe("agents inside their computers", () => {
     expect(thread.body).toContain("Three venues under $5k.");
     expect(thread.body).not.toContain("You're the lead");
     // the agent picking it up moves it to in progress
-    const working = await waitFor(async () => (await api<any[]>("GET", "/api/tasks")).data.find((x) => x.id === t.id && x.status === "in_progress"));
+    const working = await waitFor(async () => (await api<any[]>("GET", "/api/tasks")).data.find((x) => x.id === t.id && (x.status === "in_progress" || x.status === "done")));
     expect(working).toBeTruthy();
     // a person can close it
     expect((await api<any>("PATCH", `/api/tasks/${t.id}`, { status: "done", result: "Booked." })).data.status).toBe("done");
@@ -1014,6 +1014,8 @@ describe("the lead", () => {
     const db = openDb(file);
     const runId = run.type === "run" ? run.run.runId : "";
     db.prepare("UPDATE runs SET status = 'running' WHERE id = ?").run(runId);
+    // the stand-in device already answered, which finishes a task nobody marked; the real lead is still working it
+    db.prepare("UPDATE tasks SET status = 'in_progress' WHERE id = ?").run(parent.id);
     const asAtlas = { "x-wisp-agent": atlas.id };
     const sub = (await api<any>("POST", "/api/tasks", { to: "nova", title: "Run the release build", brief: "build it" }, nodeToken, asAtlas)).data;
     db.prepare("UPDATE runs SET status = 'done' WHERE id = ?").run(runId);
@@ -1285,6 +1287,8 @@ describe("runs that go wrong", () => {
     await api("PATCH", `/api/tasks/${done.id}`, { status: "done", result: "yes" });
     const open = (await api("POST", "/api/tasks", { to: "gone", title: "Unfinished work", brief: "not yet" })).data;
     await waitFor(async () => (await api<any[]>("GET", "/api/tasks")).data.find((t) => t.id === open.id && t.status !== "open"));
+    // the stand-in device answers at once (which finishes a task); this one is still being worked on
+    hub.store.updateTask(open.id, "in_progress");
     expect((await api("DELETE", `/api/agents/${gone.id}`)).status).toBe(200);
     const tasks = (await api<any[]>("GET", "/api/tasks")).data;
     expect(tasks.find((t) => t.id === done.id)).toMatchObject({ status: "done", toAgentId: null, result: "yes" });

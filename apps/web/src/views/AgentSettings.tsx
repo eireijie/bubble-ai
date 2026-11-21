@@ -1198,7 +1198,7 @@ function RemoteMcp({ agent }: { agent: FullAgent }) {
         <CopyBlock text={`${origin}/mcp`} />
       ) : (
         <p className="text-xs text-muted">
-          {connectorBlocker(info)} <a className="underline" href={href({ view: "settings", page: "devices" })}>Settings → Devices</a>
+          {connectorBlocker(info)} <a className="underline" href={href({ view: "settings", page: "devices" })}>Settings → Computers and devices</a>
         </p>
       )}
       {apps.length > 0 && (

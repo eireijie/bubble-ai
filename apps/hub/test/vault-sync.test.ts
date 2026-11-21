@@ -28,7 +28,7 @@ async function api<T = any>(method: string, url: string, body?: unknown, token =
   return { status: res.status, data: (text ? (res.headers.get("content-type")?.includes("json") ? JSON.parse(text) : text) : null) as T };
 }
 
-const GIT_ENV = { ...process.env, GIT_CONFIG_GLOBAL: os.devNull, GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0", GIT_AUTHOR_NAME: "Laptop", GIT_AUTHOR_EMAIL: "laptop@example.com", GIT_COMMITTER_NAME: "Laptop", GIT_COMMITTER_EMAIL: "laptop@example.com" };
+const GIT_ENV = { ...process.env, GIT_CONFIG_GLOBAL: process.platform === "win32" ? "/dev/null" : os.devNull, GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0", GIT_AUTHOR_NAME: "Laptop", GIT_AUTHOR_EMAIL: "laptop@example.com", GIT_COMMITTER_NAME: "Laptop", GIT_COMMITTER_EMAIL: "laptop@example.com" };
 const run = promisify(execFile);
 // asynchronous on purpose: the hub runs in this process and has to answer git while we wait
 async function git(cwd: string, ...args: string[]): Promise<string> {

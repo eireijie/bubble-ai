@@ -157,9 +157,12 @@ export class ConnectorAuth {
     return this.db.prepare("SELECT * FROM connector_auth WHERE connector_id = ?").get(connectorId) as Row | undefined;
   }
 
-  /** How the hub calls this connector's server. Only one an owner added may reach private addresses. */
+  /** How the hub calls this connector's server. Only one the hub's owner added may reach private
+   * addresses (anyone can be made owner of an organization of their own). */
   private fetchFor(connectorId: string): typeof fetch {
-    const added = this.db.prepare("SELECT m.role FROM connectors c JOIN memberships m ON m.workspace_id = c.workspace_id AND m.user_id = c.created_by WHERE c.id = ?").get(connectorId) as { role: string } | undefined;
+    const added = this.db
+      .prepare("SELECT m.role FROM connectors c JOIN memberships m ON m.user_id = c.created_by AND m.workspace_id = (SELECT id FROM workspaces ORDER BY created_at LIMIT 1) WHERE c.id = ?")
+      .get(connectorId) as { role: string } | undefined;
     return added?.role === "owner" ? this.fetchFn : publicOnly(this.fetchFn);
   }
 

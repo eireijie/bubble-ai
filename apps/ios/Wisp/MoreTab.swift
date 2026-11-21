@@ -28,6 +28,10 @@ struct MoreTab: View {
                 NavigationLink { StorageView() } label: { RowLabel(title: "Storage", leading: { rowIcon("externaldrive") }) }
                   .accessibilityIdentifier("you-storage")
               }
+              if store.features.apple {
+                NavigationLink { AppleView() } label: { RowLabel(title: "Apple", leading: { rowIcon("macbook.and.iphone") }) }
+                  .accessibilityIdentifier("you-apple")
+              }
               NavigationLink { MarketplaceView() } label: { RowLabel(title: "Marketplace", leading: { rowIcon("storefront") }) }
                 .accessibilityIdentifier("you-marketplace")
               NavigationLink { FeaturesView() } label: { RowLabel(title: "Mods", leading: { rowIcon("square.grid.2x2") }) }

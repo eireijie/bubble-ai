@@ -75,7 +75,8 @@ import { registerPairingApi } from "./pairing.ts";
 import { registerReachApi } from "./api-reach.ts";
 import { registerLoginsApi } from "./api-logins.ts";
 import { registerStorageApi } from "./api-storage.ts";
-import { registerTeamDraftApi } from "./team-drafts.ts";
+import { registerAppleApi } from "./api-apple.ts";
+import { DRAFT_TITLE, registerTeamDraftApi } from "./team-drafts.ts";
 import { registerRemoteMcp } from "./remote-mcp.ts";
 import { agentPolicy } from "./policy.ts";
 import { FEATURE_PRESET, createOrganization, registerOrgApi } from "./api-orgs.ts";
@@ -222,15 +223,18 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
 
   /**
    * The caller, or a 401/403. `user`: people only; `member`: people who aren't guests; `owner`:
-   * workspace owners; `notGuest`: people who aren't guests, and agents (which act for a member).
+   * workspace owners; `notGuest`: people who aren't guests, and agents (which act for a member);
+   * `hubOwner`: an owner of the hub's first workspace, wherever they are now. Hub-wide controls
+   * (reach, updates, restart, looking around the hub's computer, creating organizations) use it,
+   * because anyone can own a workspace of their own.
    */
-  function need(req: FastifyRequest, reply: FastifyReply, opts: { owner?: boolean; user?: boolean; member?: boolean; notGuest?: boolean } = {}): Caller | null {
+  function need(req: FastifyRequest, reply: FastifyReply, opts: { owner?: boolean; user?: boolean; member?: boolean; notGuest?: boolean; hubOwner?: boolean } = {}): Caller | null {
     const c = caller(req);
     if (!c || (c.actor.kind === "agent" && !c.actor.id)) {
       reply.code(401).send({ error: "unauthorized" });
       return null;
     }
-    if ((opts.user || opts.owner || opts.member) && c.actor.kind !== "user") {
+    if ((opts.user || opts.owner || opts.member || opts.hubOwner) && c.actor.kind !== "user") {
       reply.code(403).send({ error: "users only" });
       return null;
     }
@@ -242,7 +246,17 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       reply.code(403).send({ error: "owner only" });
       return null;
     }
+    if (opts.hubOwner && !isHubOwner(c)) {
+      reply.code(403).send({ error: "only the hub's owner can do this" });
+      return null;
+    }
     return c;
+  }
+
+  /** Whether this caller is a person who owns the hub's first workspace (the hub's owner). */
+  function isHubOwner(c: Caller): boolean {
+    const first = store.firstWorkspace();
+    return c.actor.kind === "user" && !!first && store.role(first.id, c.actor.id) === "owner";
   }
 
   function parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null {
@@ -344,9 +358,11 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     return ch;
   }
 
-  // the setup answers are between the agent and the person it asked, so they stay on the hub
+  // the setup answers are between the agent and the person it asked, so they stay on the hub; only
+  // where and when its first chat started (and its hello) go out, for the first chat's extras
   const agentView = (a: NonNullable<ReturnType<typeof store.agent>>) => {
-    const { setup: _setup, ...settings } = a.settings;
+    const { setup, ...rest } = a.settings;
+    const settings = setup ? { ...rest, setup: { userId: setup.userId, channelId: setup.channelId, startedAt: setup.startedAt, greetingId: setup.greetingId, done: setup.done, replies: [], steps: {} } } : rest;
     return { ...a, settings, status: hub.agentStatus(a), signIn: hub.signInNeeded(a) };
   };
   const messageView = <T extends Parameters<typeof guestMessage>[0]>(c: Caller, m: T): T => c.viewer.role === "guest" ? guestMessage(m) : m;
@@ -503,7 +519,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!c) return;
     const ws = store.workspace(c.workspaceId);
     const features = workspaceFeatures(store, c.workspaceId);
-    if (c.actor.kind === "user") return { kind: "user", user: store.user(c.actor.id), prefs: store.prefs(c.actor.id), role: c.viewer.role, workspace: ws, features };
+    if (c.actor.kind === "user") return { kind: "user", user: store.user(c.actor.id), prefs: store.prefs(c.actor.id), role: c.viewer.role, hubOwner: isHubOwner(c), workspace: ws, features };
     return { kind: "agent", agent: agentView(store.agent(c.actor.id)!), workspace: ws, features };
   });
 
@@ -1691,6 +1707,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   }
 
   hub.flows.delegate = (o) => delegate(o);
+  hub.reviewTask = (task, by) => requestReview(task, by);
 
   /** Delegate work to an agent. Posts a message so the agent wakes up and everyone can follow along. */
   app.post("/api/tasks", async (req, reply) => {
@@ -1795,7 +1812,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!body) return;
     const updated = store.updateTask(task.id, body.status, body.result)!;
     hub.broadcast(c.workspaceId, { type: "tasks_changed" });
-    if ((body.status === "done" || body.status === "failed") && task.channelId) {
+    // a drawn team's answer is JSON for the draft, not something to post in the person's chat
+    if ((body.status === "done" || body.status === "failed") && task.channelId && task.title !== DRAFT_TITLE) {
       const requester = task.from.kind === "agent" ? `@${store.agent(task.from.id)?.handle} ` : "";
       // a subtask says how far along its parent is, so whoever planned it knows when to wrap up
       const parent = task.parentId ? store.task(task.parentId) : undefined;
@@ -2653,6 +2671,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   registerReachApi(app, hub, { need, parse });
   registerLoginsApi(app, hub, { need, parse, requesterOf });
   registerStorageApi(app, hub, { need, parse, requesterOf, channelVisible, dataDir: opts.dataDir, filesDir: opts.filesDir });
+  registerAppleApi(app, hub, { need, parse, requesterOf, dataDir: opts.dataDir });
   registerTeamDraftApi(app, hub, { need, parse });
   registerRemoteMcp(app, hub, { need, parse, deviceOwnerOf });
 
