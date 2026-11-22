@@ -268,7 +268,10 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async refreshAgents() {
-    set({ agents: await api<Agent[]>("GET", "/api/agents") });
+    const agents = await api<Agent[]>("GET", "/api/agents");
+    set({ agents });
+    // an agent that was removed takes its chat with it: the list of chats must hear it now, not on a reload
+    if (get().channels.some((c) => c.kind === "dm" && !!c.agentIds?.length && !agents.some((a) => a.id === c.name.split(":").pop()))) get().refreshChannels().catch(() => {});
     // with no lead picked, the lead is worked out from the agents and teams
     get().refreshLead();
   },

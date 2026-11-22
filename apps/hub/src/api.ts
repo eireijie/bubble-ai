@@ -548,10 +548,12 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   app.get("/api/channels", async (req, reply) => {
     const c = need(req, reply);
     if (!c) return;
-    const list = store.channels(c.workspaceId).filter((ch) => channelVisible(c, ch.id) && (ch.kind === "channel" || store.isMember(ch.id, c.actor)));
+    const visible = store.channels(c.workspaceId).filter((ch) => channelVisible(c, ch.id) && (ch.kind === "channel" || store.isMember(ch.id, c.actor)));
+    const agentsIn = store.agentMemberIds(visible.map((ch) => ch.id));
+    // a chat with an agent that was removed has nobody left to talk to: it isn't listed (nor counted as unread)
+    const list = visible.filter((ch) => ch.kind !== "dm" || (agentsIn[ch.id] ?? []).length > 0);
     const ids = list.map((ch) => ch.id);
     const counts = store.memberCounts(ids);
-    const agentsIn = store.agentMemberIds(ids);
     const reads = c.actor.kind === "user" ? store.readState(c.actor.id, ids) : {};
     const prefs = c.actor.kind === "user" ? store.channelPrefs(c.actor.id) : {};
     const pins = store.pinnedIds(ids);
