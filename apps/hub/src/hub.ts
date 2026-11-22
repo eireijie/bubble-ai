@@ -612,6 +612,8 @@ export class Hub {
     });
     socket.on("close", () => {
       if (this.closed || this.nodes.get(nodeId) !== conn) return;
+      // "last seen" is when it went away, not when it last said hello
+      this.store.touchNode(nodeId);
       this.nodes.delete(nodeId);
       this.pausedNodes.delete(nodeId);
       for (const a of this.store.agentsOnNode(nodeId)) this.broadcast(workspaceId, { type: "agent_status", agentId: a.id, status: "offline" });

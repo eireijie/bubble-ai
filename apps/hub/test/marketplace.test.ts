@@ -182,4 +182,11 @@ describe("the marketplace", () => {
     await api("GET", "/api/marketplace?q=Notion");
     expect(seen.length).toBe(1);
   });
+
+  it("shows no results, not an outage, for a query the registry rejects", async () => {
+    hub.fetchImpl = async () => new Response("{}", { status: 422 });
+    const r = await api("GET", "/api/marketplace?q=%F0%9F%99%82");
+    expect(r.status).toBe(200);
+    expect(r.data.entries).toEqual([]);
+  });
 });
