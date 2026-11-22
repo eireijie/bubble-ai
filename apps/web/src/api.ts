@@ -53,6 +53,9 @@ export async function api<T = any>(method: string, path: string, body?: unknown,
   return data as T;
 }
 
+/** The most the hub takes in one file (apps/hub/src/api.ts, POST /api/files). */
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+
 export async function uploadFile(file: File, channelId?: string) {
   return api<{ id: string; name: string; size: number; mime: string }>("POST", "/api/files", undefined, {
     raw: file,

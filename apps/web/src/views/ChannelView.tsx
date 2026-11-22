@@ -3,7 +3,7 @@ import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
 import { LogIn, RotateCcw, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, Eye, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, MoreHorizontal, Monitor, Paperclip, Phone, Plus, Shield, ShieldAlert, SquareTerminal, UserPlus, Users, X, Zap, ChevronDown, Hash, Info, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { parseMentions, SCHEDULE_MARK, type AccessLevel, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
-import { api, fileUrl, uploadFile } from "../api.ts";
+import { api, fileUrl, uploadFile, MAX_UPLOAD_BYTES } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
 import { go, href, type Route } from "../router.ts";
 import type { TaskRow } from "./TasksView.tsx";
@@ -102,7 +102,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
   const [settings, setSettings] = useState<ChannelSettingsTab | null>(null);
 
-  const channel = channels.find((c) => c.id === route.channelId) ?? (route.channelId ? undefined : landingChannel(channels));
+  // a chat with an agent that was removed has no agent left in it: it's gone, not a chat with nobody
+  const channel = channels.find((c) => c.id === route.channelId && !(c.kind === "dm" && c.agentIds?.length === 0)) ?? (route.channelId ? undefined : landingChannel(channels));
   const dmAgentId = channel?.kind === "dm" ? channel.name.split(":").pop()! : null;
   // the pane beside the chat: an agent's details or the team's info page
   const [side, setSideState] = useState<Side | null>(null);
@@ -1179,7 +1180,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
       {parts.map((p, i) => p.type === "notice" && <div key={`n${i}`} className="mt-1 px-1 text-xs text-muted whitespace-pre-wrap">{p.text}</div>)}
       <SkillLines parts={parts} />
       {files.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-2">
+        <div className="mt-1 flex flex-wrap items-start gap-2">
           {files.map((f) => f.type === "file" && <FileChip key={f.fileId} id={f.fileId} name={f.name} />)}
         </div>
       )}
@@ -1367,6 +1368,9 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
   const ref = useRef<HTMLDivElement>(null);
   const history = useMessageHistory(channelId, rootId, messageId, ref, replies);
   const fresh = useFreshIds(rootId, replies);
+  // the hub sends a thread's root with its replies, so a thread that finished loading with neither isn't there
+  const loadingThread = useStore((s) => s.loadingMessages[conversationKey(channelId, rootId)]);
+  const gone = !root && !removed && !!replies && replies.length === 0 && !loadingThread && !history.error;
   const streaming = Object.values(live).filter((r) => r.channelId === channelId && r.threadId === rootId);
   const below = Object.values(live).filter((r) => r.channelId === channelId && r.threadPath.includes(rootId));
 
@@ -1394,11 +1398,14 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
       <div ref={ref} className="flex-1 overflow-y-auto overscroll-x-none py-3">
         {history.controls}
         {removed && <p role="status" className="px-5 py-2 text-xs text-muted">This message was deleted.</p>}
+        {gone && <p role="status" className="px-5 py-6 text-sm text-muted text-center">This thread isn't here any more.</p>}
         {!removed && root && (handoff && handoff.type === "task" ? <HandoffBrief m={root} taskId={handoff.taskId} /> : <ThreadRoot m={root} composerThread={rootId} />)}
-        <div className="flex items-center gap-3 px-5 py-2 text-[13px] text-muted">
-          {history.error ? "" : replies ? `${replies.length} ${replies.length === 1 ? "reply" : "replies"}` : "Loading…"}
-          <span className="h-px flex-1 bg-line" />
-        </div>
+        {!gone && (
+          <div className="flex items-center gap-3 px-5 py-2 text-[13px] text-muted">
+            {history.error ? "" : replies ? `${replies.length} ${replies.length === 1 ? "reply" : "replies"}` : "Loading…"}
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        )}
         <FreshMessages.Provider value={fresh}>
         {replies?.map((m, i) => {
           const stamp = needsStamp(replies[i - 1], m);
@@ -1416,7 +1423,7 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
           <StreamingItem key={r.runId} run={r} />
         ))}
       </div>
-      {!removed && <Composer channelId={channelId} threadId={rootId} agentId={agentId} placeholder={handoff && handoff.type === "task" ? "Reply…" : "Reply…"} />}
+      {!removed && !gone && <Composer channelId={channelId} threadId={rootId} agentId={agentId} placeholder={handoff && handoff.type === "task" ? "Reply…" : "Reply…"} />}
     </RightPane>
   );
 }
@@ -1880,9 +1887,17 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
       updateDraft((d) => ({ ...d, error: "Wait for the message to send before attaching files." }));
       return;
     }
-    const selected = Array.from(list).slice(0, Math.max(0, 20 - current.files.length - current.pending.length));
+    // the hub takes files up to 100 MB: say so up front instead of uploading all of it first
+    const all = Array.from(list);
+    const tooBig = all.filter((f) => f.size > MAX_UPLOAD_BYTES);
+    const sizeError = tooBig.length ? `${tooBig.length === 1 ? `"${tooBig[0].name}" is` : `${tooBig.length} files are`} over 100 MB, too large to attach.` : null;
+    const selected = all.filter((f) => f.size <= MAX_UPLOAD_BYTES).slice(0, Math.max(0, 20 - current.files.length - current.pending.length));
+    if (!selected.length) {
+      if (sizeError) updateDraft((d) => ({ ...d, error: sizeError }));
+      return;
+    }
     const added = selected.map((f, i) => ({ key: `${Date.now()}-${i}`, name: f.name, size: f.size }));
-    updateDraft((d) => ({ ...d, pending: [...d.pending, ...added], error: selected.length < list.length ? "Attach up to 20 files per message." : null }));
+    updateDraft((d) => ({ ...d, pending: [...d.pending, ...added], error: sizeError ?? (selected.length < all.length - tooBig.length ? "Attach up to 20 files per message." : null) }));
     let done = 0;
     try {
       for (const f of selected) {
