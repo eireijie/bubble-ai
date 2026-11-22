@@ -41,6 +41,12 @@ export interface ConnectorInput {
 /** A header value is a secret unless it only fills in `{{KEY}}`s (then the secret lives in env). */
 const literalHeader = (v: string) => !/\{\{\s*[A-Za-z_]\w*\s*\}\}/.test(v);
 
+/** Headers a catalog sign-in sets itself (GitHub's read-only switch): not secrets, shown as they are. */
+const plainHeader = (catalogId: string | null, k: string, v: string) => {
+  const s = catalogConnector(catalogId ?? "")?.signIn;
+  return s?.via === "app" && s.headers?.[k] === v;
+};
+
 /** Values a catalog entry says aren't secret (a folder, a team ID, a URL). */
 const plainFields = (catalogId: string | null) => new Set((catalogConnector(catalogId ?? "")?.fields ?? []).filter((f) => !f.secret).map((f) => f.key));
 
@@ -102,7 +108,7 @@ export class ConnectorStore {
       command: r.command,
       args: JSON.parse(r.args_json),
       url: r.url,
-      headers: Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, literalHeader(v) ? maskSecret(v) : v])),
+      headers: Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, literalHeader(v) && !plainHeader(r.catalog_id, k, v) ? maskSecret(v) : v])),
       // values a catalog entry says aren't secret (a folder, a team ID, a URL) are shown as they are
       env: Object.fromEntries(Object.entries(env).map(([k, v]) => [k, plain.has(k) ? v : maskSecret(v)])),
       enabled: !!r.enabled,

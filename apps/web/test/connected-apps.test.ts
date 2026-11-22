@@ -30,13 +30,19 @@ describe("connectSummary", () => {
     expect(s.can).toContain("get the key you enter");
   });
   it("covers built-in catalog entries", () => {
-    const http = CONNECTOR_CATALOG.find((c) => c.kind === "mcp-http")!;
-    const stdio = CONNECTOR_CATALOG.find((c) => c.kind === "mcp-stdio")!;
-    const secret = CONNECTOR_CATALOG.find((c) => c.kind === "secret")!;
+    const http = CONNECTOR_CATALOG.find((c) => c.kind === "mcp-http" && !c.signIn)!;
+    const stdio = CONNECTOR_CATALOG.find((c) => c.kind === "mcp-stdio" && !c.signIn)!;
+    const secret = CONNECTOR_CATALOG.find((c) => c.kind === "secret" && !c.signIn)!;
     expect(connectSummary({ builtIn: http }).runBy).toContain(new URL(http.url!).host);
     expect(connectSummary({ builtIn: stdio }).runBy).toContain("own computer");
     expect(connectSummary({ builtIn: secret }).can).toContain("key");
     expect(connectSummary({ builtIn: http }).caution).toBeNull();
+  });
+  it("describes apps that sign in by the company's own server, not the key fallback", () => {
+    const notion = connectSummary({ builtIn: CONNECTOR_CATALOG.find((c) => c.id === "notion")! });
+    expect(notion.runBy).toBe("On Wisp's list of well-known apps. It connects to mcp.notion.com, run by Notion, not by Wisp.");
+    expect(notion.can).toContain("Reads and edits the pages you pick.");
+    expect(connectSummary({ builtIn: CONNECTOR_CATALOG.find((c) => c.id === "gmail")! }).runBy).toContain("gmailmcp.googleapis.com, run by Google");
   });
 });
 

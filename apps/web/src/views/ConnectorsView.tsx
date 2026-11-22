@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Plug, Plus, ShieldCheck, TriangleAlert, Trash2 } from "lucide-react";
-import { CONNECTOR_HELP, connectorUnsupportedReason, harnessSupportsConnectors, isMasked, trustLabel, type Agent, type CatalogConnector, type CatalogField, type Connector, type ConnectorKind, type MarketplaceEntry, type MarketplaceInstall } from "@wisp/core";
+import { CONNECTOR_HELP, connectorUnsupportedReason, harnessSupportsConnectors, isMasked, SIGN_IN_PROVIDERS, trustLabel, type Agent, type CatalogConnector, type CatalogField, type Connector, type ConnectorKind, type MarketplaceEntry, type MarketplaceInstall } from "@wisp/core";
 import { api } from "../api.ts";
 import { MoreOptions } from "../components/MoreOptions.tsx";
 import { AreaBox, Circle, Dlg, Item, Label, Labeled, Panel, Prim, Sec, Seg, TextBox, Tile } from "../components/MarketParts.tsx";
@@ -41,6 +41,13 @@ function hostOf(url: string | undefined): string | null {
 export function connectSummary(src: { builtIn: CatalogConnector } | { entry: MarketplaceEntry; install: MarketplaceInstall }): ConnectSummary {
   if ("builtIn" in src) {
     const c = src.builtIn;
+    // signing in connects to the company's own server, whatever the key fallback is
+    if (c.signIn)
+      return {
+        can: `Your agents will be able to use ${c.name} through this connection.${c.signInReads ? ` ${c.signInReads}.` : ""}`,
+        runBy: `On Wisp's list of well-known apps. It connects to ${hostOf(c.signIn.url) ?? "the app's own address"}, run by ${c.signIn.via === "app" ? SIGN_IN_PROVIDERS[c.signIn.provider].name : c.name}, not by Wisp.`,
+        caution: null,
+      };
     const host = c.kind === "mcp-http" ? hostOf(c.url) : null;
     return {
       can: c.kind === "secret" ? `Your agents get the key you enter, so they can use ${c.name} with it.` : `Your agents will be able to use ${c.name} through this connection: read and act on what this app allows.`,

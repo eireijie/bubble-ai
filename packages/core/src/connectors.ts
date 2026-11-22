@@ -110,6 +110,28 @@ export interface CatalogField {
   link?: string;
 }
 
+/** Who runs the sign-in page for a connector Wisp signs in to through its own app with that company. */
+export type SignInProvider = "github" | "slack" | "google";
+
+export const SIGN_IN_PROVIDERS: Record<SignInProvider, { name: string; authorize: string; token: string }> = {
+  github: { name: "GitHub", authorize: "https://github.com/login/oauth/authorize", token: "https://github.com/login/oauth/access_token" },
+  slack: { name: "Slack", authorize: "https://slack.com/oauth/v2_user/authorize", token: "https://slack.com/api/oauth.v2.user.access" },
+  google: { name: "Google", authorize: "https://accounts.google.com/o/oauth2/v2/auth", token: "https://oauth2.googleapis.com/token" },
+};
+
+/**
+ * Signing in with one click instead of pasting a key. Either way the connector it makes is the
+ * company's own remote MCP server at `url`, and agents get the person's short-lived access token
+ * with each run. The hub keeps the tokens; the browser only ever sees the sign-in page.
+ */
+export type CatalogSignIn =
+  /** The server's own sign-in (MCP OAuth): it registers each hub by itself, so no app is needed.
+   * Those pages only send people back to an https address or this computer (localhost);
+   * `localOnly` ones only to this computer. */
+  | { via: "mcp"; url: string; scope?: string; localOnly?: boolean }
+  /** Through Wisp's own app with that company (see docs/sign-in.md). Scopes are read-only where the company offers them. */
+  | { via: "app"; provider: SignInProvider; url: string; scopes: string[]; headers?: Record<string, string> };
+
 export interface CatalogConnector {
   id: string;
   name: string;
@@ -126,6 +148,10 @@ export interface CatalogConnector {
   /** what's needed on the device besides the values (Node, uv, Docker, a sign-in) */
   needs?: string;
   docs?: string;
+  /** one-click sign-in; the fields above are then the fallback (a key), if there are any */
+  signIn?: CatalogSignIn;
+  /** what signing in lets agents do, in a few plain words ("Reads repos, issues and pull requests") */
+  signInReads?: string;
 }
 
 /** Popular MCP servers and keys people actually connect agents to. */
@@ -141,6 +167,10 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
     headers: { Authorization: "Bearer {{GITHUB_TOKEN}}" },
     fields: [{ key: "GITHUB_TOKEN", label: "Personal access token", secret: true, placeholder: "github_pat_…", link: "https://github.com/settings/personal-access-tokens" }],
     docs: "https://github.com/github/github-mcp-server",
+    // GitHub's scopes can't be read-only for private repos, so the server's own read-only mode is
+    // what keeps agents from changing anything
+    signIn: { via: "app", provider: "github", url: "https://api.githubcopilot.com/mcp/", scopes: ["repo", "read:org", "read:user", "notifications"], headers: { "X-MCP-Readonly": "true" } },
+    signInReads: "Reads repos, issues and pull requests",
   },
   {
     id: "git",
@@ -198,6 +228,13 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
     ],
     needs: "Node on the device",
     docs: "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/slack",
+    signIn: {
+      via: "app",
+      provider: "slack",
+      url: "https://mcp.slack.com/mcp",
+      scopes: ["channels:history", "channels:read", "groups:history", "groups:read", "im:history", "im:read", "mpim:history", "mpim:read", "search:read.public", "search:read.private", "search:read.im", "search:read.mpim", "search:read.files", "users:read", "files:read", "canvases:read"],
+    },
+    signInReads: "Reads channels, DMs and threads",
   },
   {
     id: "notion",
@@ -211,6 +248,9 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
     fields: [{ key: "NOTION_TOKEN", label: "Integration token", secret: true, placeholder: "ntn_…", hint: "Share the pages it may use with the integration.", link: "https://www.notion.so/profile/integrations" }],
     needs: "Node on the device",
     docs: "https://github.com/makenotion/notion-mcp-server",
+    signIn: { via: "mcp", url: "https://mcp.notion.com/mcp" },
+    // Notion's sign-in has no read-only choice: agents can also edit the pages picked there
+    signInReads: "Reads and edits the pages you pick",
   },
   {
     id: "gdrive",
@@ -227,6 +267,34 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
     ],
     needs: "Node on the device, and a one-time Google sign-in there",
     docs: "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gdrive",
+    signIn: { via: "app", provider: "google", url: "https://drivemcp.googleapis.com/mcp/v1", scopes: ["https://www.googleapis.com/auth/drive.readonly"] },
+    signInReads: "Reads and searches your files",
+  },
+  {
+    id: "gmail",
+    name: "Gmail",
+    description: "Search and read email, through Google's own Gmail MCP server.",
+    icon: "Mail",
+    category: "Chat & docs",
+    kind: "mcp-http",
+    url: "https://gmailmcp.googleapis.com/mcp/v1",
+    fields: [],
+    docs: "https://developers.google.com/workspace/guides/configure-mcp-servers",
+    signIn: { via: "app", provider: "google", url: "https://gmailmcp.googleapis.com/mcp/v1", scopes: ["https://www.googleapis.com/auth/gmail.readonly"] },
+    signInReads: "Reads and searches your email",
+  },
+  {
+    id: "gcal",
+    name: "Google Calendar",
+    description: "See calendars and events, through Google's own Calendar MCP server.",
+    icon: "Calendar",
+    category: "Chat & docs",
+    kind: "mcp-http",
+    url: "https://calendarmcp.googleapis.com/mcp/v1",
+    fields: [],
+    docs: "https://developers.google.com/workspace/guides/configure-mcp-servers",
+    signIn: { via: "app", provider: "google", url: "https://calendarmcp.googleapis.com/mcp/v1", scopes: ["https://www.googleapis.com/auth/calendar.readonly"] },
+    signInReads: "Reads your calendars and events",
   },
   {
     id: "linear",
@@ -239,6 +307,8 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
     headers: { Authorization: "Bearer {{LINEAR_API_KEY}}" },
     fields: [{ key: "LINEAR_API_KEY", label: "API key", secret: true, placeholder: "lin_api_…", link: "https://linear.app/settings/account/security" }],
     docs: "https://linear.app/docs/mcp",
+    signIn: { via: "mcp", url: "https://mcp.linear.app/mcp", scope: "read" },
+    signInReads: "Reads issues, projects and comments",
   },
   {
     id: "jira",
@@ -404,6 +474,19 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
     docs: "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking",
   },
   {
+    id: "vercel",
+    name: "Vercel",
+    description: "Projects, deployments and build logs. Signing in uses Vercel's own MCP server; a token goes in the agent's environment for the vercel CLI.",
+    icon: "Triangle",
+    category: "Code",
+    kind: "secret",
+    fields: [{ key: "VERCEL_TOKEN", label: "Access token", secret: true, link: "https://vercel.com/account/settings/tokens" }],
+    docs: "https://vercel.com/docs/mcp/vercel-mcp",
+    // Vercel only sends people back to this computer (localhost) for apps it doesn't know
+    signIn: { via: "mcp", url: "https://mcp.vercel.com", localOnly: true },
+    signInReads: "Reads and manages projects and deployments",
+  },
+  {
     id: "aws",
     name: "AWS keys",
     description: "AWS credentials in the agent's environment, for the aws CLI and SDKs.",
@@ -443,6 +526,29 @@ export function catalogConnector(id: string): CatalogConnector | undefined {
   return CONNECTOR_CATALOG.find((c) => c.id === id);
 }
 
+/** What `GET /api/connectors/sign-in` says about one catalog app, from where Wisp is open. */
+export interface SignInOption {
+  /** Sign in works from here */
+  signIn: boolean;
+  /** why not, in plain words */
+  reason?: string;
+  /** what signing in lets agents do */
+  reads?: string;
+  /** a pasted key works instead */
+  key: boolean;
+}
+
+/** Whether a hub opened at this address can be sent back to by a sign-in page: https, or this computer. */
+export function signInReturnsTo(origin: string, localOnly = false): boolean {
+  try {
+    const u = new URL(origin);
+    const local = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/i.test(u.hostname) || u.hostname.endsWith(".localhost");
+    return local || (!localOnly && u.protocol === "https:");
+  } catch {
+    return false;
+  }
+}
+
 /** An app a non-technical person asks for by name. */
 export interface EverydayApp {
   name: string;
@@ -456,7 +562,7 @@ export interface EverydayApp {
 }
 
 /** Catalog ids of the everyday apps, in the order a non-technical person would want them. */
-export const EVERYDAY_CATALOG_ORDER: string[] = ["slack", "notion", "gdrive"];
+export const EVERYDAY_CATALOG_ORDER: string[] = ["gmail", "gcal", "slack", "notion", "gdrive"];
 
 const CATEGORY_ORDER: CatalogConnector["category"][] = ["Chat & docs", "Work tracking", "Web & browser", "Utilities", "Data", "Payments", "Code", "Cloud keys"];
 
