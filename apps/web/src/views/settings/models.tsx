@@ -8,7 +8,6 @@ import { Dlg } from "../../components/MarketParts.tsx";
 import { ConnectModel } from "../../components/ConnectModel.tsx";
 import { ThinBar } from "../../components/RunParts.tsx";
 import { PROVIDERS, connectionName, connectionSub, forgetConnectionModels, planLeft, useConnections, windowName } from "../../models.ts";
-import { PageHeader } from "./parts.tsx";
 
 /** Phones get the larger rows and type in dialogs. */
 function useNarrow() {
@@ -40,7 +39,7 @@ export function ModelsPage() {
   return (
     <div className="max-w-3xl">
       <div className="flex items-start justify-between gap-4">
-        <PageHeader title="Models">Connect once with a sign-in or a key. Every agent can use them, in any harness.</PageHeader>
+        <span />
         <button type="button" onClick={() => setConnecting("any")} className={cx(btn, "mt-0.5")}>
           <Plus size={14} /> Connect
         </button>

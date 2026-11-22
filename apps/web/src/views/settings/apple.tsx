@@ -8,7 +8,7 @@ import { useStore } from "../../store.ts";
 import { AppleIcon, AppleSeg } from "../../components/AppleParts.tsx";
 import { Switch } from "../../components/MarketParts.tsx";
 import { AgentAvatar, Modal, cx } from "../../components/ui.tsx";
-import { OwnersOnly, PageHeader } from "./parts.tsx";
+import { OwnersOnly } from "./parts.tsx";
 
 type Pane = (typeof APPLE_SETTINGS_PANES)[number];
 type Mac = AppleView["macs"][number];
@@ -126,13 +126,11 @@ export function ApplePage() {
   if (off)
     return (
       <>
-        <PageHeader title="Apple" />
         <p className="text-sm text-muted">
           Apple is off.{" "}
           <a className="text-accent-text hover:underline" href={href({ view: "mods" })}>
-            Turn it on in Mods
+            Add it
           </a>
-          .
         </p>
       </>
     );
@@ -144,7 +142,6 @@ export function ApplePage() {
 
   return (
     <div className="max-w-[760px]">
-      <PageHeader title="Apple">Messages, Contacts, Calendar, Reminders and Location, through your Mac and iPhone.</PageHeader>
       <OwnersOnly show={!isOwner} />
       {error && <p className="mb-4 text-sm text-bad">{error}</p>}
       {!view || !s ? (
@@ -245,7 +242,6 @@ export function ApplePage() {
                 );
               })}
             </Box>
-            <p className="px-0.5 text-[13px] text-muted">Sending a text, or adding or changing an event or reminder, always asks you first.</p>
           </section>
 
           <section aria-labelledby="apple-agents" className="flex flex-col gap-2">
@@ -480,7 +476,6 @@ export function MacSheet({ mac, onView, onClose }: { mac: Mac; onView: (v: Apple
   return (
     <Sheet
       title="Let Wisp use Apple apps on this Mac"
-      sub="macOS asks once for each. Wisp checks again on its own."
       wide
       onClose={onClose}
       footer={

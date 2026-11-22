@@ -4,7 +4,6 @@ import { pairingLink } from "../../pairing.ts";
 import { Check, Copy, Smartphone } from "lucide-react";
 import { api } from "../../api.ts";
 import { Button, cx } from "../../components/ui.tsx";
-import { PageHeader } from "./parts.tsx";
 
 type State = "waiting" | "claimed" | "approved" | "rejected" | "expired";
 interface Pairing {
@@ -32,10 +31,6 @@ function reachHint(addresses: string[]): string {
 }
 
 /** Settings → Mobile: pair the phone app with this Wisp by scanning a QR code, then matching a code. */
-export function MobilePage() {
-  return <><PageHeader title="Mobile" /><PhonePairing /></>;
-}
-
 export function PhonePairing({ autoStart = false, compact = false }: { autoStart?: boolean; compact?: boolean }) {
   const [started, setStarted] = useState<Started | null>(null);
   const [pairing, setPairing] = useState<Pairing | null>(null);

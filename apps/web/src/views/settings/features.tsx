@@ -14,11 +14,11 @@ export const MOD_HOME: Record<FeatureKey, { place: string; to: Route | null }> =
   teach: { place: "an agent's page, under Teach", to: { view: "agents", agentId: null } },
   tasks: { place: "Tasks", to: { view: "tasks" } },
   buddy: { place: "a small ghost on your desktop", to: null },
-  invite: { place: "Settings, People", to: { view: "settings", page: "people" } },
-  remoteDesktop: { place: "Settings, Computers and devices", to: { view: "settings", page: "devices" } },
-  storage: { place: "Settings, Storage", to: { view: "settings", page: "storage" } },
+  invite: { place: "Settings, Privacy and data", to: { view: "settings", page: "people" } },
+  remoteDesktop: { place: "Settings, Computers", to: { view: "settings", page: "devices" } },
+  storage: { place: "Settings", to: { view: "settings", page: "storage" } },
   code: { place: "Code", to: { view: "code" } },
-  apple: { place: "Settings, Apple", to: { view: "settings", page: "apple" } },
+  apple: { place: "Settings", to: { view: "settings", page: "apple" } },
 };
 
 const ICONS: Record<FeatureKey, ReactNode> = {

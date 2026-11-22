@@ -2,6 +2,7 @@ import { Blocks, BookOpen, Brain, Ghost, LifeBuoy, ListChecks, ListTodo, Monitor
 import type { FeatureKey } from "@wisp/core";
 import type { Route, SettingsPage } from "../router.ts";
 import { useStore } from "../store.ts";
+import { FIVE, FIVE_LABEL, FIVE_ROUTE, ROWS, rowTarget, type Five } from "../views/settings/map.ts";
 
 /**
  * What search (⌘K) can find besides agents, teams, messages and notes: every place in the app,
@@ -29,9 +30,18 @@ export interface Place {
   feature?: FeatureKey;
 }
 
-const settings = (page: SettingsPage, label: string, words: string, more: Pick<Place, "noGuests" | "feature"> = {}): Place => ({ key: `settings:${page}`, label, words, icon: SlidersHorizontal, to: { view: "settings", page }, where: "Settings", ...more });
+/** A place in Settings: one of its five pages (by the route that opens it), or one row. */
+const settings = (to: { page: SettingsPage; item?: string }, label: string, words: string, more: Pick<Place, "noGuests" | "feature"> = {}): Place => ({ key: `settings:${to.page}${to.item ? `/${to.item}` : ""}`, label, words, icon: SlidersHorizontal, to: { view: "settings", ...to }, where: "Settings", ...more });
 
-/** In the order they show. Settings pages carry the names Settings gives them. */
+const PAGE_WORDS: Record<Five, string> = { you: "profile account me", agents: "agent settings permissions defaults", computers: "devices settings", privacy: "security data", about: "version" };
+
+/** Settings' five pages, then every row on them by its name (settings/map.ts), so search reaches a setting wherever it sits. */
+const SETTINGS_PLACES: Place[] = [
+  ...FIVE.map((p) => settings({ page: FIVE_ROUTE[p] }, FIVE_LABEL[p], PAGE_WORDS[p], { noGuests: p === "agents" || p === "computers" })),
+  ...ROWS.map((r) => settings(rowTarget(r), r.label, r.words, { noGuests: r.noGuests, feature: r.feature })),
+];
+
+/** In the order they show. Settings' pages and rows carry the names Settings gives them. */
 export const PLACES: Place[] = [
   { key: "computers", label: "Computers", words: "screens screen vm devices machines desktop watch take over", icon: Monitor, to: { view: "computers", computerId: null }, noGuests: true },
   { key: "add", label: "Add apps and skills", words: "marketplace store shop connect connectors connected integrations install gmail slack mcp", icon: Store, to: { view: "marketplace" } },
@@ -44,30 +54,7 @@ export const PLACES: Place[] = [
   { key: "about", label: "About you", words: "profile what agents remember me", icon: Brain, to: { view: "about" } },
   { key: "setup", label: "Setup", words: "finish checklist get started turned on undo welcome", icon: ListChecks, to: { view: "here" }, noGuests: true },
   { key: "settings", label: "Settings", words: "preferences options", icon: Settings, to: { view: "settings" } },
-  settings("profile", "Profile", "name picture photo avatar email account role you"),
-  settings("notifications", "Notifications", "alerts sound sounds push notify"),
-  settings("appearance", "Appearance", "dark light mode theme themes colour color text size font reduce motion accessibility"),
-  settings("preferences", "App behavior", "enter sends send clock time 12 24 hour tools tool calls preferences"),
-  settings("voice", "Voice", "speech speak talk call calls microphone mic dictation engine", { noGuests: true }),
-  settings("buddy", "Desk buddy", "desktop ghost pet", { noGuests: true }),
-  settings("security", "Security", "password sessions signed in devices sign out everywhere"),
-  settings("general", "Workspace", "organization org hub address lead delete name", { noGuests: true }),
-  settings("people", "People", "invite members guests roles", { noGuests: true, feature: "invite" }),
-  settings("usage", "Usage", "limits cost spend tokens daily budget", { noGuests: true, feature: "background" }),
-  settings("agents", "Permissions", "approvals ask before allow rules loop protection agents making agents", { noGuests: true }),
-  settings("agent-defaults", "Agent defaults", "default model harness effort new agents", { noGuests: true }),
-  settings("harnesses", "AI", "api key keys model models harness harnesses claude codex hermes gemini kimi openai anthropic provider subscription install", { noGuests: true }),
-  settings("logins", "Logins", "password manager 1password bitwarden credentials accounts", { noGuests: true }),
-  settings("storage", "Storage", "nextcloud webdav google drive dropbox nas files", { noGuests: true, feature: "storage" }),
-  settings("apple", "Apple", "messages imessage contacts calendar reminders location iphone mac", { noGuests: true, feature: "apple" }),
-  settings("apps", "Connected apps", "connectors integrations gmail slack", { noGuests: true }),
-  settings("skills", "Skills", "learned teach", { noGuests: true }),
-  settings("connections", "Outside agents", "mcp token tokens chatgpt grok connect another app", { noGuests: true }),
-  settings("memory", "Memory", "folder obsidian sync access rules", { noGuests: true }),
-  settings("devices", "Computers and devices", "phone pair pairing qr new computer size cloud vm control", { noGuests: true }),
-  settings("access", "Away from home", "tailscale remote outside anywhere network vpn reach", { noGuests: true }),
-  settings("data", "Data", "backup back up export download restore", { noGuests: true }),
-  settings("updates", "About", "version update updates release what's new license source"),
+  ...SETTINGS_PLACES,
 ];
 
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();

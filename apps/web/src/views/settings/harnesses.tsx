@@ -8,7 +8,6 @@ import { href } from "../../router.ts";
 import { useStore } from "../../store.ts";
 import { AgentAvatar, CopyBlock, cx } from "../../components/ui.tsx";
 import { useHarnessComputers } from "../../models.ts";
-import { PageHeader } from "./parts.tsx";
 import { MoreOptions } from "../../components/MoreOptions.tsx";
 import { HarnessLogo } from "../../components/HarnessLogo.tsx";
 import { Badge, Circle, Dlg, Item, Label, Panel, Pick, Prim, Sec, Seg, Switch, TextBox, Tile } from "../../components/MarketParts.tsx";
@@ -71,7 +70,6 @@ export function HarnessesPage() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title="AI">What runs your agents on each computer. Pick the model separately.</PageHeader>
       {error && <p className="mb-4 px-1 text-[13px] text-bad">{error}</p>}
       {computers === null ? (
         !error && (

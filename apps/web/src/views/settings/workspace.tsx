@@ -1,6 +1,6 @@
 import { isLocalOnlyHost } from "../../loopback.ts";
 import { useEffect, useState } from "react";
-import { Check, Download, KeyRound, Link2, MoreHorizontal, Pin, Plus, Trash2, UserMinus } from "lucide-react";
+import { Download, KeyRound, Link2, MoreHorizontal, Pin, Plus, Trash2, UserMinus } from "lucide-react";
 import type { AccessRule, Agent, MemoryLevel, Subject } from "@wisp/core";
 import { api, getToken } from "../../api.ts";
 import { useStore, useTeams } from "../../store.ts";
@@ -9,63 +9,58 @@ import { originReach, shareOrigin, useAccess } from "../../access.ts";
 import { deleteOrg, listOrgs, type Org } from "../../orgs.ts";
 import { AgentAvatar, Button, CopyBlock, Field, IconButton, Input, Menu, Modal, Pill, UserAvatar, cx, timeAgo } from "../../components/ui.tsx";
 import { LEVEL_LABEL, folderPaths, pathLabel, subjectLabel } from "../../components/AccessDialog.tsx";
-import { RemoveWispSection } from "./RemoveWisp.tsx";
-import { Card, OwnersOnly, PageHeader, Row, SavedNote, Section, Segmented, Select, Toggle, useSavedFlash } from "./parts.tsx";
+import { Card, Row, SavedNote, Section, Select, Toggle, useSavedFlash } from "./parts.tsx";
 
 const useIsOwner = () => useStore((s) => s.me)?.role === "owner";
 
 // --- General ----------------------------------------------------------------------------------
 
+/** The workspace's name (saved when you leave the field), and deleting it. */
 export function GeneralPage() {
   const me = useStore((s) => s.me)!;
-  const access = useAccess();
   const isOwner = useIsOwner();
   const [name, setName] = useState(me.workspace.name);
   const [error, setError] = useState<string | null>(null);
   const [saved, flash] = useSavedFlash();
+  const save = async () => {
+    if (!name.trim() || name.trim() === me.workspace.name) return;
+    setError(null);
+    try {
+      await api("PATCH", "/api/workspace", { name: name.trim() });
+      await useStore.getState().load();
+      flash();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
   return (
-    <>
-      <PageHeader title="Workspace" />
-      <OwnersOnly show={!isOwner} />
+    <div className="space-y-4">
       <form
-        className="mb-7"
-        onSubmit={async (e) => {
+        onSubmit={(e) => {
           e.preventDefault();
-          setError(null);
-          try {
-            await api("PATCH", "/api/workspace", { name: name.trim() });
-            await useStore.getState().load();
-            flash();
-          } catch (err) {
-            setError((err as Error).message);
-          }
+          void save();
         }}
       >
         <Card>
-          <label className="px-[18px] min-h-[54px] flex items-center gap-4">
-            <span className="text-body w-40 shrink-0">Workspace name</span>
-            <input className="h-9 w-full min-w-0 bg-transparent border-0 outline-none text-right text-body disabled:text-muted" value={name} onChange={(e) => setName(e.target.value)} disabled={!isOwner} maxLength={60} required aria-label="Workspace name" />
+          <label className="px-4 min-h-[52px] flex items-center gap-4">
+            <span className="text-body shrink-0">Name</span>
+            <input className="h-9 w-full min-w-0 bg-transparent border-0 outline-none text-right text-body text-muted focus:text-ink disabled:text-muted" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => void save()} disabled={!isOwner} maxLength={60} required aria-label="Workspace name" />
           </label>
-          <Row label="Hub address">
-            <span className="text-sm text-muted break-all max-w-[240px] text-right">{shareOrigin(access).replace(/^https?:\/\//, "")}</span>
-          </Row>
-          <Row label="Your role">
-            <span className="text-sm text-muted">{isOwner ? "Owner" : me.role === "guest" ? "Guest" : "Member"}</span>
-          </Row>
         </Card>
-        {isOwner && (
-          <div className="mt-3 flex items-center gap-3">
-            <Button variant="primary" disabled={!name.trim() || name.trim() === me.workspace.name}>
-              Save changes
-            </Button>
-            <SavedNote shown={saved} />
-          </div>
-        )}
-        {error && <p className="mt-2 text-sm text-bad">{error}</p>}
+        <div className="mt-2 px-1 flex items-center gap-3">
+          <SavedNote shown={saved} />
+          {error && <p className="text-sm text-bad">{error}</p>}
+        </div>
       </form>
       {isOwner && <DeleteOrgSection />}
-    </>
+    </div>
   );
+}
+
+/** What the Hub address row says. */
+export function HubAddress() {
+  const access = useAccess();
+  return <>{shareOrigin(access).replace(/^https?:\/\//, "")}</>;
 }
 
 function DeleteOrgSection() {
@@ -78,16 +73,16 @@ function DeleteOrgSection() {
   // a hub without workspaces, or still loading
   if (!orgs || !current) return null;
   return (
-    <Section title="Delete workspace" description="Removes its agents, teams, messages, devices, computers and memory for everyone in it. This can't be undone.">
+    <div>
       {current.canDelete ? (
         <Button variant="danger" onClick={() => setOpen(true)}>
           <Trash2 size={14} /> Delete {current.name}
         </Button>
       ) : (
-        <p className="text-sm text-muted">{orgs.length > 1 ? "This is the first workspace on this Wisp, so it can't be deleted." : "This is your only workspace. Make or join another one before deleting it."}</p>
+        <p className="px-1 text-sm text-muted">{orgs.length > 1 ? "This is the first workspace on this Wisp, so it can't be deleted." : "This is your only workspace. Make or join another one before deleting it."}</p>
       )}
       {open && <DeleteOrg org={current} onClose={() => setOpen(false)} />}
-    </Section>
+    </div>
   );
 }
 
@@ -112,7 +107,7 @@ function DeleteOrg({ org, onClose }: { org: Org; onClose: () => void }) {
         }}
       >
         <p className="text-sm text-muted">
-          {org.agents} agent{org.agents === 1 ? "" : "s"}, every team and all of its memory are deleted, and {org.members > 1 ? `the ${org.members - 1} other ${org.members === 2 ? "person" : "people"} in it lose access` : "nobody else is affected"}. You'll move to another workspace.
+          This can't be undone. {org.agents} agent{org.agents === 1 ? "" : "s"}, every team and all of its memory are deleted, and {org.members > 1 ? `the ${org.members - 1} other ${org.members === 2 ? "person" : "people"} in it lose access` : "nobody else is affected"}. You'll move to another workspace.
         </p>
         <Field label={`Type ${org.name} to confirm`}>
           <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" required />
@@ -176,10 +171,9 @@ export function PeoplePage() {
   };
 
   return (
-    <>
-      <PageHeader title="People" />
+    <div className="space-y-5">
       {isOwner && (
-        <Section title="Invite people">
+        <div>
           <div className="flex flex-wrap items-center gap-2">
             <Select label="Role" value={inviteRole} onChange={setInviteRole}>
               <option value="member">Member</option>
@@ -203,7 +197,7 @@ export function PeoplePage() {
               <Link2 size={15} /> Create invite link
             </Button>
             <Button variant="ghost" onClick={() => setAdding(true)}>
-              Add someone directly
+              Add someone
             </Button>
           </div>
           {made && (
@@ -211,16 +205,13 @@ export function PeoplePage() {
               <CopyBlock text={made.url} />
               {originReach(made.url) !== "anywhere" && (
                 <p className="text-xs text-warn">
-                  {originReach(made.url) === "this-computer" ? "This link only works on this computer." : "This link only works on this Wi-Fi."} To invite someone elsewhere, turn on an address that works from anywhere in{" "}
+                  {originReach(made.url) === "this-computer" ? "Only works on this computer." : "Only works on this Wi-Fi."}{" "}
                   <a href={href({ view: "settings", page: "access" })} className="underline">
-                    Settings → Away from home
-                  </a>{" "}
-                  first, then make a new link.
+                    Away from home
+                  </a>
                 </p>
               )}
-              <p className="text-xs text-muted">
-                For a {made.role}, until {new Date(made.expiresAt).toLocaleDateString()}. It's shown only now; make a new one if you lose it.
-              </p>
+              <p className="text-xs text-muted">Shown only now.</p>
             </div>
           )}
           {invites.length > 0 && (
@@ -234,9 +225,9 @@ export function PeoplePage() {
               ))}
             </Card>
           )}
-        </Section>
+        </div>
       )}
-      <Section title={`Members · ${members.length}`}>
+      <div>
         {error && <p className="mb-2 text-sm text-bad">{error}</p>}
         <Card>
           {members.map((m) => {
@@ -286,11 +277,10 @@ export function PeoplePage() {
             );
           })}
         </Card>
-        <p className="mt-2 text-xs text-muted">Owners: {ROLE_HINT.owner.toLowerCase()}. Members: {ROLE_HINT.member.toLowerCase()}. Guests: {ROLE_HINT.guest.toLowerCase()}.</p>
-      </Section>
+      </div>
       {adding && <AddMember onClose={() => (setAdding(false), reload())} />}
       {resetting && <ResetPassword person={resetting} onClose={() => setResetting(null)} />}
-    </>
+    </div>
   );
 }
 
@@ -298,7 +288,7 @@ function AddMember({ onClose }: { onClose: () => void }) {
   const [f, setF] = useState({ name: "", email: "", password: "", role: "member" });
   const [error, setError] = useState<string | null>(null);
   return (
-    <Modal title="Add someone directly" onClose={onClose}>
+    <Modal title="Add someone" onClose={onClose}>
       <form
         className="space-y-4"
         onSubmit={async (e) => {
@@ -311,14 +301,13 @@ function AddMember({ onClose }: { onClose: () => void }) {
           }
         }}
       >
-        <p className="text-sm text-muted">Makes their account now, with a temporary password you give them. An invite link lets them pick their own.</p>
         <Field label="Name">
           <Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
         </Field>
         <Field label="Email">
           <Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required />
         </Field>
-        <Field label="Temporary password" hint="At least 8 characters. Share it with them privately.">
+        <Field label="Temporary password" hint="At least 8 characters.">
           <Input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} minLength={8} autoComplete="new-password" required />
         </Field>
         <Field label="Role">
@@ -354,8 +343,8 @@ function ResetPassword({ person, onClose }: { person: { id: string; name: string
           }
         }}
       >
-        <p className="text-sm text-muted">For when they're locked out. They're signed out everywhere and sign in with this; they can change it under Security.</p>
-        <Field label="Temporary password" hint="At least 8 characters. Share it with them privately.">
+        <p className="text-sm text-muted">They're signed out everywhere.</p>
+        <Field label="Temporary password" hint="At least 8 characters.">
           <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} autoComplete="new-password" required />
         </Field>
         {error && <p className="text-sm text-bad">{error}</p>}
@@ -381,24 +370,70 @@ export interface AgentPolicy {
   learnSkills?: boolean;
 }
 
-export const ASK: [string, string, string][] = [
-  ["send", "Sending email or messages outside Wisp", "Email, texts, Slack, DMs on other sites"],
-  ["spend", "Buying or paying for anything", "Orders, subscriptions, upgrades, ads"],
-  ["delete", "Deleting files, data or accounts", "Anything that can't be undone"],
-  ["post", "Posting publicly", "Social media, reviews, comments, forums"],
-  ["signup", "Signing up for new accounts or services", "New logins, free trials, newsletters"],
-  ["share", "Sharing files or private information outside Wisp", "Uploads, links, forms with personal details"],
+/** What agents ask first about: the key the hub knows, and the two or three words a row shows. */
+export const ASK: [string, string][] = [
+  ["send", "Send messages"],
+  ["spend", "Spend money"],
+  ["delete", "Delete"],
+  ["post", "Post publicly"],
+  ["signup", "Sign up"],
+  ["share", "Share files"],
 ];
 
-/** Who takes tasks nobody assigned: pick one, or leave it to Wisp (a channel team's lead, else the first agent). */
-function WorkspaceLead({ isOwner }: { isOwner: boolean }) {
+/** The workspace's rules for agents, and saving one change to them. A failed save leaves what was saved showing. */
+export function useAgentPolicy() {
+  const isOwner = useIsOwner();
+  const [p, setP] = useState<AgentPolicy | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    api<AgentPolicy>("GET", "/api/settings/agents").then(setP, (e) => setError((e as Error).message));
+  }, []);
+  const save = async (patch: Partial<AgentPolicy>) => {
+    if (!p) return;
+    setError(null);
+    try {
+      setP(await api<AgentPolicy>("PUT", "/api/settings/agents", patch));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return { p, error, save, isOwner };
+}
+
+/** What the Ask me before row says: how many of the six are on. */
+export function askValue(p: AgentPolicy | null): string {
+  if (!p) return "";
+  const on = ASK.filter(([k]) => p.askBefore.includes(k)).length;
+  return on === 0 ? "Off" : `${on} on`;
+}
+
+/** Ask me before: six switches. */
+export function AskBeforePage() {
+  const { p, error, save, isOwner } = useAgentPolicy();
+  if (!p) return <p className="px-1 text-sm text-muted">{error ?? "Loading…"}</p>;
+  return (
+    <div className="space-y-4">
+      <Card>
+        {ASK.map(([k, label]) => (
+          <Row key={k} label={label}>
+            <Toggle on={p.askBefore.includes(k)} disabled={!isOwner} label={label} onChange={(on) => save({ askBefore: on ? [...p.askBefore, k] : p.askBefore.filter((x) => x !== k) })} />
+          </Row>
+        ))}
+      </Card>
+      {error && <p className="px-1 text-sm text-bad">{error}</p>}
+    </div>
+  );
+}
+
+/** Who takes tasks nobody assigned: pick one, or leave it to Wisp (a team's lead, else the first agent). */
+export function LeadSelect() {
+  const isOwner = useIsOwner();
   const agents = useStore((s) => s.agents);
   const lead = useStore((s) => s.lead);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     useStore.getState().refreshLead();
   }, []);
-  if (!agents.length) return null;
   const current = agents.find((a) => a.id === lead?.lead);
   const save = async (leadId: string | null) => {
     setError(null);
@@ -409,126 +444,32 @@ function WorkspaceLead({ isOwner }: { isOwner: boolean }) {
     }
   };
   return (
-    <Section title="Lead">
-      <Card>
-        <Row label="Lead">
-          <Select label="Lead agent" value={lead?.leadId ?? ""} disabled={!isOwner} onChange={(v) => save(v || null)} className="max-w-60">
-            <option value="">{current ? `Automatic (${current.name})` : "Automatic"}</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                @{a.handle} ({a.name})
-              </option>
-            ))}
-          </Select>
-        </Row>
-      </Card>
-      {error && <p className="mt-2 text-sm text-bad">{error}</p>}
-    </Section>
-  );
-}
-
-export function AgentsPolicyPage() {
-  const isOwner = useIsOwner();
-  const [p, setP] = useState<AgentPolicy | null>(null);
-  const [saved, flash] = useSavedFlash();
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    api<AgentPolicy>("GET", "/api/settings/agents").then(setP, (e) => setError((e as Error).message));
-  }, []);
-  const save = async (patch: Partial<AgentPolicy>) => {
-    if (!p) return;
-    setError(null);
-    try {
-      setP(await api<AgentPolicy>("PUT", "/api/settings/agents", patch));
-      flash();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-  if (!p) return <PageHeader title="Permissions">{error ?? "Loading…"}</PageHeader>;
-  return (
     <>
-      <PageHeader title="Permissions" />
-      <OwnersOnly show={!isOwner} />
-      <div className="mb-3 h-4">
-        <SavedNote shown={saved} />
-        {error && <span className="text-sm text-bad">{error}</span>}
-      </div>
-      <WorkspaceLead isOwner={isOwner} />
-      <Section title="Ask before">
-        <Card>
-          {ASK.map(([k, label, hint]) => (
-            <Row key={k} label={label} hint={hint}>
-              <Toggle on={p.askBefore.includes(k)} disabled={!isOwner} label={label} onChange={(on) => save({ askBefore: on ? [...p.askBefore, k] : p.askBefore.filter((x) => x !== k) })} />
-            </Row>
-          ))}
-        </Card>
-      </Section>
-      <Section title="New agents">
-        <Card>
-          {(
-            [
-              ["read-only", "Read only", "Can look at files, can't change them"],
-              ["edit", "Can edit files", "Can change files, can't run commands"],
-              ["full", "Full access", "Files and commands on the device"],
-            ] as const
-          ).map(([v, label, hint]) => (
-            <button key={v} type="button" role="radio" aria-checked={p.defaultAccess === v} disabled={!isOwner} onClick={() => save({ defaultAccess: v })} className="w-full text-left disabled:opacity-60 hover:bg-hover">
-              <Row label={label} hint={hint}>
-                {p.defaultAccess === v && <Check size={18} className="text-badge" aria-hidden />}
-              </Row>
-            </button>
-          ))}
-        </Card>
-      </Section>
-      <Section title="Agents making agents">
-        <Card>
-          <Row label="Leads can create agents">
-            <Toggle on={p.leadsCreateAgents} onChange={(v) => save({ leadsCreateAgents: v })} label="Leads can create agents" disabled={!isOwner} />
-          </Row>
-          <Row label="Those agents can make sub-agents" hint={p.leadsCreateAgents ? "An agent a lead made can make sub-agents for pieces of its own work, up to 3 levels down." : "Needs “Leads can create agents” on first."}>
-            <Toggle on={p.subAgents} onChange={(v) => save({ subAgents: v })} label="Agents a lead made can make sub-agents" disabled={!isOwner || !p.leadsCreateAgents} />
-          </Row>
-          <Row label="Most agents made by agents">
-            <Select label="Most agents made by agents" value={String(p.maxAgentMade)} disabled={!isOwner || !p.leadsCreateAgents} onChange={(v) => save({ maxAgentMade: Number(v) })}>
-              {[3, 5, 10, 20, 50].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Select>
-          </Row>
-        </Card>
-      </Section>
-      <Section title="Loop protection">
-        <Card>
-          <Row label="Hand-offs in a row">
-            <Select label="Hand-offs in a row" value={String(p.maxHops)} disabled={!isOwner} onChange={(v) => save({ maxHops: Number(v) })}>
-              {[2, 3, 4, 6, 8, 10, 15, 20, 30].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Select>
-          </Row>
-          <Row label="Agent runs per team per minute">
-            <Select label="Agent runs per team per minute" value={String(p.maxRunsPerMinute)} disabled={!isOwner} onChange={(v) => save({ maxRunsPerMinute: Number(v) })}>
-              {[5, 10, 20, 40, 60, 100, 200].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Select>
-          </Row>
-        </Card>
-      </Section>
+      {error && <span className="text-[13px] text-bad">{error}</span>}
+      <Select label="Lead agent" value={lead?.leadId ?? ""} disabled={!isOwner || !agents.length} onChange={(v) => save(v || null)} className="max-w-60">
+        <option value="">{current ? `Automatic (${current.name})` : "Automatic"}</option>
+        {agents.map((a) => (
+          <option key={a.id} value={a.id}>
+            @{a.handle} ({a.name})
+          </option>
+        ))}
+      </Select>
     </>
   );
 }
 
 // --- Memory access ----------------------------------------------------------------------------
 
-/** The rules half of Settings → Memory (the rest is in memory.tsx). */
+/** What the Memory access row says: how many rules. */
+export function RulesValue() {
+  const [n, setN] = useState<number | null>(null);
+  useEffect(() => {
+    api<AccessRule[]>("GET", "/api/access/rules").then((r) => setN(r.length), () => {});
+  }, []);
+  return <>{n === null ? "" : n === 0 ? "No rules" : `${n} rule${n === 1 ? "" : "s"}`}</>;
+}
+
+/** Who can see and edit which notes: the rules, and adding one. */
 export function MemoryRules() {
   const isOwner = useIsOwner();
   const members = useStore((s) => s.members);
@@ -541,43 +482,36 @@ export function MemoryRules() {
     refresh();
   }, []);
   return (
-    <>
-      <Section
-        title="Who can see and edit what"
-        action={
-          isOwner && (
-            <Button onClick={() => setAdding(true)}>
-              <Plus size={15} /> Add rule
-            </Button>
-          )
-        }
-      >
-        {error && <p className="mb-2 text-sm text-bad">{error}</p>}
-        {rules.length === 0 ? (
-          <p className="text-sm text-muted rounded-xl border border-dashed border-line p-4">No rules yet. Agents only see Shared, their own folders and their teams' folders.</p>
-        ) : (
-          <Card>
-            {rules.map((r) => (
-              <div key={r.id} className="px-4 py-3 flex items-center gap-3 text-sm">
-                <span className="flex-1 min-w-0">
-                  <b>{subjectLabel(r.subject, agents, members)}</b>: {LEVEL_LABEL[r.level].toLowerCase()} <b className="break-all">{pathLabel(r.path, agents, members)}</b>
-                  {r.createdBy?.kind === "agent" && <span className="text-muted"> · shared by {subjectLabel({ kind: "agent", id: r.createdBy.id }, agents, members)}</span>}
-                </span>
-                {r.startup && (
-                  <Pill tone="accent">
-                    <Pin size={11} /> Loads at startup
-                  </Pill>
-                )}
-                {isOwner && (
-                  <IconButton icon={<Trash2 size={15} />} label="Remove rule" tone="danger" onClick={() => api("DELETE", `/api/access/${r.id}`).then(refresh, (e) => setError((e as Error).message))} />
-                )}
-              </div>
-            ))}
-          </Card>
-        )}
-      </Section>
+    <div className="space-y-4">
+      {error && <p className="px-1 text-sm text-bad">{error}</p>}
+      {rules.length > 0 && (
+        <Card>
+          {rules.map((r) => (
+            <div key={r.id} className="px-4 py-3 flex items-center gap-3 text-sm">
+              <span className="flex-1 min-w-0">
+                <b>{subjectLabel(r.subject, agents, members)}</b>: {LEVEL_LABEL[r.level].toLowerCase()} <b className="break-all">{pathLabel(r.path, agents, members)}</b>
+                {r.createdBy?.kind === "agent" && <span className="text-muted"> · shared by {subjectLabel({ kind: "agent", id: r.createdBy.id }, agents, members)}</span>}
+              </span>
+              {r.startup && (
+                <Pill tone="accent">
+                  <Pin size={11} /> Loads at startup
+                </Pill>
+              )}
+              {isOwner && (
+                <IconButton icon={<Trash2 size={15} />} label="Remove rule" tone="danger" onClick={() => api("DELETE", `/api/access/${r.id}`).then(refresh, (e) => setError((e as Error).message))} />
+              )}
+            </div>
+          ))}
+        </Card>
+      )}
+      {rules.length === 0 && <p className="px-1 text-sm text-muted">No rules</p>}
+      {isOwner && (
+        <Button onClick={() => setAdding(true)}>
+          <Plus size={15} /> Add rule
+        </Button>
+      )}
       {adding && <AddRule onClose={() => (setAdding(false), refresh())} />}
-    </>
+    </div>
   );
 }
 
@@ -621,7 +555,7 @@ function AddRule({ onClose }: { onClose: () => void }) {
           }
         }}
       >
-        <Field label="Folder or note" hint="A folder covers everything inside it. Leave empty for the whole vault.">
+        <Field label="Folder or note" hint="Empty is everything.">
           <Input value={path} onChange={(e) => setPath(e.target.value)} list="rule-folders" placeholder="Projects" />
           <datalist id="rule-folders">
             {folders.map((f) => (
@@ -676,10 +610,7 @@ function AddRule({ onClose }: { onClose: () => void }) {
         {forAgents && (
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-0.5" checked={startup} onChange={(e) => setStartup(e.target.checked)} />
-            <span>
-              Load at startup
-              <span className="block text-xs text-muted">The agent gets these notes in its prompt every time it works.</span>
-            </span>
+            <span>Load at startup</span>
           </label>
         )}
         {error && <p className="text-sm text-bad">{error}</p>}
@@ -698,13 +629,12 @@ interface ComputerSettings {
   defaults: { vmSize: "small" | "medium" | "large"; controlIdleMinutes: number };
 }
 
-export function ComputersPage() {
+/** New computers' size, when control goes back to agents, and the Orgo key: loaded once, each change saved as it's made. */
+export function useComputerSettings() {
   const isOwner = useIsOwner();
   const [s, setS] = useState<ComputerSettings | null>(null);
-  const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, flash] = useSavedFlash();
   useEffect(() => {
     api<ComputerSettings>("GET", "/api/settings/computers").then(setS, () => {});
   }, []);
@@ -713,76 +643,50 @@ export function ComputersPage() {
     setError(null);
     try {
       setS(await api<ComputerSettings>("PUT", "/api/settings/computers", body));
-      setKey("");
-      flash();
       useStore.getState().refreshComputers();
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
   };
+  return { s, busy, error, put, isOwner };
+}
+
+/** Orgo's cloud computers: the key that connects them. */
+export function OrgoPage() {
+  const { s, busy, error, put, isOwner } = useComputerSettings();
+  const [key, setKey] = useState("");
   return (
-    <>
-      <PageHeader title="Computers" />
-      <OwnersOnly show={!isOwner} />
-      <div className="mb-3 h-4">
-        <SavedNote shown={saved} />
-      </div>
-      {error && <p className="mb-4 text-sm text-bad">{error}</p>}
-      <Section title="Defaults">
-        <Card>
-          <Row label="Size of new VMs" hint="Small: 1 CPU, 2 GB. Medium: 2 CPUs, 4 GB. Large: 4 CPUs, 8 GB. You can still pick per VM.">
-            <Segmented
-              label="Size of new VMs"
-              value={s?.defaults.vmSize ?? "medium"}
-              disabled={!isOwner || !s}
-              onChange={(vmSize) => put({ vmSize })}
-              options={[
-                ["small", "Small"],
-                ["medium", "Medium"],
-                ["large", "Large"],
-              ]}
-            />
-          </Row>
-          <Row label="Give control back to agents after">
-            <Select label="Give control back after" value={String(s?.defaults.controlIdleMinutes ?? 10)} disabled={!isOwner || !s} onChange={(v) => put({ controlIdleMinutes: Number(v) })}>
-              {[5, 10, 15, 30, 60, 120].map((n) => (
-                <option key={n} value={n}>
-                  {n < 60 ? `${n} minutes` : `${n / 60} hour${n === 60 ? "" : "s"}`} idle
-                </option>
-              ))}
-            </Select>
-          </Row>
-        </Card>
-      </Section>
-      <Section
-        title="Orgo cloud computers"
-      >
-        <Card>
-          <Row label="Orgo API key">{s?.orgo.configured ? <Pill tone="ok">Connected {s.orgo.hint}</Pill> : <Pill>Not connected</Pill>}</Row>
-          {isOwner && (
-            <form
-              className="px-4 py-3 flex flex-wrap gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (key.trim()) put({ orgoApiKey: key.trim() });
-              }}
-            >
-              <Input className="flex-1 min-w-48 font-mono" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder={s?.orgo.configured ? "Replace the key" : "sk_..."} />
-              <Button variant="primary" disabled={busy || !key.trim()}>
-                {s?.orgo.configured ? "Replace" : "Connect"}
+    <div className="space-y-4">
+      {error && <p className="px-1 text-sm text-bad">{error}</p>}
+      <Card>
+        <Row label="API key">
+          <span className="text-muted">{s?.orgo.configured ? `Connected ${s.orgo.hint ?? ""}` : "Not connected"}</span>
+        </Row>
+        {isOwner && (
+          <form
+            className="px-4 py-3 flex flex-wrap gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (key.trim() && (await put({ orgoApiKey: key.trim() }))) setKey("");
+            }}
+          >
+            <Input className="flex-1 min-w-48 font-mono" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder={s?.orgo.configured ? "Replace the key" : "sk_..."} aria-label="Orgo API key" />
+            <Button variant="primary" disabled={busy || !key.trim()}>
+              {s?.orgo.configured ? "Replace" : "Connect"}
+            </Button>
+            {s?.orgo.configured && (
+              <Button type="button" variant="danger" disabled={busy} onClick={() => confirm("Disconnect Orgo? Cloud computers stop working in Wisp until you add a key again.") && put({ orgoApiKey: null })}>
+                Disconnect
               </Button>
-              {s?.orgo.configured && (
-                <Button type="button" variant="danger" disabled={busy} onClick={() => confirm("Disconnect Orgo? Cloud computers stop working in Wisp until you add a key again.") && put({ orgoApiKey: null })}>
-                  Disconnect
-                </Button>
-              )}
-            </form>
-          )}
-        </Card>
-      </Section>
-    </>
+            )}
+          </form>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -815,15 +719,10 @@ export function ConnectionsPage() {
   ];
   return (
     <>
-      <PageHeader title="Outside agents" />
-      {error && <p className="mb-4 text-sm text-bad">{error}</p>}
-      {groups.map(([title, items]) => (
-        <Section key={title} title={title}>
-          {list === null ? (
-            <p className="text-sm text-muted">Loading…</p>
-          ) : items.length === 0 ? (
-            <p className="text-sm text-muted rounded-xl border border-dashed border-line p-4">None.</p>
-          ) : (
+      {error && <p className="mb-4 px-1 text-sm text-bad">{error}</p>}
+      {groups.map(([title, items]) =>
+        items.length === 0 ? null : (
+          <Section key={title} title={title}>
             <Card>
               {items.map((c) => {
                 const a = agent(c.agentId);
@@ -853,9 +752,9 @@ export function ConnectionsPage() {
                 );
               })}
             </Card>
-          )}
-        </Section>
-      ))}
+          </Section>
+        ),
+      )}
     </>
   );
 }
@@ -872,6 +771,17 @@ function isInside(child: string, parent: string) {
   return c === d || c.startsWith(d + "/") || c.startsWith(d + "\\");
 }
 
+/** What the Back up row says: how much there is. */
+export function BackupValue() {
+  const isOwner = useIsOwner();
+  const [info, setInfo] = useState<{ notes: number; files: number } | null>(null);
+  useEffect(() => {
+    if (isOwner) api<{ notes: number; files: number }>("GET", "/api/settings/data").then(setInfo, () => {});
+  }, [isOwner]);
+  return <>{info ? `${info.notes} notes · ${info.files} files` : ""}</>;
+}
+
+/** Back up: where everything is kept, and copies to download. */
 export function DataPage() {
   const isOwner = useIsOwner();
   const [info, setInfo] = useState<{ dataDir: string; notes: number; messages: number; files: number; agents: number } | null>(null);
@@ -905,76 +815,47 @@ export function DataPage() {
   const where = isLocal ? "this computer" : `the computer at ${host}`;
   const memoryElsewhere = !!(info && memoryPath && !isInside(memoryPath, info.dataDir));
   return (
-    <>
-      <PageHeader title="Data" />
-      <Section title="Back up everything">
-        {isOwner && info ? (
-          <>
-            <Card>
-              <Row label="Where the folder is" hint={where} />
-              <div className="px-4 pb-3.5">
-                <CopyBlock text={info.dataDir} />
-              </div>
-              <Row label="What is inside" hint={`${info.notes} notes, ${info.messages} messages, ${info.files} files and ${info.agents} agents.`} />
-            </Card>
-            <ul className="mt-3 list-disc pl-5 text-sm text-muted space-y-1">
-              <li><code className="text-xs">wisp.db</code>: people, teams, messages, agents, tasks, routines and settings.</li>
-              <li><code className="text-xs">vault/</code>: your memory notes.</li>
-              <li><code className="text-xs">files/</code>: files people uploaded.</li>
-            </ul>
-            {memoryElsewhere && (
-              <div className="mt-3">
-                <p className="mb-1.5 text-sm">Your memory notes are kept in a different folder; back it up too:</p>
-                <CopyBlock text={memoryPath!} />
-              </div>
-            )}
-          </>
-        ) : (
-          <p className="text-sm text-muted rounded-xl border border-dashed border-line p-4">Ask a workspace owner to back up the hub.</p>
-        )}
-      </Section>
-      <Section title="What is not in it">
-        <ul className="list-disc pl-5 text-sm text-muted space-y-1">
-          <li>Sign-ins for agent tools (like Claude Code or Codex). Those stay on each device.</li>
-          <li>Agents' own computers (VMs). They live on the device that runs them.</li>
-          <li>Settings saved only in this browser, like appearance and notifications.</li>
-          {isOwner && <li>The memory folder, if it was moved to a different place (shown above).</li>}
-        </ul>
-      </Section>
-      <Section title="How to back up">
-        <ol className="list-decimal pl-5 text-sm space-y-1">
-          <li>Quit Wisp on {where} (or stop the hub there), so the copy is complete.</li>
-          <li>Copy the whole folder to a USB drive or a cloud folder.</li>
-          <li>Start Wisp again.</li>
-        </ol>
-      </Section>
-      <Section title="How to restore">
-        <ol className="list-decimal pl-5 text-sm space-y-1">
-          <li>Install Wisp on the computer, or keep the install you already have.</li>
-          <li>Quit Wisp.</li>
-          <li>Put your copied folder back in the same place, replacing the folder there.</li>
-          <li>If your memory notes were in a separate folder, put that folder back too.</li>
-          <li>Start Wisp again. Your devices reconnect by themselves when they are online.</li>
-        </ol>
-      </Section>
-      <Section title="Download copies">
-        {error && <p className="mb-2 text-sm text-bad">{error}</p>}
-        <Card>
-          {isOwner && (
-            <Row label="Download my notes (Markdown ZIP)">
-              <Button disabled={!!busy} onClick={() => download("/api/export/vault.zip", `wisp-memory-${day}.zip`)}>
-                <Download size={14} /> {busy === "/api/export/vault.zip" ? "Preparing…" : "Download"}
-              </Button>
+    <div className="space-y-4">
+      {isOwner && info && (
+        <>
+          <Card>
+            <Row label="Folder">
+              <span className="text-muted">On {where}</span>
             </Row>
+            <div className="px-4 py-3">
+              <CopyBlock text={info.dataDir} />
+            </div>
+            <Row label="Inside">
+              <span className="text-muted">
+                {info.notes} notes · {info.messages} messages · {info.files} files · {info.agents} agents
+              </span>
+            </Row>
+          </Card>
+          {memoryElsewhere && (
+            <div>
+              <p className="mb-1.5 px-1 text-sm">Memory is in a different folder. Copy it too.</p>
+              <CopyBlock text={memoryPath!} />
+            </div>
           )}
-          <Row label="Download conversations (JSON, for developers)">
-            <Button disabled={!!busy} onClick={() => download("/api/export/conversations.json", `wisp-conversations-${day}.json`)}>
-              <Download size={14} /> {busy === "/api/export/conversations.json" ? "Preparing…" : "Download"}
+          {/* the two sentences that keep a copy whole */}
+          <p className="px-1 text-[13px] text-muted">Quit Wisp before you copy the folder, so the copy is complete. To restore, quit Wisp and put the folder back in the same place.</p>
+        </>
+      )}
+      {error && <p className="px-1 text-sm text-bad">{error}</p>}
+      <Card>
+        {isOwner && (
+          <Row label="Notes">
+            <Button disabled={!!busy} onClick={() => download("/api/export/vault.zip", `wisp-memory-${day}.zip`)}>
+              <Download size={14} /> {busy === "/api/export/vault.zip" ? "Preparing…" : "Download"}
             </Button>
           </Row>
-        </Card>
-      </Section>
-      <RemoveWispSection />
-    </>
+        )}
+        <Row label="Chats">
+          <Button disabled={!!busy} onClick={() => download("/api/export/conversations.json", `wisp-conversations-${day}.json`)}>
+            <Download size={14} /> {busy === "/api/export/conversations.json" ? "Preparing…" : "Download"}
+          </Button>
+        </Row>
+      </Card>
+    </div>
   );
 }

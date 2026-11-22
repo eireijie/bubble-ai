@@ -30,10 +30,10 @@ export function SaveBar({ dirty, saving, onSave, onDiscard, active, note }: { di
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 1800);
   };
-  // nothing to save, no bar. On phones it takes the bottom of the screen, covering the tab bar, until saved
+  // nothing to save, no bar. On phones it takes the bottom of the screen until saved
   if (!dirty && !saving && !justSaved) return null;
   return (
-    <div className="m-savebar max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40 md:sticky md:bottom-0 md:-mx-8 mt-6 px-4 md:px-8 pt-3 md:pb-3 max-md:pb-[calc(36px+env(safe-area-inset-bottom))] bg-panel border-t border-line flex items-center gap-3">
+    <div className="m-savebar max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40 md:sticky md:bottom-0 md:-mx-8 mt-6 px-4 md:px-8 pt-3 md:pb-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-panel border-t border-line flex items-center gap-3">
       <span className="text-sm text-muted flex-1 min-w-0 truncate">{dirty ? "Unsaved changes" : justSaved ? <span className="text-ok inline-flex items-center gap-1"><Check size={14} /> Saved</span> : note}</span>
       {dirty && (
         <Button variant="ghost" onClick={onDiscard} disabled={saving}>

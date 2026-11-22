@@ -8,7 +8,7 @@ import { AgentDetail, mergeSavedFields, type NodeInfo } from "./AgentSettings.ts
 import { CreateAgent, ImportAgent } from "./CreateAgent.tsx";
 import { setChannelPrefs } from "../components/Channels.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
-import { AgentsPolicyPage } from "./settings/workspace.tsx";
+import { AskBeforePage } from "./settings/workspace.tsx";
 import { LiveScreen, ScreenThumb } from "../components/Screen.tsx";
 import { mayLeave } from "../router.ts";
 import type { Agent } from "@wisp/core";
@@ -290,9 +290,9 @@ describe("settings regressions", () => {
   it("W13: leaves the saved approval policy selected after a failed save", async () => {
     const policy = { askBefore: ["send"], maxHops: 5, defaultAccess: "edit" };
     vi.mocked(api).mockResolvedValueOnce(policy);
-    const m = mount(AgentsPolicyPage);
+    const m = mount(AskBeforePage);
     await tick();
-    const checked = () => find(m.render(), (el) => el.type.name === "Toggle" && el.props.label === "Sending email or messages outside Wisp")!;
+    const checked = () => find(m.render(), (el) => el.type.name === "Toggle" && el.props.label === "Send messages")!;
     expect(checked().props.on).toBe(true);
     vi.mocked(api).mockRejectedValueOnce(new Error("policy failed"));
     await checked().props.onChange(false);

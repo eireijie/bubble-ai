@@ -66,8 +66,7 @@ export function StoragePage() {
   const who = (c: StorageConnection) => (c.allAgents ? "Every agent" : c.agentIds.length ? c.agentIds.map((id) => `@${agents.find((a) => a.id === id)?.handle ?? "?"}`).join(", ") : "No agents yet");
   return (
     <>
-      <div className="mb-6 flex items-center gap-3 max-md:hidden">
-        <h2 className="t-title flex-1">Storage</h2>
+      <div className="mb-4 flex items-center justify-end gap-3 max-md:hidden empty:hidden">
         {isOwner && (
           <Prim className="h-[38px] gap-1.5 px-4 text-body" onClick={() => setAdding(true)}>
             <Plus size={16} /> Add storage
@@ -197,7 +196,6 @@ function ConnectNextcloud({ onBack, onClose, onDone }: { onBack: () => void; onC
         <Prim type="submit" className="w-full" disabled={!server.trim() || waiting}>
           Sign in with Nextcloud
         </Prim>
-        <p className="px-1 text-sm leading-snug text-muted">Your Nextcloud opens in the browser to approve Wisp. Wisp gets its own app password, which you can revoke there under Security. It never sees your password.</p>
         {waiting && (
           <p className="flex items-center gap-2.5 border-t border-line pt-3.5 text-sm text-muted" role="status">
             <span className="size-4 animate-spin rounded-full border-2 border-line border-t-ink" aria-hidden />
@@ -278,7 +276,6 @@ function ConnectServer({ service, onBack, onClose, onDone }: { service: "truenas
                   </select>
                 )}
               </Labeled>
-              <p className="px-1 text-sm leading-snug text-muted">Wisp reads it from {logins.source.label} each time it opens the server and never keeps it. Use a user that can only reach the shares agents need.</p>
             </>
           ) : (
             <p className="px-1 text-sm leading-snug text-muted">
@@ -293,7 +290,6 @@ function ConnectServer({ service, onBack, onClose, onDone }: { service: "truenas
           <>
             <Labeled label="User name">{(id) => <TextBox id={id} autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />}</Labeled>
             <Labeled label="App password">{(id) => <TextBox id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Labeled>
-            <p className="px-1 text-sm leading-snug text-muted">Kept encrypted on your hub. Only owners can change it.</p>
           </>
         )}
         {error && <p className="text-sm text-bad">{error}</p>}
@@ -432,7 +428,6 @@ function ConnectionPage({ conn, isOwner, onBack, onChange }: { conn: StorageConn
             {isOwner && <Item icon={<span className="grid size-[18px] place-items-center"><Plus size={16} /></span>} title="Add folder" onClick={() => setPicking(true)} />}
             {!isOwner && !conn.folders.length && <p className="px-4 py-4 text-sm text-muted">No folders yet.</p>}
           </Panel>
-          <p className="px-1 text-sm text-muted">Agents ask you before adding, changing or deleting files.</p>
           {conn.always.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 px-1 text-sm">
               <span className="text-faint">Change files without asking:</span>

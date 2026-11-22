@@ -78,9 +78,11 @@ export function DesktopUpdates() {
     return () => clearInterval(t);
   }, [busy]);
   const { pill, hint } = describe(u);
+  // the state says most of it; the words stay when something went wrong or this install can't update itself
+  const say = u?.state === "unsupported" || u?.state === "error" || u?.state === "timed-out";
   return (
     <Card>
-      <Row label={pill} hint={error ?? hint}>
+      <Row label={pill} hint={error ?? (say ? hint : undefined)}>
         {u?.state === "ready" ? (
           <Button variant="primary" onClick={() => void updates?.restart()}>
             Restart to update
