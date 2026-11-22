@@ -1,62 +1,84 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
-import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
-import type { GhostMood } from "./Ghost.tsx";
-import { HOST_LOOK, HostGhost, HostProp, useLookAtFields, type HostPropKind } from "./onboarding/HostGhost.tsx";
+import { cx } from "./ui.tsx";
 
-/** The five steps after the account: connect, name, memory, setting up, meet. */
-export const TRACK = ["Connect your AI", "Name your agent", "Bring your memory", "Set up", "Meet your agent"] as const;
-/** A new setup's four pages: away from home (with its address), then Getting to know you, Make me yours, Its AI. */
-export const NEW_TRACK = ["Your agent", "Away from home", "Getting to know you", "Make me yours", "Its AI"] as const;
+/** The first run's three screens. */
+export const TRACK = ["You", "Your agent", "Its AI"] as const;
 
 /**
- * First-run setup's frame: on the left the agent's wisp with one short line from it, at the top a
- * track of five dots (the current one stretched), and the step in the middle. `at` is 1–5 for
- * those steps, 0 before them (server, account, outside your home), where no dot is current yet.
+ * The first run's one layout: step dots at the top (Back beside them), the screen's content, and
+ * what you do next at the bottom. A card in the middle on a desktop, the whole screen on a phone.
+ * With `onSubmit` the card is a form, so Enter presses the button in `foot`.
  */
-export function SetupShell({ at, track = TRACK, line, look, mood = "awake", prop = null, stepKey, onBack, children }: { at: number; track?: readonly string[]; line: string; look?: GhostAppearance; mood?: GhostMood; prop?: HostPropKind | null; stepKey: string; onBack?: (() => void) | null; children: ReactNode }) {
+export function SetupShell({ at, onBack, onSubmit, foot, center, children }: { at: 1 | 2 | 3; onBack?: (() => void) | null; onSubmit?: () => void; foot?: ReactNode; center?: boolean; children: ReactNode }) {
   useEscBack(onBack);
-  // the host looks at the field you type in, and away while you type a password
-  useLookAtFields();
-  const narrow = useNarrow();
+  const body = (
+    <>
+      <div className="shrink-0 h-14 grid grid-cols-[34px_1fr_34px] items-center gap-2 px-5 safe-top box-content">
+        {onBack ? (
+          <button type="button" className="size-[34px] grid place-items-center rounded-full text-muted hover:bg-hover hover:text-ink" aria-label="Back" onClick={onBack}>
+            <ChevronLeft size={18} />
+          </button>
+        ) : (
+          <span />
+        )}
+        <Track at={at} />
+        <span />
+      </div>
+      <div key={at} className={cx("setup-rise flex-1 min-h-0 overflow-y-auto px-7 pt-3 pb-2 flex flex-col gap-3", center && "items-center")}>
+        {children}
+      </div>
+      {foot && <div className="shrink-0 px-7 pt-3 pb-[max(24px,env(safe-area-inset-bottom))] flex flex-col items-center gap-1">{foot}</div>}
+    </>
+  );
+  const card = "flex flex-col w-full flex-1 min-h-0 bg-panel md:flex-none md:w-[400px] md:h-[min(660px,calc(100dvh-48px))] md:rounded-[14px] md:border md:border-line";
   return (
-    <div className="ob-frame" data-testid="setup">
-      <aside className="ob-side">
-        <div className="ob-brand">
-          <WispMark />
-          <span>Wisp</span>
-        </div>
-        <div className="ob-ghost">
-          <div className="ob-ghost-spot">
-            <HostGhost look={look ?? HOST_LOOK} size={narrow ? 48 : 132} mood={mood} />
-            <HostProp kind={prop} size={narrow ? 18 : 30} />
-          </div>
-          <p key={line} className="ob-line" aria-live="polite">
-            {line}
-          </p>
-        </div>
-      </aside>
-      <main className="ob-main">
-        <div className="ob-top">
-          <div className="ob-back-slot">
-            {onBack && (
-              <button type="button" className="ob-back" aria-label="Back" onClick={onBack}>
-                <ChevronLeft size={17} />
-              </button>
-            )}
-          </div>
-          <Track at={at} track={track} />
-          <div className="ob-back-slot" />
-        </div>
-        <section key={stepKey} className="ob-step">
-          {children}
-        </section>
-      </main>
+    <div className="fixed inset-0 z-40 flex flex-col bg-panel md:bg-app md:items-center md:justify-center text-ink text-[14px] leading-[22px]" data-testid="setup">
+      {onSubmit ? (
+        <form
+          className={card}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+        >
+          {body}
+        </form>
+      ) : (
+        <div className={card}>{body}</div>
+      )}
     </div>
   );
 }
 
-/** Phone widths, where the frame stacks and the host sits small beside its line. */
+/** The screen's one heading. */
+export function SetupTitle({ children, className }: { children: ReactNode; className?: string }) {
+  return <h1 className={cx("text-[24px] leading-[30px] font-[650] tracking-[-0.015em]", className)}>{children}</h1>;
+}
+
+/** A field: its name is its placeholder (and its label for screen readers). */
+export const setupField = "h-12 w-full min-w-0 rounded-xl border border-line bg-card px-4 text-[15px] text-ink outline-none placeholder:text-faint focus:border-ring";
+
+/** The one primary button at the bottom: an ink pill. */
+export function SetupButton({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button {...p} className={cx("setup-press h-12 w-full inline-flex items-center justify-center gap-2 rounded-full bg-ink px-[22px] text-[15px] font-semibold text-panel outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-40 disabled:pointer-events-none", className)} />;
+}
+
+/** A quiet text button under it. */
+export function SetupLink({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" {...p} className={cx("min-h-10 px-3 rounded-full text-[14px] text-muted hover:text-ink outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-50", className)} />;
+}
+
+/** One line saying what went wrong. */
+export function SetupProblem({ children }: { children?: ReactNode }) {
+  return children ? (
+    <p role="alert" className="text-[13px] leading-5 text-bad">
+      {children}
+    </p>
+  ) : null;
+}
+
+/** Phone widths. */
 export function useNarrow(query = "(max-width: 760px)") {
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(query).matches);
   useEffect(() => {
@@ -85,33 +107,13 @@ export function useEscBack(onBack: (() => void) | null | undefined) {
   }, [onBack]);
 }
 
-/** One dot a step; the current one is a 28px pill, the ones done and current are ink. */
+/** One dot a screen; the current one is a pill, the ones done and current are ink. */
 export function Track({ at, track = TRACK }: { at: number; track?: readonly string[] }) {
   return (
-    <div role="progressbar" aria-label={at && at <= track.length ? `Step ${at} of ${track.length}: ${track[at - 1]}` : "Getting started"} aria-valuemin={0} aria-valuemax={track.length} aria-valuenow={Math.min(at, track.length)} className="ob-track">
+    <div role="progressbar" aria-label={`Step ${Math.min(at, track.length)} of ${track.length}: ${track[Math.min(at, track.length) - 1]}`} aria-valuemin={1} aria-valuemax={track.length} aria-valuenow={Math.min(at, track.length)} className="ob-track">
       {track.map((name, i) => (
         <span key={name} className="ob-dot" data-state={i + 1 === at ? "now" : i + 1 < at ? "done" : "later"} />
       ))}
-    </div>
-  );
-}
-
-function WispMark() {
-  return (
-    <svg width="18" height="20" viewBox="24 14 72 92" aria-hidden>
-      <path d="M30 60 C30 32 44 18 60 18 C76 18 90 32 90 60 L90 96 Q85 104 80 96 Q75 88 70 96 Q65 104 60 96 Q55 88 50 96 Q45 104 40 96 Q35 88 30 96 Z" fill="var(--ink)" />
-      <ellipse cx="50" cy="54" rx="5" ry="6.5" fill="var(--app)" />
-      <ellipse cx="70" cy="54" rx="5" ry="6.5" fill="var(--app)" />
-    </svg>
-  );
-}
-
-/** A step's heading and the line under it. */
-export function StepHead({ title, sub }: { title: string; sub?: ReactNode }) {
-  return (
-    <div className="ob-head">
-      <h1>{title}</h1>
-      {sub && <p>{sub}</p>}
     </div>
   );
 }
