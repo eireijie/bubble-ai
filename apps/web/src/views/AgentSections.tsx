@@ -1,142 +1,373 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BookOpen, Check, ChevronRight, Trash2, X } from "lucide-react";
-import type { Agent, Connector, Routine, Skill } from "@wisp/core";
-import { soulPath } from "@wisp/core/src/soul.ts";
+import { Check, ChevronDown, ChevronRight, Plug, Trash2, Wand2 } from "lucide-react";
+import type { AccessRule, Agent, Connector, Routine, Skill } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go, href, type AgentTab } from "../router.ts";
-import { effortName, prettyModel } from "../components/EffortSlider.tsx";
 import { setChannelPrefs } from "../components/Channels.tsx";
-import { computerSummary, whoCanAsk, type DeviceInfo } from "../devices.ts";
-import { useComputerMode } from "../computerMode.ts";
+import { LEVEL_LABEL, pathLabel, subjectLabel } from "../components/AccessDialog.tsx";
+import { whoCanAsk, type DeviceInfo } from "../devices.ts";
 import { useFeatures } from "../features.ts";
-import { AgentAvatar, cx, harnessLabel, timeAgo } from "../components/ui.tsx";
+import { AgentAvatar, cx, timeAgo } from "../components/ui.tsx";
 
-/** What each section is called, on the left list and at the top of its page. */
+/** What each part of the agent's page is called: a group's name for the tabs that are its rows, the part's own for the ones it opens. */
 export const TAB_TITLES: Record<AgentTab, string> = {
   overview: "Overview",
-  model: "Model",
-  device: "Computer",
-  computer: "Computer",
+  model: "Thinks with",
+  device: "Works on",
+  computer: "Works on",
   access: "Who can ask it",
-  routines: "Routines",
-  background: "Background",
-  memory: "Memory",
-  skills: "Skills",
-  apps: "Connected apps",
-  permissions: "Permissions",
-  connect: "Connect via MCP",
+  routines: "Schedules",
+  background: "Background checks",
+  memory: "Knows",
+  skills: "Can use",
+  apps: "Can use",
+  permissions: "Asks first",
+  connect: "Connect",
   runs: "Activity",
-  look: "Look",
+  look: "Look and voice",
   soul: "Personality",
   instructions: "Instructions",
-  remove: "Remove agent",
+  remove: "Remove",
 };
 
-/** A grouped rounded card of rows (the same 24px card the rest of Wisp uses). */
-export function RowCard({ children }: { children: ReactNode }) {
-  return <div className="rounded-3xl bg-card border border-line/60 overflow-hidden divide-y divide-line/60">{children}</div>;
+// --- Rows -----------------------------------------------------------------------
+
+/** A card of one-line rows, the same one the agent panel beside a chat uses. */
+export const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+/** The same card for rows whose pickers drop below them: it clips nothing, so its first and last rows round their own corners. */
+export const CARD_OPEN = "rounded-[14px] bg-card divide-y divide-line [&>:first-child]:rounded-t-[14px] [&>:last-child]:rounded-b-[14px]";
+const LINE = "flex min-h-[46px] w-full items-center gap-3 px-3.5 py-1.5 text-left text-[14px]";
+/** A small picker on the right of a row. */
+export const SELECT = "h-8 min-w-0 max-w-[60vw] sm:max-w-64 rounded-lg border border-line bg-panel px-2 text-[13px] text-ink disabled:opacity-50";
+
+/**
+ * One setting on one line: its name on the left, its value or control on the right. With `to` or
+ * `onClick` the whole row opens something (a chevron shows it); a state that needs fixing is in the
+ * warning colour.
+ */
+export function Line({ label, value, warn, danger, to, onClick, icon, grow, children }: { label: ReactNode; value?: ReactNode; warn?: boolean; danger?: boolean; to?: string; onClick?: () => void; icon?: ReactNode; /** the name takes the room and the control keeps its size (a long name beside a switch or a button) */ grow?: boolean; children?: ReactNode }) {
+  const opens = !!to || !!onClick;
+  const right = children ?? (value != null && value !== "" ? <span className="truncate">{value}</span> : null);
+  const roomy = grow || right == null;
+  const inner = (
+    <>
+      {icon && <span className="flex shrink-0 text-muted">{icon}</span>}
+      <span className={cx("min-w-0 truncate font-medium", roomy ? "flex-1" : "max-w-[62%] shrink-0", warn && "text-st-needs", danger && "text-bad")}>{label}</span>
+      {right != null && <span className={cx("flex items-center justify-end gap-2 text-[13px] text-muted", roomy ? "shrink-0" : "min-w-0 flex-1")}>{right}</span>}
+      {opens && <ChevronRight size={15} className="shrink-0 text-faint" aria-hidden />}
+    </>
+  );
+  if (to) return <a href={to} className={cx(LINE, "hover:bg-hover")}>{inner}</a>;
+  if (onClick) return <button type="button" onClick={onClick} className={cx(LINE, "hover:bg-hover")}>{inner}</button>;
+  return <div className={LINE}>{inner}</div>;
 }
 
-export function NavRow({ to, label, value, danger }: { to: string; label: string; value?: ReactNode; danger?: boolean }) {
+/** The rest of a group, behind one "Show all" row at its bottom. Lives inside a card, so what it shows are rows too. */
+export function ShowAll({ children, open: start = false }: { children: ReactNode; open?: boolean }) {
+  const [open, setOpen] = useState(start);
+  useEffect(() => {
+    if (start) setOpen(true);
+  }, [start]);
   return (
-    <a href={to} className={cx("flex items-center gap-3.5 min-h-12 px-[18px] text-body hover:bg-hover", danger && "text-bad")}>
-      <span className="flex-1 min-w-0 truncate">{label}</span>
-      {value != null && value !== "" && <span className="text-muted text-body truncate max-w-[55%]">{value}</span>}
-      <ChevronRight size={18} className="text-faint shrink-0" aria-hidden />
-    </a>
+    <>
+      {open && children}
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={cx(LINE, "text-muted hover:bg-hover hover:text-ink")}>
+        <span className="flex-1">{open ? "Show less" : "Show all"}</span>
+        <ChevronDown size={15} className={cx("shrink-0 text-faint", open && "rotate-180")} aria-hidden />
+      </button>
+    </>
+  );
+}
+
+/** A small heading over rows inside a card ("Apps", "Move to"). */
+export function LineHead({ children }: { children: ReactNode }) {
+  return <div className="px-3.5 pt-2.5 pb-1 text-[12px] font-medium text-faint">{children}</div>;
+}
+
+/** One of the six groups: its name, then its card. On desktops only the picked group shows, so its name is the page's heading. */
+export function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section aria-label={title} className="space-y-2">
+      <h2 className="px-1 text-[13px] font-semibold text-muted md:pb-1 md:text-[19px] md:leading-[26px] md:text-ink">{title}</h2>
+      {children}
+    </section>
   );
 }
 
 export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)} className={cx("relative h-[30px] w-[52px] shrink-0 rounded-full transition-colors disabled:opacity-50", on ? "m-switch-on" : "bg-chip")}>
-      <span className={cx("m-knob absolute top-[3px] left-[3px] size-6 rounded-full bg-white shadow", on && "translate-x-[22px]")} />
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)} className={cx("relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors disabled:opacity-50", on ? "m-switch-on" : "bg-chip")}>
+      <span className={cx("m-knob absolute top-[3px] left-[3px] size-5 rounded-full bg-white shadow", on && "translate-x-[18px]")} />
     </button>
   );
 }
 
-/** Pick-one rows with a check on the chosen one. */
-export function ChoiceRows<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; title: string; body?: string }[] }) {
+/** Text edited where it stands: it saves when you leave the field or press Enter; Escape puts it back. A save that fails puts it back too. */
+export function InPlace({ value, onSave, label, placeholder, maxLength, className }: { value: string; onSave: (v: string) => Promise<unknown>; label: string; placeholder?: string; maxLength?: number; className?: string }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const save = async () => {
+    const v = draft.trim();
+    if (v === value) return setDraft(value);
+    try {
+      await onSave(v);
+    } catch {
+      setDraft(value);
+    }
+  };
   return (
-    <RowCard>
-      {options.map((o) => (
-        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)} className="w-full flex items-center gap-3.5 min-h-12 px-[18px] py-2 text-left hover:bg-hover">
-          <span className="flex-1 min-w-0">
-            <span className="block text-body">{o.title}</span>
-            {o.body && <span className="block text-sm text-muted">{o.body}</span>}
-          </span>
-          {value === o.value && <Check size={20} className="text-accent-text shrink-0" aria-hidden />}
-        </button>
-      ))}
-    </RowCard>
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => void save()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") setDraft(value);
+      }}
+      aria-label={label}
+      placeholder={placeholder}
+      maxLength={maxLength}
+      className={cx("min-w-0 rounded-md bg-transparent px-1.5 outline-none placeholder:text-faint hover:bg-hover focus:bg-hover", className)}
+    />
   );
 }
 
-export function PageHead({ title }: { title: string }) {
+/** Its @handle, edited in place. Only a free handle with a letter a to z is saved. */
+export function HandleLine({ agent }: { agent: Agent }) {
+  const agents = useStore((s) => s.agents);
+  const refreshAgents = useStore((s) => s.refreshAgents);
+  const [handle, setHandle] = useState(agent.handle);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setHandle(agent.handle), [agent.handle]);
+  const clean = handle.trim().toLowerCase();
+  const badHandle = !/^[a-z][a-z0-9-]{0,31}$/.test(clean);
+  const taken = clean !== agent.handle && agents.some((a) => a.handle === clean);
+  const save = async () => {
+    if (clean === agent.handle) return setHandle(agent.handle);
+    if (badHandle || taken) return;
+    setError(null);
+    try {
+      await api("PATCH", `/api/agents/${agent.id}`, { handle: clean });
+      await refreshAgents();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  const problem = taken ? `@${clean} is taken` : badHandle ? "Start with a letter a to z" : error;
   return (
-    <div className="mb-4 hidden md:block">
-      <h2 className="t-title">{title}</h2>
-    </div>
+    <Line label="Handle">
+      {problem && <span className="truncate text-bad">{problem}</span>}
+      <span className="flex h-8 shrink-0 items-center rounded-lg border border-line bg-panel pl-2 text-ink focus-within:border-ink/40">
+        <span className="text-muted" aria-hidden>
+          @
+        </span>
+        <input
+          value={handle}
+          onChange={(e) => setHandle(e.target.value.replace(/^@/, ""))}
+          onBlur={() => void save()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") setHandle(agent.handle);
+          }}
+          aria-label="Handle"
+          aria-invalid={badHandle || taken}
+          className="h-full w-32 bg-transparent pr-2 pl-0.5 text-[13px] outline-none"
+        />
+      </span>
+    </Line>
   );
 }
 
-// --- Overview -------------------------------------------------------------------
+// --- Can use ----------------------------------------------------------------------
 
-/** The rows on the profile (phone) and the Overview page (desktop). */
-export function OverviewRows({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
-  const computers = useStore((s) => s.computers);
-  const channels = useStore((s) => s.channels);
-  const [routines, setRoutines] = useState<Routine[] | null>(null);
+interface Usable {
+  id: string;
+  name: string;
+  agentIds: string[];
+  allAgents?: boolean;
+  kind: "skills" | "connectors";
+}
+
+/** How many apps and how many skills show before "Show all". */
+const CAN_USE_FIRST = 3;
+
+/** Apps and skills in one list, a switch each: the ones it has first, the rest and Add behind "Show all". */
+export function CanUse({ agent, all }: { agent: Agent; all?: boolean }) {
   const [skills, setSkills] = useState<Skill[] | null>(null);
+  const [apps, setApps] = useState<Connector[] | null>(null);
   const skillsVersion = useStore((s) => s.skillsVersion);
+  const [local, setLocal] = useState<Record<string, boolean>>({});
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api<Routine[]>("GET", `/api/routines?agent=${agent.id}`).then(setRoutines, () => setRoutines([]));
     api<Skill[]>("GET", "/api/skills").then(setSkills, () => setSkills([]));
+    api<Connector[]>("GET", "/api/connectors").then(setApps, () => setApps([]));
   }, [agent.id, skillsVersion]);
-  const to = (tab: AgentTab) => href({ view: "agents", agentId: agent.id, tab });
-  const { advanced } = useComputerMode();
-  const features = useFeatures();
-  const computer = computers.find((c) => c.id === agent.computerId);
-  const device = nodes.find((n) => n.id === agent.nodeId);
-  const model = [agent.model ? prettyModel(agent.model) : "Automatic", agent.settings.effort ? effortName(agent.settings.effort) : null].filter(Boolean).join(" · ");
-  const computerValue = computer ? computerSummary(computer, nodes, advanced) : agent.settings.headless ? "Headless" : device ? device.name : "None yet";
-  const on = routines?.filter((r) => r.enabled).length ?? 0;
-  const mine = skills?.filter((s) => s.allAgents || s.agentIds.includes(agent.id)).length ?? 0;
-  const dm = channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agent.id}`));
-  const respond = whoCanAsk(agent, device);
+  // what it already has comes first, as the hub last said (a flip here doesn't reorder the list under the pointer)
+  const has = (i: { agentIds: string[]; allAgents?: boolean }) => !!i.allAgents || i.agentIds.includes(agent.id);
+  const sorted = <T extends { agentIds: string[]; allAgents?: boolean }>(items: T[], kind: Usable["kind"]) => [...items].sort((a, b) => Number(has(b)) - Number(has(a))).map((i) => ({ ...i, kind }) as T & Usable);
+  const appRows = useMemo(() => sorted(apps ?? [], "connectors"), [apps, agent.id]);
+  const skillRows = useMemo(() => sorted(skills ?? [], "skills"), [skills, agent.id]);
+  if (!skills || !apps) return <p className="px-1 text-[13px] text-muted">Loading…</p>;
+  // an empty list means no agent has it yet, not every agent
+  const isOn = (i: Usable) => local[`${i.kind}:${i.id}`] ?? i.agentIds.includes(agent.id);
+  const flip = async (i: Usable, on: boolean) => {
+    const key = `${i.kind}:${i.id}`;
+    setError(null);
+    setLocal((l) => ({ ...l, [key]: on }));
+    try {
+      await api(on ? "PUT" : "DELETE", `/api/${i.kind}/${i.id}/agents/${agent.id}`);
+    } catch (e) {
+      setLocal((l) => ({ ...l, [key]: !on }));
+      setError((e as Error).message);
+    }
+  };
+  const row = (i: Usable) => (
+    <Line key={`${i.kind}:${i.id}`} grow label={i.name} icon={i.kind === "skills" ? <Wand2 size={16} /> : <Plug size={16} />}>
+      {/* on for all agents: set where the item is, not per agent */}
+      {i.allAgents ? (
+        <>
+          <span className="shrink-0 text-faint">All agents</span>
+          <Toggle label={`${i.name} for ${agent.name} (on for all agents)`} on disabled onChange={() => {}} />
+        </>
+      ) : (
+        <Toggle label={`${i.name} for ${agent.name}`} on={isOn(i)} onChange={(v) => void flip(i, v)} />
+      )}
+    </Line>
+  );
+  const rest = [...appRows.slice(CAN_USE_FIRST), ...skillRows.slice(CAN_USE_FIRST)];
   return (
-    <div className="space-y-3.5">
-      <RowCard>
-        <NavRow to={to("model")} label="Model" value={model} />
-        <NavRow to={to("computer")} label="Computer" value={computerValue} />
-        {features.routines && <NavRow to={to("routines")} label="Routines" value={routines ? (on ? `${on} on` : "None") : ""} />}
-        <NavRow to={to("memory")} label="Memory" value={`agents/${agent.handle}`} />
-        <NavRow to={to("skills")} label="Skills" value={skills ? String(mine) : ""} />
-      </RowCard>
-      <div className="md:hidden">
-      <RowCard>
-        <NavRow to={to("access")} label="Who can ask it" value={respond === "me" ? "Only me" : respond === "people" ? "Picked people" : "Anyone"} />
-        {features.background && <NavRow to={to("background")} label="Background" />}
-        <NavRow to={to("apps")} label="Connected apps" />
-        <NavRow to={to("permissions")} label="Permissions" />
-        <NavRow to={to("connect")} label="Connect via MCP" />
-        <NavRow to={to("runs")} label="Activity" />
-        <NavRow to={to("look")} label="Look" />
-        <NavRow to={to("remove")} label="Remove agent" danger />
-      </RowCard>
+    <>
+      <div className={CARD}>
+        {appRows.slice(0, CAN_USE_FIRST).map(row)}
+        {skillRows.slice(0, CAN_USE_FIRST).map(row)}
+        {appRows.length + skillRows.length === 0 && <Line label="Nothing added yet" />}
+        <ShowAll open={all}>
+          {rest.map(row)}
+          <Line label="Add" to={href({ view: "marketplace" })} />
+        </ShowAll>
       </div>
-      <RowCard>
-        <div className="flex items-center justify-between min-h-14 px-[18px]">
-          <span className="text-body">Notifications</span>
-          <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
-        </div>
-      </RowCard>
+      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
+    </>
+  );
+}
+
+// --- Knows --------------------------------------------------------------------------
+
+interface NoteRow {
+  path: string;
+  title?: string;
+  updatedAt?: number;
+}
+
+/** Its notes, its personality and its instructions; the newest notes and who can read them behind "Show all". */
+export function Knows({ agent }: { agent: Agent }) {
+  const to = (tab: AgentTab) => href({ view: "agents", agentId: agent.id, tab });
+  return (
+    <div className={CARD}>
+      <Line label="Notes" to={`#/vault/agents/${agent.id}`} />
+      <Line label="Personality" to={to("soul")} />
+      <Line label="Instructions" value={agent.settings.role} to={to("instructions")} />
+      <ShowAll>
+        <RecentNotes agent={agent} />
+        <NotesAccess agent={agent} />
+      </ShowAll>
     </div>
+  );
+}
+
+function RecentNotes({ agent }: { agent: Agent }) {
+  const [notes, setNotes] = useState<NoteRow[] | null>(null);
+  useEffect(() => {
+    api<NoteRow[]>("GET", "/api/vault/notes").then((all) => setNotes(all.filter((n) => n.path.startsWith(`agents/${agent.id}/`)).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))), () => setNotes([]));
+  }, [agent.id]);
+  const recent = useMemo(() => (notes ?? []).filter((n) => !/\/(SOUL|About)\.md$/.test(n.path)).slice(0, 5), [notes]);
+  const title = (n: NoteRow) => n.title || n.path.split("/").pop()!.replace(/\.md$/, "");
+  if (!recent.length) return null;
+  return (
+    <>
+      <LineHead>Recent notes</LineHead>
+      {recent.map((n) => (
+        <Line key={n.path} to={`#/vault/${n.path}`} label={title(n)} value={n.updatedAt ? timeAgo(new Date(n.updatedAt).toISOString()) : ""} />
+      ))}
+    </>
+  );
+}
+
+/** Which memory folders and notes it can use and through what, and who its own folder is shared with. */
+function NotesAccess({ agent }: { agent: Agent }) {
+  const agents = useStore((s) => s.agents);
+  const members = useStore((s) => s.members);
+  const [memory, setMemory] = useState<{ rules: AccessRule[]; sharedOut: AccessRule[] } | null>(null);
+  useEffect(() => {
+    api<{ rules: AccessRule[]; sharedOut: AccessRule[] }>("GET", `/api/access/agents/${agent.id}`).then(setMemory, () => setMemory({ rules: [], sharedOut: [] }));
+  }, [agent.id]);
+  const where = (r: AccessRule) => pathLabel(r.path, agents, members) || "All memory";
+  const through = (r: AccessRule) => (r.subject.kind === "agent" ? "" : ` · via ${subjectLabel(r.subject, agents, members)}`);
+  return (
+    <>
+      <LineHead>What it can read</LineHead>
+      {memory === null ? (
+        <Line label="Loading…" />
+      ) : (
+        [...memory.rules]
+          .sort((a, b) => a.path.toLowerCase().localeCompare(b.path.toLowerCase()))
+          .map((r) => (
+            <Line
+              key={`${r.path}|${r.subject.kind}|${r.id ?? "default"}`}
+              label={where(r)}
+              value={`${LEVEL_LABEL[r.level]}${through(r)}${r.builtin ? " · default" : r.createdBy?.kind === "agent" ? ` · shared by ${subjectLabel({ kind: "agent", id: r.createdBy.id }, agents, members)}` : ""}${r.startup ? " · always loaded" : ""}`}
+            />
+          ))
+      )}
+      <Line
+        label="Its folder is shared with"
+        value={memory === null ? "" : memory.sharedOut.length ? memory.sharedOut.map((r) => `${subjectLabel(r.subject, agents, members)} (${LEVEL_LABEL[r.level].toLowerCase()}${r.path !== `agents/${agent.id}` ? ` ${where(r)}` : ""})`).join(", ") : "No one else"}
+      />
+    </>
+  );
+}
+
+// --- More ---------------------------------------------------------------------------
+
+/** The rest of the agent: its look and voice, who it answers, what it does by itself, its activity; connecting another app and removing it last. */
+export function More({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
+  const channels = useStore((s) => s.channels);
+  const routinesVersion = useStore((s) => s.routinesVersion);
+  const features = useFeatures();
+  const [routines, setRoutines] = useState<Routine[] | null>(null);
+  useEffect(() => {
+    if (features.routines) api<Routine[]>("GET", `/api/routines?agent=${agent.id}`).then(setRoutines, () => setRoutines([]));
+  }, [agent.id, features.routines, routinesVersion]);
+  const to = (tab: AgentTab) => href({ view: "agents", agentId: agent.id, tab });
+  const on = routines?.filter((r) => r.enabled).length ?? 0;
+  const dm = channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agent.id}`));
+  const respond = whoCanAsk(agent, nodes.find((n) => n.id === agent.nodeId));
+  return (
+    <>
+      <div className={CARD}>
+        <Line label="Look and voice" to={to("look")} />
+        <Line label="Who can ask it" value={respond === "me" ? "Only me" : respond === "people" ? "Picked people" : "Anyone"} to={to("access")} />
+        {features.routines && <Line label="Schedules" value={routines ? (on ? `${on} on` : "None") : ""} to={to("routines")} />}
+        {features.background && <Line label="Background checks" to={to("background")} />}
+        <Line label="Notifications">
+          <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
+        </Line>
+        <Line label="Activity" to={to("runs")} />
+        <ShowAll>
+          <Line label="Connect" to={to("connect")} />
+        </ShowAll>
+      </div>
+      <a href={to("remove")} className="inline-flex h-9 items-center px-1 text-[13px] font-medium text-bad hover:underline">
+        Remove {agent.name}
+      </a>
+    </>
   );
 }
 
 // --- Who can ask it ---------------------------------------------------------------
+
+const ASK_ROW = "flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover disabled:opacity-50 disabled:hover:bg-transparent";
 
 export function AccessPanel({ agent, device }: { agent: Agent; device: DeviceInfo | undefined }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
@@ -157,163 +388,40 @@ export function AccessPanel({ agent, device }: { agent: Agent; device: DeviceInf
     }
   };
   const others = members.filter((m) => m.id !== me?.user.id);
+  const options: ["me" | "anyone" | "people", string][] = [
+    ["me", locked ? `Only ${device?.ownerName ?? "its owner"}` : "Only me"],
+    ["anyone", "Anyone"],
+    ["people", "Picked people"],
+  ];
   return (
-    <div className="space-y-5 max-w-xl">
-      {locked ? (
-        <p className="px-[18px] text-sm text-muted">Only {device?.ownerName ?? "its owner"} can ask it, because it runs on their device "{device?.name}". They can open it up here.</p>
-      ) : (
-      <ChoiceRows
-        value={respond}
-        onChange={(v) => void save({ respondTo: v })}
-        options={[
-          { value: "me", title: "Only me", body: "Just you can message it" },
-          { value: "anyone", title: "Anyone", body: "Everyone in the workspace" },
-          { value: "people", title: "Picked people", body: "Choose who can ask" },
-        ]}
-      />
-      )}
-      {respond === "people" && (
-        <section className="space-y-2">
-          <h3 className="px-[18px] text-sm text-muted">Picked people</h3>
-          {others.length ? (
-            <RowCard>
-              {others.map((p) => {
-                const on = picked.includes(p.id);
-                return (
-                  <button key={p.id} type="button" role="checkbox" aria-checked={on} onClick={() => void save({ respondPeople: on ? picked.filter((x) => x !== p.id) : [...picked, p.id] })} className="w-full flex items-center gap-3.5 min-h-12 px-[18px] text-left hover:bg-hover">
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-body">{p.name}</span>
-                      <span className="block text-sm text-muted capitalize">{p.role}</span>
-                    </span>
-                    {on && <Check size={20} className="text-accent-text" aria-hidden />}
-                  </button>
-                );
-              })}
-            </RowCard>
-          ) : (
-            <p className="px-[18px] text-sm text-muted">Nobody else is here yet. Invite people first from Settings; until then it answers only you.</p>
-          )}
-        </section>
-      )}
-      {error && <p className="px-[18px] text-sm text-bad">{error}</p>}
-    </div>
-  );
-}
-
-// --- Memory -------------------------------------------------------------------------
-
-interface NoteRow {
-  path: string;
-  title?: string;
-  updatedAt?: number;
-}
-
-export function MemoryPanel({ agent }: { agent: Agent }) {
-  const [notes, setNotes] = useState<NoteRow[] | null>(null);
-  useEffect(() => {
-    api<NoteRow[]>("GET", "/api/vault/notes").then((all) => setNotes(all.filter((n) => n.path.startsWith(`agents/${agent.id}/`)).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))), () => setNotes([]));
-  }, [agent.id]);
-  const recent = useMemo(() => (notes ?? []).filter((n) => !/\/(SOUL|About)\.md$/.test(n.path)).slice(0, 5), [notes]);
-  const title = (n: NoteRow) => n.title || n.path.split("/").pop()!.replace(/\.md$/, "");
-  return (
-    <div className="space-y-5 max-w-xl">
-      <RowCard>
-        <NavRow to={`#/vault/agents/${agent.id}`} label={`${agent.name}'s notes`} value={`agents/${agent.handle}`} />
-      </RowCard>
-      {recent.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="px-[18px] text-sm text-muted">Recent notes</h3>
-          <RowCard>
-            {recent.map((n) => (
-              <NavRow key={n.path} to={`#/vault/${n.path}`} label={title(n)} value={n.updatedAt ? timeAgo(new Date(n.updatedAt).toISOString()) : ""} />
-            ))}
-          </RowCard>
-        </section>
-      )}
-      <section className="space-y-2">
-        <h3 className="px-[18px] text-sm text-muted">Always remind it</h3>
-        <RowCard>
-          <NavRow to={href({ view: "agents", agentId: agent.id, tab: "soul" })} label="Personality" value="Loads when it starts" />
-          <NavRow to={href({ view: "agents", agentId: agent.id, tab: "instructions" })} label="Instructions" value="Loads when it starts" />
-          <NavRow to={href({ view: "agents", agentId: agent.id, tab: "permissions" })} label="Who can edit its notes" value={agent.settings.soulLocked ? "Only people" : "People and it"} />
-        </RowCard>
-      </section>
-      <a href={`#/vault/${soulPath(agent.id).replace(/\/SOUL\.md$/, "")}`} className="h-14 rounded-full border border-control-line bg-control inline-flex items-center justify-center gap-2 w-full text-body font-medium hover:bg-hover">
-        <BookOpen size={18} /> Open in Memory
-      </a>
-    </div>
-  );
-}
-
-// --- Skills and apps ------------------------------------------------------------------
-
-function SwitchList<T extends { id: string; name: string; agentIds: string[]; allAgents?: boolean }>({ items, agent, kind, body, empty, browse, browseTo }: { items: T[] | null; agent: Agent; kind: "skills" | "connectors"; body: (i: T) => string; empty: string; browse: string; browseTo: string }) {
-  const [local, setLocal] = useState<Record<string, boolean>>({});
-  const [error, setError] = useState<string | null>(null);
-  if (!items) return <p className="text-sm text-muted">Loading…</p>;
-  // an empty list means no agent has it yet, not every agent
-  const isOn = (i: T) => local[i.id] ?? i.agentIds.includes(agent.id);
-  const flip = async (i: T, on: boolean) => {
-    setError(null);
-    setLocal((l) => ({ ...l, [i.id]: on }));
-    try {
-      await api(on ? "PUT" : "DELETE", `/api/${kind}/${i.id}/agents/${agent.id}`);
-    } catch (e) {
-      setLocal((l) => ({ ...l, [i.id]: !on }));
-      setError((e as Error).message);
-    }
-  };
-  return (
-    <div className="space-y-4 max-w-xl">
-      {items.length === 0 ? (
-        <p className="rounded-3xl border border-dashed border-line p-5 text-sm text-muted">{empty}</p>
-      ) : (
-        <RowCard>
-          {items.map((i) => (
-            <div key={i.id} className="flex items-center gap-3.5 min-h-12 px-[18px] py-2">
-              <span className="flex-1 min-w-0">
-                <span className="block text-body truncate">{i.name}</span>
-                <span className="block text-sm text-muted truncate">{body(i)}</span>
-              </span>
-              {/* on for all agents: set where the item is, not per agent */}
-              {i.allAgents ? (
-                <span className="flex shrink-0 items-center gap-2.5">
-                  <span className="text-[13px] text-faint">All agents</span>
-                  <Toggle label={`${i.name} for ${agent.name} (on for all agents)`} on disabled onChange={() => {}} />
-                </span>
-              ) : (
-                <Toggle label={`${i.name} for ${agent.name}`} on={isOn(i)} onChange={(v) => void flip(i, v)} />
-              )}
-            </div>
-          ))}
-        </RowCard>
-      )}
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <a href={browseTo} className="h-14 rounded-full border border-control-line bg-control inline-flex items-center justify-center w-full text-body font-medium hover:bg-hover">
-        {browse}
-      </a>
-    </div>
-  );
-}
-
-export function SkillsPanel({ agent }: { agent: Agent }) {
-  const [items, setItems] = useState<Skill[] | null>(null);
-  const skillsVersion = useStore((s) => s.skillsVersion);
-  useEffect(() => {
-    api<Skill[]>("GET", "/api/skills").then(setItems, () => setItems([]));
-  }, [agent.id, skillsVersion]);
-  return <SwitchList items={items} agent={agent} kind="skills" body={(s) => s.description || "Added"} empty="No skills yet. Browse skills to add some." browse="Browse skills" browseTo={href({ view: "skills" })} />;
-}
-
-export function AppsPanel({ agent }: { agent: Agent }) {
-  const [items, setItems] = useState<Connector[] | null>(null);
-  const skillsVersion = useStore((s) => s.skillsVersion);
-  useEffect(() => {
-    api<Connector[]>("GET", "/api/connectors").then(setItems, () => setItems([]));
-  }, [agent.id, skillsVersion]);
-  return (
-    <div className="space-y-4">
-      <SwitchList items={items} agent={agent} kind="connectors" body={(c) => c.name} empty="No apps connected yet." browse="Connect an app" browseTo={href({ view: "connectors" })} />
+    <div className="space-y-3">
+      <div role="radiogroup" aria-label="Who can ask it" className={CARD}>
+        {options.map(([v, title]) => (
+          <button key={v} type="button" role="radio" aria-checked={respond === v} disabled={locked} onClick={() => void save({ respondTo: v })} className={ASK_ROW}>
+            <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
+            {respond === v && <Check size={15} className="shrink-0" aria-hidden />}
+          </button>
+        ))}
+      </div>
+      {locked && <p className="px-1 text-[13px] text-muted">Runs on {device?.name}</p>}
+      {respond === "people" &&
+        (others.length ? (
+          <div className={CARD}>
+            {others.map((p) => {
+              const on = picked.includes(p.id);
+              return (
+                <button key={p.id} type="button" role="checkbox" aria-checked={on} onClick={() => void save({ respondPeople: on ? picked.filter((x) => x !== p.id) : [...picked, p.id] })} className={ASK_ROW}>
+                  <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+                  <span className="shrink-0 text-[13px] capitalize text-muted">{p.role}</span>
+                  <Check size={15} className={cx("shrink-0", !on && "invisible")} aria-hidden />
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="px-1 text-[13px] text-muted">Nobody else is here yet</p>
+        ))}
+      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
     </div>
   );
 }
@@ -337,102 +445,14 @@ export function RemovePanel({ agent }: { agent: Agent }) {
     }
   };
   return (
-    <div className="max-w-md mx-auto md:mx-0 flex flex-col items-center md:items-start gap-3 text-center md:text-left pt-4">
-      <AgentAvatar agent={agent} size={96} />
-      <h3 className="t-title">Remove {agent.name}?</h3>
-      <p className="text-body text-muted">Its memory notes and personality stay in the vault. Its routines and chats with you stop.</p>
+    <div className="flex max-w-md flex-col items-center gap-3 pt-2 text-center max-md:mx-auto md:items-start md:text-left">
+      <AgentAvatar agent={agent} size={64} />
+      <h3 className="text-[19px] font-semibold leading-[26px]">Remove {agent.name}?</h3>
+      <p className="text-[14px] leading-[22px] text-muted">Its notes and personality stay in memory. Its schedules and chats stop.</p>
       {error && <p className="text-sm text-bad">{error}</p>}
-      <div className="w-full flex flex-col gap-2.5 mt-2">
-        <button onClick={remove} disabled={busy} className="h-14 rounded-full bg-bad text-white text-body font-medium disabled:opacity-60 inline-flex items-center justify-center gap-2">
-          <Trash2 size={18} /> Remove {agent.name}
-        </button>
-        <a href={href({ view: "agents", agentId: agent.id, tab: "overview" })} className="h-14 rounded-full border border-control-line bg-control text-body font-medium inline-flex items-center justify-center hover:bg-hover">
-          Cancel
-        </a>
-      </div>
-    </div>
-  );
-}
-
-// --- Edit -----------------------------------------------------------------------------------
-
-/** Name, handle and the three things that make it who it is. Personality, instructions and voice open their own pages. */
-export function EditAgent({ agent, onClose }: { agent: Agent; onClose: () => void }) {
-  const refreshAgents = useStore((s) => s.refreshAgents);
-  const agents = useStore((s) => s.agents);
-  const [name, setName] = useState(agent.name);
-  const [handle, setHandle] = useState(agent.handle);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const clean = handle.trim().toLowerCase();
-  const badHandle = !/^[a-z][a-z0-9-]{0,31}$/.test(clean);
-  const taken = clean !== agent.handle && agents.some((a) => a.handle === clean);
-  const dirty = name.trim() !== agent.name || clean !== agent.handle;
-  const open = (tab: AgentTab) => () => {
-    onClose();
-    go({ view: "agents", agentId: agent.id, tab });
-  };
-  const save = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api("PATCH", `/api/agents/${agent.id}`, { name: name.trim(), ...(clean !== agent.handle ? { handle: clean } : {}) });
-      await refreshAgents();
-      onClose();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const row = (label: string, value: string, onClick: () => void) => (
-    <button type="button" onClick={onClick} className="w-full flex items-center gap-3.5 min-h-12 px-[18px] text-left hover:bg-hover">
-      <span className="flex-1 min-w-0">
-        <span className="block text-body">{label}</span>
-        <span className="block text-sm text-muted truncate">{value}</span>
-      </span>
-      <ChevronRight size={18} className="text-faint" aria-hidden />
-    </button>
-  );
-  return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 md:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={`Edit ${agent.name}`} className="w-full md:max-w-[520px] max-h-[94vh] overflow-y-auto bg-panel rounded-t-[16px] md:rounded-xl shadow-panel p-5 pb-8 safe-bottom">
-        <div className="flex items-center gap-3 mb-4">
-          <button className="circle" onClick={onClose} aria-label="Close">
-            <X size={20} />
-          </button>
-          <h2 className="flex-1 text-center t-title mr-[42px]">Edit {agent.name}</h2>
-        </div>
-        <div className="flex flex-col items-center gap-3 mb-5">
-          <AgentAvatar agent={agent} size={88} />
-          <button type="button" onClick={open("look")} className="chip-btn h-10 px-4 rounded-full border border-control-line bg-control text-body font-medium hover:bg-hover">
-            Edit look
-          </button>
-        </div>
-        <div className="space-y-3.5">
-          <label className="block rounded-3xl bg-card border border-line/60 px-[18px] py-3">
-            <span className="block text-[13px] text-muted">Display name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Display name" className="w-full bg-transparent outline-none text-body" />
-          </label>
-          <div>
-            <label className="block rounded-3xl bg-card border border-line/60 px-[18px] py-3">
-              <span className="block text-[13px] text-muted">Handle</span>
-              <input value={handle} onChange={(e) => setHandle(e.target.value.replace(/^@/, ""))} aria-label="Handle" className="w-full bg-transparent outline-none text-body" />
-            </label>
-            <p className={cx("px-[18px] pt-1.5 text-sm", badHandle || taken ? "text-bad" : "text-muted")}>{taken ? `@${clean} is already taken.` : badHandle ? "Include a letter a to z." : "Letters a to z. Teammates type this to mention it."}</p>
-          </div>
-          <RowCard>
-            {row("Personality", "How it talks and what it values", open("soul"))}
-            {row("Instructions", agent.settings.role ? agent.settings.role : "Its job and how it should reply", open("instructions"))}
-            {row("Voice", "Pick how it sounds", open("look"))}
-          </RowCard>
-          {error && <p className="px-[18px] text-sm text-bad">{error}</p>}
-          <button onClick={save} disabled={busy || !dirty || !name.trim() || badHandle || taken} className="h-14 w-full rounded-full bg-accent text-accent-ink text-body font-medium disabled:opacity-50">
-            {busy ? "Saving…" : "Save"}
-          </button>
-          <p className="text-center text-xs text-faint">{harnessLabel(agent.harness)}</p>
-        </div>
-      </div>
+      <button onClick={remove} disabled={busy} className="mt-1 inline-flex h-10 items-center justify-center gap-2 rounded-full bg-bad px-5 text-sm font-medium text-white disabled:opacity-60">
+        <Trash2 size={16} /> Remove {agent.name}
+      </button>
     </div>
   );
 }

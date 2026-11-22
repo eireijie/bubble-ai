@@ -52,11 +52,48 @@ describe("old settings routes", () => {
   });
 });
 
-describe("agent settings navigation", () => {
-  it("lists the sections, and every other tab opens from Edit, Computer or Remove", async () => {
-    const { agentSections } = await import("../src/views/AgentSettings.tsx");
+describe("agent page", () => {
+  it("has the agent panel's six groups, in its order", async () => {
+    const { AGENT_GROUPS, GROUP_TITLES } = await import("../src/views/AgentSettings.tsx");
+    expect(AGENT_GROUPS.map((g) => GROUP_TITLES[g])).toEqual(["Thinks with", "Works on", "Can use", "Asks first", "Knows", "More"]);
+  });
+
+  it("lands every old tab's address in its group, and the overview on the page's top", async () => {
+    const { agentPlace } = await import("../src/views/AgentSettings.tsx");
     const { AGENT_TABS } = await import("../src/router.ts");
-    expect(agentSections()).toEqual(["overview", "model", "computer", "access", "routines", "background", "memory", "skills", "apps", "permissions", "connect", "runs", "look"]);
-    expect(AGENT_TABS.filter((t) => !agentSections().includes(t))).toEqual(["soul", "instructions", "device", "remove"]);
+    const groups = Object.fromEntries(AGENT_TABS.map((t) => [t, agentPlace(t).group]));
+    expect(groups).toEqual({
+      overview: null,
+      model: "thinks",
+      device: "works",
+      computer: "works",
+      skills: "can",
+      apps: "can",
+      permissions: "asks",
+      memory: "knows",
+      soul: "knows",
+      instructions: "knows",
+      look: "more",
+      access: "more",
+      background: "more",
+      routines: "more",
+      connect: "more",
+      runs: "more",
+      remove: "more",
+    });
+    expect(agentPlace(null)).toEqual({ group: null, part: null });
+  });
+
+  it("opens a part for the tabs that need room, and the group's own rows for the rest", async () => {
+    const { agentPlace } = await import("../src/views/AgentSettings.tsx");
+    const { AGENT_TABS } = await import("../src/router.ts");
+    expect(AGENT_TABS.filter((t) => agentPlace(t).part)).toEqual(["look", "soul", "instructions", "access", "background", "routines", "connect", "runs", "remove"]);
+    for (const t of AGENT_TABS) expect(agentPlace(t).part ?? t).toBe(t);
+  });
+
+  it("names every tab, for a part's title", async () => {
+    const { TAB_TITLES } = await import("../src/views/AgentSections.tsx");
+    const { AGENT_TABS } = await import("../src/router.ts");
+    for (const t of AGENT_TABS) expect(TAB_TITLES[t]).toBeTruthy();
   });
 });

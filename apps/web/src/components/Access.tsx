@@ -100,10 +100,9 @@ export function AwayFromHome({ onDone }: { onDone?: () => void }) {
         setCredential("");
         ready = awayEnabled(next);
       } else ready = await enableTailscale();
-      if (ready) {
-        setHint("Away from home is on.");
-        onDone?.();
-      } else setHint(choice === "cloudflare" ? "Cloudflare is connecting…" : "Finish setting up Tailscale, then choose Turn it on again.");
+      // once it is on, the line below says so
+      if (ready) onDone?.();
+      else setHint(choice === "cloudflare" ? "Cloudflare is connecting…" : "Finish setting up Tailscale, then choose Turn it on again.");
     } catch (e) {
       setError(unavailable(e, "Away from home"));
     } finally {
@@ -115,10 +114,10 @@ export function AwayFromHome({ onDone }: { onDone?: () => void }) {
       id: "tailscale" as const,
       icon: <ShieldCheck size={21} />,
       title: "Yes, with Tailscale",
-      body: signedIn ? `Already on this ${platform}. Nothing to set up.` : "Free. Wisp helps you install it.",
+      body: signedIn ? `Already on this ${platform}` : "Free",
     },
-    { id: "cloudflare" as const, icon: <Globe size={21} />, title: "Yes, with Cloudflare", body: "Needs a domain you own." },
-    { id: "home" as const, icon: <Home size={21} />, title: "Only at home for now", body: "Change it any time in Settings." },
+    { id: "cloudflare" as const, icon: <Globe size={21} />, title: "Yes, with Cloudflare", body: "Needs a domain you own" },
+    { id: "home" as const, icon: <Home size={21} />, title: "Only at home for now", body: "" },
   ];
   return (
     <div className="space-y-4">
@@ -141,7 +140,7 @@ export function AwayFromHome({ onDone }: { onDone?: () => void }) {
             <span className="flex-1">
               <span className="font-medium text-sm">{c.title}</span>
               {c.id === "tailscale" && <span className="ml-2 rounded-full bg-chip px-2 py-0.5 text-xs">Best</span>}
-              <span className="block mt-1 text-sm text-muted">{c.body}</span>
+              {c.body && <span className="block mt-1 text-sm text-muted">{c.body}</span>}
             </span>
             {choice === c.id && <Check size={17} />}
           </button>
@@ -162,7 +161,7 @@ export function AwayFromHome({ onDone }: { onDone?: () => void }) {
       )}
       {!info && failed && (
         <p role="status" className="text-sm text-muted">
-          Away from home isn't available yet; you can keep going.
+          Not available yet
         </p>
       )}
       {choice === "tailscale" && info?.tailscale.state === "missing" && (
@@ -175,11 +174,11 @@ export function AwayFromHome({ onDone }: { onDone?: () => void }) {
           Open the Tailscale sign-in page
         </a>
       )}
-      {!allowed && <p className="text-sm text-muted">Your Wisp's owner can turn this on.</p>}
+      {!allowed && <p className="text-sm text-muted">Only the owner can turn this on</p>}
       {info && awayEnabled(info) && (
         <p className="text-sm flex items-center gap-2">
           <Check size={15} />
-          Away from home is on.
+          Away from home is on
         </p>
       )}
       {hint && (
