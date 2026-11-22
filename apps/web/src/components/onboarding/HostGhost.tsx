@@ -16,7 +16,7 @@ export const HOST_LOOK: GhostAppearance = { ...WHITE_WISP, color: "#f4f1ff", col
  * every move into an instant swap.
  */
 
-export type HostReaction = "hop" | "nod" | "catch" | "celebrate";
+export type HostReaction = "hop" | "nod" | "catch" | "celebrate" | "doze";
 
 /** the spring every onboarding move uses */
 export const OB_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
@@ -25,6 +25,35 @@ const listeners = new Set<(kind: HostReaction) => void>();
 /** The host reacts once: a hop when something lands, a nod on a pick, a catch per thing learned, one celebration at the end. */
 export function hostReact(kind: HostReaction) {
   listeners.forEach((on) => on(kind));
+}
+
+/** Hear every reaction (tests, and anything that moves with the host). */
+export function onHostReact(fn: (kind: HostReaction) => void): () => void {
+  listeners.add(fn);
+  return () => void listeners.delete(fn);
+}
+
+/** The look-up before a reaction to an answer: long enough to read as thinking, short enough not to wait on. */
+export const THINK_MS = 320;
+const thinkers = new Set<(on: boolean) => void>();
+let pending: ReturnType<typeof setTimeout> | undefined;
+/**
+ * The host reacts to an answer: it looks up for a moment with a flat mouth, then reacts. A second
+ * answer inside the pause replaces the waiting reaction, so fast taps play only the last one and
+ * nothing flickers. Reduce Motion skips the pause.
+ */
+export function hostAnswer(kind: HostReaction) {
+  clearTimeout(pending);
+  if (motionReduced()) {
+    thinkers.forEach((on) => on(false));
+    return hostReact(kind);
+  }
+  thinkers.forEach((on) => on(true));
+  pending = setTimeout(() => {
+    pending = undefined;
+    thinkers.forEach((on) => on(false));
+    hostReact(kind);
+  }, THINK_MS);
 }
 
 /** Where the host last stood, so the next page's host can travel in from there. */
@@ -55,6 +84,8 @@ const MOVES: Record<HostReaction, { frames: Keyframe[]; ms: number }> = {
   hop: { frames: [{ transform: "none" }, { transform: "translateY(-14%) scale(0.95, 1.06)", offset: 0.35 }, { transform: "translateY(0) scale(1.07, 0.93)", offset: 0.7 }, { transform: "none" }], ms: 520 },
   nod: { frames: [{ transform: "none" }, { transform: "rotate(-7deg)", offset: 0.35 }, { transform: "rotate(4deg)", offset: 0.7 }, { transform: "none" }], ms: 460 },
   catch: { frames: [{ transform: "none" }, { transform: "translateY(-5%) scale(1.04, 0.97)", offset: 0.4 }, { transform: "none" }], ms: 320 },
+  // "it sleeps": head tipped, eyes shut a moment
+  doze: { frames: [{ transform: "none" }, { transform: "rotate(-9deg) translateY(3%)", offset: 0.3 }, { transform: "rotate(-9deg) translateY(3%)", offset: 0.78 }, { transform: "none" }], ms: 1250 },
   celebrate: {
     frames: [
       { transform: "none" },
@@ -96,6 +127,8 @@ export function HostGhost({
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [cheer, setCheer] = useState(false);
+  const [think, setThink] = useState(false);
+  const [doze, setDoze] = useState(false);
   useLayoutEffect(() => {
     const el = outer.current;
     if (!el) return;
@@ -113,7 +146,13 @@ export function HostGhost({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let dozing: ReturnType<typeof setTimeout> | undefined;
     const on = (kind: HostReaction) => {
+      if (kind === "doze") {
+        setDoze(true);
+        clearTimeout(dozing);
+        dozing = setTimeout(() => setDoze(false), MOVES.doze.ms);
+      }
       if (kind === "celebrate" || kind === "hop") {
         setCheer(true);
         clearTimeout(timer);
@@ -123,16 +162,25 @@ export function HostGhost({
       const m = MOVES[kind];
       inner.current.animate(m.frames, { duration: m.ms, easing: OB_EASE });
     };
+    // the pause before a reaction: eyes up, flat mouth
+    const onThink = (v: boolean) => {
+      setThink(v);
+      const r = outer.current?.getBoundingClientRect();
+      setGazeFocus(v && r ? { x: r.left + r.width / 2, y: r.top - r.height * 3 } : null);
+    };
     listeners.add(on);
+    thinkers.add(onThink);
     return () => {
       listeners.delete(on);
+      thinkers.delete(onThink);
       clearTimeout(timer);
+      clearTimeout(dozing);
     };
   }, []);
   return (
     <div ref={outer} className={className} style={{ width: size, height: size, ...style }} data-testid="host-ghost">
       <div ref={inner} style={{ transformOrigin: "50% 92%" }}>
-        <Ghost look={look} size={size} mood={mood} happy={happy || cheer} talking={talking} trackPointer={follow} label="" />
+        <Ghost look={look} size={size} mood={doze ? "asleep" : think ? "thinking" : mood} happy={!think && !doze && (happy || cheer)} talking={!think && !doze && talking} trackPointer={follow || think} label="" />
       </div>
     </div>
   );
@@ -176,4 +224,26 @@ export function useLookAtFields(root?: RefObject<HTMLElement | null>) {
       setGazeFocus(null);
     };
   }, [root]);
+}
+
+export type HostPropKind = "moon" | "sun" | "phone" | "house";
+
+const PROP_PATH: Record<HostPropKind, string> = {
+  moon: "M15.5 3.5a8.5 8.5 0 1 0 5 13.6A7 7 0 0 1 15.5 3.5z",
+  sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8",
+  phone: "M7.5 2.5h9a1 1 0 0 1 1 1v17a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1zM10.5 18.5h3",
+  house: "M4 11l8-6.5 8 6.5v8.5a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z",
+};
+
+/**
+ * A tiny scene for an answer, beside the host: one simple line drawing in the same stroke as the
+ * page's icons, no words and no faces. A new answer swaps it in; Reduce Motion just shows it.
+ */
+export function HostProp({ kind, size = 28, className }: { kind: HostPropKind | null; size?: number; className?: string }) {
+  if (!kind) return null;
+  return (
+    <svg key={kind} className={`ob-prop ${className ?? ""}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden data-prop={kind}>
+      <path d={PROP_PATH[kind]} />
+    </svg>
+  );
 }

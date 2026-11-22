@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import type { Message } from "@wisp/core";
-import { HARNESSES, MODEL_PROVIDER_INFO, harnessLabel, type Agent, type HarnessSettings, type ModelConnection, type ModelProvider } from "@wisp/core";
+import { APPLE_APP_INFO, HARNESSES, MODEL_PROVIDER_INFO, harnessLabel, type Agent, type HarnessSettings, type ModelConnection, type ModelProvider } from "@wisp/core";
 import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
@@ -119,6 +119,8 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
   const [leaving, setLeaving] = useState(false);
   // the three live steps while it's tried: signing in, trying a hello, ready
   const [stage, setStage] = useState<"signin" | "hello" | "ready">("signin");
+  // the apps it reads before its hello ("Messages and Calendar"), when any were set up
+  const [reading] = useState(() => appsLine(ws));
   // its real hello, typed in beside the host once it's said
   const [hello, setHello] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ Dialog: ComponentType<Parameters<typeof HarnessSignInDialog>[0]>; device: HarnessesResponse["device"]; settings: HarnessSettings } | null>(null);
@@ -163,6 +165,8 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
         setAgentId(agent.id);
       }
       if (draft) await api("PATCH", `/api/agents/${agent.id}`, { instructions: draft.instructions ?? "", settings: { role: draft.role || undefined } }).catch(() => {});
+      // the apps set up on "Pick your agent" are its own from the start, so its hello can read them
+      await giveApps(ws, agent.id);
       await Promise.allSettled([st.refreshAgents(), st.refreshComputers()]);
       // the same check setup always used: its AI answers where it runs, with no sign-in of its own left to do
       const deadline = Date.now() + 3 * 60_000;
@@ -311,7 +315,7 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
   return (
     <div className="fixed inset-0 z-10 flex flex-col bg-panel text-ink text-[14px] leading-[22px]">
       <style>{STYLE}</style>
-      <PageTop step={4} onBack={onBack} />
+      <PageTop step={5} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="ob-stagger min-h-full grid grid-cols-1 lg:grid-cols-[minmax(0,560px)_minmax(0,400px)] gap-10 lg:gap-20 justify-center items-center px-4 sm:px-6 pt-4 pb-10">
           <div className="flex flex-col gap-[18px] min-w-0">
@@ -371,7 +375,7 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
               {(phase === "checking" || phase === "ready") && (
                 <ol className="ob-steps self-center text-left" aria-label="Trying it">
                   <LiveStep state={stage === "signin" ? "now" : "done"}>Signing in to {harnessLabel(harness)}</LiveStep>
-                  <LiveStep state={stage === "signin" ? "later" : stage === "hello" ? "now" : "done"}>Trying a hello</LiveStep>
+                  <LiveStep state={stage === "signin" ? "later" : stage === "hello" ? "now" : "done"}>{reading ? `Reading ${reading}` : "Trying a hello"}</LiveStep>
                   <LiveStep state={stage === "ready" ? "done" : "later"}>Ready</LiveStep>
                 </ol>
               )}
@@ -524,4 +528,20 @@ function KeyBox({ provider, setProvider, onSaved }: { provider: ModelProvider; s
       </span>
     </form>
   );
+}
+
+/** The apps set up on "Pick your agent", by name, for "Reading Messages and Calendar" (null: none). */
+function appsLine(workspaceId: string): string | null {
+  const a = loadAnswers(workspaceId);
+  const names = [...(a.appleApps ?? []).map((x) => APPLE_APP_INFO[x as keyof typeof APPLE_APP_INFO]?.name).filter(Boolean), ...(a.appNames ?? [])] as string[];
+  if (!names.length) return null;
+  return names.length <= 2 ? names.join(" and ") : `${names.slice(0, 2).join(", ")} and more`;
+}
+
+/** Give the agent the connectors set up on "Pick your agent" (the Apple mod reaches every agent already). */
+export async function giveApps(workspaceId: string, agentId: string): Promise<void> {
+  const ids = loadAnswers(workspaceId).apps ?? [];
+  if (!ids.length) return;
+  const list = await api<{ id: string; agentIds: string[]; allAgents: boolean }[]>("GET", "/api/connectors").catch(() => []);
+  await Promise.allSettled(list.filter((c) => ids.includes(c.id) && !c.allAgents && !c.agentIds.includes(agentId)).map((c) => api("PATCH", `/api/connectors/${c.id}`, { agentIds: [...c.agentIds, agentId] })));
 }

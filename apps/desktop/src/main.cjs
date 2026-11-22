@@ -1064,6 +1064,12 @@ ipcMain.handle("microphone:open-settings", async (e) => {
   if (process.platform === "darwin") await shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone");
   else if (process.platform === "win32") await shell.openExternal("ms-settings:privacy-microphone");
 });
+// Notifications: after "Don't Allow", only the system's own switch turns them back on; open exactly that one.
+ipcMain.handle("notifications:open-settings", async (e) => {
+  if (!fromHub(e)) return;
+  if (process.platform === "darwin") await shell.openExternal("x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=ai.wisp.desktop");
+  else if (process.platform === "win32") await shell.openExternal("ms-settings:notifications");
+});
 ipcMain.handle("removal:available", (e) => (fromHub(e) ? canRemove() : false));
 ipcMain.handle("removal:open", async (e) => {
   if (fromHub(e) && (await canRemove())) showRemovalWindow();

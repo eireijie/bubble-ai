@@ -5,8 +5,9 @@ import { FAMILY_COLORS } from "../../ghostFamily.ts";
 import { Ghost } from "../../components/Ghost.tsx";
 import { agentInstructions, cap, loadAnswers, PHRASE, pickedGoals, roleLine, type AgentDraft } from "../../onboardingV3.ts";
 import { PageTop } from "../../components/onboarding/PageTop.tsx";
-import { HOST_LOOK, HostGhost, OB_EASE, hostReact } from "../../components/onboarding/HostGhost.tsx";
+import { HOST_LOOK, HostGhost, OB_EASE, hostAnswer, hostReact } from "../../components/onboarding/HostGhost.tsx";
 import { WHITE_WISP } from "../../components/SetupStage.tsx";
+import { typeRole } from "./agentTypes.ts";
 export { roleLine };
 
 /** What page 3 learned (its Fact, read loosely so this page works before or without it). */
@@ -88,7 +89,9 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
   const touched = useRef<Set<Field>>(new Set(draft ? (["name", "role", "color", "shape"] as Field[]) : []));
   const [name, setName] = useState(draft?.name ?? "Juno");
   // a draft saved with the old "so you can spend less time on them" wording gets the new line
-  const [role, setRole] = useState(() => (draft?.role && !/, so you can spend less time on (them|it)\.$/.test(draft.role) ? draft.role : roleLine(answers.goals, answers.other, facts)));
+  // "What I do" follows the kind picked on page 1 when there is one
+  const roleFor = (a: typeof answers) => typeRole(a.agentTypes ?? [], a.agentOther ?? "") ?? roleLine(a.goals, a.other, factsOf(a));
+  const [role, setRole] = useState(() => (draft?.role && !/, so you can spend less time on (them|it)\.$/.test(draft.role) ? draft.role : roleFor(answers)));
   const [color, setColor] = useState<string>(draft?.color ?? FAMILY_COLORS[0]);
   const [shape, setShape] = useState<GhostShape>(draft?.shape && SHAPES.includes(draft.shape) ? draft.shape : "classic");
   const [smile, setSmile] = useState(false);
@@ -127,7 +130,7 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
     };
   }, [workspaceId]);
 
-  const suggestedRole = roleLine(answers.goals, answers.other, facts);
+  const suggestedRole = roleFor(answers);
   useEffect(() => {
     if (!touched.current.has("role")) setRole(suggestedRole);
   }, [suggestedRole]);
@@ -136,9 +139,11 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
   const first = person.trim().split(/\s+/)[0] ?? "";
   const names = NAME_POOL.filter((n) => n.toLowerCase() !== first.toLowerCase()).slice(0, 3);
 
+  // which pick just changed, so only it settles
+  const [settled, setSettled] = useState<string | null>(null);
   const bump = (kind: "hop" | "nod" = "hop") => {
     setDressed(true);
-    hostReact(kind);
+    hostAnswer(kind);
     if (reduced) return;
     setSmile(true);
     clearTimeout(timer.current);
@@ -146,8 +151,8 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
   };
   const change = (f: Field) => touched.current.add(f);
   const pickName = (n: string) => (change("name"), setName(n), bump("nod"));
-  const pickColor = (c: string) => (change("color"), setColor(c), bump());
-  const pickShape = (s: GhostShape) => (change("shape"), setShape(s), bump());
+  const pickColor = (c: string) => (change("color"), setColor(c), setSettled(`c:${c}`), bump());
+  const pickShape = (s: GhostShape) => (change("shape"), setShape(s), setSettled(`s:${s}`), bump());
   const surprise = () => {
     const any = <T,>(xs: readonly T[], not: T) => {
       const rest = xs.filter((x) => x !== not);
@@ -184,7 +189,7 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
   return (
     <div className="fixed inset-0 z-10 flex flex-col bg-panel text-ink text-[14px] leading-[22px]">
       <style>{STYLE}</style>
-      <PageTop step={3} onBack={onBack} />
+      <PageTop step={4} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="ob-stagger min-h-full grid grid-cols-1 lg:grid-cols-[minmax(0,520px)_minmax(0,440px)] gap-10 lg:gap-20 justify-center items-center px-4 sm:px-6 pt-4 pb-10">
           <form
@@ -257,8 +262,8 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
                     aria-label={COLOR_NAMES[i]}
                     aria-pressed={color === c}
                     onClick={() => pickColor(c)}
-                    className="ob-btn w-9 h-9 rounded-full p-[3px] bg-panel border-2"
-                    style={{ borderColor: color === c ? "var(--ink)" : "transparent" }}
+                    className={`ob-btn w-9 h-9 rounded-full p-[3px] bg-panel border-2 ${settled === `c:${c}` && color === c ? "ob-settle" : ""}`}
+                    style={{ borderColor: color === c ? c : "transparent" }}
                   >
                     <span className="block w-full h-full rounded-full" style={{ background: c }} />
                   </button>
@@ -276,8 +281,8 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
                     aria-label={SHAPE_LABEL[s]}
                     aria-pressed={shape === s}
                     onClick={() => pickShape(s)}
-                    className="ob-btn w-14 h-14 rounded-[14px] border flex items-center justify-center p-0"
-                    style={{ borderColor: shape === s ? "var(--ink)" : "var(--line2)", boxShadow: shape === s ? "inset 0 0 0 1px var(--ink)" : "none", background: shape === s ? `${color}1f` : "var(--panel)" }}
+                    className={`ob-btn w-14 h-14 rounded-[14px] border flex items-center justify-center p-0 ${settled === `s:${s}` && shape === s ? "ob-settle" : ""}`}
+                    style={{ borderColor: shape === s ? color : "var(--line2)", boxShadow: shape === s ? `inset 0 0 0 1px ${color}` : "none", background: shape === s ? `${color}1f` : "var(--panel)" }}
                   >
                     <AgentGhost size={38} color={color} shape={s} still />
                   </button>
@@ -296,7 +301,7 @@ export function AgentStep({ workspaceId, person, onContinue, onBack }: { workspa
           </form>
 
           <div className="flex flex-col items-center gap-[22px] min-w-0 order-1 lg:order-2">
-            <div className="w-full max-w-[440px] h-[240px] lg:h-[320px] rounded-[24px] bg-[var(--card)] flex flex-col items-center justify-center gap-3">
+            <div className="w-full max-w-[440px] h-[240px] lg:h-[320px] rounded-[24px] bg-[var(--card)] flex flex-col items-center justify-center gap-3 border-[1.5px] transition-[border-color] duration-300" style={{ borderColor: dressed ? color : "transparent" }}>
               <div ref={morph} data-ghost-glance="">
                 <HostGhost className="ob-dress" look={dressed ? { ...WHITE_WISP, shape, color, color2: undefined } : { ...HOST_LOOK, shape }} size={150} happy={smile} talking={smile} follow={false} />
               </div>

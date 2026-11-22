@@ -29,7 +29,8 @@ import { saveAgentDraft } from "../onboardingV3.ts";
 import { AgentStep } from "./onboarding/AgentStep.tsx";
 import { AIStep, draftOf } from "./onboarding/AIStep.tsx";
 import { SlideMark, SlideOpen } from "../components/onboarding/obMotion.tsx";
-import { hostReact } from "../components/onboarding/HostGhost.tsx";
+import { hostAnswer, hostReact } from "../components/onboarding/HostGhost.tsx";
+import { TypeStep } from "./onboarding/TypeStep.tsx";
 export { makeFirstAgent } from "./onboarding/firstAgent.ts";
 
 export const SETUP_LABELS: Record<StepId, string> = { anywhere: "Away from home", address: "Your address", agent: "Make your first agent", devices: "Add your devices" };
@@ -58,13 +59,14 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const devices = useDevices(3000);
   // a new setup (#/welcome/intro): away and address (the old screens), then v3's know, agent and AI
   // pages in place of the old connect, name, memory and setup screens, then the agent's chat
-  type V3 = "know" | "agent" | "ai";
+  type V3 = "type" | "know" | "agent" | "ai";
   const firstV3 = (): V3 => {
     const a = loadAnswers(me.workspace.id);
     return !a.knowDone ? "know" : !a.agentDraft ? "agent" : "ai";
   };
   // after a reload mid-setup, pick up at the first v3 page not done yet (away and address are saved as done)
-  const [v3, setV3] = useState<V3 | null>(() => (intro && savedSetup(me.workspace.id).address ? firstV3() : null));
+  // a new setup opens on "Pick your agent", right after the account
+  const [v3, setV3] = useState<V3 | null>(() => (!intro ? null : !loadAnswers(me.workspace.id).typeDone ? "type" : savedSetup(me.workspace.id).address ? firstV3() : null));
   const [screen, setScreen] = useState<Screen>(() => {
     // resuming on a v3 page: Back from it lands on the address screen, the last one before it
     // Away and its address are one page now; a cloud server (already reachable) only shows its address
@@ -104,13 +106,22 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const onScene = (sc: StageScene) => setInner(sc.onBack ? { screen, back: sc.onBack } : null);
   const innerBack = inner && inner.screen === screen ? inner.back : null;
   // in a new setup, the phone step (after skipping the AI) goes back to the AI page
-  const goBack = innerBack ?? (intro && screen === "devices" ? () => setV3("ai") : canGoBack ? () => setScreen(before!) : null);
+  // and the first screen after "Pick your agent" goes back to it
+  const firstAway = screen === "anywhere" || (screen === "address" && onPublicAddress());
+  const goBack = innerBack ?? (intro && screen === "devices" ? () => setV3("ai") : intro && firstAway ? () => setV3("type") : canGoBack ? () => setScreen(before!) : null);
   // the v3 pages: Getting to know you goes back to the address (or away) screen, the rest to the page before
   const backFromKnow = () => setV3(null);
   const s = SCREENS[screen];
   const preAgent = (screen === "anywhere" || screen === "address") && !drafted;
   // the steps before the agent were made for a narrow panel; they keep that width in the middle
   const narrow = (node: ReactNode) => <div className="ob-narrow">{node}</div>;
+  if (v3 === "type") {
+    return (
+      <HelloNext>
+        <TypeStep workspaceId={me.workspace.id} onContinue={() => setV3(savedSetup(me.workspace.id).address ? firstV3() : null)} />
+      </HelloNext>
+    );
+  }
   if (v3 === "know") {
     const done = () => {
       saveAnswers(me.workspace.id, { knowDone: true });
@@ -168,9 +179,9 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     {learning}
     <SetupShell
       // a new setup counts away and address as its first two of five dots, like the pages after them
-      at={intro ? ({ anywhere: 1, address: 1, devices: 5 } as Partial<Record<Screen, number>>)[screen] ?? s.at : s.at}
+      at={intro ? ({ anywhere: 2, address: 2, devices: 6 } as Partial<Record<Screen, number>>)[screen] ?? s.at : s.at}
       track={intro ? NEW_TRACK : undefined}
-      line={screen === "anywhere" && awayChoice ? AWAY_LINES[awayChoice] : s.line(name.trim() || "your agent")} look={preAgent ? undefined : look} mood={s.mood} stepKey={screen} onBack={goBack}>
+      line={screen === "anywhere" && awayChoice ? AWAY_LINES[awayChoice] : s.line(name.trim() || "your agent")} look={preAgent ? undefined : look} mood={s.mood} prop={screen === "anywhere" && awayChoice ? (awayChoice === "home" ? "house" : "phone") : null} stepKey={screen} onBack={goBack}>
       {screen === "anywhere" && narrow(<AwayStep onScene={onScene} onChoice={setAwayChoice} onDone={() => (completeSetupStep(me.workspace.id, "anywhere"), advance("address"))} />)}
       {screen === "address" && narrow(<AddressStep onScene={onScene} onNext={() => advance("address")} />)}
       {screen === "connect" && (
@@ -432,7 +443,7 @@ function AwayStep({ onScene, onChoice, onDone }: { onScene: (s: StageScene) => v
     setChoice(c);
     onChoice?.(c);
     setError(null);
-    hostReact("nod");
+    hostAnswer("nod");
   };
   const list = useRef<HTMLDivElement>(null);
   return (

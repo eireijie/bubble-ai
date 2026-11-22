@@ -142,7 +142,7 @@ export function KnowStep({ name, workspaceId, onContinue, onSkip, onBack }: { na
   return (
     <div className="fixed inset-0 z-10 flex flex-col bg-panel text-ink text-[14px] leading-[22px]">
       <style>{STYLE}</style>
-      <PageTop step={2} onBack={onBack} />
+      <PageTop step={3} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="ob-stagger mx-auto w-full max-w-[1072px] flex flex-col gap-6 px-4 sm:px-6 pt-4 pb-10">
           <div className="flex items-center gap-4">

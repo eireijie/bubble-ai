@@ -2,19 +2,19 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
 import type { GhostMood } from "./Ghost.tsx";
-import { HOST_LOOK, HostGhost, useLookAtFields } from "./onboarding/HostGhost.tsx";
+import { HOST_LOOK, HostGhost, HostProp, useLookAtFields, type HostPropKind } from "./onboarding/HostGhost.tsx";
 
 /** The five steps after the account: connect, name, memory, setting up, meet. */
 export const TRACK = ["Connect your AI", "Name your agent", "Bring your memory", "Set up", "Meet your agent"] as const;
 /** A new setup's four pages: away from home (with its address), then Getting to know you, Make me yours, Its AI. */
-export const NEW_TRACK = ["Away from home", "Getting to know you", "Make me yours", "Its AI"] as const;
+export const NEW_TRACK = ["Your agent", "Away from home", "Getting to know you", "Make me yours", "Its AI"] as const;
 
 /**
  * First-run setup's frame: on the left the agent's wisp with one short line from it, at the top a
  * track of five dots (the current one stretched), and the step in the middle. `at` is 1–5 for
  * those steps, 0 before them (server, account, outside your home), where no dot is current yet.
  */
-export function SetupShell({ at, track = TRACK, line, look, mood = "awake", stepKey, onBack, children }: { at: number; track?: readonly string[]; line: string; look?: GhostAppearance; mood?: GhostMood; stepKey: string; onBack?: (() => void) | null; children: ReactNode }) {
+export function SetupShell({ at, track = TRACK, line, look, mood = "awake", prop = null, stepKey, onBack, children }: { at: number; track?: readonly string[]; line: string; look?: GhostAppearance; mood?: GhostMood; prop?: HostPropKind | null; stepKey: string; onBack?: (() => void) | null; children: ReactNode }) {
   useEscBack(onBack);
   // the host looks at the field you type in, and away while you type a password
   useLookAtFields();
@@ -27,7 +27,10 @@ export function SetupShell({ at, track = TRACK, line, look, mood = "awake", step
           <span>Wisp</span>
         </div>
         <div className="ob-ghost">
-          <HostGhost look={look ?? HOST_LOOK} size={narrow ? 48 : 132} mood={mood} />
+          <div className="ob-ghost-spot">
+            <HostGhost look={look ?? HOST_LOOK} size={narrow ? 48 : 132} mood={mood} />
+            <HostProp kind={prop} size={narrow ? 18 : 30} />
+          </div>
           <p key={line} className="ob-line" aria-live="polite">
             {line}
           </p>

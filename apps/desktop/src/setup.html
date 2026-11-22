@@ -1190,10 +1190,33 @@ const CREW = [
     const spark = (x, y, size, delay) => `<svg class="spark" style="left:${x}%;top:${y}%;animation-delay:${delay}s" width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2Q13 11 22 12Q13 13 12 22Q11 13 2 12Q11 11 12 2Z"/></svg>`;
     // the host's one line on the first screen: where it will live
     const say = (cloudy) => `<div class="say" style="left:calc(50% + 70px * var(--k));top:calc(47% - 84px * var(--k))">${cloudy ? "I'll live in the cloud, so I'm always up." : "I'll live right here, on this computer."}</div>`;
+    // a tiny scene for the answer to "on all day?": a moon when it sleeps, a sun when it stays on
+    const SKY = {
+      no: "M15.5 3.5a8.5 8.5 0 1 0 5 13.6A7 7 0 0 1 15.5 3.5z",
+      yes: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8",
+    };
+    const sky = (on) => `<svg class="prop sky" style="left:calc(50% - 118px * var(--k));top:calc(47% - 112px * var(--k))" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${SKY[on] || SKY.no}"/></svg>`;
+    const onAnswer = () => document.querySelector(".seg")?.dataset.on || "no";
+    const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+    let thinking = 0;
+    /** the host reacts to the answer after a short look-up, so it reads as thinking; a quick second answer replaces the first */
+    function answerReact(on) {
+      clearTimeout(thinking);
+      const el = main.firstElementChild;
+      if (reduced.matches || !el?.animate) return;
+      el.animate([{ transform: "none" }, { transform: "translateY(-2px)" }], { duration: 320, easing: EASE, fill: "forwards" });
+      thinking = setTimeout(() => {
+        const frames = on === "yes"
+          ? [{ transform: "none" }, { transform: "translateY(-14%) scale(0.95, 1.06)", offset: 0.35 }, { transform: "translateY(0) scale(1.07, 0.93)", offset: 0.7 }, { transform: "none" }]
+          : [{ transform: "none" }, { transform: "rotate(-9deg) translateY(3%)", offset: 0.3 }, { transform: "rotate(-9deg) translateY(3%)", offset: 0.78 }, { transform: "none" }];
+        el.animate(frames, { duration: on === "yes" ? 520 : 1250, easing: EASE });
+      }, 320);
+    }
     const props = document.createElement("div");
     stage.prepend(props);
     let last = "";
     let lastCloudy = false;
+    let lastOn = "";
 
     function update() {
       const m = document.querySelector("main");
@@ -1204,20 +1227,24 @@ const CREW = [
       document.getElementById("fill").style.width = (PROGRESS[id] ?? 4) + "%";
       // on the first screen, the cloud shows while Cloud is the choice
       const cloudy = id === "cloud" || id === "cloud-choose" || id === "cloud-progress" || (id === "welcome" && document.getElementById("pick-cloud").getAttribute("aria-pressed") === "true");
-      if (id === last && cloudy === lastCloudy) return;
+      const on = onAnswer();
+      if (id === last && cloudy === lastCloudy && on === lastOn) return;
       const same = id === last;
+      const answered = same && on !== lastOn;
       last = id;
       lastCloudy = cloudy;
+      lastOn = on;
       if (same) {
-        props.innerHTML = (cloudy ? CLOUD : id === "welcome" ? LAPTOP : "") + (id === "welcome" ? say(cloudy) : "");
-        if (!reduced.matches) main.firstElementChild?.animate?.([{ transform: "none" }, { transform: "rotate(-7deg)", offset: 0.35 }, { transform: "rotate(4deg)", offset: 0.7 }, { transform: "none" }], { duration: 460, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+        props.innerHTML = (cloudy ? CLOUD : id === "welcome" ? LAPTOP : "") + (id === "welcome" ? say(cloudy) + sky(on) : "");
+        if (answered) answerReact(on);
+        else if (!reduced.matches) main.firstElementChild?.animate?.([{ transform: "none" }, { transform: "rotate(-7deg)", offset: 0.35 }, { transform: "rotate(4deg)", offset: 0.7 }, { transform: "none" }], { duration: 460, easing: EASE });
         return;
       }
       place(main, s[0], s[1], s[2]);
       if (s[3] !== mood) { mood = s[3]; main.innerHTML = svg(0, WHITE, mood); }
       const shown = id === "welcome" ? 1 : id === "join" || id === "waiting" ? 0.32 : 0;
       crew.forEach((el) => (el.style.opacity = shown));
-      props.innerHTML = (id === "create" || id === "ready" || (id === "welcome" && !cloudy) ? LAPTOP : "") + (cloudy ? CLOUD : "") + (id === "welcome" ? say(cloudy) : "") + (id === "ready" ? spark(30, 24, 26, 0) + spark(68, 20, 34, 0.35) + spark(74, 50, 20, 0.7) + spark(24, 54, 22, 0.2) : "");
+      props.innerHTML = (id === "create" || id === "ready" || (id === "welcome" && !cloudy) ? LAPTOP : "") + (cloudy ? CLOUD : "") + (id === "welcome" ? say(cloudy) + sky(on) : "") + (id === "ready" ? spark(30, 24, 26, 0) + spark(68, 20, 34, 0.35) + spark(74, 50, 20, 0.7) + spark(24, 54, 22, 0.2) : "");
     }
     new MutationObserver(update).observe(document.querySelector("main"), { attributes: true, attributeFilter: ["data-screen", "hidden"], subtree: true });
     window.addEventListener("wisp:scene", update);

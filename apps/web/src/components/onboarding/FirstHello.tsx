@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Agent, Message } from "@wisp/core";
+import { api } from "../../api.ts";
 import { loadAnswers } from "../../onboardingV3.ts";
 import { motionReduced, useMotionReduced } from "../../theme.ts";
 import { useStore } from "../../store.ts";
@@ -32,6 +33,11 @@ export function knownTerms(facts: readonly Fact[]): { term: string; src: string 
 }
 
 const SRC_LABEL = (src: string) => (src === "you" ? "You told me" : `From ${src}`);
+
+/** What it read in the person's apps just before its hello (GET /api/agents/:id/hello-read): each phrase, from its app. */
+export function readTerms(read: readonly { app: string; terms: string[] }[]): { term: string; src: string }[] {
+  return read.flatMap((r) => (r.terms ?? []).filter((t) => t.trim().length >= 3).map((t) => ({ term: t.trim().toLowerCase(), src: `${r.app}, just now` })));
+}
 
 /** Underline the known words in a message's HTML (text only, never inside tags or links). */
 export function markKnown(html: string, terms: readonly { term: string; src: string }[]): string {
@@ -117,11 +123,18 @@ function useHelloAgent(m: Message): Agent | undefined {
 export function useFirstHelloHtml(m: Message, html: string): string {
   const agent = useHelloAgent(m);
   const reduced = useMotionReduced();
+  // only its creator gets these back; anyone else gets none
+  const [read, setRead] = useState<{ app: string; terms: string[] }[]>([]);
+  const agentId = agent?.id;
+  useEffect(() => {
+    if (!agentId) return;
+    void api<{ read: { app: string; terms: string[] }[] }>("GET", `/api/agents/${agentId}/hello-read`).then((r) => setRead(r.read ?? []), () => undefined);
+  }, [agentId]);
   const marked = useMemo(() => {
     if (!agent) return html;
     const facts = (loadAnswers(agent.workspaceId) as { facts?: Fact[] }).facts ?? [];
-    return markKnown(html, knownTerms(facts));
-  }, [agent, html]);
+    return markKnown(html, [...readTerms(read), ...knownTerms(facts)]);
+  }, [agent, html, read]);
   // type it in only the first time it's seen, and only while it's new
   const [typing] = useState(() => !!agent && !reduced && !wasTyped(m.id) && Date.now() - Date.parse(m.createdAt) < 10 * 60_000);
   const total = useMemo(() => (typing ? (new DOMParser().parseFromString(marked, "text/html").body.textContent ?? "").length : 0), [typing, marked]);

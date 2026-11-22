@@ -802,6 +802,20 @@ body {
 .ob-brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
 .ob-ghost { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
 .ob-bob { animation: ob-bob 3.2s ease-in-out infinite; }
+.ob-ghost-spot { position: relative; }
+/* a tiny scene for an answer (HostProp): one line drawing beside the host */
+.ob-prop { position: absolute; right: -14%; top: 2%; color: var(--muted); animation: ob-prop-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes ob-prop-in { 0% { opacity: 0; transform: translateY(6px) scale(0.8); } 100% { opacity: 1; transform: none; } }
+/* a picked option settles into place on the same spring */
+.ob-settle { animation: ob-settle 380ms cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes ob-settle { 0% { transform: scale(0.97); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ob-prop, .ob-settle { animation: none; } }
+/* the app setup sheet: the backdrop fades, the sheet rises on the spring */
+.ob-fade { animation: ob-fade 200ms ease both; }
+@keyframes ob-fade { 0% { opacity: 0; } 100% { opacity: 1; } }
+.ob-sheet { animation: ob-sheet-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes ob-sheet-in { 0% { opacity: 0; transform: translateY(24px); } 100% { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ob-fade, .ob-sheet { animation: none; } }
 .ob-line { margin: 0; font-size: 13px; color: var(--muted); text-align: center; line-height: 1.45; max-width: 200px; animation: ob-rise 400ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
 .ob-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
 .ob-top { height: 64px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 24px; }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Bell, Blocks, Check, Clock, Eye, Monitor, Phone, UserRound, X } from "lucide-react";
-import { FEATURE_INFO, FEATURE_PRESETS, FEATURE_KEYS, harnessLabel, type Agent, type FeatureKey, type Routine } from "@wisp/core";
+import { AppWindow, Bell, Blocks, Check, Clock, Eye, Monitor, Phone, UserRound, X } from "lucide-react";
+import { APPLE_APP_INFO, FEATURE_INFO, FEATURE_PRESETS, FEATURE_KEYS, harnessLabel, type Agent, type AppleView, type Connector, type FeatureKey, type Routine } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go } from "../router.ts";
@@ -12,7 +12,7 @@ import { Modal, cx } from "../components/ui.tsx";
 import { HOST_LOOK, HostGhost, hostReact } from "../components/onboarding/HostGhost.tsx";
 import { DrawnCheck, useCountUp } from "../components/onboarding/obMotion.tsx";
 import { useNarrow } from "../components/SetupShell.tsx";
-import { hereSeenKey } from "../components/onboarding/FirstChat.tsx";
+import { hereSeenKey, switchHelp } from "../components/onboarding/FirstChat.tsx";
 import { PhonePairing } from "./settings/mobile.tsx";
 import { startNewAgent } from "../components/ChatList.tsx";
 import { openDm } from "../openDm.ts";
@@ -69,6 +69,7 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const [watches, setWatches] = useState<WatchRow[] | null>(null);
   const [notes, setNotes] = useState<number | null>(null);
+  const [apps, setApps] = useState<string[] | null>(null);
   const [openaiKey, setOpenaiKey] = useState<boolean | null>(null);
   const [shown, setShown] = useState(0);
   const [pairing, setPairing] = useState(false);
@@ -80,11 +81,12 @@ export function HereView({ agentId }: { agentId?: string | null }) {
     if (!agent) return;
     api<Routine[]>("GET", `/api/routines?agent=${agent.id}`).then(setRoutines, () => setRoutines([]));
     api<{ watches: WatchRow[] }>("GET", "/api/watches").then((r) => setWatches(r.watches.filter((w) => w.agentIds.includes(agent.id))), () => setWatches([]));
+    void appsFor(agent, features.apple).then(setApps, () => setApps([]));
     api<{ path: string }[]>("GET", "/api/vault/notes").then(
       (all) => setNotes(all.filter((n) => (n.path.startsWith(`agents/${agent.id}/`) && !/\/(About|SOUL)\.md$/.test(n.path) && !/\/skills\//.test(n.path)) || n.path.startsWith(`people/${me.user.id}/`)).length),
       () => setNotes(null),
     );
-  }, [agent, me.user.id]);
+  }, [agent, me.user.id, features.apple]);
   useEffect(load, [load]);
   useEffect(() => {
     if (inDesktopApp()) api<{ openaiKey: string }>("GET", "/api/voice/settings").then((s) => setOpenaiKey(!!s.openaiKey), () => setOpenaiKey(false));
@@ -111,6 +113,13 @@ export function HereView({ agentId }: { agentId?: string | null }) {
       const shared = agents.filter((a) => a.computerId === computer.id).length > 1;
       rows.push({ id: "computer", icon: <Monitor {...ICON} />, title: shared ? "Shared computer" : computer.name, sub: computer.status === "running" ? `Started. ${shared ? "Your agents take turns on it." : `${agent.name} works on it.`}` : `Starts when ${agent.name} needs it.`, action: { label: "Change", run: () => go({ view: "agents", agentId: agent.id, tab: null }) } });
     }
+    // the apps it can read, set up on "Pick your agent": read only until the person says yes
+    if (apps)
+      rows.push(
+        apps.length
+          ? { id: "apps", icon: <AppWindow {...ICON} />, title: "Apps", sub: `${listOf(apps)}. Read only until you say yes.`, action: { label: "Add", run: () => go({ view: "marketplace", section: "apps" }) } }
+          : { id: "apps", icon: <AppWindow {...ICON} />, title: "Apps", sub: "None yet.", pending: true, action: { label: "Add", run: () => go({ view: "marketplace", section: "apps" }) } },
+      );
     for (const r of routines ?? []) {
       rows.push({
         id: `r:${r.id}`,
@@ -153,7 +162,16 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   }
   const perm = permission();
   const notifOn = perm === "granted" && notify.enabled;
-  rows.push({ id: "notif", icon: <Bell {...ICON} />, title: "Notifications", pending: !notifOn, sub: notifOn ? "On. Only when something's done or needs a yes." : perm === "denied" ? "Off. Blocked in this browser's settings." : "Off.", action: notifOn ? undefined : { label: "Settings", run: () => go({ view: "settings", page: "notifications" }) } });
+  // asked for only after its first finished job (FirstChat); until then it waits, uncounted
+  const sw = switchHelp();
+  rows.push({
+    id: "notif",
+    icon: <Bell {...ICON} />,
+    title: "Notifications",
+    pending: !notifOn,
+    sub: notifOn ? "On. Only when something's done or needs a yes." : perm === "denied" ? "Off for Wisp." : perm === "unsupported" ? "Not in this browser." : "I'll ask after my first finished job.",
+    action: notifOn || perm === "default" || perm === "unsupported" ? undefined : sw.open ? { label: "Open the switch", run: sw.open } : { label: "Settings", run: () => go({ view: "settings", page: "notifications" }) },
+  });
   if (agent) {
     const listen = inDesktopApp() ? openaiKey : canRecognize();
     if (listen === true) rows.push({ id: "calls", icon: <Phone {...ICON} />, title: "Calls", sub: `Ready. Call ${agent.name} from the name pill.` });
@@ -169,7 +187,7 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   }
 
   // rows tick in one by one
-  const loading = !!agent && (routines === null || watches === null);
+  const loading = !!agent && (routines === null || watches === null || apps === null);
   useEffect(() => {
     if (loading || shown >= rows.length) return;
     const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -189,7 +207,7 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   const narrow = useNarrow("(max-width: 767px)");
   const filling = loading || shown < rows.length;
   const readyCount = useCountUp(rows.slice(0, shown).filter((r) => !r.warn && !r.pending && !r.toggle?.off).length);
-  const readyTotal = rows.filter((r) => !r.warn && !r.toggle?.off).length;
+  const readyTotal = rows.filter((r) => !r.warn && !r.pending && !r.toggle?.off).length;
   const cheered = useRef(false);
   useEffect(() => {
     if (filling || cheered.current || !firstLook) return;
@@ -319,3 +337,21 @@ const HERE_STYLE = `
 .here-btn:active{transform:scale(.97)}
 @media (prefers-reduced-motion: reduce){.here-pop{animation:none}.here-btn{transition:none}}
 `;
+
+/** "GitHub", "Messages and Calendar", "GitHub, Slack and Notion" */
+export function listOf(names: readonly string[]): string {
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/** The apps this agent can read: its connected apps, then the Apple apps the Apple mod lets it read. */
+async function appsFor(agent: Agent, appleOn: boolean): Promise<string[]> {
+  const [conns, apple] = await Promise.all([
+    api<Connector[]>("GET", "/api/connectors").catch(() => [] as Connector[]),
+    appleOn ? api<AppleView>("GET", "/api/apple").catch(() => null) : Promise.resolve(null),
+  ]);
+  const names = conns.filter((c) => c.enabled && (c.allAgents || c.agentIds.includes(agent.id))).map((c) => c.name);
+  const s = apple?.settings;
+  if (s && (s.allAgents || s.agentIds.includes(agent.id)))
+    for (const app of ["messages", "calendar", "reminders", "contacts"] as const) if (s.levels[app] > 0 && apple!.macs.length) names.push(APPLE_APP_INFO[app].name);
+  return names;
+}
