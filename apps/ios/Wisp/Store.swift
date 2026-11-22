@@ -425,7 +425,9 @@ final class Store {
     struct Body: Encodable { var body: String; var threadId: String?; var fileIds: [String]; var replyToId: String? }
     let m: Message = try await fetch { try await $0.post("/api/channels/\(channelId)/messages", Body(body: text, threadId: thread, fileIds: files, replyToId: replyTo)) }
     insert(m)
-    askForNotificationsIfDue()
+    // a new agent's first chat asks about pings itself, after its first answer (FirstChatExtras)
+    let firstChat = channels.first { $0.id == channelId }.flatMap(dmAgent).map { FirstChat.isFirstChat($0, channelId: channelId) } ?? false
+    if !firstChat { askForNotificationsIfDue() }
   }
 
   func markRead(_ channelId: String) {

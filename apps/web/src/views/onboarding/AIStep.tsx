@@ -1,3 +1,4 @@
+import { HarnessLogo } from "../../components/HarnessLogo.tsx";
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import type { Message } from "@wisp/core";
 import { APPLE_APP_INFO, HARNESSES, MODEL_PROVIDER_INFO, harnessLabel, type Agent, type HarnessSettings, type ModelConnection, type ModelProvider } from "@wisp/core";
@@ -333,7 +334,7 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
                 others.map((h) => {
                   const there = device?.harnesses?.find((x) => x.id === h.id);
                   const sub = !there ? "Wisp installs it" : there.accounts?.default === true ? `Signed in on ${device?.name ?? "this computer"}` : there.accounts?.default === false ? "Not signed in yet" : `On ${device?.name ?? "this computer"}`;
-                  return <Choice key={h.id} on={cur === `h:${h.id}`} title={h.label} sub={sub} icon={ICON.more} onClick={() => void deviceHarness(h.id)} />;
+                  return <Choice key={h.id} on={cur === `h:${h.id}`} title={h.label} sub={sub} icon={ICON.more} logo={h.id} onClick={() => void deviceHarness(h.id)} />;
                 })}
             </div>
 
@@ -441,12 +442,18 @@ function LiveStep({ state, children }: { state: "later" | "now" | "done"; childr
   );
 }
 
-function Choice({ on, title, sub, icon, badge, onClick }: { on: boolean; title: string; sub: string; icon: string; badge?: string; onClick: () => void }) {
+function Choice({ on, title, sub, icon, logo, badge, onClick }: { on: boolean; title: string; sub: string; icon: string; logo?: string; badge?: string; onClick: () => void }) {
   return (
     <button type="button" role="radio" aria-checked={on} aria-pressed={on} onClick={onClick} className="ob-choice flex items-center gap-3.5 px-4 py-3 rounded-[14px] border border-[var(--line2)] bg-panel text-ink text-left">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 opacity-75">
-        <path d={icon} />
-      </svg>
+      {logo ? (
+        <span className="shrink-0 w-[18px] h-[18px] flex items-center justify-center" aria-hidden>
+          <HarnessLogo harness={logo} size={18} />
+        </span>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 opacity-75">
+          <path d={icon} />
+        </svg>
+      )}
       <span className="flex-1 min-w-0 flex flex-col">
         <span className="flex items-center gap-2 font-semibold leading-5 flex-wrap">
           {title}

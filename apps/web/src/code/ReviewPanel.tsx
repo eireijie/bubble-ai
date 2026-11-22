@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { X } from "lucide-react";
 import { api } from "../api.ts";
 import { ConfirmDialog } from "../components/InboxParts.tsx";
 import { agentColor, cx, timeAgo } from "../components/ui.tsx";
@@ -54,7 +55,7 @@ function splitPatch(patch: string): Map<string, string[]> {
   return out;
 }
 
-export function ReviewPanel({ task, tab, setTab, version }: { task: CodeTask; tab: ReviewTab; setTab: (t: ReviewTab) => void; version: number }) {
+export function ReviewPanel({ task, tab, setTab, version, onClose }: { task: CodeTask; tab: ReviewTab; setTab: (t: ReviewTab) => void; version: number; onClose?: () => void }) {
   const branches = branchesOf(task);
   const [branchTask, setBranchTask] = useState<string | null>(branches[0]?.id ?? null);
   const piece = branches.find((b) => b.id === branchTask) ?? branches[0];
@@ -116,6 +117,12 @@ export function ReviewPanel({ task, tab, setTab, version }: { task: CodeTask; ta
             {t.badge && <span className="ml-1.5 rounded-lg bg-[#26262b] px-[5px] text-[10.5px] text-[#a1a1aa]">{t.badge}</span>}
           </button>
         ))}
+        {/* on a phone the panel covers the Review button, so it carries its own way out */}
+        {onClose && (
+          <button type="button" onClick={onClose} aria-label="Close review" className="md:hidden ml-auto mb-1 grid h-8 w-8 place-items-center rounded-md text-[#a1a1aa] hover:text-[#f2f2f4]">
+            <X size={16} />
+          </button>
+        )}
       </div>
       {branches.length > 1 && (
         <div className="flex shrink-0 gap-1 overflow-x-auto px-3 pt-2.5">

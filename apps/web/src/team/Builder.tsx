@@ -97,6 +97,8 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
     const made = addStep(team, kind, at, agents);
     commit(made.team);
     setAdding(null);
+    // the first step on an empty canvas: the view was fitted to nothing, so fit it again
+    if (!steps.length) setFitKey((k) => k + 1);
     // straight to the new step, to say what it does
     setTimeout(() => open(made.id), phone ? 150 : 0);
   };
@@ -157,6 +159,23 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
     </div>
   );
 
+  // the builder opens beside the docked sidebar, wherever its edge was left, so no clipped sliver of it shows
+  const [sideEdge, setSideEdge] = useState(() => (typeof document === "undefined" ? 0 : Math.round(document.querySelector("nav.side")?.getBoundingClientRect().right ?? 0)));
+  useEffect(() => {
+    const nav = document.querySelector("nav.side");
+    if (!nav) return;
+    const measure = () => setSideEdge(Math.round(nav.getBoundingClientRect().right));
+    measure();
+    // dragged, collapsed or expanded while the builder is open: follow it
+    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    watch?.observe(nav);
+    window.addEventListener("resize", measure);
+    return () => {
+      watch?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
   const menu = (
     <Menu
       align="right"
@@ -194,7 +213,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
 
   return createPortal(
     <CreateAgentContext.Provider value={(done) => setNewAgent(() => done)}>
-    <div role="dialog" data-team-builder aria-label={`How ${name} works`} className="fixed inset-0 z-50 flex flex-col bg-panel text-ink md:left-[84px]">
+    <div role="dialog" data-team-builder aria-label={`How ${name} works`} style={{ "--builder-left": `${sideEdge}px` } as React.CSSProperties} className="fixed inset-0 z-50 flex flex-col bg-panel text-ink md:left-[var(--builder-left)]">
       <header className="flex h-[72px] shrink-0 items-center gap-3 px-4 md:px-6">
         <div className="flex min-w-0 flex-1 basis-0 items-center gap-3">
           <button type="button" onClick={onBack} aria-label="Back" className="circle circle-sm shrink-0">

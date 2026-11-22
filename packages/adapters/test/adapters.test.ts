@@ -158,7 +158,12 @@ describe("token usage", () => {
 
 describe("claude env", () => {
   it("turns off Claude Code's device-local auto memory so memory lives in Wisp", () => {
-    expect(claudeEnv({ prompt: "", cwd: "/", env: { A: "1" } })).toEqual({ A: "1", CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" });
+    expect(claudeEnv({ prompt: "", cwd: "/", env: { A: "1" } })).toEqual({ MCP_TIMEOUT: "180000", A: "1", CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" });
+  });
+
+  it("gives tool servers three minutes to start, unless the run's own environment says otherwise", () => {
+    expect(claudeEnv({ prompt: "", cwd: "/" }).MCP_TIMEOUT).toBe("180000");
+    expect(claudeEnv({ prompt: "", cwd: "/", env: { MCP_TIMEOUT: "5000" } }).MCP_TIMEOUT).toBe("5000");
   });
 });
 

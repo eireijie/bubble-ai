@@ -4,7 +4,8 @@ import type { Db } from "./db.ts";
 
 /** Runs nobody wrote a message for: a background check, or a memory pass after recent work. Both count against the background allowance. */
 /** `greet`: a new agent writing its own first hello (greeting.ts); posted like a reply, as the setup's first message. */
-export type RunKind = "background" | "memory" | "greet";
+/** `triage` is a tiny tool-less run that sorts changes before a full check (triage.ts). */
+export type RunKind = "background" | "memory" | "greet" | "triage";
 
 export interface PushPrefs {
   dms?: boolean;
@@ -1091,16 +1092,17 @@ export class Store {
   agentRuns(agentId: string, limit = 20) {
     return this.db
       .prepare(
-        `SELECT r.id, r.status, r.kind, r.error, r.created_at AS createdAt, r.finished_at AS finishedAt, r.channel_id AS channelId, r.thread_id AS threadId,
+        `SELECT r.id, r.status, r.kind, r.error, r.note, r.created_at AS createdAt, r.finished_at AS finishedAt, r.channel_id AS channelId, r.thread_id AS threadId,
                 c.name AS channelName, c.kind AS channelKind, m.body AS trigger
          FROM runs r LEFT JOIN channels c ON c.id = r.channel_id LEFT JOIN messages m ON m.id = r.trigger_message_id
-         WHERE r.agent_id = ? AND NOT (r.kind IN ('background','memory') AND r.status = 'queued') ORDER BY r.created_at DESC LIMIT ?`,
+         WHERE r.agent_id = ? AND NOT (r.kind IN ('background','memory','triage') AND r.status = 'queued') ORDER BY r.created_at DESC LIMIT ?`,
       )
       .all(agentId, limit) as {
       id: string;
       status: string;
       kind: string;
       error: string | null;
+      note: string | null;
       createdAt: string;
       finishedAt: string | null;
       channelId: string;
@@ -1290,10 +1292,10 @@ export class Store {
   // --- background work and follow-ups ---------------------------------------------------------
 
   private backgroundSql = `SELECT b.agent_id AS agentId, b.user_id AS userId, b.enabled, b.every_minutes AS everyMinutes, b.focus, b.quiet_start AS quietStart, b.quiet_end AS quietEnd,
-    b.next_at AS nextAt, b.next_reason AS nextReason, b.last_at AS lastAt, b.last_note AS lastNote, b.model, b.effort, b.daily_cap AS dailyCap, b.quiet_streak AS quietStreak,
+    b.next_at AS nextAt, b.next_reason AS nextReason, b.last_at AS lastAt, b.last_note AS lastNote, b.model, b.effort, b.daily_cap AS dailyCap, b.daily_tokens AS dailyTokens, b.quiet_streak AS quietStreak, b.next_picked AS nextPicked, b.looked_at AS lookedAt,
     EXISTS (SELECT 1 FROM runs r WHERE r.agent_id = b.agent_id AND r.kind = 'background' AND r.requested_by = b.user_id AND r.status IN ('queued','running')) AS checking
     FROM background b`;
-  private toBackground = (r: Record<string, unknown>): BackgroundWork => ({ ...(r as unknown as BackgroundWork), enabled: !!r.enabled, checking: !!r.checking });
+  private toBackground = (r: Record<string, unknown>): BackgroundWork => ({ ...(r as unknown as BackgroundWork), enabled: !!r.enabled, checking: !!r.checking, nextPicked: !!r.nextPicked });
 
   background(agentId: string, userId: string): BackgroundWork | undefined {
     const r = this.db.prepare(`${this.backgroundSql} WHERE b.agent_id = ? AND b.user_id = ?`).get(agentId, userId) as Record<string, unknown> | undefined;
@@ -1305,48 +1307,49 @@ export class Store {
     return (this.db.prepare(`${this.backgroundSql} WHERE b.enabled = 1`).all() as Record<string, unknown>[]).map(this.toBackground);
   }
 
-  setBackground(agentId: string, userId: string, patch: Partial<Pick<BackgroundWork, "enabled" | "everyMinutes" | "focus" | "quietStart" | "quietEnd" | "nextAt" | "nextReason" | "lastAt" | "lastNote" | "model" | "effort" | "dailyCap" | "quietStreak">>): BackgroundWork {
+  setBackground(agentId: string, userId: string, patch: Partial<Pick<BackgroundWork, "enabled" | "everyMinutes" | "focus" | "quietStart" | "quietEnd" | "nextAt" | "nextReason" | "lastAt" | "lastNote" | "model" | "effort" | "dailyCap" | "dailyTokens" | "quietStreak" | "nextPicked" | "lookedAt">>): BackgroundWork {
     this.db.prepare("INSERT OR IGNORE INTO background (agent_id, user_id, created_at) VALUES (?, ?, ?)").run(agentId, userId, now());
-    const v = { ...this.background(agentId, userId)!, ...patch };
+    // a new time for the next look is the hub's own unless the caller says the agent picked it
+    const v = { ...this.background(agentId, userId)!, ...(patch.nextAt !== undefined && patch.nextPicked === undefined ? { nextPicked: false } : {}), ...patch };
     this.db
-      .prepare("UPDATE background SET enabled = ?, every_minutes = ?, focus = ?, quiet_start = ?, quiet_end = ?, next_at = ?, next_reason = ?, last_at = ?, last_note = ?, model = ?, effort = ?, daily_cap = ?, quiet_streak = ? WHERE agent_id = ? AND user_id = ?")
-      .run(v.enabled ? 1 : 0, v.everyMinutes, v.focus, v.quietStart, v.quietEnd, v.nextAt, v.nextReason, v.lastAt, v.lastNote, v.model, v.effort, v.dailyCap, v.quietStreak ?? 0, agentId, userId);
+      .prepare("UPDATE background SET enabled = ?, every_minutes = ?, focus = ?, quiet_start = ?, quiet_end = ?, next_at = ?, next_reason = ?, last_at = ?, last_note = ?, model = ?, effort = ?, daily_cap = ?, daily_tokens = ?, quiet_streak = ?, next_picked = ?, looked_at = ? WHERE agent_id = ? AND user_id = ?")
+      .run(v.enabled ? 1 : 0, v.everyMinutes, v.focus, v.quietStart, v.quietEnd, v.nextAt, v.nextReason, v.lastAt, v.lastNote, v.model, v.effort, v.dailyCap, v.dailyTokens ?? null, v.quietStreak ?? 0, v.nextPicked ? 1 : 0, v.lookedAt ?? null, agentId, userId);
     return this.background(agentId, userId)!;
   }
 
   /** Background checks for one person since `since`, by every agent in a workspace: what each used. */
   backgroundRunsFor(workspaceId: string, userId: string, since: string) {
     const rows = this.db
-      .prepare("SELECT r.agent_id AS agentId, r.usage_json AS usage FROM runs r JOIN agents a ON a.id = r.agent_id WHERE a.workspace_id = ? AND r.requested_by = ? AND r.kind IN ('background','memory') AND r.status != 'queued' AND r.created_at >= ?")
-      .all(workspaceId, userId, since) as { agentId: string; usage: string | null }[];
+      .prepare("SELECT r.agent_id AS agentId, r.usage_json AS usage, r.kind FROM runs r JOIN agents a ON a.id = r.agent_id WHERE a.workspace_id = ? AND r.requested_by = ? AND r.kind IN ('background','memory','triage') AND r.status != 'queued' AND r.created_at >= ?")
+      .all(workspaceId, userId, since) as { agentId: string; usage: string | null; kind: string }[];
     return rows.map((r) => {
       const u = r.usage ? (JSON.parse(r.usage) as Omit<ContextUsage, "at">) : null;
       const tokens = u && (u.inputTokens !== undefined || u.outputTokens !== undefined) ? (u.inputTokens ?? 0) + (u.outputTokens ?? 0) : null;
-      return { agentId: r.agentId, tokens };
+      return { agentId: r.agentId, tokens, kind: r.kind };
     });
   }
 
   /**
    * Token use by finished-or-running runs (anything past queued) in one workspace between `from` and `to`,
    * grouped in the database by quarter hour (every time zone's offset is a multiple of 15 minutes), agent,
-   * model and kind. Runs that reported no token counts are counted as `guess` each. `includeUnattributed`
+   * model and kind. Runs that reported no token counts are counted as `guess` each (`sortGuess` for a sort). `includeUnattributed`
    * adds runs nobody is recorded as having asked for (they belong to the workspace owner).
    */
-  usageRows(workspaceId: string, userId: string, includeUnattributed: boolean, from: string, to: string, guess: number) {
+  usageRows(workspaceId: string, userId: string, includeUnattributed: boolean, from: string, to: string, guess: number, sortGuess = guess) {
     const tokenSql = "(json_extract(r.usage_json, '$.inputTokens') IS NOT NULL OR json_extract(r.usage_json, '$.outputTokens') IS NOT NULL)";
     return this.db
       .prepare(
         `SELECT substr(r.created_at, 1, 14) || printf('%02d', (CAST(substr(r.created_at, 15, 2) AS INTEGER) / 15) * 15) AS slot,
-                r.agent_id AS agentId, r.kind IN ('background','memory') AS background, json_extract(r.usage_json, '$.model') AS model,
+                r.agent_id AS agentId, r.kind IN ('background','memory','triage') AS background, json_extract(r.usage_json, '$.model') AS model,
                 COUNT(*) AS runs, SUM(r.status = 'failed') AS failed,
-                SUM(CASE WHEN ${tokenSql} THEN COALESCE(json_extract(r.usage_json, '$.inputTokens'), 0) + COALESCE(json_extract(r.usage_json, '$.outputTokens'), 0) ELSE ? END) AS tokens,
+                SUM(CASE WHEN ${tokenSql} THEN COALESCE(json_extract(r.usage_json, '$.inputTokens'), 0) + COALESCE(json_extract(r.usage_json, '$.outputTokens'), 0) WHEN r.kind = 'triage' THEN ? ELSE ? END) AS tokens,
                 SUM(NOT ${tokenSql}) AS guessed
          FROM runs r JOIN agents a ON a.id = r.agent_id
          WHERE a.workspace_id = ? AND (r.requested_by = ? ${includeUnattributed ? "OR r.requested_by IS NULL" : ""})
            AND r.status != 'queued' AND r.created_at >= ? AND r.created_at < ?
          GROUP BY slot, r.agent_id, background, model`,
       )
-      .all(guess, workspaceId, userId, from, to) as { slot: string; agentId: string; background: number; model: string | null; runs: number; failed: number; tokens: number; guessed: number }[];
+      .all(sortGuess, guess, workspaceId, userId, from, to) as { slot: string; agentId: string; background: number; model: string | null; runs: number; failed: number; tokens: number; guessed: number }[];
   }
 
   private changeSql = "SELECT id, user_id AS userId, agent_id AS agentId, lines_json AS lines, undo_json AS undo, created_at AS createdAt, undone_at AS undoneAt FROM changes";

@@ -22,12 +22,15 @@ export function registerShopApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   app.get("/api/logo", async (req, reply) => {
     const q = (req.query as { for?: string | string[] }).for;
     const names = (Array.isArray(q) ? q : q ? [q] : []).slice(0, 3).map((n) => String(n).slice(0, 100));
-    const svg = names.length ? await hub.logos.svg(names) : null;
-    reply.header("cache-control", "public, max-age=86400").header("x-content-type-options", "nosniff");
-    // nothing to show isn't an error: the tile falls back to a line icon, with nothing in the console
-    if (!svg) return reply.code(204).send();
+    const found = names.length ? await hub.logos.find(names) : "none";
+    reply.header("x-content-type-options", "nosniff");
+    // nothing to show isn't an error: the tile falls back to a line icon, with nothing in the console.
+    // "Couldn't reach the logo list just now" must not be kept: a browser that cached that answer for
+    // a day would show no logo long after the hub can fetch it again.
+    if (typeof found !== "object") return reply.header("cache-control", found === "none" ? "public, max-age=86400" : "no-store").code(204).send();
+    reply.header("cache-control", "public, max-age=86400");
     // opened on its own, the file still can't run anything
-    return reply.header("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'").type("image/svg+xml").send(svg);
+    return reply.header("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'").type("image/svg+xml").send(found.svg);
   });
 
   app.get("/api/skill-store", async (req, reply) => {

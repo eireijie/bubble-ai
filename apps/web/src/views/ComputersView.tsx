@@ -4,6 +4,7 @@ import { type Actor, type Agent, type PageElement } from "@wisp/core";
 import { api, uploadFile } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";
+import { useFeature } from "../features.ts";
 import { isTopOverlay, toBody, useOverlay } from "../overlays.ts";
 import { computerKindLabel, osName, usableDevices, useDevices, vmAvailabilityNote, type DeviceInfo } from "../devices.ts";
 import { ComputersHome, ComputersShell } from "./ComputersParts.tsx";
@@ -138,9 +139,9 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
   );
   const orgoNeedsKey = orgoState === "needs-key" && (
     <p className="text-xs text-warn">
-      Add your Orgo API key in Settings → Computers first.{" "}
+      Add your Orgo API key in Settings → Computers and devices first.{" "}
       <a href={href({ view: "settings", page: "devices" })} onClick={onClose} className="underline text-accent-text">
-        Open Computers settings
+        Open Computers and devices settings
       </a>
     </p>
   );
@@ -252,6 +253,7 @@ function ComputerDetail({ computer: c, devices, teach }: { computer: ComputerInf
   const state = useComputerState(c);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const teachOn = useFeature("teach");
   const [pickTeach, setPickTeach] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [details, setDetails] = useState(false);
@@ -334,7 +336,7 @@ function ComputerDetail({ computer: c, devices, teach }: { computer: ComputerInf
       items={[
         { label: "Rename", onSelect: () => setRenaming(true) },
         // when you're only watching, the tools live here
-        ...(!mine && !teacher && canControl ? [{ label: "Teach a task", icon: <Video size={14} />, onSelect: () => setPickTeach(true) }] : []),
+        ...(teachOn && !mine && !teacher && canControl ? [{ label: "Teach a task", icon: <Video size={14} />, onSelect: () => setPickTeach(true) }] : []),
         ...(!mine && !teacher && canTransfer ? [{ label: "Clipboard", icon: <ClipboardList size={14} />, onSelect: () => toggle("clipboard") }, { label: "Files", icon: <FolderOpen size={14} />, onSelect: () => toggle("files") }] : []),
         ...(c.online && !c.paused ? [{ label: "Save a screenshot", icon: <Camera size={14} />, onSelect: () => void saveScreenshot(c).catch((e) => setError(e.message)) }] : []),
         ...(c.kind !== "device" ? [{ label: c.status === "stopped" ? "Start this computer" : "Stop this computer", icon: c.status === "stopped" ? <Play size={14} /> : <Power size={14} />, onSelect: () => api("POST", `/api/computers/${c.id}/${c.status === "stopped" ? "start" : "stop"}`).catch((e) => setError(e.message)) }] : []),
@@ -449,7 +451,7 @@ function ComputerDetail({ computer: c, devices, teach }: { computer: ComputerInf
 
           {mine && !teacher && (
             <div className="flex items-center gap-0.5 shrink-0 ml-auto" role="toolbar" aria-label="Computer tools" data-testid="control-toolbar">
-              {canControl && tool("Teach a task", <Video size={16} />, "text-tool-teach", () => setPickTeach(true), false, "Do a task once while an agent watches; it saves it as a routine")}
+              {teachOn && canControl && tool("Teach a task", <Video size={16} />, "text-tool-teach", () => setPickTeach(true), false, "Do a task once while an agent watches; it saves it as a routine")}
               {canTransfer && tool("Clipboard", <ClipboardList size={16} />, "text-tool-clip", () => toggle("clipboard"), panel === "clipboard", "Clipboard: copy and paste between it and this device")}
               {canTransfer && tool("Files", <FolderOpen size={16} />, "text-tool-files", () => toggle("files"), panel === "files", "Files: download from it, upload to it")}
               {tool("Keys", <Keyboard size={16} />, "text-tool-keys", () => setKeys((k) => !k), keys)}

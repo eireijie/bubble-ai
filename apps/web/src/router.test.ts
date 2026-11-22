@@ -83,7 +83,7 @@ describe("hash routing", () => {
 });
 
 describe("guest routes", () => {
-  it.each(["#/computers", "#/computers/desk", "#/computers/desk/teach/atlas"])("falls back from %s for guests", (hash) => {
+  it.each(["#/computers", "#/computers/desk", "#/computers/desk/teach/atlas", "#/code"])("falls back from %s for guests", (hash) => {
     expect(router.routeForRole(router.parseRoute(hash), "guest")).toEqual({ view: "dashboard" });
   });
 

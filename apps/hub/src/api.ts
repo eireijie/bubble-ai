@@ -548,10 +548,12 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   app.get("/api/channels", async (req, reply) => {
     const c = need(req, reply);
     if (!c) return;
-    const list = store.channels(c.workspaceId).filter((ch) => channelVisible(c, ch.id) && (ch.kind === "channel" || store.isMember(ch.id, c.actor)));
+    const visible = store.channels(c.workspaceId).filter((ch) => channelVisible(c, ch.id) && (ch.kind === "channel" || store.isMember(ch.id, c.actor)));
+    const agentsIn = store.agentMemberIds(visible.map((ch) => ch.id));
+    // a chat with an agent that was removed has nobody left to talk to: it isn't listed (nor counted as unread)
+    const list = visible.filter((ch) => ch.kind !== "dm" || (agentsIn[ch.id] ?? []).length > 0);
     const ids = list.map((ch) => ch.id);
     const counts = store.memberCounts(ids);
-    const agentsIn = store.agentMemberIds(ids);
     const reads = c.actor.kind === "user" ? store.readState(c.actor.id, ids) : {};
     const prefs = c.actor.kind === "user" ? store.channelPrefs(c.actor.id) : {};
     const pins = store.pinnedIds(ids);
@@ -1015,6 +1017,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     const agent = store.agent((req.params as { id: string }).id);
     if (!agent || agent.workspaceId !== c.workspaceId) return reply.code(404).send({ error: "agent not found" });
     const limit = limitParam((req.query as { limit?: string }).limit, 20, 100);
+    const viewerId = c.actor.kind === "user" ? c.actor.id : null;
     // runs in a DM the caller isn't part of show as runs, but not where or what was said
     return store.agentRuns(agent.id, limit).map((r) => {
       const hidden = !channelVisible(c, r.channelId);
@@ -1022,9 +1025,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
         ...r,
         channelName: hidden ? null : r.channelName,
         // a background check has no message behind it, so it's named for what it is
-        trigger: r.kind === "background" ? `Background check · ${agent.name}` : r.kind === "memory" ? `Saving to memory · ${agent.name}` : hidden ? null : (r.trigger?.slice(0, 280) ?? null),
-        // a failure in plain words when it's a known one (the harness needs signing in on its device)
-        hint: r.status === "failed" && r.error ? (hub.explainFailure(agent, r.error) !== r.error ? hub.explainFailure(agent, r.error) : null) : null,
+        // a sort is named for what it is too, with what it decided ("no: a small edit")
+        trigger: r.kind === "background" ? `Background check · ${agent.name}` : r.kind === "memory" ? `Saving to memory · ${agent.name}` : r.kind === "triage" ? `Sorting what changed · ${agent.name}${r.note ? ` (${r.note})` : ""}` : hidden ? null : (r.trigger?.slice(0, 280) ?? null),
+        // a failure in plain words when it's a known one (the harness needs signing in on its device), with times on the reader's clock
+        hint: r.status === "failed" && r.error ? (hub.explainFailure(agent, r.error, viewerId) !== r.error ? hub.explainFailure(agent, r.error, viewerId) : null) : null,
       };
     });
   });
@@ -1719,8 +1723,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       reply,
     );
     if (!body) return;
-    // a piece of a bigger task: the one named, else the task the delegating agent is working on right now
-    const running = c.actor.kind === "agent" ? hub.currentRun(c.actor.id) : undefined;
+    // a piece of a bigger task: the one named, else the task the delegating agent is working on right now.
+    // Its device says which run the call comes from: an agent on two things at once hands out a piece
+    // of the one that asked, not of whichever started last
+    const running = c.actor.kind === "agent" ? (hub.runFor(c.actor.id, req.headers["x-wisp-run"]) ?? hub.currentRun(c.actor.id)) : undefined;
     let parent = body.parentTaskId ? store.task(body.parentTaskId) : undefined;
     if (body.parentTaskId && (!parent || parent.workspaceId !== c.workspaceId)) return reply.code(404).send({ error: "parent task not found" });
     if (!parent && running?.threadId) {

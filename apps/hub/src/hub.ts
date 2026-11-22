@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import { DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@wisp/core";
+import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@wisp/core";
 import { id } from "./auth.ts";
 import { Computers } from "./computers.ts";
 import { Terminals } from "./terminals.ts";
@@ -14,6 +14,8 @@ import { Routines } from "./routines.ts";
 import { TeamSchedules } from "./team-schedules.ts";
 import { BACKGROUND_THREAD, Background } from "./background.ts";
 import { Watches } from "./watches.ts";
+import { Limits } from "./limits.ts";
+import { Triage, TRIAGE_THREAD } from "./triage.ts";
 import { AutoMemory, MEMORY_THREAD } from "./auto-memory.ts";
 import { Push } from "./push.ts";
 import { Loops } from "./loops.ts";
@@ -99,6 +101,10 @@ export class Hub {
   readonly schedules: TeamSchedules;
   readonly background: Background;
   readonly watches: Watches;
+  /** how full each sign-in's plan is, and whether unattended work has to wait for it */
+  readonly limits: Limits;
+  /** sorts changes on the smallest model before a full check */
+  readonly triage: Triage;
   readonly loops: Loops;
   /** memory passes after meaningful work, and the daily tidy of the graph */
   readonly autoMemory: AutoMemory;
@@ -156,6 +162,8 @@ export class Hub {
     this.schedules = new TeamSchedules(this);
     this.background = new Background(this);
     this.watches = new Watches(this);
+    this.limits = new Limits(this);
+    this.triage = new Triage(this);
     this.loops = new Loops(this);
     this.autoMemory = new AutoMemory(this);
     this.push = new Push(this);
@@ -612,6 +620,8 @@ export class Hub {
     });
     socket.on("close", () => {
       if (this.closed || this.nodes.get(nodeId) !== conn) return;
+      // "last seen" is when it went away, not when it last said hello
+      this.store.touchNode(nodeId);
       this.nodes.delete(nodeId);
       this.pausedNodes.delete(nodeId);
       for (const a of this.store.agentsOnNode(nodeId)) this.broadcast(workspaceId, { type: "agent_status", agentId: a.id, status: "offline" });
@@ -758,6 +768,9 @@ export class Hub {
             this.models.setUsage(cid, usage.plan);
             this.connectionsChanged(cid);
           }
+          // how full the plan is decides whether unattended work may go on (limits.ts), on a connection or the device's own sign-in
+          const ran = usage.plan ? store.agent(run.agentId) : undefined;
+          if (ran && usage.plan) this.limits.planSeen(ran, cid ?? null, usage.plan);
         }
         // a person's own computer it used on "tell me after": it says so now, after the reply
     queueMicrotask(() => this.deviceUse.runEnded(run));
@@ -805,6 +818,13 @@ export class Hub {
         if (now !== was) this.connectionsChanged(cid);
       }
     }
+    // the harness said its plan's limit is reached: unattended work on that sign-in waits for the reset instead of trying again
+    const ranAs = store.agent(run.agentId);
+    if (ranAs && "error" in result) {
+      const paused = this.limits.runFailed(ranAs, cid ?? null, result.error, run.requestedBy);
+      // work nobody asked for says so once in the chat; a reply the person asked for shows the failure itself
+      if (paused && run.kind && run.kind !== "greet" && run.requestedBy) this.limits.say(ranAs, run.requestedBy, paused);
+    } else if (ranAs) this.limits.runWorked(ranAs, cid ?? null);
     const live = this.live.get(run.id) ?? { parts: [], text: "" };
     this.live.delete(run.id);
     // skills it learned or followed show under its reply (nothing when there's no reply)
@@ -818,7 +838,11 @@ export class Hub {
     const gone = !store.channel(run.channelId);
     const agent = store.agent(run.agentId);
     let body = "";
-    if (run.kind === "memory") {
+    if (run.kind === "triage") {
+      // a sort posts nothing: it either lets its changes go or wakes the agent with them
+      store.setRunStatus(run.id, "finalText" in result ? "done" : "failed", "error" in result ? result.error : undefined);
+      this.triage.finished(run, "finalText" in result ? { finalText: result.finalText.trim() || live.text.trim() } : result);
+    } else if (run.kind === "memory") {
       // a memory pass posts nothing: what it saved is in Memory's history
       store.setRunStatus(run.id, "finalText" in result ? "done" : "failed", "error" in result ? result.error : undefined);
       this.autoMemory.finished(run.id);
@@ -831,10 +855,12 @@ export class Hub {
       if (!gone && !signIn) greetingWritten(this, run, "finalText" in result ? result.finalText.trim() || live.text.trim() : null);
     } else if (run.kind === "background") {
       store.setRunStatus(run.id, "finalText" in result ? "done" : "failed", "error" in result ? result.error : undefined);
-      this.background.finished(run, "finalText" in result ? result.finalText.trim() || live.text.trim() : `The check failed: ${result.error}`);
+      this.background.finished(run, "finalText" in result ? result.finalText.trim() || live.text.trim() : `The check failed: ${result.error}`, new Date(), "error" in result ? result.error : undefined);
       this.loops.runEnded(run, null);
     } else if ("finalText" in result) {
       store.setRunStatus(run.id, "done");
+      // its harness works: a background check that was waiting to try again doesn't have to
+      this.background.worked(run.agentId);
       this.clearEarlierFailures(run);
       this.routines.runFinished(run);
       body = result.finalText.trim() || live.text.trim();
@@ -880,7 +906,7 @@ export class Hub {
       this.loops.runEnded(run, null);
       this.autoMemory.finished(run.id);
       store.setRunStatus(run.id, "failed", result.error);
-      const text = agent ? this.explainFailure(agent, result.error) : result.error;
+      const text = agent ? this.explainFailure(agent, result.error, run.requestedBy) : result.error;
       if (!gone) {
         const fix = agent ? this.failureFix(agent, result.error) : undefined;
         this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body: "", parts: [...live.parts, { type: "status", text: `Run failed: ${text}` }, ...(result.error === "cancelled" ? [] : [{ type: "run_failed" as const, runId: run.id, retry: !!run.triggerMessageId && !run.discussionId, ...(fix ? { fix } : {}) }])], hop: run.hop + 1, route: false, conversationId: this.chatOfRun(run) });
@@ -929,9 +955,10 @@ export class Hub {
   }
 
   /** A failure in plain words when it's a known one (a harness that needs signing in again), else as reported. */
-  explainFailure(agent: Pick<Agent, "harness" | "nodeId"> & Partial<Pick<Agent, "workspaceId" | "settings">>, error: string): string {
+  explainFailure(agent: Pick<Agent, "harness" | "nodeId"> & Partial<Pick<Agent, "workspaceId" | "settings">>, error: string, userId: string | null = null): string {
     const problem = signInProblem(agent.harness, error);
-    if (!problem) return plainFailure(error);
+    // the plan's limit, in plain words with when it's back; else the error as the harness gave it
+    if (!problem) return this.limits.explain(agent, error, userId) ?? plainFailure(error);
     // on a connection, it's the connection that needs signing in again, not the device
     const conn = agent.settings?.connectionId ? this.models.row(agent.settings.connectionId) : undefined;
     if (conn && credentialSupport(agent.harness, conn.provider, conn.kind)) return `The ${providerLabel(conn.provider)} ${conn.kind === "oauth" ? "sign-in" : "key"} "${conn.label}" stopped working (${error.slice(0, 200)}). Connect it again in Settings → Models.`;
@@ -1428,6 +1455,8 @@ export class Hub {
       async (prompt) => {
         // sign-ins to remote connectors that are about to expire are refreshed first
         await this.connectors.prepare(agent.id).catch(() => {});
+        // the hub stopped while this was being prepared: its database is closed and its devices are gone
+        if (this.closed) return;
         // looked up after the prompt so a task handed out in this same tick is linked to its thread by now
         const workspace = this.workspaceFor(run);
         // a task the agent starts on is being worked on
@@ -1446,15 +1475,18 @@ export class Hub {
         const sent = credential ? (this.credentialFor(agent) ?? credential) : null;
         const fallback = sent && !agent.model ? await this.connectionDefaultModel(agent, sent.connectionId) : undefined;
         // a memory pass is light work: low effort unless the person picked an effort for background work
-        const effort = bg?.effort ?? (!run.kind ? this.voiceEffort(agent, run.triggerMessageId) : run.kind === "memory" || run.kind === "greet" ? this.lowEffort(agent) : undefined);
-        const threadId = run.kind === "background" ? BACKGROUND_THREAD : run.kind === "memory" ? MEMORY_THREAD : run.threadId;
+        // a sort is a few lines on the smallest model the harness (or the connection) offers, with no tools
+        const sortModel = run.kind === "triage" ? await this.smallModel(agent, sent?.connectionId ?? null) : undefined;
+        const effort = run.kind === "triage" ? this.lowEffort(agent, sortModel) : bg?.effort ?? (!run.kind ? this.voiceEffort(agent, run.triggerMessageId) : run.kind === "memory" || run.kind === "greet" ? this.lowEffort(agent) : undefined);
+        const threadId = run.kind === "background" ? BACKGROUND_THREAD : run.kind === "memory" ? MEMORY_THREAD : run.kind === "triage" ? TRIAGE_THREAD : run.threadId;
         this.send(conn, {
           type: "run",
-          run: { runId: run.id, agentId: agent.id, channelId: run.channelId, threadId, prompt, hop: run.hop, ...(run.kind ? { fresh: true } : {}), ...(this.chatOfRun(run) ? { conversation: this.chatOfRun(run) } : {}), ...(bg?.model ? { model: bg.model } : {}), ...(effort ? { effort } : {}), ...(workspace ? { workspace } : {}), ...(computer ? { computer } : {}), ...(inComputer ? { inComputer } : {}), ...(connectors.length ? { connectors } : {}), ...(sent ? { credential: { ...sent, ...(fallback ? { model: fallback } : {}) } } : {}) },
+          run: { runId: run.id, agentId: agent.id, channelId: run.channelId, threadId, prompt, hop: run.hop, ...(run.kind ? { fresh: true } : {}), ...(run.kind === "triage" ? { bare: true } : {}), ...(this.chatOfRun(run) ? { conversation: this.chatOfRun(run) } : {}), ...(sortModel ? { model: sortModel } : bg?.model ? { model: bg.model } : {}), ...(effort ? { effort } : {}), ...(workspace ? { workspace } : {}), ...(computer ? { computer } : {}), ...(inComputer ? { inComputer } : {}), ...(connectors.length ? { connectors } : {}), ...(sent ? { credential: { ...sent, ...(fallback ? { model: fallback } : {}) } } : {}) },
         });
       },
       // the prompt couldn't be built (a vault read failed, say): say so like any other failure
-      (err) => this.finishRun(conn.workspaceId, run, { error: `couldn't prepare the request: ${(err as Error).message}` }),
+      // (unless the hub stopped meanwhile: a closed database fails every read, and there's nowhere to say it)
+      (err) => (this.closed ? undefined : this.finishRun(conn.workspaceId, run, { error: `couldn't prepare the request: ${(err as Error).message}` })),
     );
   }
 
@@ -1465,11 +1497,19 @@ export class Hub {
     return this.lowEffort(agent);
   }
 
-  /** "low" when the agent's model offers reasoning effort levels, else nothing (its default). */
-  private lowEffort(agent: Agent): string | undefined {
+  /** "low" when the agent's model (or `model`) offers reasoning effort levels, else nothing (its default). */
+  private lowEffort(agent: Agent, model?: string): string | undefined {
     const catalog = this.catalogFor(agent);
-    const efforts = catalog?.models.find((m) => m.id === (agent.model ?? catalog.defaultModel))?.efforts ?? catalog?.efforts ?? [];
+    const efforts = catalog?.models.find((m) => m.id === (model ?? agent.model ?? catalog.defaultModel))?.efforts ?? catalog?.efforts ?? [];
     return efforts.includes("low") ? "low" : undefined;
+  }
+
+  /** The smallest model an agent's sign-in offers, for sorting work; undefined when nothing there looks small (it keeps its own). */
+  private async smallModel(agent: Agent, connectionId: string | null): Promise<string | undefined> {
+    const catalog = this.catalogFor(agent);
+    const r = connectionId ? this.models.row(connectionId) : undefined;
+    const offered = r ? modelsForHarness(agent.harness, r.provider, await this.models.models(r.id, catalog).catch(() => [])) : (catalog?.models ?? []);
+    return smallestModel(offered);
   }
 
   /** Toggle (or force) a reaction and push the message's new reaction list to browsers. */
@@ -1822,6 +1862,7 @@ export class Hub {
     const { store } = this;
     if (run?.kind === "memory" && run.id) return this.autoMemory.prompt({ id: run.id, agentId });
     if (run?.kind === "greet") return greetingPrompt(this, agentId, run.requestedBy ?? null);
+    if (run?.kind === "triage" && run.id) return this.triage.prompt({ id: run.id, agentId, requestedBy: run.requestedBy ?? null });
     const agent = store.agent(agentId)!;
     const channel = store.channel(channelId)!;
     // a background check has no message that woke it; it gets its own section instead

@@ -355,3 +355,33 @@ describe("a new agent speaks first", () => {
     expect(dropRepeatedEnd("Hi. Want me to start with today's?")).toBe("Hi. Want me to start with today's?");
   });
 });
+
+describe("a hello while the plan is used up", () => {
+  it("is Wisp's plain one, without a run that would only fail", async () => {
+    const make = async (handle: string) => {
+      const id = (await owner.request<{ id: string }>("POST", "/api/agents", { handle, name: handle, harness: "claude-code", nodeId, greet: "later" })).id;
+      await waitFor(async () => (await owner.agents()).find((a) => a.id === id && a.status === "online"));
+      return hub.store.agent(id)!;
+    };
+    // signed in here, whatever earlier tests left behind: only the limit is in question
+    const signIn = hub.signInNeeded.bind(hub);
+    hub.signInNeeded = () => null;
+    try {
+      const limited = await make("limited");
+      hub.limits.runFailed(limited, null, `Claude AI usage limit reached|${Math.floor(Date.now() / 1000) + 2 * 3600}`, me);
+      const n = calls.length;
+      const r = await owner.request<{ status: string }>("POST", `/api/agents/${limited.id}/greet`, {});
+      expect(r.status).toBe("sent");
+      await new Promise((x) => setTimeout(x, 200));
+      expect(calls.length).toBe(n);
+      expect(hub.store.messages(hub.store.dmChannel(limited.workspaceId, me, limited.id).id).some((m) => m.author.kind === "agent" && m.body)).toBe(true);
+      // with the plan back, the next new agent writes its own
+      hub.limits.runWorked(limited, null);
+      const free = await make("unlimited");
+      expect((await owner.request<{ status: string }>("POST", `/api/agents/${free.id}/greet`, {})).status).toBe("writing");
+      await waitFor(() => calls.length > n || undefined);
+    } finally {
+      hub.signInNeeded = signIn;
+    }
+  });
+});

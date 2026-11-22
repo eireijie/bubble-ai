@@ -110,7 +110,7 @@ export function NewTaskSheet({ onClose, onStarted }: { onClose: () => void; onSt
                 Cancel
               </button>
               <button type="submit" disabled={!what.trim() || busy} className="inline-flex h-8 items-center gap-2 rounded-[7px] border border-[#f2f2f4] bg-[#f2f2f4] px-3 text-[13px] font-semibold text-[#0c0c0e] transition-[background-color,transform] hover:bg-white active:scale-[.96] disabled:opacity-40">
-                Start <span className="text-[11px] font-normal opacity-60">⌘↵</span>
+                Start <span className="max-md:hidden text-[11px] font-normal opacity-60">{typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘↵" : "Ctrl ↵"}</span>
               </button>
             </div>
           </>
