@@ -1,4 +1,4 @@
-import { cronMatches, parseCron, SCHEDULE_MARK, zonedParts, type TeamFlow, type TeamStep } from "@wisp/core";
+import { cronMatches, parseCron, SCHEDULE_MARK, stepAgentId, zonedParts, type TeamFlow, type TeamStep } from "@wisp/core";
 import type { Hub } from "./hub.ts";
 
 /** Schedule boxes on team flow charts: at their times they ask the team and start the steps they point to. */
@@ -31,6 +31,17 @@ export class TeamSchedules {
         const last = this.lastRun(id, s.id);
         if (last && new Date(last).getTime() >= minute.getTime()) continue;
         this.hub.store.db.prepare("INSERT OR REPLACE INTO team_schedule_runs (channel_id, step_id, last_run_at) VALUES (?, ?, ?)").run(id, s.id, minute.toISOString());
+        // an agent on the team is at its plan's limit: the steps would only fail. This time is skipped (not retried), and said once.
+        const team = this.hub.store.channel(id)?.settings.team;
+        const stuck = (team?.steps ?? []).flatMap((x) => {
+          const a = team ? this.hub.store.agent(stepAgentId(team, x) ?? "") : undefined;
+          const reached = a && this.hub.limits.reached(a, at);
+          return a && reached ? [{ a, reached }] : [];
+        })[0];
+        if (stuck) {
+          this.hub.limits.saySkipped(stuck.a, id, `schedule:${id}:${s.id}`, s.scheduledBy ?? null, stuck.reached, "this scheduled run", at);
+          continue;
+        }
         this.run(id, s.id, null);
       }
     }

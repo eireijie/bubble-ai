@@ -853,10 +853,12 @@ export class Hub {
       if (!gone && !signIn) greetingWritten(this, run, "finalText" in result ? result.finalText.trim() || live.text.trim() : null);
     } else if (run.kind === "background") {
       store.setRunStatus(run.id, "finalText" in result ? "done" : "failed", "error" in result ? result.error : undefined);
-      this.background.finished(run, "finalText" in result ? result.finalText.trim() || live.text.trim() : `The check failed: ${result.error}`);
+      this.background.finished(run, "finalText" in result ? result.finalText.trim() || live.text.trim() : `The check failed: ${result.error}`, new Date(), "error" in result ? result.error : undefined);
       this.loops.runEnded(run, null);
     } else if ("finalText" in result) {
       store.setRunStatus(run.id, "done");
+      // its harness works: a background check that was waiting to try again doesn't have to
+      this.background.worked(run.agentId);
       this.clearEarlierFailures(run);
       this.routines.runFinished(run);
       body = result.finalText.trim() || live.text.trim();
@@ -902,7 +904,7 @@ export class Hub {
       this.loops.runEnded(run, null);
       this.autoMemory.finished(run.id);
       store.setRunStatus(run.id, "failed", result.error);
-      const text = agent ? this.explainFailure(agent, result.error) : result.error;
+      const text = agent ? this.explainFailure(agent, result.error, run.requestedBy) : result.error;
       if (!gone) {
         const fix = agent ? this.failureFix(agent, result.error) : undefined;
         this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body: "", parts: [...live.parts, { type: "status", text: `Run failed: ${text}` }, ...(result.error === "cancelled" ? [] : [{ type: "run_failed" as const, runId: run.id, retry: !!run.triggerMessageId && !run.discussionId, ...(fix ? { fix } : {}) }])], hop: run.hop + 1, route: false, conversationId: this.chatOfRun(run) });
@@ -951,10 +953,10 @@ export class Hub {
   }
 
   /** A failure in plain words when it's a known one (a harness that needs signing in again), else as reported. */
-  explainFailure(agent: Pick<Agent, "harness" | "nodeId"> & Partial<Pick<Agent, "workspaceId" | "settings">>, error: string): string {
+  explainFailure(agent: Pick<Agent, "harness" | "nodeId"> & Partial<Pick<Agent, "workspaceId" | "settings">>, error: string, userId: string | null = null): string {
     const problem = signInProblem(agent.harness, error);
     // the plan's limit, in plain words with when it's back; else the error as the harness gave it
-    if (!problem) return this.limits.explain(agent, error) ?? plainFailure(error);
+    if (!problem) return this.limits.explain(agent, error, userId) ?? plainFailure(error);
     // on a connection, it's the connection that needs signing in again, not the device
     const conn = agent.settings?.connectionId ? this.models.row(agent.settings.connectionId) : undefined;
     if (conn && credentialSupport(agent.harness, conn.provider, conn.kind)) return `The ${providerLabel(conn.provider)} ${conn.kind === "oauth" ? "sign-in" : "key"} "${conn.label}" stopped working (${error.slice(0, 200)}). Connect it again in Settings → Models.`;

@@ -1015,6 +1015,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     const agent = store.agent((req.params as { id: string }).id);
     if (!agent || agent.workspaceId !== c.workspaceId) return reply.code(404).send({ error: "agent not found" });
     const limit = limitParam((req.query as { limit?: string }).limit, 20, 100);
+    const viewerId = c.actor.kind === "user" ? c.actor.id : null;
     // runs in a DM the caller isn't part of show as runs, but not where or what was said
     return store.agentRuns(agent.id, limit).map((r) => {
       const hidden = !channelVisible(c, r.channelId);
@@ -1022,9 +1023,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
         ...r,
         channelName: hidden ? null : r.channelName,
         // a background check has no message behind it, so it's named for what it is
-        trigger: r.kind === "background" ? `Background check · ${agent.name}` : r.kind === "memory" ? `Saving to memory · ${agent.name}` : hidden ? null : (r.trigger?.slice(0, 280) ?? null),
-        // a failure in plain words when it's a known one (the harness needs signing in on its device)
-        hint: r.status === "failed" && r.error ? (hub.explainFailure(agent, r.error) !== r.error ? hub.explainFailure(agent, r.error) : null) : null,
+        // a sort is named for what it is too, with what it decided ("no: a small edit")
+        trigger: r.kind === "background" ? `Background check · ${agent.name}` : r.kind === "memory" ? `Saving to memory · ${agent.name}` : r.kind === "triage" ? `Sorting what changed · ${agent.name}${r.note ? ` (${r.note})` : ""}` : hidden ? null : (r.trigger?.slice(0, 280) ?? null),
+        // a failure in plain words when it's a known one (the harness needs signing in on its device), with times on the reader's clock
+        hint: r.status === "failed" && r.error ? (hub.explainFailure(agent, r.error, viewerId) !== r.error ? hub.explainFailure(agent, r.error, viewerId) : null) : null,
       };
     });
   });

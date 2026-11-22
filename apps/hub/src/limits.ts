@@ -75,6 +75,9 @@ export class Limits {
     if (!hit) return null;
     const key = this.key(agent, connectionId);
     const was = this.state(agent.workspaceId, key);
+    // already waiting, and this failure says nothing new about when: the wait stands (several agents on one sign-in
+    // failing together are one limit, not several)
+    if (!hit.resetsAt && was.hitUntil && new Date(was.hitUntil).getTime() > at.getTime()) return { until: was.hitUntil, full: true, used: 1 };
     const hits = hit.resetsAt ? 0 : (was.hits ?? 0) + 1;
     const wait = Math.min(LIMIT_WAIT_MAX_MINUTES, LIMIT_WAIT_MINUTES * 2 ** Math.max(0, hits - 1));
     const until = hit.resetsAt ?? new Date(at.getTime() + wait * 60_000).toISOString();
@@ -112,15 +115,32 @@ export class Limits {
     return row ? `${providerLabel(row.provider)} (${row.label})` : harnessLabel(agent.harness);
   }
 
+  /** The pause when the limit itself is reached (as opposed to Wisp leaving the rest of the plan to the person), or null. */
+  reached(agent: Agent, at = new Date()): Paused | null {
+    const p = this.paused(agent, at);
+    return p?.full ? p : null;
+  }
+
   /**
    * Say once, in the agent's chat with the person, that its background work waits for the plan. Once
-   * per pause: the same reset time isn't announced twice, whichever agent runs into it.
+   * per pause and sign-in, whichever agent runs into it and however often: harnesses report a reset
+   * time that moves by seconds, so the line isn't keyed on the time. It is said again only once that
+   * pause is over, or when "leaving you the rest" turns into "the limit is reached".
    */
-  say(agent: Agent, userId: string, p: Paused) {
+  say(agent: Agent, userId: string, p: Paused, at = new Date()) {
     const { store } = this.hub;
     const key = `plan-said:${userId}:${this.key(agent)}`;
-    if (store.setting(agent.workspaceId, key) === p.until) return;
-    store.setSetting(agent.workspaceId, key, p.until);
+    let said: { until?: string; full?: boolean } = {};
+    try {
+      said = JSON.parse(store.setting(agent.workspaceId, key) ?? "{}") as typeof said;
+    } catch {}
+    const still = !!said.until && new Date(said.until).getTime() > at.getTime();
+    if (still && (said.full || !p.full)) {
+      // the same pause, maybe with a later end: remember the end, say nothing
+      if (p.until > said.until!) store.setSetting(agent.workspaceId, key, JSON.stringify({ until: p.until, full: !!said.full }));
+      return;
+    }
+    store.setSetting(agent.workspaceId, key, JSON.stringify({ until: p.until, full: p.full }));
     const tz = store.user(userId)?.timezone || "UTC";
     const when = new Date(p.until).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: tz });
     const text = p.full
@@ -129,6 +149,25 @@ export class Limits {
     const channel = store.dmChannel(agent.workspaceId, userId, agent.id);
     const msg = store.insertMessage({ channelId: channel.id, threadId: null, author: { kind: "user", id: "system" }, body: "", parts: [{ type: "status", text }], hop: 0 });
     this.hub.broadcast(agent.workspaceId, { type: "message", message: msg }, this.hub.audience(channel.id));
+  }
+
+  /**
+   * Work on a schedule (a routine, a team's schedule) is skipped because the limit is reached: say so
+   * where it would have run, once per pause and schedule however often it comes due meanwhile.
+   */
+  saySkipped(agent: Agent, channelId: string, key: string, userId: string | null, p: Paused, what: string, at = new Date()) {
+    const { store } = this.hub;
+    const k = `skip-said:${key}`;
+    const said = store.setting(agent.workspaceId, k);
+    if (said && new Date(said).getTime() > at.getTime()) {
+      if (p.until > said) store.setSetting(agent.workspaceId, k, p.until);
+      return;
+    }
+    store.setSetting(agent.workspaceId, k, p.until);
+    const tz = (userId && store.user(userId)?.timezone) || "UTC";
+    const when = new Date(p.until).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: tz });
+    const msg = store.insertMessage({ channelId, threadId: null, author: { kind: "user", id: "system" }, body: "", parts: [{ type: "status", text: `Skipped ${what}: ${this.name(agent)}'s limit is reached until it resets (${when}). It runs again at its next time after that.` }], hop: 0 });
+    this.hub.broadcast(agent.workspaceId, { type: "message", message: msg }, this.hub.audience(channelId));
   }
 
   /** A failure in plain words when it's the plan's limit: what happened and when it's back. */

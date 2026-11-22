@@ -226,6 +226,13 @@ export class AutoMemory {
       }
       // waits (keeping what it has) while the agent's device is away or it's already saving
       if (!this.hub.agentAvailable(agent) || this.passRunning(agent.id)) continue;
+      // a pass is work nobody asked for, like a check: it waits (keeping what it has) while the plan it runs on is paused,
+      // a failed check is waiting to try again, or the day's allowance or the agent's own tokens are used up
+      const hold = this.hub.background.hold(agent.id, p.userId, at, { checks: false });
+      if (hold) {
+        p.due = Math.max(at.getTime() + 10 * 60_000, new Date(hold.until).getTime());
+        continue;
+      }
       this.pending.delete(key);
       // the same allowance as background checks: past most of it, saving waits for another day
       if (this.hub.background.allowanceShare(agent.workspaceId, p.userId, at) >= SLOW_DOWN_AT) continue;

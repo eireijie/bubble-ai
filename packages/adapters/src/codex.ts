@@ -43,8 +43,9 @@ export function codexMcpConfig(input: RunInput): { overrides: string[]; env: Rec
     // exec mode can't prompt, so pre-approve these tools (the hub enforces what the agent may touch; the browser is its own VM's)
     set(`${key}.default_tools_approval_mode`, `"approve"`);
     // Codex starts a turn without a server that's slow to come up (a busy or small computer), and the agent then
-    // works with no way to message, follow up or ask: wait for Wisp's own tools, and fail the run if they can't start
-    set(`${key}.required`, "true");
+    // works with no way to message, follow up or ask: wait for Wisp's own tools, and fail the run if they can't start.
+    // Its computer's browser gets the same time to start, but a broken one doesn't fail every run, chat included.
+    if (name === "wisp") set(`${key}.required`, "true");
     set(`${key}.startup_timeout_sec`, String(MCP_STARTUP_SECONDS));
   }
   for (const c of input.connectors ?? []) {

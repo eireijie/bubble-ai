@@ -226,7 +226,8 @@ export function greetWithMemory(hub: Hub, agent: Agent, userId: string): GreetRe
   const started = startSetup(hub, agent, userId);
   if (!started) return { status: "skipped" };
   const a = started.agent;
-  if (!hub.agentAvailable(a) || hub.signInNeeded(a) || hub.connectionWithheld(a) || hub.whyNotAllowed(a, userId)) {
+  // also when its plan's limit is reached: a hello run would only fail
+  if (!hub.agentAvailable(a) || hub.signInNeeded(a) || hub.connectionWithheld(a) || hub.whyNotAllowed(a, userId) || hub.limits.reached(a)) {
     const msg = postGreeting(hub, a.id, staticGreeting(hub, a));
     return msg ? { status: "sent", messageId: msg.id } : { status: "skipped" };
   }

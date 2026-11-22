@@ -18,6 +18,8 @@ const MAX_EVENTS_PER_CHECK = 40;
 const KEEP_DELIVERED_MS = 7 * 24 * 60 * 60_000;
 /** Changes that never reached an agent (its background work was off, the allowance was used up) are dropped after this. */
 const KEEP_UNDELIVERED_MS = 2 * 24 * 60 * 60_000;
+/** …unless they wait because the agent's plan is paused, which can last a weekly window: then they're kept this long. */
+const KEEP_HELD_MS = 14 * 24 * 60 * 60_000;
 /** Previews (a message line, a subject) go once the agent has seen them, or after this. */
 const KEEP_PREVIEW_MS = 24 * 60 * 60_000;
 /** A key that was refused is tried again this much later. */
@@ -487,6 +489,8 @@ export class Watches {
    */
   deliver(at = new Date()) {
     const { store, background, triage } = this.hub;
+    // a sort that never answered doesn't hold its changes for ever
+    triage.sweep(at);
     const groups = this.db
       .prepare("SELECT agent_id AS agentId, user_id AS userId, MIN(created_at) AS first, MAX(created_at) AS last, MAX(kind = 'browser_check') AS browser FROM app_events WHERE run_id IS NULL GROUP BY agent_id, user_id")
       .all() as { agentId: string; userId: string; first: string; last: string; browser: number }[];
@@ -524,6 +528,11 @@ export class Watches {
     this.db.transaction(() => eventIds.forEach((e) => set.run(runId, e)))();
   }
 
+  /** A check that failed gives its changes back for another try, as they are: previews kept, and not sorted again. */
+  retry(runId: string) {
+    this.db.prepare("UPDATE app_events SET run_id = NULL, sorted = 1 WHERE run_id = ?").run(runId);
+  }
+
   /** A check that never started gives its changes back. */
   release(runId: string) {
     this.db.prepare("UPDATE app_events SET run_id = NULL WHERE run_id = ?").run(runId);
@@ -545,7 +554,14 @@ export class Watches {
 
   private prune(at: Date) {
     const ago = (ms: number) => new Date(at.getTime() - ms).toISOString();
-    this.db.prepare("DELETE FROM app_events WHERE (run_id IS NOT NULL AND created_at < ?) OR (run_id IS NULL AND created_at < ?)").run(ago(KEEP_DELIVERED_MS), ago(KEEP_UNDELIVERED_MS));
+    this.db.prepare("DELETE FROM app_events WHERE run_id IS NOT NULL AND created_at < ?").run(ago(KEEP_DELIVERED_MS));
+    // what's waiting goes after two days, except while the plan its agent runs on is paused: those changes are owed a look when it's back
+    const stale = this.db.prepare("SELECT DISTINCT agent_id AS agentId FROM app_events WHERE run_id IS NULL AND created_at < ?").all(ago(KEEP_UNDELIVERED_MS)) as { agentId: string }[];
+    for (const { agentId } of stale) {
+      const agent = this.hub.store.agent(agentId);
+      const paused = !!agent && !!this.hub.limits.paused(agent, at);
+      this.db.prepare("DELETE FROM app_events WHERE run_id IS NULL AND agent_id = ? AND created_at < ?").run(agentId, ago(paused ? KEEP_HELD_MS : KEEP_UNDELIVERED_MS));
+    }
     this.db.prepare("UPDATE app_events SET preview = NULL WHERE preview IS NOT NULL AND created_at < ?").run(ago(KEEP_PREVIEW_MS));
   }
 

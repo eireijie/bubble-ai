@@ -23,8 +23,14 @@ export interface LimitHit {
 /** A run error that means "the plan or key is used up for now", in any harness's words. */
 const LIMIT =
   /(?:usage|rate|weekly|daily|monthly|session|plan|spend(?:ing)?|token|request)s?[ _-]?limit|\d+[- ]hour limit|hit your limit|limit (?:reached|exceeded)|too many requests|\b429\b|quota|credit balance is too low|out of credits|insufficient[_ ]credits?|insufficient_quota|usage_limit_reached|exceeded your current/i;
-/** Wisp's own limits and settings, which aren't the plan's. */
-const NOT_THE_PLAN = /channel rate limit|daily limit reached|allowance/i;
+/**
+ * Limits that aren't the plan's: Wisp's own, a full disk, a model's context window, a browser or
+ * session count, and another service's rate limit (a connected app's API answering 429).
+ */
+const NOT_THE_PLAN =
+  /channel rate limit|daily limit reached|allowance|disk quota|\bEDQUOT\b|\bENOSPC\b|context (?:length|window)|(?:exceeds?|over|above) the (?:token|context|size|length) limit|maximum context|concurrent|\b(?:github|gitlab|bitbucket|notion|slack|linear|jira|atlassian|stripe|npm|docker|pypi|hugging ?face|google drive|gmail)\b|tool call failed/i;
+/** A reset further away than this isn't believed (no plan window is longer than a week): it's treated as "didn't say". */
+export const LIMIT_MAX_WAIT_MS = 8 * 86_400_000;
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
@@ -52,7 +58,7 @@ function nextClock(now: Date, hour: number, minute: number, timeZone: string): D
  */
 export function limitProblem(error: string, now = new Date(), timeZone = "UTC"): LimitHit | null {
   if (!error || !LIMIT.test(error) || NOT_THE_PLAN.test(error)) return null;
-  const at = (d: Date | null) => ({ resetsAt: d && !isNaN(d.getTime()) && d.getTime() > now.getTime() ? d.toISOString() : null });
+  const at = (d: Date | null) => ({ resetsAt: d && !isNaN(d.getTime()) && d.getTime() > now.getTime() && d.getTime() - now.getTime() <= LIMIT_MAX_WAIT_MS ? d.toISOString() : null });
   // Claude Code: "Claude AI usage limit reached|1763830800"
   const epoch = /\|(\d{10})\b/.exec(error);
   if (epoch) return at(new Date(Number(epoch[1]) * 1000));

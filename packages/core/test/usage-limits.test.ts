@@ -25,6 +25,23 @@ describe("a harness saying its plan is used up", () => {
     expect(limitProblem("Claude AI usage limit reached|1700000000", now)).toEqual({ resetsAt: null });
   });
 
+  it("doesn't read another service's limit, a full disk or a model's context window as the plan", () => {
+    for (const e of [
+      "EDQUOT: disk quota exceeded, write",
+      "GitHub API rate limit exceeded for installation",
+      "tool call failed: 429 from api.notion.com",
+      "Your input exceeds the token limit for this model",
+      "session limit of 5 concurrent browsers reached",
+      "listen EADDRINUSE: address already in use :::4290",
+    ])
+      expect(limitProblem(e, now), e).toBeNull();
+  });
+
+  it("doesn't believe a reset more than about a week away", () => {
+    expect(limitProblem("You've hit your usage limit. Try again in 9999 days.", now)).toEqual({ resetsAt: null });
+    expect(limitProblem("You've hit your usage limit. Try again in 6 days 23 hours.", now)).toEqual({ resetsAt: "2026-11-29T14:00:00.000Z" });
+  });
+
   it("leaves other failures alone, Wisp's own limits included", () => {
     expect(limitProblem("Failed to authenticate: OAuth session expired and could not be refreshed", now)).toBeNull();
     expect(limitProblem("spawn codex ENOENT", now)).toBeNull();

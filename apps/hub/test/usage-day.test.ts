@@ -16,6 +16,8 @@ import type { Hub } from "../src/hub.ts";
  * - Watcher: also connected to Notion with a watch on it. Nothing changes all day.
  * - Busy: the same, on a day when Notion changes 13 times: 12 edits that don't matter to the person
  *   and one that does.
+ * - Noted: a fresh agent on a day when six notes are saved in the memory it shares with other agents
+ *   (as their memory passes do), none of them about what the person asked it to watch.
  *
  * It prints the calls as `USAGE-DAY {...}` (and writes them to the file named by USAGE_OUT). Written against APIs `main` had before the usage work, so
  * the same file measures before and after; the limits it asserts only apply where sorting exists.
@@ -111,7 +113,7 @@ async function makeAgent(handle: string, notion: boolean) {
 
 /** Run one agent's day: turn background work on at 08:00 and step the clock to 08:00 the next day. */
 let days = 0;
-async function day(handle: string, opts: { notion?: boolean; edits?: { atMinute: number; id: string; title: string }[] } = {}) {
+async function day(handle: string, opts: { notion?: boolean; edits?: { atMinute: number; id: string; title: string }[]; notes?: { atMinute: number; path: string }[] } = {}) {
   // each agent gets a day of its own (one person's allowance is per day), well after the real clock so notes written
   // while the test runs don't look newer than the agent's last check
   const start = Date.UTC(2031, 0, 6 + 3 * days++, 8);
@@ -128,6 +130,12 @@ async function day(handle: string, opts: { notion?: boolean; edits?: { atMinute:
   for (let m = 5; m <= 24 * 60; m += 5) {
     vi.setSystemTime(start + m * 60_000);
     for (const e of opts.edits ?? []) if (e.atMinute === m) pages = [page(e.id, e.title, start + m * 60_000)];
+    for (const n of opts.notes ?? [])
+      if (n.atMinute === m) {
+        await hub.vault(ws).write(n.path, `# ${n.path}\n\nSaved by another agent.\n`, { name: "Other", email: "other@example.com" }, "note");
+        // the file's own time is the real clock's; the day being played is the simulated one
+        (hub.vault(ws) as unknown as { db: { prepare(sql: string): { run(...a: unknown[]): void } } }).db.prepare("UPDATE vault_notes SET updated_at = ? WHERE path = ?").run(start + m * 60_000, n.path);
+      }
     hub.background.tick();
     await hub.watches.tick();
     await new Promise((r) => setTimeout(r, 2));
@@ -150,9 +158,10 @@ describe("a day left alone", () => {
       const edits = Array.from({ length: 12 }, (_, i) => ({ atMinute: 60 + i * 100, id: `n${i}`, title: `Meeting notes ${i + 1}` }));
       edits.push({ atMinute: 700, id: "launch", title: "Launch plan: date moved to Friday" });
       const busy = await day("busy", { notion: true, edits });
-      console.log("USAGE-DAY " + JSON.stringify({ fresh, watcher, busy }));
+      const noted = await day("noted", { notes: Array.from({ length: 6 }, (_, i) => ({ atMinute: 90 + i * 200, path: `shared/notes-${i + 1}.md` })) });
+      console.log("USAGE-DAY " + JSON.stringify({ fresh, watcher, busy, noted }));
       // USAGE_OUT=<file> keeps the numbers (a passing test's output isn't always shown)
-      if (process.env.USAGE_OUT) await fs.writeFile(process.env.USAGE_OUT, JSON.stringify({ fresh, watcher, busy }));
+      if (process.env.USAGE_OUT) await fs.writeFile(process.env.USAGE_OUT, JSON.stringify({ fresh, watcher, busy, noted }));
       // where changes are sorted first (this branch): the first look when background work is turned on, then nothing
       if ("triage" in hub) {
         expect(fresh).toMatchObject({ checks: 1, sorts: 0 });
@@ -160,6 +169,10 @@ describe("a day left alone", () => {
         // every batch of edits is sorted; only the launch plan wakes the agent
         expect(busy.checks).toBe(2);
         expect(busy.sorts).toBe(13);
+        // notes other agents save are sorted too: no full check for any of them
+        expect(noted.checks).toBe(1);
+        expect(noted.sorts).toBeGreaterThanOrEqual(1);
+        expect(noted.sorts).toBeLessThanOrEqual(6);
       }
     } finally {
       vi.useRealTimers();

@@ -534,6 +534,10 @@ export interface BackgroundWork {
   dailyCap: number | null;
   /** tokens a day its unattended work (checks, sorting changes, memory passes) may use for this person; null = Wisp's default */
   dailyTokens?: number | null;
+  /** the agent picked `nextAt` itself (next_check), so that look happens even when Wisp sees nothing to look at */
+  nextPicked?: boolean;
+  /** when it first looked around successfully (its computer included); null = it still owes that look */
+  lookedAt?: string | null;
   /** checks in a row that found nothing to say: each one doubles the wait, up to a day */
   quietStreak: number;
 }
