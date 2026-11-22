@@ -5,8 +5,9 @@
  * every self-hosted hub has its own address. The relay is that registered address:
  *
  * - `/oauth/callback` gets the one-time code and sends the browser on to the hub named in `state`.
- *   A hub on the person's own computer or network gets it straight away; anything else is shown
- *   first, so a sign-in link someone else made can't quietly send the code to their hub.
+ *   A hub on this computer (localhost) gets it straight away; anything else, home-network
+ *   addresses included, is shown first, so a sign-in link someone else made can't quietly send
+ *   the code to their hub.
  * - `/api/oauth/token` is called by the hub, never the browser: it adds the app's secret and
  *   trades a code (useless without the hub's PKCE verifier) or a refresh token for tokens.
  * - `/api/oauth/apps` says which apps are set up, so hubs show Sign in only where it works.
@@ -59,13 +60,10 @@ export function hubFromState(state: string | null): URL | null {
 }
 
 /** A hub on the person's own computer or home network: nobody else can receive a code sent there. */
-export function isOwnNetwork(u: URL): boolean {
+export function isThisComputer(u: URL): boolean {
   const h = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h === "::1") return true;
-  const m = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (!m) return false;
-  const [a, b] = [Number(m[1]), Number(m[2])];
-  return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 100 && b >= 64 && b <= 127);
+  if (h === "localhost" || h.endsWith(".localhost") || h === "::1") return true;
+  return /^127\.\d+\.\d+\.\d+$/.test(h);
 }
 
 const esc = (t: string) => t.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
@@ -96,7 +94,7 @@ export function callback(request: Request): Response {
   const headers = { "cache-control": "no-store", "referrer-policy": "no-referrer" };
   if (!hub) return new Response("This sign-in link isn't from a Wisp. Start it again from Wisp.", { status: 400, headers: { ...headers, "content-type": "text/plain; charset=utf-8" } });
   const next = forwardUrl(hub, url.searchParams);
-  if (isOwnNetwork(hub)) return new Response(null, { status: 302, headers: { ...headers, location: next } });
+  if (isThisComputer(hub)) return new Response(null, { status: 302, headers: { ...headers, location: next } });
   return new Response(confirmPage(hub, next), { headers: { ...headers, "content-type": "text/html; charset=utf-8", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'" } });
 }
 

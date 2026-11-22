@@ -48,11 +48,16 @@ let owner: string;
 let agentId: string;
 const before = process.env.WISP_SIGNIN_RELAY;
 
-async function api<T = any>(method: string, url: string, body?: unknown, token = owner): Promise<{ status: number; data: T }> {
+async function api<T = any>(method: string, url: string, body?: unknown, token = owner): Promise<{ status: number; data: T; cookie: string }> {
   const res = await fetch(base + url, { method, headers: { ...(body !== undefined ? { "content-type": "application/json" } : {}), authorization: `Bearer ${token}` }, body: body !== undefined ? JSON.stringify(body) : undefined });
   const text = await res.text();
-  return { status: res.status, data: (text ? JSON.parse(text) : null) as T };
+  // the browser that starts a sign-in keeps this cookie and sends it back with the callback
+  const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0];
+  return { status: res.status, data: (text ? JSON.parse(text) : null) as T, cookie };
 }
+
+/** The browser that started the sign-in coming back. */
+const sameBrowser = (url: string, cookie: string) => fetch(url, { redirect: "manual", headers: { cookie } });
 
 beforeAll(async () => {
   process.env.WISP_SIGNIN_RELAY = RELAY;
@@ -132,8 +137,11 @@ describe("signing in with Google through the relay", () => {
     const next = atRelay.headers.get("location")!;
     expect(next).toBe(`${base}/api/connectors/app/callback?code=good&state=${encodeURIComponent(state)}`);
 
-    const back = await fetch(next, { redirect: "manual" });
+    // the sign-in was started in this browser: it finishes without asking
+    expect(r.cookie).toMatch(/^wisp_signin_[0-9a-f]{16}=/);
+    const back = await sameBrowser(next, r.cookie);
     expect(back.status).toBe(200);
+    expect(back.headers.get("set-cookie")).toContain("Max-Age=0");
     const page = await back.text();
     expect(page).toContain("Signed in to Gmail and Google Calendar");
     expect(page).not.toContain("g-at1");
@@ -159,12 +167,36 @@ describe("signing in with Google through the relay", () => {
     expect(seen.filter((s) => s.form.get("grant_type") === "refresh_token")).toHaveLength(2);
 
     // a used or made-up state goes nowhere
-    const again = await fetch(next, { redirect: "manual" });
+    const again = await sameBrowser(next, r.cookie);
     expect(decodeURIComponent(again.headers.get("location")!)).toContain("expired");
 
     // signing in to Gmail again reuses the connector
     const re = await api("POST", "/api/connectors/connect", { catalogIds: ["gmail"], origin: base });
     expect(re.data.connectors[0].id).toBe(gmail.id);
+  });
+
+  it("keeps the sign-in when a refresh fails for a while, and ends it only when the company says no", async () => {
+    const gmail = (await api<any[]>("GET", "/api/connectors")).data.find((c) => c.catalogId === "gmail");
+    const db = (hub.connectors.auth as unknown as { db: { prepare(sql: string): { run(...a: unknown[]): unknown } } }).db;
+    const runOut = () => db.prepare("UPDATE connector_auth SET expires_at = ? WHERE connector_id = ?").run(new Date(Date.now() - 1000).toISOString(), gmail.id);
+    runOut();
+    hub.connectors.auth.fetchFn = async () => {
+      throw new Error("relay unreachable");
+    };
+    try {
+      await hub.connectors.auth.fresh(gmail.id, gmail.url);
+    } finally {
+      hub.connectors.auth.fetchFn = hubFetch;
+    }
+    expect(hub.connectors.auth.accessToken(gmail.id)).toBe("g-at2");
+    expect((await api("GET", `/api/connectors/${gmail.id}`)).data.auth.error).toMatch(/^Couldn't renew the sign-in yet/);
+
+    // Google refuses the refresh token: signed out, with the reason
+    db.prepare("UPDATE connector_auth SET tokens_json = ? WHERE connector_id = ?").run(JSON.stringify({ access_token: "g-at2", refresh_token: "revoked" }), gmail.id);
+    runOut();
+    await hub.connectors.auth.fresh(gmail.id, gmail.url);
+    expect(hub.connectors.auth.accessToken(gmail.id)).toBeNull();
+    expect((await api("GET", `/api/connectors/${gmail.id}`)).data.auth).toMatchObject({ signedIn: false, error: expect.stringMatching(/^Signed out: Google said no/) });
   });
 
   it("notes a cancelled sign-in on the connector", async () => {
@@ -185,9 +217,50 @@ describe("signing in with Google through the relay", () => {
     expect(to.origin + to.pathname).toBe("https://github.com/login/oauth/authorize");
     expect(to.searchParams.get("scope")).toBe("repo read:org read:user notifications");
     const next = relay.callback(new Request(`${RELAY}/oauth/callback?code=good&state=${encodeURIComponent(to.searchParams.get("state")!)}`)).headers.get("location")!;
-    const back = await fetch(next, { redirect: "manual" });
+    const back = await sameBrowser(next, r.cookie);
     expect(back.headers.get("location")).toBe("/?signin=ok#/connectors");
     expect(hub.connectors.auth.accessToken(conn.id)).toBe("gh-at");
+  });
+
+  it("asks a different browser before finishing, so a passed-on sign-in link can't quietly connect someone else's account", async () => {
+    const r = await api("POST", "/api/connectors/connect", { catalogIds: ["gdrive"], origin: base });
+    const state = new URL(r.data.url).searchParams.get("state")!;
+    const next = `${base}/api/connectors/app/callback?code=good&state=${encodeURIComponent(state)}`;
+    const elsewhere = await fetch(next, { redirect: "manual" });
+    expect(elsewhere.status).toBe(200);
+    expect(elsewhere.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    const html = await elsewhere.text();
+    expect(html).toContain("Me started this sign-in for Google Drive in Wisp");
+    expect(html).toContain("Continue only if you started it");
+    expect(hub.connectors.auth.accessToken(r.data.connectors[0].id)).toBeNull();
+    // a wrong cookie is no better than none
+    expect((await sameBrowser(next, `${r.cookie.split("=")[0]}=nope`)).status).toBe(200);
+    expect(hub.connectors.auth.accessToken(r.data.connectors[0].id)).toBeNull();
+    // Continue finishes it
+    const go = await fetch(`${next}&confirm=1`, { redirect: "manual" });
+    expect(go.headers.get("location")).toBe("/?signin=ok#/connectors");
+    expect(hub.connectors.auth.accessToken(r.data.connectors[0].id)).toBe("g-at1");
+  });
+
+  it("Cancel on the confirm page cancels the sign-in", async () => {
+    const r = await api("POST", "/api/connectors/connect", { catalogIds: ["gdrive"], origin: base });
+    const state = new URL(r.data.url).searchParams.get("state")!;
+    const html = await (await fetch(`${base}/api/connectors/app/callback?code=good&state=${encodeURIComponent(state)}`)).text();
+    const cancel = html.match(/<a class="no" href="([^"]+)"/)![1].replace(/&#38;/g, "&");
+    expect(cancel).not.toContain("code=");
+    const back = await fetch(base + cancel, { redirect: "manual" });
+    expect(decodeURIComponent(back.headers.get("location")!)).toContain("Sign-in was cancelled.");
+    expect((await api("GET", `/api/connectors/${r.data.connectors[0].id}`)).data.auth.error).toBe("Sign-in was cancelled.");
+  });
+
+  it("shows the sign-in page's own words only for a sign-in under way here", async () => {
+    const made = `${base}/api/connectors/app/callback?error=x&error_description=${encodeURIComponent("Call 555 to restore your account")}&state=nope`;
+    const back = await fetch(made, { redirect: "manual" });
+    const to = decodeURIComponent(back.headers.get("location")!);
+    expect(to).toContain("This sign-in link has expired");
+    expect(to).not.toContain("555");
+    const mcp = await fetch(`${base}/api/connectors/oauth/callback?error=x&error_description=hi&state=nope`, { redirect: "manual" });
+    expect(decodeURIComponent(mcp.headers.get("location") ?? "")).not.toContain("hi#");
   });
 
   it("only takes catalog apps that sign in, and only shares a sign-in within one company", async () => {
@@ -208,9 +281,10 @@ describe("the relay", () => {
     expect(html).toContain(`https://someone.example.com/api/connectors/app/callback?code=c&#38;state=${state}`);
   });
 
-  it("knows the person's own network", () => {
-    for (const h of ["http://localhost:8787", "http://127.0.0.1:1", "http://192.168.0.4:8787", "http://10.0.0.2", "http://172.20.1.1", "http://100.101.2.3:8787", "http://wisp.local:8787", "http://[::1]:8787"]) expect(relay.isOwnNetwork(new URL(h))).toBe(true);
-    for (const h of ["https://wisp.example.ts.net", "https://evil.example", "http://172.32.0.1", "http://8.8.8.8"]) expect(relay.isOwnNetwork(new URL(h))).toBe(false);
+  it("sends the code on without asking only to this computer", () => {
+    for (const h of ["http://localhost:8787", "http://127.0.0.1:1", "http://wisp.localhost:8787", "http://[::1]:8787"]) expect(relay.isThisComputer(new URL(h))).toBe(true);
+    // a home-network address could be anyone's hub on the network the person is on (a café's, a hotel's)
+    for (const h of ["http://192.168.0.4:8787", "http://10.0.0.2", "http://172.20.1.1", "http://100.101.2.3:8787", "http://wisp.local:8787", "https://wisp.example.ts.net", "https://evil.example", "http://8.8.8.8"]) expect(relay.isThisComputer(new URL(h))).toBe(false);
   });
 
   it("refuses states that aren't a hub's address", () => {

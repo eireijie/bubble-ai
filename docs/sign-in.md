@@ -38,9 +38,15 @@ Gmail and Google Calendar (or any apps from one company) can share one sign-in: 
 
 1. The hub sends the browser to the company's sign-in page. The page is told to come back to the relay, and `state` carries the hub's own address (`<base64url origin>.<random>`). The hub keeps a PKCE verifier.
 2. The company sends the browser to `/oauth/callback` on the relay with a one-time code, and the relay sends it on to the hub's `/api/connectors/app/callback`.
-   - If the hub is on the person's own computer or network (localhost, `10/8`, `172.16/12`, `192.168/16`, Tailscale's `100.64/10`, `.local`), the relay sends it on straight away.
-   - Otherwise it first shows "This sign-in goes back to the Wisp at `host`. Continue only if that's your Wisp." A sign-in link someone else made can't quietly hand the code to their hub.
+   - If the hub is on this computer (`localhost`, `127.0.0.1`, `::1`), the relay sends it on straight away.
+   - Otherwise, home-network addresses included, it first shows "This sign-in goes back to the Wisp at `host`. Continue only if that's your Wisp." A sign-in link someone else made can't quietly hand the code to their hub. A home-network address isn't trusted, because on a shared network (a café, a hotel) it can be someone else's.
 3. The hub calls the relay's `/api/oauth/token` with the code and its verifier. The relay adds the app's secret, asks the company, and passes the answer back. Refreshes go the same way.
+
+**Finishing in the browser that started it.** Every sign-in, through the relay or the server's own, comes back to the hub with only `state` to say which sign-in it is. So the hub also gives the browser that starts a sign-in an HttpOnly cookie holding a random secret (`wisp_signin_…`, 30 minutes, only sent to `/api/connectors/`). A callback that arrives with the matching cookie finishes straight away. One without it gets "Finish signing in: *Name* started this sign-in for *Gmail* in Wisp. Continue only if you started it." That stops a sign-in link passed to someone else from quietly connecting their account to the sender's connector. In the desktop app the sign-in opens in the system browser, which doesn't share the app's cookies, so there this page shows every time and one more click finishes it.
+
+Only a sign-in that's really under way gets to put the sign-in page's own error text on Wisp's page; anything else says "This sign-in link has expired. Start it again."
+
+If refreshing a token fails because the relay or the company can't be reached, the connector keeps its sign-in and shows "Couldn't renew the sign-in yet". It's only signed out when the company refuses the refresh token. Starting a sign-in again keeps the current one until the new one finishes.
 
 The relay stores nothing. It only trades codes that came back through itself (`redirect_uri` must be its own callback). `GET /api/oauth/apps` lists which apps it has, so hubs offer Sign in only where it works; the rest say "Signing in with Google isn't set up for Wisp yet."
 

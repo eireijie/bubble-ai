@@ -27,6 +27,7 @@ type Row = {
   error: string | null;
   provider: string | null;
   return_to: string | null;
+  browser_nonce: string | null;
 };
 
 export interface ConnectorAuthStatus {
@@ -212,14 +213,60 @@ export class ConnectorAuth {
     const state = crypto.randomBytes(24).toString("base64url");
     this.db.prepare("INSERT INTO connector_auth (connector_id, required, updated_at) VALUES (?, 1, ?) ON CONFLICT(connector_id) DO UPDATE SET required = 1").run(connectorId, now());
     // an MCP sign-in now: drop any app sign-in left from before
-    this.db.prepare("UPDATE connector_auth SET state = ?, signed_in_by = ?, error = NULL, tokens_json = NULL, expires_at = NULL, provider = NULL, return_to = ? WHERE connector_id = ?").run(state, userId, opts.returnTo ?? null, connectorId);
+    this.db.prepare("UPDATE connector_auth SET state = ?, signed_in_by = ?, error = NULL, tokens_json = NULL, expires_at = NULL, provider = NULL, return_to = ?, browser_nonce = NULL WHERE connector_id = ?").run(state, userId, opts.returnTo ?? null, connectorId);
     const result = await auth(provider, { serverUrl, fetchFn: this.fetchFor(connectorId), ...(opts.scope ? { scope: opts.scope } : {}) });
     return result === "REDIRECT" ? provider.authorizationUrl!.href : null;
   }
 
-  /** Where the browser goes after the MCP sign-in under way with this state (see start). */
+  // --- which browser finishes a sign-in ------------------------------------------------------------
+  //
+  // A sign-in link can be passed to someone else: a member could send the owner the link for the
+  // member's own connector, and the owner's account would land on it. So the browser that starts
+  // a sign-in gets a cookie with a secret, and a callback that arrives without it (another
+  // browser, or the desktop app's sign-in that opened in the system browser) asks first, naming
+  // who started it and for what.
+
+  /** The cookie name for one sign-in (several can be under way at once). */
+  static cookieName(state: string): string {
+    return `wisp_signin_${crypto.createHash("sha256").update(state).digest("hex").slice(0, 16)}`;
+  }
+
+  /** Remember a secret for the sign-in under way with this state; returns the cookie to set on the browser starting it. */
+  bindBrowser(state: string, secure: boolean): string {
+    const nonce = crypto.randomBytes(24).toString("base64url");
+    this.db.prepare("UPDATE connector_auth SET browser_nonce = ? WHERE state = ?").run(nonce, state);
+    return `${ConnectorAuth.cookieName(state)}=${nonce}; Path=/api/connectors/; Max-Age=1800; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
+  }
+
+  /** Whether this callback came back to the browser that started the sign-in. */
+  sameBrowser(state: string, cookieHeader: string | undefined): boolean {
+    const r = this.db.prepare("SELECT browser_nonce FROM connector_auth WHERE state = ? AND browser_nonce IS NOT NULL LIMIT 1").get(state) as { browser_nonce: string } | undefined;
+    if (!r || !cookieHeader) return false;
+    const name = ConnectorAuth.cookieName(state);
+    const got = cookieHeader.split(";").map((p) => p.trim().split("=")).find(([k]) => k === name)?.[1] ?? "";
+    const a = Buffer.from(got), b = Buffer.from(r.browser_nonce);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+
+  /** The cookie that clears this sign-in's secret once it's done. */
+  static clearCookie(state: string): string {
+    return `${ConnectorAuth.cookieName(state)}=; Path=/api/connectors/; Max-Age=0; HttpOnly; SameSite=Lax`;
+  }
+
+  /** A sign-in under way with this state (either kind): who started it and for which connectors. */
+  pending(state: string): { userId: string | null; connectorIds: string[]; app: boolean } | null {
+    const rows = this.db.prepare("SELECT connector_id, signed_in_by, provider FROM connector_auth WHERE state = ?").all(state) as { connector_id: string; signed_in_by: string | null; provider: string | null }[];
+    return rows.length ? { userId: rows[0].signed_in_by, connectorIds: rows.map((r) => r.connector_id), app: !!rows[0].provider } : null;
+  }
+
+  /** Where the browser goes after the sign-in under way with this state (see start). */
   returnToFor(state: string): string | null {
-    return (this.db.prepare("SELECT return_to FROM connector_auth WHERE state = ? AND provider IS NULL").get(state) as { return_to: string | null } | undefined)?.return_to ?? null;
+    return (this.db.prepare("SELECT return_to FROM connector_auth WHERE state = ? LIMIT 1").get(state) as { return_to: string | null } | undefined)?.return_to ?? null;
+  }
+
+  /** The sign-in page said no (the person pressed Cancel): note it on the connectors waiting for it. */
+  failPending(state: string, message: string) {
+    this.db.prepare("UPDATE connector_auth SET error = ?, state = NULL, verifier = NULL, browser_nonce = NULL WHERE state = ?").run(message.slice(0, 500), state);
   }
 
   /** The sign-in page sent the person back with a code: trade it for tokens. */
@@ -235,7 +282,7 @@ export class ConnectorAuth {
       this.db.prepare("UPDATE connector_auth SET error = ? WHERE connector_id = ?").run((e as Error).message.slice(0, 500), r.connector_id);
       throw e;
     } finally {
-      this.db.prepare("UPDATE connector_auth SET state = NULL, verifier = NULL WHERE connector_id = ?").run(r.connector_id);
+      this.db.prepare("UPDATE connector_auth SET state = NULL, verifier = NULL, browser_nonce = NULL WHERE connector_id = ?").run(r.connector_id);
     }
     return r.connector_id;
   }

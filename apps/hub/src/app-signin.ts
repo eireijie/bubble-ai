@@ -50,7 +50,15 @@ type AppSource = { kind: "own"; clientId: string; clientSecret: string } | { kin
 
 const ENV_NAME: Record<SignInProvider, string> = { github: "GITHUB", slack: "SLACK", google: "GOOGLE" };
 
-export class AppSignInError extends Error {}
+export class AppSignInError extends Error {
+  /** the company itself said no (a bad or revoked grant), as opposed to not being reachable */
+  constructor(
+    message: string,
+    readonly refused = false,
+  ) {
+    super(message);
+  }
+}
 
 /** The relay URL, or null when this hub was told not to use one (WISP_SIGNIN_RELAY=off). */
 export function relayUrl(): string | null {
@@ -64,10 +72,13 @@ export function relayState(origin: string): string {
   return `${Buffer.from(origin).toString("base64url")}.${crypto.randomBytes(24).toString("base64url")}`;
 }
 
+/** Answers that mean the sign-in itself is gone (revoked, expired, or the app was removed), not a passing failure. */
+const DEAD_GRANT = new Set(["invalid_grant", "invalid_token", "invalid_refresh_token", "token_revoked", "token_expired", "access_denied", "unauthorized_client", "invalid_client", "bad_refresh_token"]);
+
 /** Make one company's token answer the usual OAuth shape. Slack puts user tokens under `authed_user`; GitHub and Slack say errors with a 200. */
 export function normalizeTokens(provider: SignInProvider, body: Record<string, any>): AppTokens {
-  if (provider === "slack" && body.ok === false) throw new AppSignInError(`Slack said no (${body.error ?? "unknown error"})`);
-  if (body.error) throw new AppSignInError(`${SIGN_IN_PROVIDERS[provider].name} said no (${body.error_description || body.error})`);
+  if (provider === "slack" && body.ok === false) throw new AppSignInError(`Slack said no (${body.error ?? "unknown error"})`, DEAD_GRANT.has(body.error));
+  if (body.error) throw new AppSignInError(`${SIGN_IN_PROVIDERS[provider].name} said no (${body.error_description || body.error})`, DEAD_GRANT.has(body.error));
   const t = provider === "slack" && body.authed_user?.access_token ? body.authed_user : body;
   if (!t.access_token || typeof t.access_token !== "string") throw new AppSignInError(`${SIGN_IN_PROVIDERS[provider].name} didn't send a token back`);
   return {
@@ -136,7 +147,7 @@ export class AppSignIn {
     for (const cid of connectorIds) {
       this.db.prepare("INSERT INTO connector_auth (connector_id, required, updated_at) VALUES (?, 1, ?) ON CONFLICT(connector_id) DO UPDATE SET required = 1").run(cid, now());
       this.db
-        .prepare("UPDATE connector_auth SET provider = ?, redirect_url = ?, state = ?, verifier = ?, return_to = ?, signed_in_by = ?, error = NULL, tokens_json = NULL, expires_at = NULL, client_json = NULL, updated_at = ? WHERE connector_id = ?")
+        .prepare("UPDATE connector_auth SET provider = ?, redirect_url = ?, state = ?, verifier = ?, return_to = ?, signed_in_by = ?, error = NULL, client_json = NULL, browser_nonce = NULL, updated_at = ? WHERE connector_id = ?")
         .run(provider, redirect, state, verifier, returnTo, userId, now(), cid);
     }
     const p = SIGN_IN_PROVIDERS[provider];
@@ -185,7 +196,7 @@ export class AppSignIn {
     const rows = this.rows("state = ? AND provider IS NOT NULL", state);
     if (!rows.length || !rows[0].verifier || !rows[0].redirect_url) throw new AppSignInError("This sign-in link has expired. Start it again.");
     const provider = rows[0].provider as SignInProvider;
-    const clear = () => this.db.prepare("UPDATE connector_auth SET state = NULL, verifier = NULL WHERE state = ?").run(state);
+    const clear = () => this.db.prepare("UPDATE connector_auth SET state = NULL, verifier = NULL, browser_nonce = NULL WHERE state = ?").run(state);
     try {
       const t = await this.token(provider, { grant_type: "authorization_code", code, redirect_uri: rows[0].redirect_url, code_verifier: rows[0].verifier });
       for (const r of rows) this.save(r.connector_id, t);
@@ -201,7 +212,7 @@ export class AppSignIn {
   /** The sign-in page said no (the person pressed Cancel): note it on the connectors waiting for it. */
   fail(state: string, message: string): string | null {
     const rows = this.rows("state = ? AND provider IS NOT NULL", state);
-    for (const r of rows) this.db.prepare("UPDATE connector_auth SET error = ?, state = NULL, verifier = NULL WHERE connector_id = ?").run(message.slice(0, 500), r.connector_id);
+    for (const r of rows) this.db.prepare("UPDATE connector_auth SET error = ?, state = NULL, verifier = NULL, browser_nonce = NULL WHERE connector_id = ?").run(message.slice(0, 500), r.connector_id);
     return rows[0]?.return_to ?? null;
   }
 
@@ -220,7 +231,9 @@ export class AppSignIn {
     try {
       this.save(connectorId, await this.token(r.provider as SignInProvider, { grant_type: "refresh_token", refresh_token: refresh }));
     } catch (e) {
-      this.db.prepare("UPDATE connector_auth SET error = ?, tokens_json = NULL, expires_at = NULL WHERE connector_id = ?").run(`Signed out: ${(e as Error).message}`.slice(0, 500), connectorId);
+      // only the company saying no ends the sign-in; the relay or the company being away for a while doesn't
+      if (e instanceof AppSignInError && e.refused) this.db.prepare("UPDATE connector_auth SET error = ?, tokens_json = NULL, expires_at = NULL WHERE connector_id = ?").run(`Signed out: ${e.message}`.slice(0, 500), connectorId);
+      else this.db.prepare("UPDATE connector_auth SET error = ? WHERE connector_id = ?").run(`Couldn't renew the sign-in yet: ${(e as Error).message}`.slice(0, 500), connectorId);
     }
   }
 }
