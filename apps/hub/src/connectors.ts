@@ -409,7 +409,7 @@ export class SkillStore {
 
   /** The skills an agent learned. */
   learnedBy(workspaceId: string, agentId: string): Skill[] {
-    return (this.db.prepare("SELECT * FROM skills WHERE workspace_id = ? AND source = 'learned' AND learned_by = ? ORDER BY created_at").all(workspaceId, agentId) as SkillRow[]).map((r) => this.view(r));
+    return (this.db.prepare("SELECT * FROM skills WHERE workspace_id = ? AND source = 'learned' AND learned_by = ? ORDER BY created_at, rowid").all(workspaceId, agentId) as SkillRow[]).map((r) => this.view(r));
   }
 
   /** Every-agent skills in the workspace. */

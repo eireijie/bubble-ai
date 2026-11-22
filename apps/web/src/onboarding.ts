@@ -106,6 +106,7 @@ const useOnboardingStore = create<{ state: OnboardingState | null; error: string
     const run = (): Promise<void> =>
       api<OnboardingState>("GET", "/api/onboarding")
         .then(
+          // unchanged progress keeps the state it has: this is refetched on a timer and on every message
           (state) => set((s) => (s.error === null && sameData(s.state, state) ? s : { state: keep(s.state, state), error: null })),
           (e: { status?: number; message: string }) =>
             // a 404 means the browser has a newer app than the hub is running

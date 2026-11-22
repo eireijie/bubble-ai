@@ -12,7 +12,7 @@ const state = {
 const message = (patch: Partial<Message> = {}): Message => ({ id: "m", channelId: "dm", threadId: null, author: { kind: "agent", id: "other" }, body: "Your report is ready.\nMore details", parts: [], hop: 0, createdAt: "", ...patch });
 
 describe("desk buddy events", () => {
-  it("doesn't reopen a disposed event stream after a disconnect", () => {
+  it("doesn't reopen a disposed event stream after a disconnect", async () => {
     vi.useFakeTimers();
     const sockets: Socket[] = [];
     class Socket {
@@ -24,6 +24,8 @@ describe("desk buddy events", () => {
     vi.stubGlobal("location", { protocol: "http:", host: "hub" });
     try {
       const dispose = connectEvents(() => {}, () => {});
+      // the socket opens a moment after the call, not inside it
+      await Promise.resolve();
       sockets[0].close();
       dispose();
       vi.runAllTimers();

@@ -396,7 +396,7 @@ function TabBar({ route, away }: { route: Route; away: boolean }) {
   const count = isGuest ? 4 : 5;
   const accents = ["inbox", "chats", "agents", ...(isGuest ? [] : ["computers"]), "more"];
   const moreIndex = count - 1;
-  const index = route.view === "dashboard" ? 0 : route.view === "chats" || route.view === "chat" ? 1 : route.view === "agents" ? 2 : route.view === "computers" && !isGuest ? 3 : MORE_VIEWS.includes(route.view) ? moreIndex : -1;
+  const index = route.view === "dashboard" ? 0 : route.view === "chats" || route.view === "chat" ? 1 : route.view === "agents" ? 2 : route.view === "computers" && !isGuest ? 3 : MORE_VIEWS.includes(route.view) || route.view === "code" ? moreIndex : -1;
   return (
     <div data-away={away} inert={away} className="m-tabs absolute inset-x-0 bottom-0 z-30 px-4 pb-6 pointer-events-none safe-bottom">
       <nav className="glass pointer-events-auto relative mx-auto max-w-md h-[60px] flex items-center justify-between p-1.5 rounded-[30px]" aria-label="Main">

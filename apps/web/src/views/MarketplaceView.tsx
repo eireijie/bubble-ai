@@ -237,7 +237,13 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
   }, [q, retry]);
 
   // moving between sections closes what was open
-  useEffect(() => setDetail(null), [section]);
+  useEffect(() => {
+    setDetail(null);
+    setInstalling(null);
+    setTrying(null);
+    setSharing(null);
+    setEditing(null);
+  }, [section]);
 
   const needle = q.trim().toLowerCase();
   const match = (...s: (string | null | undefined)[]) => !needle || s.some((x) => x?.toLowerCase().includes(needle));

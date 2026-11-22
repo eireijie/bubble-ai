@@ -32,8 +32,10 @@ export function setCallPrefs(patch: Partial<CallPrefs>) {
   try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch { /* private window: the choice lasts until reload */ }
   listeners.forEach((l) => l());
 }
+const subscribeCallPrefs = (cb: () => void) => (listeners.add(cb), () => { listeners.delete(cb); });
+const defaultCallPrefs = () => DEFAULT_CALL_PREFS;
 export function useCallPrefs(): CallPrefs {
-  return useSyncExternalStore((cb) => (listeners.add(cb), () => { listeners.delete(cb); }), callPrefs, () => DEFAULT_CALL_PREFS);
+  return useSyncExternalStore(subscribeCallPrefs, callPrefs, defaultCallPrefs);
 }
 
 /** "1x", "1.25x" */

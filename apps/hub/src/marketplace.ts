@@ -82,7 +82,8 @@ export class Marketplace {
   private async get(url: string, tries = 2): Promise<unknown> {
     try {
       const res = await this.hub.fetchImpl(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(30_000) });
-      if (res.status === 404) return null;
+      // not found, or a query the registry won't take (it answers 422 to some characters): nothing to show, not an outage
+      if (res.status === 404 || res.status === 400 || res.status === 422) return null;
       if (res.status === 429 || res.status >= 500) throw new Error(`the MCP Registry answered ${res.status}`);
       if (!res.ok) throw Object.assign(new Error(`the MCP Registry answered ${res.status}`), { final: true });
       return await readJson(res);

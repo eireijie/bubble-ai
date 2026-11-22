@@ -52,7 +52,8 @@ export const useAccessStore = create<{ info: AccessInfo | null; failed: boolean;
   failed: false,
   refresh: async (fresh = false) => {
     const info = await api<AccessInfo>("GET", `/api/reach${fresh ? "?fresh=1" : ""}`).catch(() => null);
-    set(info ? { info, failed: false } : { failed: true });
+    // polled every few seconds: the same answer keeps the info it has, so nothing re-renders
+    set((s) => (!info ? (s.failed ? s : { failed: true }) : !s.failed && JSON.stringify(s.info) === JSON.stringify(info) ? s : { info, failed: false }));
     return info;
   },
   act: async (action) => {

@@ -78,26 +78,47 @@ export function Tile({ children, size = 40, className }: { children: ReactNode; 
 
 /**
  * A tile for an app: its real logo (the registry's own icon, else the brand's from the hub's
- * /api/logo), on a light square so any brand color reads; a plain line icon when none loads.
+ * /api/logo), on a light square so any brand color reads. Until a logo has really loaded, and when
+ * none does, the tile is the plain line icon: a logo that is slow, blocked or never asked for
+ * (a lazy image on a page the window isn't drawing) must not leave an empty white square.
  */
 export function AppTile({ name, category, icon, size = 40, entry }: { name: string; category?: AppCategory | null; icon?: ReactNode; size?: number; entry?: Pick<MarketplaceEntry, "icon" | "name" | "brand" | "id"> | null }) {
   const I = appIcon(name, category);
   const sources = icon ? [] : entry ? entryLogos(entry) : [logoUrl([name])].filter((x): x is string => !!x);
   const [failed, setFailed] = useState(0);
+  const [loaded, setLoaded] = useState<string | null>(null);
   const key = sources.join("|");
   const [forKey, setForKey] = useState(key);
   if (forKey !== key) {
     setForKey(key);
     setFailed(0);
+    setLoaded(null);
   }
   const src = sources[failed];
-  if (src)
-    return (
-      <Tile size={size} className="bg-white ring-1 ring-black/10">
-        <img key={src} src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed((n) => n + 1)} style={{ width: Math.round(size * 0.58), height: Math.round(size * 0.58) }} className="object-contain" />
-      </Tile>
-    );
-  return <Tile size={size}>{icon ?? <I size={Math.round(size * 0.5)} strokeWidth={1.7} />}</Tile>;
+  const shown = !!src && loaded === src;
+  const side = Math.round(size * 0.58);
+  return (
+    <Tile size={size} className={shown ? "bg-white ring-1 ring-black/10" : undefined}>
+      {src && (
+        <img
+          key={src}
+          // an image that was already in the cache can finish before React listens for it
+          ref={(el) => {
+            if (el?.complete && el.naturalWidth > 0) setLoaded(src);
+          }}
+          src={src}
+          alt=""
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(src)}
+          onError={() => setFailed((n) => n + 1)}
+          style={{ width: side, height: side, display: shown ? undefined : "none" }}
+          className="object-contain"
+        />
+      )}
+      {!shown && (icon ?? <I size={Math.round(size * 0.5)} strokeWidth={1.7} />)}
+    </Tile>
+  );
 }
 
 export const SkillGlyph = Wand2;

@@ -62,6 +62,8 @@ struct AppConnector: Decodable, Identifiable {
   var fields: [ConnectorField]?
   var needs: String?
   var docs: String?
+  /** a catalog entry that signs in with one click, and how (the bundled catalog only) */
+  var signIn: CatalogSignIn?
 }
 struct ConnectorField: Decodable, Identifiable {
   var key: String

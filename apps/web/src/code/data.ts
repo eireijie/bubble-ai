@@ -86,11 +86,13 @@ export function useCodeTasks(): { tasks: CodeTask[] | null; error: string | null
 /** The task list's groups, like the design: what needs you, what's working, what finished today. */
 export function groupTasks(tasks: CodeTask[]) {
   const now = Date.now();
+  const failed = (t: CodeTask) => t.state === "idle" && t.root.status === "failed";
   return [
     { label: "Needs you", tasks: tasks.filter((t) => t.state === "needs") },
     { label: "Working", tasks: tasks.filter((t) => t.state === "working") },
-    { label: "Done today", tasks: tasks.filter((t) => (t.state === "done" || t.state === "idle") && now - Date.parse(t.root.updatedAt) < DAY) },
-    { label: "Earlier", tasks: tasks.filter((t) => (t.state === "done" || t.state === "idle") && now - Date.parse(t.root.updatedAt) >= DAY) },
+    { label: "Failed", tasks: tasks.filter(failed) },
+    { label: "Done today", tasks: tasks.filter((t) => !failed(t) && (t.state === "done" || t.state === "idle") && now - Date.parse(t.root.updatedAt) < DAY) },
+    { label: "Earlier", tasks: tasks.filter((t) => !failed(t) && (t.state === "done" || t.state === "idle") && now - Date.parse(t.root.updatedAt) >= DAY) },
   ].filter((g) => g.tasks.length > 0);
 }
 

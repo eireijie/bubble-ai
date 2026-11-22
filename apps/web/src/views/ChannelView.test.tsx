@@ -4,7 +4,7 @@ import { ChannelView } from "./ChannelView.tsx";
 
 const h = vi.hoisted(() => ({
   state: {} as any, refs: [] as { current: any }[], index: 0,
-  effects: [] as (() => any)[], layouts: [] as (() => any)[],
+  effects: [] as (() => any)[], layouts: [] as (() => any)[], storeCalls: 0,
 }));
 vi.mock("react", async (original) => ({
   ...await original<typeof import("react")>(),
@@ -15,7 +15,7 @@ vi.mock("react", async (original) => ({
   useState: (value: any) => [typeof value === "function" ? value() : value, vi.fn()],
 }));
 vi.mock("../store.ts", () => ({
-  useStore: Object.assign((select: (s: any) => any) => select(h.state), { getState: () => h.state, subscribe: () => () => {} }),
+  useStore: Object.assign((select: (s: any) => any) => { h.storeCalls++; return select(h.state); }, { getState: () => h.state, subscribe: () => () => {} }),
   conversationKey: (channelId: string, threadId?: string) => threadId ? `${channelId}/t/${threadId}` : channelId,
   useNames: () => ({ agent: () => undefined }),
 }));
@@ -117,5 +117,17 @@ describe("conversation history controls", () => {
     const tree = component("thread")();
     expect(find(tree, (node) => node.props?.role === "status")?.props.children).toBe("This message was deleted.");
     expect(find(tree, (node) => node.type?.name === "Composer")).toBeUndefined();
+  });
+});
+
+describe("a chat that goes missing", () => {
+  it("calls the same hooks whether or not the chat exists (a deleted open chat crashed with 'Rendered fewer hooks')", () => {
+    const calls = (channelId: string) => {
+      h.storeCalls = 0; h.refs = []; h.index = 0;
+      ChannelView({ route: { view: "chat", channelId, threadId: null } });
+      return h.storeCalls;
+    };
+    const present = calls("channel");
+    expect(calls("gone")).toBe(present);
   });
 });

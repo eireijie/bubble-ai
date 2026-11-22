@@ -309,7 +309,8 @@ struct MarketplaceView: View {
 
   private func loadAll() async {
     library = (try? NativeCatalog.read("SkillCatalog", as: [HelperSkill].self)) ?? []
-    builtIn = (try? NativeCatalog.read("ConnectorCatalog", as: [AppConnector].self)) ?? []
+    // apps that only sign in (no key to paste) connect from the first run's "Set up apps" sheet, not from this list yet
+    builtIn = ((try? NativeCatalog.read("ConnectorCatalog", as: [AppConnector].self)) ?? []).filter { $0.signIn == nil || $0.fields?.isEmpty == false }
     do { try await store.refreshConnectors(); try await store.refreshSkills() } catch { action.error = error.localizedDescription }
     do { skillList = try await store.skillStore() }
     catch { skillList = SkillStoreList(skills: [], errors: ["Couldn't load the skill store: \(error.localizedDescription)"]) }

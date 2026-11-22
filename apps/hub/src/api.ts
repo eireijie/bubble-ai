@@ -553,10 +553,12 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!c) return;
     // the same test as channelVisible plus isMember, asked of the database once instead of three times a channel
     const mine = store.memberOf(c.actor);
-    const list = store.channels(c.workspaceId).filter((ch) => (!(ch.kind === "dm" || ch.private) || mine.has(ch.id) || c.viewer.role === "owner") && (ch.kind === "channel" || mine.has(ch.id)));
+    const visible = store.channels(c.workspaceId).filter((ch) => (!(ch.kind === "dm" || ch.private) || mine.has(ch.id) || c.viewer.role === "owner") && (ch.kind === "channel" || mine.has(ch.id)));
+    const agentsIn = store.agentMemberIds(visible.map((ch) => ch.id));
+    // a chat with an agent that was removed has nobody left to talk to: it isn't listed (nor counted as unread)
+    const list = visible.filter((ch) => ch.kind !== "dm" || (agentsIn[ch.id] ?? []).length > 0);
     const ids = list.map((ch) => ch.id);
     const counts = store.memberCounts(ids);
-    const agentsIn = store.agentMemberIds(ids);
     const reads = c.actor.kind === "user" ? store.readState(c.actor.id, ids) : {};
     const prefs = c.actor.kind === "user" ? store.channelPrefs(c.actor.id) : {};
     const pins = store.pinnedIds(ids);
@@ -1724,8 +1726,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       reply,
     );
     if (!body) return;
-    // a piece of a bigger task: the one named, else the task the delegating agent is working on right now
-    const running = c.actor.kind === "agent" ? hub.currentRun(c.actor.id) : undefined;
+    // a piece of a bigger task: the one named, else the task the delegating agent is working on right now.
+    // Its device says which run the call comes from: an agent on two things at once hands out a piece
+    // of the one that asked, not of whichever started last
+    const running = c.actor.kind === "agent" ? (hub.runFor(c.actor.id, req.headers["x-wisp-run"]) ?? hub.currentRun(c.actor.id)) : undefined;
     let parent = body.parentTaskId ? store.task(body.parentTaskId) : undefined;
     if (body.parentTaskId && (!parent || parent.workspaceId !== c.workspaceId)) return reply.code(404).send({ error: "parent task not found" });
     if (!parent && running?.threadId) {

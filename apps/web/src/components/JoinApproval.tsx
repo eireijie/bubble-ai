@@ -31,7 +31,9 @@ export function JoinApproval() {
       const before = revision;
       try {
         const result = await api<JoinRequest[] | { requests: JoinRequest[] }>("GET", "/api/join/requests");
-        if (alive && before === revision) setRequests(Array.isArray(result) ? result : result.requests);
+        const next = Array.isArray(result) ? result : result.requests;
+        // checked every 15 seconds on every screen: no change keeps the list it has, so nothing renders
+        if (alive && before === revision) setRequests((cur) => (JSON.stringify(cur) === JSON.stringify(next) ? cur : next));
       } catch {
         /* An older Wisp has no join requests. Keep listening for live events. */
       }

@@ -725,7 +725,7 @@ function ModelPanel({ agent, onDirty, active }: { agent: FullAgent; onDirty: (d:
           ) : (
             <>
               <a className="text-accent-text hover:underline" href={`#/agents/${agent.id}/device`}>
-                Pick a device on the Device tab
+                Pick a device on the Computer tab
               </a>{" "}
               to see available models.
             </>
@@ -1161,7 +1161,7 @@ function ConnectPanel({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] })
           {runsOnDevice(agent.harness)
             ? device
               ? `When someone @mentions @${agent.handle}, ${device.name} starts ${harnessLabel(agent.harness)}, gives it the wisp tools, and posts the reply.`
-              : "Pick a device in General so the agent can answer when it's mentioned."
+              : "Pick a device on the Computer tab so the agent can answer when it's mentioned."
             : `${harnessLabel(agent.harness)} doesn't have a headless adapter yet. Connect a running session below.`}
         </p>
       </section>

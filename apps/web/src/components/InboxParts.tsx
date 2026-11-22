@@ -71,13 +71,11 @@ function read(): string[] {
   return cache!;
 }
 
+const subscribeHelpSeen = (cb: () => void) => (listeners.add(cb), () => void listeners.delete(cb));
+
 /** Ids of the help requests already shown or put off ("computerId:at"). */
 export function useHelpSeen(): string[] {
-  return useSyncExternalStore(
-    (cb) => (listeners.add(cb), () => void listeners.delete(cb)),
-    read,
-    read,
-  );
+  return useSyncExternalStore(subscribeHelpSeen, read, read);
 }
 
 export const helpKey = (c: ComputerInfo) => `${c.id}:${c.help!.at}`;

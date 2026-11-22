@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { api } from "../api.ts";
 import { awayEnabled, enableTailscale } from "../components/Access.tsx";
 import { onPublicAddress, skipAccess, useAccess, useAccessStore, type AccessInfo } from "../access.ts";
-import { completeSetupStep, nextStep, savedSetup, setDismissed, STEPS, useOnboarding, type StepId } from "../onboarding.ts";
+import { completeSetupStep, devicesLine, nextStep, savedSetup, setDismissed, STEPS, stepsFinished, useOnboarding, type StepId } from "../onboarding.ts";
 import { usableDevices, useDevices, type DeviceInfo } from "../devices.ts";
 import { useStore } from "../store.ts";
 import { go } from "../router.ts";
@@ -78,7 +78,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const device = usable.find((d) => d.mine) ?? usable[0];
   const [ready, setReady] = useState<Powered[]>([]);
   const [harness, setHarness] = useState("");
-  const [name, setName] = useState("Atlas");
+  // after a reload mid-setup the agent's name comes back from the saved draft, not the "Atlas" default
+  const [name, setName] = useState(() => draftOf(me.workspace.id).name);
   // the look picked on Make me yours carries through every later step (the agent's own look once it exists)
   const drafted = loadAnswers(me.workspace.id).agentDraft ? draftOf(me.workspace.id).look : null;
   const look: GhostAppearance = agents[0]?.settings.appearance ?? drafted ?? START_LOOK;
@@ -91,9 +92,9 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     if (next === "agent" && intro) return setV3(firstV3());
     setScreen(next === "agent" ? "connect" : next);
   };
-  const finish = (channelId?: string | null) => {
-    completeSetupStep(me.workspace.id, "agent");
-    completeSetupStep(me.workspace.id, "devices");
+  const finish = (channelId?: string | null, madeAgent = false) => {
+    // a skipped AI makes no agent: that step stays open on "Finish setup"
+    for (const step of stepsFinished(madeAgent || agents.length > 0 || !!channelId)) completeSetupStep(me.workspace.id, step);
     setDismissed(true);
     go(channelId ? { view: "chat", channelId, threadId: null } : { view: "dashboard" });
   };
@@ -167,8 +168,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
           person={me.user.name}
           onDone={(agentId, channelId) => {
             setV3(null);
-            if (agentId) finish(channelId);
-            else advance("agent");
+            if (agentId) finish(channelId, true);
+            else setScreen("devices"); // skipped: the agent step stays open on Finish setup
           }}
         />
       </HelloNext>
@@ -181,7 +182,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
       // a new setup counts away and address as its first two of five dots, like the pages after them
       at={intro ? ({ anywhere: 2, address: 2, devices: 6 } as Partial<Record<Screen, number>>)[screen] ?? s.at : s.at}
       track={intro ? NEW_TRACK : undefined}
-      line={screen === "anywhere" && awayChoice ? AWAY_LINES[awayChoice] : s.line(name.trim() || "your agent")} look={preAgent ? undefined : look} mood={s.mood} prop={screen === "anywhere" && awayChoice ? (awayChoice === "home" ? "house" : "phone") : null} stepKey={screen} onBack={goBack}>
+      line={screen === "anywhere" && awayChoice ? AWAY_LINES[awayChoice] : screen === "devices" ? devicesLine(agents.length ? name.trim() || null : null) : s.line(name.trim() || "your agent")} look={preAgent ? undefined : look} mood={s.mood} prop={screen === "anywhere" && awayChoice ? (awayChoice === "home" ? "house" : "phone") : null} stepKey={screen} onBack={goBack}>
       {screen === "anywhere" && narrow(<AwayStep onScene={onScene} onChoice={setAwayChoice} onDone={() => (completeSetupStep(me.workspace.id, "anywhere"), advance("address"))} />)}
       {screen === "address" && narrow(<AddressStep onScene={onScene} onNext={() => advance("address")} />)}
       {screen === "connect" && (
@@ -193,7 +194,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
             setScreen("name");
           }}
           // skipping the AI makes no agent; the phone page shows once, never in a loop
-          onSkip={() => (done.devices ? finish() : advance("agent"))}
+          onSkip={() => (done.devices ? finish() : setScreen("devices"))}
         />
       )}
       {screen === "name" && powered && <NameStep name={name} setName={setName} look={look} ready={ready} harness={powered.harness} setHarness={setHarness} onBack={() => setScreen("connect")} onNext={() => setScreen("memory")} />}
@@ -215,7 +216,7 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
           />
         </>
       )}
-      {screen === "setup" && device && powered && <SetupProgress device={device} powered={powered} name={name.trim()} look={look} lines={lines} onBack={() => setScreen("memory")} onDone={(_, channelId) => finish(channelId)} />}
+      {screen === "setup" && device && powered && <SetupProgress device={device} powered={powered} name={name.trim()} look={look} lines={lines} onBack={() => setScreen("memory")} onDone={(_, channelId) => finish(channelId, true)} />}
       {screen === "devices" && narrow(<PhoneStep onScene={onScene} onFinish={() => finish()} />)}
     </SetupShell>
     </>

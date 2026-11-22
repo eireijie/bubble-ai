@@ -80,6 +80,8 @@ struct MainTabs: View {
   @State private var tab = MainTab.chats
   @State private var settings = false
   @State private var orgs = false
+  /** the first run, over everything, when nobody has made an agent on this Wisp yet */
+  @State private var onboarding: String?
   /** how many times each tab was picked, so its icon bounces on each pick */
   @State private var picks: [MainTab: Int] = [:]
 
@@ -118,6 +120,15 @@ struct MainTabs: View {
     .overlay(alignment: .top) { AppBanners() }
     .sheet(isPresented: $settings) { SettingsSheet().environment(store) }
     .sheet(isPresented: $orgs) { OrgSwitcherSheet().environment(store) }
+    .fullScreenCover(item: Binding(get: { onboarding.map(OnboardingRun.init) }, set: { onboarding = $0?.id })) { run in
+      OnboardingFlow(workspaceId: run.id) { channelId in
+        onboarding = nil
+        // its hello is waiting in its chat
+        if let channelId { store.route = .chat(channelId: channelId, threadId: nil) }
+      }
+      .environment(store)
+    }
+    .task(id: store.workspace?.id) { onboarding = store.wantsOnboarding() ? store.workspace?.id : nil }
     .onChange(of: store.canViewComputers) { _, allowed in
       if !allowed && tab == .computers { tab = .chats }
     }
@@ -133,6 +144,9 @@ struct MainTabs: View {
     }
   }
 }
+
+/** The workspace a first run is for. */
+private struct OnboardingRun: Identifiable { var id: String }
 
 extension Route {
   /** the tab that shows this route's screen */

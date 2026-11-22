@@ -68,14 +68,14 @@ function modNav(features: Record<FeatureKey, boolean>, place: "rail" | "more") {
 export const MORE_VIEWS: Route["view"][] = ["more", "vault", "tasks", "marketplace", "connectors", "skills", "mods", "help", "agents"];
 
 /** What More holds, the same on desktops and phones. */
-export function useMoreItems(guest: boolean, size = 16, withAgents = false): { label: string; icon: ReactNode; to: Route }[] {
+export function useMoreItems(guest: boolean, size = 16, withAgents = false, withRail = false): { label: string; icon: ReactNode; to: Route }[] {
   const features = useFeatures();
   const icon = { size, strokeWidth: 1.8 };
   return [
     ...(withAgents ? [{ label: "All agents", icon: <GhostIcon {...icon} />, to: { view: "agents", agentId: null } as Route }] : []),
     { label: "Memory", icon: <BookOpen {...icon} />, to: { view: "vault", path: null } },
     ...(!guest && features.tasks ? [{ label: "Tasks", icon: <ListTodo {...icon} />, to: { view: "tasks" } as Route }] : []),
-    ...(!guest ? modNav(features, "more").map((m) => ({ label: m.label, icon: m.icon(size), to: m.to })) : []),
+    ...(!guest ? [...(withRail ? modNav(features, "rail") : []), ...modNav(features, "more")].map((m) => ({ label: m.label, icon: m.icon(size), to: m.to })) : []),
     ...(!guest ? [{ label: "Marketplace", icon: <Store {...icon} />, to: { view: "marketplace" } as Route }, { label: "Mods", icon: <Blocks {...icon} />, to: { view: "mods" } as Route }] : []),
     { label: "Help", icon: <LifeBuoy {...icon} />, to: { view: "help" } },
   ];
