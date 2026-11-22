@@ -1719,8 +1719,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       reply,
     );
     if (!body) return;
-    // a piece of a bigger task: the one named, else the task the delegating agent is working on right now
-    const running = c.actor.kind === "agent" ? hub.currentRun(c.actor.id) : undefined;
+    // a piece of a bigger task: the one named, else the task the delegating agent is working on right now.
+    // Its device says which run the call comes from: an agent on two things at once hands out a piece
+    // of the one that asked, not of whichever started last
+    const running = c.actor.kind === "agent" ? (hub.runFor(c.actor.id, req.headers["x-wisp-run"]) ?? hub.currentRun(c.actor.id)) : undefined;
     let parent = body.parentTaskId ? store.task(body.parentTaskId) : undefined;
     if (body.parentTaskId && (!parent || parent.workspaceId !== c.workspaceId)) return reply.code(404).send({ error: "parent task not found" });
     if (!parent && running?.threadId) {
