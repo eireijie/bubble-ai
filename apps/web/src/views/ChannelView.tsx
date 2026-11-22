@@ -145,14 +145,28 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel?.id, setActive, loadChannel]);
 
-  if (!channel) return <div className="flex-1 grid place-items-center text-sm text-muted">{route.channelId ? "Team not found" : "No teams yet"}</div>;
+  // hooks stay above the early return below: a chat that isn't there (or stops being there) must not change their count
+  const dmFull = useStore((s) => (dmAgentId ? s.agents.find((a) => a.id === dmAgentId) : undefined));
+  const pillRef = useRef<HTMLDivElement>(null);
+
+  if (!channel)
+    return (
+      <div className="flex-1 min-w-0 flex flex-col">
+        {onBack && (
+          <header className="shrink-0 px-3 h-[4.75rem] flex items-center safe-top box-content md:hidden">
+            <button className="circle" onClick={onBack} aria-label="Back to chats">
+              <ChevronLeft size={22} strokeWidth={2} />
+            </button>
+          </header>
+        )}
+        <div className="flex-1 grid place-items-center text-sm text-muted">{route.channelId ? "This chat isn't here any more" : "No chats yet"}</div>
+      </div>
+    );
 
   const dmAgent = dmAgentId ? names.agent(dmAgentId) : undefined;
-  const dmFull = useStore((s) => (dmAgentId ? s.agents.find((a) => a.id === dmAgentId) : undefined));
   const sideAgent = !route.threadId && side?.kind === "agent" ? names.agent(side.agentId) : undefined;
   const dmPanel = sideAgent && dmAgent && sideAgent.id === dmAgent.id ? (side as Extract<Side, { kind: "agent" }>).tab : null;
   const infoOpen = side?.kind === "info" && !route.threadId && channel.kind === "channel";
-  const pillRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="flex-1 min-h-0 flex">
