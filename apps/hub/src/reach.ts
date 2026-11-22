@@ -157,6 +157,7 @@ export function explainTailscaleError(stderr: string, platform = process.platfor
 export class Reach {
   private bin: string | null = null;
   private cache: { at: number; value: TailscaleStatus } | null = null;
+  private looking: Promise<TailscaleStatus> | null = null;
   private lastError: string | null = null;
   private serveConfig: unknown = null;
   readonly cloudflare: Cloudflare;
@@ -183,10 +184,23 @@ export class Reach {
   /** Tailscale on this computer, read fresh at most every few seconds. */
   async tailscale(fresh = false): Promise<TailscaleStatus> {
     if (!fresh && this.cache && Date.now() - this.cache.at < 4000) return this.cache.value;
+    // everyone who asks while a look is under way shares it (a page opening asks several times at once); a fresh read takes its own
+    if (!fresh && this.looking) return this.looking;
+    const look = this.look();
+    this.looking = look;
+    const done = () => {
+      if (this.looking === look) this.looking = null;
+    };
+    look.then(done, done);
+    return look;
+  }
+
+  private async look(): Promise<TailscaleStatus> {
     const bin = this.find();
     const empty: TailscaleStatus = { state: "missing", dnsName: null, ip: null, tailnet: null, canHttps: false, canFunnel: false, serving: false, funnel: false, connectors: false, authUrl: null, error: null };
     if (!bin) return empty;
-    const st = await this.run(bin, ["status", "--json"], 5000);
+    // both questions at once: each command takes a moment to start
+    const [st, sv] = await Promise.all([this.run(bin, ["status", "--json"], 5000), this.run(bin, ["serve", "status", "--json"], 5000)]);
     let status: unknown = null;
     try {
       status = parseJson(st.stdout);
@@ -195,7 +209,6 @@ export class Reach {
       this.cache = { at: Date.now(), value };
       return value;
     }
-    const sv = await this.run(bin, ["serve", "status", "--json"], 5000);
     let serve: unknown = null;
     try {
       serve = parseJson(sv.stdout);

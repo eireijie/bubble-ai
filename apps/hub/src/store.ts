@@ -731,6 +731,11 @@ export class Store {
     return !!this.db.prepare("SELECT 1 FROM channel_members WHERE channel_id = ? AND member_kind = ? AND member_id = ?").get(channelId, member.kind, member.id);
   }
 
+  /** Every channel this person or agent is in: isMember for a whole list at once. */
+  memberOf(member: Actor): Set<string> {
+    return new Set((this.db.prepare("SELECT channel_id FROM channel_members WHERE member_kind = ? AND member_id = ?").all(member.kind, member.id) as { channel_id: string }[]).map((r) => r.channel_id));
+  }
+
   // --- read state -----------------------------------------------------------
 
   markRead(userId: string, channelId: string, at = now()) {

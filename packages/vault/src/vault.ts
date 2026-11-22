@@ -128,7 +128,7 @@ export class Vault {
     } else if (ignoreChanged) {
       await this.commit([".gitignore"], WISP_AUTHOR, "Keep Obsidian settings and trash out of memory");
     }
-    await this.reindex();
+    await this.reindex(true);
   }
 
   /** Make sure git skips Obsidian's settings and trash. Returns whether .gitignore changed. */
@@ -477,16 +477,37 @@ export class Vault {
     return stdout;
   }
 
-  /** Rebuild the index from disk (e.g. after edits made in Obsidian or a git pull). */
-  async reindex(): Promise<number> {
+  /**
+   * Rebuild the index from disk (e.g. after edits made in Obsidian or a git pull). `alone`: the
+   * vault is only being opened, so nothing else reads or saves notes meanwhile, and notes go into
+   * the index a batch per commit instead of a commit each (most of the time opening a big vault took).
+   */
+  async reindex(alone = false): Promise<number> {
     const files = await walk(this.root);
     this.db.transaction(() => {
       this.db.exec("DELETE FROM vault_notes; DELETE FROM vault_links; DELETE FROM vault_fts;");
     })();
-    for (const f of files) {
-      const abs = path.join(this.root, f);
-      const [raw, stat] = await Promise.all([fs.readFile(abs, "utf8"), fs.stat(abs)]);
-      this.indexNote(f, raw, stat.mtimeMs);
+    const batch: [string, string, number][] = [];
+    let size = 0;
+    const flush = this.db.transaction(() => {
+      for (const [f, raw, at] of batch.splice(0)) this.indexNote(f, raw, at);
+      size = 0;
+    });
+    try {
+      for (const f of files) {
+        const abs = path.join(this.root, f);
+        const [raw, stat] = await Promise.all([fs.readFile(abs, "utf8"), fs.stat(abs)]);
+        if (!alone) {
+          this.indexNote(f, raw, stat.mtimeMs);
+          continue;
+        }
+        batch.push([f, raw, stat.mtimeMs]);
+        size += raw.length;
+        if (batch.length >= 200 || size > 4_000_000) flush();
+      }
+    } finally {
+      // what was read before a file failed is indexed all the same
+      if (batch.length) flush();
     }
     this.indexedHead = await this.head();
     return files.length;

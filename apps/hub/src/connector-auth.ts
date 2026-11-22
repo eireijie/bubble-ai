@@ -1,11 +1,15 @@
 import crypto from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
-import { auth, type OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { OAuthClientInformationMixed, OAuthClientMetadata, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { AppSignIn } from "./app-signin.ts";
 import { now } from "./auth.ts";
 import type { Db } from "./db.ts";
+
+/** The MCP SDK's sign-in, loaded the first time a connected app signs in or refreshes, not while the hub starts. */
+type McpAuth = typeof import("@modelcontextprotocol/sdk/client/auth.js").auth;
+const auth = async (...args: Parameters<McpAuth>): ReturnType<McpAuth> => (await import("@modelcontextprotocol/sdk/client/auth.js")).auth(...args);
 
 /**
  * Signing in to remote MCP servers (Notion, Linear, Zapier…) the way the MCP spec describes:

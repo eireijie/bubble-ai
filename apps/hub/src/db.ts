@@ -427,7 +427,31 @@ export function openDb(file: string): Database.Database {
   migrateLoans(db);
   dropOrphanChannelMembers(db);
   expireOldAgentTokens(db);
+  reusePrepared(db);
   return db;
+}
+
+/**
+ * The same few hundred statements run on every request, and compiling one costs more than running
+ * it: keep the compiled ones and hand them out again. One that's in the middle of an iterate() is
+ * left alone, and the least recently used go once there are too many (lists of ids make new ones).
+ */
+function reusePrepared(db: Database.Database, max = 500) {
+  const prepare = db.prepare.bind(db);
+  const kept = new Map<string, Database.Statement>();
+  db.prepare = ((sql: string) => {
+    const have = kept.get(sql);
+    if (have) {
+      if (have.busy) return prepare(sql);
+      kept.delete(sql);
+      kept.set(sql, have);
+      return have;
+    }
+    const made = prepare(sql);
+    kept.set(sql, made);
+    if (kept.size > max) kept.delete(kept.keys().next().value!);
+    return made;
+  }) as typeof db.prepare;
 }
 
 /** Messages from before chats split after a quiet break: each top-level run of them is split the same way. */

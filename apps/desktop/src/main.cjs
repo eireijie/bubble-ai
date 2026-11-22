@@ -245,11 +245,13 @@ function openHub(url, route = "") {
 // ---------------------------------------------------------------- hub
 
 async function waitFor(url, ms) {
-  const until = Date.now() + ms;
+  const started = Date.now();
+  const until = started + ms;
   while (Date.now() < until) {
     if (await engine.hubUp(url)) return true;
     if (hub.state === "error") return false;
-    await new Promise((r) => setTimeout(r, 700));
+    // a server usually answers within a couple of seconds: look often at first, so the window opens as soon as it does
+    await new Promise((r) => setTimeout(r, Date.now() - started < 10_000 ? 100 : 700));
   }
   return false;
 }
