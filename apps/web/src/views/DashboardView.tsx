@@ -1,23 +1,23 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronRight, Circle, CircleCheck, CircleX, Plus } from "lucide-react";
-import { teamRunState, type Actor, type Agent, type Approval, type TeamFlow } from "@wisp/core";
+import { useEffect, useState, type ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
+import { harnessLabel, type Actor, type Agent, type Approval, type FlowLane, type Followup, type TeamFlow } from "@wisp/core";
+import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { api } from "../api.ts";
-import { useStore, useTeams, useWaitingOnYou, usePrefs, type LiveRun } from "../store.ts";
-import { TeamNeedCard, waitingOnYou } from "../team/Runs.tsx";
+import { useStore, useTeams, useWaitingOnYou, usePrefs, type ComputerInfo } from "../store.ts";
+import { waitingOnYou } from "../team/Runs.tsx";
 import { useFeatures } from "../features.ts";
-import { allowanceText, useAllowance } from "../changes.ts";
 import { go, href } from "../router.ts";
-import { AgentAvatar, StatusChip, cx, timeAgo } from "../components/ui.tsx";
-import { MoreOptions } from "../components/MoreOptions.tsx";
-import { UserAvatarButton } from "../components/Rail.tsx";
-import { ChatAvatar, PulseDots, shortTime } from "../components/ChatList.tsx";
-import { ApprovalNeedCard, CardButton, runSummary, GroupCard, HelpNeedCard, LoginNeedCard, Rule, StorageNeedCard, AppleNeedCard, SectionHead, useHelpSeen, helpKey } from "../components/InboxParts.tsx";
-import { NEXT_STEP, homeReadiness, setupProgress, useOnboarding } from "../onboarding.ts";
-import { useDevices } from "../devices.ts";
+import { openDm } from "../openDm.ts";
+import { AgentAvatar, cx, timeAgo } from "../components/ui.tsx";
+import { Ghost } from "../components/Ghost.tsx";
+import { ChatAvatar, shortTime } from "../components/ChatList.tsx";
+import { ApprovalNeed, CardButton, HelpNeed, NeedRow, ReminderNeed, stoppedLine, useHelpSeen, helpKey } from "../components/InboxParts.tsx";
+import { dueReminders, laterReminders, usePutOff } from "../components/Loops.tsx";
+import { agentReadiness, agentSignedIn, useDevices, type DeviceInfo } from "../devices.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
 import { cleanPreview } from "../components/CommandPalette.tsx";
 
-/** The fields of a task the Inbox reads (GET /api/tasks). */
+/** The fields of a task this page reads (GET /api/tasks). */
 interface TaskLite {
   id: string;
   from: Actor;
@@ -31,29 +31,50 @@ interface TaskLite {
   updatedAt: string;
 }
 
-const RECENT_MS = 60_000;
-const DAY_MS = 86_400_000;
+/** The one sentence of a request: what the agent wants to do, in its own words. */
+export function approvalLine(a: Pick<Approval, "summary" | "login">, name: string): string {
+  if (a.login) return `${name} wants to use your ${a.login.title} login.`;
+  return cleanPreview(a.summary, 200) || `${name} wants your OK.`;
+}
 
-
-const sameDay = (iso: string | null | undefined) => !!iso && new Date(iso).toDateString() === new Date().toDateString();
+/** What an agent asked for on its computer, else that it needs you there. */
+export function helpLine(c: Pick<ComputerInfo, "name" | "help">, name: string): string {
+  return cleanPreview(c.help?.request ?? "", 200) || `${name} needs you on ${c.name}.`;
+}
 
 /**
- * The Inbox (route: dashboard): what's waiting on you first (approvals, logins, a hand on a
- * computer), then what agents are doing, new replies, tasks to check and teams. "Done" is the
- * history of what you decided and what finished. Everything is fed live by the store's websocket events.
+ * What an agent that can't work yet needs from the person: one sentence and the one button that
+ * does it. The checks go in the order of `setupNextStep`, which also says where the button leads;
+ * `href` is null when nothing more specific than its chat exists. Null when the agent is ready.
+ */
+export function agentNeed(agent: Pick<Agent, "id" | "nodeId" | "harness" | "name" | "settings" | "computerId"> & Partial<Pick<Agent, "signIn">>, devices: DeviceInfo[] | null): { text: string; action: "Choose one" | "See computers" | "Sign in" | "Install it" | "Open chat"; href: string | null } | null {
+  if (agentReadiness(agent, devices).ready) return null;
+  const next = setupNextStep(agent, devices);
+  const device = devices?.find((d) => d.id === agent.nodeId);
+  if (!next) return { text: `${agent.name} can't work yet.`, action: "Open chat", href: null };
+  if (!agent.nodeId) return { text: `${agent.name} needs a computer to work on.`, action: "Choose one", href: next.href };
+  if (device && !device.online) return { text: `${agent.name} is waiting for ${device.name} to reconnect.`, action: "See computers", href: next.href };
+  if (device?.paused) return { text: `${agent.name} is waiting for ${device.name} to be resumed.`, action: "See computers", href: next.href };
+  const ai = harnessLabel(agent.harness);
+  if (agent.signIn || (device && agentSignedIn(agent, device) === false)) return { text: `${agent.name} needs you to sign in to ${ai}.`, action: "Sign in", href: next.href };
+  return { text: `${agent.name} needs ${ai} installed${device ? ` on ${device.name}` : ""}.`, action: "Install it", href: next.href };
+}
+
+/**
+ * Needs you (route: dashboard; it was the Inbox): only what waits on the person. An approval, an
+ * agent that can't work until they do something, a team request that stopped, a reminder that came
+ * due. Under them, Later (what they put off) and Earlier (what was answered and what finished).
+ * Everything else the Inbox listed lives in the sidebar. Fed live by the store's websocket events.
  */
 export function DashboardView({ onBack }: { onBack?: () => void }) {
   const me = useStore((s) => s.me)!;
   const agents = useStore((s) => s.agents);
   const teams = useTeams();
-  const live = useStore((s) => s.live);
-  const computers = useStore((s) => s.computers);
-  const channels = useStore((s) => s.channels);
   const approvals = useStore((s) => s.approvals);
-  const members = useStore((s) => s.members);
   const version = useStore((s) => s.tasksVersion);
   const flowsVersion = useStore((s) => s.flowsVersion);
-  // each team's newest requests, so a failed run shows as failed, not as "Quiet"
+  const backgroundVersion = useStore((s) => s.backgroundVersion);
+  // each team's newest requests: a step that stopped waits on you
   const [teamFlows, setTeamFlows] = useState<Record<string, TeamFlow[]>>({});
   const teamChannelKey = teams.map((t) => t.channelId).join(",");
   useEffect(() => {
@@ -67,10 +88,10 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
     };
   }, [teamChannelKey, flowsVersion]);
   const features = useFeatures();
-  const prefs = usePrefs();
   const helpSeen = useHelpSeen();
-  const [tab, setTab] = useState<"needs" | "done">("needs");
-  // null = not loaded or tasks are unavailable; the section hides then
+  const putOff = usePutOff();
+  const devices = useDevices();
+  // null = not loaded or tasks are unavailable; Earlier shows what was answered without them
   const [tasks, setTasks] = useState<TaskLite[] | null>(null);
 
   useEffect(() => {
@@ -86,342 +107,127 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
   }, [version, features.tasks]);
 
   const isGuest = me.role === "guest";
+  // every agent's open reminders, read again each minute: one that came due and nobody brought waits on you
+  const [reminders, setReminders] = useState<Followup[]>([]);
+  const [now, setNow] = useState(() => Date.now());
+  const agentKey = isGuest ? "" : agents.map((a) => a.id).join(",");
+  useEffect(() => {
+    if (!agentKey) return setReminders([]);
+    let off = false;
+    const load = () =>
+      Promise.all(agentKey.split(",").map((id) => api<Followup[]>("GET", `/api/followups?agent=${encodeURIComponent(id)}`).catch(() => [] as Followup[]))).then((lists) => {
+        if (off) return;
+        const all = lists.flat();
+        setReminders((cur) => (JSON.stringify(cur) === JSON.stringify(all) ? cur : all));
+        setNow(Date.now());
+      });
+    void load();
+    const t = setInterval(load, 60_000);
+    return () => {
+      off = true;
+      clearInterval(t);
+    };
+  }, [agentKey, backgroundVersion]);
+
   const waiting = useWaitingOnYou();
-  const pending = waiting.approvals;
-  // "Not now" on a help request hides it here (it stays in the chat and on Computers)
-  const helpNeeded = waiting.help.filter((c) => !helpSeen.includes(helpKey(c)));
-  const teamNeeds = teams.flatMap((t) => waitingOnYou(teamFlows[t.channelId] ?? []));
-  const needsCount = pending.length + helpNeeded.length + teamNeeds.length;
-  const working = (tasks ?? []).filter((t) => t.status === "in_progress");
-  const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? "Agent";
-  const channelLabel = (id: string | null) => {
-    const c = id ? channels.find((x) => x.id === id) : null;
-    return !c ? null : c.kind === "dm" ? "in a DM" : `in ${c.name}`;
-  };
-
-  /** One line per agent: what it is doing right now, from the most specific source we have. */
-  const doing = useMemo(() => {
-    const runs = Object.values(live);
-    const out: Record<string, { text: string; where: string | null } | null> = {};
-    for (const a of agents) {
-      const run: LiveRun | undefined = runs.find((r) => r.agentId === a.id);
-      const task = working.find((t) => t.toAgentId === a.id);
-      const comp = computers.find((c) => c.activity?.agentId === a.id && Date.now() - new Date(c.activity.at).getTime() < RECENT_MS);
-      const place = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || null;
-      if (task) out[a.id] = { text: task.title, where: place(comp ? `on ${comp.name}` : null, channelLabel(task.channelId)) };
-      else if (run) out[a.id] = { text: runSummary(run, agents), where: place(comp ? `on ${comp.name}` : null, channelLabel(run.channelId)) };
-      else if (comp?.activity) out[a.id] = { text: comp.activity.text, where: `on ${comp.name}` };
-      else out[a.id] = null;
-    }
-    return out;
-    // channelLabel reads channels
-  }, [agents, live, working, computers, channels]);
-
-  const sortedAgents = useMemo(() => {
-    const rank = { busy: 0, online: 1, offline: 2 } as const;
-    return [...agents].sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name));
-  }, [agents]);
-
-  async function openDm(agent: Agent) {
-    const existing = channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agent.id}`));
-    if (existing) return go({ view: "chat", channelId: existing.id, threadId: null });
-    const ch = await api<{ id: string }>("POST", `/api/dm/${agent.id}`);
-    await useStore.getState().refreshChannels();
-    go({ view: "chat", channelId: ch.id, threadId: null });
-  }
-
-  const counts = { open: 0, in_progress: 0, done: 0, failed: 0 };
-  for (const t of tasks ?? []) counts[t.status]++;
-  // tasks this person handed off that haven't started, didn't finish, or just finished and wait for a look
-  const isCancelled = (t: TaskLite) => t.status === "failed" && !!t.result?.startsWith("Cancelled");
-  const mineToCheck = (tasks ?? []).filter(
-    (t) => t.from.kind === "user" && t.from.id === me.user.id && !isCancelled(t) && (t.status === "open" || t.status === "failed" || (t.status === "done" && Date.now() - Date.parse(t.updatedAt) < 2 * DAY_MS)),
-  );
-  // new replies: DMs first, then channels, most unread first
-  const unreadChats = channels
-    .filter((c) => (c.joined || c.kind === "dm") && c.unread > 0)
-    .sort((a, b) => Number(b.kind === "dm") - Number(a.kind === "dm") || b.unread - a.unread)
-    .slice(0, 8);
-  // unread first, then most recently active
-  const recentAll = channels
-    .filter((c) => (c.joined || c.kind === "dm") && !c.archivedAt)
-    .sort((a, b) => Number(b.unread > 0) - Number(a.unread > 0) || (b.last?.at ?? b.lastReadAt ?? "").localeCompare(a.last?.at ?? a.lastReadAt ?? ""));
-  const [moreRecent, setMoreRecent] = useState(false);
-  const recentChats = recentAll.slice(0, moreRecent ? 20 : 5);
-  const activeAgents = sortedAgents.filter((a) => doing[a.id] || a.status === "busy");
-  const chatName = (c: (typeof channels)[number]) => (c.kind === "dm" ? agentName(c.name.split(":").pop()!) : c.name);
-  const chatAvatar = (c: (typeof channels)[number], size: number) => {
-    const agent = c.kind === "dm" ? agents.find((a) => a.id === c.name.split(":").pop()) : null;
-    return <ChatAvatar chat={{ kind: c.kind === "dm" ? "dm" : "team", agent: agent ?? null, channel: c }} size={size} />;
-  };
-  const chatRow = (c: (typeof channels)[number], title: string) => (
-    <a key={c.id} href={href({ view: "chat", channelId: c.id, threadId: null })} className="flex items-start gap-3 px-1.5 py-1.5 rounded-xl hover:bg-hover min-w-0">
-      <span className="shrink-0 pt-0.5">{chatAvatar(c, 28)}</span>
-      <span className="min-w-0 flex-1 flex flex-col">
-        <span className="flex items-baseline gap-1.5 min-w-0">
-          <span className="truncate font-semibold">{title}</span>
-          <span className="text-muted shrink-0">{c.last ? shortTime(Date.parse(c.last.at), prefs.clock) : ""}</span>
-          {c.unread > 0 && <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-ink text-panel text-[11px] font-semibold grid place-items-center tabular-nums self-center">{c.unread}</span>}
-        </span>
-        <span className={cx("line-clamp-2", c.unread > 0 ? "text-ink" : "text-muted")}>{c.last ? cleanPreview(c.last.body, 160) : "No messages yet"}</span>
-      </span>
-    </a>
-  );
-
-  const nothingElse = activeAgents.length + unreadChats.length + recentChats.length + mineToCheck.length === 0;
-  const newTask = () => useStore.setState({ newTaskOpen: true });
-  const canNewTask = !isGuest && features.tasks && agents.length > 0;
-
-  const switcher = (
-    <div role="tablist" aria-label="Inbox" className="flex rounded-full bg-[var(--bubble-them)] p-[3px] max-md:w-full">
-      {(
-        [
-          ["needs", `Needs you${needsCount ? ` · ${needsCount}` : ""}`],
-          ["done", "Done"],
-        ] as const
-      ).map(([id, label]) => (
-        <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cx("h-9 md:h-8 px-3.5 rounded-full text-sm md:text-[13px] max-md:flex-1 transition-colors", tab === id ? "bg-panel shadow-sm text-ink font-semibold" : "text-muted font-medium hover:text-ink")}>
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  // a request answered while the page is open stays where it was, as one quiet line, until the page is left
+  const [held, setHeld] = useState<string[]>([]);
+  const pendingKey = waiting.approvals.map((a) => a.id).join(",");
+  useEffect(() => {
+    setHeld((cur) => {
+      const add = pendingKey.split(",").filter((id) => id && !cur.includes(id));
+      return add.length ? [...cur, ...add] : cur;
+    });
+  }, [pendingKey]);
+  const asks = isGuest ? [] : Object.values(approvals).filter((a) => a.status === "pending" || held.includes(a.id));
+  // "Not now" on a help request puts it under Later (it stays in the chat and on Computers)
+  const helpNow = waiting.help.filter((c) => !helpSeen.includes(helpKey(c)));
+  const helpLater = waiting.help.filter((c) => helpSeen.includes(helpKey(c)));
+  const stopped = teams.flatMap((t) => waitingOnYou(teamFlows[t.channelId] ?? []));
+  const due = isGuest ? [] : dueReminders(reminders, me.user.id, now);
+  const later = isGuest ? [] : laterReminders(reminders, me.user.id, putOff, now);
+  const unready = isGuest ? [] : agents.flatMap((agent) => {
+    const need = agentNeed(agent, devices);
+    return need ? [{ agent, need }] : [];
+  });
+  const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? "An agent";
+  const count = asks.length + helpNow.length + stopped.length + due.length + unready.length;
+  const laterCount = helpLater.length + later.length;
+  const earlier = useEarlier(Object.values(approvals).filter((a) => !held.includes(a.id)), tasks);
+  const sleeper = agents[0]?.settings.appearance ?? defaultAppearance(agents[0]?.handle ?? "wisp");
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <header className="shrink-0 px-4 md:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-[max(36px,env(safe-area-inset-top))] pb-2">
-        <div className="mx-auto max-w-[720px] flex items-center gap-3 justify-between">
-          {onBack ? (
-            <button className="md:hidden! circle" onClick={onBack} aria-label="Back">
-              <ChevronRight size={22} className="rotate-180" />
+      <header className="shrink-0 px-4 md:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-[max(56px,env(safe-area-inset-top))] pb-2 md:pb-3">
+        <div className="mx-auto max-w-[520px] flex items-center gap-3">
+          {onBack && (
+            <button className="md:hidden! circle shrink-0" onClick={onBack} aria-label="Back">
+              <ChevronRight size={22} className="rotate-180" aria-hidden />
             </button>
-          ) : (
-            <span className="md:hidden">
-              <UserAvatarButton size={52} />
-            </span>
           )}
-          <h1 className="md:flex-1 max-md:text-center flex items-baseline gap-3 max-md:justify-center">
-            <span className="text-[22px] md:text-[24px] leading-[30px] font-semibold">Inbox</span>
-            {needsCount > 0 && <span className="max-md:hidden text-base font-normal text-muted">{needsCount} need{needsCount === 1 ? "s" : ""} you</span>}
-          </h1>
-          <span className="hidden md:flex items-center gap-3">
-            {switcher}
-            {canNewTask && (
-              <button onClick={newTask} className="circle" aria-label="New task" title="New task">
-                <Plus size={20} strokeWidth={2} />
-              </button>
-            )}
-          </span>
-          {canNewTask ? (
-            <button onClick={newTask} className="md:hidden! circle" aria-label="New task">
-              <Plus size={22} strokeWidth={2} />
-            </button>
-          ) : (
-            <span className="md:hidden w-[52px]" />
-          )}
+          <h1 className="text-[22px] md:text-[24px] leading-[30px] font-[650] tracking-[-0.01em]">Needs you</h1>
         </div>
-        <div className="md:hidden pt-1">{switcher}</div>
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <div data-stagger className="mx-auto w-full max-w-[784px] px-4 md:px-8 pt-4 pb-28 md:pb-10 flex flex-col gap-2.5">
-          {tab === "done" ? (
-            <DoneTab approvals={Object.values(approvals)} tasks={tasks} />
+        <div className="mx-auto w-full max-w-[584px] min-h-full px-4 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:pb-10 flex flex-col">
+          {count > 0 ? (
+            <ul data-stagger aria-label="Needs you" className="flex flex-col divide-y divide-line">
+              {asks.map((a) => (
+                <ApprovalNeed key={a.id} approval={a} text={approvalLine(a, agentName(a.agentId))} />
+              ))}
+              {helpNow.map((c) => (
+                <HelpNeed key={c.id} computer={c} text={helpLine(c, agentName(c.help!.agentId))} />
+              ))}
+              {stopped.map((n) => (
+                <TeamNeed key={`${n.flow.id}-${n.lane.stepId}`} flow={n.flow} lane={n.lane} />
+              ))}
+              {due.map((f) => (
+                <ReminderNeed key={f.id} reminder={f} />
+              ))}
+              {unready.map(({ agent, need }) => (
+                <AgentNeed key={agent.id} agent={agent} need={need} />
+              ))}
+            </ul>
           ) : (
-            <>
-              {!isGuest && <ReadinessCard />}
+            <div className="flex-1 grid place-items-center py-16">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <Ghost look={sleeper} size={64} mood="asleep" ambient={false} label="" />
+                <p className="text-[15px] leading-[22px] text-muted">Nothing needs you.</p>
+              </div>
+            </div>
+          )}
 
-              {needsCount > 0 ? (
-                <>
-                  <SectionHead title="Needs you" right={needsCount} needs />
-                  {helpNeeded.map((c) => (
-                    <HelpNeedCard key={c.id} computer={c} />
+          {(laterCount > 0 || earlier.length > 0) && (
+            <div className="pt-3 flex flex-col">
+              {laterCount > 0 && (
+                <Fold label={`Later · ${laterCount}`} centred={count === 0}>
+                  {helpLater.map((c) => (
+                    <HelpNeed key={c.id} computer={c} text={helpLine(c, agentName(c.help!.agentId))} later />
                   ))}
-                  {teamNeeds.map((n) => (
-                    <TeamNeedCard key={`${n.flow.id}-${n.lane.stepId}`} flow={n.flow} lane={n.lane} />
+                  {later.map((f) => (
+                    <ReminderNeed key={f.id} reminder={f} later />
                   ))}
-                  {pending.map((p) => (p.login ? <LoginNeedCard key={p.id} approval={p} /> : p.storage ? <StorageNeedCard key={p.id} approval={p} /> : p.apple ? <AppleNeedCard key={p.id} approval={p} /> : <ApprovalNeedCard key={p.id} approval={p} />))}
-                </>
-              ) : (
-                <CaughtUp guest={isGuest} compact={!nothingElse} />
+                </Fold>
               )}
-
-              {/* only the agents at work, one line each (every agent is under More options below) */}
-              {activeAgents.length > 0 && (
-                <>
-                  <SectionHead title="Working now" right={<span className="font-normal">{activeAgents.length} working</span>} />
-                  <GroupCard className="py-1.5 px-4">
-                    {activeAgents.map((a, i) => {
-                      const now = doing[a.id];
-                      return (
-                        <div key={a.id}>
-                          {i > 0 && <div className="h-px bg-line" />}
-                          <button onClick={() => openDm(a)} className="w-full flex items-center gap-3 min-h-14 py-1.5 text-left min-w-0 hover:opacity-80">
-                            <AgentAvatar agent={a} size={28} live />
-                            <span className="min-w-0 flex-1 flex flex-col">
-                              <span className="font-semibold leading-5 truncate">{now?.text ?? "Working"}</span>
-                              <span className="text-xs leading-4 text-muted truncate">{[a.name, now?.where].filter(Boolean).join(" · ")}</span>
-                            </span>
-                            <PulseDots />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </GroupCard>
-                </>
-              )}
-
-              {unreadChats.length > 0 && (
-                <>
-                  <SectionHead title="New replies" right={unreadChats.reduce((n, c) => n + c.unread, 0)} />
-                  <div className="flex flex-col gap-0.5">{unreadChats.map((c) => chatRow(c, chatName(c)))}</div>
-                </>
-              )}
-
-              {/* guests only see conversations here, so say so rather than leave the page blank */}
-              {isGuest && recentAll.length === 0 && <p className="rounded-2xl border border-dashed border-line px-4 py-4 text-sm text-muted">Conversations you're invited to show up here.</p>}
-
-              {unreadChats.length === 0 && recentChats.length > 0 && (
-                <>
-                  <SectionHead
-                    title="Recent conversations"
-                    right={
-                      recentAll.length > 5 && (
-                        <button onClick={() => setMoreRecent(!moreRecent)} className="hover:text-ink">
-                          {moreRecent ? "Show less" : "Show more"}
-                        </button>
-                      )
-                    }
-                  />
-                  <div className="flex flex-col gap-0.5">{recentChats.map((c) => chatRow(c, chatName(c)))}</div>
-                </>
-              )}
-
-              {!isGuest && features.tasks && mineToCheck.length > 0 && (
-                <>
-                  <SectionHead title="Tasks to check" right={mineToCheck.length} />
-                  <GroupCard>
-                    {mineToCheck.map((t, i) => {
-                      const who = t.toAgentId ? agentName(t.toAgentId) : "an agent";
-                      const sub = t.status === "failed" ? `Failed · ${who}` : t.status === "done" ? `Done by ${who} · ready to review` : `Not started · ${who}`;
-                      return (
-                        <div key={t.id}>
-                          {i > 0 && <Rule />}
-                          <a href={t.channelId ? href({ view: "chat", channelId: t.channelId, threadId: t.threadId }) : href({ view: "tasks" })} className="flex items-center gap-3 min-h-14 px-4 py-2 hover:bg-hover min-w-0">
-                            {t.status === "done" ? <CircleCheck size={26} strokeWidth={1.8} className="text-ok shrink-0" /> : t.status === "failed" ? <CircleX size={26} strokeWidth={1.8} className="text-bad shrink-0" /> : <Circle size={26} strokeWidth={1.8} className="text-faint shrink-0" />}
-                            <span className="min-w-0 flex-1 flex flex-col gap-0.5">
-                              <span className="flex items-baseline justify-between gap-2">
-                                <span className="truncate text-base font-medium">{t.title}</span>
-                                <span className="text-[13px] text-faint shrink-0">{timeAgo(t.updatedAt)}</span>
-                              </span>
-                              <span className="truncate text-sm text-faint">{sub}</span>
-                            </span>
-                          </a>
-                        </div>
-                      );
-                    })}
-                  </GroupCard>
-                </>
-              )}
-
-              {teams.length > 0 && (
-                <>
-                  <SectionHead title="Teams" />
-                  <GroupCard>
-                    {teams.map((t, i) => {
-                      const members = t.members.map((m) => agents.find((a) => a.id === m.agentId)).filter((a): a is Agent => !!a);
-                      const teamTasks = (tasks ?? []).filter((x) => x.teamId === t.id && (x.status === "in_progress" || x.status === "open"));
-                      const busy = members.find((a) => a.status === "busy");
-                      const active = !!busy || teamTasks.some((x) => x.status === "in_progress");
-                      const channel = channels.find((c) => c.id === t.channelId);
-                      const run = teamRunState(teamFlows[t.channelId] ?? [], active ? busy?.name ?? "" : null);
-                      return (
-                        <div key={t.id}>
-                          {i > 0 && <Rule />}
-                          <a href={href({ view: "chat", channelId: t.channelId, threadId: null })} className="flex items-center gap-3 min-h-14 px-4 py-2 hover:bg-hover min-w-0">
-                            <span className="shrink-0 w-[46px] grid place-items-center">
-                              <ChatAvatar chat={{ kind: "team", agent: null, channel: channel ?? null }} size={40} />
-                            </span>
-                            <span className="min-w-0 flex-1 flex flex-col gap-0.5">
-                              <span className="truncate text-base font-medium">{t.name}</span>
-                              <span className={cx("truncate text-sm", run.state === "failed" || run.state === "stopped" ? "text-bad" : run.state === "needs-you" ? "text-warn" : "text-faint")}>{run.text}</span>
-                            </span>
-                          </a>
-                        </div>
-                      );
-                    })}
-                  </GroupCard>
-                </>
-              )}
-
-              {tasks && (
-                <>
-                  <SectionHead title="Tasks" />
-                  <GroupCard className="flex py-3.5 px-2">
-                    {(
-                      [
-                        ["To do", counts.open, false],
-                        ["Working", counts.in_progress, false],
-                        ["Done", counts.done, false],
-                        ["Failed", counts.failed, counts.failed > 0],
-                      ] as const
-                    ).map(([label, n, bad]) => (
-                      <span key={label} className="flex-1 text-center flex flex-col gap-0.5">
-                        <span className={cx("text-[22px] font-medium tabular-nums", bad && "text-bad")}>{n}</span>
-                        <span className="text-xs text-faint">{label}</span>
+              {earlier.length > 0 && (
+                <Fold label="Earlier" centred={count === 0}>
+                  {earlier.map((r) => (
+                    <li key={r.key} className="flex items-start gap-3.5 py-2.5">
+                      <span className="shrink-0 grid w-10 place-items-center">
+                        <AgentAvatar agent={agents.find((a) => a.id === r.agentId)} size={28} interactive={false} />
                       </span>
-                    ))}
-                  </GroupCard>
-                  {tasks.length === 0 && <p className="text-sm text-muted px-1.5">No tasks yet. {canNewTask && <button className="underline hover:text-ink" onClick={newTask}>Hand an agent some work</button>}</p>}
-                  {tasks.length > 0 && working.length === 0 && <p className="text-sm text-muted px-1.5">No agent is on a task right now.</p>}
-                  <div className="flex justify-center">
-                    <CardButton onClick={() => go({ view: "tasks" })}>Open Tasks</CardButton>
-                  </div>
-                </>
+                      <span className="min-w-0 flex-1 flex flex-col items-start">
+                        <a href={r.to} className="text-sm leading-5 break-words rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/40">
+                          {r.text}
+                        </a>
+                        <span className="max-w-full truncate text-[13px] leading-[18px] text-muted">{r.meta}</span>
+                      </span>
+                    </li>
+                  ))}
+                </Fold>
               )}
-
-              {features.background && <AllowanceRow />}
-
-              {/* every agent, quiet or not, for people who run a team of them */}
-              {agents.length > 0 && (
-                <MoreOptions about="every agent" className="mt-1">
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {sortedAgents.map((a) => {
-                      const now = doing[a.id];
-                      return (
-                        <button key={a.id} onClick={() => openDm(a)} className="text-left rounded-2xl bg-card border border-line p-3 hover:bg-hover transition-colors flex gap-3 min-w-0">
-                          <AgentAvatar agent={a} size={36} live />
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium truncate flex-1">{a.name}</span>
-                              <StatusChip status={a.status} />
-                            </div>
-                            {now ? (
-                              <p className="text-xs leading-snug">
-                                <span className="line-clamp-2">{now.text}</span>
-                                {now.where && <span className="text-muted">{now.where}</span>}
-                              </p>
-                            ) : (
-                              <p className="text-xs text-muted">{a.status === "offline" ? "Offline" : a.status === "busy" ? "Working" : "Not working on anything"}</p>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="mt-2 text-xs">
-                    <a className="text-muted hover:text-ink" href={href({ view: "agents", agentId: null })}>
-                      All agents
-                    </a>
-                  </p>
-                </MoreOptions>
-              )}
-              {agents.length === 0 && !isGuest && (
-                <p className="text-sm text-muted px-1.5">
-                  No agents yet. <a className="underline hover:text-ink" href={href({ view: "agents", agentId: null })}>Add your first agent</a> and it shows up here with what it's working on.
-                </p>
-              )}
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -429,149 +235,73 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
   );
 }
 
-/** "All caught up": nothing needs you. */
-function CaughtUp({ guest, compact }: { guest: boolean; compact: boolean }) {
+/** A quiet text button that opens its rows in place: "Later · 2", "Earlier". */
+function Fold({ label, centred, children }: { label: string; centred: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className={cx("flex flex-col items-center gap-3.5 text-center px-6", compact ? "py-6" : "py-24 md:py-32")}>
-      <svg width={compact ? 56 : 84} height={compact ? 56 : 84} viewBox="0 0 24 24" aria-hidden className="text-faint">
-        <path d="M12 2.5a7.5 7.5 0 0 0-7.5 7.5v11l2.5-1.7 2.5 1.7 2.5-1.7 2.5 1.7 2.5-1.7 2.5 1.7V10A7.5 7.5 0 0 0 12 2.5z" fill="currentColor" />
-        <circle cx="9.5" cy="10.5" r="1.3" fill="var(--panel)" />
-        <circle cx="14.5" cy="10.5" r="1.3" fill="var(--panel)" />
-      </svg>
-      <h2 className={"t-title"}>All caught up</h2>
-      <p className="text-body text-muted leading-snug max-w-xs">Nothing needs you right now. {guest ? "Conversations you're invited to show up here." : "When an agent wants your OK or needs you on its computer, it shows up here."}</p>
-      {!compact && <CardButton onClick={() => go({ view: "chats" })}>Open Chats</CardButton>}
+    <div className={cx("w-full flex flex-col", centred ? "items-center" : "items-start")}>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className={cx("h-9 rounded-full text-sm outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40", open ? "text-ink" : "text-muted")}>
+        {label}
+      </button>
+      {open && (
+        <ul aria-label={label} className="w-full flex flex-col divide-y divide-line text-left">
+          {children}
+        </ul>
+      )}
     </div>
   );
 }
 
-/** What you decided and what finished: the Inbox's history. */
-function DoneTab({ approvals, tasks }: { approvals: Approval[]; tasks: TaskLite[] | null }) {
+/** A team request that stands still at a step: the team's chat, at that request, has what can be done about it. */
+function TeamNeed({ flow, lane }: { flow: TeamFlow; lane: FlowLane }) {
+  const team = useStore((s) => s.channels.find((c) => c.id === flow.channelId));
+  const to = { view: "chat", channelId: flow.channelId, threadId: flow.threadId } as const;
+  return (
+    <NeedRow avatar={<ChatAvatar chat={{ kind: "team", agent: null, channel: team ?? null }} size={36} />} text={stoppedLine(team?.settings.team?.steps ?? [], lane.stepId)} to={href(to)} meta={[team?.name ?? "A team", timeAgo(flow.updatedAt)]}>
+      <div>
+        <CardButton tone="primary" onClick={() => go(to)}>
+          Open
+        </CardButton>
+      </div>
+    </NeedRow>
+  );
+}
+
+/** An agent that can't work until the person does one thing: the button does it, the sentence opens its chat. */
+function AgentNeed({ agent, need }: { agent: Agent; need: NonNullable<ReturnType<typeof agentNeed>> }) {
+  const chat = () => void openDm(agent.id);
+  return (
+    <NeedRow avatar={<AgentAvatar agent={agent} size={40} live />} text={need.text} onOpen={chat} meta={[agent.name]}>
+      <div>
+        <CardButton tone="primary" onClick={() => (need.href ? void (location.hash = need.href) : chat())}>
+          {need.action}
+        </CardButton>
+      </div>
+    </NeedRow>
+  );
+}
+
+/** What you answered and what agents finished, newest first: one line each, who and when under it. */
+function useEarlier(approvals: Approval[], tasks: TaskLite[] | null): { key: string; agentId: string | null; text: string; meta: string; to: string }[] {
   const me = useStore((s) => s.me)!;
   const agents = useStore((s) => s.agents);
   const members = useStore((s) => s.members);
   const prefs = usePrefs();
+  const name = (id: string | null) => agents.find((a) => a.id === id)?.name ?? "An agent";
+  const when = (at: string) => shortTime(Date.parse(at), prefs.clock);
   const decided = approvals
     .filter((a) => a.status !== "pending")
     .sort((a, b) => (b.decidedAt ?? b.createdAt).localeCompare(a.decidedAt ?? a.createdAt))
-    .slice(0, 30);
-  const finished = (tasks ?? []).filter((t) => t.status === "done").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 20);
-
-  const line = (a: Approval) => {
-    const who = a.decidedBy === me.user.id || !a.decidedBy ? "You" : (members.find((m) => m.id === a.decidedBy)?.name ?? "Someone");
-    const what = a.login ? `sign-in to ${a.login.site}` : a.summary;
-    if (a.login) return a.status === "approved" ? `${who} allowed ${what}` : `${who} said not now to ${what}`;
-    return a.status === "approved" ? `${who} approved ${what}` : `${who} said not now to ${what}`;
-  };
-  const group = (title: string, rows: { key: string; agent: Agent | undefined; text: string; at: string }[]) =>
-    rows.length > 0 && (
-      <>
-        <SectionHead title={title} />
-        <GroupCard className="px-3.5 py-1">
-          {rows.map((r, i) => (
-            <div key={r.key} className={cx("flex items-center gap-3 px-1 py-2.5", i > 0 && "border-t border-line")}>
-              <AgentAvatar agent={r.agent} size={28} interactive={false} />
-              <span className="flex-1 min-w-0 text-body leading-snug break-words">{r.text}</span>
-              <span className="text-[13px] text-faint shrink-0">{shortTime(Date.parse(r.at), prefs.clock)}</span>
-            </div>
-          ))}
-        </GroupCard>
-      </>
-    );
-  const dRows = decided.map((a) => ({ key: a.id, agent: agents.find((x) => x.id === a.agentId), text: line(a), at: a.decidedAt ?? a.createdAt }));
-  const tRows = finished.map((t) => ({ key: t.id, agent: agents.find((x) => x.id === t.toAgentId), text: `${agents.find((x) => x.id === t.toAgentId)?.name ?? "An agent"} finished ${t.title}`, at: t.updatedAt }));
-  if (dRows.length + tRows.length === 0) return <p className="py-16 text-center text-sm text-muted">Nothing yet. What you decide and what agents finish shows up here.</p>;
-  return (
-    <>
-      {group("Decided today", dRows.filter((r) => sameDay(r.at)))}
-      {group("Decided earlier", dRows.filter((r) => !sameDay(r.at)))}
-      {group("Done today", tRows.filter((r) => sameDay(r.at)))}
-      {group("Done earlier", tRows.filter((r) => !sameDay(r.at)))}
-    </>
-  );
-}
-
-/** The lead card: finish setup, see what a helper is waiting on, or try a first question. */
-function ReadinessCard() {
-  const agents = useStore((s) => s.agents);
-  const { done } = useOnboarding();
-  const devices = useDevices();
-  // devices are null while loading; show a quiet placeholder instead of guessing a state
-  if (devices === null) return <div className="h-24 rounded-2xl bg-card animate-pulse" aria-hidden />;
-  const r: ReturnType<typeof homeReadiness<Agent>> = homeReadiness(done, agents, devices);
-  const { progress, steps } = setupProgress(done);
-
-  const Frame = ({ agent, title, sub, children }: { agent?: Agent; title: string; sub?: ReactNode; children: ReactNode }) => (
-    <GroupCard className="p-[18px] flex flex-col gap-3" >
-      <section aria-labelledby="ready-h" className="contents">
-        <div className="flex items-center gap-3">
-          {agent && <AgentAvatar agent={agent} size={40} live />}
-          <div className="min-w-0 flex-1">
-            <h2 id="ready-h" className="text-body font-semibold leading-snug">
-              {title}
-            </h2>
-            {sub && <p className="text-sm text-faint">{sub}</p>}
-          </div>
-        </div>
-        {children}
-      </section>
-    </GroupCard>
-  );
-  const bar = (
-    <>
-      <div className="h-1.5 rounded-full bg-chip overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={steps} aria-valuenow={progress} aria-label="Setup progress">
-        <div className="h-full rounded-full bg-badge" style={{ width: `${(progress / steps) * 100}%` }} />
-      </div>
-      <div className="text-[13px] text-faint">
-        {progress} of {steps} done
-      </div>
-    </>
-  );
-
-  if (r.kind === "setup") {
-    return (
-      <Frame title="Your agent isn't ready yet" sub={`Next: ${NEXT_STEP[r.next]}`}>
-        {bar}
-        <div className="flex gap-2.5">
-          <CardButton tone="primary" onClick={() => go({ view: "welcome" })}>
-            Continue setup
-          </CardButton>
-        </div>
-      </Frame>
-    );
-  }
-  if (r.kind === "waiting") {
-    // the fix depends on what's missing: a device, the device coming back, or the harness on it
-    const next = setupNextStep(r.agent, devices);
-    const onDevice = next?.href === href({ view: "computers", computerId: null });
-    return (
-      <Frame agent={r.agent} title={onDevice && r.deviceName ? `${r.agent.name} is waiting for ${r.deviceName}` : `${r.agent.name} isn't ready yet`} sub={next ? next.text : r.problem}>
-        {bar}
-        <div className="flex flex-wrap gap-2.5">
-          <CardButton tone="primary" onClick={() => (location.hash = next?.href ?? href({ view: "computers", computerId: null }))}>
-            {next?.action ?? "See computers"}
-          </CardButton>
-          <CardButton onClick={() => go({ view: "agents", agentId: r.agent.id, tab: "model" })}>Change its AI</CardButton>
-        </div>
-      </Frame>
-    );
-  }
-  return null;
-}
-
-/** How much of today's background allowance is used, linking to Settings → Usage. */
-function AllowanceRow() {
-  const [a] = useAllowance();
-  if (!a) return null;
-  return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-panel border border-line">
-      <span className="flex-1 flex flex-col gap-0.5">
-        <span className="text-sm">Background work</span>
-        <span className="text-[13px] text-faint">{a.dailyTokens ? `${allowanceText(a)} used` : allowanceText(a)}</span>
-      </span>
-      <a href={href({ view: "settings", page: "usage" })} className="text-sm text-accent-text hover:underline">
-        Open usage
-      </a>
-    </div>
-  );
+    .slice(0, 30)
+    .map((a) => {
+      const by = a.decidedBy && a.decidedBy !== me.user.id ? ` by ${members.find((m) => m.id === a.decidedBy)?.name ?? "someone"}` : "";
+      const at = a.decidedAt ?? a.createdAt;
+      return { key: a.id, agentId: a.agentId, at, text: approvalLine(a, name(a.agentId)), meta: [`${a.status === "approved" ? "Allowed" : "Not now"}${by}`, name(a.agentId), when(at)].join(" · "), to: href({ view: "chat", channelId: a.channelId, threadId: a.threadId }) };
+    });
+  const finished = (tasks ?? [])
+    .filter((t) => t.status === "done")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 20)
+    .map((t) => ({ key: t.id, agentId: t.toAgentId, at: t.updatedAt, text: t.title, meta: ["Finished", name(t.toAgentId), when(t.updatedAt)].join(" · "), to: t.channelId ? href({ view: "chat", channelId: t.channelId, threadId: t.threadId }) : href({ view: "tasks" }) }));
+  return [...decided, ...finished].sort((a, b) => b.at.localeCompare(a.at));
 }
