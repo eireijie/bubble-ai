@@ -138,9 +138,9 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
   );
   const orgoNeedsKey = orgoState === "needs-key" && (
     <p className="text-xs text-warn">
-      Add your Orgo API key in Settings → Computers first.{" "}
+      Add your Orgo API key in Settings → Computers and devices first.{" "}
       <a href={href({ view: "settings", page: "devices" })} onClick={onClose} className="underline text-accent-text">
-        Open Computers settings
+        Open Computers and devices settings
       </a>
     </p>
   );

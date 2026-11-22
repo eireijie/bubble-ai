@@ -58,7 +58,8 @@ export const MARKET_SECTIONS = ["all", "apps", "skills", "devices", "installed"]
 export type MarketSection = (typeof MARKET_SECTIONS)[number];
 
 export function routeForRole(route: Route, role?: "owner" | "member" | "guest"): Route {
-  return role === "guest" && route.view === "computers" ? { view: "dashboard" } : route;
+  // computers and terminals (Code) are for people who can change devices: not guests
+  return role === "guest" && (route.view === "computers" || route.view === "code") ? { view: "dashboard" } : route;
 }
 
 export function parseRoute(hash: string): Route {
