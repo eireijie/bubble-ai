@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Bold, Check, ChevronRight, ExternalLink, FolderInput, Hash, History, Link2, List, Lock, Pencil, PencilLine, Share2, Trash2, X, MoreHorizontal } from "lucide-react";
+import { Bold, ChevronLeft, ExternalLink, FolderInput, Hash, History, Link2, List, Lock, Pencil, PencilLine, Share2, Trash2, Type, X, MoreHorizontal } from "lucide-react";
 import { type MemoryLevel } from "@wisp/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
-import { go, guardLeaving, href } from "../../router.ts";
+import { go, guardLeaving } from "../../router.ts";
 import { renderMarkdown } from "../../markdown.ts";
-import { Empty, Menu, cx, timeAgo, agentColor } from "../../components/ui.tsx";
+import { Menu, Popover, cx, timeAgo, agentColor } from "../../components/ui.tsx";
 import { MoreOptions } from "../../components/MoreOptions.tsx";
-import { MemoryGraph, kindColor, kindLabel, neighbourhood, type GraphData, type GraphKind } from "../../components/MemoryGraph.tsx";
+import { kindColor, kindLabel, type GraphData } from "../../components/MemoryGraph.tsx";
 import { obsidianLink, onHubMachine, useMemoryStorage } from "../../obsidian.ts";
-import { Cards, Overline, PhoneBar, noteName, baseName, pill, pillPrimary, useFolderLabel, folderSteps, whoIs, useIsPhone } from "./parts.tsx";
+import { Cards, noteName, baseName, iconBtn, menuRow, pageCol, pill, pillPrimary, whoIs, useIsPhone } from "./parts.tsx";
+import { bodyOnly } from "./logic.ts";
 import { DeleteDialog, MoveDialog, RenameDialog } from "./NoteDialogs.tsx";
 
 export interface Note {
@@ -38,18 +39,6 @@ interface Commit {
   message: string;
 }
 
-/** The note's text without its front matter and without a first heading that just repeats the title. */
-function bodyOnly(content: string, title: string): string {
-  let t = content;
-  if (t.startsWith("---")) {
-    const end = t.indexOf("\n---", 3);
-    if (end >= 0) t = t.slice(end + 4).replace(/^\r?\n/, "");
-  }
-  const m = t.match(/^\s*#\s+(.+?)\s*\r?\n/);
-  if (m && m[1]!.trim().toLowerCase() === title.trim().toLowerCase()) t = t.slice(m[0].length);
-  return t;
-}
-
 /** Blame blocks minus the note's frontmatter, which is bookkeeping rather than writing. */
 function withoutFrontmatter(blocks: BlameBlock[]): BlameBlock[] {
   const lines = blocks.flatMap((b) => b.lines);
@@ -74,8 +63,9 @@ function focusAtEnd(el: HTMLTextAreaElement | null) {
 }
 
 /**
- * A note: read here, with a plain editor for quick fixes (Obsidian is the better place to write).
- * Edit, History (with Restore) and Graph, and the actions behind the ⋯: rename, move, who can see it, Obsidian, delete.
+ * A note: back, its title, one line of who and when, and the text. Click the text to edit it
+ * (Obsidian is the better place to write). History (with Restore and who wrote what) is one button;
+ * the ⋯ holds share, rename, move, Obsidian, the graph and delete.
  */
 export function NoteView({
   path,
@@ -89,8 +79,8 @@ export function NoteView({
   onShare,
   onGraph,
   onStorage,
+  onWrite,
   onBack,
-  onOpenFolder,
 }: {
   path: string;
   pendingEdit: React.MutableRefObject<string | null>;
@@ -104,8 +94,9 @@ export function NoteView({
   onShare: () => void;
   onGraph: (path: string) => void;
   onStorage: () => void;
+  /** start writing a note this one links to but nobody wrote yet */
+  onWrite?: (title: string) => void;
   onBack: () => void;
-  onOpenFolder: (dir: string) => void;
 }) {
   const phone = useIsPhone();
   const [note, setNote] = useState<Note | null>(null);
@@ -122,7 +113,6 @@ export function NoteView({
   const members = useStore((s) => s.members);
   const memoryVersion = useStore((s) => s.memoryVersion);
   const storage = useMemoryStorage();
-  const label = useFolderLabel();
   const handles = useMemo(() => new Set(agents.map((a) => a.handle)), [agents]);
 
   useEffect(() => {
@@ -143,7 +133,7 @@ export function NoteView({
     );
   }, [path, memoryVersion, pendingEdit]);
 
-  // who wrote it and what changed: loaded with the note so "Written by" is true to its first author
+  // who wrote it and what changed: loaded with the note, for History and the line under the title
   const loadHistory = () => api<Commit[]>("GET", `/api/vault/history?path=${encodeURIComponent(path)}`).then(setHistory, () => setHistory([]));
   useEffect(() => {
     setHistory(null);
@@ -173,29 +163,35 @@ export function NoteView({
     };
   }, [dirty, path]);
 
-  const onClick = (e: React.MouseEvent) => {
+  /** A link opens its note (one nobody wrote yet starts it). Returns whether the click was on a link. */
+  const followLink = (e: React.MouseEvent): boolean => {
     const a = (e.target as HTMLElement).closest<HTMLElement>("[data-wikilink]");
-    if (!a) return;
+    if (!a) return false;
     e.preventDefault();
     const found = resolve(a.dataset.wikilink!, path);
     if (found) go({ view: "vault", path: found });
+    else if (!readOnly) onWrite?.(a.dataset.wikilink!);
+    return true;
   };
 
   const byId = useMemo(() => new Map(graph?.nodes.map((n) => [n.id, n]) ?? []), [graph]);
-  const linkedFrom = graph && note ? note.backlinks.filter((p) => byId.has(p)).map((p) => byId.get(p)!) : [];
-  const linksTo = (graph?.edges ?? []).filter((e) => e.source === path && !(note?.backlinks ?? []).includes(e.target)).map((e) => byId.get(e.target)!).filter(Boolean);
+  // notes that link here; while looking through an agent, only the ones it can see
+  const linkedFrom = note ? note.backlinks.filter((p) => !graph || byId.has(p)).map((p) => ({ path: p, title: byId.get(p)?.title ?? noteName(p) })) : [];
 
+  const back = (
+    <button className={iconBtn} onClick={onBack} aria-label="Back to Memory" title="Back">
+      <ChevronLeft size={18} />
+    </button>
+  );
+  const page = cx(pageCol, "pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))]");
   if (error)
     return (
-      <div className="h-full flex flex-col">
-        {phone && <PhoneBar title="Note" onBack={onBack} />}
-        <Empty icon={<BookOpen />} title="Can't open this note">
-          {/not found/i.test(error) ? "It may have been moved or deleted." : error}{" "}
-          <a className="text-accent-text hover:underline" href={href({ view: "vault", path: null })}>Back to Memory</a>
-        </Empty>
+      <div className={page}>
+        {back}
+        <p className="pt-6 text-[14px] text-muted">{/not found/i.test(error) ? "This note was moved or deleted" : error}</p>
       </div>
     );
-  if (!note) return <div className="p-6 text-sm text-muted">Loading…</div>;
+  if (!note) return null;
 
   const canEdit = !readOnly && (note.access === "edit" || note.access === "manage");
   const save = async () => {
@@ -230,27 +226,28 @@ export function NoteView({
     else onStorage();
   };
 
-  const first = history && history.length ? history[history.length - 1]! : null;
-  const author = first?.author ?? note.editedBy;
-  const w = author ? whoIs(author, agents, members, 22) : null;
+  // who changed it last and when: the same pair the list shows
+  const author = note.editedBy ?? (history && history.length ? history[0]!.author : null);
+  const w = author ? whoIs(author, agents, members, 16) : null;
   const type = typeof note.frontmatter?.type === "string" ? note.frontmatter.type : null;
   const kind = graph?.nodes.find((n) => n.id === path)?.kind ?? null;
   const tags = note.tags ?? [];
-  const steps = folderSteps(path.split("/").slice(0, -1).join("/"));
-  const crumbs = steps.map((s, i) => ({ text: label(s), path: steps.slice(0, i + 1).join("/") }));
+  const closeHistory = () => (setHistoryOpen(false), setViewing(null), setMode("read"));
   const menu = (
     <Menu
       align="right"
       trigger={(_o, toggle) => (
-        <button onClick={toggle} className="circle" aria-haspopup="menu" aria-label="Note actions" title="Note actions">
-          <MoreHorizontal size={20} />
+        <button onClick={toggle} className={iconBtn} aria-haspopup="menu" aria-label="More: share, rename, move, delete" title="More">
+          <MoreHorizontal size={16} />
         </button>
       )}
       items={[
-        ...(canEdit ? [{ label: "Rename", icon: <PencilLine size={17} />, onSelect: () => setDialog("rename") }, { label: "Move to another folder", icon: <FolderInput size={17} />, onSelect: () => setDialog("move") }] : []),
-        { label: "Who can see this note", icon: <Lock size={17} />, onSelect: onShare },
+        ...(canEdit && !viewing ? [{ label: "Edit", icon: <Pencil size={17} />, onSelect: () => setDraft(note.content) }] : []),
+        { label: "Share", icon: <Lock size={17} />, onSelect: onShare },
+        ...(canEdit ? [{ label: "Rename", icon: <PencilLine size={17} />, onSelect: () => setDialog("rename") }, { label: "Move", icon: <FolderInput size={17} />, onSelect: () => setDialog("move") }] : []),
         { label: "Open in Obsidian", icon: <ExternalLink size={17} />, onSelect: openObsidian },
-        ...(canEdit ? ["divider" as const, { label: "Delete note", icon: <Trash2 size={17} />, danger: true, onSelect: () => setDialog("delete") }] : []),
+        { label: "Show in graph", icon: <Share2 size={17} />, onSelect: () => onGraph(path) },
+        ...(canEdit ? ["divider" as const, { label: "Delete", icon: <Trash2 size={17} />, danger: true, onSelect: () => setDialog("delete") }] : []),
       ]}
     />
   );
@@ -259,13 +256,10 @@ export function NoteView({
   if (draft !== null) {
     return (
       <Editor
-        path={path}
         draft={draft}
         setDraft={setDraft}
         saving={saving}
         dirty={dirty}
-        phone={phone}
-        where={where(path)}
         onSave={save}
         onCancel={() => setDraft(null)}
       />
@@ -308,27 +302,62 @@ export function NoteView({
           onDone={() => {
             setDialog(null);
             onChanged();
-            go({ view: "vault", path: path.split("/").slice(0, -1).join("/") || null });
+            onBack();
           }}
         />
       )}
     </>
   );
 
+  const version = viewing && (
+    <div className="mt-4 rounded-[14px] bg-chip px-3.5 py-2.5 text-[13px] flex items-center gap-2">
+      <span className="flex-1">Version from {new Date(viewing.commit.date).toLocaleString()}</span>
+      <button className="font-medium underline underline-offset-2" onClick={() => setViewing(null)}>
+        Back to current
+      </button>
+    </div>
+  );
+  /** Click the text to edit it; a click on a link, or one that ends a selection, is not that. */
+  const onText = (e: React.MouseEvent) => {
+    if (followLink(e) || !canEdit || viewing) return;
+    if ((e.target as HTMLElement).closest("a, button, input, summary")) return;
+    if (window.getSelection()?.toString()) return;
+    setDraft(note.content);
+  };
+  const text = (
+    <div
+      onClick={onText}
+      className={cx(
+        "prose-w text-[15px] leading-6",
+        canEdit && !viewing && "cursor-text",
+        // a link to a note nobody wrote yet: dotted, with "Write it" beside it
+        "[&_.wikilink.missing]:border-b-0! [&_.wikilink.missing]:px-0! [&_.wikilink.missing]:text-ink! [&_.wikilink.missing]:underline! [&_.wikilink.missing]:decoration-dotted! [&_.wikilink.missing]:decoration-[1.5px]! [&_.wikilink.missing]:decoration-muted! [&_.wikilink.missing]:underline-offset-[3px]!",
+        !readOnly && onWrite && "[&_.wikilink.missing]:after:ml-1.5 [&_.wikilink.missing]:after:inline-block [&_.wikilink.missing]:after:text-xs [&_.wikilink.missing]:after:font-semibold [&_.wikilink.missing]:after:text-muted [&_.wikilink.missing]:after:content-['Write_it']",
+      )}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+  const switcher = <Segmented mode={mode} setMode={setMode} labels={["History", "Who wrote what"]} />;
+
   // phones: History is a page of its own, with "Who wrote what" beside it
   if (phone && historyOpen) {
     return (
-      <div className="h-full flex flex-col min-h-0">
-        <PhoneBar title={mode === "authors" ? "Who wrote what" : "History"} onBack={() => (setHistoryOpen(false), setViewing(null))} trailing={menu} />
-        <div className="flex-1 overflow-y-auto px-4 pb-28">
-          <Segmented mode={mode} setMode={setMode} labels={["History", "Who wrote what"]} />
-          <p className="mt-3 px-1 text-[13px] text-muted">{baseName(path)}</p>
-          <div className="mt-2">{mode === "authors" ? <Blame blocks={blame} /> : historyList}</div>
+      <div className="h-full overflow-y-auto">
+        <div className={page}>
+          <div className="flex items-center gap-2 pb-4">
+            <button className={iconBtn} onClick={closeHistory} aria-label="Back to the note" title="Back">
+              <ChevronLeft size={18} />
+            </button>
+            <span className="flex-1" />
+            {menu}
+          </div>
+          {switcher}
+          <div className="mt-3">{mode === "authors" ? <Blame blocks={blame} /> : historyList}</div>
           {viewing && mode !== "authors" && (
-            <div className="mt-4">
-              <div className="rounded-2xl bg-info/15 px-4 py-2.5 text-sm">Viewing the version from {new Date(viewing.commit.date).toLocaleString()} by {whoIs(viewing.commit.author, agents, members).name}</div>
-              <div onClick={onClick} className="prose-w mt-3 text-body leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />
-            </div>
+            <>
+              {version}
+              <div className="mt-3">{text}</div>
+            </>
           )}
         </div>
         {dialogs}
@@ -336,138 +365,105 @@ export function NoteView({
     );
   }
 
-  const actions = (
-    <>
-      {canEdit && !viewing && (
-        <button className={pill} onClick={() => setDraft(note.content)} title="Edit this note here">
-          <Pencil size={15} /> Edit
-        </button>
-      )}
-      <button className={cx(pill, historyOpen && "bg-card")} onClick={() => (setHistoryOpen(!historyOpen), setViewing(null))} aria-pressed={historyOpen}>
-        <History size={15} /> {historyOpen ? "Hide history" : "History"}
-      </button>
-      {!historyOpen && (
-        <button className={pill} onClick={() => onGraph(path)}>
-          <Share2 size={15} /> Graph
-        </button>
-      )}
-    </>
-  );
-
+  const empty = !bodyOnly(note.content, title).trim();
   return (
-    <div className="h-full flex flex-col min-h-0">
-      {phone ? (
-        <PhoneBar title="Note" onBack={onBack} trailing={menu} />
-      ) : (
-        <div className="shrink-0 h-[72px] px-6 flex items-center gap-2">
-          <nav className="flex-1 min-w-0 flex items-center gap-1.5 text-[14px] text-muted overflow-hidden whitespace-nowrap" aria-label="Where this note is">
-            {crumbs.map((c) => (
-              <span key={c.path} className="flex items-center gap-1.5 min-w-0 shrink-[100]">
-                <button onClick={() => onOpenFolder(c.path)} className="truncate hover:text-ink">
-                  {c.text}
-                </button>
-                <ChevronRight size={13} className="text-faint shrink-0" />
-              </span>
-            ))}
-            <span className="text-ink font-medium truncate">{baseName(path)}</span>
-          </nav>
-          {actions}
-          {menu}
-        </div>
-      )}
-      <div className="flex-1 min-h-0 flex">
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          <div className={cx("mx-auto px-4 md:px-6 pt-2 pb-36 md:pb-12", historyOpen ? "max-w-[560px]" : "max-w-[640px]")}>
-            {phone && <p className="px-1 text-[13px] text-muted">{crumbs.map((c) => c.text).join(" / ")}</p>}
-            <h2 className="t-title mt-1 break-words">{title}</h2>
-            <div className="mt-3 px-0.5 flex items-center gap-2 text-[14px] text-muted flex-wrap">
-              {w && w.avatar}
-              <span>
-                {w ? `Written by ${w.name}` : "Not saved yet"}
-                {note.editedAt ? ` · edited ${timeAgo(note.editedAt)}` : ""}
-              </span>
-            </div>
-            {(type || tags.length > 0) && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {type && (
-                  <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-info/20 text-[13px] font-medium text-info capitalize">
-                    {kind && <span className="size-2 rounded-full" style={{ background: kindColor(kind) }} title={kindLabel(kind)} />}
-                    {type}
-                  </span>
-                )}
-                {tags.map((t) => (
-                  <span key={t} className="inline-flex items-center gap-1 h-8 px-3 rounded-full bg-chip text-[13px] font-medium text-ink/85">
-                    <Hash size={12} className="text-muted" /> {t}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {viewing && (
-              <div className="mt-4 rounded-2xl bg-info/15 px-4 py-2.5 text-sm flex items-center gap-2">
-                <span className="flex-1">
-                  Viewing the version from {new Date(viewing.commit.date).toLocaleString()} by {whoIs(viewing.commit.author, agents, members).name}
-                </span>
-                <button className="font-medium underline underline-offset-2" onClick={() => setViewing(null)}>
-                  Back to current
-                </button>
-              </div>
-            )}
-
-            {!phone && !historyOpen ? null : null}
-            {mode === "authors" && !phone && historyOpen ? (
-              <div className="mt-4">
-                <Segmented mode={mode} setMode={setMode} labels={["Read", "Who wrote what"]} />
-                <div className="mt-3">
-                  <Blame blocks={blame} />
-                </div>
-              </div>
-            ) : (
+    <div className="h-full flex min-h-0">
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className={page}>
+          <div className="flex items-center gap-2 pb-[22px]">
+            {back}
+            <span className="flex-1" />
+            <button className={cx(iconBtn, historyOpen && "bg-line2")} onClick={() => (historyOpen ? closeHistory() : setHistoryOpen(true))} aria-pressed={historyOpen} aria-label="History: earlier versions and who wrote what" title="History">
+              <History size={16} />
+            </button>
+            {menu}
+          </div>
+          <h1 className="text-[28px] leading-[34px] font-[650] tracking-[-0.01em] break-words">{title}</h1>
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 pt-2 text-[13px] leading-[18px] text-muted">
+            {w?.avatar}
+            <span>
+              {w ? w.name : "Not saved yet"}
+              {note.editedAt ? ` · ${timeAgo(note.editedAt)}` : ""}
+            </span>
+            {linkedFrom.length > 0 && (
               <>
-                {!phone && historyOpen && (
-                  <div className="mt-4">
-                    <Segmented mode={mode} setMode={setMode} labels={["Read", "Who wrote what"]} />
-                  </div>
-                )}
-                <div className="mt-4 rounded-3xl md:rounded-none bg-card md:bg-transparent px-5 py-4 md:p-0">
-                  <div onClick={onClick} className="prose-w text-[15px] md:text-[15.5px] leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />
-                </div>
+                <span aria-hidden>·</span>
+                <Popover
+                  inline
+                  up={false}
+                  className="w-64 max-h-[min(60vh,420px)] overflow-y-auto p-1.5"
+                  trigger={(isOpen, toggle) => (
+                    <button onClick={toggle} aria-expanded={isOpen} className="outline-none hover:text-ink focus-visible:text-ink focus-visible:underline">
+                      linked from {linkedFrom.length} {linkedFrom.length === 1 ? "note" : "notes"}
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <div role="menu" aria-label="Linked from">
+                      {linkedFrom.map((n) => (
+                        <button
+                          key={n.path}
+                          role="menuitem"
+                          onClick={() => {
+                            close();
+                            go({ view: "vault", path: n.path });
+                          }}
+                          className={menuRow}
+                        >
+                          <span className="min-w-0 flex-1 truncate">{n.title}</span>
+                          <span className="max-w-[45%] truncate text-xs text-muted">{where(n.path)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Popover>
               </>
             )}
-
-            {linkedFrom.length > 0 && (
-              <section>
-                <Overline>Linked from</Overline>
-                <NoteLinks items={linkedFrom} where={where} phone={phone} />
-              </section>
-            )}
-            {linksTo.length > 0 && (
-              <section>
-                <Overline>Links to</Overline>
-                <NoteLinks items={linksTo} where={where} phone={phone} />
-              </section>
-            )}
-            <MoreOptions className="mt-6" about="properties and a map of connected notes">
-              <Connected path={path} graph={graph} frontmatter={note.frontmatter ?? {}} resolve={(t) => resolve(t, path)} />
-            </MoreOptions>
           </div>
-        </div>
-        {!phone && historyOpen && (
-          <aside className="w-[340px] shrink-0 border-l border-line overflow-y-auto px-5 pb-8" aria-label="History">
-            <div className="h-16 flex items-center">
-              <h3 className="flex-1 t-title">History</h3>
-              <button onClick={() => (setHistoryOpen(false), setViewing(null), setMode("read"))} className="circle circle-sm" aria-label="Close history">
-                <X size={16} />
-              </button>
+          {(type || tags.length > 0) && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {type && (
+                <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-chip text-xs font-medium capitalize">
+                  {kind && <span className="size-2 rounded-full" style={{ background: kindColor(kind) }} title={kindLabel(kind)} />}
+                  {type}
+                </span>
+              )}
+              {tags.map((t) => (
+                <span key={t} className="inline-flex items-center gap-0.5 h-6 px-2.5 rounded-full bg-chip text-xs font-medium text-muted">
+                  <Hash size={11} /> {t}
+                </span>
+              ))}
             </div>
-            {historyList}
-          </aside>
-        )}
-      </div>
-      {phone && (
-        <div className="fixed inset-x-0 bottom-0 z-20 px-3 pb-8 flex justify-center gap-2 pointer-events-none">
-          <div className="pointer-events-auto flex gap-2">{actions}</div>
+          )}
+
+          {version}
+
+          <div className="pt-6">
+            {mode === "authors" && historyOpen ? (
+              <Blame blocks={blame} />
+            ) : empty && canEdit && !viewing ? (
+              <button onClick={() => setDraft(note.content)} className="text-[15px] leading-6 text-muted hover:text-ink">
+                Write something
+              </button>
+            ) : (
+              text
+            )}
+          </div>
+
+          <Properties frontmatter={note.frontmatter ?? {}} resolve={(t) => resolve(t, path)} />
         </div>
+      </div>
+      {historyOpen && (
+        <aside className="w-[310px] shrink-0 border-l border-line overflow-y-auto px-4 pb-8" aria-label="History">
+          <div className="h-16 flex items-center">
+            <h2 className="flex-1 text-[15px] font-semibold">History</h2>
+            <button onClick={closeHistory} className={iconBtn} aria-label="Close history">
+              <X size={16} />
+            </button>
+          </div>
+          {switcher}
+          <div className="mt-3">{historyList}</div>
+        </aside>
       )}
       {dialogs}
     </div>
@@ -492,13 +488,12 @@ function HistoryList({ history, viewing, canEdit, onView, onRestore }: { history
   if (!history) return <p className="text-sm text-muted px-1">Loading…</p>;
   if (!history.length) return <p className="text-sm text-muted px-1">Not saved yet.</p>;
   return (
-    <>
-      <Cards>
+    <Cards className="rounded-[14px]!">
         {history.map((c, i) => {
-          const w = whoIs(c.author, agents, members, 34);
+          const w = whoIs(c.author, agents, members, 28);
           const on = viewing?.commit.hash === c.hash;
           return (
-            <div key={c.hash} className={cx("flex items-center gap-3 px-4 py-3", on && "bg-hover")}>
+            <div key={c.hash} className={cx("flex items-center gap-2.5 px-3 py-2.5", on && "bg-hover")}>
               {w.avatar}
               <button onClick={() => onView(c, i === 0)} className="flex-1 min-w-0 text-left" title="See this version">
                 <span className="block truncate text-body font-medium">{c.message}</span>
@@ -507,10 +502,10 @@ function HistoryList({ history, viewing, canEdit, onView, onRestore }: { history
                 </span>
               </button>
               {i === 0 ? (
-                <span className="h-8 px-3 rounded-full bg-info/25 text-info text-[13px] font-medium inline-flex items-center">Current</span>
+                <span className="text-xs text-muted">Current</span>
               ) : (
                 canEdit && (
-                  <button onClick={() => confirm("Bring this version back as a new change? Nothing is lost.") && onRestore(c)} className="h-8 px-3.5 rounded-full border border-control-line bg-control text-[13px] font-medium hover:bg-hover">
+                  <button onClick={() => confirm("Bring this version back as a new change? Nothing is lost.") && onRestore(c)} className="h-8 px-3 rounded-full border border-control-line bg-control text-[13px] font-medium hover:bg-hover">
                     Restore
                   </button>
                 )
@@ -518,9 +513,7 @@ function HistoryList({ history, viewing, canEdit, onView, onRestore }: { history
             </div>
           );
         })}
-      </Cards>
-      <p className="mt-3 px-1 text-xs text-muted leading-relaxed">Restoring brings back that version as a new change. Nothing is lost.</p>
-    </>
+    </Cards>
   );
 }
 
@@ -535,18 +528,9 @@ function Blame({ blocks }: { blocks: BlameBlock[] | null }) {
     const w = whoIs(author, agents, members);
     return w.agent ? agentColor(w.agent) : "var(--faint)";
   };
-  const authors = [...new Set(shown.map((b) => b.author))];
   return (
     <div>
-      <div className="mb-3 flex flex-wrap gap-3 px-1 text-[13px] text-muted">
-        {authors.map((a) => (
-          <span key={a} className="inline-flex items-center gap-1.5">
-            {whoIs(a, agents, members, 18).avatar}
-            {whoIs(a, agents, members).name}
-          </span>
-        ))}
-      </div>
-      <div className="rounded-3xl bg-card overflow-hidden">
+      <div className="rounded-[14px] bg-card overflow-hidden">
         {shown.map((b, i) => {
           const w = whoIs(b.author, agents, members, 18);
           return (
@@ -564,43 +548,10 @@ function Blame({ blocks }: { blocks: BlameBlock[] | null }) {
   );
 }
 
-function NoteLinks({ items, where, phone }: { items: { id: string; path: string | null; title: string; kind: GraphKind }[]; where: (p: string) => string; phone: boolean }) {
-  const open = (p: string | null) => p && go({ view: "vault", path: p });
-  const sub = (n: { path: string | null; kind: GraphKind }) => (n.path ? where(n.path) : kindLabel("ghost").toLowerCase());
-  if (phone)
-    return (
-      <Cards>
-        {items.map((n) => (
-          <button key={n.id} disabled={!n.path} onClick={() => open(n.path)} className="w-full text-left px-4 min-h-12 flex items-center gap-3 hover:bg-hover/60">
-            <Link2 size={19} strokeWidth={1.7} className="text-muted shrink-0" />
-            <span className="flex-1 truncate text-body">{n.title}</span>
-            <span className="text-muted text-body truncate max-w-[40%]">{sub(n)}</span>
-            <ChevronRight size={16} className="text-faint" />
-          </button>
-        ))}
-      </Cards>
-    );
-  return (
-    <div className="grid grid-cols-2 xl:grid-cols-3 gap-2.5">
-      {items.map((n) => (
-        <button key={n.id} disabled={!n.path} onClick={() => open(n.path)} className="text-left rounded-3xl bg-card px-4 py-3 hover:bg-hover/60 transition-colors min-w-0">
-          <span className="block font-medium text-[14px] truncate">{n.title}</span>
-          <span className="block text-xs text-muted truncate">{sub(n)}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** The note's front matter as properties, and a small map of the notes it's linked with. */
-function Connected({ path, graph, frontmatter, resolve }: { path: string; graph: GraphData | null; frontmatter: Record<string, string | string[]>; resolve: (t: string) => string | null }) {
-  const local = useMemo(() => {
-    if (!graph) return null;
-    const one = neighbourhood(graph, path, 1);
-    const two = one.nodes.length < 4 ? neighbourhood(graph, path, 2) : one;
-    return two.nodes.length <= 12 ? two : one;
-  }, [graph, path]);
+/** The note's front matter, folded away under one word. Nothing shows when it has none. */
+function Properties({ frontmatter, resolve }: { frontmatter: Record<string, string | string[]>; resolve: (t: string) => string | null }) {
   const entries = Object.entries(frontmatter).filter(([k, v]) => !["title", "type", "tags"].includes(k) && (Array.isArray(v) ? v.length : v !== ""));
+  if (!entries.length) return null;
   const value = (v: string) => {
     const link = v.match(/^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]$/);
     if (!link) return <span className="break-words">{v}</span>;
@@ -615,31 +566,21 @@ function Connected({ path, graph, frontmatter, resolve }: { path: string; graph:
   };
   const nice = (k: string) => k.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
   return (
-    <div className="space-y-4">
-      {entries.length > 0 && (
-        <dl className="rounded-3xl bg-card px-4 py-3 grid grid-cols-[minmax(5rem,auto)_1fr] gap-x-6 gap-y-2 text-sm" aria-label="Properties">
-          {entries.map(([k, v]) => (
-            <div key={k} className="contents">
-              <dt className="text-muted">{nice(k)}</dt>
-              <dd className="min-w-0 flex flex-wrap items-center gap-1.5">{Array.isArray(v) ? v.map((x, i) => <span key={i}>{value(x)}</span>) : value(v)}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      <div className="relative h-56 rounded-3xl bg-card bg-[radial-gradient(circle_at_1px_1px,var(--line)_1px,transparent_0)] bg-size-[16px_16px] overflow-hidden">
-        {local && local.nodes.length > 1 ? (
-          <MemoryGraph graph={local} variant="local" active={path} onOpen={(n) => n.path && go({ view: "vault", path: n.path })} className="absolute inset-0" label={`${local.nodes.length - 1} notes linked with this one`} />
-        ) : (
-          <p className="absolute inset-0 grid place-items-center p-5 text-center text-xs text-muted">{local ? "Not linked to other notes yet. Write [[Note name]] to link one." : "Loading…"}</p>
-        )}
-      </div>
-    </div>
+    <MoreOptions className="mt-8" title="Properties">
+      <dl className="rounded-[14px] bg-card px-4 py-3 grid grid-cols-[minmax(5rem,auto)_1fr] gap-x-6 gap-y-2 text-sm" aria-label="Properties">
+        {entries.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-muted">{nice(k)}</dt>
+            <dd className="min-w-0 flex flex-wrap items-center gap-1.5">{Array.isArray(v) ? v.map((x, i) => <span key={i}>{value(x)}</span>) : value(v)}</dd>
+          </div>
+        ))}
+      </dl>
+    </MoreOptions>
   );
 }
 
-/** The plain editor: Markdown in a card, with a few helpers for bold, lists, links and tags. */
-function Editor({ path, draft, setDraft, saving, dirty, phone, where, onSave, onCancel }: { path: string; draft: string; setDraft: (s: string) => void; saving: boolean; dirty: boolean; phone: boolean; where: string; onSave: () => void; onCancel: () => void }) {
-  const me = useStore((s) => s.me);
+/** The plain editor: Markdown, with Cancel and Save on top and the formatting helpers behind one button. */
+function Editor({ draft, setDraft, saving, dirty, onSave, onCancel }: { draft: string; setDraft: (s: string) => void; saving: boolean; dirty: boolean; onSave: () => void; onCancel: () => void }) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   /** Wrap the selection (or put a marker at the caret) and keep the caret in a useful place. */
   const edit = (before: string, after = "", fallback = "") => {
@@ -665,73 +606,53 @@ function Editor({ path, draft, setDraft, saving, dirty, phone, where, onSave, on
       el.setSelectionRange(el.selectionStart + prefix.length, el.selectionStart + prefix.length);
     });
   };
-  const tools = (
-    <div className="flex items-center gap-2" role="toolbar" aria-label="Formatting">
-      <button type="button" className="circle circle-sm" aria-label="Bold" title="Bold" onClick={() => edit("**", "**", "bold")}>
-        <Bold size={16} />
-      </button>
-      <button type="button" className="circle circle-sm" aria-label="List" title="List" onClick={() => lineStart("- ")}>
-        <List size={16} />
-      </button>
-      <button type="button" className="circle circle-sm" aria-label="Link to a note" title="Link to a note" onClick={() => edit("[[", "]]", "Note name")}>
-        <Link2 size={16} />
-      </button>
-      <button type="button" className="circle circle-sm" aria-label="Heading" title="Heading" onClick={() => lineStart("## ")}>
-        <Hash size={16} />
-      </button>
-    </div>
-  );
+  const bold = () => edit("**", "**", "bold");
   return (
-    <div className="h-full flex flex-col min-h-0">
-      <div className={cx("shrink-0 flex items-center gap-2", phone ? "px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-2" : "h-[72px] px-6")}>
-        {phone ? (
-          <>
-            <button className={pill} onClick={onCancel}>
-              Cancel
-            </button>
-            <h1 className="flex-1 text-center text-body font-semibold truncate">{baseName(path)}</h1>
-          </>
-        ) : (
-          <>
-            <nav className="flex-1 min-w-0 text-[14px] text-muted truncate">
-              {where} <ChevronRight size={13} className="inline text-faint" /> <span className="text-ink font-medium">{baseName(path)}</span>
-            </nav>
-            <button className={pill} onClick={onCancel}>
-              Cancel
-            </button>
-          </>
-        )}
-        <button className={pillPrimary} onClick={onSave} disabled={saving}>
-          <Check size={16} /> {saving ? "Saving…" : "Save"}
-        </button>
-      </div>
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 pb-8">
-        <div className="mx-auto max-w-[640px]">
-          {phone && (
-            <p className="mb-2 px-1 text-xs text-muted">
-              Editing in {where}. Changes are saved as {me?.user.name ?? "you"}.
-            </p>
-          )}
-          {!phone && <div className="mb-3">{tools}</div>}
-          <textarea
-            ref={(el) => {
-              ref.current = el;
-              focusAtEnd(el);
-            }}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            spellCheck
-            aria-label="Note text"
-            className="w-full h-[min(60vh,560px)] resize-none rounded-3xl bg-card px-5 py-4 font-mono text-[14px] leading-relaxed outline-none focus:ring-3 focus:ring-ring/30"
+    <div className="h-full overflow-y-auto">
+      <div className={cx(pageCol, "pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))]")}>
+        <div className="flex items-center gap-2 pb-[22px]">
+          <button className={cx(pill, "h-8 max-md:h-11 px-3.5 text-[13px]")} onClick={onCancel}>
+            Cancel
+          </button>
+          <span className="flex-1" />
+          <Menu
+            align="right"
+            trigger={(_o, toggle) => (
+              <button type="button" onClick={toggle} className={iconBtn} aria-haspopup="menu" aria-label="Formatting" title="Formatting">
+                <Type size={16} />
+              </button>
+            )}
+            items={[
+              { label: "Bold", icon: <Bold size={16} />, onSelect: bold },
+              { label: "List", icon: <List size={16} />, onSelect: () => lineStart("- ") },
+              { label: "Link to a note", icon: <Link2 size={16} />, onSelect: () => edit("[[", "]]", "Note name") },
+              { label: "Heading", icon: <Hash size={16} />, onSelect: () => lineStart("## ") },
+            ]}
           />
-          {!phone && (
-            <p className="mt-2 px-1 text-xs text-muted">
-              Saved as {me?.user.name ?? "you"}. {dirty ? "Not saved yet." : "Nothing changed yet."}
-            </p>
-          )}
+          <button className={cx(pillPrimary, "h-8 max-md:h-11 px-4 text-[13px]")} onClick={onSave} disabled={saving || !dirty}>
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
+        <textarea
+          ref={(el) => {
+            ref.current = el;
+            focusAtEnd(el);
+          }}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+            const key = e.key.toLowerCase();
+            if (key !== "b" && key !== "s") return;
+            e.preventDefault();
+            if (key === "b") bold();
+            else if (dirty && !saving) onSave();
+          }}
+          spellCheck
+          aria-label="Note text"
+          className="w-full h-[min(68vh,640px)] resize-none rounded-[14px] bg-card px-4 py-3.5 font-mono text-[14px] leading-relaxed outline-none focus:ring-2 focus:ring-ring/30"
+        />
       </div>
-      {phone && <div className="shrink-0 px-4 py-3 bg-card/80 backdrop-blur safe-bottom">{tools}</div>}
     </div>
   );
 }
