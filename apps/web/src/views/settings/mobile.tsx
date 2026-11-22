@@ -84,7 +84,8 @@ export function PhonePairing({ autoStart = false, compact = false }: { autoStart
     const t = setInterval(async () => {
       try {
         const p = await api<Pairing>("GET", `/api/pair/${started.id}`);
-        if (live.current === started.id) setPairing(p);
+        // nothing new (still waiting for a scan): keep the one it has, so the code isn't redrawn every tick
+        if (live.current === started.id) setPairing((cur) => (cur && JSON.stringify(cur) === JSON.stringify(p) ? cur : p));
       } catch {
         if (live.current === started.id) setPairing((p) => (p ? { ...p, state: "expired" } : p));
       }

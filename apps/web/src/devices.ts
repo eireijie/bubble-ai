@@ -38,7 +38,8 @@ export function useDevices(intervalMs = 5000): DeviceInfo[] | null {
   const [devices, setDevices] = useState<DeviceInfo[] | null>(null);
   useEffect(() => {
     let alive = true;
-    const load = () => api<DeviceInfo[]>("GET", "/api/nodes").then((d) => alive && setDevices(d), () => {});
+    // the same answer as last time keeps the list it already has, so a poll with no news re-renders nothing
+    const load = () => api<DeviceInfo[]>("GET", "/api/nodes").then((d) => alive && setDevices((cur) => (cur && JSON.stringify(cur) === JSON.stringify(d) ? cur : d)), () => {});
     load();
     const t = setInterval(load, intervalMs);
     return () => {

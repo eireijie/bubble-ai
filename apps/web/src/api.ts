@@ -105,6 +105,8 @@ export function connectEvents(onEvent: (e: ClientEvent) => void, onStatus: (conn
     ws = new WebSocket(`${proto}://${location.host}/ws`);
     ws.onopen = () => ws!.send(JSON.stringify({ type: "auth", token: getToken() }));
     ws.onmessage = (m) => {
+      // a connection that was let go can still hear the hub for a moment; the one after it has those events
+      if (stopped) return;
       let e: any;
       try {
         e = JSON.parse(m.data);
@@ -120,8 +122,10 @@ export function connectEvents(onEvent: (e: ClientEvent) => void, onStatus: (conn
       }
     };
     ws.onclose = () => {
-      onStatus(false);
+      // let go on purpose: the disposer below already said so. Its close arrives later, and by then the
+      // next connection may be up, so saying "disconnected" here would leave the app offline while it isn't.
       if (stopped) return;
+      onStatus(false);
       retry = setTimeout(open, delay);
       delay = Math.min(delay * 2, 10_000);
     };
@@ -133,11 +137,16 @@ export function connectEvents(onEvent: (e: ClientEvent) => void, onStatus: (conn
       open();
     }
   };
-  open();
+  // Not in this same tick: React's development check runs an effect, undoes it and runs it again at once,
+  // and a socket opened and closed on the spot is logged by the browser as a failed connection.
+  queueMicrotask(() => {
+    if (!ws) open();
+  });
   return () => {
     stopped = true;
     reconnect = null;
     clearTimeout(retry);
     ws?.close();
+    onStatus(false);
   };
 }
