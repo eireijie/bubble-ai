@@ -20,7 +20,7 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
   const checks = helperChecklist(agents, devices);
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <header className="h-15 shrink-0 px-4 md:px-6 flex items-center gap-2 safe-top">
+      <header className="mx-auto w-full max-w-xl h-15 shrink-0 px-4 md:px-8 md:mt-8 flex items-center gap-2 safe-top">
         {onBack && (
           <button className="md:hidden p-1.5 -ml-1.5 rounded-md hover:bg-hover" onClick={onBack} aria-label="Back">
             <ChevronLeft size={22} />
@@ -29,7 +29,7 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
         <h1 className="t-title flex-1 truncate">Help</h1>
       </header>
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-xl px-4 md:px-6 pt-2 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-6">
+        <div className="mx-auto w-full max-w-xl px-4 md:px-8 pt-2 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-6">
           <div className="rounded-[14px] bg-card overflow-hidden">
             <button type="button" className={rowClass} onClick={() => (helper ? void openDm(helper.id) : go({ view: "welcome" }))}>
               {helper && <AgentAvatar agent={helper} size={34} />}
