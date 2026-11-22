@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { FEATURE_PRESETS, type Agent, type DeviceRole, type Features } from "@wisp/core";
 import { harnessInfo, harnessLabel, runsInVm } from "@wisp/core/src/harnesses.ts";
 import { api } from "./api.ts";
-import { accessSkipped, onPublicAddress } from "./access.ts";
+import { accessSkipped, onPublicAddress, type AccessInfo } from "./access.ts";
 import { useStore } from "./store.ts";
 import { agentReadiness, agentSignedIn, type DeviceInfo } from "./devices.ts";
 import type { Route } from "./router.ts";
@@ -19,7 +19,7 @@ export interface OnboardingState {
   reachable?: boolean;
 }
 
-/** The setup's screens, in order. */
+/** What setup keeps track of, in order. The first run is three screens now (you, your agent, its AI) and marks all four once the agent exists. */
 export const STEPS = ["anywhere", "address", "agent", "devices"] as const;
 export type StepId = (typeof STEPS)[number];
 export type SetupChoices = Partial<Record<StepId, boolean>>;
@@ -242,36 +242,55 @@ export function featuresForExperience(choice: "simple" | "advanced"): Features {
 }
 
 /**
- * "When you're ready" (onboarding's last page, #/here): what's left after the first chat. It stays
- * in the sidebar as "Finish setup" until every item is done. "second" is done once there are two
- * agents; the others are ticked by the person.
+ * What the first run no longer asks: the agent asks each in its first chat, one at a time (`ask`,
+ * with `action` and "Later" as its buttons), and the same four are listed on "Finish setup"
+ * (#/here, `label` and `button`) until each is done.
  */
 export const READY_ITEMS = [
-  { id: "phone", label: "Get Wisp on your phone" },
-  { id: "logins", label: "Add your password manager" },
-  { id: "email", label: "Connect your email" },
-  { id: "second", label: "Make a second agent" },
+  { id: "phone", label: "Add your phone", button: "Pair", ask: "Want me on your phone too?", action: "Pair my phone" },
+  { id: "apps", label: "Set up apps", button: "Add", ask: "Which apps should I work with?", action: "Set up apps" },
+  { id: "away", label: "Use Wisp away from home", button: "Set up", ask: "Want to reach me away from home?", action: "Set up" },
+  { id: "know", label: "Let me get to know you", button: "Start", ask: "Can I get to know you?", action: "Get started" },
 ] as const;
 export type ReadyItem = (typeof READY_ITEMS)[number]["id"];
+/** true: done. "later": asked in the chat and put off; it stays on "Finish setup". */
+export type ReadyTick = boolean | "later";
 const readyKey = (workspaceId: string) => `wisp.ready.v1.${workspaceId}`;
 const useReadyStore = create<{ revision: number }>(() => ({ revision: 0 }));
 
-function readyTicks(workspaceId: string): Partial<Record<ReadyItem | "started", boolean>> {
+function readyTicks(workspaceId: string): Partial<Record<ReadyItem | "started", ReadyTick>> {
   try { return JSON.parse(localStorage.getItem(readyKey(workspaceId)) ?? "{}") ?? {}; } catch { return {}; }
 }
 
-/** `started`: the person has seen "Here's your Wisp", so the list shows in the sidebar from then on. */
-export function setReadyItem(workspaceId: string, id: ReadyItem | "started", done: boolean) {
+/** `started`: the first run has ended, so "Finish setup" shows from then on while anything is left. */
+export function setReadyItem(workspaceId: string, id: ReadyItem | "started", done: ReadyTick) {
   try { localStorage.setItem(readyKey(workspaceId), JSON.stringify({ ...readyTicks(workspaceId), [id]: done })); } catch {}
   useReadyStore.setState((s) => ({ revision: s.revision + 1 }));
 }
 
-/** Each "When you're ready" item and whether it's done; `left` counts what isn't. */
-export function useReadyChecklist(): { items: { id: ReadyItem; label: string; done: boolean }[]; left: number; started: boolean; workspaceId: string } {
+export type ReadyRow = (typeof READY_ITEMS)[number] & { done: boolean; later: boolean };
+
+/** Each of the four with where it stands, from what was saved. */
+export function readyRows(ticks: Partial<Record<ReadyItem | "started", ReadyTick>>): ReadyRow[] {
+  return READY_ITEMS.map((i) => ({ ...i, done: ticks[i.id] === true, later: ticks[i.id] === "later" }));
+}
+
+/** The one the agent asks about next in its chat: the first neither done nor put off. */
+export const nextAsk = (rows: readonly ReadyRow[]): ReadyRow | null => rows.find((r) => !r.done && !r.later) ?? null;
+
+/** The four and whether each is done; `left` counts what isn't (put off counts as left). */
+export function useReadyChecklist(): { items: ReadyRow[]; left: number; started: boolean; workspaceId: string } {
   useReadyStore((s) => s.revision);
   const workspaceId = useStore((s) => s.me?.workspace.id) ?? "";
-  const agentCount = useStore((s) => s.agents.length);
   const ticks = readyTicks(workspaceId);
-  const items = READY_ITEMS.map((i) => ({ id: i.id, label: i.label, done: i.id === "second" ? agentCount >= 2 || !!ticks.second : !!ticks[i.id] }));
+  const items = readyRows(ticks);
   return { items, left: items.filter((i) => !i.done).length, started: !!ticks.started, workspaceId };
+}
+
+/** Where your devices connect, and what that address can reach. */
+export function serverAddress(info: AccessInfo | null, loc: Pick<Location, "origin" | "protocol" | "hostname"> = location): { url: string; note: string } | null {
+  if (onPublicAddress(loc)) return { url: loc.origin, note: "Your devices connect here, at home or away." };
+  if (!info) return null;
+  if (info.publicUrl) return { url: info.publicUrl, note: info.publicUrl.endsWith(".ts.net") && !info.tailscale.funnel ? "Your devices connect here, at home or away. Any device on your Tailscale can reach it." : "Your devices connect here, at home or away." };
+  return info.lan[0] ? { url: info.lan[0], note: "Your devices connect here while they're on your home network." } : null;
 }

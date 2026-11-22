@@ -228,8 +228,6 @@ export function agentInstructions(agent: string, person: string, role: string, g
     .join(" ");
 }
 
-export const saveAgentDraft = (workspaceId: string, agentDraft: AgentDraft) => saveAnswers(workspaceId, { agentDraft });
-
 /** What each pick reads like in "What I do" and in the preview message. */
 export const PHRASE: Record<GoalId, string> = {
   email: "your inbox",

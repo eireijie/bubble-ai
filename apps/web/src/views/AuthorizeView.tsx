@@ -96,17 +96,16 @@ export function AuthorizeView({ requestId }: { requestId: string }) {
             <WispGhost size={60} className="text-ink" />
             <span className="sr-only">Wisp</span>
           </div>
-          <div className="text-center space-y-1.5">
-            <h1 className="t-title">Let {info.client} act as an agent?</h1>
-          </div>
-          <div className="rounded-3xl bg-card overflow-hidden divide-y divide-line" role="radiogroup">
+          <h1 className="t-title text-center">Let {info.client} act as an agent?</h1>
+          <div className="rounded-3xl bg-card overflow-hidden divide-y divide-line" role="radiogroup" aria-label="Which agent">
             {agents.map((a) => (
               <label key={a.id} className="flex items-center gap-3.5 px-[18px] min-h-14 cursor-pointer hover:bg-hover">
                 <input type="radio" name="agent" className="sr-only" checked={pick === a.id} onChange={() => setPick(a.id)} />
                 <AgentAvatar agent={a} size={34} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-body font-medium truncate">{a.name}</span>
-                  <span className="block text-xs text-muted truncate">@{a.handle}</span>
+                  {/* the handle only tells two agents with one name apart */}
+                  {agents.some((b) => b.id !== a.id && b.name === a.name) && <span className="block text-xs text-muted truncate">@{a.handle}</span>}
                 </span>
                 {pick === a.id && (
                   <span className="size-6 rounded-full bg-badge text-badge-ink grid place-items-center" aria-hidden>

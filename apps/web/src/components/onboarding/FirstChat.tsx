@@ -1,24 +1,49 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
-import { Bell, ChevronRight } from "lucide-react";
+import { Bell } from "lucide-react";
 import type { Agent, Message } from "@wisp/core";
 import { enableNotifications, permission } from "../../notifications.ts";
 import { enablePush, pushSupported } from "../../push.ts";
-import { go } from "../../router.ts";
+import { go, type Route } from "../../router.ts";
+import { nextAsk, setReadyItem, useReadyChecklist, type ReadyItem, type ReadyRow } from "../../onboarding.ts";
+import { loadAnswers } from "../../onboardingV3.ts";
 
 /**
- * The extras in a new agent's first chat (onboarding page 6). One primary next step: a quick
- * reply to its hello. A quiet link to "Here's your Wisp" (page 7). Notifications are asked about
- * only after its first useful answer, when a ping would mean something; Turn on brings up the
- * system's own prompt, and after "Don't Allow" the card links to the exact switch.
+ * The extras in a new agent's first chat, one thing at a time. First a quick reply to its hello.
+ * Then, in the first agent's chat, what the first run no longer asks (your phone, apps, away from
+ * home, getting to know you): each as a bubble from the agent with its one action and "Later".
+ * Notifications are asked about only after its first useful answer, when a ping would mean
+ * something; Turn on brings up the system's own prompt, and after "Don't Allow" the card links to
+ * the exact switch.
  */
 
 /** What you can answer its hello with in one tap: the first is the one primary button. */
 export const QUICK = ["Yes, go ahead", "Something else first"] as const;
 
+/** Where each of setup's questions leads: a page, or a sheet that opens here. */
+export const ASK_OPENS: Record<ReadyItem, Route | "phone" | "know"> = {
+  phone: "phone",
+  apps: { view: "marketplace", section: "apps" },
+  away: { view: "settings", page: "access" },
+  know: "know",
+};
+
+/**
+ * What the agent asks next in its first chat, one at a time: nothing until the person has answered
+ * its hello, nothing while the notifications question is up, nothing for guests, and only in the
+ * chat of the agent the first run made.
+ */
+export function chatAsk(o: { rows: readonly ReadyRow[]; started: boolean; youSpoke: boolean; pingUp: boolean; guest: boolean; firstAgent: boolean }): ReadyRow | null {
+  if (!o.started || !o.youSpoke || o.pingUp || o.guest || !o.firstAgent) return null;
+  return nextAsk(o.rows);
+}
+
+// the sheets (the pairing code, getting to know you) load only when one is opened
+const PhoneSheet = lazy(() => import("./AskSheets.tsx").then((m) => ({ default: m.PhoneSheet })));
+const KnowSheet = lazy(() => import("./AskSheets.tsx").then((m) => ({ default: m.KnowSheet })));
+
 const ASKED_KEY = (workspaceId: string) => `wisp.notifyAsked.${workspaceId}`;
-export const hereSeenKey = (agentId: string) => `wisp.hereSeen.${agentId}`;
 const FRESH_MS = 7 * 86_400_000;
 const NO_MESSAGES: readonly Message[] = [];
 
@@ -84,13 +109,16 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
   const messages = useStore((s) => s.messages[channelId]) ?? NO_MESSAGES;
   // quick replies, until you've said something yourself
   const youSpoke = messages.some((m) => m.author.kind === "user");
+  const ready = useReadyChecklist();
+  const guest = useStore((s) => s.me?.role === "guest");
+  const [firstAgentId] = useState(() => loadAnswers(workspaceId).agentId);
+  const [sheet, setSheet] = useState<"phone" | "know" | null>(null);
   if (!agent || !isFirstChat(agent, channelId)) return null;
   const quick = !sent && !youSpoke ? QUICK : [];
   const reply = (text: string) => {
     setSent(true);
     void api("POST", `/api/channels/${channelId}/messages`, { body: text }).catch(() => setSent(false));
   };
-  const seen = !!read(hereSeenKey(agent.id));
   const close = () => {
     write(ASKED_KEY(workspaceId));
     setAsked(true);
@@ -112,9 +140,33 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
   };
   const ping = justOn ? "on" : pingState({ answered: answeredOnce(messages, agent.id), asked, busy, perm });
   const help = switchHelp();
-  if (ping === "hidden" && seen && !quick.length) return null;
+  const ask = chatAsk({ rows: ready.items, started: ready.started, youSpoke: youSpoke || sent, pingUp: ping !== "hidden", guest, firstAgent: firstAgentId === agent.id });
+  const yes = (id: ReadyItem) => {
+    const to = ASK_OPENS[id];
+    setReadyItem(workspaceId, id, true);
+    if (typeof to === "string") setSheet(to);
+    else go(to);
+  };
+  const sheets = sheet && <Suspense fallback={null}>{sheet === "phone" ? <PhoneSheet onClose={() => setSheet(null)} /> : <KnowSheet agent={agent} workspaceId={workspaceId} onClose={() => setSheet(null)} />}</Suspense>;
+  const nothing = ping === "hidden" && !ask && !quick.length;
+  if (nothing && !sheet) return null;
   return (
-    <div className="shrink-0 w-full max-w-3xl mx-auto px-3 md:px-5 flex flex-col gap-2 pb-2">
+    // an open sheet keeps its place here even once there is nothing else to show
+    <div className={nothing ? "hidden" : "shrink-0 w-full max-w-3xl mx-auto px-3 md:px-5 flex flex-col gap-2 pb-2"}>
+      {sheets}
+      {ask && (
+        <div key={ask.id} className="first-chat-pop flex flex-col items-start gap-1.5" role="group" aria-label={ask.label}>
+          <div className="bubble them text-[14px]">{ask.ask}</div>
+          <div className="flex flex-wrap gap-2 pl-0.5">
+            <button type="button" onClick={() => yes(ask.id)} className="h-8 rounded-full bg-ink px-3.5 text-[13px] text-panel transition-transform active:scale-[.97]">
+              {ask.action}
+            </button>
+            <button type="button" onClick={() => setReadyItem(workspaceId, ask.id, "later")} className="h-8 rounded-full border border-line2 bg-panel px-3.5 text-[13px] text-ink hover:bg-hover transition-transform active:scale-[.97]">
+              Later
+            </button>
+          </div>
+        </div>
+      )}
       {!!quick.length && (
         <div className="flex flex-wrap gap-1.5 justify-end" role="group" aria-label="Quick replies">
           {quick.map((q, i) => (
@@ -172,12 +224,6 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
             </div>
           </div>
         </section>
-      )}
-      {!seen && (
-        <button type="button" onClick={() => go({ view: "here", agentId: agent.id })} className="first-chat-pop self-center inline-flex h-7 items-center gap-0.5 px-2 text-[13px] text-muted hover:text-ink">
-          See what I set up
-          <ChevronRight size={14} strokeWidth={1.8} aria-hidden />
-        </button>
       )}
       <style>{`@keyframes first-chat-pop{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:none}}.first-chat-pop{animation:first-chat-pop .45s cubic-bezier(.22,1,.36,1) both}@media (prefers-reduced-motion: reduce){.first-chat-pop{animation:none}}`}</style>
     </div>

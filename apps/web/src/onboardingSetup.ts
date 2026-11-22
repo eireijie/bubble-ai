@@ -1,27 +1,28 @@
+import type { Routine } from "@wisp/core";
 import { api } from "./api.ts";
 import { setFeatures } from "./features.ts";
 import { useStore } from "./store.ts";
-import { loadAnswers, saveAnswers, type AgentDraft } from "./onboardingV3.ts";
+import { loadAnswers, saveAnswers } from "./onboardingV3.ts";
 import { recommendedSetup } from "./onboardingPlan.ts";
 
 /**
- * What onboarding switches on by itself once the agent exists (Its AI → Continue), each shown on
- * "Here's your Wisp" with Undo: calls and routines (owners only; they're workspace switches), and
- * one morning routine built from "What I do" and what page 3 learned, only when there's something
- * to build it from. The shared computer is already where Simple puts a new agent. Runs once.
+ * The one thing setup offers to turn on for a new agent: a morning routine built from what it does
+ * and what Wisp learned about the person's work. Nothing is switched on by itself any more: it is a
+ * row on "Finish setup" with Turn on, and Undo once it is on. Null when there's nothing to build it from.
  */
-export async function switchOnRecommended(workspaceId: string, agentId: string, person: string): Promise<void> {
-  const answers = loadAnswers(workspaceId);
-  if (answers.setupDone) return;
+export function morningPlan(workspaceId: string, person: string, role: string) {
+  return recommendedSetup(person, role, loadAnswers(workspaceId).facts ?? []).routine;
+}
+
+/** Turn the morning plan on: routines (a workspace switch only an owner can flip), then the routine itself. */
+export async function turnOnMorningPlan(workspaceId: string, agentId: string, person: string, role: string): Promise<Routine | null> {
+  const plan = morningPlan(workspaceId, person, role);
+  if (!plan) return null;
   const st = useStore.getState();
-  const owner = st.me?.role === "owner";
-  const draft: AgentDraft | undefined = answers.agentDraft;
-  const plan = recommendedSetup(person, draft?.role ?? "", answers.facts ?? []);
-  if (owner && plan.routine) await setFeatures({ routines: true }).catch(() => undefined);
-  if (plan.routine) {
-    const channelId = st.channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`))?.id ?? null;
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    await api("POST", "/api/routines", { agentId, name: plan.routine.name, steps: plan.routine.steps, schedule: plan.routine.schedule, timezone, channelId }).catch(() => undefined);
-  }
+  if (st.me?.role === "owner") await setFeatures({ routines: true }).catch(() => undefined);
+  const channelId = st.channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`))?.id ?? null;
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const routine = await api<Routine>("POST", "/api/routines", { agentId, name: plan.name, steps: plan.steps, schedule: plan.schedule, timezone, channelId });
   saveAnswers(workspaceId, { setupDone: true });
+  return routine;
 }
