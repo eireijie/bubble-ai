@@ -389,6 +389,10 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   // on for every agent in the workspace, including ones made later
   ["skills", "all_agents", "INTEGER NOT NULL DEFAULT 0"],
   ["connectors", "all_agents", "INTEGER NOT NULL DEFAULT 0"],
+  // signed in through Wisp's own app with GitHub, Slack or Google (null: the server's own MCP sign-in)
+  ["connector_auth", "provider", "TEXT"],
+  // where the browser goes after signing in ("#/connectors", or "close")
+  ["connector_auth", "return_to", "TEXT"],
   // a skill an agent saved on its own: who, and how often runs read it
   ["skills", "learned_by", "TEXT"],
   ["skills", "uses", "INTEGER NOT NULL DEFAULT 0"],

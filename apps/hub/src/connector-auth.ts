@@ -3,6 +3,7 @@ import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import { auth, type OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { OAuthClientInformationMixed, OAuthClientMetadata, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
+import { AppSignIn } from "./app-signin.ts";
 import { now } from "./auth.ts";
 import type { Db } from "./db.ts";
 
@@ -24,6 +25,8 @@ type Row = {
   state: string | null;
   signed_in_by: string | null;
   error: string | null;
+  provider: string | null;
+  return_to: string | null;
 };
 
 export interface ConnectorAuthStatus {
@@ -150,8 +153,12 @@ class Provider implements OAuthClientProvider {
 export class ConnectorAuth {
   /** tests swap this for a fake server */
   fetchFn: typeof fetch = (...a) => fetch(...a);
+  /** sign-ins through Wisp's app with GitHub, Slack or Google */
+  readonly apps: AppSignIn;
 
-  constructor(private db: Db) {}
+  constructor(private db: Db) {
+    this.apps = new AppSignIn(db, () => this.fetchFn);
+  }
 
   private row(connectorId: string) {
     return this.db.prepare("SELECT * FROM connector_auth WHERE connector_id = ?").get(connectorId) as Row | undefined;
@@ -194,20 +201,30 @@ export class ConnectorAuth {
     return required;
   }
 
-  /** Start signing in: returns the page to send the person to, or null if it's signed in already. */
-  async start(connectorId: string, serverUrl: string, origin: string, userId: string): Promise<string | null> {
+  /**
+   * Start signing in: returns the page to send the person to, or null if it's signed in already.
+   * `scope` asks for less than everything (Linear's "read"); `returnTo` is where the browser goes
+   * after (a web app page like "#/connectors", or "close" for a sign-in opened in its own tab).
+   */
+  async start(connectorId: string, serverUrl: string, origin: string, userId: string, opts: { scope?: string; returnTo?: string | null } = {}): Promise<string | null> {
     const redirect = new URL(CALLBACK_PATH, origin).href;
     const provider = new Provider(this.db, connectorId, redirect);
     const state = crypto.randomBytes(24).toString("base64url");
     this.db.prepare("INSERT INTO connector_auth (connector_id, required, updated_at) VALUES (?, 1, ?) ON CONFLICT(connector_id) DO UPDATE SET required = 1").run(connectorId, now());
-    this.db.prepare("UPDATE connector_auth SET state = ?, signed_in_by = ?, error = NULL, tokens_json = NULL, expires_at = NULL WHERE connector_id = ?").run(state, userId, connectorId);
-    const result = await auth(provider, { serverUrl, fetchFn: this.fetchFor(connectorId) });
+    // an MCP sign-in now: drop any app sign-in left from before
+    this.db.prepare("UPDATE connector_auth SET state = ?, signed_in_by = ?, error = NULL, tokens_json = NULL, expires_at = NULL, provider = NULL, return_to = ? WHERE connector_id = ?").run(state, userId, opts.returnTo ?? null, connectorId);
+    const result = await auth(provider, { serverUrl, fetchFn: this.fetchFor(connectorId), ...(opts.scope ? { scope: opts.scope } : {}) });
     return result === "REDIRECT" ? provider.authorizationUrl!.href : null;
+  }
+
+  /** Where the browser goes after the MCP sign-in under way with this state (see start). */
+  returnToFor(state: string): string | null {
+    return (this.db.prepare("SELECT return_to FROM connector_auth WHERE state = ? AND provider IS NULL").get(state) as { return_to: string | null } | undefined)?.return_to ?? null;
   }
 
   /** The sign-in page sent the person back with a code: trade it for tokens. */
   async finish(state: string, code: string, serverUrlFor: (connectorId: string) => string | null): Promise<string> {
-    const r = this.db.prepare("SELECT * FROM connector_auth WHERE state = ?").get(state) as Row | undefined;
+    const r = this.db.prepare("SELECT * FROM connector_auth WHERE state = ? AND provider IS NULL").get(state) as Row | undefined;
     if (!r?.redirect_url) throw new Error("This sign-in link has expired. Start it again from Connected apps.");
     const serverUrl = serverUrlFor(r.connector_id);
     if (!serverUrl) throw new Error("That connected app was removed.");
@@ -225,6 +242,7 @@ export class ConnectorAuth {
 
   /** Make sure the access token will last the run; refresh it if it's about to expire. */
   async fresh(connectorId: string, serverUrl: string): Promise<void> {
+    if (this.apps.handles(connectorId)) return this.apps.fresh(connectorId);
     const r = this.row(connectorId);
     if (!r?.tokens_json || !r.redirect_url) return;
     if (r.expires_at && new Date(r.expires_at).getTime() - Date.now() > 5 * 60_000) return;
