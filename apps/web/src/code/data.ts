@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Agent, AgentEvent, Approval, Message, Team } from "@wisp/core";
 import { api } from "../api.ts";
-import { runTaps, useStore, useTeams, type RunEvent, useLiveShape } from "../store.ts";
+import { runTaps, useStore, useTeams, type RunEvent } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import type { TaskRow } from "../views/TasksView.tsx";
 
 /**
@@ -29,7 +30,7 @@ const DAY = 24 * 60 * 60_000;
 export function useCodeTasks(): { tasks: CodeTask[] | null; error: string | null } {
   const version = useStore((s) => s.tasksVersion);
   const approvals = useStore((s) => s.approvals);
-  const live = useLiveShape();
+  const live = useStore(liveShape);
   const teams = useTeams();
   const [rows, setRows] = useState<TaskRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -5,7 +5,8 @@ import { harnessLabel, type Agent } from "@wisp/core";
 import { soulPath } from "@wisp/core/src/soul.ts";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { api } from "../api.ts";
-import { useStore, useTeams, type ComputerInfo, type LiveRun, useLiveShape } from "../store.ts";
+import { useStore, useTeams, type ComputerInfo, type LiveRun } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { useFeature } from "../features.ts";
 import { go, href, type AgentTab } from "../router.ts";
 import { MoreOptions } from "./MoreOptions.tsx";
@@ -49,7 +50,7 @@ export function AgentPanel({ agent, tab, onTab, onClose, onCall, inDm = false }:
     { id: "computer", label: "Computer" },
     { id: "settings", label: "Settings" },
   ];
-  const live = useLiveShape();
+  const live = useStore(liveShape);
   const runs = Object.values(live).filter((r) => r.agentId === agent.id);
   const [, tick] = useState(0);
   useEffect(() => {

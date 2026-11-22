@@ -46,6 +46,7 @@ const BuddyView = lazyView(() => import("./views/BuddyView.tsx").then((m) => m.B
 const AuthorizeView = lazyView(() => import("./views/AuthorizeView.tsx").then((m) => m.AuthorizeView));
 
 /** The file the page at this address needs, so it can be fetched while the data is still on its way. */
+export const preloadRoute = (route: Route): Promise<void> => viewFor(route)?.preload() ?? Promise.resolve();
 function viewFor(route: Route): Pick<LazyView<object>, "preload"> | null {
   const views: Partial<Record<Route["view"], Pick<LazyView<object>, "preload">>> = {
     more: MorePage, vault: VaultView, agents: AgentsView, you: YouPage, settings: SettingsView, welcome: WelcomeView, here: HereView, about: AboutView,
@@ -436,6 +437,6 @@ export { logout };
 
 // the page this address opens on: ask for its file now, alongside the first requests
 if (typeof location !== "undefined") {
-  void viewFor(parseRoute(location.hash))?.preload();
+  void preloadRoute(parseRoute(location.hash));
   if (!getToken()) void AuthScreen.preload();
 }

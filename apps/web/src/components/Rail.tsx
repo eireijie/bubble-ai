@@ -3,7 +3,8 @@ import { Apple, Blocks, BookOpen, ChevronDown, FolderPlus, Ghost as GhostIcon, H
 import { useReadyChecklist } from "../onboarding.ts";
 import type { FeatureKey, Section } from "@wisp/core";
 import { useFeatures } from "../features.ts";
-import { useStore, useInboxCount, useLiveShape } from "../store.ts";
+import { useStore, useInboxCount } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { go, href, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { ComputersIcon, InboxIcon, WispGhost } from "./icons.tsx";
@@ -221,7 +222,7 @@ export function Rail({ route }: { route: Route }) {
   const me = useStore((s) => s.me)!;
   const computers = useStore((s) => s.computers);
   const sections = useStore((s) => s.sections);
-  const live = useLiveShape();
+  const live = useStore(liveShape);
   const inbox = useInboxCount();
   const isGuest = me.role === "guest";
   const features = useFeatures();

@@ -9,7 +9,8 @@ import { useFlowLines } from "../team/How.tsx";
 import { withChart } from "../team/flow.ts";
 import { agentRulesOf, type AgentRules } from "./channel-rules.ts";
 import { api } from "../api.ts";
-import { useNames, useStore, type ChannelInfo, useLiveShape } from "../store.ts";
+import { useNames, useStore, type ChannelInfo } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { go, href } from "../router.ts";
 import { AgentAvatar, Button, Field, Input, Menu, Modal, Textarea, UserAvatar, cx } from "./ui.tsx";
 import { Toggle } from "../views/settings/parts.tsx";
@@ -553,7 +554,7 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
 
 /** Who's working on the chart right now, and where: "Working" or "In a thread". */
 export function useTeamWork(channelId: string): Record<string, string> {
-  const live = useLiveShape();
+  const live = useStore(liveShape);
   const out: Record<string, string> = {};
   for (const r of Object.values(live)) if (r.channelId === channelId) out[r.agentId] = r.threadId ? "Working in a thread" : "Working";
   return out;

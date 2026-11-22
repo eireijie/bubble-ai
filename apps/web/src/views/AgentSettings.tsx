@@ -6,7 +6,8 @@ import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx
 import { useAccess } from "../access.ts";
 import { connectorBlocker, connectorOrigin } from "../components/Access.tsx";
 import { ApiError, api } from "../api.ts";
-import { useStore, useTeams, useLiveShape } from "../store.ts";
+import { useStore, useTeams } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { go, guardLeaving, href, mayLeave, type AgentTab } from "../router.ts";
 import { renderMarkdown } from "../markdown.ts";
 import { LookPanel } from "./LookEditor.tsx";
@@ -93,7 +94,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
     content.current?.scrollTo({ top: 0 });
   }, [active]);
 
-  const live = useLiveShape();
+  const live = useStore(liveShape);
   const working = agent.status === "busy" || Object.values(live).some((r) => r.agentId === agent.id);
   const devices = useDevices();
   const readiness = agentReadiness(agent, devices);

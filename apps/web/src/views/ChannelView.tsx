@@ -1,11 +1,11 @@
 import { Suspense, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
 import { LogIn, RotateCcw, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, Eye, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, MoreHorizontal, Monitor, Paperclip, Phone, Plus, Shield, ShieldAlert, SquareTerminal, UserPlus, Users, X, Zap, ChevronDown, Hash, Info, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { parseMentions, SCHEDULE_MARK, type AccessLevel, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
-import { conversationKey, useHandleColors, useHandleNames, useLiveShape, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
+import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { go, href, type Route } from "../router.ts";
 import type { TaskRow } from "./TasksView.tsx";
 import { renderMarkdown, renderMessage } from "../markdown.ts";
@@ -594,7 +594,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { 
   const lastCount = useRef(0);
   // every run working at the top of this chat shows as a bubble, even before it has said anything
   // (only these re-render the list as they write; a run in a thread or another chat doesn't)
-  const runs = useStore(useShallow((s) => Object.values(s.live).filter((r) => r.channelId === channel.id && !r.threadId)));
+  const runs = useLiveRuns((r) => r.channelId === channel.id && !r.threadId);
   const working = useWorkingByThread(channel.id);
 
   // first message from someone else after where you'd read up to
@@ -700,9 +700,22 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { 
 
 const NO_RUNS: LiveRun[] = [];
 
+/**
+ * The live runs a view shows word by word: the same array until one of them changes, so a run
+ * writing somewhere else (another chat, a thread) doesn't render this view.
+ */
+function useLiveRuns(pick: (r: LiveRun) => boolean): LiveRun[] {
+  const last = useRef<LiveRun[]>(NO_RUNS);
+  return useStore((s) => {
+    const next = Object.values(s.live).filter(pick);
+    if (next.length !== last.current.length || next.some((r, i) => r !== last.current[i])) last.current = next;
+    return last.current;
+  });
+}
+
 /** The runs working in each thread of a chat (and in the threads above it), by the thread's first message. */
 function useWorkingByThread(channelId: string, under?: string): Map<string, LiveRun[]> {
-  const live = useLiveShape();
+  const live = useStore(liveShape);
   return useMemo(() => {
     const by = new Map<string, LiveRun[]>();
     for (const r of Object.values(live)) {
@@ -1420,8 +1433,8 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
   const history = useMessageHistory(channelId, rootId, messageId, ref, replies);
   const fresh = useFreshIds(rootId, replies);
   // what's being written in this thread re-renders it word by word; work further down only as it starts and stops
-  const streaming = useStore(useShallow((s) => Object.values(s.live).filter((r) => r.channelId === channelId && r.threadId === rootId)));
-  const shape = useLiveShape();
+  const streaming = useLiveRuns((r) => r.channelId === channelId && r.threadId === rootId);
+  const shape = useStore(liveShape);
   const below = useMemo(() => Object.values(shape).filter((r) => r.channelId === channelId && r.threadPath.includes(rootId)), [shape, channelId, rootId]);
   const working = useWorkingByThread(channelId, rootId);
   // where each reply sits among its neighbours: worked out when the replies change, not for every word written below
@@ -1779,7 +1792,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   const agents = useStore((s) => s.agents);
   const canEdit = useStore((s) => s.me?.role !== "guest");
   const { agent: dmAgent, ctx, models } = useAgentContext(agentId, channelId, threadId);
-  const live = useLiveShape();
+  const live = useStore(liveShape);
   const [{ text, files, pending, sending, error, replyTo }, updateDraft, getDraft] = useComposerDraft(channelId, threadId);
   const uploading = pending.length;
   const setText = (value: string) => updateDraft((d) => ({ ...d, text: value }));
