@@ -7,7 +7,7 @@ import { ComputersView } from "../src/views/ComputersView.tsx";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn(() => new Promise(() => {})), uploadFile: vi.fn() }));
 vi.mock("../src/App.tsx", () => ({ logout: vi.fn() }));
-vi.mock("../src/components/OrgSwitcher.tsx", () => ({ OrgSwitcher: () => null, useOrgs: () => ({ orgs: [], current: null, homeId: null }) }));
+vi.mock("../src/components/OrgSwitcher.tsx", () => ({ OrgSwitcher: () => null, OrgList: () => null, NewOrgDialog: () => null, useOrgs: () => ({ orgs: [], current: null, homeId: null }) }));
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false, useAppearance: () => ({ resolvedMode: "light", mode: "light", setMode: vi.fn(), toggleMode: vi.fn() }) }));
 vi.mock("../src/onboarding.ts", () => ({
   useOnboarding: () => ({ done: {} }),
@@ -29,8 +29,8 @@ describe("guest computer UI", () => {
     role(viewer);
     const html = renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
     expect(html.includes('href="#/computers"')).toBe(viewer !== "guest");
-    // everyone gets the other places on the rail (agents sit in More as "All agents")
-    for (const place of ["Inbox", "All chats", "New agent or team", "Apps, skills and mods"]) expect(html).toContain(place);
+    // everyone gets the rest of the sidebar: search, the plus, and the menu behind their picture
+    for (const control of ["Search", "New agent or team", "You and settings"]) expect(html).toContain(`aria-label="${control}"`);
   });
 
   it.each([null, "private-screen"])("hides the computers page from guests, including a cached detail (%s)", (computerId) => {

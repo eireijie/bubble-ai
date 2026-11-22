@@ -311,6 +311,9 @@ export function Menu({ trigger, items, align = "left", up = false }: { trigger: 
     const style: CSSProperties = { position: "fixed", maxWidth: "min(22rem, calc(100vw - 16px))", transformOrigin: `${goUp ? "bottom" : "top"} ${align === "right" ? "right" : "left"}` };
     if (goUp) style.bottom = window.innerHeight - r.top + 4;
     else style.top = r.bottom + 4;
+    // a long menu in a short window scrolls instead of running off the screen
+    style.maxHeight = Math.max(120, (goUp ? r.top : window.innerHeight - r.bottom) - 12);
+    style.overflowY = "auto";
     if (align === "right") style.right = Math.max(8, window.innerWidth - r.right);
     else style.left = Math.max(8, r.left);
     setPos(style);

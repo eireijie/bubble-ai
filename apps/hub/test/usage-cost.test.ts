@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -194,6 +194,17 @@ describe("what background work costs", () => {
   });
 
   it("tells the person once, in the chat, when usage is climbing fast", async () => {
+    // "on pace to run out before the day ends" depends on the hour, so the day is pinned at noon:
+    // only the clock is faked (timers still run), and nothing here waits, so the hub never sees it
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2027-03-10T12:00:00Z") });
+    try {
+      climbing();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  function climbing() {
     const dm = hub.store.dmChannel(ws, me, agentId);
     const notices = () => hub.store.messages(dm.id, { limit: 100 }).filter((m) => m.author.id === "system" && m.parts.some((p) => p.type === "status" && p.text.includes("of today's allowance")));
     hub.background.setDailyTokens(ws, me, 1_000_000);
@@ -213,5 +224,5 @@ describe("what background work costs", () => {
     burn(300_000);
     hub.background.warnIfClimbing(ws, me);
     expect(notices()).toHaveLength(1);
-  });
+  }
 });

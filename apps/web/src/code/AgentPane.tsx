@@ -1,16 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { Keyboard } from "lucide-react";
-import { harnessLabel, type Agent, type Approval } from "@wisp/core";
+import { ArrowUp, Keyboard, Square } from "lucide-react";
+import type { Agent, Approval } from "@wisp/core";
 import { api } from "../api.ts";
 import { TerminalPane, type ShellTarget } from "../components/TerminalPane.tsx";
 import { agentColor, cx } from "../components/ui.tsx";
+import { inkOn } from "../chatTint.ts";
 import { useStore } from "../store.ts";
 import { paneState, useAgentLines, type CodeTask, type LineKind, type PaneState } from "./data.ts";
 
 /**
- * One agent's pane: its steps on this task drawn like its own terminal (Watch), a line to talk
- * to it (Talk, ⌘I), its requests for your OK right where it asked, and, for the owner of its
- * device, its own harness session to take over (⌘⇧K) and hand back (⌘⇧H).
+ * One agent's pane: its steps on this task drawn like its own terminal (Watch), its requests for
+ * your OK right where it asked, and, for the owner of its device, its own harness session to take
+ * over (⌘⇧K) and hand back (⌘⇧H). Talking to it is the composer under the panes (TalkBar, ⌘I).
  */
 
 /** The harnesses whose session can be taken over (the device resumes it in a terminal). */
@@ -51,8 +52,6 @@ export function AgentPane({
   agent,
   focused,
   onFocus,
-  talking,
-  setTalking,
   style,
   shell,
 }: {
@@ -60,8 +59,6 @@ export function AgentPane({
   agent: Agent;
   focused: boolean;
   onFocus: () => void;
-  talking: boolean;
-  setTalking: (on: boolean) => void;
   style?: CSSProperties;
   /** the agent's device, when you may open shells there (so you can take its keyboard) */
   shell?: ShellTarget;
@@ -107,7 +104,7 @@ export function AgentPane({
   useLayoutEffect(() => {
     const el = scroller.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [lines.length, writing, asks.length, talking]);
+  }, [lines.length, writing, asks.length]);
 
   if (mineNow && shell)
     return (
@@ -134,11 +131,7 @@ export function AgentPane({
     >
       <header className={cx("flex h-8 shrink-0 items-center gap-2 border-b border-white/[.06] px-2.5", focused && "bg-white/[.035]")}>
         <GhostIcon color={color} />
-        <span className="text-[12.5px] font-semibold text-[#f2f2f4]">{agent.name}</span>
-        <span className="min-w-0 flex-1 truncate text-[11.5px] text-[#8e8e96]">
-          {harnessLabel(agent.harness)}
-          {agent.model ? ` · ${agent.model}` : ""}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-[#f2f2f4]">{agent.name}</span>
         <span className={cx("inline-flex items-center gap-1.5 whitespace-nowrap text-[11px]", state === "needs" ? "text-[#ffb340]" : "text-[#a1a1aa]")}>
           <span className={cx("h-[7px] w-[7px] rounded-full", state === "working" && "m-code-pulse")} style={{ background: holder ? "#c08cff" : STATE_COLOR[state] }} />
           {holder ? `${holderName} has the keyboard` : STATE_LABEL[state]}
@@ -148,7 +141,7 @@ export function AgentPane({
             type="button"
             onClick={() => setTaking(true)}
             aria-label={`Take ${agent.name}'s keyboard`}
-            title={`Take the keyboard (⌘⇧K): ${agent.name}'s session opens here and it waits until you hand it back`}
+            title="Take the keyboard (⌘⇧K)"
             className="-mr-1 grid h-6 w-6 place-items-center rounded-md text-[#8e8e96] transition-colors hover:bg-white/[.06] hover:text-[#f2f2f4]"
           >
             <Keyboard size={14} strokeWidth={1.75} />
@@ -164,7 +157,6 @@ export function AgentPane({
         className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-2.5 font-mono text-[12px] leading-[1.6]"
       >
         <div className="flex-1" />
-        {lines.length === 0 && !writing && <div className="text-[#6b6b75]">Nothing yet.</div>}
         {lines.map((l) => (
           <div key={l.key} className={cx("m-code-line shrink-0 truncate whitespace-pre", LINE[l.kind])} title={l.text}>
             {l.text}
@@ -175,7 +167,6 @@ export function AgentPane({
           <Ask key={a.id} approval={a} agent={agent} />
         ))}
       </div>
-      {talking && focused && <Talk task={task} agent={agent} runId={runId} onDone={() => setTalking(false)} />}
     </section>
   );
 }
@@ -206,7 +197,7 @@ function Ask({ approval, agent }: { approval: Approval; agent: Agent }) {
           Allow
         </button>
         <button type="button" disabled={busy} onClick={() => decide(false)} className="inline-flex h-7 items-center rounded-[7px] border border-white/[.09] bg-[#1d1d21] px-2.5 text-[12.5px] text-[#f2f2f4] transition-[background-color,transform] hover:bg-[#26262b] active:scale-[.96] disabled:opacity-50">
-          Deny
+          Not now
         </button>
       </div>
       {error && <div className="mt-1.5 text-[12px] text-[#ff6b6b]">{error}</div>}
@@ -214,19 +205,36 @@ function Ask({ approval, agent }: { approval: Approval; agent: Agent }) {
   );
 }
 
-/** Talk: a message to the agent in its task's thread. Esc twice stops its current step. */
-function Talk({ task, agent, runId, onDone }: { task: CodeTask; agent: Agent; runId: string | null; onDone: () => void }) {
+/**
+ * The composer under the panes: a message to the focused agent in its task's thread. Its round
+ * button sends, or stops the agent's current step while it works and the field is empty (Esc
+ * twice does the same). `focus` going up puts the cursor here (⌘I).
+ */
+export function TalkBar({ task, agent, focus }: { task: CodeTask; agent: Agent; focus: number }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastEsc = useRef(0);
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => input.current?.focus(), []);
+  const runId = useStore((s) => Object.values(s.live).find((r) => r.agentId === agent.id)?.runId ?? null);
+  // only a change moves the cursor here: switching panes must not take it out of a terminal
+  const seen = useRef(focus);
+  useEffect(() => {
+    if (focus === seen.current) return;
+    seen.current = focus;
+    input.current?.focus();
+  }, [focus]);
   const mine = pieceOf(task, agent.id);
+  const canSend = !!mine.threadId && !!mine.channelId;
+  const color = agentColor(agent);
+  const stop = () => {
+    if (runId) void api("POST", `/api/runs/${runId}/cancel`).catch(() => {});
+  };
   const send = async (e: FormEvent) => {
     e.preventDefault();
     const body = text.trim();
-    if (!body || !mine.threadId || !mine.channelId) return;
+    if (!body) return stop();
+    if (!canSend) return;
     setBusy(true);
     setError(null);
     try {
@@ -238,27 +246,39 @@ function Talk({ task, agent, runId, onDone }: { task: CodeTask; agent: Agent; ru
       setBusy(false);
     }
   };
+  const stopping = !text.trim() && !!runId;
   return (
-    <form onSubmit={send} className="m-fade-in flex shrink-0 items-center gap-2 border-t border-white/[.06] px-3 py-2">
-      <span className="font-mono text-[12px] text-[var(--agent)]">›</span>
-      <input
-        ref={input}
-        value={text}
-        disabled={busy}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key !== "Escape") return;
-          e.stopPropagation();
-          const now = Date.now();
-          if (runId && now - lastEsc.current < 600) void api("POST", `/api/runs/${runId}/cancel`).catch(() => {});
-          else if (!text) onDone();
-          lastEsc.current = now;
-        }}
-        placeholder={`Talk to ${agent.name}`}
-        aria-label={`Talk to ${agent.name}`}
-        className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-[#f2f2f4] outline-none placeholder:text-[#6b6b75]"
-      />
-      {error && <span className="truncate text-[11.5px] text-[#ff6b6b]">{error}</span>}
+    <form onSubmit={send} className="shrink-0 px-2 pb-2 pt-3 md:px-4 md:pb-4">
+      <div className="flex items-center gap-2 rounded-[20px] border border-transparent bg-[var(--bubble-them)] py-[5px] pl-4 pr-[5px] focus-within:border-line2">
+        <input
+          ref={input}
+          value={text}
+          disabled={busy || !canSend}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Escape") return;
+            e.stopPropagation();
+            const now = Date.now();
+            if (runId && now - lastEsc.current < 600) stop();
+            else if (!text) e.currentTarget.blur();
+            lastEsc.current = now;
+          }}
+          placeholder={`Message ${agent.name}`}
+          aria-label={`Message ${agent.name}`}
+          className="min-w-0 flex-1 bg-transparent text-[15px] leading-[22px] text-ink outline-none placeholder:text-muted md:text-[14px]"
+        />
+        <button
+          type="submit"
+          disabled={busy || (!stopping && (!text.trim() || !canSend))}
+          aria-label={stopping ? `Stop ${agent.name}` : "Send"}
+          title={stopping ? "Stop (Esc twice)" : "Send"}
+          style={{ background: color, color: inkOn(color) }}
+          className="m-press grid size-10 shrink-0 place-items-center rounded-full disabled:!bg-chip disabled:!text-faint md:size-[34px]"
+        >
+          {stopping ? <Square size={13} strokeWidth={2.4} fill="currentColor" /> : <ArrowUp size={18} strokeWidth={2.2} />}
+        </button>
+      </div>
+      {error && <p className="px-3 pt-1.5 text-xs text-bad">{error}</p>}
     </form>
   );
 }

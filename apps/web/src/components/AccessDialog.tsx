@@ -174,22 +174,10 @@ export function AccessDialog({ path, folder, onClose, onChanged }: { path: strin
                 <b>Who can change this {noun}:</b> {summary.change}
               </span>
             </p>
-            {isShared(path) && <p className="text-xs text-muted">Shared is the common folder. By default everyone in the workspace and all agents can use what is in it, so don't keep private things there.</p>}
           </div>
         )}
-        <MoreOptions title="How these rules work">
-          <p className="text-muted">
-            {folder ? (
-              <>
-                Rules on <b className="text-ink">{pathLabel(path, agents, members)}/</b> apply to everything inside it.
-              </>
-            ) : (
-              <>
-                Only <b className="text-ink">{pathLabel(path, agents, members)}</b>.
-              </>
-            )}{" "}
-            A rule set here beats what's inherited, and a rule for one agent beats one for its role, its team or all agents.
-          </p>
+        {/* why each one has the level it has: the rule that gives it, one line each */}
+        <MoreOptions title="Why">
           <>
             {info && (
               <ul className="mt-2 space-y-1 text-xs text-muted">
@@ -202,7 +190,6 @@ export function AccessDialog({ path, folder, onClose, onChanged }: { path: strin
             )}
           </>
         </MoreOptions>
-        {info && !canManage && <p className="rounded-lg bg-hover px-3 py-2 text-muted">You can see who has access. Only people who manage this {folder ? "folder" : "note"} can change it.</p>}
         {error && <p className="text-bad">{error}</p>}
         {!info ? (
           <p className="text-muted">Loading…</p>
@@ -285,12 +272,6 @@ export function AccessDialog({ path, folder, onClose, onChanged }: { path: strin
                 );
               })}
             </Section>
-            <p className="text-xs text-muted flex items-start gap-1.5">
-              <Pin size={12} className="mt-0.5 shrink-0" />{" "}
-              <span>
-                <b>Always remind agents of {folder ? "these notes" : "this note"}:</b> use the pin next to an agent. Agents read {folder ? "them" : "it"} at the start of every chat. Keep {folder ? "them" : "it"} short; long notes make every reply slower and cost more.
-              </span>
-            </p>
           </>
         )}
       </div>

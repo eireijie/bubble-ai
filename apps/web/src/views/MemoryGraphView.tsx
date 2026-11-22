@@ -1,9 +1,19 @@
-import { useMemo, useRef, useState } from "react";
-import { Maximize2, Minus, Plus, Search, Share2, X } from "lucide-react";
-import { Button, cx } from "../components/ui.tsx";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { Check, ListFilter, Search, X } from "lucide-react";
+import { Button, Popover, cx } from "../components/ui.tsx";
 import { GRAPH_KINDS, MemoryGraph, kindColor, kindLabel, type GraphData, type GraphKind, type GraphNode } from "../components/MemoryGraph.tsx";
+import { iconBtn, menuRow } from "./memory/parts.tsx";
 
-/** The whole memory as a map: every note you can read, and the links between them. */
+/** "Sam, Release and Dentist": the notes most others link to, for the graph's spoken label. */
+export function mostLinked(graph: GraphData, n = 3): string[] {
+  return graph.nodes
+    .filter((x) => x.path && x.inbound > 0)
+    .sort((a, b) => b.inbound - a.inbound || b.links - a.links || a.title.localeCompare(b.title))
+    .slice(0, n)
+    .map((x) => x.title);
+}
+
+/** The whole memory as a map: every note you can read, and the links between them. Bigger dots are linked the most. */
 export function MemoryGraphView({
   graph,
   initialKind,
@@ -11,17 +21,20 @@ export function MemoryGraphView({
   where,
   onOpen,
   onWrite,
+  header,
 }: {
   graph: GraphData | null;
-  /** start with only this folder kind showing (from a tile on the Memory home) */
+  /** start with only this folder kind showing */
   initialKind?: GraphKind | null;
-  /** open with this note picked (from the Graph button on a note) */
+  /** open with this note picked (from "Show in graph" on a note) */
   initialSelect?: string | null;
   /** where a note lives, in words ("Shared", "@atlas", "Sam") */
   where: (path: string) => string;
   onOpen: (path: string) => void;
   /** start writing a note that's linked to but doesn't exist yet */
   onWrite?: (title: string) => void;
+  /** the page's own header, given the graph's one filter button to place in it */
+  header?: (filter: ReactNode) => ReactNode;
 }) {
   const [hidden, setHidden] = useState<Set<GraphKind>>(() => (initialKind ? new Set(GRAPH_KINDS.filter((k) => k !== initialKind)) : new Set()));
   const [tag, setTag] = useState("");
@@ -40,7 +53,6 @@ export function MemoryGraphView({
     for (const n of graph?.nodes ?? []) for (const t of n.tags) c.set(t, (c.get(t) ?? 0) + 1);
     return [...c].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [graph]);
-  const types = useMemo(() => new Set((graph?.nodes ?? []).map((n) => n.type)), [graph]);
 
   const shown = useMemo<GraphData>(() => {
     if (!graph) return { nodes: [], edges: [] };
@@ -55,7 +67,7 @@ export function MemoryGraphView({
     return shown.nodes
       .filter((n) => n.title.toLowerCase().includes(q) || n.path?.toLowerCase().includes(q))
       .sort((a, b) => Number(!a.title.toLowerCase().startsWith(q)) - Number(!b.title.toLowerCase().startsWith(q)) || b.links - a.links)
-      .slice(0, 8);
+      .slice(0, 6);
   }, [query, shown]);
 
   const pick = (n: GraphNode) => {
@@ -71,69 +83,103 @@ export function MemoryGraphView({
   };
   const open = (n: GraphNode) => n.path && onOpen(n.path);
 
-  if (!graph) return <div className="p-6 text-sm text-muted">Loading…</div>;
+  const filtering = hidden.size > 0 || !!tag;
+  // the one control the graph has: which folders and tags show, finding a note, and fitting everything back in view
+  const filter = (
+    <Popover
+      up={false}
+      align="right"
+      className="w-64 max-h-[min(70vh,520px)] overflow-y-auto p-1.5"
+      trigger={(isOpen, toggleOpen) => (
+        <button onClick={toggleOpen} className={cx(iconBtn, "relative")} aria-haspopup="dialog" aria-expanded={isOpen} aria-label="Filter the graph: folders and tags" title="Filter">
+          <ListFilter size={16} />
+          {filtering && <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-info ring-2 ring-panel" aria-hidden />}
+        </button>
+      )}
+    >
+      {(close) => (
+        <div>
+          <div className="mb-1 flex h-9 max-md:h-11 items-center gap-2 rounded-lg bg-chip px-2.5">
+            <Search size={14} className="shrink-0 text-muted" aria-hidden />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && matches[0]) {
+                  pick(matches[0]);
+                  close();
+                }
+              }}
+              placeholder="Find a note"
+              aria-label="Find a note in the graph"
+              className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted"
+            />
+          </div>
+          {matches.map((n) => (
+            <button
+              key={n.id}
+              onClick={() => {
+                pick(n);
+                close();
+              }}
+              className={menuRow}
+            >
+              <span className="size-2.5 shrink-0 rounded-full" style={{ background: kindColor(n.kind) }} />
+              <span className="min-w-0 flex-1 truncate">{n.title}</span>
+              <span className="max-w-[40%] truncate text-xs text-muted">{n.path ? where(n.path) : kindLabel("ghost")}</span>
+            </button>
+          ))}
+          {!query.trim() && (
+            <>
+              <div role="group" aria-label="Show folders">
+                {GRAPH_KINDS.filter((k) => counts.get(k)).map((k) => {
+                  const on = !hidden.has(k);
+                  return (
+                    <button key={k} aria-pressed={on} onClick={() => toggle(k)} className={menuRow}>
+                      <span className={cx("size-2.5 shrink-0 rounded-full", k === "ghost" && "ring-1 ring-inset ring-current bg-transparent!")} style={{ background: kindColor(k), color: kindColor(k) }} />
+                      <span className="min-w-0 flex-1 truncate">{kindLabel(k)}</span>
+                      <span className="text-xs tabular-nums text-muted">{counts.get(k)}</span>
+                      <Check size={15} className={cx("shrink-0 text-muted", !on && "invisible")} aria-hidden />
+                    </button>
+                  );
+                })}
+              </div>
+              {tags.length > 0 && (
+                <div role="group" aria-label="Only notes with this tag">
+                  <div className="-mx-1 my-1 h-px bg-line" />
+                  {tags.map(([t, c]) => (
+                    <button key={t} aria-pressed={tag === t} onClick={() => setTag(tag === t ? "" : t)} className={menuRow}>
+                      <span className="min-w-0 flex-1 truncate">#{t}</span>
+                      <span className="text-xs tabular-nums text-muted">{c}</span>
+                      <Check size={15} className={cx("shrink-0 text-muted", tag !== t && "invisible")} aria-hidden />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="-mx-1 my-1 h-px bg-line" />
+              <button
+                onClick={() => {
+                  zoom.current?.("fit");
+                  close();
+                }}
+                className={cx(menuRow, "text-muted")}
+              >
+                Show everything
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </Popover>
+  );
 
-  const linked = picked ? new Set(graph.edges.flatMap((e) => (e.source === picked.id ? [e.target] : e.target === picked.id ? [e.source] : []))).size : 0;
+  const top = graph ? mostLinked(shown) : [];
+  const linked = picked && graph ? new Set(graph.edges.flatMap((e) => (e.source === picked.id ? [e.target] : e.target === picked.id ? [e.source] : []))).size : 0;
   return (
     <div className="h-full flex flex-col min-h-0">
-      {/* search and filters */}
-      <div className="shrink-0 px-4 md:px-6 pt-3 pb-3 flex flex-col gap-2 md:flex-row md:items-center">
-        <div className="relative md:w-72">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && matches[0]) pick(matches[0]);
-              if (e.key === "Escape") setQuery("");
-            }}
-            placeholder="Find a note in the graph…"
-            aria-label="Find a note in the graph"
-            className="h-11 w-full rounded-full border border-control-line bg-control pl-9 pr-3 text-sm outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30"
-          />
-          {matches.length > 0 && (
-            <div className="absolute z-10 mt-1 w-full rounded-2xl border border-line bg-panel shadow-panel py-1 overflow-hidden" role="listbox">
-              {matches.map((n) => (
-                <button key={n.id} role="option" aria-selected={false} onClick={() => pick(n)} className="w-full text-left px-3 py-1.5 hover:bg-hover flex items-center gap-2">
-                  <span className="size-2.5 rounded-full shrink-0" style={{ background: kindColor(n.kind) }} />
-                  <span className="truncate flex-1">{n.title}</span>
-                  <span className="text-xs text-faint truncate max-w-[40%]">{n.path ? where(n.path) : kindLabel("ghost")}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] -mx-3 px-3 md:mx-0 md:px-0 md:flex-wrap flex-1" role="group" aria-label="Show folders">
-          {GRAPH_KINDS.filter((k) => counts.get(k)).map((k) => {
-            const on = !hidden.has(k);
-            return (
-              <button
-                key={k}
-                onClick={() => toggle(k)}
-                aria-pressed={on}
-                className={cx("shrink-0 inline-flex items-center gap-1.5 h-9 rounded-full px-3.5 text-[13px] font-medium transition-colors", on ? "bg-accent text-accent-ink" : "bg-card text-faint line-through")}
-              >
-                <span className={cx("size-2 rounded-full", k === "ghost" && "ring-1 ring-inset ring-current bg-transparent!")} style={{ background: on ? kindColor(k) : "var(--faint)", color: kindColor(k) }} />
-                {kindLabel(k)}
-                <span className="text-faint tabular-nums">{counts.get(k)}</span>
-              </button>
-            );
-          })}
-          {tags.length > 0 && (
-            <select value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Only notes with this tag" className="shrink-0 h-9 rounded-full bg-card px-3.5 text-[13px] text-ink outline-none">
-              <option value="">All tags</option>
-              {tags.map(([t, c]) => (
-                <option key={t} value={t}>
-                  #{t} ({c})
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      </div>
-
-      <div className="relative flex-1 min-h-0 bg-[radial-gradient(circle_at_1px_1px,var(--line)_1px,transparent_0)] bg-size-[22px_22px]">
-        {shown.nodes.length ? (
+      {header?.(filter)}
+      <div className="relative flex-1 min-h-0">
+        {!graph ? null : shown.nodes.length ? (
           <MemoryGraph
             graph={shown}
             selected={picked?.id}
@@ -142,84 +188,44 @@ export function MemoryGraphView({
             onSelect={setPicked}
             onOpen={open}
             className="absolute inset-0"
-            label={`Graph of ${shown.nodes.length} notes and ${shown.edges.length} links. Use the search above to find a note.`}
+            label={`Graph of ${shown.nodes.length} notes and ${shown.edges.length} links.${top.length ? ` ${top.length > 1 ? `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]} are` : `${top[0]} is`} the most linked.` : ""}`}
           />
         ) : (
-          <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-muted">{graph.nodes.length ? "Nothing matches these filters." : "No notes yet."}</div>
+          <div className="absolute inset-0 grid place-items-center p-6 text-center text-[13px] text-muted">{graph.nodes.length ? "No matches" : "No notes yet"}</div>
         )}
-        {graph.nodes.length > 0 && graph.edges.length === 0 && (
-          <p className="absolute top-3 inset-x-3 mx-auto max-w-md rounded-2xl bg-panel/90 border border-line px-4 py-2.5 text-sm text-muted text-center shadow-panel">
-            Nothing is linked yet. Write <code className="text-ink">[[Note name]]</code> in a note to link it to another one.
-          </p>
-        )}
+        {!header && <div className="absolute right-3 top-3">{filter}</div>}
 
         {/* the picked note */}
         {picked && (
-          <div className="absolute left-3 bottom-3 right-16 md:right-auto md:w-80 rounded-3xl glass p-4">
+          <div className="absolute left-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 md:right-auto md:w-80 rounded-[14px] glass p-3.5">
             <div className="flex items-start gap-2">
               <span className="mt-1.5 size-2.5 rounded-full shrink-0" style={{ background: kindColor(picked.kind) }} />
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{picked.title}</div>
-                <div className="text-xs text-muted truncate">
-                  {picked.path ? where(picked.path) : `${kindLabel("ghost")}: other notes link to it`}
-                  {picked.type ? ` · ${picked.type}` : ""}
-                </div>
+                <div className="truncate text-[15px] font-semibold">{picked.title}</div>
+                <div className="truncate text-xs text-muted">{[picked.path ? where(picked.path) : kindLabel("ghost"), picked.type, `${linked} ${linked === 1 ? "link" : "links"}`].filter(Boolean).join(" · ")}</div>
               </div>
               <button onClick={() => setPicked(null)} className="p-1 -m-1 text-muted hover:text-ink" aria-label="Close">
                 <X size={15} />
               </button>
             </div>
-            <div className="mt-2.5 flex items-center gap-2">
-              <span className="text-xs text-muted flex-1">
-                <Share2 size={12} className="inline -mt-0.5 mr-1" />
-                Linked with {linked} {linked === 1 ? "note" : "notes"}
-              </span>
-              {picked.path ? (
-                <Button variant="primary" className="h-9" onClick={() => open(picked)}>
-                  Open note
-                </Button>
-              ) : (
-                onWrite && (
-                  <Button variant="primary" className="h-9" onClick={() => onWrite(picked.title)}>
-                    Write note from here
+            {(picked.path || onWrite) && (
+              <div className="mt-2.5 flex justify-end">
+                {picked.path ? (
+                  <Button variant="primary" className="h-8" onClick={() => open(picked)}>
+                    Open note
                   </Button>
-                )
-              )}
-            </div>
+                ) : (
+                  onWrite && (
+                    <Button variant="primary" className="h-8" onClick={() => onWrite(picked.title)}>
+                      Write it
+                    </Button>
+                  )
+                )}
+              </div>
+            )}
           </div>
         )}
-
-        {/* zoom, and what the shapes mean */}
-        <div className="absolute right-3 bottom-3 flex flex-col items-end gap-2">
-          {(types.has("project") || types.has("decision") || types.has("reference")) && (
-            <div className="hidden md:flex flex-col gap-1 rounded-xl border border-line bg-panel/90 px-2.5 py-2 text-[11px] text-muted">
-              {types.has("project") && <Legend shape="rounded-[3px]">Project</Legend>}
-              {types.has("decision") && <Legend shape="rotate-45 rounded-[1px] scale-90">Decision</Legend>}
-              {types.has("reference") && <Legend shape="rounded-full bg-transparent! ring-[1.5px] ring-inset ring-muted">Reference</Legend>}
-            </div>
-          )}
-          <div className="flex flex-col gap-2">
-            <button onClick={() => zoom.current?.("in")} className="circle" aria-label="Zoom in" title="Zoom in">
-              <Plus size={18} />
-            </button>
-            <button onClick={() => zoom.current?.("out")} className="circle" aria-label="Zoom out" title="Zoom out">
-              <Minus size={18} />
-            </button>
-            <button onClick={() => zoom.current?.("fit")} className="circle" aria-label="Show everything" title="Show everything">
-              <Maximize2 size={16} />
-            </button>
-          </div>
-        </div>
       </div>
     </div>
-  );
-}
-
-function Legend({ shape, children }: { shape: string; children: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={cx("size-2.5 bg-muted", shape)} />
-      {children}
-    </span>
   );
 }

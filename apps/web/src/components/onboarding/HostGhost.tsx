@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
-import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
+import { GHOST_WHITE, type GhostAppearance } from "@wisp/core/src/appearance.ts";
 import { setGazeFocus } from "../../ghostGaze.ts";
 import { motionReduced } from "../../theme.ts";
 import { Ghost, type GhostMood } from "../Ghost.tsx";
-import { WHITE_WISP } from "../SetupStage.tsx";
+
+/** Wisp itself, before you've made an agent: plain white. */
+export const WHITE_WISP: GhostAppearance = { shape: "classic", ...GHOST_WHITE, eyes: "dots", mouth: "smile", cheeks: false, hat: "none", accessory: "none", motion: "float" };
 
 /** The host before it has a colour: the old ghost's own pale default, so it reads on white pages too. */
 export const HOST_LOOK: GhostAppearance = { ...WHITE_WISP, color: "#f4f1ff", color2: undefined };
@@ -224,26 +226,4 @@ export function useLookAtFields(root?: RefObject<HTMLElement | null>) {
       setGazeFocus(null);
     };
   }, [root]);
-}
-
-export type HostPropKind = "moon" | "sun" | "phone" | "house";
-
-const PROP_PATH: Record<HostPropKind, string> = {
-  moon: "M15.5 3.5a8.5 8.5 0 1 0 5 13.6A7 7 0 0 1 15.5 3.5z",
-  sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8",
-  phone: "M7.5 2.5h9a1 1 0 0 1 1 1v17a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1zM10.5 18.5h3",
-  house: "M4 11l8-6.5 8 6.5v8.5a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z",
-};
-
-/**
- * A tiny scene for an answer, beside the host: one simple line drawing in the same stroke as the
- * page's icons, no words and no faces. A new answer swaps it in; Reduce Motion just shows it.
- */
-export function HostProp({ kind, size = 28, className }: { kind: HostPropKind | null; size?: number; className?: string }) {
-  if (!kind) return null;
-  return (
-    <svg key={kind} className={`ob-prop ${className ?? ""}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden data-prop={kind}>
-      <path d={PROP_PATH[kind]} />
-    </svg>
-  );
 }

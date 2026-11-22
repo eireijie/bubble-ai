@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Check, Clock, CornerUpLeft, MessageCircle, Minus, X } from "lucide-react";
 import type { Followup, Message, MessagePart } from "@wisp/core";
 import { api } from "../api.ts";
@@ -29,7 +29,60 @@ export function reminderTimes(now = new Date()): { label: string; at: Date }[] {
   return out;
 }
 
-export const changeFollowup = (id: string, body: { dueAt?: string; status?: "done" | "cancelled" }) => api<Followup>("PATCH", `/api/followups/${id}`, body);
+/** Move a reminder, or say it happened or isn't wanted. Moving it is putting it off: Needs you lists it under Later. */
+export const changeFollowup = (id: string, body: { dueAt?: string; status?: "done" | "cancelled" }) =>
+  api<Followup>("PATCH", `/api/followups/${id}`, body).then((f) => {
+    putOff(id, !!body.dueAt && !body.status);
+    return f;
+  });
+
+// ---------- reminders the person put off: remembered in this browser, so Needs you can list them under Later ----------
+
+const PUT_OFF = "wisp.putOff";
+const putOffListeners = new Set<() => void>();
+let putOffCache: string[] | null = null;
+
+function readPutOff(): string[] {
+  if (putOffCache) return putOffCache;
+  try {
+    putOffCache = JSON.parse(localStorage.getItem(PUT_OFF) ?? "[]");
+  } catch {
+    putOffCache = [];
+  }
+  return putOffCache!;
+}
+
+function putOff(id: string, on: boolean) {
+  const rest = readPutOff().filter((x) => x !== id);
+  putOffCache = (on ? [...rest, id] : rest).slice(-100);
+  try {
+    localStorage.setItem(PUT_OFF, JSON.stringify(putOffCache));
+  } catch {}
+  putOffListeners.forEach((l) => l());
+}
+
+const subscribePutOff = (cb: () => void) => (putOffListeners.add(cb), () => void putOffListeners.delete(cb));
+
+/** Ids of the reminders the person moved to a later time. */
+export function usePutOff(): string[] {
+  return useSyncExternalStore(subscribePutOff, readPutOff, readPutOff);
+}
+
+/** The hub wakes an agent for a due reminder within half a minute; one still open this long after its time has nobody to bring it. */
+const NOT_BROUGHT_MS = 120_000;
+
+/** A person's own open reminders, the ones they see as pills (not the agent's private check-backs), soonest first. */
+const openReminders = (list: Followup[], userId: string) => list.filter((f) => f.status === "pending" && f.kind === "followup" && !!f.label && (!f.userId || f.userId === userId)).sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+
+/** Reminders that came due and are still open: the agent couldn't come back with them (it is offline or at a limit), so they wait on the person. */
+export function dueReminders(list: Followup[], userId: string, now = Date.now()): Followup[] {
+  return openReminders(list, userId).filter((f) => Date.parse(f.dueAt) <= now - NOT_BROUGHT_MS);
+}
+
+/** Reminders the person put off that haven't come round yet. */
+export function laterReminders(list: Followup[], userId: string, putOffIds: string[], now = Date.now()): Followup[] {
+  return openReminders(list, userId).filter((f) => putOffIds.includes(f.id) && Date.parse(f.dueAt) > now);
+}
 
 /** What a follow-up can do from a menu: move it, say it already happened, or drop it. */
 export function useReminderItems(id: string, onPick: () => void) {

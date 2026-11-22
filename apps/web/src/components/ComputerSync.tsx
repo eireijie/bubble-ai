@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ClipboardCopy, Download, ExternalLink, File, Folder, FolderPlus, Home, Loader2, RefreshCw, Send, Upload, X } from "lucide-react";
+import { ArrowUp, ClipboardCopy, Download, ExternalLink, File, Folder, FolderPlus, Home, Loader2, Send, Upload, X } from "lucide-react";
 import { MAX_TRANSFER_BYTES, type FolderListing } from "@wisp/core";
 import { api, getToken, ApiError } from "../api.ts";
 import type { ComputerInfo } from "../store.ts";
@@ -236,7 +236,7 @@ export function ClipboardPanel({ computer: c, mine, platform, onClose }: { compu
       return `It's on ${c.name}'s clipboard`;
     });
   const sendAndPaste = () =>
-    run("paste", async () => {
+    run("send", async () => {
       await api("PUT", `/api/computers/${c.id}/clipboard`, { text: draft });
       setRemote(draft);
       await api("POST", `/api/computers/${c.id}/act`, { action: { action: "key", keys: shortcutFor(platform, "v") } });
@@ -252,52 +252,35 @@ export function ClipboardPanel({ computer: c, mine, platform, onClose }: { compu
       await navigator.clipboard.writeText(remote ?? "");
       return "Copied to this device";
     });
-  const mod = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl+";
 
   return (
     <div className="space-y-4">
       <PanelHead title="Clipboard" onClose={onClose} />
-      <section className="space-y-2">
-        <div className="flex items-center gap-1">
-          <h4 className="text-xs font-medium text-muted flex-1">On {c.name}</h4>
-          <button onClick={load} disabled={loading} className="p-1 rounded-md hover:bg-hover text-muted" aria-label="Refresh" title="Refresh">
-            <RefreshCw size={13} className={cx(loading && "animate-spin")} />
-          </button>
-        </div>
-        <pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-panel px-2.5 py-2 text-xs min-h-10">{remote === null ? <span className="text-faint">…</span> : remote || <span className="text-faint">Nothing copied there yet</span>}</pre>
+      {/* what's on the computer's clipboard (read when the panel opens) */}
+      <section className="space-y-2" aria-label={`On ${c.name}`}>
+        <pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-panel px-2.5 py-2 text-xs min-h-10">{remote === null && loading ? <span className="text-faint">…</span> : remote}</pre>
         <Button className="w-full" disabled={!remote || !!busy} onClick={copyHere}>
           <ClipboardCopy size={14} /> Copy to this device
         </Button>
       </section>
-      <section className="space-y-2">
-        <h4 className="text-xs font-medium text-muted">Send to {c.name}</h4>
+      <section className="space-y-2" aria-label={`Send to ${c.name}`}>
         <Textarea rows={4} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Paste text or a link here" />
         <div className="flex flex-wrap gap-1.5">
-          <Button variant="primary" disabled={!draft || !!busy} onClick={send}>
+          {/* while you hold the screen, Send also pastes it where the cursor is */}
+          <Button variant="primary" disabled={!draft || !!busy} onClick={mine ? sendAndPaste : send}>
             {busy === "send" ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Send
           </Button>
-          {mine && (
-            <Button disabled={!draft || !!busy} onClick={sendAndPaste} title="Puts it on the clipboard there and pastes where the cursor is">
-              {busy === "paste" && <Loader2 size={14} className="animate-spin" />} Send and paste
-            </Button>
-          )}
           {mine && isUrl(draft) && (
             <Button disabled={!!busy} onClick={openLink}>
               <ExternalLink size={14} /> Open there
             </Button>
           )}
         </div>
-        {!mine && <p className="text-xs text-muted">Take control to paste it or open links there.</p>}
       </section>
       {msg && <p className={cx("text-xs", msg.bad ? "text-bad" : "text-ok")}>{msg.text}</p>}
-      <label className="flex items-start gap-2 rounded-xl border border-line p-3 text-xs cursor-pointer">
-        <input type="checkbox" className="mt-0.5" checked={sync} onChange={(e) => (setSync(e.target.checked), setClipboardSync(e.target.checked))} />
-        <span>
-          <span className="block font-medium text-sm">Copy and paste across</span>
-          <span className="text-muted">
-            While you're in control, {mod}C and {mod}V work between this device and {c.name}. Your browser may ask once to allow clipboard access.
-          </span>
-        </span>
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" checked={sync} onChange={(e) => (setSync(e.target.checked), setClipboardSync(e.target.checked))} />
+        Copy and paste across
       </label>
     </div>
   );
@@ -400,11 +383,7 @@ export function FilesPanel({ computer: c, onClose, refresh, onSent }: { computer
         void upload([...e.dataTransfer.files]);
       }}
     >
-      <PanelHead title={`Files on ${c.name}`} onClose={onClose}>
-        <button onClick={() => load()} disabled={loading} className="p-1.5 rounded-md hover:bg-hover text-muted" aria-label="Refresh" title="Refresh">
-          <RefreshCw size={14} className={cx(loading && "animate-spin")} />
-        </button>
-      </PanelHead>
+      <PanelHead title={`Files on ${c.name}`} onClose={onClose} />
       <div className="flex flex-wrap gap-1">
         {shortcuts.map((s) => (
           <button key={s.path} onClick={() => load(s.path)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-line text-xs hover:bg-hover">
@@ -437,8 +416,7 @@ export function FilesPanel({ computer: c, onClose, refresh, onSent }: { computer
             void mkdir();
           }}
         >
-          <input autoFocus value={naming} onChange={(e) => setNaming(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setNaming(null)} placeholder="Folder name" className="h-8 flex-1 min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring" />
-          <Button className="h-8">Make</Button>
+          <input autoFocus value={naming} onChange={(e) => setNaming(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setNaming(null)} placeholder="Folder name" aria-label="Folder name" enterKeyHint="done" className="h-8 flex-1 min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus:border-ring" />
         </form>
       )}
       {busy && (
@@ -464,16 +442,10 @@ export function FilesPanel({ computer: c, onClose, refresh, onSent }: { computer
           </li>
         ))}
       </ul>
-      {listing && !shown.length && <p className="text-xs text-muted text-center py-4">{hiddenCount ? "Only hidden files here." : "This folder is empty."} Drop files here to send them.</p>}
-      {listing && (
-        <p className="text-xs text-faint">
-          {shown.length > 0 && `${shown.length} item${shown.length === 1 ? "" : "s"} · drop files to send them here`}
-          {(hiddenCount > 0 || hidden) && (
-            <button onClick={() => setHidden((v) => !v)} className="block mt-1 underline hover:text-muted">
-              {hidden ? "Hide hidden files" : `Show ${hiddenCount} hidden`}
-            </button>
-          )}
-        </p>
+      {listing && (hiddenCount > 0 || hidden) && (
+        <button onClick={() => setHidden((v) => !v)} className="block text-xs text-faint underline hover:text-muted">
+          {hidden ? "Hide hidden files" : `Show ${hiddenCount} hidden`}
+        </button>
       )}
     </div>
   );

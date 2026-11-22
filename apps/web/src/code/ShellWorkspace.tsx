@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Columns2, Maximize2, Minimize2, Play, Plus, Rows2, SquareTerminal, X } from "lucide-react";
+import { BarMenu, CodeBar, TERMINAL_BLOCK, type BarItems } from "./Bar.tsx";
 import { HARNESSES } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
@@ -12,7 +13,9 @@ import { MAX_PANES, MAX_TABS, allLeaves, layout, leaves, neighbor, newSession, r
 /**
  * Code's terminal workspace, working like tmux. Tabs, each split into
  * panes side by side or stacked, with dividers you drag; a pane is a shell on one of your
- * computers, or an agent harness's CLI. ⌃B then a key does what tmux's prefix does. The layout
+ * computers, or an agent harness's CLI. ⌃B then a key does what tmux's prefix does. On screen it
+ * is one slim row (what's open, the computer, Split and New shell) over the terminals; tabs show
+ * only once there is a second one. The layout
  * is remembered on this browser and the shells keep running on the computer, so a reload, a
  * dropped connection or another tab picks up the same shells.
  */
@@ -41,32 +44,19 @@ const MIN_H = 110;
 /** what a shifted key types on a US keyboard, for events that report the unshifted key */
 const SHIFTED: Record<string, string> = { "'": '"', "5": "%", "7": "&", "\\": "|" };
 
-/** The keys after ⌃B, as the hint shows them. */
-const KEYS: [string, string][] = [
-  ["%", "split"],
-  ['"', "stack"],
-  ["←↑→↓", "move"],
-  ["x", "close"],
-  ["z", "zoom"],
-  ["c", "new tab"],
-  ["n p", "next/prev"],
-  ["1–9", "tab"],
-];
-
-/** `lead`: what the header starts with. `embedded`: inside a page that already keeps clear of the phone's tab bar. */
-export function ShellWorkspace(props: { lead?: ReactNode; embedded?: boolean }) {
+/** `lead`: what the row starts with (Code's pill). `note`: something that went wrong, said in the row. */
+export function ShellWorkspace(props: { lead?: ReactNode; note?: string | null }) {
   const workspaceId = useStore((s) => s.me?.workspace.id) ?? "none";
   // a workspace of its own each, started afresh when you switch
   return <Shells key={workspaceId} store={`${STORE}:${workspaceId}`} {...props} />;
 }
 
-function Shells({ lead, embedded = false, store }: { lead?: ReactNode; embedded?: boolean; store: string }) {
+function Shells({ lead, note, store }: { lead?: ReactNode; note?: string | null; store: string }) {
   const on = useFeatures().code;
   const [targets, setTargets] = useState<ShellTarget[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // the layout saved before layouts were kept per workspace is taken once, by the first one opened
   const [ws, setWs] = useState<Workspace>(() => restore(read(store) ?? read(STORE), read(OLD_STORE), () => crypto.randomUUID()));
-  const [armed, setArmed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const pruned = useRef(false);
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
@@ -225,14 +215,12 @@ function Shells({ lead, embedded = false, store }: { lead?: ReactNode; embedded?
     const disarm = () => {
       waiting = false;
       clearTimeout(timer);
-      setArmed(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "b") {
         e.preventDefault();
         e.stopPropagation();
         waiting = true;
-        setArmed(true);
         clearTimeout(timer);
         timer = setTimeout(disarm, 4000);
         return;
@@ -288,63 +276,52 @@ function Shells({ lead, embedded = false, store }: { lead?: ReactNode; embedded?
     return l ? (harnessLabel(l.launch) ?? l.session) : "empty";
   };
 
-  const full = leaves(tab.root).length >= MAX_PANES && ws.tabs.length >= MAX_TABS;
   const btn = "inline-flex h-7 items-center gap-1.5 rounded-[7px] border px-2.5 text-[12.5px] transition-[background-color,transform] active:scale-[.96] disabled:opacity-40";
-  const iconBtn = "grid h-7 w-7 place-items-center rounded-[7px] text-[#a1a1aa] transition-[background-color,color,transform] hover:bg-white/[.06] hover:text-[#f2f2f4] active:scale-[.94] disabled:opacity-40";
+  const term = <SquareTerminal size={15} strokeWidth={1.8} />;
 
-  const computerMenu = (label: string, primary = false) =>
+  /** the empty workspace's one button: a shell on a computer you pick */
+  const firstShell =
     targets && targets.length > 0 ? (
       <Menu
         align="right"
         trigger={(_, toggle) => (
-          <button type="button" onClick={toggle} disabled={full} title={full ? "No room for another pane" : "A shell on one of your computers"} className={cx(btn, primary ? "border-[#f2f2f4] bg-[#f2f2f4] font-semibold text-[#0c0c0e] hover:bg-white" : "border-white/[.09] bg-[#1d1d21] text-[#f2f2f4] hover:bg-[#26262b]")}>
+          <button type="button" onClick={toggle} className={cx(btn, "border-[#f2f2f4] bg-[#f2f2f4] font-semibold text-[#0c0c0e] hover:bg-white")}>
             <Plus size={14} strokeWidth={2} />
-            {label}
+            New shell
           </button>
         )}
-        items={targets.map((t) => ({ label: t.online ? t.name : `${t.name} (offline)`, icon: <SquareTerminal size={15} strokeWidth={1.8} />, onSelect: () => addPane(t) }))}
+        items={targets.map((t) => ({ label: t.online ? t.name : `${t.name} (offline)`, icon: term, onSelect: () => addPane(t) }))}
       />
     ) : null;
 
-  const runMenu =
-    targets && targets.length > 0 ? (
-      <Menu
-        align="right"
-        trigger={(_, toggle) => (
-          <button type="button" onClick={toggle} disabled={full} aria-label="Run an agent's CLI in a pane" title="Run an agent's CLI in a new pane" className={iconBtn}>
-            <Play size={14} strokeWidth={1.9} />
-          </button>
-        )}
-        items={HARNESSES.map((h) => ({ label: h.label, icon: <SquareTerminal size={15} strokeWidth={1.8} />, onSelect: () => addPane(defaultTarget(), "row", h.id) }))}
-      />
-    ) : null;
+  // Split's menu: the two splits, zoom, and a new tab (their keys still work: ⌃B % " z c, ⌘D, ⌘⇧D)
+  const splitItems: BarItems = [
+    { label: "Split side by side", icon: <Columns2 size={16} strokeWidth={1.8} />, onSelect: () => addPane(defaultTarget(), "row") },
+    { label: "Split stacked", icon: <Rows2 size={16} strokeWidth={1.8} />, onSelect: () => addPane(defaultTarget(), "col") },
+    ...(!narrow && leaves(tab.root).length > 1 ? [{ label: tab.zoom ? "Show all panes" : "Zoom the pane", icon: tab.zoom ? <Minimize2 size={15} strokeWidth={1.9} /> : <Maximize2 size={15} strokeWidth={1.9} />, onSelect: zoom }] : []),
+    ...(ws.tabs.length < MAX_TABS ? [{ label: "New tab", icon: <Plus size={16} strokeWidth={2} />, onSelect: () => newTab() }] : []),
+  ];
+  // New shell's menu: a shell on one of your computers, or an agent's CLI in a pane
+  const shellItems: BarItems = [
+    ...(targets ?? []).map((t) => ({ label: t.online ? t.name : `${t.name} (offline)`, icon: term, onSelect: () => addPane(t) })),
+    "divider",
+    ...HARNESSES.map((h) => ({ label: `Run ${h.label}`, icon: <Play size={15} strokeWidth={1.9} />, onSelect: () => addPane(defaultTarget(), "row", h.id) })),
+  ];
+  const focusedLeaf = leaves(tab.root).find((l) => l.key === tab.focus);
+  const panesHere = leaves(tab.root).length;
+  // tabs, the phone's pane arrows and a passing notice share one thin row, shown only when one of them has something to show
+  const strip = ws.tabs.length > 1 || (narrow && panesHere > 1) || !!notice;
 
   const hasPanes = ws.tabs.some((t) => t.root);
 
   return (
-    <div className={cx("flex h-full min-h-0 flex-col bg-[#0c0c0e] text-[#f2f2f4]", !embedded && "max-md:pb-[88px]")}>
-      <header className="flex h-12 shrink-0 items-center gap-1.5 px-4">
-        {lead}
-        <span className="flex-1" />
-        {on && tab.root && (
-          <>
-            <button type="button" onClick={() => addPane(defaultTarget(), "row")} disabled={full} aria-label="Split side by side" title="Split side by side (⌃B % or ⌘D)" className={iconBtn}>
-              <Columns2 size={15} strokeWidth={1.8} />
-            </button>
-            <button type="button" onClick={() => addPane(defaultTarget(), "col")} disabled={full} aria-label="Split stacked" title={'Split stacked (⌃B " or ⌘⇧D)'} className={iconBtn}>
-              <Rows2 size={15} strokeWidth={1.8} />
-            </button>
-            {!narrow && (
-              <button type="button" onClick={zoom} aria-label={tab.zoom ? "Show all panes" : "Zoom the pane"} title="Zoom (⌃B z)" className={cx(iconBtn, tab.zoom && "bg-white/[.08] text-[#f2f2f4]")}>
-                {tab.zoom ? <Minimize2 size={14} strokeWidth={1.9} /> : <Maximize2 size={14} strokeWidth={1.9} />}
-              </button>
-            )}
-            {runMenu}
-            <span className="ml-1">{computerMenu("Shell")}</span>
-          </>
-        )}
-      </header>
+    <div className="flex h-full min-h-0 flex-col pb-[max(0.5rem,env(safe-area-inset-bottom))] md:pb-4">
+      <CodeBar lead={lead} computer={focusedLeaf ? targetOf(focusedLeaf.computerId)?.name : null} note={note}>
+        {on && tab.root && <BarMenu icon={<Columns2 size={17} strokeWidth={1.8} />} label="Split" items={splitItems} />}
+        {on && targets && targets.length > 0 && <BarMenu icon={<SquareTerminal size={17} strokeWidth={1.8} />} label="New shell" items={shellItems} />}
+      </CodeBar>
 
+      <div className={TERMINAL_BLOCK}>
       <main className="relative min-h-0 flex-1 overflow-hidden">
         {on &&
           targets &&
@@ -369,6 +346,7 @@ function Shells({ lead, embedded = false, store }: { lead?: ReactNode; embedded?
                     <div key={leaf.key} style={style} className={cx("absolute grid p-[3px]", hide && "invisible")}>
                       {target ? (
                         <TerminalPane
+                          bare={panes.length === 1}
                           target={target}
                           session={leaf.session}
                           launch={leaf.launch}
@@ -396,7 +374,6 @@ function Shells({ lead, embedded = false, store }: { lead?: ReactNode; embedded?
                         key={d.path.join(".") || "root"}
                         role="separator"
                         aria-orientation={d.dir === "row" ? "vertical" : "horizontal"}
-                        title="Drag to resize · double-click to even out"
                         onPointerDown={(e) => drag(e, t.id, d)}
                         onDoubleClick={() => changeTab(t.id, (x) => ({ ...x, root: setRatio(x.root, d.path, 0.5) }))}
                         style={style}
@@ -431,64 +408,46 @@ function Shells({ lead, embedded = false, store }: { lead?: ReactNode; embedded?
                   </a>
                 </>
               ) : (
-                <>
-                  <p className="text-[13px] text-[#a1a1aa]">A shell on one of your computers.</p>
-                  {computerMenu("New shell", true)}
-                </>
+                firstShell
               )}
             </div>
           </div>
         )}
       </main>
 
-      {on && targets && hasPanes && (
+      {on && targets && hasPanes && strip && (
         <footer className="flex h-8 shrink-0 items-center gap-1 overflow-hidden px-3 font-mono text-[11.5px]">
-          {ws.tabs.map((t, i) => (
-            <span key={t.id} className={cx("group inline-flex h-[22px] max-w-[180px] items-center rounded-[5px] transition-colors", t.id === tab.id ? "bg-[#26262b] text-[#f2f2f4]" : "text-[#8e8e96] hover:bg-white/[.05] hover:text-[#d4d4d8]")}>
-              <button type="button" onClick={() => setWs((w) => ({ ...w, active: t.id }))} className="truncate px-2" title={`Tab ${i + 1} (⌃B ${i + 1})`}>
-                {i + 1}:{tabName(t)}
-              </button>
-              <button type="button" onClick={() => closeTab(t.id)} aria-label={`Close tab ${i + 1}`} title="Close tab (⌃B &)" className={cx("-ml-1 mr-0.5 h-4 w-4 place-items-center rounded text-[#8e8e96] hover:text-[#f2f2f4] focus-visible:grid group-hover:grid", t.id === tab.id ? "grid" : "hidden")}>
-                <X size={11} strokeWidth={2.2} />
-              </button>
-            </span>
-          ))}
-          <button type="button" onClick={() => newTab()} disabled={ws.tabs.length >= MAX_TABS} aria-label="New tab" title="New tab (⌃B c)" className="grid h-[22px] w-[22px] place-items-center rounded-[5px] text-[#8e8e96] transition-colors hover:bg-white/[.05] hover:text-[#f2f2f4] disabled:opacity-40">
-            <Plus size={12} strokeWidth={2.2} />
-          </button>
+          {ws.tabs.length > 1 &&
+            ws.tabs.map((t, i) => (
+              <span key={t.id} className={cx("group inline-flex h-[22px] max-w-[180px] items-center rounded-[5px] transition-colors", t.id === tab.id ? "bg-[#26262b] text-[#f2f2f4]" : "text-[#8e8e96] hover:bg-white/[.05] hover:text-[#d4d4d8]")}>
+                <button type="button" onClick={() => setWs((w) => ({ ...w, active: t.id }))} className="truncate px-2" title={`Tab ${i + 1} (⌃B ${i + 1})`}>
+                  {i + 1}:{tabName(t)}
+                </button>
+                <button type="button" onClick={() => closeTab(t.id)} aria-label={`Close tab ${i + 1}`} title="Close tab (⌃B &)" className={cx("-ml-1 mr-0.5 h-4 w-4 place-items-center rounded text-[#8e8e96] hover:text-[#f2f2f4] focus-visible:grid group-hover:grid", t.id === tab.id ? "grid" : "hidden")}>
+                  <X size={11} strokeWidth={2.2} />
+                </button>
+              </span>
+            ))}
           <span className="flex-1" />
-          {narrow && leaves(tab.root).length > 1 && (
+          {narrow && panesHere > 1 && (
             <span className="flex items-center gap-1 text-[#a1a1aa]">
               <button type="button" onClick={() => cycle(-1)} className="px-1.5" aria-label="Previous pane">
                 ‹
               </button>
-              {leaves(tab.root).findIndex((l) => l.key === tab.focus) + 1}/{leaves(tab.root).length}
+              {leaves(tab.root).findIndex((l) => l.key === tab.focus) + 1}/{panesHere}
               <button type="button" onClick={() => cycle(1)} className="px-1.5" aria-label="Next pane">
                 ›
               </button>
             </span>
           )}
-          {notice ? (
+          {notice && (
             <span role="status" className="m-fade-in truncate text-[#a1a1aa]">
               {notice}
             </span>
-          ) : !narrow &&
-            (armed ? (
-              <span className="m-fade-in flex items-center gap-3 truncate text-[#a1a1aa]">
-                <kbd className="rounded-[4px] bg-[#6aa2ff] px-1.5 text-[#0c0c0e]">⌃B</kbd>
-                {KEYS.map(([k, what]) => (
-                  <span key={k} className="whitespace-nowrap">
-                    <span className="text-[#f2f2f4]">{k}</span> {what}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              <span className="text-[#6b6b75]">
-                <kbd className="text-[#8e8e96]">⌃B</kbd> keys
-              </span>
-            ))}
+          )}
         </footer>
       )}
+      </div>
     </div>
   );
 }

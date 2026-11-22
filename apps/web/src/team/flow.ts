@@ -18,10 +18,12 @@ import {
   DEFAULT_SCHEDULE_PROMPT,
   scheduleProblem,
   startSteps,
+  titleAsVerb,
   workSteps,
   type Agent,
   type ChannelTeam,
   type FlowLane,
+  type FlowLine,
   type TeamFlow,
   type TeamRole,
   type TeamStep,
@@ -551,3 +553,68 @@ export function lanesOf(flow: TeamFlow): Record<string, FlowLane> {
 
 /** The lanes waiting on a person. */
 export const waitingLanes = (flow: TeamFlow): FlowLane[] => Object.values(lanesOf(flow)).filter((l) => l.status === "waiting" && !!l.waitingFor);
+
+/** The steps a request is working on right now (not the ones waiting on a person). */
+export function runningStepIds(flow: TeamFlow | null | undefined): string[] {
+  if (!flow || (flow.status !== "running" && flow.status !== "waiting")) return [];
+  return Object.values(lanesOf(flow)).filter((l) => l.status === "running").map((l) => l.stepId);
+}
+
+/** How one step of a request shows in the run strip. */
+export type ChipState = "done" | "now" | "needs" | "failed" | "skipped" | "todo";
+export function chipState(flow: Pick<TeamFlow, "status">, lane: Pick<FlowLane, "status" | "waitingFor"> | undefined): ChipState {
+  if (lane?.status === "skipped") return "skipped";
+  if (lane?.status === "waiting") return lane.waitingFor?.failed ? "failed" : "needs";
+  if (lane?.status === "running") return "now";
+  if (lane?.status === "done" || flow.status === "done") return "done";
+  return "todo";
+}
+
+/** What a chip's menu offers for its step: nothing unless the step waits on a person (the strip's own Stop ends a request that is running). */
+export function chipActions(state: ChipState, waiting?: FlowLane["waitingFor"]): { action: "retry" | "approve" | "stop"; label: string }[] {
+  if (state === "failed") return [{ action: "retry", label: "Try again" }, { action: "approve", label: "Skip" }, { action: "stop", label: "Stop" }];
+  if (state === "needs") return [...(waiting?.options === "retry" ? [{ action: "retry" as const, label: "Try again" }] : []), { action: "stop", label: "Stop" }];
+  return [];
+}
+
+// --- words on the canvas ----------------------------------------------------------------------
+
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** What a step does, as the few words on its card: "Drafts the plan", "Checks the work". */
+export function cardSentence(step: Pick<TeamStep, "kind" | "action">): string {
+  const title = (step.action || "").trim();
+  if (step.kind === "ask") return title || "Asks you";
+  if (step.kind === "handoff") return title || "Gets the work";
+  const verb = titleAsVerb(title);
+  if (verb) return capital(verb.third);
+  if (title) return title;
+  return step.kind === "review" ? "Checks the work" : step.kind === "hand_out" ? "Splits the work" : step.kind === "branch" ? "Decides where it goes" : "Does one thing";
+}
+
+/** The words on an arrow that goes back to an earlier step: who gets it back, not a step number. */
+export function backLabel(step: Pick<TeamStep, "kind" | "maxRounds" | "ifTrue">, to: string, who: string): string {
+  const times = `up to ${step.maxRounds ?? DEFAULT_ROUNDS} times`;
+  if (step.kind === "review") return `Goes back to ${who} until it's good, ${times}`;
+  if (step.kind === "ask") return `If you ask for changes, back to ${who}`;
+  return `${step.ifTrue === to ? "Yes" : "No"}: back to ${who}, ${times}`;
+}
+
+/**
+ * What the lead is asked when a person says how the team should work: their words first, then how
+ * it works today, so the agent changes those steps instead of starting over. Kept within the
+ * length the hub takes.
+ */
+export function changeRequest(text: string, lines: Pick<FlowLine, "n" | "text">[], max = 2000): string {
+  const ask = text.trim();
+  if (!lines.length) return ask.slice(0, max);
+  const now = lines.map((l) => (l.n ? `${l.n}. ${l.text}` : l.text)).join("\n");
+  return `${ask}\n\nThe team works like this today. Change only what I asked for:\n${now}`.slice(0, max);
+}
+
+/** Who a new team's "tell the lead" field talks to: the first agent that works on it, else the workspace's lead, else anyone. */
+export function leadOf(team: ChannelTeam, agents: Pick<Agent, "id">[], fallback?: string | null): string | null {
+  const onTeam = team.nodes.find((n) => n.lead)?.agentId ?? teamAgentIds(team)[0];
+  const has = (id: string | null | undefined) => !!id && agents.some((a) => a.id === id);
+  return has(onTeam) ? onTeam! : has(fallback) ? fallback! : (agents[0]?.id ?? null);
+}

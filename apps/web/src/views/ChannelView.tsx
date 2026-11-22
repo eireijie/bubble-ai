@@ -1,8 +1,8 @@
 import { Suspense, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { LogIn, RotateCcw, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, Eye, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, MoreHorizontal, Monitor, Paperclip, Phone, Plus, Shield, ShieldAlert, SquareTerminal, UserPlus, Users, X, Zap, ChevronDown, Hash, Info, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
-import { parseMentions, SCHEDULE_MARK, type AccessLevel, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
+import { Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
@@ -10,32 +10,30 @@ import { go, href, type Route } from "../router.ts";
 import type { TaskRow } from "./TasksView.tsx";
 import { renderMarkdown, renderMessage } from "../markdown.ts";
 import { lazyView } from "../lazy.tsx";
-import { ChannelSettings, NOTIFY, landingChannel, setArchived, setChannelPrefs, type ChannelSettingsTab } from "../components/Channels.tsx";
+import { ChannelSettings, landingChannel, setArchived, type ChannelSettingsTab } from "../components/Channels.tsx";
 import { ChatAvatar } from "../components/ChatList.tsx";
-import { patchAgent, prettyModel, tokens, useAgentContext, type AgentContext } from "../models.ts";
-import { ModelLine, RunPanel } from "../components/RunPanel.tsx";
+import { prettyModel, tokens, useAgentContext } from "../models.ts";
 import { DiscussionCard } from "../components/Discussion.tsx";
 import { ApprovalCard, ChangeCard, ChatCard, ComputerPart, RoutineChip } from "../components/AgentCards.tsx";
 import { AppleReadLines } from "../components/AppleParts.tsx";
 import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
-import { AgentAvatar, Menu, Modal, Pill, Popover, StatusDot, UserAvatar, clockTime, cx, harnessLabel } from "../components/ui.tsx";
+import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, agentColor, clockTime, cx } from "../components/ui.tsx";
 import { AgentPill } from "../components/AgentPill.tsx";
 import type { CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
+import { chatTint, didThings, roundAction } from "../chatTint.ts";
 import { AgentPanel, type AgentPanelTab } from "../components/AgentPanel.tsx";
 import { slashEnterAction } from "../slashCommand.ts";
 import { slashQuery, useAgentCommands, useSlashMenu, type SlashItem } from "../components/SlashMenu.tsx";
-import { ActivityPill, runActivity, stopRuns } from "../components/ActivityPill.tsx";
+import { ActivityPill, stopRuns } from "../components/ActivityPill.tsx";
 import { RightPane } from "../components/RightPane.tsx";
-import { workKind, workSummary } from "../components/agentActivity.ts";
+import { workSummary } from "../components/agentActivity.ts";
 import { DeleteMessageDialog, EditMessageDialog, MessageMenu, ReactionBadges, SWIPE_ARM, useLongPress, useMessageActionList, useSwipeToThread } from "../components/MessageActions.tsx";
 import { useChangedSinceMount, useFreshIds } from "../motion.ts";
-import { NotifyDialog, TeamInfo, useChannelMembers, type InfoTab } from "../components/TeamInfo.tsx";
+import { TeamInfo, type InfoTab } from "../components/TeamInfo.tsx";
 import { useFeature } from "../features.ts";
-import { useDevices } from "../devices.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
-import { openDm } from "../openDm.ts";
 import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
@@ -48,10 +46,11 @@ type Side = { kind: "agent"; agentId: string; tab: AgentPanelTab } | { kind: "in
 // a call's screen is only needed while a call is on: a file of its own (lazy.tsx)
 const CallScreen = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallScreen));
 
-/** What to do about a failed run: sign in if that's the cause, then ask again. */
-function RunFailedActions({ part, agentId }: { part: Extract<MessagePart, { type: "run_failed" }>; agentId?: string }) {
+/** A reply that failed: one muted line, "Couldn't finish." (click it for why), Try again, and the sign-in when that's the cause. */
+function RunFailedActions({ part, agentId, detail }: { part: Extract<MessagePart, { type: "run_failed" }>; agentId?: string; detail?: string }) {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const retry = async () => {
     setBusy(true);
@@ -68,21 +67,32 @@ function RunFailedActions({ part, agentId }: { part: Extract<MessagePart, { type
   // the agent still can't answer for want of a sign-in: open that sign-in right here
   const signIn = useStore((s) => (agentId && (part.fix === "signin" || part.fix === "computer") ? s.agents.find((a) => a.id === agentId)?.signIn : null));
   const to = part.fix === "computer" && agentId ? href({ view: "agents", agentId, tab: "computer" }) : part.fix === "connection" ? href({ view: "settings", page: "harnesses" }) : part.fix === "signin" ? href({ view: "settings", page: "harnesses" }) : null;
-  if (sent) return <div className="mt-1 px-1 text-xs text-muted">Trying again…</div>;
+  if (sent) return <div className="mt-1 px-1 text-[13px] text-muted">Trying again…</div>;
+  const link = "font-medium text-ink hover:underline disabled:opacity-50";
   return (
-    <div className="mt-1.5 px-1 flex flex-wrap items-center gap-2">
-      {signIn && <HarnessSignInButton signIn={signIn} agentId={agentId} />}
-      {to && !signIn && (
-        <a href={to} className="h-8 px-3 rounded-full border border-control-line bg-control text-[13px] text-ink hover:bg-hover inline-flex items-center gap-1.5">
-          <LogIn size={13} /> Sign in
-        </a>
-      )}
-      {part.retry && (
-        <button type="button" disabled={busy} onClick={() => void retry()} className="h-8 px-3 rounded-full border border-control-line bg-control text-[13px] text-ink hover:bg-hover disabled:opacity-50 inline-flex items-center gap-1.5">
-          <RotateCcw size={13} /> Try again
-        </button>
-      )}
-      {error && <span className="text-xs text-bad">{error}</span>}
+    <div className="mt-1 px-1 text-[13px] leading-5 text-muted">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {detail ? (
+          <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="hover:text-ink">
+            Couldn't finish.
+          </button>
+        ) : (
+          <span>Couldn't finish.</span>
+        )}
+        {part.retry && (
+          <button type="button" disabled={busy} onClick={() => void retry()} className={link}>
+            Try again
+          </button>
+        )}
+        {signIn && <HarnessSignInButton signIn={signIn} agentId={agentId} />}
+        {to && !signIn && (
+          <a href={to} className={link}>
+            Sign in
+          </a>
+        )}
+        {error && <span className="text-xs text-bad">{error}</span>}
+      </div>
+      {more && detail && <p className="mt-1 whitespace-pre-wrap text-xs">{detail}</p>}
     </div>
   );
 }
@@ -104,8 +114,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const loadChannel = useStore((s) => s.loadChannel);
   const names = useNames();
   const [calling, setCalling] = useState(!!route.call);
-  const [callSlot, setCallSlot] = useState<HTMLElement | null>(null);
-  // the record a finished call leaves in the chat, with Call again
+  // the record a finished call leaves in the chat
   const [callRecord, setCallRecord] = useState<(CallRecord & { channelId: string }) | null>(null);
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
   const [settings, setSettings] = useState<ChannelSettingsTab | null>(null);
@@ -116,8 +125,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   // the pane beside the chat: an agent's details or the team's info page
   const [side, setSideState] = useState<Side | null>(null);
   useEffect(() => {
-    const tab = dmAgentId ? storedDmPanel() : null;
-    setSideState(dmAgentId && tab ? { kind: "agent", agentId: dmAgentId, tab } : null);
+    // remembered only where the panel sits beside the chat: on a phone it would cover the chat it belongs to
+    const beside = typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches;
+    const tab = dmAgentId && beside ? storedDmPanel() : null;
+    setSideState(dmAgentId && tab ? { kind: "agent", agentId: dmAgentId, tab: "details" } : null);
   }, [channel?.id, dmAgentId]);
   const setSide = (next: Side | null) => {
     setSideState(next);
@@ -178,8 +189,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const infoOpen = side?.kind === "info" && !route.threadId && channel.kind === "channel";
 
   return (
-    <div className="flex-1 min-h-0 flex">
+    // the open agent's colour tints its chat: your bubbles and the round button (a team keeps the Wisp violet)
+    <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
+        {/* only the name pill, centred: it opens the panel that holds everything else */}
         <header className="shrink-0 px-3 md:px-6 h-[4.75rem] md:h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
             {onBack && (
@@ -193,39 +206,17 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
           {dmAgent ? (
             // the agent lives here, in the middle, and nowhere else in its DM
             <div ref={pillRef} className="flex justify-center min-w-0">
-              <AgentPill agent={dmAgent} open={dmPanel === "details"} onClick={() => (dmPanel === "details" ? setSide(null) : openAgent(dmAgent.id, "details"))} />
+              <AgentPill agent={dmAgent} open={!!dmPanel} onClick={() => (dmPanel ? setSide(null) : openAgent(dmAgent.id))} />
               {/* straight from setup: the host flies into the pill */}
               {dmFull && isFirstChat(dmFull, channel.id) && <GhostLanding key={channel.id} agent={dmFull} target={() => pillRef.current} />}
             </div>
           ) : (
             <TeamPill channel={channel} open={infoOpen} onClick={toggleInfo} />
           )}
-          <div className="flex items-center justify-end gap-2">
-            {dmAgent?.computerId && (
-              <span className="max-md:hidden">
-                <button onClick={() => (dmPanel === "computer" ? setSide(null) : openAgent(dmAgent.id, "computer"))} className={cx("circle", dmPanel === "computer" && "bg-hover")} aria-label={`${dmAgent.name}'s computer`} title={`${dmAgent.name}'s computer`}>
-                  <Monitor size={18} className="text-accent-computers" />
-                </button>
-              </span>
-            )}
-            {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} />}
-            {channel.kind === "channel" && (
-              <span className="max-md:hidden">
-                <button onClick={toggleInfo} aria-pressed={infoOpen} className={cx("circle", infoOpen && "bg-hover")} aria-label="Team info" title="Team info">
-                  <Users size={18} />
-                </button>
-              </span>
-            )}
-            {dmAgent ? (
-              <DmMore agent={dmAgent} channelId={channel.id} onDetails={() => openAgent(dmAgent.id, "details")} onComputer={() => openAgent(dmAgent.id, "computer")} onCall={() => setCalling(true)} />
-            ) : (
-              <TeamMore channel={channel} onInfo={(tab) => openSide({ kind: "info", tab })} onSettings={setSettings} />
-            )}
-          </div>
+          <div className="flex items-center justify-end">{dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}</div>
         </header>
-        <div ref={setCallSlot} />
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
-          <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
+          <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!dmAgent} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
         {!channel.archivedAt && dmFull?.signIn && (
           <div className="px-3 sm:px-5">
@@ -233,34 +224,29 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
           </div>
         )}
         {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
-        {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onAgain={() => { setCallRecord(null); setCalling(true); }} onHide={() => setCallRecord(null)} />}
+        {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onHide={() => setCallRecord(null)} />}
         {calling && dmAgent && (
           <Suspense fallback={null}>
-            <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} barSlot={callSlot} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
+            <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
           </Suspense>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} />}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} />}
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
-      {sideAgent && side?.kind === "agent" && (
-        <AgentPanel
-          key={sideAgent.id}
-          agent={sideAgent}
-          tab={side.tab}
-          inDm={sideAgent.id === dmAgent?.id}
-          onTab={(tab) => setSide({ kind: "agent", agentId: sideAgent.id, tab })}
-          onClose={() => setSide(null)}
-          onCall={() => (sideAgent.id === dmAgent?.id ? setCalling(true) : void callAgent(sideAgent.id))}
-        />
+      {sideAgent && side?.kind === "agent" && <AgentPanel key={sideAgent.id} agent={sideAgent} channelId={channel.id} tab={side.tab} inDm={sideAgent.id === dmAgent?.id} onClose={() => setSide(null)} />}
+      {infoOpen && side?.kind === "info" && (
+        // the team's info keeps its place and content, at the panel's 310 px
+        <div className="contents lg:[&>aside]:w-[310px]! [&>aside>[role=separator]]:hidden!">
+          <TeamInfo channel={channel} tab={side.tab} onTab={(tab) => setSide({ kind: "info", tab })} onClose={() => setSide(null)} onSettings={setSettings} />
+        </div>
       )}
-      {infoOpen && side?.kind === "info" && <TeamInfo channel={channel} tab={side.tab} onTab={(tab) => setSide({ kind: "info", tab })} onClose={() => setSide(null)} onSettings={setSettings} />}
       {settings && <ChannelSettings key={settings} channel={channel} tab={settings} onClose={() => setSettings(null)} />}
     </div>
   );
 }
 
-/** What a finished call leaves in the chat: how long it was, what was said, and Call again. */
-function CallRecordCard({ agent, record, onAgain, onHide }: { agent: Agent; record: CallRecord; onAgain?: () => void; onHide: () => void }) {
+/** What a finished call leaves in the chat: how long it was and what was said. The round button calls again. */
+function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallRecord; onHide: () => void }) {
   const m = Math.floor(record.seconds / 60);
   const length = `${String(m).padStart(2, "0")}:${String(record.seconds % 60).padStart(2, "0")}`;
   return (
@@ -269,13 +255,12 @@ function CallRecordCard({ agent, record, onAgain, onHide }: { agent: Agent; reco
         <div className="flex h-11 items-center gap-2 border-b border-line pl-3.5 pr-2 text-[13px] text-muted">
           <AudioLines size={15} strokeWidth={1.7} aria-hidden />
           <span className="flex-1 truncate">Call with {agent.name} · {length}</span>
-          {onAgain && <button type="button" onClick={onAgain} className="h-7 rounded-full border border-line2 px-3 text-xs text-ink hover:bg-hover">Call again</button>}
           <button type="button" onClick={onHide} aria-label="Hide" title="Hide" className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink"><X size={14} strokeWidth={1.8} /></button>
         </div>
         {record.lines.length > 0 && (
           <div className="flex max-h-48 flex-col gap-2 overflow-y-auto px-3.5 py-3">
             {record.lines.map((l, i) => (
-              <div key={i} className={cx("max-w-[480px] rounded-2xl px-[13px] py-[7px] text-[13px] leading-5", l.who === "you" ? "self-end bg-wisp text-wisp-ink" : "self-start bg-[var(--bubble-them)]")}>{l.text}</div>
+              <div key={i} className={cx("max-w-[480px] rounded-2xl px-[13px] py-[7px] text-[13px] leading-5", l.who === "you" ? "self-end bg-[var(--bubble-me)] text-[var(--bubble-me-ink)]" : "self-start bg-[var(--bubble-them)]")}>{l.text}</div>
             ))}
           </div>
         )}
@@ -284,96 +269,35 @@ function CallRecordCard({ agent, record, onAgain, onHide }: { agent: Agent; reco
   );
 }
 
-/** Call an agent from somewhere other than its DM: open the DM with the call started. */
-async function callAgent(agentId: string) {
-  await openDm(agentId);
-  const dm = useStore.getState().channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`));
-  if (dm) go({ view: "chat", channelId: dm.id, threadId: null, call: true });
-}
-
 /** A team's name in a pill at the top of its chat, with its agents' ghosts; opens its info page. */
 function TeamPill({ channel, open, onClick }: { channel: ChannelInfo; open: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-11 md:h-[38px] max-w-[min(20rem,60vw)] rounded-full border border-control-line bg-control pl-3 pr-5 inline-flex items-center gap-2.5 text-[15px] md:text-[14px] font-medium hover:bg-hover", open && "bg-hover")}>
-      <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={30} />
-      <span className="min-w-0 text-left leading-tight">
-        <span className="block truncate">{channel.name}</span>
-        {channel.archivedAt && <span className="block text-[12px] font-normal text-muted">Archived</span>}
-      </span>
+    <button onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-10 max-w-[min(20rem,60vw)] rounded-full pl-2 pr-4 inline-flex items-center gap-[9px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
+      <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={26} />
+      <span className="min-w-0 truncate font-semibold">{channel.name}</span>
+      {channel.archivedAt && <span className="shrink-0 text-xs text-muted">Archived</span>}
     </button>
   );
 }
 
-/** The "…" of a team: its info page, notifications, pins and the team editor. */
-function TeamMore({ channel, onInfo, onSettings }: { channel: ChannelInfo; onInfo: (tab: InfoTab) => void; onSettings: (t: ChannelSettingsTab) => void }) {
-  const [notify, setNotify] = useState(false);
-  return (
-    <>
-      <Menu
-        align="right"
-        trigger={(open, toggle) => (
-          <button onClick={toggle} aria-expanded={open} className="circle" aria-label="More" title="More">
-            <MoreHorizontal size={20} />
-          </button>
-        )}
-        items={[
-          { label: "Team info", icon: <Info size={17} />, onSelect: () => onInfo("about") },
-          { label: `Notifications: ${NOTIFY[channel.notify].label}`, icon: <Bot size={17} />, onSelect: () => setNotify(true) },
-          { label: channel.pinnedIds.length ? `Pinned messages · ${channel.pinnedIds.length}` : "Pinned messages", icon: <Hash size={17} />, onSelect: () => onInfo("pins") },
-          { label: "How the team works", icon: <Users size={17} />, onSelect: () => onSettings("team") },
-          "divider",
-          { label: channel.starred ? "Unpin from the top" : "Pin to the top", icon: <Check size={17} />, onSelect: () => void setChannelPrefs(channel, { starred: !channel.starred }) },
-        ]}
-      />
-      {notify && <NotifyDialog channel={channel} onClose={() => setNotify(false)} />}
-    </>
-  );
-}
+/** Past this share of its context window a conversation is nearly full (where the context ring used to turn red). */
+const NEARLY_FULL = 85;
 
-/** The context ring in a DM's header, at every width: how full the conversation is. No circle behind it. */
-function DmContext({ agentId, channelId }: { agentId: string; channelId: string }) {
+/** The context ring, in a DM's header only once the conversation is nearly full. It opens Thinks with, where Compact and Start fresh are. */
+function DmContext({ agentId, channelId, onOpen }: { agentId: string; channelId: string; onOpen: () => void }) {
   const { ctx } = useAgentContext(agentId, channelId);
-  if (!ctx) return null;
-  return <ContextRing ctx={ctx} header />;
-}
-
-/** The "…" of a DM: the agent's details, its computer, a call, its model and what it may do. */
-function DmMore({ agent, channelId, onDetails, onComputer, onCall }: { agent: Agent; channelId: string; onDetails: () => void; onComputer: () => void; onCall?: () => void }) {
-  const { ctx, models } = useAgentContext(agent.id, channelId);
-  const canEdit = useStore((s) => s.me?.role !== "guest");
-  const [dialog, setDialog] = useState<null | "model" | "access" | "context">(null);
+  const pct = ctx && ctx.contextUsed !== null && ctx.contextWindow ? Math.min(100, (ctx.contextUsed / ctx.contextWindow) * 100) : null;
+  if (pct === null || pct <= NEARLY_FULL) return null;
+  const r = 7;
+  const c = 2 * Math.PI * r;
+  const summary = `${Math.round(pct)}% of context used`;
   return (
-    <>
-      <Menu
-        align="right"
-        trigger={(open, toggle) => (
-          <button onClick={toggle} aria-expanded={open} className="circle" aria-label="More" title="More">
-            <MoreHorizontal size={20} />
-          </button>
-        )}
-        items={[
-          { label: `About ${agent.name}`, icon: <Info size={17} />, onSelect: onDetails },
-          ...(agent.computerId ? [{ label: `${agent.name}'s computer`, icon: <Monitor size={17} className="text-accent-computers" />, onSelect: onComputer }] : []),
-          ...(onCall ? [{ label: `Call ${agent.name}`, icon: <Phone size={17} className="text-st-online" />, onSelect: onCall }] : []),
-          ...(ctx ? [...(canEdit ? [{ label: "Harness, model and effort", icon: <Zap size={17} />, onSelect: () => setDialog("model") }] : []), { label: "What it can do", icon: <Shield size={17} />, onSelect: () => setDialog("access") }, { label: "Context window", icon: <AudioLines size={17} />, onSelect: () => setDialog("context") }] : []),
-        ]}
-      />
-      {dialog === "model" && ctx && (
-        <Modal title={`How ${agent.name} runs`} onClose={() => setDialog(null)}>
-          <RunPanel agent={agent} ctx={ctx} models={models} channelId={channelId} close={() => setDialog(null)} />
-        </Modal>
-      )}
-      {dialog === "access" && ctx && (
-        <Modal title={`What ${agent.name} can do`} onClose={() => setDialog(null)}>
-          <AccessList agent={agent} ctx={ctx} canEdit={canEdit} close={() => setDialog(null)} />
-        </Modal>
-      )}
-      {dialog === "context" && ctx && (
-        <Modal title="Context window" onClose={() => setDialog(null)}>
-          <ContextBody ctx={ctx} />
-        </Modal>
-      )}
-    </>
+    <button type="button" onClick={onOpen} title={summary} aria-label={summary} className="size-9 md:size-8 grid place-items-center">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+        <circle cx="9" cy="9" r={r} fill="none" stroke="var(--faint)" strokeOpacity="0.35" strokeWidth="2.6" />
+        <circle cx="9" cy="9" r={r} fill="none" stroke="var(--bad)" strokeWidth="2.6" strokeLinecap="round" strokeDasharray={`${(pct / 100) * c} ${c}`} transform="rotate(-90 9 9)" />
+      </svg>
+    </button>
   );
 }
 
@@ -386,8 +310,7 @@ function ArchivedBar({ channel }: { channel: ChannelInfo }) {
       <div className="mx-auto max-w-2xl rounded-3xl bg-card px-4 py-3 flex items-center gap-3">
         <Archive size={18} className="text-muted shrink-0" />
         <span className="min-w-0 flex-1">
-          <span className="block text-body font-medium">This team is archived</span>
-          <span className="block text-[13px] text-muted">Nobody can post. Notes stay.</span>
+          <span className="block text-body font-medium">Archived</span>
         </span>
         {canManage && (
           <button className="h-10 rounded-full bg-accent px-4 text-sm font-medium text-accent-ink" onClick={() => setArchived(channel, false).catch((e) => setError((e as Error).message))}>
@@ -397,109 +320,6 @@ function ArchivedBar({ channel }: { channel: ChannelInfo }) {
       </div>
       {error && <p className="pt-1 px-1 text-xs text-bad">{error}</p>}
     </div>
-  );
-}
-
-// --- who you're talking to ----------------------------------------------------------------------
-
-const ACCESS: Record<AccessLevel, { label: string; body: string }> = {
-  "read-only": { label: "Read only", body: "Reads files and answers; changes nothing." },
-  edit: { label: "Can edit files", body: "Edits files in its own working folder." },
-  full: { label: "Full access", body: "Can change any file and run any command." },
-};
-
-/** What an agent may do on its computer: read only, edit files, or everything. */
-function AccessList({ agent, ctx, canEdit, close }: { agent: Agent; ctx: AgentContext; canEdit: boolean; close: () => void }) {
-  const a = ctx.access;
-  return (
-    <div role="menu">
-      <div className="overflow-hidden rounded-3xl bg-card divide-y divide-line">
-        {(Object.keys(ACCESS) as AccessLevel[]).map((k) => (
-          <button
-            key={k}
-            role="menuitemradio"
-            aria-checked={a === k}
-            disabled={!canEdit}
-            onClick={async () => {
-              close();
-              if (k !== a) await patchAgent(agent.id, { settings: { access: k } });
-            }}
-            className="w-full text-left px-4 py-3 hover:bg-hover flex items-start gap-3 disabled:opacity-60"
-          >
-            <span className={cx("mt-0.5", k === "full" ? "text-warn" : "text-muted")}>{k === "full" ? <ShieldAlert size={18} /> : k === "read-only" ? <Eye size={18} /> : <Shield size={18} />}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-body font-medium">{ACCESS[k].label}</span>
-              <span className="block text-[13px] text-muted">{ACCESS[k].body}</span>
-            </span>
-            {a === k && <Check size={17} className="mt-0.5" />}
-          </button>
-        ))}
-      </div>
-      <a href={`#/agents/${agent.id}/permissions`} onClick={close} className="mt-3 block px-1 text-[13px] text-muted hover:text-ink">
-        Permission settings →
-      </a>
-    </div>
-  );
-}
-
-/** How full this conversation's context window is, in words. */
-function ContextBody({ ctx }: { ctx: AgentContext }) {
-  const pct = ctx.contextUsed !== null && ctx.contextWindow ? Math.min(100, (ctx.contextUsed / ctx.contextWindow) * 100) : null;
-  const color = pct === null ? "var(--faint)" : pct > 85 ? "var(--bad)" : pct > 60 ? "var(--warn)" : "var(--ok)";
-  return (
-    <div className="space-y-2.5 text-sm">
-      <div className="flex items-baseline justify-between">
-        <span className="font-medium">Context window</span>
-        {pct !== null && <span className="text-xs tabular-nums" style={{ color }}>{pct < 1 ? "<1" : Math.round(pct)}%</span>}
-      </div>
-      {pct !== null && (
-        <div className="h-1.5 rounded-full bg-chip overflow-hidden">
-          <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 2)}%`, background: color }} />
-        </div>
-      )}
-      <p className="text-muted">
-        {ctx.contextUsed !== null ? (
-          <>
-            <b className="text-ink tabular-nums">{ctx.contextUsed.toLocaleString()}</b>
-            {ctx.contextWindow && <> of <b className="text-ink tabular-nums">{ctx.contextWindow.toLocaleString()}</b></>} tokens used in this conversation
-            {ctx.model && <> on {ctx.model}</>}.
-          </>
-        ) : ctx.contextWindow ? (
-          <>
-            {ctx.model ?? "This model"} has a {ctx.contextWindow.toLocaleString()}-token window. Usage shows up after the first reply.
-          </>
-        ) : (
-          "Usage shows up after the first reply."
-        )}
-      </p>
-      {pct !== null && pct > 60 && <p className="text-xs text-muted">It's getting full. Start a new thread to give the agent a fresh context; its memory carries over.</p>}
-    </div>
-  );
-}
-
-/** Claude-style context ring: how full this conversation's context window is. */
-function ContextRing({ ctx, header }: { ctx: AgentContext; header?: boolean }) {
-  const pct = ctx.contextUsed !== null && ctx.contextWindow ? Math.min(100, (ctx.contextUsed / ctx.contextWindow) * 100) : null;
-  const color = pct === null ? "var(--faint)" : pct > 85 ? "var(--bad)" : pct > 60 ? "var(--warn)" : "var(--ok)";
-  const r = 7;
-  const c = 2 * Math.PI * r;
-  const summary = pct !== null ? `${pct < 1 ? "<1" : Math.round(pct)}% of context used` : ctx.contextWindow ? `${tokens(ctx.contextWindow)} context window` : "Context appears after the first reply";
-  return (
-    <Popover
-      align="right"
-      up={!header}
-      className="w-72 p-3.5"
-      trigger={(open, toggle) => (
-        <button type="button" onClick={toggle} title={summary} aria-label={summary} aria-expanded={open} className={cx("size-9 md:size-8 grid place-items-center transition-opacity", open ? "opacity-100" : "opacity-85 hover:opacity-100")}>
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
-            <circle cx="9" cy="9" r={r} fill="none" stroke="var(--faint)" strokeOpacity="0.35" strokeWidth="2.6" />
-            {pct !== null && <circle cx="9" cy="9" r={r} fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeDasharray={`${(Math.max(pct, 3) / 100) * c} ${c}`} transform="rotate(-90 9 9)" />}
-          </svg>
-        </button>
-      )}
-    >
-      {() => <ContextBody ctx={ctx} />}
-    </Popover>
   );
 }
 
@@ -598,7 +418,7 @@ function useMessageHistory(channelId: string, threadId: string | undefined, mess
   return { controls, error, prepended };
 }
 
-function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { messageId?: string; channel: ChannelInfo; readMark: string | null; onAddAgent: () => void; onMembers: () => void }) {
+function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, calling }: { messageId?: string; channel: ChannelInfo; readMark: string | null; onAddAgent: () => void; onMembers: () => void; /** a call is on: leave room at the top for its bar, so it never covers the first message */ calling?: boolean }) {
   const messages = useStore((s) => s.messages[channel.id]);
   const replyCounts = useStore((s) => s.replyCounts);
   const me = useStore((s) => s.me);
@@ -659,7 +479,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { 
     setAtBottom(true);
   }, [channel.id]);
 
-  if (!messages) return <div className="flex-1 grid place-items-center text-sm text-muted">{history.error ? history.controls : "Loading…"}</div>;
+  if (!messages) return <div className="flex-1 grid place-items-center text-sm text-muted">{history.error ? history.controls : null}</div>;
 
   const empty = !messages.some((m) => m.author.id !== "system");
   return (
@@ -667,7 +487,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { 
     <div className="relative flex-1 min-h-0">
       <div
         ref={ref}
-        className="h-full overflow-y-auto overscroll-x-none pt-2 pb-2"
+        className={cx("h-full overflow-y-auto overscroll-x-none pb-2", calling ? "pt-[84px]" : "pt-2")}
         onScroll={(e) => {
           const el = e.currentTarget;
           const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -833,51 +653,32 @@ function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo
   const names = useNames();
   const invite = useFeature("invite");
   const canManage = useStore((s) => s.me?.role !== "guest") && !channel.archivedAt;
-  const nodes = useDevices();
-  const introMembers = useChannelMembers(channel);
   if (channel.kind === "dm") {
     const a = names.agent(channel.name.split(":").pop()!);
-    const where = a?.nodeId ? nodes?.find((n) => n.id === a.nodeId)?.name : undefined;
     return (
       <div className="px-8 pb-6 pt-10 flex flex-col items-center text-center">
         <AgentAvatar agent={a} size={72} live />
         <h2 className="mt-3 t-title">{a?.name}</h2>
-        <p className="mt-1 max-w-xs text-body text-muted">This is the start of your conversation with @{a?.handle}. Ask it anything, or hand it a task.</p>
-        {a && <p className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-muted"><StatusDot status={a.status} />{a.status === "offline" ? "Offline" : `Ready${where ? ` on ${where}` : ""}`}</p>}
       </div>
     );
   }
-  const answerer = channel.settings.defaultAgentId ? names.agent(channel.settings.defaultAgentId) : undefined;
-  const leads = (channel.settings.team?.nodes ?? []).filter((n) => n.lead).map((n) => names.agent(n.agentId)).filter((a): a is Agent => !!a);
-  const cards: { icon: React.ReactNode; title: string; body: string; onClick: () => void }[] = [
-    ...(canManage ? [{ icon: <Bot size={18} />, title: "Add agent", body: leads.length || answerer ? "Put another agent on the team" : "Pick who answers here", onClick: onAddAgent }] : []),
-    ...(!channel.archivedAt ? [{ icon: <Paperclip size={18} />, title: "Add files", body: "Share notes and documents", onClick: () => window.dispatchEvent(new CustomEvent(COMPOSER_ATTACH, { detail: channel.id })) }] : []),
-    ...(invite && canManage ? [{ icon: <UserPlus size={18} />, title: "Invite people", body: "Bring someone into the team", onClick: onMembers }] : []),
+  const cards: { icon: React.ReactNode; title: string; onClick: () => void }[] = [
+    ...(canManage ? [{ icon: <Bot size={18} />, title: "Add agent", onClick: onAddAgent }] : []),
+    ...(!channel.archivedAt ? [{ icon: <Paperclip size={18} />, title: "Add files", onClick: () => window.dispatchEvent(new CustomEvent(COMPOSER_ATTACH, { detail: channel.id })) }] : []),
+    ...(invite && canManage ? [{ icon: <UserPlus size={18} />, title: "Invite people", onClick: onMembers }] : []),
   ];
   return (
     <div className="px-6 pb-6 pt-8 flex flex-col items-center text-center">
       <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={64} />
       <h2 className="mt-3 t-title">{channel.name}</h2>
-      <p className="mt-1 max-w-sm text-body text-muted">
-        {channel.topic ? `${channel.topic.replace(/[.!?]\s*$/, "")}. ` : "This is the start of the team. "}
-        {leads.length
-          ? `${leads.map((a) => a.name).join(" and ")} ${leads.length > 1 ? "read" : "reads"} every new message here and hand${leads.length > 1 ? "" : "s"} out the work.`
-          : answerer
-            ? `${answerer.name} answers messages here. @mention another agent to ask them instead.`
-            : (introMembers ?? []).some((m) => m.kind === "agent")
-              ? "@mention an agent to ask them."
-              : "Add the agents who will work here."}
-      </p>
+      {channel.topic && <p className="mt-1 max-w-sm text-body text-muted">{channel.topic}</p>}
       {cards.length > 0 && (
-        <div className="mt-5 w-full max-w-sm overflow-hidden rounded-3xl bg-card divide-y divide-line text-left">
+        <div className="mt-5 w-full max-w-xs overflow-hidden rounded-[14px] bg-card divide-y divide-line text-left">
           {cards.map((c) => (
-            <button key={c.title} type="button" onClick={c.onClick} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-hover">
-              <span className="size-9 shrink-0 rounded-full bg-chip grid place-items-center text-muted">{c.icon}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-body font-medium">{c.title}</span>
-                <span className="block text-[13px] text-muted">{c.body}</span>
-              </span>
-              <ChevronRight size={16} className="shrink-0 text-faint" />
+            <button key={c.title} type="button" onClick={c.onClick} className="flex h-[46px] w-full items-center gap-3 px-3.5 text-left hover:bg-hover">
+              <span className="shrink-0 text-muted">{c.icon}</span>
+              <span className="min-w-0 flex-1 text-body font-medium">{c.title}</span>
+              <ChevronRight size={15} className="shrink-0 text-faint" />
             </button>
           ))}
         </div>
@@ -1107,7 +908,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         }}
         data-dragging={swipe.dragging}
         style={swipe.dx ? { transform: `translateX(${swipe.dx}px)` } : undefined}
-        className={cx("m-swipe relative min-w-0 flex flex-col max-w-[84%] md:max-w-[36rem] rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring touch-pan-y", mine ? "items-end" : "items-start")}
+        className={cx("m-swipe relative min-w-0 flex flex-col max-w-[84%] md:max-w-[640px] rounded-[18px] outline-none focus-visible:ring-2 focus-visible:ring-ring touch-pan-y", mine ? "items-end" : "items-start")}
       >
         {swipe.dx > 0 && (
           <span
@@ -1119,7 +920,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           </span>
         )}
         {!grouped && !home && !mine && (
-          <div className="px-3.5 pb-0.5 text-[12px] text-muted flex items-center gap-1.5" title={agent ? `Agent · ${harnessLabel(agent.harness)}` : undefined}>
+          <div className="px-3.5 pb-0.5 text-[12px] text-muted flex items-center gap-1.5">
             {name}
             {pinned && <Pin size={11} aria-label="Pinned" />}
           </div>
@@ -1140,7 +941,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           <div className="bubble them text-body text-muted italic">This message was deleted.</div>
         ) : (
           showBubble && (
-            <div ref={bubbleRef} className={cx("bubble relative text-[15px] md:text-[15px]", mine ? "me" : "them", arrived && (mine ? "m-bubble-me" : "m-bubble-them"))} title={time}>
+            <div ref={bubbleRef} className={cx("bubble relative text-[14px]", mine ? "me" : "them", arrived && (mine ? "m-bubble-me" : "m-bubble-them"))} title={time}>
               {!!m.reactions?.length && <ReactionBadges reactions={m.reactions} meId={meId} mine={mine} onToggle={react} />}
               {quote && (
                 <button
@@ -1214,7 +1015,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           source={bubbleRef.current ?? colRef.current}
           preview={
             bubbleRef.current ? (
-              <div className={cx("bubble !max-w-none text-[15px]", mine ? "me" : "them")}>
+              <div className={cx("bubble !max-w-none text-[14px]", mine ? "me" : "them")}>
                 <div className="prose-w line-clamp-[12]" dangerouslySetInnerHTML={{ __html: html || "&nbsp;" }} />
               </div>
             ) : undefined
@@ -1251,6 +1052,13 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
   const { toolCalls } = usePrefs();
   const [open, setOpen] = useState(toolCalls === "expanded");
   const summary = useMemo(() => workSummary(tools.flatMap((t) => (t.type === "tool_call" ? [{ name: t.name, input: t.input }] : []))), [parts]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a failed run says so in one quiet line; why it failed opens from that line
+  const failed = parts.some((p) => p.type === "run_failed");
+  const why = status.flatMap((p) => (p.type === "status" && p.text !== "Voice message" ? [p.text.replace(/`/g, "")] : [])).join("\n");
+  // what it did (tools, what it saved to memory, the skills it learned or used) folds into one line
+  const saved = savedMemories(tools);
+  const shown = toolCalls === "hidden" ? [] : tools;
+  const did = (toolCalls === "hidden" ? saved.length : tools.length) + parts.filter((p) => p.type === "skill").length;
   return (
     <>
       {parts.map((p) => p.type === "discussion" && <DiscussionCard key={p.discussionId} id={p.discussionId} />)}
@@ -1261,39 +1069,52 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
       {parts.map((p, i) => p.type === "context" && <ContextCard key={`x${i}`} usage={p.usage} />)}
       {parts.map((p) => p.type === "change" && <ChangeCard key={p.changeId} id={p.changeId} fallback={body} />)}
       {parts.map((p, i) => p.type === "notice" && <div key={`n${i}`} className="mt-1 px-1 text-xs text-muted whitespace-pre-wrap">{p.text}</div>)}
-      <SkillLines parts={parts} />
       {files.length > 0 && (
         <div className="mt-1 flex flex-wrap items-start gap-2">
           {files.map((f) => f.type === "file" && <FileChip key={f.fileId} id={f.fileId} name={f.name} />)}
         </div>
       )}
-      {status.map((s, i) => s.type === "status" && <div key={i} className={cx("mt-1 px-1", s.text === "Voice message" ? "text-[11px] text-faint inline-flex items-center gap-1" : "text-sm text-bad")}>{s.text === "Voice message" && <Mic size={11} />}{s.text.replace(/`/g, "")}</div>)}
-      {parts.map((p) => p.type === "run_failed" && <RunFailedActions key={p.runId} part={p} agentId={agentId} />)}
-      <Remembered tools={tools} />
-      {tools.length > 0 && toolCalls !== "hidden" && (
+      {status.map(
+        (s, i) =>
+          s.type === "status" &&
+          (s.text === "Voice message" || !failed) &&
+          // a run you stopped didn't fail: it says so quietly
+          (s.text === "Run failed: cancelled" ? (
+            <div key={i} className="mt-1 px-1 text-[13px] text-muted">Stopped.</div>
+          ) : (
+            <div key={i} className={cx("mt-1 px-1", s.text === "Voice message" ? "text-[11px] text-faint inline-flex items-center gap-1" : "text-sm text-bad")}>{s.text === "Voice message" && <Mic size={11} />}{s.text.replace(/`/g, "")}</div>
+          )),
+      )}
+      {parts.map((p) => p.type === "run_failed" && <RunFailedActions key={p.runId} part={p} agentId={agentId} detail={why} />)}
+      {did > 0 && (
         <div className="mt-1 w-full max-w-md">
-          {/* one line of what it did, like "Searched the web · read 6 pages"; opens the tool calls */}
-          <button onClick={() => setOpen(!open)} aria-expanded={open} className="max-w-full h-8 px-3 rounded-full border border-control-line bg-control text-[13px] text-muted hover:text-ink hover:bg-hover inline-flex items-center gap-2">
-            <SquareTerminal size={13} className="shrink-0" />
-            <span className="truncate">{summary}</span>
-            <ChevronRight size={13} className={cx("shrink-0 transition-transform", open && "rotate-90")} />
+          <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex items-center gap-1 rounded-md px-1 text-xs leading-5 text-muted hover:text-ink">
+            {didThings(did)}
+            <ChevronRight size={12} className={cx("shrink-0", open && "rotate-90")} aria-hidden />
           </button>
           {open && (
-            <div className="mt-1.5 overflow-hidden rounded-3xl bg-card divide-y divide-line">
-              <div className="px-4 py-2 text-[13px] font-medium text-muted">Ran {tools.length} {tools.length === 1 ? "tool" : "tools"}</div>
-              {tools.map(
-                (t, i) =>
-                  t.type === "tool_call" && (
-                    <details key={i} className="text-xs">
-                      <summary className="px-4 py-2 cursor-pointer text-[13px]">{toolLine(t.name, t.input)}</summary>
-                      <pre className="px-4 pb-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-muted">
-                        {JSON.stringify(t.input, null, 2)}
-                        {t.output !== undefined && `\n→ ${typeof t.output === "string" ? t.output : JSON.stringify(t.output, null, 2)}`}
-                      </pre>
-                    </details>
-                  ),
+            <>
+              <SkillLines parts={parts} />
+              <Remembered saved={saved} />
+              {shown.length > 0 && (
+                <div className="mt-1.5 overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+                  {/* one line of what it did, like "Searched the web · read 6 pages"; then each tool call */}
+                  <div className="px-4 py-2 text-[13px] font-medium text-muted">{summary}</div>
+                  {shown.map(
+                    (t, i) =>
+                      t.type === "tool_call" && (
+                        <details key={i} className="text-xs">
+                          <summary className="px-4 py-2 cursor-pointer text-[13px]">{toolLine(t.name, t.input)}</summary>
+                          <pre className="px-4 pb-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-muted">
+                            {JSON.stringify(t.input, null, 2)}
+                            {t.output !== undefined && `\n→ ${typeof t.output === "string" ? t.output : JSON.stringify(t.output, null, 2)}`}
+                          </pre>
+                        </details>
+                      ),
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
       )}
@@ -1323,11 +1144,9 @@ export function SkillLines({ parts }: { parts: MessagePart[] }) {
 
 const prettyTool = (n: string) => n.replace(/^mcp__(?:wisp|warren)__/, "").replace(/^mcp__/, "").replace(/^(?:wisp|warren)\./, "");
 
-const KIND_LABEL: Record<string, string> = { preference: "preference", plan: "plan", did: "what you did", detail: "detail" };
-
-/** What the agent saved about someone during this reply, so you can see (and fix) it right where it happened. */
-function Remembered({ tools }: { tools: MessagePart[] }) {
-  const saved = tools.flatMap((t) => {
+/** What the agent saved to memory during this reply: the tool calls that did save, with where each landed. */
+function savedMemories(tools: MessagePart[]): { kind: string; text: string; path: string | null }[] {
+  return tools.flatMap((t) => {
     if (t.type !== "tool_call" || prettyTool(t.name) !== "memory_remember") return [];
     const out = typeof t.output === "string" ? t.output : JSON.stringify(t.output ?? "");
     if (/Not saved|Error/i.test(out)) return [];
@@ -1336,24 +1155,20 @@ function Remembered({ tools }: { tools: MessagePart[] }) {
     const text = input.text ?? (input.status ? `marked a plan ${input.status}` : "updated a memory");
     return [{ kind: input.kind ?? "", text, path }];
   });
+}
+
+/** What the agent saved about someone during this reply, so you can see (and fix) it right where it happened. */
+function Remembered({ saved }: { saved: ReturnType<typeof savedMemories> }) {
   if (!saved.length) return null;
   return (
-    <div className="mt-1 flex flex-wrap gap-1.5">
+    <>
       {saved.map((r, i) => (
-        <a
-          key={i}
-          href={r.path ? `#/vault/${r.path}` : "#/about"}
-          className="inline-flex max-w-full items-center gap-2 rounded-full border border-control-line bg-control px-3 h-8 text-[13px] hover:bg-hover"
-          title={`Saved to memory${KIND_LABEL[r.kind] ? ` (${KIND_LABEL[r.kind]})` : ""}. Open it to edit or delete.`}
-        >
-          <Brain size={13} className="text-muted shrink-0" />
-          <span className="shrink-0">Remembered</span>
-          <span className="text-muted">·</span>
-          <span className="truncate text-muted">{r.text}</span>
-          <ChevronRight size={13} className="shrink-0 text-faint" />
+        <a key={i} href={r.path ? `#/vault/${r.path}` : "#/about"} className="m-work mt-1 flex w-fit max-w-full items-center gap-1.5 px-1 text-xs text-muted hover:underline">
+          <Brain size={12} strokeWidth={2} aria-hidden className="shrink-0" />
+          <span className="truncate">Remembered: {r.text}</span>
         </a>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -1430,9 +1245,9 @@ function StreamingItem({ run }: { run: LiveRun }) {
           <AgentAvatar agent={agent} size={32} live />
         </div>
       )}
-      <div className="min-w-0 flex flex-col items-start gap-[3px] max-w-[84%] md:max-w-[36rem]">
+      <div className="min-w-0 flex flex-col items-start gap-[3px] max-w-[84%] md:max-w-[640px]">
         {!home && <div className="px-3.5 pb-0.5 text-[12px] text-muted">{agent?.name ?? "Agent"}</div>}
-        {html && <div className="bubble them text-[15px] md:text-[15px]"><div className="prose-w" dangerouslySetInnerHTML={{ __html: html }} /></div>}
+        {html && <div className="bubble them text-[14px]"><div className="prose-w" dangerouslySetInnerHTML={{ __html: html }} /></div>}
         {screen && <ComputerPart computerId={computerId} />}
       </div>
     </div>
@@ -1815,7 +1630,8 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   const { sendWith } = usePrefs();
   const agents = useStore((s) => s.agents);
   const canEdit = useStore((s) => s.me?.role !== "guest");
-  const { agent: dmAgent, ctx, models } = useAgentContext(agentId, channelId, threadId);
+  const dmAgent = useStore((s) => (agentId ? s.agents.find((a) => a.id === agentId) : undefined));
+  // who is working here, not the words: a reply being written doesn't redraw the composer (liveShape.ts)
   const live = useStore(liveShape);
   const [{ text, files, pending, sending, error, replyTo }, updateDraft, getDraft] = useComposerDraft(channelId, threadId);
   const uploading = pending.length;
@@ -1823,7 +1639,11 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   const setFiles = (value: ComposerDraft["files"]) => updateDraft((d) => ({ ...d, files: value }));
   const [pick, setPick] = useState(0);
   const [caret, setCaret] = useState(0);
-  const [nobodyAsked, setNobodyAsked] = useState(false);
+  // past one line the composer is two rows: the text on top, plus and the round button underneath
+  const [tall, setTall] = useState(false);
+  const tallAt = useRef(0);
+  const hold = useRef<{ timer?: ReturnType<typeof setTimeout>; held: boolean }>({ held: false });
+  useEffect(() => () => clearTimeout(hold.current.timer), []);
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
@@ -1831,46 +1651,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   // in a thread, who's working in it (or a sub-thread of it); at the top, everyone in the channel
   const working = Object.values(live).filter((r) => r.channelId === channelId && (!threadId || r.threadId === threadId || r.threadPath.includes(threadId)));
   const channel = useStore((s) => s.channels.find((c) => c.id === channelId));
-  const leads = channel?.kind === "channel" ? (channel.settings.team?.nodes ?? []).filter((n) => n.lead).map((n) => agents.find((a) => a.id === n.agentId)).filter((a): a is Agent => !!a) : [];
   const dictation = useDictation((t) => t && setText(`${getDraft().text}${getDraft().text && !/\s$/.test(getDraft().text) ? " " : ""}${t}`), `${channelId}/${threadId ?? ""}`);
-
-  // a quiet line about where this will land: no mention in a channel, or an offline agent that was asked
-  const mentioned = text.trim() ? parseMentions(text).map((h) => agents.find((a) => a.handle === h)).filter((a): a is Agent => !!a) : [];
-  // the agent that answers this channel's un-@mentioned messages, if it has one
-  const answerer = channel?.kind === "channel" && channel.settings.defaultAgentId ? agents.find((a) => a.id === channel.settings.defaultAgentId) : undefined;
-  const offline = mentioned.find((a) => a.status === "offline") ?? (channel?.kind === "dm" && text.trim() ? dmAgent?.status === "offline" ? dmAgent : undefined : undefined);
-  const hint = offline
-    ? `${offline.name} is offline; it will answer when its device reconnects.`
-    : // in a thread, a plain reply can go back to the agent that started it, so only say this at the top level
-      channel && channel.kind !== "dm" && !threadId && text.trim() && !mentioned.length
-      ? leads.length
-        ? `${leads.map((a) => a.name).join(" and ")} ${leads.length > 1 ? "will plan it together, then hand out the work" : "will take it and hand out the work"}.`
-        : answerer
-        ? `${answerer.name} will answer. @mention another agent to ask them instead.`
-        : `Posting to ${channel.name}. @mention an agent to ask it.`
-      : null;
-
-  // a "ask someone" shortcut for the hint line, in channels (not DMs or threads) that have agents and nobody answering by default
-  const canAsk = !!channel && channel.kind !== "dm" && !threadId && agents.length > 0 && !mentioned.length && !answerer && !leads.length;
-  function ask() {
-    if (agents.length === 1) {
-      const m = `@${agents[0].handle}`;
-      if (!new RegExp(`^\\s*${m}(\\s|$)`).test(text)) setText(`${m} ${text}`);
-      requestAnimationFrame(() => {
-        const at = m.length + 1;
-        ta.current?.focus();
-        ta.current?.setSelectionRange(at, at);
-        setCaret(at);
-      });
-    } else {
-      // an "@" at the caret brings up the mention picker
-      insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@");
-    }
-  }
-  useEffect(() => setNobodyAsked(false), [channelId]);
-  useEffect(() => {
-    if (mentioned.length) setNobodyAsked(false);
-  }, [mentioned.length]);
 
   // @mention autocomplete for the word under the cursor
   const word = text.slice(0, caret).match(/(?:^|\s)@([\w-]*)$/)?.[1];
@@ -1922,7 +1703,15 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 220) + "px";
     el.style.overflowY = el.scrollHeight > 220 ? "auto" : "hidden";
-  }, [text]);
+    // one line, or more? Two rows give the text more width, so it goes back to one line only once
+    // the text is shorter than it was when it first wrapped (no flipping between the two)
+    const cs = getComputedStyle(el);
+    const wraps = el.scrollHeight > parseFloat(cs.lineHeight) + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + 2;
+    if (!tall && wraps) {
+      tallAt.current = text.length;
+      setTall(true);
+    } else if (tall && !wraps && text.length < tallAt.current) setTall(false);
+  }, [text, tall]);
 
   function insert(s: string) {
     const el = ta.current;
@@ -1953,12 +1742,9 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
     const body = current.text;
     const attached = current.files;
     const quoted = current.replyTo;
-    const unasked = !!channel && channel.kind !== "dm" && !threadId && agents.length > 0 && !answerer && !leads.length && !parseMentions(body).length;
-    setNobodyAsked(false);
     updateDraft((d) => ({ ...d, text: "", files: [], replyTo: null, sending: true, error: null }));
     try {
       await api("POST", `/api/channels/${channelId}/messages`, { body, threadId, fileIds: attached.map((f) => f.id), ...(quoted ? { replyToId: quoted.id } : {}) });
-      setNobodyAsked(unasked);
     } catch (e) {
       // Restore into this conversation, keeping anything typed while the send was in flight.
       updateDraft((d) => ({ ...d, text: body && d.text ? `${body}\n${d.text}` : body || d.text, files: attached, replyTo: d.replyTo ?? quoted, error: (e as Error).message }));
@@ -2001,22 +1787,49 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   }
 
   const hasContent = !!text.trim() || files.length > 0 || uploading > 0;
-  const showCall = !!onCall && !hasContent && !threadId;
-  // the send / mic / call button pops in when what you've typed swaps it (not when the composer first opens)
-  const swapped = useChangedSinceMount(hasContent);
+  // the one round button: send what's typed; with nothing typed, stop whoever works here, else call (hold to dictate), else dictate
+  const action = roundAction({ hasContent, dictating: dictation.on, working: working.length > 0, canStop: canEdit, canCall: !!onCall && !threadId, canDictate: dictation.supported });
+  const act = () => {
+    if (action === "send") return send();
+    if (action === "stop") return void stopRuns(working);
+    if (action === "call") return onCall?.();
+    dictation.toggle(); // "dictate" starts listening, "listening" stops it
+  };
+  // holding it down while it would call dictates instead, for as long as it's held
+  const holdStart = () => {
+    hold.current.held = false;
+    if (action !== "call" || !dictation.supported) return;
+    hold.current.timer = setTimeout(() => {
+      hold.current.held = true;
+      dictation.toggle();
+    }, 350);
+  };
+  const holdEnd = () => {
+    clearTimeout(hold.current.timer);
+    if (hold.current.held && dictation.on) dictation.toggle();
+  };
+  const name = dmAgent?.name ?? "agent";
+  const round = {
+    send: { label: "Send", title: undefined, icon: <ArrowUp size={19} strokeWidth={2.5} /> },
+    stop: { label: "Stop", title: "Stop", icon: <Square size={13} fill="currentColor" /> },
+    call: { label: `Call ${name}`, title: dictation.supported ? `Call ${name} · hold to dictate` : `Call ${name}`, icon: <AudioLines size={17} strokeWidth={2.2} /> },
+    dictate: { label: "Dictate", title: "Dictate", icon: <Mic size={18} strokeWidth={1.8} /> },
+    listening: { label: "Stop dictating", title: "Stop dictating", icon: <Mic size={18} strokeWidth={1.8} /> },
+  }[action];
+  // the icon pops in when what you've typed swaps it (not when the composer first opens)
+  const swapped = useChangedSinceMount(action);
   return (
-    // @container: the toolbar fits itself to the composer's own width (a DM next to an open thread is narrow on a wide screen)
-    <div className="shrink-0 px-3 md:px-5 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] @container w-full max-w-3xl mx-auto flex flex-col">
+    <div className="shrink-0 px-3 md:px-5 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-3xl mx-auto flex flex-col">
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
-      {/* who's working here and on what; Stop and details are in its sheet */}
+      {/* who's working here and on what, in one line; it opens their panel */}
       {working.length > 0 && (
-        <div className="pb-2 flex justify-center">
-          <ActivityPill runs={working} onDetails={(id) => (onDetails ? onDetails(id) : go({ view: "agents", agentId: id, tab: "overview" }))} onThread={(id) => go({ view: "chat", channelId, threadId: id })} hereThread={threadId ?? null} />
+        <div className="flex px-2 pb-1.5">
+          <ActivityPill runs={working} onDetails={(id) => (onDetails ? onDetails(id) : go({ view: "agents", agentId: id, tab: "overview" }))} />
         </div>
       )}
       {replyTo && (
-        <div className="mb-2 flex items-center gap-3 rounded-3xl bg-card pl-4 pr-1.5 py-1.5">
+        <div className="mb-2 flex items-center gap-3 rounded-[14px] bg-card pl-4 pr-1.5 py-1.5">
           <CornerUpLeft size={15} className="shrink-0 text-muted" />
           <div className="min-w-0 flex-1 border-l-2 border-accent pl-2.5 leading-tight">
             <div className="text-[13px] font-medium">Replying to {replyTo.name}</div>
@@ -2028,43 +1841,28 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
         </div>
       )}
       {(files.length > 0 || uploading > 0) && (
-        <div className="mb-2">
-          <div className="px-1 pb-1 text-right text-[12px] text-faint">Draft saved</div>
-          <div className="flex flex-wrap gap-2">
-            {files.map((f) => (
-              <span key={f.id} className="flex min-w-0 max-w-[15rem] items-center gap-2.5 rounded-2xl bg-card py-2 pl-3 pr-1.5">
-                <FileText size={16} className="shrink-0 text-muted" />
-                <span className="min-w-0 leading-tight">
-                  <span className="block truncate text-[13px] font-medium">{f.name}</span>
-                  {f.size !== undefined && <span className="block text-[12px] text-muted">{fileSize(f.size)}</span>}
-                </span>
-                <button onClick={() => setFiles(files.filter((x) => x.id !== f.id))} aria-label={`Remove ${f.name}`} className="size-7 shrink-0 rounded-full grid place-items-center text-muted hover:bg-hover">
-                  <X size={14} />
-                </button>
-              </span>
-            ))}
-            {pending.map((f) => (
-              <span key={f.key} className="flex min-w-0 max-w-[15rem] items-center gap-2.5 rounded-2xl bg-card py-2 pl-3 pr-3">
-                <Loader2 size={16} className="shrink-0 animate-spin text-muted" />
-                <span className="min-w-0 leading-tight">
-                  <span className="block truncate text-[13px] font-medium">{f.name}</span>
-                  <span className="block text-[12px] text-muted">Uploading</span>
-                </span>
-              </span>
-            ))}
-          </div>
+        <div className="mb-2 flex flex-wrap gap-2">
+          {files.map((f) => (
+            <span key={f.id} className="flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card pl-3 pr-1" title={fileSize(f.size) || undefined}>
+              <FileText size={15} className="shrink-0 text-muted" />
+              <span className="min-w-0 truncate text-[13px] font-medium">{f.name}</span>
+              <button onClick={() => setFiles(files.filter((x) => x.id !== f.id))} aria-label={`Remove ${f.name}`} className="size-7 shrink-0 rounded-full grid place-items-center text-muted hover:bg-hover">
+                <X size={14} />
+              </button>
+            </span>
+          ))}
+          {pending.map((f) => (
+            <span key={f.key} className="flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card px-3" aria-busy>
+              <Loader2 size={15} className="shrink-0 animate-spin text-muted" />
+              <span className="min-w-0 truncate text-[13px] font-medium">{f.name}</span>
+            </span>
+          ))}
         </div>
       )}
-      {dmAgent && ctx && (
-        <div className="flex min-w-0 pb-1.5 pl-[58px] pr-2 md:hidden">
-          <ModelLine place="phone" agent={dmAgent} ctx={ctx} models={models} channelId={channelId} threadId={threadId} canEdit={canEdit} />
-        </div>
-      )}
-      <div className="relative flex items-end gap-2.5 md:gap-2" onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), attach(e.dataTransfer.files))}>
+      <div className="relative" onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), attach(e.dataTransfer.files))}>
         {slash.open && !suggestions.length && slash.render(pickCommand)}
         {suggestions.length > 0 && (
-          <div className="glass absolute bottom-full mb-2 left-0 w-80 max-w-full rounded-3xl p-1.5 z-10" role="listbox" aria-label="Mention an agent">
-            <div className="px-3 pt-1.5 pb-1 text-[13px] font-medium text-muted">Mention an agent</div>
+          <div className="glass absolute bottom-full mb-2 left-0 w-80 max-w-full rounded-[14px] p-1.5 z-10" role="listbox" aria-label="Mention an agent">
             {suggestions.map((a, i) => {
               const node = channel?.settings.team?.nodes.find((n) => n.agentId === a.id);
               return (
@@ -2073,7 +1871,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                   role="option"
                   aria-selected={i === pick % suggestions.length}
                   onMouseDown={(e) => (e.preventDefault(), complete(a.handle))}
-                  className={cx("w-full px-3 py-2 rounded-2xl flex items-center gap-3 text-left", i === pick % suggestions.length && "bg-hover")}
+                  className={cx("w-full px-3 py-2 rounded-[10px] flex items-center gap-3 text-left", i === pick % suggestions.length && "bg-hover")}
                 >
                   <AgentAvatar agent={a} size={28} badge={false} interactive={false} />
                   <span className="min-w-0 flex-1 leading-tight">
@@ -2089,31 +1887,33 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             })}
           </div>
         )}
-        {/* one pill (canvas Main): attach on the left, the voice orb on the right */}
-        <div className="flex min-h-[52px] md:min-h-[50px] min-w-0 flex-1 items-end gap-2 rounded-[26px] md:rounded-[25px] border border-transparent bg-[var(--bubble-them)] pl-[9px] pr-[9px] py-[5px] md:py-[8px] focus-within:border-line2 transition-colors">
-          <span className="self-center shrink-0">
-          <Popover
-            className="w-60 p-1.5 !rounded-3xl"
-            trigger={(open, toggle) => (
-              <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-10 md:size-8 rounded-full grid place-items-center bg-hover text-ink hover:bg-side-active", open && "bg-side-active")}>
-                {uploading ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} strokeWidth={2} />}
-              </button>
-            )}
-          >
-            {(close) => (
-              <div role="menu">
-                <ComposerMenuItem icon={<Camera size={18} />} label="Photos" onClick={() => (close(), photoInput.current?.click())} />
-                <ComposerMenuItem icon={<Paperclip size={18} />} label="Files" onClick={() => (close(), fileInput.current?.click())} />
-                {channel?.kind !== "dm" && <ComposerMenuItem icon={<AtSign size={18} />} label="Mention an agent" onClick={() => (close(), insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@"))} />}
-              </div>
-            )}
-          </Popover>
+        {/* one line: plus, the text, the round button. Past one line it grows upward into two rows: the text on top, plus and the button underneath */}
+        <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2 rounded-[20px] border border-transparent bg-[var(--bubble-them)] px-[7px] py-[5px] focus-within:border-line2", tall && "gap-y-1 pt-2")}>
+          <span className={cx("col-start-1 shrink-0", tall ? "row-start-2" : "row-start-1")}>
+            <Popover
+              className="w-60 p-1.5 !rounded-[14px]"
+              trigger={(open, toggle) => (
+                <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-10 md:size-[34px] rounded-full grid place-items-center text-ink hover:bg-hover", open && "bg-hover")}>
+                  {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
+                </button>
+              )}
+            >
+              {(close) => (
+                <div role="menu">
+                  <ComposerMenuItem icon={<Camera size={18} />} label="Photos" onClick={() => (close(), photoInput.current?.click())} />
+                  <ComposerMenuItem icon={<Paperclip size={18} />} label="Files" onClick={() => (close(), fileInput.current?.click())} />
+                  {channel?.kind !== "dm" && <ComposerMenuItem icon={<AtSign size={18} />} label="Mention an agent" onClick={() => (close(), insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@"))} />}
+                  {/* the round button dictates while it's held; this is the same thing for a keyboard */}
+                  {dictation.supported && <ComposerMenuItem icon={<Mic size={18} />} label={dictation.on ? "Stop dictating" : "Dictate"} onClick={() => (close(), dictation.toggle())} />}
+                </div>
+              )}
+            </Popover>
           </span>
           <textarea
             ref={ta}
             rows={1}
             value={text}
-            placeholder={replyTo ? `Reply to ${replyTo.name.split(" · ")[0]}` : channel?.kind === "dm" && !threadId ? `${placeholder} or type /` : placeholder}
+            placeholder={replyTo ? `Reply to ${replyTo.name.split(" · ")[0]}` : placeholder}
             aria-label={placeholder}
             onChange={(e) => {
               setText(e.target.value);
@@ -2146,45 +1946,39 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 send();
               }
             }}
-            className="block min-w-[9rem] flex-1 resize-none bg-transparent py-[9px] md:py-[5px] text-[15px] md:text-[14px] leading-[22px] outline-none placeholder:text-muted placeholder:truncate"
+            className={cx("block min-w-0 resize-none bg-transparent py-[9px] md:py-[6px] text-[15px] md:text-[14px] leading-[22px] outline-none placeholder:text-muted placeholder:truncate row-start-1", tall ? "col-span-3 col-start-1 px-2" : "col-start-2")}
           />
-          {dmAgent && ctx && (
-            <span className="self-center min-w-0 max-w-[45%] shrink pr-1.5 max-md:hidden">
-              <ModelLine place="desktop" agent={dmAgent} ctx={ctx} models={models} channelId={channelId} threadId={threadId} canEdit={canEdit} />
+          <button
+            type="button"
+            onClick={() => {
+              // the press that dictated has already done its work
+              if (hold.current.held) return void (hold.current.held = false);
+              return act();
+            }}
+            onPointerDown={holdStart}
+            onPointerUp={holdEnd}
+            onPointerLeave={holdEnd}
+            onPointerCancel={holdEnd}
+            onContextMenu={action === "call" || action === "listening" ? (e) => e.preventDefault() : undefined}
+            disabled={action === "send" && (!!uploading || sending || (!text.trim() && !files.length))}
+            aria-label={round.label}
+            aria-pressed={action === "listening" ? true : undefined}
+            title={round.title}
+            className={cx(
+              "m-press col-start-3 size-10 md:size-[34px] shrink-0 select-none rounded-full grid place-items-center disabled:bg-chip disabled:text-faint",
+              tall ? "row-start-2" : "row-start-1",
+              action === "listening" ? "bg-bad text-white" : "bg-[var(--bubble-me)] text-[var(--bubble-me-ink)]",
+            )}
+          >
+            <span key={action} className={cx("grid place-items-center", swapped && "m-swap")}>
+              {round.icon}
             </span>
-          )}
-          {(!hasContent || dictation.on) && dictation.supported && (
-            <button type="button" onClick={dictation.toggle} aria-label={dictation.on ? "Stop dictating" : "Dictate"} aria-pressed={dictation.on} title="Dictate" className={cx("size-10 md:size-8 shrink-0 self-center rounded-full grid place-items-center", swapped && "m-swap", dictation.on ? "bg-bad/15 text-bad" : "text-muted hover:text-ink")}>
-              <Mic size={18} strokeWidth={1.8} />
-            </button>
-          )}
-          {showCall && (
-            <button type="button" onClick={onCall} aria-label={`Call ${dmAgent?.name ?? "agent"}`} title={`Call ${dmAgent?.name ?? "agent"}`} className={cx("m-press size-10 md:size-[34px] shrink-0 self-center rounded-full bg-wisp text-wisp-ink grid place-items-center hover:bg-wisp/90", swapped && "m-swap")}>
-              <AudioLines size={17} strokeWidth={2.2} />
-            </button>
-          )}
-          {(hasContent || !dictation.supported) && !showCall && (
-            <button
-              onClick={send}
-              disabled={!!uploading || sending || (!text.trim() && !files.length)}
-              className={cx("m-press size-10 md:size-[34px] shrink-0 self-center rounded-full bg-ink text-panel grid place-items-center disabled:bg-chip disabled:text-faint transition-colors", swapped && "m-swap")}
-              aria-label="Send"
-            >
-              <ArrowUp size={19} strokeWidth={2.5} />
-            </button>
-          )}
+          </button>
         </div>
       </div>
-      {(error || hint || (canAsk && !error) || (nobodyAsked && !hint && !error)) && (
-        <div className="pt-1.5 px-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          {error && <span className="text-bad">{error}</span>}
-          {!error && hint && <span className="text-muted">{hint}</span>}
-          {!error && canAsk && (
-            <button type="button" onClick={ask} className="text-accent-text hover:underline">
-              {agents.length === 1 ? `Ask ${agents[0].name}` : "Ask an agent"}
-            </button>
-          )}
-          {!error && nobodyAsked && !hint && <span className="text-muted">Nobody was asked. @mention an agent to get an answer.</span>}
+      {error && (
+        <div className="pt-1.5 px-2 text-xs">
+          <span className="text-bad">{error}</span>
         </div>
       )}
     </div>

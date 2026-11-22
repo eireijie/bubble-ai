@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Globe, KeyRound, Monitor, ShieldHalf, X } from "lucide-react";
+import { ExternalLink, Globe, KeyRound, X } from "lucide-react";
 import type { LoginSummary } from "@wisp/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
-import { Add, Badge, Dlg, Item, Label, Note, Panel, Prim, Sec, TextBox, Tile } from "../../components/MarketParts.tsx";
-import { OwnersOnly, PageHeader } from "./parts.tsx";
+import { Add, Badge, Dlg, Item, Label, Panel, Prim, Sec, TextBox, Tile } from "../../components/MarketParts.tsx";
 
 interface LoginsView {
   source: { kind: "1password"; label: string; vaultName: string; connectedBy: string; connectedAt: string } | null;
@@ -46,8 +45,6 @@ export function LoginsPage() {
 
   return (
     <>
-      <PageHeader title="Logins" />
-      <OwnersOnly show={!isOwner} />
       {error && <p className="mb-4 text-sm text-bad">{error}</p>}
       {view && (
         <div className="space-y-7">
@@ -69,20 +66,7 @@ export function LoginsPage() {
                 ) : undefined
               }
             />
-            <Item icon={<Tile size={50}><ShieldHalf size={22} strokeWidth={1.7} /></Tile>} title="Bitwarden" sub="Not available yet" right={<Badge>Coming soon</Badge>} />
           </Panel>
-
-          {!source && (
-            <>
-              <p className="px-1 text-sm text-faint">Make a vault called “Agents” and a service account that can only see it. Wisp also fills in one-time codes saved there.</p>
-              <Note>
-                <span className="flex items-start gap-2.5">
-                  <Monitor size={16} className="mt-0.5 shrink-0 text-muted" />
-                  No password manager? That's fine. When an agent needs to sign in, its screen pops up and you sign in yourself.
-                </span>
-              </Note>
-            </>
-          )}
 
           {source && (
             <section className="space-y-2">
@@ -104,7 +88,7 @@ export function LoginsPage() {
                     <span role="columnheader">Account</span>
                     <span role="columnheader">Who can use it</span>
                   </div>
-                  {view.logins.length === 0 && !view.problem && <p className="px-4 py-4 text-sm text-muted">No logins in that vault yet. Add one in {source.label} and it shows up here.</p>}
+                  {view.logins.length === 0 && !view.problem && <p className="px-4 py-4 text-sm text-muted">No logins yet</p>}
                   {view.logins.map((l) => (
                     <div role="row" key={l.id} className="relative grid items-center gap-1 px-4 py-3 before:absolute before:left-4 before:right-0 before:top-0 before:h-px before:bg-line first:before:hidden md:grid-cols-[2fr_2fr_3fr] md:gap-4">
                       <span role="cell" className="flex min-w-0 items-center gap-3">
@@ -171,7 +155,7 @@ function ConnectOnePassword({ onClose, onDone }: { onClose: () => void; onDone: 
     }
   };
   return (
-    <Dlg title="Connect 1Password" sub="Only the owner can do this" onClose={onClose}>
+    <Dlg title="Connect 1Password" onClose={onClose}>
       {found ? (
         <>
           <p className="rounded-2xl bg-accent-soft px-4 py-3 text-sm">
@@ -189,7 +173,6 @@ function ConnectOnePassword({ onClose, onDone }: { onClose: () => void; onDone: 
             if (token.trim()) void connect();
           }}
         >
-          <p className="px-1 text-body leading-snug text-ink/90">Wisp asks 1Password for one login at a time, only after you approve it in Inbox. Nothing is saved in Wisp.</p>
           <div className="space-y-1.5">
             <label htmlFor="op-token" className="block px-1 text-[13px] tracking-wide text-faint">
               Service account token

@@ -1,8 +1,8 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowRight, Check, Copy, Workflow } from "lucide-react";
+import { ArrowDown, ArrowRight } from "lucide-react";
 import { describeFlow, type ChannelTeam, type FlowLine, type TeamStep } from "@wisp/core";
 import { useStore } from "../store.ts";
-import { Button, cx } from "../components/ui.tsx";
+import { cx } from "../components/ui.tsx";
 import { KindIcon, StepNum, useIsPhone } from "./parts.tsx";
 import { stepRows, titleOf } from "./flow.ts";
 
@@ -42,7 +42,7 @@ export function HowLine({ line, numbered = true, big = false, plain = false }: {
 }
 
 export function HowLines({ lines, big, plain }: { lines: FlowLine[]; big?: boolean; plain?: boolean }) {
-  if (!lines.length) return <p className="text-sm text-muted">Nothing here yet. Add steps and say how each one works.</p>;
+  if (!lines.length) return null;
   return (
     <ol className={cx(plain ? "space-y-2" : "space-y-3.5", big && "space-y-4")} aria-label="How it works">
       {lines.map((l) => (
@@ -121,48 +121,5 @@ export function MiniChart({ steps, className }: { steps: Omit<TeamStep, "x" | "y
   );
 }
 
-/** The "How it works" tab of the builder: the lines written from the chart, and a small picture of it. */
-export function HowPage({ team, name, onEdit, wide }: { team: ChannelTeam; name: string; onEdit: () => void; wide: boolean }) {
-  const lines = useFlowLines(team);
-  const [copied, setCopied] = useState(false);
-  const steps = team.steps ?? [];
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(lines.map((l) => `${l.n}. ${l.text}`).join("\n"));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* the browser said no */
-    }
-  };
-  return (
-    <div className={cx("mx-auto w-full max-w-5xl px-6 py-8", wide && "flex gap-10")}>
-      <div className="min-w-0 flex-1 space-y-5">
-        <div>
-          <h2 className="t-title">How {name} works</h2>
-          <p className="mt-1 text-sm text-muted">Written from the canvas. Change a step and this changes too.</p>
-        </div>
-        <div className="rounded-3xl border border-line bg-card p-5">
-          <HowLines lines={lines} big />
-        </div>
-        <div className="flex gap-2.5">
-          <Button type="button" onClick={copy} disabled={!lines.length}>
-            {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? "Copied" : "Copy"}
-          </Button>
-          <Button type="button" onClick={onEdit}>
-            <Workflow size={15} /> Edit on canvas
-          </Button>
-        </div>
-      </div>
-      {steps.length > 0 && (
-        <div className={cx("space-y-2", wide ? "w-[420px] shrink-0" : "mt-8")}>
-          <h3 className="text-sm font-semibold text-muted">The chart</h3>
-          <div className="rounded-3xl border border-line bg-card p-4">
-            <MiniChart steps={steps} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
+/** The lines as text to paste somewhere else: "1. Juno drafts the plan." */
+export const linesText = (lines: FlowLine[]): string => lines.map((l) => (l.n ? `${l.n}. ${l.text}` : l.text)).join("\n");

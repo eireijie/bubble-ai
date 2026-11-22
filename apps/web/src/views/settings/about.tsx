@@ -1,12 +1,14 @@
 import { GITHUB_URL } from "@wisp/core";
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { href } from "../../router.ts";
-import { Button, Modal, Pill } from "../../components/ui.tsx";
+import { Button, Modal } from "../../components/ui.tsx";
 import { DesktopUpdates } from "./DesktopUpdates.tsx";
-import { Card, PageHeader, Row, Section } from "./parts.tsx";
+import { RemoveWispRow } from "./RemoveWisp.tsx";
+import { HubAddress } from "./workspace.tsx";
+import { Card, Row } from "./parts.tsx";
+import { Group, Note, SRow, ShowAll } from "./rows.tsx";
 
 interface UpdateInfo {
   version: { commit: string | null; date: string | null };
@@ -17,7 +19,7 @@ interface UpdateInfo {
 /** A commit line ("8f380af Settings pages share one look") without its hash. */
 const subject = (line: string) => line.slice(line.indexOf(" ") + 1);
 
-/** About: the hub's version, what's new, and the update flow: available, confirm, updating, failed. The page reloads once the hub is back. */
+/** The About page: the hub's version, what's new, and the update flow: available, confirm, updating, failed. The page reloads once the hub is back. */
 export function AboutPage() {
   const isOwner = useStore((s) => s.me)?.role === "owner";
   const [info, setInfo] = useState<UpdateInfo | null>(null);
@@ -25,7 +27,6 @@ export function AboutPage() {
   const [restarting, setRestarting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
-  const [news, setNews] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const check = async () => {
     setChecking(true);
@@ -78,7 +79,7 @@ export function AboutPage() {
       <div className="min-h-[60vh] grid place-items-center text-center">
         <div className="max-w-sm space-y-3">
           <h2 className="t-title">Updating Wisp</h2>
-          <p className="text-body text-muted">Everyone is briefly disconnected. This page reloads by itself when the hub is back.</p>
+          <p className="text-body text-muted">This page reloads by itself when the hub is back.</p>
           <p className="text-sm text-faint" role="status">
             {restarting !== null || u?.state === "restarting" ? "Restarting the hub…" : (u?.log.at(-1) ?? "Updating…")}
           </p>
@@ -90,7 +91,7 @@ export function AboutPage() {
       <div className="min-h-[60vh] grid place-items-center text-center">
         <div className="max-w-sm space-y-4">
           <h2 className="t-title">The update didn't finish</h2>
-          <p className="text-body text-muted">Wisp is still running the version it had. Nothing was lost. You can try again, or ask the person who runs the hub.</p>
+          <p className="text-body text-muted">Wisp is still running the version it had. Nothing was lost.</p>
           <p className="text-sm text-bad whitespace-pre-wrap">{u.message}</p>
           <div className="flex justify-center gap-2">
             {isOwner && (
@@ -98,108 +99,56 @@ export function AboutPage() {
                 Try again
               </Button>
             )}
-            <Button onClick={() => setDismissed(true)}>Back to About</Button>
+            <Button onClick={() => setDismissed(true)}>Back</Button>
           </div>
         </div>
       </div>
     );
-  if (news)
-    return (
-      <>
-        <PageHeader title="What's new" />
-        <Card>{c?.changes.length ? c.changes.map((line) => <Row key={line} label={subject(line)} />) : <Row label="Nothing new right now" />}</Card>
-        <Button className="mt-6" onClick={() => setNews(false)}>
-          Back to About
-        </Button>
-      </>
-    );
+  // in the desktop app its own copy of Wisp updates with the app, so the hub's git check only shows when it can act
+  const hubShown = !desktop || !!c?.canUpdate;
+  const status = !c ? (checking ? "Checking…" : "Not checked") : c.canUpdate ? "Update available" : c.behind === 0 ? "Up to date" : "Can't update here";
+  const version = `Wisp${v?.commit ? ` ${v.commit}` : ""}${v?.date ? ` · ${new Date(v.date).toLocaleDateString()}` : ""}`;
   return (
     <>
-      <PageHeader title="About">
-        Wisp{v?.commit ? ` ${v.commit}` : ""}
-        {v?.date && <> from {new Date(v.date).toLocaleDateString()}</>}
-      </PageHeader>
-      <Section title="Updates">
-        {desktop && <DesktopUpdates />}
-        {/* in the desktop app its own copy of Wisp updates with the app, so the hub's git check only shows when it can act */}
-        <Card className={desktop && !c?.canUpdate ? "hidden" : undefined}>
-          <Row
-            label={
-              !c ? (
-                checking ? "Asking GitHub what's new…" : "Not checked yet"
-              ) : c.canUpdate ? (
-                <Pill tone="accent">Update available</Pill>
-              ) : c.behind === 0 ? (
-                <Pill tone="ok">Up to date</Pill>
-              ) : (
-                <Pill tone="warn">Can't update here</Pill>
-              )
-            }
-            hint={c?.reason}
-          >
-            <Button onClick={check} disabled={checking}>
-              {checking ? "Checking…" : "Check now"}
-            </Button>
-          </Row>
-          {c?.canUpdate && c.changes.length > 0 && (
-            <div className="px-[18px] py-3 space-y-1.5">
-              <div className="text-[13px] font-medium text-faint">What's changed</div>
-              <ul className="space-y-1 text-sm">
-                {c.changes.slice(0, 8).map((line) => (
-                  <li key={line} className="truncate">
-                    {subject(line)}
-                  </li>
-                ))}
-                {c.changes.length > 8 && <li className="text-faint">…and {c.changes.length - 8} more</li>}
-              </ul>
-            </div>
-          )}
-          {c?.canUpdate && isOwner && (
-            <div className="px-[18px] py-3 flex items-center gap-3">
+      {desktop && <DesktopUpdates />}
+      <Group>
+        <SRow id="version" value={hubShown ? `${version} · ${status}` : version}>
+          {hubShown &&
+            (c?.canUpdate && isOwner ? (
               <Button variant="primary" onClick={() => setConfirm(true)}>
-                Update hub
+                Update
               </Button>
-              <span className="text-[13px] text-faint">Everyone will briefly disconnect while the hub restarts.</span>
-            </div>
+            ) : (
+              <Button onClick={check} disabled={checking}>
+                {checking ? "Checking…" : "Check now"}
+              </Button>
+            ))}
+        </SRow>
+      </Group>
+      {hubShown && c && !c.canUpdate && c.behind !== 0 && c.reason && <Note>{c.reason}</Note>}
+      {u?.state === "failed" && (
+        <Note bad>
+          The last update didn't finish: {u.message}{" "}
+          {isOwner && (
+            <button className="underline" onClick={update}>
+              Try again
+            </button>
           )}
-        </Card>
-        {u?.state === "failed" && (
-          <p className="mt-2 px-1 text-sm text-bad">
-            The last update didn't finish: {u.message}{" "}
-            {isOwner && (
-              <button className="underline" onClick={update}>
-                Try again
-              </button>
-            )}
-          </p>
-        )}
-        {u?.state === "idle" && u.message && <p className="mt-2 px-1 text-sm text-muted">{u.message}</p>}
-        {error && <p className="mt-2 px-1 text-sm text-bad">{error}</p>}
-      </Section>
-      <Section title="About">
-        <Card>
-          <button className="w-full text-left hover:bg-hover" onClick={() => setNews(true)}>
-            <Row label="What's new">
-              <ChevronRight size={16} className="text-faint" />
-            </Row>
-          </button>
-          <Row label="Source code">
-            <a className="text-sm text-accent-text hover:underline" href={GITHUB_URL} target="_blank" rel="noreferrer">
-              GitHub
-            </a>
-          </Row>
-          <Row label="License">
-            <span className="text-sm text-muted">Apache-2.0</span>
-          </Row>
-        </Card>
-        <p className="mt-2 px-1 text-[13px] text-faint">
-          {isOwner ? "" : "Only owners can update the hub. "}Other devices update from{" "}
-          <a className="text-accent-text hover:underline" href={href({ view: "computers", computerId: null })}>
-            Computers and devices
-          </a>
-          .
-        </p>
-      </Section>
+        </Note>
+      )}
+      {u?.state === "idle" && u.message && <Note>{u.message}</Note>}
+      {error && <Note bad>{error}</Note>}
+      <Group>
+        <SRow id="news" />
+        <SRow id="help" to={href({ view: "help" })} />
+        <SRow id="source" to={GITHUB_URL} external value="GitHub" />
+      </Group>
+      <ShowAll />
+      <Group>
+        <SRow id="hub" value={<HubAddress />} />
+        <SRow id="welcome" to={href({ view: "welcome", intro: true })} />
+        <RemoveWispRow />
+      </Group>
       {confirm && (
         <Modal title="Update and restart the hub?" onClose={() => setConfirm(false)}>
           <p className="text-body text-muted mb-5">Everyone will briefly disconnect. Wisp comes back by itself.</p>
@@ -215,4 +164,14 @@ export function AboutPage() {
       )}
     </>
   );
+}
+
+/** What's new: what the next update brings, one line each. */
+export function WhatsNewPage() {
+  const [info, setInfo] = useState<UpdateInfo | null>(null);
+  useEffect(() => {
+    api<UpdateInfo>("POST", "/api/updates/check").then(setInfo, () => api<UpdateInfo>("GET", "/api/updates").then(setInfo, () => {}));
+  }, []);
+  const changes = info?.check?.changes ?? [];
+  return <Card>{changes.length ? changes.map((line) => <Row key={line} label={subject(line)} />) : <Row label={info ? "Nothing new right now" : "Loading…"} />}</Card>;
 }

@@ -61,6 +61,11 @@ function luminance([r, g, b]: [number, number, number]) {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 const safeColor = (c: string | undefined, fallback: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : fallback);
+/** `a` blended towards `b` by `t` (0 = all a, 1 = all b). */
+function mix(a: string, b: string, t: number): string {
+  const [x, y] = [rgb(a), rgb(b)];
+  return `#${x.map((v, i) => Math.round(v + (y[i]! - v) * t).toString(16).padStart(2, "0")).join("")}`;
+}
 
 /** One-color ghosts (from before gradients) fade to a deeper, slightly richer shade of themselves. */
 function shade(hex: string): string {
@@ -129,11 +134,14 @@ export function Ghost({ look, size = 40, mood = "awake", animate = true, wave, t
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const shape = SHAPES[look.shape] ?? SHAPES.classic;
   const asleep = mood === "asleep";
-  const top = asleep ? GHOST_ASLEEP.color : safeColor(look.color, "#f4f1ff");
-  const bottom = asleep ? GHOST_ASLEEP.color2 : look.color2 ? safeColor(look.color2, top) : shade(top);
+  // an offline ghost keeps its own colour, quietened towards the dozing grey, so it is still told apart in a list
+  const ownTop = safeColor(look.color, "#f4f1ff");
+  const ownBottom = look.color2 ? safeColor(look.color2, ownTop) : shade(ownTop);
+  const top = asleep ? mix(ownTop, GHOST_ASLEEP.color, 0.5) : ownTop;
+  const bottom = asleep ? mix(ownBottom, GHOST_ASLEEP.color2, 0.5) : ownBottom;
   // the face sits mid-body, so read ink against the middle of the gradient
   const [r1, g1, b1] = rgb(top);
-  const [r2, g2, b2] = look.color2 && !asleep ? rgb(safeColor(look.color2, top)) : asleep ? rgb(GHOST_ASLEEP.color2) : [r1 * 0.8, g1 * 0.8, b1 * 0.8];
+  const [r2, g2, b2] = look.color2 && !asleep ? rgb(safeColor(look.color2, top)) : asleep ? rgb(bottom) : [r1 * 0.8, g1 * 0.8, b1 * 0.8];
   const dark = luminance([(r1 + r2) / 2, (g1 + g2) / 2, (b1 + b2) / 2]) < 0.16;
   const ink = dark ? "#f7f7f8" : "#1d1d1f";
   const moving = ambientMotion && look.motion !== "still";

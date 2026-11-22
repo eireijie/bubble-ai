@@ -1,50 +1,57 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  Apple,
   AudioLines,
+  Bell,
+  Check,
   ChevronLeft,
+  ChevronRight,
+  CircleDot,
+  Clock,
   Code2,
+  Download,
+  FileText,
+  Ghost,
+  GitPullRequest,
+  HardDrive,
   Image,
-  Laptop,
-  LayoutGrid,
+  ListChecks,
   MessageSquare,
+  MonitorSmartphone,
   MousePointerClick,
   NotebookText,
   Palette,
   Plug,
-  Plus,
   Presentation,
-  RefreshCw,
   Rocket,
   Search,
-  Shield,
+  Share2,
   Sheet,
-  FileText,
-  GitPullRequest,
+  Shield,
+  SquareTerminal,
+  UserPlus,
   Wand2,
-  Package,
-
-  Download,
-  Trash2,
-  Upload,
+  type LucideIcon,
 } from "lucide-react";
 import {
-  APP_CATEGORIES,
   CONNECTOR_CATALOG,
+  FEATURE_INFO,
+  FEATURE_KEYS,
   POPULAR_APPS,
   SKILL_CATALOG,
+  UNLISTED_FEATURES,
   appCategory,
   catalogSkill,
-  harnessSupportsConnectors,
   shelfSummary,
   skillSlug,
   skillTitle,
   trustLabel,
-  type Agent,
   type AppCategory,
   type CatalogConnector,
   type CatalogSkill,
   type Connector,
   type DeviceShelf,
+  type FeatureKey,
   type ShelfItem,
   type Skill,
   type SignInOption,
@@ -53,14 +60,14 @@ import {
 } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
-import { href, type MarketSection } from "../router.ts";
-import { Loader, cx } from "../components/ui.tsx";
-import { Add, AppTile, Badge, Chip, Circle, Dlg, Item, Label, Panel, Prim, Sec, SearchBox, Tile } from "../components/MarketParts.tsx";
-import { AgentPicker, CatalogIcon } from "../components/ShopParts.tsx";
-import { ConnectorForm, connectorWhere, registryCatalog, type ConnectSummary } from "./ConnectorsView.tsx";
-import { AppDetail, Connected, ConnectSignIn, ManageApp, type AppItem } from "./AppPages.tsx";
-import { InstallModal, SkillDetail, SkillEditor, SkillShare, StoreSkillDetail, TryDialog, skillOrigin, whatItsFor, type Open } from "./SkillsView.tsx";
-import { openDm } from "../openDm.ts";
+import { setFeatures, useFeatures } from "../features.ts";
+import { go, href, type MarketSection, type Route } from "../router.ts";
+import { Button, Loader, cx } from "../components/ui.tsx";
+import { Add, AddRow, AppTile, Circle, Dlg, FactRow, Item, ItemHead, NeedDot, Panel, RemoveBtn, Rows, SearchBox, SectionHead, TextBtn, Tile, matchWords, queryWords, rowsShown, sectionWord, type AddSection } from "../components/MarketParts.tsx";
+import { CatalogIcon } from "../components/ShopParts.tsx";
+import { ConnectorForm, registryCatalog } from "./ConnectorsView.tsx";
+import { AppPage, ConnectSignIn, type AppItem } from "./AppPages.tsx";
+import { SkillDetail, SkillEditor, SkillShare, StoreSkillDetail, skillOrigin, type Open } from "./SkillsView.tsx";
 
 const HARNESS_NAMES: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", hermes: "Hermes" };
 const harnessName = (h: string) => HARNESS_NAMES[h] ?? h;
@@ -77,12 +84,65 @@ const BUILT_IN_SHELF: Record<CatalogConnector["category"], AppCategory> = {
   "Cloud keys": "Developer",
 };
 
-type SkillItem = { key: string; name: string; description: string; who: string; icon: ReactNode } & ({ library: CatalogSkill } | { store: StoreSkill });
+/** Which section of the page an address opens at (the old Marketplace sections, #/connectors, #/skills, #/mods). */
+const SECTION_OF: Record<MarketSection | "mods", AddSection | null> = { all: null, apps: "apps", skills: "skills", devices: "found", installed: "added", mods: "mods" };
+const SECTION_TITLE: Record<AddSection, string> = { added: "Added", found: "Found on your computers", apps: "Apps", skills: "Skills", mods: "Mods" };
 
-/** What is open in place of the shelves. */
-type Detail = { kind: "app"; app: AppItem } | { kind: "skill"; open: Open } | { kind: "store"; skill: StoreSkill; icon: ReactNode };
+const MOD_ICON: Record<FeatureKey, LucideIcon> = {
+  background: Bell,
+  routines: Clock,
+  teach: CircleDot,
+  tasks: ListChecks,
+  buddy: Ghost,
+  invite: UserPlus,
+  remoteDesktop: MonitorSmartphone,
+  storage: HardDrive,
+  code: SquareTerminal,
+  apple: Apple,
+};
+/** A mod in a few words, for its row. */
+const MOD_WORDS: Record<FeatureKey, string> = {
+  background: "They check in first",
+  routines: "Work on a timer",
+  teach: "Show it once",
+  tasks: "Hand out work",
+  buddy: "Ghost on your desktop",
+  invite: "Bring people in",
+  remoteDesktop: "Reach your computers",
+  storage: "Files on your drive",
+  code: "Terminals, side by side",
+  apple: "Messages, Calendar, Reminders",
+};
+/** A mod's own settings, as rows on its page: where they live, and the way there. */
+const MOD_ROWS: Record<FeatureKey, { label: string; value?: string; to?: Route }[]> = {
+  background: [{ label: "Checks", value: "Each agent, under More" }],
+  routines: [{ label: "Schedules", value: "Each agent, under More" }],
+  teach: [{ label: "Teach", value: "Each agent, under Knows" }],
+  tasks: [{ label: "Tasks", to: { view: "tasks" } }],
+  buddy: [{ label: "Where", value: "On your desktop" }],
+  invite: [{ label: "People", to: { view: "settings", page: "people" } }],
+  remoteDesktop: [{ label: "Computers", to: { view: "settings", page: "devices" } }],
+  storage: [{ label: "Drives and folders", to: { view: "settings", page: "storage" } }],
+  code: [{ label: "Code", to: { view: "code" } }],
+  apple: [{ label: "Mac, iPhone and apps", to: { view: "settings", page: "apple" } }],
+};
 
-/** One from each maker in turn, so a short shelf shows a bit of everyone's. */
+type SkillItem = { key: string; name: string; description: string; who: string; icon: ReactNode; bigIcon: ReactNode } & ({ library: CatalogSkill } | { store: StoreSkill });
+type Pending = { device: DeviceShelf; item: ShelfItem };
+
+/** The item whose page is open in place of the list. */
+type Detail =
+  | { kind: "app"; app: AppItem }
+  | { kind: "connector"; id: string }
+  | { kind: "skill"; open: Open; icon?: ReactNode }
+  | { kind: "store"; skill: StoreSkill; icon: ReactNode }
+  | { kind: "mod"; mod: FeatureKey }
+  | { kind: "found"; device: DeviceShelf; item: ShelfItem };
+
+/** One row of the page, whatever it is. */
+type RowDef = { key: string; tile: ReactNode; name: string; words?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void };
+
+/** One from each maker in turn, so a short list shows a bit of everyone's. */
 function takeTurns<T extends { who: string }>(list: T[]): T[] {
   const by = new Map<string, T[]>();
   for (const x of list) by.set(x.who, [...(by.get(x.who) ?? []), x]);
@@ -93,28 +153,28 @@ function takeTurns<T extends { who: string }>(list: T[]): T[] {
 }
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-const sentence = (names: string[]) => (names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
 /** A plain line icon for a skill, from what it's about. */
-function skillIcon(text: string): ReactNode {
+function skillIcon(text: string, size = 17): ReactNode {
   const t = text.toLowerCase();
-  const pick: [RegExp, ReactNode][] = [
-    [/\b(xlsx|spreadsheet|sheets?|excel|csv)\b/, <Sheet size={20} strokeWidth={1.7} />],
-    [/\b(pptx|slides?|deck|presentation)\b/, <Presentation size={20} strokeWidth={1.7} />],
-    [/\b(pdf|docx|documents?|docs?|writ\w+)\b/, <FileText size={20} strokeWidth={1.7} />],
-    [/\b(design|art|theme|canvas|frontend|figma|brand|ui)\b/, <Palette size={20} strokeWidth={1.7} />],
-    [/\b(images?|gif|imagegen|screenshot)\b/, <Image size={20} strokeWidth={1.7} />],
-    [/\b(speech|transcribe|audio|voice)\b/, <AudioLines size={20} strokeWidth={1.7} />],
-    [/\b(deploy\w*|vercel|netlify|render|cloudflare|ship)\b/, <Rocket size={20} strokeWidth={1.7} />],
-    [/\b(security|threat|secure)\b/, <Shield size={20} strokeWidth={1.7} />],
-    [/\b(gh|github|pull request|pr|ci|review)\b/, <GitPullRequest size={20} strokeWidth={1.7} />],
-    [/\b(test\w*|playwright|browser|webapp)\b/, <MousePointerClick size={20} strokeWidth={1.7} />],
-    [/\b(research|search|arxiv|papers?)\b/, <Search size={20} strokeWidth={1.7} />],
-    [/\b(notion|notes?|knowledge|wiki|meeting)\b/, <NotebookText size={20} strokeWidth={1.7} />],
-    [/\b(comms|slack|messages?|email|chat)\b/, <MessageSquare size={20} strokeWidth={1.7} />],
-    [/\b(mcp|api|cli|code|aspnet|winui|jupyter|sdk)\b/, <Code2 size={20} strokeWidth={1.7} />],
+  const pick: [RegExp, LucideIcon][] = [
+    [/\b(xlsx|spreadsheet|sheets?|excel|csv)\b/, Sheet],
+    [/\b(pptx|slides?|deck|presentation)\b/, Presentation],
+    [/\b(pdf|docx|documents?|docs?|writ\w+)\b/, FileText],
+    [/\b(design|art|theme|canvas|frontend|figma|brand|ui)\b/, Palette],
+    [/\b(images?|gif|imagegen|screenshot)\b/, Image],
+    [/\b(speech|transcribe|audio|voice)\b/, AudioLines],
+    [/\b(deploy\w*|vercel|netlify|render|cloudflare|ship)\b/, Rocket],
+    [/\b(security|threat|secure)\b/, Shield],
+    [/\b(gh|github|pull request|pr|ci|review)\b/, GitPullRequest],
+    [/\b(test\w*|playwright|browser|webapp)\b/, MousePointerClick],
+    [/\b(research|search|arxiv|papers?)\b/, Search],
+    [/\b(notion|notes?|knowledge|wiki|meeting)\b/, NotebookText],
+    [/\b(comms|slack|messages?|email|chat)\b/, MessageSquare],
+    [/\b(mcp|api|cli|code|aspnet|winui|jupyter|sdk)\b/, Code2],
   ];
-  return pick.find(([re]) => re.test(t))?.[1] ?? <Wand2 size={20} strokeWidth={1.7} />;
+  const I = pick.find(([re]) => re.test(t))?.[1] ?? Wand2;
+  return <I size={size} strokeWidth={1.7} />;
 }
 
 /** How a shelf skill is known to Wisp once it's brought in. */
@@ -147,20 +207,31 @@ const readyAsIs = (i: ShelfItem) => i.kind === "mcp" && !(i.secrets ?? []).lengt
 const needsSignIn = (c: Connector) => !!c.auth?.required && !c.auth.signedIn;
 const CONNECTING = "wisp.connecting";
 
-const SECTION_LABEL: Record<MarketSection, string> = { all: "All", apps: "Apps", skills: "Skills", devices: "On your devices", installed: "Installed" };
+const added = (label = "Added") => (
+  <span role="img" aria-label={label} className="pr-1.5 text-muted">
+    <Check size={14} aria-hidden />
+  </span>
+);
 
 /**
- * The marketplace: apps (MCP servers from the MCP Registry and Wisp's own list), skills (Wisp's
- * library and public SKILL.md repos), what your devices' harnesses already have,
- * and what's installed. Apps sign in once in Wisp and every agent picked gets them.
+ * Add: one page for apps (MCP servers from the MCP Registry and Wisp's own list), skills (Wisp's
+ * library and public SKILL.md repos) and mods. One search over all of it; sections with tiny
+ * headers (Added, Found on your computers, Apps, Skills, Mods), each a few rows of tile, name, a
+ * few words and one action; and "Make or bring your own" last. A row's name opens the item's page.
+ * It replaces the Marketplace, the Mods page, Connected apps and Skills, whose addresses open it
+ * at the matching section.
  */
-export function MarketplaceView({ section, onBack, embedded }: { section: MarketSection; onBack?: () => void; embedded?: boolean }) {
+export function MarketplaceView({ section, onBack }: { section: MarketSection | "mods"; onBack?: () => void; embedded?: boolean }) {
   const me = useStore((s) => s.me);
   const agents = useStore((s) => s.agents);
+  const features = useFeatures();
   const canEdit = !!me && me.role !== "guest";
+  const isOwner = me?.role === "owner";
+  const target = SECTION_OF[section];
   const [q, setQ] = useState("");
-  const [category, setCategory] = useState<AppCategory | "All">("All");
-  const [skillSource, setSkillSource] = useState("All");
+  // the sections showing every row (the one an address opened, and any "Show all" pressed), and whether "Make or bring your own" is unfolded
+  const [expanded, setExpanded] = useState<AddSection[]>(() => (target ? [target] : []));
+  const [making, setMaking] = useState(false);
   const [connectors, setConnectors] = useState<Connector[] | null>(null);
   const [skills, setSkills] = useState<Skill[] | null>(null);
   const [market, setMarket] = useState<{ q: string; entries: StoreApp[] | null; error: string | null }>({ q: "", entries: null, error: null });
@@ -169,21 +240,23 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
   const [shelves, setShelves] = useState<DeviceShelf[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
-  // what's open in place of the shelves, and the dialogs on top
+  // the item whose page is open, and the dialogs on top
   const [detail, setDetail] = useState<Detail | null>(null);
-  const [form, setForm] = useState<{ entry?: CatalogConnector; existing?: Connector; presetEnv?: Record<string, string>; summary?: ConnectSummary; title?: string } | null>(null);
+  const [form, setForm] = useState<{ entry?: CatalogConnector; existing?: Connector; presetEnv?: Record<string, string>; title?: string } | null>(null);
   const [signInFor, setSignInFor] = useState<string | null>(null);
   // catalog apps with one-click sign-in: whether it works from this address
   const [signInOptions, setSignInOptions] = useState<Record<string, SignInOption>>({});
   const [signInEntry, setSignInEntry] = useState<CatalogConnector | null>(null);
-  const [connectedId, setConnectedId] = useState<string | null>(null);
-  const [manageId, setManageId] = useState<string | null>(null);
-  const [trying, setTrying] = useState<{ name: string; description: string; agentIds: string[] } | null>(null);
-  const [sharing, setSharing] = useState<Skill | "import" | null>(null);
-  const [installing, setInstalling] = useState<{ entry: { name: string; description: string }; body: Record<string, string> } | null>(null);
+  const [sharing, setSharing] = useState<Skill | "import" | "pick" | null>(null);
   const [editing, setEditing] = useState<Skill | "new" | null>(null);
-  const [bringAll, setBringAll] = useState(false);
+  // what is being added right now: a row's key, or "n of m" while everything found comes in
+  const [adding, setAdding] = useState<string | null>(null);
+  const [bringing, setBringing] = useState<string | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [modOn, setModOn] = useState<FeatureKey | null>(null);
   const [signedIn] = useState(() => new URLSearchParams(location.search).get("signin"));
+  // an old address scrolls to its section as the lists arrive, until the person scrolls or types
+  const auto = useRef(true);
   useEffect(() => {
     if (signedIn) history.replaceState(null, "", location.pathname + location.hash);
   }, [signedIn]);
@@ -193,7 +266,7 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
   const loadShelves = () => (canEdit ? api<DeviceShelf[]>("GET", "/api/shelf").then(setShelves, () => setShelves([])) : Promise.resolve());
   useEffect(() => {
     void loadConnectors().then((list) => {
-      // back from an app's sign-in page: show it connected
+      // back from an app's sign-in page: its page, now signed in
       if (signedIn === "ok") {
         let id: string | null = null;
         try {
@@ -202,7 +275,7 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
         } catch {
           /* private window */
         }
-        if (id && list.some((c) => c.id === id)) setConnectedId(id);
+        if (id && list.some((c) => c.id === id)) setDetail({ kind: "connector", id });
       }
     });
     void loadSkills();
@@ -214,7 +287,8 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
   const searchGeneration = useRef(0);
   // the MCP Registry, searched on the hub (popular ones until someone types)
   useEffect(() => {
-    const query = q.trim();
+    // a word that names a whole section ("apps") isn't a search of the registry
+    const query = sectionWord(q) ? "" : q.trim();
     // only the latest search may fill the list: an older, slower answer must not overwrite it
     const generation = ++searchGeneration.current;
     setMarket((m) => ({ ...m, entries: m.q === query ? m.entries : null, error: null }));
@@ -236,83 +310,144 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
     };
   }, [q, retry]);
 
-  // moving between sections closes what was open
+  // another address closes what was open and opens its section
   useEffect(() => {
     setDetail(null);
-    setInstalling(null);
-    setTrying(null);
     setSharing(null);
     setEditing(null);
-  }, [section]);
+    setExpanded(target ? [target] : []);
+    auto.current = true;
+  }, [section]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const needle = q.trim().toLowerCase();
-  const match = (...s: (string | null | undefined)[]) => !needle || s.some((x) => x?.toLowerCase().includes(needle));
+  const loaded = connectors !== null && skills !== null;
+  useEffect(() => {
+    if (!target || detail || !auto.current) return;
+    document.getElementById(`add-${target}`)?.scrollIntoView({ block: "start" });
+  }, [target, loaded, featured.length > 0, shelves.length > 0, store !== null]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!modOn) return;
+    const t = setTimeout(() => setModOn(null), 8000);
+    return () => clearTimeout(t);
+  }, [modOn]);
+
+  // --- what was typed: words over every section, or one section by name ---
+  const words = queryWords(q);
+  const whole = sectionWord(q);
+  const searching = words.length > 0;
+  const hit = (sec: AddSection, ...fields: (string | null | undefined)[]) => (whole ? whole === sec : matchWords(words, fields));
 
   // --- apps ---
+  const builtInItem = (c: CatalogConnector): AppItem => ({ key: `b:${c.id}`, name: c.name, description: c.description, category: appCategory(c) ?? BUILT_IN_SHELF[c.category], who: "Wisp", builtIn: c });
+  const registryItem = (e: StoreApp): AppItem => ({ key: `r:${e.id}`, name: e.name, description: e.description, category: e.category, who: e.publisher, registry: e });
   const haveConnector = (a: AppItem) => (connectors ?? []).find((c) => c.catalogId === ("registry" in a ? `registry:${a.registry.id}` : a.builtIn.id) || squash(c.name) === squash(a.name));
   const apps: AppItem[] = useMemo(() => {
     // Wisp's own one-click sign-in beats a registry entry of the same name (often someone else's server)
     const signsIn = new Set(CONNECTOR_CATALOG.filter((c) => c.signIn).map((c) => squash(c.name)));
-    const fromRegistry: AppItem[] = (market.entries ?? []).filter((e) => !signsIn.has(squash(e.name))).map((e) => ({ key: `r:${e.id}`, name: e.name, description: e.description, category: e.category, who: e.publisher, registry: e }));
+    // the registry's answer to what was typed and, as the category and maker chips did, the well-known ones on that shelf or by that maker
+    const shelf = searching && !whole ? featured.filter((e) => matchWords(words, [e.category, e.publisher])) : [];
+    const seen = new Set<string>();
+    const fromRegistry = [...(market.entries ?? []), ...shelf].filter((e) => !signsIn.has(squash(e.name)) && !seen.has(e.id) && !!seen.add(e.id)).map(registryItem);
     const names = new Set(fromRegistry.map((a) => squash(a.name)));
-    const builtIn: AppItem[] = CONNECTOR_CATALOG.filter((c) => !names.has(squash(c.name)) && match(c.name, c.description, c.category)).map((c) => ({
-      key: `b:${c.id}`,
-      name: c.name,
-      description: c.description,
-      category: appCategory(c) ?? BUILT_IN_SHELF[c.category],
-      who: "Wisp",
-      builtIn: c,
-    }));
+    const builtIn = CONNECTOR_CATALOG.filter((c) => !names.has(squash(c.name)))
+      .map(builtInItem)
+      .filter((a) => hit("apps", a.name, a.description, a.category, a.who));
     const first = builtIn.filter((a) => "builtIn" in a && a.builtIn.signIn);
     return [...first, ...fromRegistry, ...builtIn.filter((a) => !first.includes(a))];
-  }, [market.entries, needle]); // eslint-disable-line react-hooks/exhaustive-deps
-  const popular = POPULAR_APPS.map((id) => featured.find((e) => e.id === id)).filter((e): e is StoreApp => !!e);
-  const popularApps = popular.map((e) => apps.find((a) => a.key === `r:${e.id}`)).filter((a): a is AppItem => !!a);
-  const shelfApps = (category === "All" ? apps : apps.filter((a) => a.category === category)).filter((a) => needle || section !== "all" || !popularApps.includes(a));
-  const categories = APP_CATEGORIES.filter((c) => apps.some((a) => a.category === c));
+  }, [market.entries, featured, q]); // eslint-disable-line react-hooks/exhaustive-deps
+  const popular = POPULAR_APPS.map((id) => apps.find((a) => a.key === `r:${id}`)).filter((a): a is AppItem => !!a);
+  /** The catalog's entry for an added app, when there is one. */
+  const appFor = (c: Connector): AppItem | null => {
+    const listed = apps.find((a) => haveConnector(a)?.id === c.id);
+    if (listed) return listed;
+    const builtIn = CONNECTOR_CATALOG.find((x) => x.id === c.catalogId);
+    if (builtIn) return builtInItem(builtIn);
+    const entry = c.catalogId?.startsWith("registry:") ? featured.find((e) => `registry:${e.id}` === c.catalogId) : undefined;
+    return entry ? registryItem(entry) : null;
+  };
 
   // --- skills ---
   const skillItems: SkillItem[] = useMemo(
     () => [
-      ...SKILL_CATALOG.map((e) => ({ key: `w:${e.id}`, name: e.name, description: e.description, who: "Wisp", icon: <CatalogIcon name={e.icon} fallback={Wand2} size={20} />, library: e })),
-      ...(store?.skills ?? []).map((s) => ({ key: `s:${s.id}`, name: s.name, description: s.description, who: s.source.label, icon: skillIcon(`${s.id} ${s.name}`), store: s })),
+      ...SKILL_CATALOG.map((e) => ({ key: `w:${e.id}`, name: e.name, description: e.description, who: "Wisp", icon: <CatalogIcon name={e.icon} fallback={Wand2} size={17} />, bigIcon: <CatalogIcon name={e.icon} fallback={Wand2} size={26} />, library: e })),
+      ...(store?.skills ?? []).map((s) => ({ key: `s:${s.id}`, name: s.name, description: s.description, who: s.source.label, icon: skillIcon(`${s.id} ${s.name}`), bigIcon: skillIcon(`${s.id} ${s.name}`, 26), store: s })),
     ],
     [store],
   );
-  const sources = ["All", ...new Set(skillItems.map((s) => s.who))];
-  const shownSkills = skillItems.filter((s) => (skillSource === "All" || s.who === skillSource) && match(s.name, s.description, s.who));
   const installedSkill = (s: SkillItem) => (skills ?? []).find((k) => k.catalogId === ("library" in s ? s.library.id : s.store.id));
+  const skillTile = (s: Skill, size: number) => (catalogSkill(s.catalogId ?? "") ? <CatalogIcon name={catalogSkill(s.catalogId ?? "")!.icon} fallback={Wand2} size={size} /> : skillIcon(`${s.slug} ${s.name}`, size));
   const openSkill = (s: SkillItem) => {
     const have = installedSkill(s);
-    if (have) setDetail({ kind: "skill", open: { skill: have } });
-    else if ("library" in s) setDetail({ kind: "skill", open: { entry: s.library } });
-    else setDetail({ kind: "store", skill: s.store, icon: s.icon });
+    if (have) setDetail({ kind: "skill", open: { skill: have }, icon: s.bigIcon });
+    else if ("library" in s) setDetail({ kind: "skill", open: { entry: s.library }, icon: s.bigIcon });
+    else setDetail({ kind: "store", skill: s.store, icon: s.bigIcon });
   };
-  const addSkill = (s: SkillItem) => {
-    if (installedSkill(s)) return openSkill(s);
-    if ("store" in s && !s.store.license.open) return openSkill(s);
-    setInstalling({ entry: s, body: "library" in s ? { catalogId: s.library.id } : { storeId: s.store.id } });
-  };
+  /** Add a skill for every agent (who can use it is on its page). `open` lands on its page. */
+  async function addSkill(body: Record<string, string>, key: string, open = false) {
+    setError(null);
+    setAdding(key);
+    try {
+      const made = await api<Skill>("POST", "/api/skills", { ...body, agentIds: [], allAgents: true });
+      const list = await loadSkills();
+      const got = list.find((x) => x.id === made.id);
+      if (open && got) setDetail({ kind: "skill", open: { skill: got } });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAdding(null);
+    }
+  }
 
-  // --- on your devices ---
+  // --- found on your computers ---
   const inWisp = (nodeId: string, i: ShelfItem) =>
     i.kind === "skill" ? (skills ?? []).some((s) => s.catalogId === deviceSkillId(nodeId, i) || s.slug === skillSlug(i.name)) : (connectors ?? []).some((c) => c.name.toLowerCase() === i.name.toLowerCase());
-  const pending = shelves.flatMap((d) => d.items.filter((i) => !inWisp(d.nodeId, i)).map((i) => ({ device: d, item: i })));
-  const bringIn = (d: DeviceShelf, i: ShelfItem) => {
-    if (i.kind === "skill") setInstalling({ entry: { name: skillTitle(i.name), description: i.description ?? "" }, body: { nodeId: d.nodeId, harness: i.harness, skillId: i.key.split(":skill:")[1] ?? i.name } });
-    else
-      setForm({
-        entry: shelfConnector(d.nodeId, i),
-        presetEnv: i.env,
-        summary: {
-          can: `Your agents will be able to use ${i.name}: read and act on what it allows.`,
-          runBy: i.transport === "http" ? `It connects to ${new URL(i.url ?? "https://x").host}, as it did in ${harnessName(i.harness)}.` : `It runs on each agent's own device, as it did in ${harnessName(i.harness)}.`,
-          caution: null,
-        },
-      });
+  const pending: Pending[] = shelves.flatMap((d) => d.items.filter((i) => !inWisp(d.nodeId, i)).map((i) => ({ device: d, item: i })));
+  const foundKey = (p: Pending) => `f:${p.device.nodeId}:${p.item.key}`;
+  const bringIn = (p: Pending, open = false) => {
+    const { device: d, item: i } = p;
+    if (i.kind === "skill") void addSkill({ nodeId: d.nodeId, harness: i.harness, skillId: i.key.split(":skill:")[1] ?? i.name }, foundKey(p), open);
+    else setForm({ entry: shelfConnector(d.nodeId, i), presetEnv: i.env });
   };
+  /** Everything found that needs nothing more, brought in for every agent; what needs a key stays, with "Set up". */
+  async function bringAllIn() {
+    const ready = pending.filter((p) => p.item.kind === "skill" || readyAsIs(p.item));
+    if (!ready.length || !confirm(`Bring in ${shelfSummary(ready.map((p) => p.item))} for every agent?`)) return;
+    setError(null);
+    const failed: string[] = [];
+    for (let n = 0; n < ready.length; n++) {
+      setBringing(`${n + 1} of ${ready.length}`);
+      const { device: d, item: i } = ready[n];
+      try {
+        if (i.kind === "skill") await api("POST", "/api/skills", { nodeId: d.nodeId, harness: i.harness, skillId: i.key.split(":skill:")[1] ?? i.name, agentIds: [], allAgents: true });
+        else {
+          const kind = i.transport === "http" ? "mcp-http" : "mcp-stdio";
+          const catalogId = `device:${d.nodeId}:${i.harness}:${i.name}`;
+          await api("POST", "/api/connectors", kind === "mcp-http" ? { kind, name: i.name, url: i.url, catalogId, agentIds: [], allAgents: true } : { kind, name: i.name, command: i.command, args: i.args ?? [], env: i.env ?? {}, catalogId, agentIds: [], allAgents: true });
+        }
+      } catch (e) {
+        failed.push(`${i.name}: ${(e as Error).message}`);
+      }
+    }
+    setBringing(null);
+    if (failed.length) setError(failed.join(" · "));
+    await Promise.all([loadSkills(), loadConnectors()]);
+  }
+  /** Ask every computer that's on to look through its harnesses again. */
+  async function lookAgain() {
+    setLooking(true);
+    setError(null);
+    try {
+      await Promise.all(shelves.filter((d) => d.online).map((d) => api("POST", `/api/shelf/${d.nodeId}/refresh`)));
+      await new Promise((r) => setTimeout(r, 2500));
+      await loadShelves();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLooking(false);
+    }
+  }
 
-  // --- installed ---
+  // --- added apps ---
   const connectorById = (id: string | null) => (id ? (connectors ?? []).find((c) => c.id === id) : undefined);
   async function signIn(c: Connector) {
     setError(null);
@@ -330,19 +465,21 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
       setError((e as Error).message);
     }
   }
-  /** Connect a catalog app by signing in: the hub makes the connector, the browser goes to the sign-in page. */
+  /** Add a catalog app by signing in: the hub makes the connector (for every agent), the browser goes to the sign-in page. */
   async function connectBySignIn(e: CatalogConnector) {
     setError(null);
     try {
-      const r = await api<{ url?: string; connectors: Connector[] }>("POST", "/api/connectors/connect", { catalogIds: [e.id], origin: location.origin });
+      const r = await api<{ url?: string; connectors: Connector[] }>("POST", "/api/connectors/connect", { catalogIds: [e.id], origin: location.origin, allAgents: true });
+      const id = r.connectors[0]?.id ?? "";
       try {
-        sessionStorage.setItem(CONNECTING, r.connectors[0]?.id ?? "");
+        sessionStorage.setItem(CONNECTING, id);
       } catch {
         /* private window */
       }
       if (r.url) location.href = r.url;
-      else (setSignInEntry(null), void loadConnectors().then(() => setConnectedId(r.connectors[0]?.id ?? null)));
+      else (setSignInEntry(null), void loadConnectors().then(() => id && setDetail({ kind: "connector", id })));
     } catch (err) {
+      setSignInEntry(null);
       setError((err as Error).message);
     }
   }
@@ -360,8 +497,8 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
     setForm(null);
     await loadConnectors();
     if (!c || editedExisting) return;
+    setDetail({ kind: "connector", id: c.id });
     if (c.auth?.required && !c.auth.signedIn) setSignInFor(c.id);
-    else setConnectedId(c.id);
   };
   const refreshSkills = async (focus?: string) => {
     const list = await loadSkills();
@@ -372,255 +509,10 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
   };
   const removeConnector = (c: Connector) => {
     if (!confirm(`Remove ${c.name}? Agents will lose access to it.`)) return;
-    setManageId(null);
+    setDetail(null);
     void act(api("DELETE", `/api/connectors/${c.id}`));
   };
-
-  const connectedCount = connectors?.length ?? 0;
-  const installedCount = connectedCount + (skills?.length ?? 0);
-  const nav: { id: MarketSection; label: string; count?: number; icon: ReactNode }[] = [
-    { id: "all", label: "All", icon: <LayoutGrid size={18} /> },
-    { id: "apps", label: "Apps", icon: <Plug size={18} /> },
-    { id: "skills", label: "Skills", icon: <Wand2 size={18} /> },
-    ...(shelves.length ? [{ id: "devices" as const, label: "On your devices", count: pending.length || undefined, icon: <Laptop size={18} /> }] : []),
-    { id: "installed", label: "Installed", count: installedCount || undefined, icon: <Package size={18} /> },
-  ];
-
-  // --- lists ---
-  const appCards = (list: AppItem[], limit?: number) =>
-    market.entries === null && !list.length ? (
-      <Loader />
-    ) : list.length === 0 ? (
-      <p className="py-4 text-sm text-muted">{needle ? `No apps match "${q}".` : "No apps here yet."}</p>
-    ) : (
-      <Grid>
-        {list.slice(0, limit).map((a) => {
-          const have = haveConnector(a);
-          return (
-            <Entry
-              key={a.key}
-              tile={<AppTile name={a.name} category={a.category} entry={"registry" in a ? a.registry : null} />}
-              title={a.name}
-              badge={"registry" in a ? <TrustLine t={trustOf(a.registry)} /> : <span className="text-xs text-[#0a6fd6] dark:text-[#5ea8ff]">On Wisp's list</span>}
-              sub={whatItsFor(a.description, 90) || a.who}
-              phoneSub={`${whatItsFor(a.description, 60) || a.who}${"registry" in a && trustOf(a.registry).kind === "unverified" ? ` ${trustOf(a.registry).text}.` : ""}`}
-              onOpen={() => setDetail({ kind: "app", app: a })}
-              action={canEdit && <Add onClick={() => setDetail({ kind: "app", app: a })} aria-label={`${have ? "Open" : "Add"} ${a.name}`} className={cx(have && "text-faint")}>{have ? "Added" : "Add"}</Add>}
-            />
-          );
-        })}
-      </Grid>
-    );
-  const skillCards = (list: SkillItem[], limit?: number) =>
-    store === null && !list.length ? (
-      <Loader />
-    ) : list.length === 0 ? (
-      <p className="py-4 text-sm text-muted">{needle ? `No skills match "${q}".` : "No skills here yet."}</p>
-    ) : (
-      <Grid>
-        {list.slice(0, limit).map((s) => {
-          const have = !!installedSkill(s);
-          const linkOnly = "store" in s && !s.store.license.open;
-          return (
-            <Entry
-              key={s.key}
-              tile={<Tile size={40}>{s.icon}</Tile>}
-              title={s.name}
-              badge={<span className="text-xs text-muted">{"library" in s ? "Made by Wisp" : `From ${s.who}`}</span>}
-              sub={whatItsFor(s.description, 90) || s.who}
-              phoneSub={"library" in s ? "Made by Wisp" : `From ${s.who}`}
-              onOpen={() => openSkill(s)}
-              action={canEdit && (linkOnly ? <Add onClick={() => openSkill(s)} aria-label={`View ${s.name}`}>View</Add> : <Add onClick={() => addSkill(s)} aria-label={`${have ? "Open" : "Add"} ${s.name}`} className={cx(have && "text-faint")}>{have ? "Added" : "Add"}</Add>)}
-            />
-          );
-        })}
-      </Grid>
-    );
-  // --- pages ---
-  const shelf = (title: string, to: MarketSection, children: ReactNode) => (
-    <section aria-label={title} className="space-y-3">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm text-faint md:text-[14px] md:font-semibold md:text-ink">{title}</h2>
-        <a href={href({ view: "marketplace", section: to })} className="text-sm text-muted hover:text-ink">
-          View all
-        </a>
-      </div>
-      {children}
-    </section>
-  );
-
-  const makeYourOwn = canEdit && (
-    <section aria-label="Make your own" className="space-y-2 md:hidden">
-      <Label>Make your own</Label>
-      <Panel>
-        <Item icon={<Tile size={40}><Wand2 size={20} strokeWidth={1.7} /></Tile>} title="Create a skill" sub="Teach your agent a way of doing something" onClick={() => setEditing("new")} />
-        <Item icon={<Tile size={40}><Plug size={20} strokeWidth={1.7} /></Tile>} title="Add your own app" sub="Use any MCP server or URL" onClick={() => setForm({})} />
-        <Item icon={<Tile size={40}><Download size={20} strokeWidth={1.7} /></Tile>} title="Bring a skill in" sub="From a link or a file" onClick={() => setSharing("import")} />
-      </Panel>
-    </section>
-  );
-
-  const home = (
-    <>
-      {canEdit && pending.length > 0 && !needle && <DeviceBanner pending={pending} onOpen={() => (location.hash = href({ view: "marketplace", section: "devices" }))} />}
-      {market.error && <RegistryError error={market.error} onRetry={() => setRetry((n) => n + 1)} />}
-      {needle ? (
-        <>
-          {shelf("Apps", "apps", appCards(shelfApps, 12))}
-          {shelf("Skills", "skills", skillCards(shownSkills, 12))}
-        </>
-      ) : (
-        <>
-          {popularApps.length > 0 ? shelf("Popular apps", "apps", appCards(popularApps, 3)) : shelf("Apps", "apps", appCards(shelfApps, 3))}
-          {shelf("Skills", "skills", skillCards(takeTurns(shownSkills), 3))}
-          {makeYourOwn}
-        </>
-      )}
-    </>
-  );
-
-  const appsPage = (
-    <>
-      {categories.length > 0 && (
-        <div role="group" aria-label="App categories" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
-          {["All", ...categories].map((c) => (
-            <Chip key={c} on={category === c} onClick={() => setCategory(category === c && c !== "All" ? "All" : (c as AppCategory | "All"))}>
-              {c}
-            </Chip>
-          ))}
-        </div>
-      )}
-      {market.error && <RegistryError error={market.error} onRetry={() => setRetry((n) => n + 1)} />}
-      {appCards(category === "All" && !needle ? [...popularApps, ...shelfApps.filter((a) => !popularApps.includes(a))] : shelfApps)}
-    </>
-  );
-
-  const skillsPage = (
-    <>
-      {sources.length > 2 && (
-        <div role="group" aria-label="Who made them" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
-          {sources.map((c) => (
-            <Chip key={c} on={skillSource === c} onClick={() => setSkillSource(skillSource === c && c !== "All" ? "All" : c)}>
-              {c}
-            </Chip>
-          ))}
-        </div>
-      )}
-      {store?.errors.map((e) => (
-        <p key={e} className="text-sm text-muted">
-          {e}
-        </p>
-      ))}
-      {skillCards(shownSkills)}
-    </>
-  );
-
-  const devicesPage = (
-    <Devices shelves={shelves} canEdit={canEdit} inWisp={inWisp} onBring={bringIn} onBringAll={() => setBringAll(true)} pending={pending} onRefresh={(id) => api("POST", `/api/shelf/${id}/refresh`).then(() => setTimeout(loadShelves, 2500), (e) => setError((e as Error).message))} />
-  );
-
-  const rowFor = (c: Connector) => {
-    const needs = needsSignIn(c);
-    return (
-      <Item
-        key={c.id}
-        icon={<AppTile name={c.name} size={40} />}
-        title={c.name}
-        sub={c.auth?.error ? <span className="text-bad">{c.auth.error}</span> : needs ? "Needs sign-in again" : c.auth?.signedIn ? "Signed in" : connectorWhere(c) || "Set up"}
-        right={
-          <>
-            {!c.enabled ? <Badge>Off</Badge> : needs ? <Badge tone="warn">Sign in</Badge> : <Badge tone="green">On</Badge>}
-            {canEdit && (
-              <>
-                <Sec className="h-9 max-md:hidden" onClick={() => setManageId(c.id)}>
-                  Manage
-                </Sec>
-                <Circle label={`Remove ${c.name}`} className="circle-sm" wrap="max-md:hidden" onClick={() => removeConnector(c)}>
-                  <Trash2 size={16} />
-                </Circle>
-              </>
-            )}
-          </>
-        }
-        onClick={() => (needs && canEdit ? setSignInFor(c.id) : setManageId(c.id))}
-        label={`${c.name}: ${needs ? "sign in" : "manage"}`}
-      />
-    );
-  };
-
-  const installedPage = (
-    <>
-      {connectors === null ? (
-        <Loader />
-      ) : connectors.length === 0 ? (
-        <p className="px-1 py-2 text-sm text-muted">
-          No apps yet. <a className="underline" href={href({ view: "marketplace", section: "apps" })}>Get one</a>
-        </p>
-      ) : (
-        <>
-          {connectors.filter((c) => c.catalogId && match(c.name, c.url, c.command)).length > 0 && (
-            <section className="space-y-2">
-              <Label>Connected</Label>
-              <Panel>{connectors.filter((c) => c.catalogId && match(c.name, c.url, c.command)).map(rowFor)}</Panel>
-            </section>
-          )}
-          {connectors.filter((c) => !c.catalogId && match(c.name, c.url, c.command)).length > 0 && (
-            <section className="space-y-2">
-              <Label>Your own apps</Label>
-              <Panel>{connectors.filter((c) => !c.catalogId && match(c.name, c.url, c.command)).map(rowFor)}</Panel>
-            </section>
-          )}
-        </>
-      )}
-      <section className="space-y-2">
-        <Label>Skills</Label>
-        {skills === null ? (
-          <Loader />
-        ) : skills.length === 0 ? (
-          <p className="px-1 py-2 text-sm text-muted">
-            No skills yet. <a className="underline" href={href({ view: "marketplace", section: "skills" })}>Add one</a>
-          </p>
-        ) : (
-          <Panel>
-            {skills
-              .filter((s) => match(s.name, s.description))
-              .map((s) => (
-                <Item
-                  key={s.id}
-                  icon={<Tile size={40}>{catalogSkill(s.catalogId ?? "") ? <CatalogIcon name={catalogSkill(s.catalogId ?? "")!.icon} fallback={Wand2} size={20} /> : skillIcon(`${s.slug} ${s.name}`)}</Tile>}
-                  title={s.name}
-                  sub={`${skillOrigin(s)} · ${s.allAgents ? "all agents" : s.agentIds.length ? `${s.agentIds.length} agent${s.agentIds.length === 1 ? "" : "s"}` : "no one yet"}`}
-                  onClick={() => setDetail({ kind: "skill", open: { skill: s } })}
-                />
-              ))}
-          </Panel>
-        )}
-      </section>
-          </>
-  );
-
-  const body = (() => {
-    switch (section) {
-      case "all":
-        return home;
-      case "apps":
-        return appsPage;
-      case "skills":
-        return skillsPage;
-      case "devices":
-        return devicesPage;
-      case "installed":
-        return installedPage;
-    }
-  })();
-
-  // an open detail replaces the shelves
-  const detailPage = (() => {
-    if (!detail) return null;
-    if (detail.kind === "app") return <AppDetail app={detail.app} have={haveConnector(detail.app)} canEdit={canEdit} onManage={(c) => setManageId(c.id)} onConnect={(i) => connect(detail.app, i)} signIn={"builtIn" in detail.app ? signInOptions[detail.app.builtIn.id] : undefined} />;
-    if (detail.kind === "store") return <StoreSkillDetail s={detail.skill} icon={detail.icon} canEdit={canEdit} onAdd={() => setInstalling({ entry: detail.skill, body: { storeId: detail.skill.id } })} onTry={() => setTrying({ name: detail.skill.name, description: detail.skill.description, agentIds: [] })} />;
-    return <SkillDetail open={detail.open} agents={agents} canEdit={canEdit} onInstall={(e) => setInstalling({ entry: e, body: { catalogId: e.id } })} onEdit={(s) => setEditing(s)} onChanged={(id) => void refreshSkills(id)} onGone={() => setDetail(null)} onTry={setTrying} onShare={(s) => setSharing(s)} />;
-  })();
+  /** Start adding an app: its sign-in, or the form that asks for its key. */
   function connect(app: AppItem, installIndex: number) {
     if ("builtIn" in app && signInOptions[app.builtIn.id]?.signIn) setSignInEntry(app.builtIn);
     else if ("builtIn" in app) setForm({ entry: app.builtIn });
@@ -629,115 +521,328 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
       if (install) setForm({ entry: registryCatalog(app.registry, install) });
     }
   }
+  /** "Add" on an app's row. Its page comes first when there is something to weigh there: several ways to connect, nobody vouching for it, or no way to add it from here. */
+  const addApp = (a: AppItem) => {
+    const o = "builtIn" in a ? signInOptions[a.builtIn.id] : undefined;
+    const stuck = "builtIn" in a && !!o && !o.signIn && !o.key && !a.builtIn.fields.length;
+    const weigh = "registry" in a && (a.registry.installs.length > 1 || trustLabel(a.registry).kind === "unverified");
+    if (stuck || weigh) setDetail({ kind: "app", app: a });
+    else connect(a, 0);
+  };
 
-  const searchRow = (
-    <div className="flex items-center gap-3">
-      <SearchBox value={q} onChange={setQ} placeholder={section === "installed" ? "Search apps" : "Search apps and skills"} />
-      {canEdit && section !== "installed" && (
-        <div className="hidden items-center gap-3 md:flex">
-          <Prim className="h-[42px] !rounded-[10px] text-sm" onClick={() => setEditing("new")}>
-            <Wand2 size={16} /> Create a skill
-          </Prim>
-          <Sec className="h-[42px] !rounded-[10px] text-sm" onClick={() => setForm({})}>
-            Add your own app
-          </Sec>
-          <Circle label="Bring a skill in" className="circle-sm" onClick={() => setSharing("import")}>
-            <Upload size={16} />
-          </Circle>
-        </div>
-      )}
-      {section === "installed" && !embedded && (
-        <a href={href({ view: "marketplace", section: "apps" })} className="hidden md:inline-flex">
-          <Prim className="h-[42px] !rounded-[10px] text-sm">
-            <Plus size={16} /> Get more
-          </Prim>
-        </a>
-      )}
-    </div>
-  );
+  // --- mods ---
+  // an unlisted mod (Code) stays out while it is on, and shows once it is off, so "Code is turned off" always has a way back
+  const mods = FEATURE_KEYS.filter((k) => !UNLISTED_FEATURES.includes(k) || !features[k]);
+  async function setMod(k: FeatureKey, on: boolean) {
+    setError(null);
+    try {
+      await setFeatures({ [k]: on });
+      setModOn(on ? k : null);
+    } catch (e) {
+      setError(`Couldn't save that: ${(e as Error).message}`);
+    }
+  }
 
-  const titleBlock = embedded ? (
-    <div className="flex items-center gap-3">
-      {onBack && (
-        <Circle label="Back" wrap="md:hidden" onClick={onBack}>
-          <ChevronLeft size={22} />
-        </Circle>
-      )}
-      <div className="min-w-0 flex-1">
-        <h1 className="t-title truncate">Installed</h1>
-        <p className="text-sm text-faint">{connectedCount} connected</p>
-      </div>
-    </div>
-  ) : (
+  // --- the rows of each section ---
+  const connectorWords = (c: Connector) => {
+    const app = appFor(c);
+    if (app) return app.category ?? "App";
+    return c.catalogId?.startsWith("device:") ? `From ${harnessName(c.catalogId.split(":")[2])}` : "Your own app";
+  };
+  const addedRows: RowDef[] = [
+    ...[...(connectors ?? [])]
+      // a sign-in that lapsed comes first
+      .sort((a, b) => Number(needsSignIn(b)) - Number(needsSignIn(a)))
+      .filter((c) => hit("added", c.name, c.url, c.command, connectorWords(c), "app"))
+      .map((c) => ({
+        key: `c:${c.id}`,
+        tile: <AppTile name={c.name} size={36} />,
+        name: c.name,
+        words: connectorWords(c),
+        status: needsSignIn(c) ? (
+          <span className="flex shrink-0 items-center gap-1.5 pr-1.5 text-[13px] text-muted">
+            <NeedDot />
+            Sign in again
+          </span>
+        ) : !c.enabled ? (
+          <span className="shrink-0 pr-1.5 text-[13px] text-muted">Off</span>
+        ) : (
+          added()
+        ),
+        onOpen: () => setDetail({ kind: "connector", id: c.id }),
+      })),
+    ...(skills ?? [])
+      .filter((s) => hit("added", s.name, s.description, skillOrigin(s), "skill"))
+      .map((s) => ({ key: `k:${s.id}`, tile: <Tile size={36}>{skillTile(s, 17)}</Tile>, name: s.name, words: skillOrigin(s), status: added(), onOpen: () => setDetail({ kind: "skill", open: { skill: s }, icon: skillTile(s, 26) }) })),
+  ];
+
+  const foundRows: RowDef[] = canEdit
+    ? pending
+        .filter((p) => hit("found", p.item.name, p.item.description, harnessName(p.item.harness), p.device.nodeName, p.item.kind === "skill" ? "skill" : "app"))
+        .map((p) => {
+          const i = p.item;
+          return {
+            key: foundKey(p),
+            tile: i.kind === "mcp" ? <AppTile name={i.name} size={36} /> : <Tile size={36}>{skillIcon(i.name)}</Tile>,
+            name: i.kind === "skill" ? skillTitle(i.name) : i.name,
+            words: `${harnessName(i.harness)} · ${p.device.nodeName}${p.device.online ? "" : " · offline"}`,
+            action: (
+              <Add onClick={() => bringIn(p)} disabled={adding === foundKey(p) || !!bringing} aria-label={`${i.kind === "mcp" && !readyAsIs(i) ? "Set up" : "Bring in"} ${i.name}`}>
+                {i.kind === "mcp" && !readyAsIs(i) ? "Set up" : "Bring in"}
+              </Add>
+            ),
+            onOpen: () => setDetail({ kind: "found", device: p.device, item: i }),
+          };
+        })
+    : [];
+
+  const freeApps = apps.filter((a) => !haveConnector(a));
+  const appRows: RowDef[] = (searching ? freeApps : [...popular.filter((a) => freeApps.includes(a)), ...freeApps.filter((a) => !popular.includes(a))]).map((a) => ({
+    key: a.key,
+    tile: <AppTile name={a.name} category={a.category} size={36} entry={"registry" in a ? a.registry : null} />,
+    name: a.name,
+    // nobody has confirmed who runs it: the row says so, quietly
+    words: "registry" in a && trustLabel(a.registry).kind === "unverified" ? "Not verified" : (a.category ?? `By ${a.who}`),
+    action: canEdit && (
+      <Add onClick={() => addApp(a)} aria-label={`Add ${a.name}`}>
+        Add
+      </Add>
+    ),
+    onOpen: () => setDetail({ kind: "app", app: a }),
+  }));
+
+  const freeSkills = skillItems.filter((s) => !installedSkill(s) && hit("skills", s.name, s.description, s.who));
+  const skillRows: RowDef[] = (searching ? freeSkills : takeTurns(freeSkills)).map((s) => {
+    const linkOnly = "store" in s && !s.store.license.open;
+    return {
+      key: s.key,
+      tile: <Tile size={36}>{s.icon}</Tile>,
+      name: s.name,
+      words: `From ${s.who}`,
+      action:
+        canEdit &&
+        (linkOnly ? (
+          <Add onClick={() => openSkill(s)} aria-label={`View ${s.name}`}>
+            View
+          </Add>
+        ) : (
+          <Add onClick={() => void addSkill("library" in s ? { catalogId: s.library.id } : { storeId: s.store.id }, s.key)} disabled={adding === s.key} aria-label={`Add ${s.name}`}>
+            Add
+          </Add>
+        )),
+      onOpen: () => openSkill(s),
+    };
+  });
+
+  const modRows: RowDef[] = mods
+    .filter((k) => hit("mods", FEATURE_INFO[k].name, FEATURE_INFO[k].description, MOD_WORDS[k], "mod"))
+    .map((k) => {
+      const I = MOD_ICON[k];
+      return {
+        key: `m:${k}`,
+        tile: (
+          <Tile size={36}>
+            <I size={17} strokeWidth={1.7} />
+          </Tile>
+        ),
+        name: FEATURE_INFO[k].name,
+        words: MOD_WORDS[k],
+        ...(features[k]
+          ? { status: added("On") }
+          : {
+              action: canEdit && (
+                <Add onClick={() => void setMod(k, true)} disabled={!isOwner} title={isOwner ? undefined : "Only owners can change mods"} aria-label={`Add ${FEATURE_INFO[k].name}`}>
+                  Add
+                </Add>
+              ),
+            }),
+        onOpen: () => setDetail({ kind: "mod", mod: k }),
+      };
+    });
+
+  const readyCount = pending.filter((p) => p.item.kind === "skill" || readyAsIs(p.item)).length;
+  const canLook = shelves.some((d) => d.online);
+  // a section shows only when it has rows; the registry and the skill store show a spinner until they answer, and "found" stays for its own address so "Look again" has a home
+  const sections: { id: AddSection; rows: RowDef[]; loading?: boolean; keep?: boolean; head?: ReactNode; foot?: ReactNode }[] = [
+    { id: "added", rows: addedRows, loading: !loaded },
+    {
+      id: "found",
+      rows: foundRows,
+      keep: canEdit && shelves.length > 0 && (target === "found" || whole === "found"),
+      head: (
+        <>
+          {(readyCount > 1 || !!bringing) && (
+            <TextBtn className="-my-2 py-2" onClick={() => void bringAllIn()} disabled={!!bringing}>
+              {bringing ? `Bringing in ${bringing}` : "Bring all in"}
+            </TextBtn>
+          )}
+          {canLook && (
+            <TextBtn className="-my-2 py-2" onClick={() => void lookAgain()} disabled={looking}>
+              {looking ? "Looking" : "Look again"}
+            </TextBtn>
+          )}
+        </>
+      ),
+      foot: !foundRows.length && <p className="px-0.5 py-2 text-[13px] text-muted">Nothing new</p>,
+    },
+    {
+      id: "apps",
+      rows: appRows,
+      loading: market.entries === null,
+      keep: !!market.error && (!whole || whole === "apps"),
+      foot: market.error && (
+        <p className="flex flex-wrap items-center gap-2 px-0.5 py-2 text-[13px] text-bad">
+          {market.error}
+          <TextBtn className="underline" onClick={() => setRetry((n) => n + 1)}>
+            Try again
+          </TextBtn>
+        </p>
+      ),
+    },
+    {
+      id: "skills",
+      rows: skillRows,
+      loading: store === null,
+      foot: store?.errors.map((e) => (
+        <p key={e} className="px-0.5 py-1 text-[13px] text-muted">
+          {e}
+        </p>
+      )),
+    },
+    { id: "mods", rows: modRows },
+  ];
+  const shownSections = sections.filter((s) => (!whole || whole === s.id) && (s.rows.length > 0 || s.keep || (s.loading && !searching && s.id !== "added")));
+  const stillLoading = sections.some((s) => s.loading && (!whole || whole === s.id));
+
+  const row = (r: RowDef) => <AddRow key={r.key} tile={r.tile} name={r.name} words={r.words} status={r.status} action={r.action || undefined} onOpen={r.onOpen} />;
+  const own = (icon: ReactNode, name: string, onOpen: () => void) => <AddRow tile={<Tile size={36}>{icon}</Tile>} name={name} onOpen={onOpen} />;
+
+  const list = (
     <>
-      <div className="flex items-center gap-3 md:hidden">
+      <h1 className="sr-only">Add</h1>
+      <div className="flex items-center gap-2 pb-1">
         {onBack && (
-          <Circle label="Back" onClick={onBack}>
+          <Circle label="Back" wrap="md:hidden" onClick={onBack}>
             <ChevronLeft size={22} />
           </Circle>
         )}
-        <h1 className="min-w-0 flex-1 truncate t-title">Marketplace</h1>
+        <SearchBox value={q} onChange={(v) => ((auto.current = false), setQ(v))} placeholder="Add an app, a skill or a mod" />
       </div>
-      {section === "installed" && (
-        <div className="hidden md:block">
-          <h1 className="t-title truncate">Installed</h1>
-          <p className="text-sm text-faint">{connectedCount} connected</p>
-        </div>
+      {error && <p className="px-0.5 pt-2 text-[13px] text-bad">{error}</p>}
+      {signedIn && signedIn !== "ok" && <p className="px-0.5 pt-2 text-[13px] text-bad">Sign-in didn't finish: {signedIn}</p>}
+      {shownSections.map((s) => {
+        const open = expanded.includes(s.id) || whole === s.id;
+        const n = rowsShown(s.rows.length, open, searching);
+        return (
+          <section key={s.id} id={`add-${s.id}`} aria-label={SECTION_TITLE[s.id]} className="scroll-mt-2">
+            <SectionHead title={SECTION_TITLE[s.id]}>{s.head}</SectionHead>
+            {s.rows.slice(0, n).map(row)}
+            {s.loading && !s.rows.length && <Loader />}
+            {s.foot}
+            {s.rows.length > n && (
+              <TextBtn className="flex h-10 w-full items-center px-0.5 text-left text-[13px]" onClick={() => setExpanded([...expanded, s.id])}>
+                Show all
+              </TextBtn>
+            )}
+          </section>
+        );
+      })}
+      {searching && !shownSections.length && !stillLoading && <p className="px-0.5 py-4 text-[14px] text-muted">Nothing matches "{q.trim()}"</p>}
+      {canEdit && (
+        <section aria-label="Make or bring your own" className="mt-2 border-t border-line">
+          <button type="button" aria-expanded={making} onClick={() => setMaking(!making)} className="flex h-[52px] w-full items-center px-0.5 text-left text-[14px] text-muted outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40">
+            <span className="flex-1">Make or bring your own</span>
+            <ChevronRight size={14} aria-hidden className={cx(making && "rotate-90")} />
+          </button>
+          {making && (
+            <>
+              {own(<Wand2 size={17} strokeWidth={1.7} />, "Create a skill", () => setEditing("new"))}
+              {own(<Plug size={17} strokeWidth={1.7} />, "Add your own app", () => setForm({}))}
+              {own(<Download size={17} strokeWidth={1.7} />, "Bring a skill in", () => setSharing("import"))}
+              {!!skills?.length && own(<Share2 size={17} strokeWidth={1.7} />, "Share a skill", () => setSharing("pick"))}
+            </>
+          )}
+        </section>
       )}
     </>
   );
 
-  const content = (
-    <div className="mx-auto w-full max-w-[1000px] space-y-5 px-4 pb-24 pt-4 md:px-8 md:pb-12 md:pt-8">
-      {titleBlock}
-      {!detail && searchRow}
-      {!detail && !embedded && (
-        <nav aria-label="Marketplace sections" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] md:hidden">
-          {nav.map((n) => (
-            <a key={n.id} href={href({ view: "marketplace", section: n.id === "all" ? null : n.id })} aria-current={section === n.id ? "page" : undefined} className={cx("inline-flex h-[34px] shrink-0 items-center rounded-[10px] border px-3.5 text-sm font-medium transition-colors", section === n.id ? "border-accent bg-accent text-accent-ink" : "border-control-line bg-control text-ink/80")}>
-              {n.label}
-              {!!n.count && <span className="ml-1.5 tabular-nums opacity-70">{n.count}</span>}
-            </a>
-          ))}
-        </nav>
-      )}
-      {detail && (
-        <button type="button" onClick={() => setDetail(null)} className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
-          <ChevronLeft size={18} aria-hidden /> {embedded ? "Back" : SECTION_LABEL[section] === "All" ? "Marketplace" : SECTION_LABEL[section]}
-        </button>
-      )}
-      {error && <p className="text-sm text-bad">{error}</p>}
-      {signedIn && signedIn !== "ok" && <p className="rounded-2xl bg-bad/10 px-4 py-3 text-sm text-bad">Sign-in didn't finish: {signedIn}</p>}
-      {detail ? <div className="max-w-2xl">{detailPage}</div> : <div className="space-y-6">{body}</div>}
-    </div>
-  );
+  // an open item replaces the list
+  const page = (() => {
+    if (!detail) return null;
+    if (detail.kind === "app" || detail.kind === "connector") {
+      const have = detail.kind === "app" ? haveConnector(detail.app) : connectorById(detail.id);
+      const app = detail.kind === "app" ? detail.app : have ? appFor(have) : null;
+      if (!app && !have) return connectors === null ? <Loader /> : <p className="text-[14px] text-muted">This app isn't here anymore.</p>;
+      const builtIn = app && "builtIn" in app ? app.builtIn : null;
+      const option = builtIn ? signInOptions[builtIn.id] : undefined;
+      // a key instead of the sign-in: before it's added, the same app set up with its key; after, a second copy that uses the key
+      const useKey = !builtIn || !option?.key ? undefined : !have ? () => setForm({ entry: builtIn }) : builtIn.signIn && have.url === builtIn.signIn.url ? () => setForm({ entry: { ...builtIn, name: `${builtIn.name} key` } }) : undefined;
+      return (
+        <AppPage
+          key={have?.id ?? app?.key}
+          app={app}
+          have={have}
+          agents={agents}
+          canEdit={canEdit}
+          signIn={option}
+          onAdd={(i) => app && connect(app, i)}
+          onUseKey={useKey}
+          onChanged={() => void loadConnectors()}
+          onSignIn={(c) => void signIn(c)}
+          onSignOut={(c) => void act(api("POST", `/api/connectors/${c.id}/signout`))}
+          onEdit={(c) => setForm({ existing: c, entry: CONNECTOR_CATALOG.find((x) => x.id === c.catalogId) })}
+          onToggle={(c) => void act(api("PATCH", `/api/connectors/${c.id}`, { enabled: !c.enabled }))}
+          onRemove={removeConnector}
+        />
+      );
+    }
+    if (detail.kind === "store") return <StoreSkillDetail s={detail.skill} icon={detail.icon} canEdit={canEdit} onAdd={() => void addSkill({ storeId: detail.skill.id }, `s:${detail.skill.id}`, true)} />;
+    if (detail.kind === "mod") return <ModPage mod={detail.mod} on={!!features[detail.mod]} isOwner={isOwner} onAdd={() => void setMod(detail.mod, true)} onRemove={() => void setMod(detail.mod, false)} />;
+    if (detail.kind === "found") return <FoundPage found={detail} canEdit={canEdit} busy={adding === foundKey(detail)} onBring={() => bringIn(detail, true)} />;
+    return (
+      <SkillDetail
+        open={detail.open}
+        icon={detail.icon}
+        agents={agents}
+        canEdit={canEdit}
+        onInstall={(e) => void addSkill({ catalogId: e.id }, `w:${e.id}`, true)}
+        onEdit={(s) => setEditing(s)}
+        onChanged={(id) => void refreshSkills(id)}
+        onGone={() => setDetail(null)}
+        onShare={(s) => setSharing(s)}
+      />
+    );
+  })();
 
-  const manageC = connectorById(manageId);
   const signInC = connectorById(signInFor);
-  const connectedC = connectorById(connectedId);
+  const stopAuto = () => {
+    auto.current = false;
+  };
 
   return (
     <div className="flex min-h-0 flex-1">
-      {!embedded && (
-        <aside className="hidden w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-line px-3 pb-5 pt-7 pl-5 md:flex" aria-label="Marketplace">
-          <h2 className="t-title px-3 pb-3.5">Marketplace</h2>
-          {nav.map((n) => (
-            <a key={n.id} href={href({ view: "marketplace", section: n.id === "all" ? null : n.id })} aria-current={section === n.id ? "page" : undefined} className={cx("flex h-10 items-center gap-3 rounded-[10px] px-3 text-body transition-colors", section === n.id ? "bg-side-active font-medium text-ink" : "font-medium text-muted hover:bg-side-hover hover:text-ink")}>
-              <span aria-hidden className="shrink-0">{n.icon}</span>
-              <span className="flex-1">{n.label}</span>
-              {!!n.count && <span className="tabular-nums text-sm text-faint">{n.count}</span>}
-            </a>
-          ))}
-        </aside>
-      )}
-      <div className="min-w-0 flex-1 overflow-y-auto">{content}</div>
+      <div className="min-w-0 flex-1 overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]" onWheel={stopAuto} onTouchMove={stopAuto}>
+        <div className="mx-auto w-full max-w-[592px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-9">
+          {detail ? (
+            <div className="space-y-4">
+              <button type="button" className="circle circle-sm" aria-label="Back to Add" onClick={() => setDetail(null)}>
+                <ChevronLeft size={18} aria-hidden />
+              </button>
+              {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
+              {page}
+            </div>
+          ) : (
+            list
+          )}
+        </div>
+      </div>
 
       {form && (
         <ConnectorForm
           entry={form.entry}
           existing={form.existing}
           presetEnv={form.presetEnv}
-          summary={form.summary}
           title={form.title}
           agents={agents}
           taken={(connectors ?? []).filter((c) => c.id !== form.existing?.id).map((c) => c.name.toLowerCase())}
@@ -754,35 +859,16 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
           onUseKey={signInOptions[signInEntry.id]?.key ? () => (setSignInEntry(null), setForm({ entry: signInEntry })) : undefined}
         />
       )}
-      {connectedC && (
-        <Connected
-          connector={connectedC}
-          agents={agents}
-          onClose={() => setConnectedId(null)}
-          onPick={() => (setConnectedId(null), setManageId(connectedC.id))}
-          onTry={() => {
-            const first = connectedC.allAgents ? agents[0]?.id : connectedC.agentIds[0];
-            setConnectedId(null);
-            if (first) void openDm(first, `Use ${connectedC.name} to help me. What can you do with it?`).catch((e) => setError((e as Error).message));
-          }}
-        />
+      {sharing === "pick" && (
+        <Dlg title="Share a skill" onClose={() => setSharing(null)}>
+          <Panel className="max-h-80 overflow-y-auto">
+            {(skills ?? []).map((s) => (
+              <Item key={s.id} icon={<Tile size={36}>{skillTile(s, 17)}</Tile>} title={s.name} onClick={() => setSharing(s)} />
+            ))}
+          </Panel>
+        </Dlg>
       )}
-      {manageC && (
-        <ManageApp
-          connector={manageC}
-          agents={agents}
-          canEdit={canEdit}
-          onClose={() => setManageId(null)}
-          onChanged={() => void loadConnectors()}
-          onEdit={() => (setManageId(null), setForm({ existing: manageC, entry: CONNECTOR_CATALOG.find((x) => x.id === manageC.catalogId) }))}
-          onSignIn={() => void signIn(manageC)}
-          onSignOut={() => void act(api("POST", `/api/connectors/${manageC.id}/signout`))}
-          onToggle={() => void act(api("PATCH", `/api/connectors/${manageC.id}`, { enabled: !manageC.enabled }))}
-          onRemove={() => removeConnector(manageC)}
-        />
-      )}
-      {trying && <TryDialog skill={trying} agents={agents} onClose={() => setTrying(null)} />}
-      {sharing && (
+      {sharing && sharing !== "pick" && (
         <SkillShare
           skill={sharing === "import" ? null : sharing}
           agents={agents}
@@ -792,19 +878,7 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
             setSharing(null);
             await refreshSkills(s.id);
           }}
-          onDevices={() => (setSharing(null), (location.hash = href({ view: "marketplace", section: "devices" })))}
-        />
-      )}
-      {installing && (
-        <InstallModal
-          entry={installing.entry}
-          body={installing.body}
-          agents={agents}
-          onClose={() => setInstalling(null)}
-          onDone={async (s) => {
-            setInstalling(null);
-            await refreshSkills(s.id);
-          }}
+          onDevices={() => (setSharing(null), go({ view: "marketplace", section: "devices" }))}
         />
       )}
       {editing && (
@@ -819,208 +893,79 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
           }}
         />
       )}
-      {bringAll && (
-        <BringAll
-          pending={pending}
-          agents={agents}
-          onClose={() => setBringAll(false)}
-          onDone={() => {
-            setBringAll(false);
-            void loadSkills();
-            void loadConnectors();
-          }}
-          onSetUp={(d, i) => (setBringAll(false), bringIn(d, i))}
-        />
+      {modOn && (
+        <div role="status" className="m-toast glass fixed bottom-6 right-6 z-50 flex w-[320px] items-center gap-2.5 rounded-[18px] py-3 pl-4 pr-3 max-md:inset-x-[18px] max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:right-auto max-md:w-auto">
+          <span className="flex-1 text-[14px] font-medium">{FEATURE_INFO[modOn].name} on</span>
+          {MOD_ROWS[modOn].some((r) => r.to) && (
+            <Button
+              variant="primary"
+              onClick={() => {
+                go(MOD_ROWS[modOn].find((r) => r.to)!.to!);
+                setModOn(null);
+              }}
+            >
+              Open
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-const trustOf = (e: StoreApp) => trustLabel(e);
-
-/** Cards in a grid on desktops; plain rows on phones. */
-function Grid({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col gap-3.5 md:grid md:grid-cols-2 md:gap-3 xl:grid-cols-3">{children}</div>;
-}
-
-/** Who stands behind an app, as a small line under its name. The full explanation is on hover and for screen readers. */
-function TrustLine({ t }: { t: ReturnType<typeof trustLabel> }) {
+/** A mod's page: what it is; Add while it is off; once on, the rows that lead to its own settings, and Remove. */
+function ModPage({ mod, on, isOwner, onAdd, onRemove }: { mod: FeatureKey; on: boolean; isOwner: boolean; onAdd: () => void; onRemove: () => void }) {
+  const [more, setMore] = useState(false);
+  const I = MOD_ICON[mod];
   return (
-    <span title={t.explanation} aria-label={`${t.text}. ${t.explanation}`} className={cx("text-xs", t.kind === "unverified" ? "text-muted" : "text-[#0a6fd6] dark:text-[#5ea8ff]")}>
-      {t.text}
-    </span>
-  );
-}
-
-/** An app or skill: a card on desktops (tile, name, who made it, line, button) and a row on phones. */
-function Entry({ tile, title, badge, sub, phoneSub, action, onOpen }: { tile: ReactNode; title: string; badge?: ReactNode; sub: string; phoneSub?: string; action?: ReactNode; onOpen?: () => void }) {
-  return (
-    <div className="flex min-w-0 items-center gap-3 transition-colors md:flex-col md:items-stretch md:gap-2.5 md:rounded-[14px] md:border md:border-line md:p-4 md:hover:border-control-line">
-      <button type="button" onClick={onOpen} disabled={!onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left md:flex-none">
-        <span className="max-md:hidden">{tile}</span>
-        <span className="md:hidden">{cloneSize(tile)}</span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="line-clamp-2 text-base font-medium leading-tight">{title}</span>
-          <span className="hidden md:flex">{badge}</span>
-          <span className="line-clamp-2 text-[13px] leading-snug text-muted md:hidden">{phoneSub ?? sub}</span>
-        </span>
-      </button>
-      <span className="hidden min-h-10 text-sm leading-snug text-muted md:line-clamp-2 md:block">{sub}</span>
-      {action && <div className="shrink-0 md:self-start">{action}</div>}
-    </div>
-  );
-}
-/** The phone row's tile. */
-function cloneSize(tile: ReactNode): ReactNode {
-  return <span className="block [&>span]:!size-[44px] [&>span]:!rounded-xl">{tile}</span>;
-}
-
-function RegistryError({ error, onRetry }: { error: string; onRetry: () => void }) {
-  return (
-    <p className="flex flex-wrap items-center gap-2 text-sm text-bad">
-      {error}
-      <Sec className="h-8 text-sm" onClick={onRetry}>
-        Try again
-      </Sec>
-    </p>
-  );
-}
-
-type Pending = { device: DeviceShelf; item: ShelfItem };
-
-/** "Found on MacBook Pro: 14 skills and 3 apps your harnesses already use." */
-function DeviceBanner({ pending, onOpen }: { pending: Pending[]; onOpen: () => void }) {
-  const devices = [...new Set(pending.map((p) => p.device.nodeName))];
-  return (
-    <section aria-label="Found on your devices">
-      <Panel>
-        <Item icon={<Tile size={50}><Laptop size={22} strokeWidth={1.7} /></Tile>} title={`Found on ${sentence(devices)}`} sub={`${shelfSummary(pending.map((p) => p.item))} your harnesses already ${pending.length === 1 ? "uses" : "use"}`} onClick={onOpen} />
-      </Panel>
-    </section>
-  );
-}
-
-function Devices({ shelves, canEdit, inWisp, onBring, onBringAll, pending, onRefresh }: { shelves: DeviceShelf[]; canEdit: boolean; inWisp: (nodeId: string, i: ShelfItem) => boolean; onBring: (d: DeviceShelf, i: ShelfItem) => void; onBringAll: () => void; pending: Pending[]; onRefresh: (nodeId: string) => void }) {
-  return (
-    <div className="space-y-6">
-      {pending.length > 0 && (
-        <Panel>
-          <Item icon={<Tile size={50}><Laptop size={22} strokeWidth={1.7} /></Tile>} title={`Found on ${sentence([...new Set(pending.map((p) => p.device.nodeName))])}`} sub={`${shelfSummary(pending.map((p) => p.item))} your harnesses already ${pending.length === 1 ? "uses" : "use"}`} />
-        </Panel>
-      )}
-      {shelves.map((d) => {
-        const harnesses = [...new Set(d.items.map((i) => i.harness))];
-        return (
-          <section key={d.nodeId} aria-label={d.nodeName} className="space-y-2">
-            <div className="flex items-center gap-2 px-1">
-              <h2 className="flex-1 truncate text-sm text-faint">{d.nodeName}</h2>
-              {!d.online && <Badge>Offline</Badge>}
-              {d.online && (
-                <button onClick={() => onRefresh(d.nodeId)} className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted hover:bg-hover hover:text-ink">
-                  <RefreshCw size={14} /> Look again
-                </button>
-              )}
-            </div>
-            {d.items.length === 0 ? (
-              <p className="px-1 text-sm text-muted">Nothing found in its harnesses.</p>
-            ) : (
-              <Panel>
-                {harnesses.flatMap((h) =>
-                  d.items
-                    .filter((i) => i.harness === h)
-                    .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name))
-                    .map((i) => {
-                      const have = inWisp(d.nodeId, i);
-                      const needs = i.kind === "mcp" && !readyAsIs(i);
-                      return (
-                        <Item
-                          key={i.key}
-                          icon={i.kind === "mcp" ? <AppTile name={i.name} size={40} /> : <Tile size={40}>{skillIcon(i.name)}</Tile>}
-                          title={i.kind === "skill" ? skillTitle(i.name) : i.name}
-                          sub={`${harnessName(h)}${i.kind === "mcp" ? (needs ? " · app, needs a key" : " · app") : ""}`}
-                          right={canEdit && (have ? <Badge tone="green">In Wisp</Badge> : <Add onClick={() => onBring(d, i)} aria-label={`Add ${i.name}`}>Add</Add>)}
-                        />
-                      );
-                    }),
-                )}
-              </Panel>
-            )}
-          </section>
-        );
-      })}
-      {canEdit && pending.length > 0 && (
-        <Prim onClick={onBringAll} className="max-sm:w-full">
-          Bring them in
-        </Prim>
-      )}
-    </div>
-  );
-}
-
-/** Bring everything in at once: skills and apps that need nothing, given to the agents picked. */
-function BringAll({ pending, agents, onClose, onDone, onSetUp }: { pending: Pending[]; agents: Agent[]; onClose: () => void; onDone: () => void; onSetUp: (d: DeviceShelf, i: ShelfItem) => void }) {
-  const ready = pending.filter((p) => p.item.kind === "skill" || readyAsIs(p.item));
-  const later = pending.filter((p) => !ready.includes(p));
-  const [agentIds, setAgentIds] = useState<string[]>(agents.length === 1 ? [agents[0].id] : []);
-  const [busy, setBusy] = useState<number | null>(null);
-  const [errors, setErrors] = useState<string[]>([]);
-
-  async function go() {
-    const failed: string[] = [];
-    for (let n = 0; n < ready.length; n++) {
-      setBusy(n);
-      const { device: d, item: i } = ready[n];
-      try {
-        if (i.kind === "skill") await api("POST", "/api/skills", { nodeId: d.nodeId, harness: i.harness, skillId: i.key.split(":skill:")[1] ?? i.name, agentIds });
-        else {
-          const kind = i.transport === "http" ? "mcp-http" : "mcp-stdio";
-          const ids = agentIds.filter((id) => {
-            const a = agents.find((x) => x.id === id);
-            return !a || harnessSupportsConnectors(a.harness, kind);
-          });
-          await api("POST", "/api/connectors", kind === "mcp-http" ? { kind, name: i.name, url: i.url, catalogId: `device:${d.nodeId}:${i.harness}:${i.name}`, agentIds: ids } : { kind, name: i.name, command: i.command, args: i.args ?? [], env: i.env ?? {}, catalogId: `device:${d.nodeId}:${i.harness}:${i.name}`, agentIds: ids });
+    <div className="space-y-4">
+      <ItemHead
+        tile={
+          <Tile size={56}>
+            <I size={26} strokeWidth={1.7} />
+          </Tile>
         }
-      } catch (e) {
-        failed.push(`${i.name}: ${(e as Error).message}`);
-      }
-    }
-    setBusy(null);
-    if (failed.length) setErrors(failed);
-    else onDone();
-  }
-
-  return (
-    <Dlg title="Bring them in" sub={ready.length ? `${shelfSummary(ready.map((p) => p.item))} come${ready.length === 1 ? "s" : ""} into Wisp as they are.` : "Each of these needs a key first."} onClose={errors.length ? onDone : onClose}>
-      {ready.length > 0 && (
-        <section className="space-y-2">
-          <Label>Share with</Label>
-          <AgentPicker agents={agents} value={agentIds} onChange={setAgentIds} disabled={busy !== null} />
-        </section>
-      )}
-      {later.length > 0 && (
-        <section className="space-y-2">
-          <Label>Need a key</Label>
-          <Panel>
-            {later.map((p) => (
-              <Item key={`${p.device.nodeId}:${p.item.key}`} icon={<AppTile name={p.item.name} size={40} />} title={p.item.name} right={<Add onClick={() => onSetUp(p.device, p.item)}>Set up</Add>} />
-            ))}
-          </Panel>
-        </section>
-      )}
-      {errors.map((e) => (
-        <p key={e} className="text-sm text-bad">
-          {e}
-        </p>
-      ))}
-      <div className="flex justify-end gap-2">
-        <Sec onClick={errors.length ? onDone : onClose}>{errors.length ? "Done" : "Cancel"}</Sec>
-        {ready.length > 0 && !errors.length && (
-          <Prim className="h-11 text-body" disabled={busy !== null} onClick={go}>
-            {busy !== null ? `Bringing in ${busy + 1} of ${ready.length}…` : `Bring in ${ready.length}`}
-          </Prim>
+        name={FEATURE_INFO[mod].name}
+        line={`Mod · ${MOD_WORDS[mod]}`}
+      >
+        {!on && isOwner && (
+          <Button variant="primary" onClick={onAdd}>
+            Add
+          </Button>
         )}
-      </div>
-    </Dlg>
+      </ItemHead>
+      {!isOwner && <p className="px-1 text-[13px] text-muted">Only owners can change mods.</p>}
+      <Rows>
+        {on && MOD_ROWS[mod].map((r) => <FactRow key={r.label} label={r.label} value={r.value} href={r.to ? href(r.to) : undefined} />)}
+        <FactRow label="More" onClick={() => setMore(!more)} open={more} />
+      </Rows>
+      {more && <p className="px-1 text-[14px] leading-[22px] text-muted">{FEATURE_INFO[mod].description}</p>}
+      {on && isOwner && (
+        <div className="pt-3">
+          <RemoveBtn onClick={onRemove}>Remove</RemoveBtn>
+        </div>
+      )}
+    </div>
   );
 }
 
+/** Something a harness on one of your computers already has: what it is, where it was found, and Bring in. */
+function FoundPage({ found, canEdit, busy, onBring }: { found: Pending; canEdit: boolean; busy: boolean; onBring: () => void }) {
+  const { device, item } = found;
+  const app = item.kind === "mcp";
+  return (
+    <div className="space-y-4">
+      <ItemHead tile={app ? <AppTile name={item.name} size={56} /> : <Tile size={56}>{skillIcon(item.name, 26)}</Tile>} name={app ? item.name : skillTitle(item.name)} line={`${app ? "App" : "Skill"} · in ${harnessName(item.harness)} on ${device.nodeName}`}>
+        {canEdit && (
+          <Button variant="primary" onClick={onBring} disabled={busy}>
+            {app && !readyAsIs(item) ? "Set up" : "Bring in"}
+          </Button>
+        )}
+      </ItemHead>
+      <Rows>
+        {item.description && <FactRow label="Does" value={item.description} wrap />}
+        <FactRow label="Found at" value={item.path} wrap />
+      </Rows>
+    </div>
+  );
+}

@@ -1,7 +1,7 @@
 import { toolKey } from "./agentActivity.ts";
 import { useEffect, useState } from "react";
 import { CalendarClock, Check, ListChecks, LockKeyhole, Monitor, Pencil, RotateCcw, X } from "lucide-react";
-import { LOGIN_SOURCE_LABEL, describeCron, type Agent, type Approval, type Routine } from "@wisp/core";
+import { describeCron, type Agent, type Approval, type Routine } from "@wisp/core";
 import { api } from "../api.ts";
 import { usePrefs, useStore } from "../store.ts";
 import { undoChange, useChanges } from "../changes.ts";
@@ -48,26 +48,32 @@ export function ChatCard({ icon, label, tone = "muted", children, className, ari
   );
 }
 
-/** "You approved this · 9:41 PM" under a decided card. */
-function Decided({ ok, text, at }: { ok: boolean; text: string; at?: string | null }) {
-  const { clock } = usePrefs();
+/** What a decided request settles to: one quiet line, a check and "Allowed" (or "Not now"), and who said so when it wasn't you. */
+function Settled({ approval, className }: { approval: Approval; className?: string }) {
+  const who = useStore((s) => (approval.decidedBy && approval.decidedBy !== s.me?.user.id ? (s.members.find((m) => m.id === approval.decidedBy)?.name ?? null) : null));
+  const ok = approval.status === "approved";
   return (
-    <div className={cx("mt-2 flex items-center gap-1.5 text-[13px]", ok ? "text-ok" : "text-muted")}>
-      {ok ? <Check size={14} /> : <X size={14} />}
-      {text}
-      {at && <span className="ml-auto text-faint">{clockTime(at, clock)}</span>}
+    <div className={cx("flex items-center gap-1.5 px-1 text-[13px] leading-5 text-muted", className)} role="status">
+      {ok ? <Check size={14} aria-hidden /> : <X size={14} aria-hidden />}
+      {ok ? "Allowed" : "Not now"}
+      {who && <span>· {who}</span>}
     </div>
   );
 }
 
-const CARD_BUTTON = "m-press h-[34px] rounded-full px-4 text-sm font-medium disabled:opacity-50";
+const PILL = "m-press h-8 rounded-full px-4 text-[13px] disabled:opacity-50";
+const ALLOW = cx(PILL, "bg-ink font-semibold text-panel hover:bg-ink/85");
+const NOT_NOW = cx(PILL, "border border-line2 font-medium hover:bg-hover");
 
-/** "Can I go ahead?" with Approve / Not now, and the outcome once someone decides. */
+/**
+ * An agent asking for your OK, as a chat: its question is a bubble (click it for the details),
+ * then Allow and Not now. To add a note, reply in the message box: it goes to the agent as a
+ * message of its own. Once answered it settles to one quiet line.
+ */
 export function ApprovalCard({ id }: { id: string }) {
   const approval = useStore((s) => s.approvals[id]);
-  const members = useStore((s) => s.members);
   const me = useStore((s) => s.me);
-  const [note, setNote] = useState("");
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -81,7 +87,7 @@ export function ApprovalCard({ id }: { id: string }) {
     setBusy(true);
     setError(null);
     try {
-      const a = await api("POST", `/api/approvals/${id}/decide`, { approve, note });
+      const a = await api("POST", `/api/approvals/${id}/decide`, { approve });
       useStore.setState((s) => ({ approvals: { ...s.approvals, [id]: a } }));
     } catch (e) {
       setError((e as Error).message);
@@ -89,35 +95,32 @@ export function ApprovalCard({ id }: { id: string }) {
       setBusy(false);
     }
   };
-  const decider = approval.decidedBy === me?.user.id ? "You" : (members.find((m) => m.id === approval.decidedBy)?.name ?? "Someone");
   const pending = approval.status === "pending";
   return (
-    <ChatCard icon={<LockKeyhole size={13} />} label="Asking for your OK" ariaLabel="Approval request">
-      <div className="mt-2 text-body font-medium leading-snug">{approval.summary}</div>
-      {approval.details && <pre className="mt-2 whitespace-pre-wrap break-all rounded-xl bg-code px-3 py-2 font-mono text-[13px] max-h-40 overflow-y-auto">{approval.details}</pre>}
+    <section aria-label="Approval request" className="mt-1 flex w-full flex-col items-start gap-1.5">
+      {/* the agent's own message, just above, already asks the question: don't say it twice */}
+      {approval.details && (
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="px-1 text-[13px] text-muted hover:text-ink">
+          {open ? "Hide details" : "Details"}
+        </button>
+      )}
+      {open && approval.details && <pre className="max-h-40 w-full max-w-[420px] overflow-y-auto whitespace-pre-wrap break-all rounded-xl bg-code px-3 py-2 font-mono text-[13px]">{approval.details}</pre>}
       {pending ? (
         me?.role !== "guest" && (
-          <div className="mt-2.5 space-y-2.5">
-            <div className="text-sm text-muted">Can I go ahead?</div>
-            <input value={note} onChange={(e) => setNote(e.target.value)} aria-label="Add a note" placeholder="Add a note (optional)" className="h-9 w-full rounded-[10px] border border-line2 bg-panel px-3 text-sm outline-none placeholder:text-muted focus:border-ring" />
-            <div className="flex gap-2">
-              <button disabled={busy} onClick={() => decide(true)} className={cx(CARD_BUTTON, "bg-ink text-panel font-semibold")}>
-                Approve
-              </button>
-              <button disabled={busy} onClick={() => decide(false)} className={cx(CARD_BUTTON, "border border-line2 bg-transparent hover:bg-hover")}>
-                Not now
-              </button>
-            </div>
-            {error && <p className="text-xs text-bad">{error}</p>}
+          <div className="flex gap-2">
+            <button disabled={busy} onClick={() => decide(true)} className={ALLOW}>
+              Allow
+            </button>
+            <button disabled={busy} onClick={() => decide(false)} className={NOT_NOW}>
+              Not now
+            </button>
           </div>
         )
       ) : (
-        <>
-          <Decided ok={approval.status === "approved"} text={approval.status === "approved" ? `${decider} approved this` : `${decider} said not now`} at={approval.decidedAt} />
-          {approval.note && <p className="mt-1 text-[13px] text-muted">“{approval.note}”</p>}
-        </>
+        <Settled approval={approval} />
       )}
-    </ChatCard>
+      {error && <p className="px-1 text-xs text-bad">{error}</p>}
+    </section>
   );
 }
 
@@ -130,7 +133,6 @@ function LoginApprovalCard({ approval }: { approval: Approval }) {
   const me = useStore((s) => s.me);
   const agent = useStore((s) => s.agents.find((a) => a.id === approval.agentId));
   const owner = useStore((s) => s.members.find((m) => m.id === login.ownerId)?.name ?? "whoever connected it");
-  const decider = useStore((s) => (approval.decidedBy === s.me?.user.id ? "You" : (s.members.find((m) => m.id === approval.decidedBy)?.name ?? "Someone")));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const name = agent?.name ?? "An agent";
@@ -148,40 +150,37 @@ function LoginApprovalCard({ approval }: { approval: Approval }) {
     }
   };
   return (
-    <ChatCard icon={<LockKeyhole size={13} />} label="Login request" ariaLabel="Login request">
-      <div className="mt-2 text-body font-medium leading-snug">{pending ? `${name} wants to use your ${login.title} login` : `${name} used your ${login.title} login`}</div>
+    <section aria-label="Login request" className="mt-1 flex w-full flex-col items-start gap-1.5">
+      <div className="bubble them text-[14px]">{pending ? `${name} wants to use your ${login.title} login` : `${name} used your ${login.title} login`}</div>
       {pending && (
-        <>
-          <p className="mt-1 text-sm text-muted">Your password manager signs in for it. Wisp never sees the password.</p>
-          <div className="mt-2 flex items-center gap-2 rounded-xl bg-code px-3 py-2 text-[13px]">
-            <LockKeyhole size={14} className="shrink-0 text-muted" />
-            <span className="min-w-0 truncate">{login.site}</span>
-            <span className="min-w-0 truncate text-muted">{login.username}</span>
-          </div>
-          <div className="mt-1 text-xs text-faint">From {LOGIN_SOURCE_LABEL[login.source]}</div>
-        </>
+        <div className="flex max-w-full items-center gap-2 px-1 text-[13px] text-muted">
+          <LockKeyhole size={13} className="shrink-0" aria-hidden />
+          <span className="min-w-0 truncate text-ink">{login.site}</span>
+          <span className="min-w-0 truncate">{login.username}</span>
+        </div>
       )}
       {pending ? (
         me?.user.id !== login.ownerId ? (
-          <p className="mt-2.5 text-xs text-muted">Waiting for {owner}: only they can let agents use their logins.</p>
+          <p className="px-1 text-xs text-muted">Waiting for {owner}.</p>
         ) : (
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={busy} onClick={() => decide(true)} className={cx(CARD_BUTTON, "bg-ink text-panel font-semibold")}>
-              Approve
+          <div className="flex flex-wrap items-center gap-2">
+            <button disabled={busy} onClick={() => decide(true)} className={ALLOW}>
+              Allow
             </button>
-            <button disabled={busy} onClick={() => decide(false)} className={cx(CARD_BUTTON, "border border-line2 bg-transparent hover:bg-hover")}>
+            <button disabled={busy} onClick={() => decide(false)} className={NOT_NOW}>
               Not now
             </button>
-            <button disabled={busy} onClick={() => decide(true, true)} className="w-full text-center text-[13px] text-muted hover:text-ink">
-              Always allow for {name}
+            {/* the hub takes "always" only together with the answer, so it is offered here, not after */}
+            <button disabled={busy} onClick={() => decide(true, true)} className="h-8 px-2 text-[13px] text-muted hover:text-ink disabled:opacity-50">
+              Always allow
             </button>
           </div>
         )
       ) : (
-        <Decided ok={approval.status === "approved"} text={approval.status === "approved" ? `${decider} approved this` : `${decider} said not now`} at={approval.decidedAt} />
+        <Settled approval={approval} />
       )}
-      {error && <p className="mt-2 text-xs text-bad">{error}</p>}
-    </ChatCard>
+      {error && <p className="px-1 text-xs text-bad">{error}</p>}
+    </section>
   );
 }
 
@@ -189,13 +188,12 @@ const size = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.rou
 
 /**
  * "Can I upload this?" for a file on the person's storage (the Storage mod): the file, where it
- * goes, and Allow / Always in this folder / No. Replacing says Replace; deleting says Delete and
+ * goes, and Allow / Always in this folder / Not now. Replacing says Replace; deleting says Delete and
  * never offers Always. Only owners answer.
  */
 function StorageApprovalCard({ approval }: { approval: Approval }) {
   const req = approval.storage!;
   const me = useStore((s) => s.me);
-  const decider = useStore((s) => (approval.decidedBy === s.me?.user.id ? "You" : (s.members.find((m) => m.id === approval.decidedBy)?.name ?? "Someone")));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pending = approval.status === "pending";
@@ -242,12 +240,12 @@ function StorageApprovalCard({ approval }: { approval: Approval }) {
               </button>
             )}
             <button disabled={busy} onClick={() => decide(false)} className="h-[34px] rounded-full border border-line2 bg-transparent px-4 text-sm font-medium hover:bg-hover disabled:opacity-50">
-              No
+              Not now
             </button>
           </div>
         )
       ) : (
-        <Decided ok={approval.status === "approved"} text={approval.status === "approved" ? `${decider} allowed this` : `${decider} said no`} at={approval.decidedAt} />
+        <Settled approval={approval} className="mt-2 !px-0" />
       )}
       {error && <p className="mt-2 text-xs text-bad">{error}</p>}
     </ChatCard>

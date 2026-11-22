@@ -1,4 +1,4 @@
-import { Check, Minus, Plus, Trash2 } from "lucide-react";
+import { Check, Minus, Plus } from "lucide-react";
 import { DEFAULT_ROUNDS, MAX_ROUNDS_LIMIT, stepAgentId, stepGraph, stepsAfter, workSteps, type ChannelTeam, type StepRule, type TeamRole, type TeamStep, type TeamStepKind } from "@wisp/core";
 import { useStore } from "../store.ts";
 import { useCreateAgent } from "./NewAgent.tsx";
@@ -29,16 +29,14 @@ const OPS: { op: StepRule["op"]; label: string }[] = [
 
 const uid = (p: string) => `${p}-${Math.random().toString(36).slice(2, 7)}`;
 
-/** A step's header text: "Step 3", or the kind's name for the special ones. */
-export function stepHeading(team: ChannelTeam, s: TeamStep): string {
-  if (s.kind === "schedule") return "Schedule";
-  const n = numberOf(team, s.id);
-  return s.kind === "do" || s.kind === "custom" ? `Step ${n}` : `Step ${n} · ${kindName(s.kind)}`;
+/** A step's header text: what the step is called (its kind is in the sheet, under "Show all"). */
+export function stepHeading(_team: ChannelTeam, s: TeamStep): string {
+  return s.kind === "schedule" ? "Schedule" : titleOf(s);
 }
 
-function Rounds({ value, onChange, note }: { value: number; onChange: (n: number) => void; note?: string }) {
+function Rounds({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
-    <FieldBox note={note}>
+    <FieldBox>
       <div className="flex items-center gap-2">
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-muted">Most rounds</span>
@@ -57,7 +55,11 @@ function Rounds({ value, onChange, note }: { value: number; onChange: (n: number
   );
 }
 
-/** Edit one step: the fields its kind has. Used in the desktop panel and the phone sheet. */
+/**
+ * Edit one step: the fields its kind has, the most used first. How it is wired to the other steps
+ * (what it takes, when it runs, what kind of step it is) sits under "Show all". Used in the
+ * builder's sheet on a desktop and the phone's.
+ */
 export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team: ChannelTeam; stepId: string; onChange: (t: ChannelTeam) => void; onDelete: () => void; channelId?: string }) {
   const agents = useStore((s) => s.agents);
   const channels = useStore((s) => s.channels);
@@ -142,8 +144,6 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
           <AgentField value={agentValue} onChange={(agentId) => set({ agentId })} />
           {title("What is this step called?")}
           <TextBox label={step.kind === "custom" ? "What it does (its rules)" : "What it does"} value={step.prompt ?? ""} onChange={(v) => set({ prompt: v })} placeholder="Tell the agent what to do here." rows={5} maxLength={4000} />
-          {inputs("Uses the result of")}
-          {when}
         </>
       )}
 
@@ -153,9 +153,7 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
           <AgentField label="Checked by" value={agentValue} onChange={(agentId) => set({ agentId })} />
           <TextBox label="What it does" value={step.prompt ?? ""} onChange={(v) => set({ prompt: v })} placeholder="Read the work. Find what's wrong. Send it back with a short list, or approve it." rows={4} maxLength={4000} />
           <PickBox label="Sends it back to" shown={stepText(step.sendBackTo, "Pick a step")} invalid={!step.sendBackTo} options={earlier.length ? earlier.map(stepOption) : [{ value: "none", label: "Add a step before this one first", disabled: true }]} onPick={(v) => set({ sendBackTo: v })} />
-          <Rounds value={step.maxRounds ?? DEFAULT_ROUNDS} onChange={(maxRounds) => set({ maxRounds })} note={`After ${step.maxRounds ?? DEFAULT_ROUNDS} rounds it asks you instead of going round again.`} />
-          {inputs("Uses the result of")}
-          {when}
+          <Rounds value={step.maxRounds ?? DEFAULT_ROUNDS} onChange={(maxRounds) => set({ maxRounds })} />
         </>
       )}
 
@@ -163,9 +161,7 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
         <>
           {title("e.g. Approve before it ships")}
           <TextBox label="What you see" value={step.show ?? ""} onChange={(v) => set({ show: v })} placeholder="What should you see with the question?" rows={3} maxLength={2000} />
-          {inputs("Shows the result of")}
           <PickBox label="If you ask for changes" shown={stepText(step.sendBackTo, "Nowhere: it stops")} options={[{ value: "__none", label: "Nowhere: it stops" }, ...earlier.map(stepOption)]} onPick={(v) => set({ sendBackTo: v === "__none" ? null : v })} />
-          <Toggle label="Tell me on my phone" on={step.notifyPhone ?? true} onChange={(notifyPhone) => set({ notifyPhone })} />
         </>
       )}
 
@@ -175,19 +171,16 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
           <HandoffTeams value={step.handoffTo ?? null} onPick={(handoffTo) => set({ handoffTo })} except={channelId} channels={channels} />
           <TextBox label="What it does" value={step.prompt ?? ""} onChange={(v) => set({ prompt: v })} placeholder="Tell them what to do with it." rows={3} maxLength={4000} />
           {handoffCanWait(channels.find((c) => c.id === step.handoffTo)) ? (
-            <Toggle label="Wait for their answer" on={step.waitForReply ?? true} onChange={(waitForReply) => set({ waitForReply })} note={step.waitForReply ?? true ? "The next step gets what they send back." : undefined} />
+            <Toggle label="Wait for their answer" on={step.waitForReply ?? true} onChange={(waitForReply) => set({ waitForReply })} />
           ) : (
-            <p className="px-2 text-xs text-muted">That team has no steps, so it can't send an answer back. The next step starts as soon as the work is handed over.</p>
+            <p className="px-2 text-xs text-muted">That team has no steps, so it can't answer back.</p>
           )}
-          {inputs("Hands over the result of")}
-          {when}
         </>
       )}
 
       {step.kind === "branch" && (
         <>
           {title("e.g. Did the tests pass?")}
-          {inputs("Look at")}
           <FieldBox label="If">
             <div className="mt-1.5 flex rounded-full bg-chip p-0.5 text-[13px]" role="radiogroup" aria-label="How it decides">
               {[
@@ -217,7 +210,7 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
               <input aria-label="What it checks" value={step.condition ?? ""} onChange={(e) => set({ condition: e.target.value })} placeholder="e.g. every test passed" maxLength={300} className="mt-2 block w-full bg-transparent text-body outline-none placeholder:text-faint" />
             )}
           </FieldBox>
-          {!step.rule && <AgentField label="Decided by" value={agentValue} onChange={(agentId) => set({ agentId })} note="An agent reads the result and answers yes or no." />}
+          {!step.rule && <AgentField label="Decided by" value={agentValue} onChange={(agentId) => set({ agentId })} />}
           <div className="overflow-hidden rounded-xl border border-line bg-card divide-y divide-line">
             {([true, false] as const).map((yes) => (
               <label key={String(yes)} className="relative flex items-center gap-3 px-4 py-2.5">
@@ -234,7 +227,7 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
               </label>
             ))}
           </div>
-          {loops && <Rounds value={step.maxRounds ?? DEFAULT_ROUNDS} onChange={(maxRounds) => set({ maxRounds })} note="Going back to an earlier step is a loop. After this many rounds it asks you." />}
+          {loops && <Rounds value={step.maxRounds ?? DEFAULT_ROUNDS} onChange={(maxRounds) => set({ maxRounds })} />}
         </>
       )}
 
@@ -261,12 +254,12 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
                         <span className={cx(!a && "text-bad")}>{a?.name ?? "Pick an agent"}</span>
                         <select aria-label={`Who's the ${r.name}`} value={r.agentId ?? ""} onChange={(e) => (e.target.value === "__new" ? createAgent?.((id) => setRole(r.id, { agentId: id })) : setRole(r.id, { agentId: e.target.value || null }))} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
                           <option value="">Pick an agent</option>
-                          {createAgent && <option value="__new">+ Create an agent…</option>}
                           {agents.map((x) => (
                             <option key={x.id} value={x.id}>
                               {x.name}
                             </option>
                           ))}
+                          {createAgent && <option value="__new">New agent</option>}
                         </select>
                       </label>
                     </div>
@@ -278,16 +271,17 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
                 <Plus size={16} aria-hidden /> Add a role
               </button>
             </div>
-            <p className="px-2 text-xs text-faint">Each role is one kind of worker. Pick who fills it.</p>
           </div>
           <PickBox label="Each piece is checked by" shown={roleById(team, step.reviewBy)?.name ?? "Nobody"} options={[{ value: "__none", label: "Nobody" }, ...(team.roles ?? []).map((r) => ({ value: r.id, label: r.name }))]} onPick={(v) => set({ reviewBy: v === "__none" ? null : v })} />
-          <Rounds value={step.maxRounds ?? DEFAULT_ROUNDS} onChange={(maxRounds) => set({ maxRounds })} note="How many times a piece can go back before it asks you." />
-          {inputs("Uses the result of")}
+          <Rounds value={step.maxRounds ?? DEFAULT_ROUNDS} onChange={(maxRounds) => set({ maxRounds })} />
         </>
       )}
 
-      <MoreOptions about="kind of step" className="pt-1">
+      <MoreOptions title="Show all" className="pt-1">
         <div className="space-y-3">
+          {inputs(step.kind === "ask" ? "Shows the result of" : step.kind === "handoff" ? "Hands over the result of" : step.kind === "branch" ? "Looks at" : "Takes from")}
+          {step.kind !== "ask" && step.kind !== "branch" && step.kind !== "hand_out" && when}
+          {step.kind === "ask" && <Toggle label="Tell me on my phone" on={step.notifyPhone ?? true} onChange={(notifyPhone) => set({ notifyPhone })} />}
           <PickBox
             label="Kind of step"
             lead={<KindIcon kind={step.kind} size={18} />}
@@ -298,19 +292,16 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
         </div>
       </MoreOptions>
 
-      <div className="space-y-1.5 pt-2">
-        <button type="button" onClick={onDelete} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-line bg-card text-body text-bad hover:bg-hover">
-          <Trash2 size={16} aria-hidden /> Delete step
-        </button>
-        <p className="px-2 text-xs text-faint">What led to it will lead to what came after it.</p>
-      </div>
+      <button type="button" onClick={onDelete} className="block min-h-8 text-[13px] text-bad hover:underline">
+        Delete step
+      </button>
     </div>
   );
 }
 
-export function Toggle({ label, on, onChange, note }: { label: string; on: boolean; onChange: (on: boolean) => void; note?: string }) {
+export function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange: (on: boolean) => void }) {
   return (
-    <FieldBox note={note}>
+    <FieldBox>
       <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} className="flex w-full items-center justify-between gap-3 py-1 text-left text-body">
         {label}
         <span className={cx("relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors", on ? "bg-ok" : "bg-input")}>

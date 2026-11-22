@@ -34,17 +34,50 @@ export interface DeviceInfo {
 }
 
 /** The devices list, refreshed every few seconds while mounted. */
+// One list and one poll for the whole app, however many parts of a screen ask for it: every
+// caller reads the same answer, and the poll runs at the fastest pace any of them asked for.
+const deviceList = { value: null as DeviceInfo[] | null, at: 0, loading: false, timer: undefined as ReturnType<typeof setInterval> | undefined, pace: 0 };
+const deviceWatchers = new Map<symbol, { intervalMs: number; tell: (d: DeviceInfo[] | null) => void }>();
+
+function loadDevices() {
+  if (deviceList.loading) return;
+  deviceList.loading = true;
+  api<DeviceInfo[]>("GET", "/api/nodes")
+    .then(
+      (d) => {
+        deviceList.at = Date.now();
+        // the same answer as last time keeps the list it already has, so a poll with no news re-renders nothing
+        if (deviceList.value && JSON.stringify(deviceList.value) === JSON.stringify(d)) return;
+        deviceList.value = d;
+        for (const w of deviceWatchers.values()) w.tell(d);
+      },
+      () => {},
+    )
+    .finally(() => {
+      deviceList.loading = false;
+    });
+}
+
+function paceDevices() {
+  const pace = deviceWatchers.size ? Math.min(...[...deviceWatchers.values()].map((w) => w.intervalMs)) : 0;
+  if (pace === deviceList.pace) return;
+  clearInterval(deviceList.timer);
+  deviceList.pace = pace;
+  deviceList.timer = pace ? setInterval(loadDevices, pace) : undefined;
+}
+
 export function useDevices(intervalMs = 5000): DeviceInfo[] | null {
-  const [devices, setDevices] = useState<DeviceInfo[] | null>(null);
+  const [devices, setDevices] = useState<DeviceInfo[] | null>(deviceList.value);
   useEffect(() => {
-    let alive = true;
-    // the same answer as last time keeps the list it already has, so a poll with no news re-renders nothing
-    const load = () => api<DeviceInfo[]>("GET", "/api/nodes").then((d) => alive && setDevices((cur) => (cur && JSON.stringify(cur) === JSON.stringify(d) ? cur : d)), () => {});
-    load();
-    const t = setInterval(load, intervalMs);
+    const key = Symbol();
+    deviceWatchers.set(key, { intervalMs, tell: setDevices });
+    setDevices(deviceList.value);
+    // a part that just appeared gets a fresh answer, unless one arrived a moment ago or is on its way
+    if (Date.now() - deviceList.at > 500) loadDevices();
+    paceDevices();
     return () => {
-      alive = false;
-      clearInterval(t);
+      deviceWatchers.delete(key);
+      paceDevices();
     };
   }, [intervalMs]);
   return devices;

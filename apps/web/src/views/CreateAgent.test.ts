@@ -5,10 +5,11 @@ import { useStore, type ComputerInfo } from "../store.ts";
 import { resolveComputer } from "../agentComputer.ts";
 import { Composer } from "./ChannelView.tsx";
 import { AgentDetail, mergeSavedFields, type NodeInfo } from "./AgentSettings.tsx";
-import { CreateAgent, ImportAgent } from "./CreateAgent.tsx";
+import { AGENT_NAMES, CreateAgent, ImportAgent, autoHandle, nameProblem, suggestName } from "./CreateAgent.tsx";
+import { openDm } from "../openDm.ts";
 import { setChannelPrefs } from "../components/Channels.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
-import { AgentsPolicyPage } from "./settings/workspace.tsx";
+import { AskBeforePage } from "./settings/workspace.tsx";
 import { LiveScreen, ScreenThumb } from "../components/Screen.tsx";
 import { mayLeave } from "../router.ts";
 import type { Agent } from "@wisp/core";
@@ -64,6 +65,7 @@ vi.mock("../store.ts", async (original) => {
 // these tests pick where agents run (Advanced)
 vi.mock("../computerMode.ts", () => ({ useComputerMode: () => ({ advanced: true, sharedComputerId: null, loaded: true }) }));
 vi.mock("../api.ts", () => ({ api: vi.fn(), uploadFile: vi.fn(), getToken: () => "token", fileUrl: (id: string) => id, ApiError: class extends Error {} }));
+vi.mock("../openDm.ts", async (original) => ({ ...(await original<typeof import("../openDm.ts")>()), openDm: vi.fn(async () => {}) }));
 vi.mock("../theme.ts", () => ({ motionReduced: () => false, useMotionReduced: () => false }));
 vi.mock("../markdown.ts", () => ({ renderMarkdown: (s: string) => s }));
 const novnc = vi.hoisted(() => ({ construct: vi.fn() }));
@@ -211,15 +213,15 @@ describe("settings regressions", () => {
     current = { ...current, instructions: "remote", settings: { role: "Researcher", roleNotes: "remote notes" } };
     m.render();
     expect(field(m.tree, "Instructions").props.value).toBe("remote");
-    expect(field(m.tree, "Role").props.value).toBe("Researcher");
+    expect(field(m.tree, "What the role covers").props.value).toBe("remote notes");
     expect(dirty).toHaveBeenLastCalledWith(false);
-    field(m.tree, "Role").props.onChange({ target: { value: "My edit" } });
+    // the one-line role is edited under the agent's name now; this part keeps what the role covers
+    field(m.tree, "What the role covers").props.onChange({ target: { value: "My edit" } });
     m.render();
     current = { ...current, instructions: "new remote", settings: { role: "Designer", roleNotes: "new notes" } };
     m.render();
     expect(field(m.tree, "Instructions").props.value).toBe("new remote");
-    expect(field(m.tree, "Role").props.value).toBe("My edit");
-    expect(field(m.tree, "What the role covers").props.value).toBe("new notes");
+    expect(field(m.tree, "What the role covers").props.value).toBe("My edit");
     expect(dirty).toHaveBeenLastCalledWith(true);
   });
 
@@ -290,9 +292,9 @@ describe("settings regressions", () => {
   it("W13: leaves the saved approval policy selected after a failed save", async () => {
     const policy = { askBefore: ["send"], maxHops: 5, defaultAccess: "edit" };
     vi.mocked(api).mockResolvedValueOnce(policy);
-    const m = mount(AgentsPolicyPage);
+    const m = mount(AskBeforePage);
     await tick();
-    const checked = () => find(m.render(), (el) => el.type.name === "Toggle" && el.props.label === "Sending email or messages outside Wisp")!;
+    const checked = () => find(m.render(), (el) => el.type.name === "Toggle" && el.props.label === "Send messages")!;
     expect(checked().props.on).toBe(true);
     vi.mocked(api).mockRejectedValueOnce(new Error("policy failed"));
     await checked().props.onChange(false);
@@ -348,8 +350,7 @@ describe("creation regressions", () => {
     });
     const m = mount(() => CreateAgent({ nodes: [device("node")], onClose() {} }));
     await tick();
-    const name = find(m.render(), (el) => el.type.name === "Input" && el.props.placeholder?.includes("e.g."))!;
-    name.props.onChange({ target: { value: "Agent" } });
+    field(m.render(), "Name").props.onChange({ target: { value: "Agent" } });
     const submit = () => find(m.render(), (el) => el.type === "form")!.props.onSubmit({ preventDefault() {} });
     submit();
     await tick();
@@ -360,6 +361,200 @@ describe("creation regressions", () => {
     const creates = vi.mocked(api).mock.calls.filter((c) => c[0] === "POST" && c[1] === "/api/agents");
     expect(creates).toHaveLength(2);
     for (const call of creates) expect(call[2]).toMatchObject({ computerId: "desk", settings: { runIn: "computer" } });
+  });
+});
+
+describe("new agent sheet", () => {
+  const nova = { ...agent, id: "nova", name: "Nova", handle: "nova" };
+  const hub = (extra: (method: string, path: string, body: any) => any = () => undefined) =>
+    vi.mocked(api).mockImplementation(async (method, path, body) => {
+      const special = extra(method, path, body);
+      if (special !== undefined) return special;
+      if (path === "/api/settings/agent-defaults") return { harness: "codex", model: null, computer: "shared", nodeId: null };
+      if (method === "POST" && path === "/api/agents") return { ...agent, id: "new" };
+      return [];
+    });
+  const creates = () => vi.mocked(api).mock.calls.filter((c) => c[0] === "POST" && c[1] === "/api/agents");
+  const submit = (m: Mounted) => find(m.render(), (el) => el.type === "form")!.props.onSubmit({ preventDefault() {} });
+  const createButton = (m: Mounted) => find(m.render(), (el) => el.type.name === "Button" && el.props.type === "submit")!;
+  const textButton = (m: Mounted, text: string) => find(m.render(), (el) => el.type === "button" && el.props.children === text)!;
+  const alertLine = (m: Mounted) => find(m.render(), (el) => el.props.role === "alert")?.props.children;
+
+  it("suggests a name nobody has, and numbers one once they are all used", () => {
+    expect(suggestName([], () => 0)).toBe(AGENT_NAMES[0]);
+    expect(suggestName([], () => 0.9999)).toBe(AGENT_NAMES.at(-1));
+    expect(suggestName([{ name: "Other", handle: AGENT_NAMES[0].toLowerCase() }], () => 0)).toBe(AGENT_NAMES[1]);
+    // a renamed agent still counts by its name
+    expect(suggestName([{ name: AGENT_NAMES[0], handle: "helper" }], () => 0)).toBe(AGENT_NAMES[1]);
+    const all = AGENT_NAMES.map((name) => ({ name, handle: name.toLowerCase() }));
+    expect(suggestName(all, () => 0)).toBe(`${AGENT_NAMES[0]} 2`);
+  });
+
+  it("picks a free handle from the name, and says in one line what is wrong", () => {
+    expect(autoHandle("Nova", [])).toBe("nova");
+    expect(autoHandle("Nova", ["nova", "nova-2"])).toBe("nova-3");
+    expect(autoHandle("Build & Ship", [])).toBe("build-ship");
+    expect(autoHandle("123", ["agent"])).toBe("agent-2");
+    expect(autoHandle("a".repeat(40), ["a".repeat(32)])).toMatch(/^a{28}-2$/);
+    expect(nameProblem("", "", [nova])).toBeNull();
+    expect(nameProblem("Juno", "", [nova])).toBeNull();
+    expect(nameProblem(" nova ", "", [nova])).toBe("nova is already here.");
+    expect(nameProblem("Juno", "nova", [nova])).toBe("@nova is taken.");
+    // a handle typed by hand settles it, even for a name another agent has
+    expect(nameProblem("Nova", "nova-two", [nova])).toBeNull();
+  });
+
+  it("opens with only a ghost, a suggested name and Create, and makes it on your defaults", async () => {
+    useStore.setState({ agents: [nova] });
+    hub();
+    const close = vi.fn();
+    const m = mount(() => CreateAgent({ nodes: [device("node")], onClose: close }));
+    await tick();
+    const suggested = field(m.render(), "Name").props.value as string;
+    expect(AGENT_NAMES).toContain(suggested);
+    expect(suggested).not.toBe("Nova");
+    expect(find(m.tree, (el) => el.props.children === "It says hello and sets itself up in the chat.")).toBeDefined();
+    // everything else stays folded until More options
+    for (const label of ["Handle", "What it does", "Instructions", "AI and computer"]) expect(field(m.tree, label)).toBeUndefined();
+    expect(createButton(m).props.disabled).toBe(false);
+    submit(m);
+    await tick();
+    expect(creates()).toHaveLength(1);
+    const body = creates()[0][2] as any;
+    expect(body).toMatchObject({ name: suggested, handle: suggested.toLowerCase(), instructions: "", useDefaults: true, settings: { appearance: named(m.tree, "Ghost").props.look } });
+    expect(body).not.toHaveProperty("harness");
+    expect(body).not.toHaveProperty("computerId");
+    // then straight to its chat, where it says hello
+    expect(close).toHaveBeenCalledOnce();
+    expect(openDm).toHaveBeenCalledWith("new");
+  });
+
+  it("gives the ghost another look on a click", async () => {
+    hub();
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.05);
+    const m = mount(() => CreateAgent({ nodes: [], onClose() {} }));
+    await tick();
+    const before = named(m.render(), "Ghost").props.look;
+    random.mockReturnValue(0.95);
+    field(m.tree, "Change its look").props.onClick();
+    const after = named(m.render(), "Ghost").props.look;
+    expect(after.hat).not.toBe(before.hat);
+    submit(m);
+    await tick();
+    expect(creates()[0][2]).toMatchObject({ settings: { appearance: after } });
+  });
+
+  it("silently takes a free handle when the name's own is in use, and stops a name another agent has", async () => {
+    useStore.setState({ agents: [{ ...nova, name: "Research" }] });
+    hub();
+    const m = mount(() => CreateAgent({ nodes: [], onClose() {} }));
+    await tick();
+    field(m.render(), "Name").props.onChange({ target: { value: "research" } });
+    expect(alertLine(m)).toBe("research is already here.");
+    expect(createButton(m).props.disabled).toBe(true);
+    submit(m);
+    await tick();
+    expect(creates()).toHaveLength(0);
+    field(m.render(), "Name").props.onChange({ target: { value: "Nova" } });
+    expect(alertLine(m)).toBeUndefined();
+    submit(m);
+    await tick();
+    expect(creates()[0][2]).toMatchObject({ name: "Nova", handle: "nova-2" });
+  });
+
+  it("shows a failed create as one line under the name and lets it be tried again", async () => {
+    let fail = true;
+    hub((method, path) => {
+      if (method === "POST" && path === "/api/agents" && fail) throw new Error("handle taken");
+    });
+    const close = vi.fn();
+    const m = mount(() => CreateAgent({ nodes: [], onClose: close }));
+    await tick();
+    submit(m);
+    await tick();
+    expect(alertLine(m)).toBe("handle taken");
+    expect(close).not.toHaveBeenCalled();
+    fail = false;
+    submit(m);
+    await tick();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("More options unfolds the old fields, checks a typed handle, and sends what was filled in", async () => {
+    useStore.setState({ agents: [nova] });
+    hub((method, path) => {
+      if (path === "/api/connectors") return [{ id: "mail", name: "Mail", allAgents: false }];
+      if (path === "/api/skills") return [{ id: "sk", name: "Charts", description: "", allAgents: false }];
+    });
+    const m = mount(() => CreateAgent({ nodes: [device("node")], onClose() {} }));
+    await tick();
+    const more = textButton(m, "More options");
+    expect(more.props["aria-expanded"]).toBe(false);
+    more.props.onClick();
+    // unfolding asks for the apps and skills to offer
+    m.render();
+    await tick();
+    expect(textButton(m, "Fewer options").props["aria-expanded"]).toBe(true);
+    for (const text of ["Edit look", "Bring one in"]) expect(textButton(m, text)).toBeDefined();
+    expect(find(m.tree, (el) => el.props.role === "radiogroup" && el.props["aria-label"] === "AI and computer")).toBeDefined();
+    // handle rules: tidied as typed, and one line under it when another agent has it
+    field(m.tree, "Handle").props.onChange({ target: { value: "9 Nova!" } });
+    expect(field(m.render(), "Handle").props.value).toBe("nova-");
+    expect(alertLine(m)).toBe("@nova is taken.");
+    expect(createButton(m).props.disabled).toBe(true);
+    field(m.tree, "Handle").props.onChange({ target: { value: "scout" } });
+    expect(alertLine(m)).toBeUndefined();
+    field(m.render(), "Name").props.onChange({ target: { value: "Scout" } });
+    field(m.render(), "What it does").props.onChange({ target: { value: "Finds things" } });
+    field(m.render(), "Instructions").props.onChange({ target: { value: "Look twice." } });
+    find(m.render(), (el) => el.type.name === "Chip" && el.props.children === "Mail")!.props.onClick();
+    find(m.render(), (el) => el.type.name === "Chip" && el.props.children === "Charts")!.props.onClick();
+    // Customize: pick the AI here (these tests run in Advanced, so where it works is picked too)
+    find(m.render(), (el) => el.props.role === "radio" && el.props.children === "Customize")!.props.onClick();
+    find(m.render(), (el) => el.type === "select" && el.props.value === "codex")!.props.onChange({ target: { value: "claude-code" } });
+    named(m.render(), "ComputerPicker").props.onChange({ kind: "headless" });
+    submit(m);
+    await tick();
+    expect(creates()[0][2]).toMatchObject({ name: "Scout", handle: "scout", instructions: "Look twice.", harness: "claude-code", nodeId: "node", computerId: null, settings: { role: "Finds things", headless: true } });
+    expect(creates()[0][2]).not.toHaveProperty("useDefaults");
+    expect(api).toHaveBeenCalledWith("PUT", "/api/connectors/mail/agents/new");
+    expect(api).toHaveBeenCalledWith("PUT", "/api/skills/sk/agents/new");
+  });
+
+  it("keeps the ways to bring an agent in: invite by token, or find one on a device", async () => {
+    hub((method, path) => {
+      if (method === "POST" && path === "/api/agents/new/token") return { token: "tok" };
+    });
+    const m = mount(() => CreateAgent({ nodes: [device("node")], onClose() {} }));
+    await tick();
+    textButton(m, "More options").props.onClick();
+    textButton(m, "Bring one in").props.onClick();
+    const choice = (text: string) => find(m.render(), (el) => el.type === "button" && !!find(el.props.children, (c) => c.props.children === text))!;
+    choice("Find on a device").props.onClick();
+    expect(named(m.render(), "ImportAgent")).toBeDefined();
+    // "Invite instead" from there lands on the invitation form, with the harness picker open
+    named(m.tree, "ImportAgent").props.onInvite();
+    expect(named(m.render(), "HarnessGrid")).toBeDefined();
+    expect(find(m.tree, (el) => el.props.children === "It joins with an invitation.")).toBeDefined();
+    submit(m);
+    await tick();
+    expect(creates()[0][2]).toMatchObject({ nodeId: null, computerId: null });
+    expect(named(m.render(), "ConnectionInstructions").props).toMatchObject({ token: "tok" });
+    // opened straight at "Bring one in" (the Agents page's Bring in)
+    const direct = mount(() => CreateAgent({ nodes: [], onClose() {}, bringIn: true }));
+    expect(find(direct.tree, (el) => el.props.children === "Invite an agent")).toBeDefined();
+  });
+
+  it("Make it a team opens the new-team flow, except inside a team being built", async () => {
+    hub();
+    const close = vi.fn();
+    const m = mount(() => CreateAgent({ nodes: [], onClose: close }));
+    await tick();
+    textButton(m, "Make it a team").props.onClick();
+    expect(close).toHaveBeenCalledOnce();
+    expect(useStore.getState().channelBrowser).toEqual({ sectionId: null, create: true });
+    const inTeam = mount(() => CreateAgent({ nodes: [], onClose() {}, onCreated() {} }));
+    expect(textButton(inTeam, "Make it a team")).toBeUndefined();
   });
 });
 

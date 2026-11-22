@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { useAccessStore, type AccessInfo } from "../../access.ts";
 import { connectorBlocker, enableTailscale } from "../../components/Access.tsx";
-import { DevicesPage, McpConnections } from "./devices.tsx";
+import { AwayRow, McpConnections } from "./devices.tsx";
 
 vi.mock("react", async (original) => ({ ...(await original<typeof import("react")>()), useState: vi.fn(), useEffect: vi.fn() }));
 vi.mock("../../api.ts", () => ({ api: vi.fn() }));
@@ -40,7 +40,7 @@ function render(access: AccessInfo | null = info, page = false) {
       },
     ];
   });
-  return page ? DevicesPage() : McpConnections({ info: access, allowed: true });
+  return page ? AwayRow({}) : McpConnections({ info: access, allowed: true });
 }
 function find(node: any, predicate: (node: any) => boolean): any {
   if (!node || typeof node !== "object") return undefined;
@@ -63,10 +63,10 @@ afterEach(() => {
 });
 
 describe("Grok, ChatGPT and Claude settings", () => {
-  it("shows the exact connector instructions at a public HTTPS address", () => {
+  it("shows the address to copy at a public HTTPS address, with no instructions around it", () => {
     const tree = render();
     expect(find(tree, (n) => n.props?.text === `${info.publicUrl}/mcp`)).toBeTruthy();
-    expect(find(tree, (n) => n.props?.children === "In Grok: Connectors → Add custom connector → paste.")).toBeTruthy();
+    expect(find(tree, (n) => n.type === "p" && typeof n.props?.children === "string" && n.props.children.includes("Connectors"))).toBeUndefined();
   });
   it("hides both the client list and errors for a 404", async () => {
     render();
@@ -87,10 +87,10 @@ describe("Grok, ChatGPT and Claude settings", () => {
     expect(find(tree, (n) => n.props?.text?.endsWith("/mcp"))).toBeUndefined();
     expect(find(tree, (n) => n.type === "p" && [n.props.children].flat().join("").includes("only on your devices with Tailscale"))).toBeTruthy();
     vi.mocked(enableTailscale).mockResolvedValue(true);
-    find(tree, (n) => n.props?.label === "Grok, ChatGPT and Claude").props.onChange(true);
+    find(tree, (n) => n.props?.label === "Grok, ChatGPT and Claude" && n.props?.onChange).props.onChange(true);
     expect(enableTailscale).not.toHaveBeenCalled();
     tree = render(tailnetOnly);
-    expect(find(tree, (n) => n.type === "p" && n.props.children === "Anyone on the internet can reach this address, but only apps you approve can use it. The rest of Wisp stays private.")).toBeTruthy();
+    expect(find(tree, (n) => n.type === "p" && n.props.children === "Anyone can reach this address; only approved apps can use it.")).toBeTruthy();
     find(tree, (n) => n.props?.children === "Cancel").props.onClick();
     expect(states[4]).toBe(false);
     expect(enableTailscale).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe("Grok, ChatGPT and Claude settings", () => {
     expect(find(tree, (n) => n.props?.children === "Approve it on a device with Tailscale on.")).toBeTruthy();
     const act = vi.fn(async () => info);
     useAccessStore.setState({ act });
-    find(tree, (n) => n.props?.label === "Grok, ChatGPT and Claude").props.onChange(false);
+    find(tree, (n) => n.props?.label === "Grok, ChatGPT and Claude" && n.props?.onChange).props.onChange(false);
     await Promise.resolve();
     expect(act).toHaveBeenCalledExactlyOnceWith("unconnectors");
   });
@@ -117,7 +117,7 @@ describe("Grok, ChatGPT and Claude settings", () => {
   it("turns Funnel off when the switch is disabled", async () => {
     const act = vi.fn(async () => info);
     useAccessStore.setState({ act });
-    find(render(), (n) => n.props?.label === "Grok, ChatGPT and Claude").props.onChange(false);
+    find(render(), (n) => n.props?.label === "Grok, ChatGPT and Claude" && n.props?.onChange).props.onChange(false);
     await Promise.resolve();
     expect(act).toHaveBeenCalledExactlyOnceWith("unfunnel");
   });
@@ -125,7 +125,7 @@ describe("Grok, ChatGPT and Claude settings", () => {
     const access: AccessInfo = { ...info, publicUrl: null, cloudflare: { state: "running", url: "https://wisp.example", error: null }, tailscale: { ...info.tailscale, serving: false, funnel: false } };
     const refresh = vi.fn(async () => info);
     useAccessStore.setState({ info: access, refresh });
-    if (switchName === "away") states = [false, false, false, null];
+    if (switchName === "away") states = [false, false, null];
     vi.mocked(api).mockResolvedValue(info);
     const tree = render(access, switchName === "away");
     if (switchName === "apps") expect(find(tree, (n) => n.props?.text === "https://wisp.example/mcp")).toBeTruthy();

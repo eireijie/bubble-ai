@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "../../components/ui.tsx";
-import { Section } from "./parts.tsx";
+import { SRow } from "./rows.tsx";
 
 /** Only in the desktop app, and only for who the app says may: everything else happens in its own window. */
-export function RemoveWispSection() {
+export function RemoveWispRow() {
   const removal = typeof window !== "undefined" ? window.wispDesktop?.removal : undefined;
   const [available, setAvailable] = useState(false);
   useEffect(() => {
@@ -18,10 +18,10 @@ export function RemoveWispSection() {
   }, [removal]);
   if (!available) return null;
   return (
-    <Section title="Remove Wisp from this computer" description="Other computers aren't changed. You choose what goes in the next step.">
+    <SRow id="remove" danger>
       <Button variant="danger" onClick={() => void removal?.open()}>
         Remove Wisp…
       </Button>
-    </Section>
+    </SRow>
   );
 }

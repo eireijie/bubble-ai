@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Check, Folder, Trash2 } from "lucide-react";
-import { personDir } from "@wisp/core";
+import { useRef, useState } from "react";
+import { Check, ChevronDown, Folder, Trash2 } from "lucide-react";
+import { personDir, type AccessRule } from "@wisp/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
-import { Cards, ConfirmCard, MemoryDialog, Overline, Radio, field, pillPrimary, noteName, useFolderLabel, folderSteps } from "./parts.tsx";
+import { Cards, ConfirmCard, MemoryDialog, Radio, field, pillPrimary, noteName, useFolderLabel, folderSteps } from "./parts.tsx";
 import { cx } from "../../components/ui.tsx";
+import { leftBehind, renameFolderPlan, renamedFolder } from "./logic.ts";
 
 /** A folder as words: "Shared / projects", "Ghosty's notes / plans". */
 export function useFolderWords() {
@@ -46,12 +47,11 @@ export function FolderChoice({ value, onChange, folders, current, hints = true }
           </button>
         ))}
       </Cards>
-      <p className="mt-2 px-1 text-xs text-muted">Pick one or type a new name to make a folder.</p>
       {other ? (
         <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="shared/ideas" aria-label="Folder path" className={cx(field, "mt-2")} autoFocus />
       ) : (
         <button type="button" onClick={() => setOther(true)} className="mt-2 px-1 text-body font-medium text-accent-text underline underline-offset-2">
-          Other folder…
+          New folder
         </button>
       )}
     </div>
@@ -65,6 +65,8 @@ export function NewNoteDialog({ initial, initialName = "", folders, onClose, onC
   const [dir, setDir] = useState(initial);
   const [name, setName] = useState(initialName);
   const [body, setBody] = useState("");
+  const [choosing, setChoosing] = useState(false);
+  const words = useFolderWords();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const create = async () => {
@@ -98,12 +100,18 @@ export function NewNoteDialog({ initial, initialName = "", folders, onClose, onC
           create();
         }}
       >
-        <Overline>Title</Overline>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Meeting notes" aria-label="Title" required autoFocus className={field} />
-        <Overline>Where to keep it</Overline>
-        <FolderChoice value={dir} onChange={setDir} folders={folders} />
-        <Overline>Note</Overline>
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write something your agents should remember…" aria-label="Note" rows={5} className="w-full rounded-3xl border border-control-line bg-control px-4 py-3 text-body outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30 resize-none" />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Title" aria-label="Title" required autoFocus className={field} />
+        <button type="button" onClick={() => setChoosing(!choosing)} aria-expanded={choosing} aria-label={`Folder: ${words(cleanDir(dir))}. Change`} className="mt-2.5 inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-chip px-3 text-[13px] font-medium hover:bg-hover">
+          <Folder size={14} strokeWidth={1.8} className="shrink-0 text-muted" aria-hidden />
+          <span className="truncate">{words(cleanDir(dir))}</span>
+          <ChevronDown size={14} className={cx("shrink-0 text-muted", choosing && "rotate-180")} aria-hidden />
+        </button>
+        {choosing && (
+          <div className="mt-2.5">
+            <FolderChoice value={dir} onChange={setDir} folders={folders} />
+          </div>
+        )}
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Note" aria-label="Note" rows={5} className="mt-2.5 w-full rounded-2xl border border-control-line bg-control px-4 py-3 text-body outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30 resize-none" />
         {error && <p className="mt-3 text-sm text-bad">{error}</p>}
       </form>
     </MemoryDialog>
@@ -147,9 +155,8 @@ export function RenameDialog({ path, onClose, onDone }: { path: string; onClose:
           go();
         }}
       >
-        <p className="text-sm text-muted mb-3">{path}</p>
         <input value={name} onChange={(e) => setName(e.target.value)} aria-label="New name" required autoFocus className={field} />
-        <p className="mt-2 px-1 text-xs text-muted">Links written as [[{noteName(path)}]] in other notes need the new name too.</p>
+        <p className="mt-2 px-1 text-xs text-muted">Links written as [[{noteName(path)}]] keep the old name.</p>
         {error && <p className="mt-3 text-sm text-bad">{error}</p>}
       </form>
     </MemoryDialog>
@@ -185,10 +192,8 @@ export function MoveDialog({ path, folders, onClose, onDone }: { path: string; f
         </button>
       }
     >
-      <p className="text-sm text-muted">{path.split("/").pop()}</p>
-      <Overline>Move to</Overline>
       <FolderChoice value={dir} onChange={setDir} folders={folders} current={here} hints={false} />
-      <p className="mt-3 px-1 text-xs text-muted">Who can see the note changes with the folder it lands in.</p>
+      <p className="mt-3 px-1 text-xs text-muted">Who can see it follows the folder.</p>
       {error && <p className="mt-3 text-sm text-bad">{error}</p>}
     </MemoryDialog>
   );
@@ -201,7 +206,7 @@ export function DeleteDialog({ path, onClose, onDone }: { path: string; onClose:
   return (
     <ConfirmCard
       icon={<Trash2 size={22} />}
-      title="Delete this note?"
+      title={`Delete ${noteName(path)}?`}
       action="Delete note"
       busy={busy}
       onClose={onClose}
@@ -216,11 +221,102 @@ export function DeleteDialog({ path, onClose, onDone }: { path: string; onClose:
         }
       }}
     >
-      <p>
-        {path.split("/").pop()} will be removed from memory. Anything that links to it will point nowhere. It stays recoverable in git history.
-      </p>
+      <p>It stays in history.</p>
       {error && <p className="mt-2 text-bad">{error}</p>}
     </ConfirmCard>
   );
 }
 
+/** Give a folder another name: its notes move with it, and so does who can see them. */
+export function RenameFolderDialog({ path, notes, rules, onClose, onDone, onChanged }: { path: string; notes: { path: string }[]; rules: AccessRule[]; onClose: () => void; onDone: (to: string) => void; /** some notes moved, some did not: the list behind needs reloading */ onChanged?: () => void }) {
+  const [name, setName] = useState(path.split("/").pop()!);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  // where a first try that stopped halfway was heading: trying again finishes that move
+  const began = useRef<string | null>(null);
+  const rename = async () => {
+    const to = renamedFolder(path, name);
+    if (!to) return;
+    if (to === path) return onClose();
+    const plan = renameFolderPlan(path, to, notes, rules);
+    if (plan.error && began.current !== to) return setError(plan.error);
+    setBusy(true);
+    setError(null);
+    try {
+      // access first, so no note ever sits in a folder more people can see
+      for (const r of plan.rules) await api("PUT", "/api/access", { path: r.path, subject: r.subject, level: r.level, startup: r.startup });
+    } catch (e) {
+      setError(`Nothing moved: ${(e as Error).message}`);
+      return setBusy(false);
+    }
+    began.current = to;
+    // every note gets its turn: one that fails doesn't stop the rest, and is named afterwards
+    const stuck: string[] = [];
+    for (const m of plan.moves) await api("POST", "/api/vault/move", m).catch(() => stuck.push(m.from));
+    if (stuck.length) {
+      setError(leftBehind("Not moved", stuck));
+      setBusy(false);
+      return onChanged?.();
+    }
+    for (const r of plan.rules) if (r.id) await api("DELETE", `/api/access/${r.id}`).catch(() => {});
+    onDone(to);
+  };
+  return (
+    <MemoryDialog
+      title="Rename folder"
+      onClose={onClose}
+      footer={
+        <button form="rename-folder" className={cx(pillPrimary, "h-12 px-7")} disabled={!name.trim() || busy}>
+          <Check size={17} /> Rename
+        </button>
+      }
+    >
+      <form
+        id="rename-folder"
+        onSubmit={(e) => {
+          e.preventDefault();
+          rename();
+        }}
+      >
+        <input value={name} onChange={(e) => setName(e.target.value)} aria-label="New name" required autoFocus className={field} />
+        {error && <p className="mt-3 text-sm text-bad">{error}</p>}
+      </form>
+    </MemoryDialog>
+  );
+}
+
+/** Delete a folder: every note in it goes, and stays in history. */
+export function DeleteFolderDialog({ path, notes, rules, onClose, onDone, onChanged }: { path: string; notes: { path: string }[]; rules: AccessRule[]; onClose: () => void; onDone: () => void; /** some notes were deleted, some were not: the list behind needs reloading */ onChanged?: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inside = notes.filter((n) => n.path.toLowerCase().startsWith(path.toLowerCase() + "/"));
+  return (
+    <ConfirmCard
+      icon={<Trash2 size={22} />}
+      title={`Delete ${path.split("/").pop()}?`}
+      action="Delete folder"
+      busy={busy}
+      onClose={onClose}
+      onAction={async () => {
+        setBusy(true);
+        setError(null);
+        // every note gets its turn: one that fails doesn't stop the rest, and is named afterwards
+        const stuck: string[] = [];
+        for (const n of inside) await api("DELETE", `/api/vault/note?path=${encodeURIComponent(n.path)}`).catch(() => stuck.push(n.path));
+        if (stuck.length) {
+          setError(leftBehind("Not deleted", stuck));
+          setBusy(false);
+          return onChanged?.();
+        }
+        // rules on a folder that is gone would only wait for a new folder of the same name
+        for (const r of renameFolderPlan(path, path, [], rules).rules) if (r.id) await api("DELETE", `/api/access/${r.id}`).catch(() => {});
+        onDone();
+      }}
+    >
+      <p>
+        {inside.length} {inside.length === 1 ? "note" : "notes"}. They stay in history.
+      </p>
+      {error && <p className="mt-2 text-bad">{error}</p>}
+    </ConfirmCard>
+  );
+}

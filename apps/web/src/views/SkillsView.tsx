@@ -1,14 +1,14 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { BadgeCheck, Check, ChevronRight, Download, ExternalLink, FileText, Laptop, Link2, Pencil, Plus, Send, Share2, Trash2, Users, Wand2, X } from "lucide-react";
-import { skillFile, type Agent, type CatalogSkill, type Skill, type StoreSkill } from "@wisp/core";
+import { Check, Download, ExternalLink, FileText, Laptop, Link2, MoreHorizontal, Plus, Share2, Users, Wand2, X } from "lucide-react";
+import { catalogSkill, skillFile, type Agent, type CatalogSkill, type Skill, type StoreSkill } from "@wisp/core";
 import { api } from "../api.ts";
 import { renderMarkdown } from "../markdown.ts";
 import { MoreOptions } from "../components/MoreOptions.tsx";
 import { openDm } from "../openDm.ts";
 import { readSkillFile, readSkillLink, skillLink, type SharedSkill } from "../skillShare.ts";
-import { Loader, cx } from "../components/ui.tsx";
-import { AreaBox, Badge, Chip, Circle, Dlg, Item, Label, Labeled, Note, Panel, Prim, Sec, Seg, TextBox, Tile } from "../components/MarketParts.tsx";
-import { AgentPicker, CatalogIcon } from "../components/ShopParts.tsx";
+import { Button, Loader, Menu } from "../components/ui.tsx";
+import { AreaBox, Chip, Dlg, FactRow, Item, Label, Labeled, ItemHead, Panel, Prim, RemoveBtn, Rows, Sec, Seg, TextBox, Tile } from "../components/MarketParts.tsx";
+import { AgentPicker, CatalogIcon, WhoCanUse } from "../components/ShopParts.tsx";
 
 export const SOURCE: Record<Skill["source"], string> = { catalog: "From the library", custom: "Made here", taught: "Taught", learned: "Learned" };
 
@@ -160,39 +160,35 @@ export function whoPatch(s: Pick<Skill, "learnedBy">, to: Who, agents: Pick<Agen
   return { allAgents: false };
 }
 
-/** A small segmented control, square-ish, like the rest of Settings. */
-function WhoSeg<T extends string>({ value, options, onChange, disabled }: { value: T; options: [T, string][]; onChange: (v: T) => void; disabled?: boolean }) {
+/** The one muted line under an added skill's name: what it is, where it came from, how often it's used. */
+export function skillLine(s: Pick<Skill, "source" | "catalogId" | "learnedBy" | "uses">, agents: Pick<Agent, "id" | "name">[]): string {
+  const uses = s.uses ?? 0;
+  const from = s.source === "learned" ? `learned by ${agentName(agents, s.learnedBy) ?? "an agent"}` : lowerFirst(skillOrigin(s));
+  return ["Skill", from, uses ? `used ${uses === 1 ? "once" : `${uses} times`}` : null].filter(Boolean).join(" · ");
+}
+
+/** A skill's instructions, unfolded under its card. */
+function Instructions({ text, html, loading }: { text?: string; html: string; loading?: boolean }) {
   return (
-    <div role="radiogroup" aria-label="Who can use it" className="flex gap-0.5 rounded-lg bg-control p-0.5">
-      {options.map(([v, text]) => (
-        <button key={v} type="button" role="radio" aria-checked={value === v} disabled={disabled} onClick={() => value !== v && onChange(v)} className={cx("h-[30px] min-w-0 flex-1 truncate rounded-md px-3 text-[13px] font-medium disabled:opacity-50", value === v ? "bg-ink/15 text-ink" : "text-muted hover:text-ink")}>
-          {text}
-        </button>
-      ))}
+    <div className="space-y-3 rounded-[14px] bg-card px-4 py-3.5">
+      {text && <p className="text-sm font-medium">{text}</p>}
+      {loading ? <Loader /> : html && <div className="prose-w text-sm text-ink/90" dangerouslySetInnerHTML={{ __html: html }} />}
     </div>
   );
 }
 
-/** A row in a list of actions on a skill's page (Edit, Forget this skill). */
-function ActionRow({ children, onClick, danger }: { children: ReactNode; onClick: () => void; danger?: boolean }) {
-  return (
-    <button type="button" onClick={onClick} className={cx("flex min-h-11 w-full items-center gap-2.5 px-4 text-left text-sm hover:bg-hover", danger && "text-bad")}>
-      {children}
-    </button>
-  );
-}
-
 /**
- * An added or learned skill's page: its name, where it came from and how often it's used, what it's
- * for, its steps, who can use it, and Edit / Forget.
+ * An added or learned skill's page: its name and one line; a card of rows (who can use it, what
+ * it does, More); Edit and Share behind the dots; Remove set apart at the bottom.
  */
-function SkillPage({ skill, agents, canEdit, onEdit, onChanged, onGone, onTry, onShare }: { skill: Skill; agents: Agent[]; canEdit: boolean; onEdit: (s: Skill) => void; onChanged: (id?: string) => void; onGone: () => void; onTry: (skill: { name: string; description: string; agentIds: string[] }) => void; onShare: (s: Skill) => void }) {
-  const html = useMemo(() => renderMarkdown(skill.content), [skill.content]);
+function SkillPage({ skill, agents, canEdit, icon, onEdit, onChanged, onGone, onShare }: { skill: Skill; agents: Agent[]; canEdit: boolean; icon?: ReactNode; onEdit: (s: Skill) => void; onChanged: (id?: string) => void; onGone: () => void; onShare: (s: Skill) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const who = whoValue(skill, agents);
-  const learner = skill.source === "learned" ? agents.find((a) => a.id === skill.learnedBy) : undefined;
-  const options: [Who, string][] = learner ? [["just", `Just ${learner.name}`], ["all", "All agents"]] : [["some", "Some agents"], ["all", "All agents"]];
+  const [who, setWho] = useState(false);
+  const [does, setDoes] = useState(false);
+  const [more, setMore] = useState(false);
+  // the instructions are drawn only once they are unfolded
+  const html = useMemo(() => (does ? renderMarkdown(skill.content) : ""), [does, skill.content]);
 
   async function run(p: () => Promise<unknown>) {
     setBusy(true);
@@ -214,7 +210,7 @@ function SkillPage({ skill, agents, canEdit, onEdit, onChanged, onGone, onTry, o
     });
 
   async function forget() {
-    if (!confirm(`Forget "${skill.name}"? Agents that use it lose it.`)) return;
+    if (!confirm(`Remove "${skill.name}"? Agents that use it lose it.`)) return;
     try {
       await api("DELETE", `/api/skills/${skill.id}`);
       onGone();
@@ -225,52 +221,58 @@ function SkillPage({ skill, agents, canEdit, onEdit, onChanged, onGone, onTry, o
   }
 
   return (
-    <div className="m-work space-y-5">
-      <header className="flex items-start gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <h2 className="truncate text-xl font-semibold tracking-[-0.02em]">{skill.name}</h2>
-          <p className="text-[13px] text-faint">{skillMeta(skill, agents)}</p>
+    <div className="m-work space-y-4">
+      <ItemHead tile={<Tile size={56}>{icon ?? <CatalogIcon name={catalogSkill(skill.catalogId ?? "")?.icon} fallback={Wand2} size={26} />}</Tile>} name={skill.name} line={skillLine(skill, agents)}>
+        {canEdit && (
+          <Menu
+            align="right"
+            items={[
+              { label: "Edit", onSelect: () => onEdit(skill) },
+              { label: "Share", onSelect: () => onShare(skill) },
+            ]}
+            trigger={(open, toggle) => (
+              <button type="button" className="circle circle-sm" aria-label={`More for ${skill.name}`} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>
+                <MoreHorizontal size={16} aria-hidden />
+              </button>
+            )}
+          />
+        )}
+      </ItemHead>
+      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
+
+      <Rows>
+        <FactRow label="Who can use it" value={skillHolders(skill, agents)} onClick={canEdit ? () => setWho(true) : undefined} />
+        <FactRow label="Does" value={whatItsFor(skill.description, 70)} onClick={() => setDoes(!does)} open={does} />
+        <FactRow label="More" onClick={() => setMore(!more)} open={more} />
+      </Rows>
+      {does && <Instructions text={skill.description} html={html} />}
+      {more && (
+        <div className="space-y-1 px-1 text-[13px] leading-5 text-muted">
+          <p>{skillMeta(skill, agents)}</p>
+          <p>
+            File: <span className="font-mono">me/skills/{skill.slug}/SKILL.md</span>
+          </p>
+          {skill.tags.length > 0 && <p>Tags: {skill.tags.join(", ")}</p>}
         </div>
-        {canEdit && (
-          <Circle label="Share" className="circle-sm" onClick={() => onShare(skill)}>
-            <Share2 size={16} />
-          </Circle>
-        )}
-      </header>
+      )}
 
-      <div className="space-y-3 rounded-xl border border-line bg-card px-4 py-3.5">
-        {skill.description && <p className="text-sm font-medium">{skill.description}</p>}
-        <div className="prose-w text-sm text-ink/90" dangerouslySetInnerHTML={{ __html: html }} />
-      </div>
-
-      <section className="space-y-2">
-        <h3 className="px-1 text-xs font-medium uppercase tracking-[0.04em] text-faint">Who can use it</h3>
-        <WhoSeg value={who} options={options} disabled={!canEdit || busy} onChange={(v) => void run(() => api("PATCH", `/api/skills/${skill.id}`, whoPatch(skill, v, agents)))} />
-        {who === "some" && <AgentPicker agents={agents} value={skill.agentIds} onChange={(ids) => void pick(ids)} disabled={!canEdit || busy} />}
-      </section>
-
-      <div className="overflow-hidden rounded-xl border border-line bg-card divide-y divide-line">
-        {canEdit && (
-          <ActionRow onClick={() => onEdit(skill)}>
-            <Pencil size={15} className="text-muted" /> <span className="flex-1">Edit</span> <ChevronRight size={15} className="text-faint" />
-          </ActionRow>
-        )}
-        <ActionRow onClick={() => onTry({ name: skill.name, description: skill.description, agentIds: skill.allAgents ? agents.map((a) => a.id) : skill.agentIds })}>
-          <Send size={15} className="text-muted" /> <span className="flex-1">Try it</span> <ChevronRight size={15} className="text-faint" />
-        </ActionRow>
-        {canEdit && (
-          <ActionRow danger onClick={() => void forget()}>
-            <Trash2 size={15} /> Forget this skill
-          </ActionRow>
-        )}
-      </div>
-      {error && <p className="text-sm text-bad">{error}</p>}
-
-      <MoreOptions title="Details">
-        <p className="text-xs text-muted">
-          Instruction file: <span className="font-mono">me/skills/{skill.slug}/SKILL.md</span>
-        </p>
-      </MoreOptions>
+      {canEdit && (
+        <div className="pt-3">
+          <RemoveBtn onClick={() => void forget()}>Remove</RemoveBtn>
+        </div>
+      )}
+      {who && (
+        <WhoCanUse
+          agents={agents}
+          allAgents={!!skill.allAgents}
+          agentIds={skill.agentIds}
+          disabled={!canEdit || busy}
+          error={error}
+          onAll={(on) => void run(() => api("PATCH", `/api/skills/${skill.id}`, { allAgents: on }))}
+          onPick={(ids) => void pick(ids)}
+          onClose={() => setWho(false)}
+        />
+      )}
     </div>
   );
 }
@@ -279,144 +281,96 @@ function SkillPage({ skill, agents, canEdit, onEdit, onChanged, onGone, onTry, o
 export function BuiltInSkillPage({ skill, agents }: { skill: BuiltInSkill; agents: Agent[] }) {
   const names = skill.agentIds.map((id) => agents.find((a) => a.id === id)?.name).filter((n): n is string => !!n);
   return (
-    <div className="m-work space-y-5">
-      <header className="space-y-1">
-        <h2 className="truncate text-xl font-semibold tracking-[-0.02em]">{skill.name}</h2>
-        <p className="text-[13px] text-faint">Built into {skill.harnessLabel}</p>
-      </header>
-      {skill.description && <p className="rounded-xl border border-line bg-card px-4 py-3.5 text-sm">{skill.description}</p>}
-      <section className="space-y-2">
-        <h3 className="px-1 text-xs font-medium uppercase tracking-[0.04em] text-faint">Who can use it</h3>
-        <div className="rounded-xl border border-line bg-card px-4 py-3">
-          <p className="text-sm">{skill.harnessLabel} agents</p>
-          {names.length > 0 && <p className="mt-0.5 truncate text-[13px] text-faint">{names.join(", ")}</p>}
-        </div>
-        <p className="px-1 text-xs text-faint">Type /{skill.name} in a chat with one of them.</p>
-      </section>
+    <div className="m-work space-y-4">
+      <ItemHead tile={<Tile size={56}><Wand2 size={26} strokeWidth={1.7} /></Tile>} name={skill.name} line={`Skill · built into ${skill.harnessLabel}`} />
+      <Rows>
+        <FactRow label="Who can use it" value={names.length ? names.join(", ") : `${skill.harnessLabel} agents`} />
+        {skill.description && <FactRow label="Does" value={skill.description} wrap />}
+      </Rows>
     </div>
-  );
-}
-
-
-/** The little plain-words card a skill detail shows (what it needs, an example). */
-function SkillFacts({ plain }: { plain: { does: string; needs: string | null; example: string | null } }) {
-  return (
-    <>
-      {plain.does && (
-        <section className="space-y-2">
-          <Label>What it does</Label>
-          <p className="px-1 text-body leading-relaxed text-ink/90">{plain.does}</p>
-        </section>
-      )}
-      {plain.needs && (
-        <section className="space-y-2">
-          <Label>What it needs</Label>
-          <Panel>
-            <Item icon={<Tile size={40}><Wand2 size={20} strokeWidth={1.7} /></Tile>} title={<span className="whitespace-normal text-body font-normal">{plain.needs}</span>} />
-          </Panel>
-        </section>
-      )}
-      {plain.example && (
-        <section className="space-y-2">
-          <Label>Example</Label>
-          <div className="rounded-2xl border border-control-line bg-control px-4 py-3.5 text-base leading-snug">{plain.example}</div>
-        </section>
-      )}
-    </>
   );
 }
 
 /**
- * A skill's page: what it does and needs, an example, its full instructions, Try it and Install (or,
- * once it's added, who has it, Edit and Delete). `onTry` opens the request to copy or send.
+ * A skill's page: once it's added, who has it, what it does, Edit, Share and Remove; before that,
+ * what it does and needs, its full instructions, and Add.
  */
-export function SkillDetail(props: { open: Open; agents: Agent[]; canEdit: boolean; onInstall: (e: CatalogSkill) => void; onEdit: (s: Skill) => void; onChanged: (id?: string) => void; onGone: () => void; onTry: (skill: { name: string; description: string; agentIds: string[] }) => void; onShare: (s: Skill) => void }) {
+export function SkillDetail(props: { open: Open; agents: Agent[]; canEdit: boolean; icon?: ReactNode; onInstall: (e: CatalogSkill) => void; onEdit: (s: Skill) => void; onChanged: (id?: string) => void; onGone: () => void; onTry?: (skill: { name: string; description: string; agentIds: string[] }) => void; onShare: (s: Skill) => void }) {
   if ("skill" in props.open) return <SkillPage {...props} skill={props.open.skill} />;
   return <LibrarySkill {...props} entry={props.open.entry} />;
 }
 
-/** A library skill not added yet: what it does and needs, an example, its instructions, Try it and Install. */
-function LibrarySkill({ entry, canEdit, onInstall, onTry }: { entry: CatalogSkill; canEdit: boolean; onInstall: (e: CatalogSkill) => void; onTry: (skill: { name: string; description: string; agentIds: string[] }) => void }) {
+/** A library skill not added yet: what it does and needs, its instructions, and Add. */
+function LibrarySkill({ entry, canEdit, onInstall }: { entry: CatalogSkill; canEdit: boolean; onInstall: (e: CatalogSkill) => void }) {
   const { name, description, content } = entry;
-  const html = useMemo(() => renderMarkdown(content), [content]);
   const plain = plainSkill(null, entry);
+  const [does, setDoes] = useState(false);
+  const [more, setMore] = useState(false);
+  const html = useMemo(() => (does ? renderMarkdown(content) : ""), [does, content]);
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-start gap-4">
-        <Tile size={56}>
-          <CatalogIcon name={entry.icon} fallback={Wand2} size={26} />
-        </Tile>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <h2 className="t-title">{name}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="green" icon={<BadgeCheck size={13} aria-hidden />}>Made by Wisp</Badge>
-          </div>
+    <div className="space-y-4">
+      <ItemHead tile={<Tile size={56}><CatalogIcon name={entry.icon} fallback={Wand2} size={26} /></Tile>} name={name} line="Skill · by Wisp">
+        {canEdit && (
+          <Button variant="primary" onClick={() => onInstall(entry)}>
+            Add
+          </Button>
+        )}
+      </ItemHead>
+      <Rows>
+        <FactRow label="Does" value={plain.does || whatItsFor(description, 70)} onClick={() => setDoes(!does)} open={does} />
+        {plain.needs && <FactRow label="Needs" value={plain.needs} wrap />}
+        <FactRow label="More" onClick={() => setMore(!more)} open={more} />
+      </Rows>
+      {does && <Instructions text={plain.does || description} html={html} />}
+      {more && (
+        <div className="space-y-1 px-1 text-[13px] leading-5 text-muted">
+          <p>Made by Wisp</p>
+          {plain.example && <p>For example: {plain.example}</p>}
         </div>
-      </header>
-
-      {!plain.does && <p className="px-1 text-body leading-relaxed">{description}</p>}
-      <SkillFacts plain={plain} />
-
-      <div className="flex flex-wrap gap-2">
-        <Sec onClick={() => onTry({ name, description, agentIds: [] })}>
-          <Send size={16} /> Try it
-        </Sec>
-        {canEdit && <Prim onClick={() => onInstall(entry)}>Add</Prim>}
-      </div>
-
-      <MoreOptions title="Read the full instructions">
-        <div className="prose-w rounded-2xl border border-line p-4 text-sm" dangerouslySetInnerHTML={{ __html: html }} />
-      </MoreOptions>
+      )}
     </div>
   );
 }
 
-/** A public skill before it's added: who made it, its license, its instructions, and its source. */
-export function StoreSkillDetail({ s, icon, canEdit, onAdd, onTry }: { s: StoreSkill; icon: ReactNode; canEdit: boolean; onAdd: () => void; onTry: () => void }) {
+/** A public skill before it's added: who made it, what it does, its instructions; its licence and source under More. */
+export function StoreSkillDetail({ s, icon, canEdit, onAdd }: { s: StoreSkill; icon: ReactNode; canEdit: boolean; onAdd: () => void }) {
   const [content, setContent] = useState<string | null | undefined>(undefined);
+  const [does, setDoes] = useState(false);
+  const [more, setMore] = useState(false);
   useEffect(() => {
     api<{ content: string | null }>("GET", `/api/skill-store/${encodeURIComponent(s.id)}`).then((r) => setContent(r.content), () => setContent(null));
   }, [s.id]);
-  const html = useMemo(() => (content ? renderMarkdown(content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")) : ""), [content]);
+  const html = useMemo(() => (does && content ? renderMarkdown(content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")) : ""), [does, content]);
   return (
-    <div className="space-y-6">
-      <header className="flex items-start gap-4">
-        <Tile size={56}>{icon}</Tile>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <h2 className="t-title">{s.name}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="grey">From {s.source.label}</Badge>
-            <Badge tone={s.license.open ? "grey" : "warn"}>{s.license.label}</Badge>
-            <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
-              Source <ExternalLink size={12} />
-            </a>
-          </div>
-        </div>
-      </header>
-      <section className="space-y-2">
-        <Label>What it does</Label>
-        <p className="px-1 text-body leading-relaxed text-ink/90">{s.description}</p>
-      </section>
+    <div className="space-y-4">
+      <ItemHead tile={<Tile size={56}>{icon}</Tile>} name={s.name} line={`Skill · by ${s.source.label}`}>
+        {canEdit && s.license.open && (
+          <Button variant="primary" onClick={onAdd}>
+            Add
+          </Button>
+        )}
+      </ItemHead>
       {!s.license.open && (
-        <Note>
-          Its license doesn't allow copying it, so read it where it lives:{" "}
-          <a className="underline" href={s.url} target="_blank" rel="noreferrer">
-            {s.source.label}'s repo
+        <p className="px-1 text-[13px] text-muted">
+          Its licence doesn't allow copying.{" "}
+          <a className="underline hover:text-ink" href={s.url} target="_blank" rel="noreferrer">
+            Read it at {s.source.label}
           </a>
-          .
-        </Note>
+        </p>
       )}
-      <div className="flex flex-wrap gap-2">
-        <Sec onClick={onTry}>
-          <Send size={16} /> Try it
-        </Sec>
-        {canEdit && s.license.open && <Prim onClick={onAdd}>Add</Prim>}
-      </div>
-      {content === undefined ? <Loader /> : content && (
-        <MoreOptions title="Read the full instructions">
-          <div className="prose-w rounded-2xl border border-line p-4 text-sm" dangerouslySetInnerHTML={{ __html: html }} />
-        </MoreOptions>
+      <Rows>
+        <FactRow label="Does" value={whatItsFor(s.description, 70)} onClick={() => setDoes(!does)} open={does} />
+        <FactRow label="More" onClick={() => setMore(!more)} open={more} />
+      </Rows>
+      {does && <Instructions text={s.description} html={html} loading={content === undefined} />}
+      {more && (
+        <div className="space-y-1 px-1 text-[13px] leading-5 text-muted">
+          <p>Licence: {s.license.label}</p>
+          <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-ink">
+            Source <ExternalLink size={12} aria-hidden />
+          </a>
+        </div>
       )}
     </div>
   );
@@ -487,42 +441,6 @@ export function TryDialog({ skill, agents, onClose }: { skill: { name: string; d
   );
 }
 
-/** Give a skill to agents: one from the library (`catalogId`), the store (`storeId`) or a device (`nodeId`, `harness`, `skillId`). */
-export function InstallModal({ entry, body, agents, onClose, onDone }: { entry: { name: string; description: string }; body: Record<string, string>; agents: Agent[]; onClose: () => void; onDone: (s: Skill) => void }) {
-  const [agentIds, setAgentIds] = useState<string[]>(agents.length === 1 ? [agents[0].id] : []);
-  const [allAgents, setAllAgents] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  async function install() {
-    setBusy(true);
-    setError(null);
-    try {
-      onDone(await api<Skill>("POST", "/api/skills", { ...body, agentIds, allAgents }));
-    } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
-    }
-  }
-  return (
-    <Dlg title={`Add ${entry.name}`} sub="Which agents should know it?" onClose={onClose}>
-      <AgentPicker agents={agents} value={agentIds} onChange={setAgentIds} allAgents={{ on: allAgents, onChange: setAllAgents }} />
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <div className="flex justify-end">
-        <Prim disabled={busy} onClick={install} className="max-sm:w-full">
-          {allAgents || agentIds.length ? `Add ${entry.name}` : "Add to the workspace"}
-        </Prim>
-      </div>
-    </Dlg>
-  );
-}
-
-/** Starter text for the three guided questions, shown as placeholders. */
-const GUIDE_HINTS = {
-  what: "For example: Read the meeting notes I give you and write a short summary with decisions and next steps.",
-  when: "For example: When I paste meeting notes or ask for a recap.",
-  result: "For example: One page or less, decisions first, each next step with a name.",
-};
-
 /** Tags as chips, with a "+ Add" that turns into a small field. */
 function TagsInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
   const [adding, setAdding] = useState(false);
@@ -585,7 +503,7 @@ export function SkillEditor({ skill, agents, onClose, onSaved, onShare }: { skil
   // after that their edited text is what gets saved (and "Use the answers again" undoes it).
   const [rawEdit, setRawEdit] = useState<string | null>(null);
   const [agentIds, setAgentIds] = useState<string[]>(skill?.agentIds ?? []);
-  const [allAgents, setAllAgents] = useState(skill?.allAgents ?? false);
+  const [allAgents, setAllAgents] = useState(skill?.allAgents ?? true);
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -626,7 +544,6 @@ export function SkillEditor({ skill, agents, onClose, onSaved, onShare }: { skil
       ) : guided ? (
         <>
           <AreaBox className="min-h-48 font-mono text-[13px]" rows={10} value={finalContent} aria-label="Full instructions (markdown)" onChange={(e) => setRawEdit(e.target.value)} />
-          <p className="px-1 text-[13px] text-faint">{rawEdit === null ? "Made from your answers above. If you change this text, this text is what gets saved." : "You edited this text, so the answers above no longer change it."}</p>
           {rawEdit !== null && (
             <Sec className="h-9 text-sm" onClick={() => setRawEdit(null)}>
               Use my answers again
@@ -651,11 +568,11 @@ export function SkillEditor({ skill, agents, onClose, onSaved, onShare }: { skil
         <Labeled label="Name">{(id) => <TextBox id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder={guided ? "Summarize a meeting" : "Deploy the web app"} required />}</Labeled>
         {guided ? (
           <>
-            <Labeled label="What should your agent do?">{(id) => <AreaBox id={id} rows={3} value={what} onChange={(e) => setWhat(e.target.value)} placeholder={GUIDE_HINTS.what} />}</Labeled>
+            <Labeled label="What should your agent do?">{(id) => <AreaBox id={id} rows={3} value={what} onChange={(e) => setWhat(e.target.value)} />}</Labeled>
             <Labeled label="When should it use this?">
-              {(id) => <AreaBox id={id} rows={2} value={when} onChange={(e) => setWhen(e.target.value)} maxLength={500} placeholder={GUIDE_HINTS.when} />}
+              {(id) => <AreaBox id={id} rows={2} value={when} onChange={(e) => setWhen(e.target.value)} maxLength={500} />}
             </Labeled>
-            <Labeled label="What does a good result look like?">{(id) => <AreaBox id={id} rows={3} value={result} onChange={(e) => setResult(e.target.value)} placeholder={GUIDE_HINTS.result} />}</Labeled>
+            <Labeled label="What does a good result look like?">{(id) => <AreaBox id={id} rows={3} value={result} onChange={(e) => setResult(e.target.value)} />}</Labeled>
           </>
         ) : (
           <Labeled label="When to use it">
@@ -668,7 +585,7 @@ export function SkillEditor({ skill, agents, onClose, onSaved, onShare }: { skil
         </div>
         {guided ? <MoreOptions title="Edit the instructions directly">{editor}</MoreOptions> : editor}
         <div className="space-y-2">
-          <Label>Which agents have it</Label>
+          <Label>Who can use it</Label>
           <AgentPicker agents={agents} value={agentIds} onChange={setAgentIds} allAgents={{ on: allAgents, onChange: setAllAgents }} />
         </div>
         {error && <p className="text-sm text-bad">{error}</p>}
@@ -678,7 +595,6 @@ export function SkillEditor({ skill, agents, onClose, onSaved, onShare }: { skil
               <Share2 size={15} /> Share
             </Sec>
           )}
-          <Sec onClick={onClose}>Cancel</Sec>
           <Prim type="submit" disabled={busy || !canSave} className="h-11 text-body">
             Save skill
           </Prim>
@@ -712,13 +628,12 @@ export function SkillShare({ skill, agents, canEdit, onClose, onBrought, onDevic
   const file = useRef<HTMLInputElement>(null);
 
   const shared = skill ? { name: skill.name, description: skill.description, content: skill.content, tags: skill.tags } : null;
-  const used = skill ? skill.agentIds.map((id) => agents.find((a) => a.id === id)?.name).filter((n): n is string => !!n) : [];
 
   async function copyLink() {
     if (!shared) return;
     try {
       await navigator.clipboard.writeText(skillLink(shared));
-      setNote("Link copied. Anyone with it can paste it into Bring one in.");
+      setNote("Link copied");
     } catch {
       setError("Couldn't copy the link.");
     }
@@ -755,31 +670,25 @@ export function SkillShare({ skill, agents, canEdit, onClose, onBrought, onDevic
     }
   }
 
-  const option = (icon: ReactNode, title: string, sub: string, onClick: () => void) => <Item icon={<Tile size={40}>{icon}</Tile>} title={title} sub={sub} onClick={onClick} />;
+  const option = (icon: ReactNode, title: string, onClick: () => void) => <Item icon={<Tile size={40}>{icon}</Tile>} title={title} onClick={onClick} />;
 
   return (
     <Dlg title={view === "agents" ? "Share with another agent" : view === "paste" ? "Paste a link" : view === "found" ? "Bring it in" : skill ? "Share a skill" : "Bring one in"} onClose={onClose}>
       {view === "home" && (
         <>
           {skill && shared && (
-            <>
-              <Panel>
-                <Item icon={<Tile size={50}><Wand2 size={22} strokeWidth={1.7} /></Tile>} title={skill.name} sub={used.length ? `Used by ${sentence(used)}` : "No agent has it yet"} />
-              </Panel>
-              <Panel>
-                {option(<Link2 size={20} strokeWidth={1.7} />, "Copy a link", "Anyone with it can bring the skill in", copyLink)}
-                {option(<Download size={20} strokeWidth={1.7} />, "Save as a file", "A .md file you can send", () => download(`${skill.slug}.md`, skillFile(skill)))}
-                {canEdit && agents.length > 0 && option(<Users size={20} strokeWidth={1.7} />, "Share with another agent", "Pick who gets a copy", () => setView("agents"))}
-              </Panel>
-            </>
+            <Panel>
+              {option(<Link2 size={20} strokeWidth={1.7} />, "Copy a link", copyLink)}
+              {option(<Download size={20} strokeWidth={1.7} />, "Save as a file", () => download(`${skill.slug}.md`, skillFile(skill)))}
+              {canEdit && agents.length > 0 && option(<Users size={20} strokeWidth={1.7} />, "Share with another agent", () => setView("agents"))}
+            </Panel>
           )}
-          {canEdit && (
+          {canEdit && !skill && (
             <>
-              {skill && <Label>Bring one in</Label>}
               <Panel>
-                {option(<Link2 size={20} strokeWidth={1.7} />, "Paste a link", "From a shared skill", () => setView("paste"))}
-                {option(<FileText size={20} strokeWidth={1.7} />, "Choose a file", "A .md skill file", () => file.current?.click())}
-                {option(<Laptop size={20} strokeWidth={1.7} />, "From your devices", "Skills found in your harnesses", onDevices)}
+                {option(<Link2 size={20} strokeWidth={1.7} />, "Paste a link", () => setView("paste"))}
+                {option(<FileText size={20} strokeWidth={1.7} />, "Choose a file", () => file.current?.click())}
+                {option(<Laptop size={20} strokeWidth={1.7} />, "From your computers", onDevices)}
               </Panel>
               <input
                 ref={file}
@@ -841,5 +750,3 @@ export function SkillShare({ skill, agents, canEdit, onClose, onBrought, onDevic
     </Dlg>
   );
 }
-
-const sentence = (names: string[]) => (names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);

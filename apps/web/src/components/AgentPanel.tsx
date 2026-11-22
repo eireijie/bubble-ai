@@ -1,56 +1,60 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { isTopOverlay, toBody, useOverlay } from "../overlays.ts";
-import { Activity, BookOpen, Check, MessageSquare, ChevronRight, Square, Cpu, Eye, ExternalLink, Ghost as GhostIcon, Hand, LayoutGrid, ListChecks, Loader2, Maximize2, Minimize2, Monitor, Phone, Plug, Radar, ScrollText, Server, Shield, Sparkles, Video, X } from "lucide-react";
-import { harnessLabel, type Agent } from "@wisp/core";
-import { soulPath } from "@wisp/core/src/soul.ts";
+import { Check, ChevronLeft, ChevronRight, Eye, Hand, Loader2, Maximize2, MessageSquare, Minimize2, Shield, ShieldAlert, Video, X } from "lucide-react";
+import { harnessLabel, type AccessLevel, type Agent } from "@wisp/core";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { api } from "../api.ts";
-import { useStore, useTeams, type ComputerInfo, type LiveRun } from "../store.ts";
+import { useStore, useTeams, type ComputerInfo } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
 import { useFeature } from "../features.ts";
 import { go, href, type AgentTab } from "../router.ts";
-import { MoreOptions } from "./MoreOptions.tsx";
 import { openDm } from "../openDm.ts";
 import { agentReadiness, agentSignedIn, useDevices, type DeviceInfo } from "../devices.ts";
+import { patchAgent, prettyModel, runLine, useAgentContext } from "../models.ts";
 import { useComputerState } from "../views/computerState.ts";
 import { LiveScreen, WorkingBadge } from "./Screen.tsx";
 import { Ghost } from "./Ghost.tsx";
-import { prettyModel, effortName } from "./EffortSlider.tsx";
-import { AgentAvatar, AGENT_STATUS, NEEDS_SIGN_IN, Button, Pill, cx, timeAgo } from "./ui.tsx";
-import { RightPane } from "./RightPane.tsx";
-import { runActivity, stopRuns } from "./ActivityPill.tsx";
-import { minutesSince, runStartedAt, workSteps } from "./agentActivity.ts";
+import { AgentAvatar, Button, Pill, cx } from "./ui.tsx";
+import { RunPanel } from "./RunPanel.tsx";
+import { stopRuns, workDetail } from "./ActivityPill.tsx";
+import { minutesSince, runStartedAt } from "./agentActivity.ts";
+import { lazyView } from "../lazy.tsx";
 
-export type AgentPanelTab = "details" | "computer" | "settings";
+// How calls sound sits in More, and lives with the call screen: a file of its own, fetched in the
+// background after the app is up (lazy.tsx), so a chat doesn't bring the voice engine with it.
+const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallOptions));
 
-const ACCESS_LABEL = { "read-only": "Read only", edit: "Can edit files", full: "Full access" } as const;
+/** What the panel shows: the agent itself ("details"), or the sheet one of its rows opens. */
+export type AgentPanelTab = "details" | "thinks" | "works" | "can" | "asks" | "knows" | "more";
 
-/** Every section of the agent's full page, so nothing is more than two clicks from the chat. */
-const SECTIONS: { id: AgentTab; label: string; body: string; icon: ReactNode }[] = [
-  { id: "look", label: "Look", body: "Its ghost's shape and colors", icon: <GhostIcon size={16} /> },
-  { id: "soul", label: "Personality", body: "How it talks and what it values", icon: <Sparkles size={16} /> },
-  { id: "instructions", label: "Instructions", body: "How it should work", icon: <ScrollText size={16} /> },
-  { id: "model", label: "Model", body: "Model, effort and fast mode", icon: <Cpu size={16} /> },
-  { id: "computer", label: "Computer", body: "Where it runs and which computer it uses", icon: <Monitor size={16} /> },
-  { id: "background", label: "Background", body: "What it does while you're away", icon: <Radar size={16} /> },
-  { id: "routines", label: "Routines", body: "Tasks it does on a schedule", icon: <ListChecks size={16} /> },
-  { id: "permissions", label: "Permissions", body: "What it may do without asking", icon: <Shield size={16} /> },
-  { id: "connect", label: "Connect", body: "Connected apps", icon: <Plug size={16} /> },
-  { id: "runs", label: "Activity", body: "Everything it's done lately", icon: <Activity size={16} /> },
-];
+const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
+/** A sheet by name; anything else (an old remembered tab) is the agent itself. */
+export const panelSheet = (tab: string | null | undefined): AgentPanelTab => (tab && tab in SHEETS ? (tab as AgentPanelTab) : "details");
+
+const ACCESS_LABEL: Record<AccessLevel, string> = { "read-only": "Read only", edit: "Can edit files", full: "Full access" };
+
+const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+const ROW = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover disabled:hover:bg-transparent";
 
 /**
- * An agent in the pane beside a chat (its DM, or any channel it works in), Buzz style: who it is
- * and whether it's working, Message and Stop, its computer live, the steps of what it's doing,
- * and who it answers. Settings are one tab away, so the chat stays the main thing.
+ * An agent in the pane beside a chat (its own, or a team it works in): 310 px, pushing the chat.
+ * Its live ghost, name and one editable line of what it does; what it is doing right now, with
+ * Stop, while it works; then one card of rows (Thinks with, Works on, Can use, Asks first, Knows,
+ * More), each showing its value and opening a sheet in place or the matching tab of its page.
  */
-export function AgentPanel({ agent, tab, onTab, onClose, onCall, inDm = false }: { agent: Agent; tab: AgentPanelTab; onTab: (t: AgentPanelTab) => void; onClose: () => void; onCall: () => void; inDm?: boolean }) {
-  const tabs: { id: AgentPanelTab; label: string }[] = [
-    { id: "details", label: "Details" },
-    { id: "computer", label: "Computer" },
-    { id: "settings", label: "Settings" },
-  ];
+export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { agent: Agent; channelId: string; tab?: AgentPanelTab; onClose: () => void; inDm?: boolean }) {
+  const [sheet, setSheet] = useState<AgentPanelTab>(() => panelSheet(tab));
+  // the chat can ask for a sheet while the panel is open (the header's "nearly full" ring)
+  useEffect(() => setSheet(panelSheet(tab)), [tab]);
+  // who is working, not the words: streamed text must not re-render the panel (liveShape.ts)
   const live = useStore(liveShape);
+  const agents = useStore((s) => s.agents);
+  const canEdit = useStore((s) => s.me?.role !== "guest");
+  const computer = useStore((s) => s.computers.find((c) => c.id === agent.computerId));
+  const { ctx, models } = useAgentContext(agent.id, channelId);
+  const devices = useDevices();
+  const readiness = agentReadiness(agent, devices);
+  const device = devices?.find((d) => d.id === agent.nodeId);
   const runs = Object.values(live).filter((r) => r.agentId === agent.id);
   const [, tick] = useState(0);
   useEffect(() => {
@@ -58,64 +62,147 @@ export function AgentPanel({ agent, tab, onTab, onClose, onCall, inDm = false }:
     const t = setInterval(() => tick((n) => n + 1), 30_000);
     return () => clearInterval(t);
   }, [runs.length]);
-  const working = runs.length > 0 || agent.status === "busy";
+  const run = runs.at(-1);
   const since = runs.length ? Math.min(...runs.map((r) => runStartedAt(r.runId))) : null;
-  const status = agent.signIn && agent.status === "online" ? NEEDS_SIGN_IN : AGENT_STATUS[agent.status];
+  const access = ctx?.access ?? agent.settings.access ?? "edit";
+  const back = () => setSheet("details");
+  const page = (t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
+
   return (
-    <RightPane label={`${agent.name}'s details`}>
-      {/* canvas Main: the ghost, name and label centred, close and full page at the top */}
-      <div className="h-14 shrink-0 flex items-center justify-end gap-1.5 px-4">
-        <button onClick={() => go({ view: "agents", agentId: agent.id, tab: "overview" })} className="size-[34px] rounded-full grid place-items-center text-muted hover:text-ink hover:bg-hover" aria-label="Open its full page" title="Open its full page">
-          <ExternalLink size={15} />
-        </button>
-        <button onClick={onClose} className="size-[34px] rounded-full grid place-items-center border border-line2 text-ink hover:bg-hover" aria-label="Close panel" title="Close">
-          <X size={14} strokeWidth={2} />
-        </button>
-      </div>
-      <div className="flex-1 min-h-0 overflow-y-auto px-[18px] pb-6">
-        <div className="-mt-3 flex flex-col items-center gap-1.5 text-center">
-          <AgentAvatar agent={agent} size={76} live />
-          <h2 className="mt-1.5 truncate text-[19px] font-semibold leading-[26px]">{agent.name}</h2>
-          <div className="[&_input]:text-center"><RoleLabel agent={agent} /></div>
-          <div className={cx("flex items-center gap-1.5 text-xs", working ? "text-ink" : "text-muted")}>
-            <span className={cx("size-1.5 rounded-full", working ? "bg-wisp animate-pulse" : "bg-faint")} style={working ? undefined : { background: status.dot ?? status.hue }} aria-hidden />
-            {working ? `Working${since ? ` · ${minutesSince(since)}` : ""}` : <span className="capitalize">{status.label}</span>}
-          </div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          {inDm ? (
-            (
-              <Button className="flex-1 h-9!" onClick={onCall}>
-                <Phone size={15} /> Call
-              </Button>
-            )
+    <aside aria-label={`${agent.name}'s details`} className="m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:w-[310px] lg:shrink-0 lg:border-l lg:border-line">
+      {/* its own 310 px, so nothing reflows while the pane opens */}
+      <div className="flex min-h-0 flex-1 flex-col lg:w-[310px]">
+        <div className="relative flex h-14 shrink-0 items-center justify-between px-3">
+          {sheet === "details" ? (
+            <span />
           ) : (
-            <Button variant="primary" className="flex-1 h-9!" onClick={() => void openDm(agent.id)}>
-              <MessageSquare size={15} /> Message
-            </Button>
-          )}
-          <Button className="flex-1 h-9!" disabled={!runs.length} onClick={() => void stopRuns(runs)} title={runs.length ? `Stop ${agent.name}` : "It isn't working on anything"}>
-            <Square size={13} /> Stop
-          </Button>
-        </div>
-        <nav className="mt-5 flex justify-center gap-1" role="tablist">
-          {tabs.map((t) => (
-            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => onTab(t.id)} className={cx("h-[30px] px-3 rounded-full text-[13px]", tab === t.id ? "bg-side-active text-ink" : "text-muted hover:text-ink")}>
-              {t.label}
+            <button type="button" onClick={back} className="circle circle-sm" aria-label={`Back to ${agent.name}`}>
+              <ChevronLeft size={18} />
             </button>
-          ))}
-        </nav>
-        <div className="mt-4">
-          {tab === "details" && <Details agent={agent} onCall={onCall} runs={runs} inDm={inDm} />}
-          {tab === "computer" && <ComputerTab agent={agent} />}
-          {tab === "settings" && <SettingsTab agent={agent} />}
+          )}
+          {sheet !== "details" && <h2 className="pointer-events-none absolute inset-x-12 truncate text-center text-[14px] font-semibold">{SHEETS[sheet]}</h2>}
+          <button type="button" onClick={onClose} className="circle circle-sm" aria-label="Close panel">
+            <X size={16} />
+          </button>
+        </div>
+        <div key={sheet} className={cx("min-h-0 flex-1 overflow-y-auto px-3.5 pb-6", sheet !== "details" && "m-panel")}>
+          {sheet === "details" && (
+            <>
+              <div className="flex flex-col items-center gap-1 pb-4 text-center">
+                <AgentAvatar agent={agent} size={64} live />
+                <h2 className="mt-2 max-w-full truncate text-[19px] font-semibold leading-[26px]">{agent.name}</h2>
+                <div className="max-w-full [&_input]:text-center">
+                  <RoleLabel agent={agent} />
+                </div>
+                {(run || agent.status === "busy") && (
+                  <div className="flex max-w-full items-center gap-2 text-[13px] leading-5 text-muted" role="status">
+                    <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-st-working" aria-hidden />
+                    <span className="min-w-0 truncate">
+                      {run ? workDetail(run, agents) : "Working"}
+                      {since ? ` · ${minutesSince(since)}` : ""}
+                    </span>
+                    {runs.length > 0 && canEdit && (
+                      <button type="button" onClick={() => void stopRuns(runs)} className="shrink-0 font-medium text-ink hover:underline">
+                        Stop
+                      </button>
+                    )}
+                  </div>
+                )}
+                {!inDm && (
+                  <Button className="mt-2 h-8!" onClick={() => void openDm(agent.id)}>
+                    <MessageSquare size={14} /> Message
+                  </Button>
+                )}
+              </div>
+              <div className={cx(CARD, "m-details-cards")}>
+                <PanelRow label="Thinks with" value={ctx ? runLine(ctx, models) : [harnessLabel(agent.harness), agent.model ? prettyModel(agent.model) : null].filter(Boolean).join(" · ")} onClick={() => setSheet("thinks")} />
+                <PanelRow
+                  label="Works on"
+                  value={!readiness.ready ? (readiness.problem ?? "Setup incomplete") : (computer?.name ?? device?.name ?? "None yet")}
+                  warn={!readiness.ready}
+                  onClick={() => setSheet("works")}
+                />
+                <PanelRow label="Can use" onClick={() => setSheet("can")} />
+                <PanelRow label="Asks first" value={ACCESS_LABEL[access]} onClick={() => setSheet("asks")} />
+                <PanelRow label="Knows" onClick={() => setSheet("knows")} />
+                <PanelRow label="More" onClick={() => setSheet("more")} />
+              </div>
+              <p className="m-details-cards px-1 pt-3 text-[13px] leading-5 text-muted">Or ask {agent.name} to change any of it.</p>
+            </>
+          )}
+          {sheet === "thinks" && ctx && <RunPanel big agent={agent} ctx={ctx} models={models} channelId={channelId} canEdit={canEdit} close={back} />}
+          {sheet === "works" && (
+            <div className="space-y-3">
+              {computer && <ComputerCard agent={agent} computer={computer} />}
+              <div className={CARD}>
+                <PanelRow label="Computer" value={computer ? computer.name : agent.settings.headless ? "No screen" : "None yet"} href={page("computer")} />
+                <PanelRow label="Runs on" value={device?.name ?? "None yet"} href={page("device")} />
+              </div>
+              {!readiness.ready && <WhatsMissing agent={agent} devices={devices} problem={readiness.problem} />}
+            </div>
+          )}
+          {sheet === "can" && (
+            <div className={CARD}>
+              <PanelRow label="Apps" href={page("apps")} />
+              <PanelRow label="Skills" href={page("skills")} />
+            </div>
+          )}
+          {sheet === "asks" && (
+            <div className="space-y-3">
+              <AccessList agent={agent} access={access} canEdit={canEdit} />
+              <div className={CARD}>
+                <PanelRow label="Permissions" href={page("permissions")} />
+              </div>
+            </div>
+          )}
+          {sheet === "knows" && (
+            <div className="space-y-3">
+              {agent.settings.roleNotes && <p className="whitespace-pre-wrap px-1 text-[13px] leading-5 text-muted">{agent.settings.roleNotes}</p>}
+              <div className={CARD}>
+                <PanelRow label="Memory" href={page("memory")} />
+                <PanelRow label="Personality" href={page("soul")} />
+                <PanelRow label="Instructions" href={page("instructions")} />
+              </div>
+            </div>
+          )}
+          {sheet === "more" && <MoreSheet agent={agent} page={page} />}
         </div>
       </div>
-    </RightPane>
+    </aside>
   );
 }
 
-/** "Add a label": its role, edited in place. */
+/** One row of the panel: its label, the current value, a chevron. A button (opens a sheet here) or a link (a tab of the agent's page). */
+function PanelRow({ label, value, warn, onClick, href: to }: { label: string; value?: ReactNode; warn?: boolean; onClick?: () => void; href?: string }) {
+  const inner = (
+    <>
+      <span className="shrink-0 font-medium">{label}</span>
+      <span className={cx("min-w-0 flex-1 truncate text-right text-[13px]", warn ? "text-st-needs" : "text-muted")}>{value}</span>
+      <ChevronRight size={15} className="shrink-0 text-faint" aria-hidden />
+    </>
+  );
+  return to ? (
+    <a href={to} className={ROW}>
+      {inner}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} className={ROW}>
+      {inner}
+    </button>
+  );
+}
+
+/** A plain fact in a card (its handle, the teams it is on): no chevron, nothing to open. */
+function FactRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex h-[46px] items-center gap-3 px-3.5 text-[14px]">
+      <span className="shrink-0 font-medium">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-[13px] text-muted">{value}</span>
+    </div>
+  );
+}
+
+/** What it does, in one line, edited in place. */
 function RoleLabel({ agent }: { agent: Agent }) {
   const canEdit = useStore((s) => s.me?.role !== "guest");
   const [value, setValue] = useState(agent.settings.role ?? "");
@@ -133,134 +220,88 @@ function RoleLabel({ agent }: { agent: Agent }) {
       onChange={(e) => setValue(e.target.value)}
       onBlur={save}
       onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
-      placeholder="Add a label"
-      aria-label="Its label"
+      placeholder="What it does"
+      aria-label="What it does"
       maxLength={60}
-      className="-ml-1.5 w-full max-w-56 bg-transparent text-sm text-muted placeholder:text-faint outline-none focus:text-ink rounded-md hover:bg-hover focus:bg-hover px-1.5 h-6"
+      className="w-56 max-w-full bg-transparent text-sm text-muted placeholder:text-faint outline-none focus:text-ink rounded-md hover:bg-hover focus:bg-hover px-1.5 h-6"
     />
   );
 }
 
-function Details({ agent, onCall, runs, inDm }: { agent: Agent; onCall: () => void; runs: LiveRun[]; inDm: boolean }) {
-  const status = agent.signIn && agent.status === "online" ? NEEDS_SIGN_IN : AGENT_STATUS[agent.status];
-  const computer = useStore((s) => s.computers.find((c) => c.id === agent.computerId));
-  const devices = useDevices();
-  const readiness = agentReadiness(agent, devices);
-  const teams = useTeams();
-  const next = setupNextStep(agent, devices);
-  const device = devices?.find((d) => d.id === agent.nodeId);
-  type Row = [string, ReactNode];
-  const statusRow: Row = ["Status", <span className="inline-flex flex-wrap items-center justify-end gap-1.5"><span className="capitalize">{status.label}</span>{!readiness.ready && <SetupIncomplete problem={readiness.problem} />}</span>];
-  const deviceRow: Row = ["Device", device ? device.name : "None yet"];
-  const computerRow: Row = ["Computer", computer ? computer.name : agent.settings.headless ? "None (headless)" : "None yet"];
-  const harnessRow: Row = ["Harness", harnessLabel(agent.harness)];
-  const modelRow: Row = ["Model", agent.model ? `${prettyModel(agent.model)}${agent.settings.effort ? ` · ${effortName(agent.settings.effort)}` : ""}${agent.settings.fast ? " · Fast" : ""}` : "Default"];
-  const accessRow: Row = ["Access", ACCESS_LABEL[agent.settings.access ?? "edit"]];
-  const onTeams = teams.filter((t) => t.members.some((m) => m.agentId === agent.id)).map((t) => `#${t.name}`);
-  const tail: Row[] = [...(onTeams.length ? [["Teams", onTeams.join(", ")] as Row] : []), ["Handle", `@${agent.handle}`], ["Joined", timeAgo(agent.createdAt)]];
-  const technical: Row[] = [harnessRow, modelRow, accessRow];
-  const table = (list: Row[]) => (
-    <dl className="rounded-2xl bg-panel border border-line divide-y divide-line text-sm">
-      {list.map(([k, v]) => (
-        <div key={k} className="flex items-center gap-3 px-4 py-2.5">
-          <dt className="text-muted w-20 shrink-0">{k}</dt>
-          <dd className="min-w-0 flex-1 truncate text-right">{v}</dd>
-        </div>
-      ))}
-    </dl>
-  );
+/** What it may do on its computer without asking: read only, edit files, or everything. */
+function AccessList({ agent, access, canEdit }: { agent: Agent; access: AccessLevel; canEdit: boolean }) {
+  const [error, setError] = useState<string | null>(null);
+  const pick = (k: AccessLevel) => {
+    setError(null);
+    if (k !== access) patchAgent(agent.id, { settings: { access: k } }).catch((e) => setError((e as Error).message));
+  };
   return (
-    <div className="space-y-5">
-      {agent.settings.roleNotes && <p className="text-sm text-muted whitespace-pre-wrap">{agent.settings.roleNotes}</p>}
-      {computer && (
-        <section className="space-y-2">
-          <h3 className="text-[13px] font-semibold text-muted">Its computer</h3>
-          <ComputerCard agent={agent} computer={computer} />
-        </section>
+    <>
+      <div role="radiogroup" aria-label="What it can do" className={CARD}>
+        {(Object.keys(ACCESS_LABEL) as AccessLevel[]).map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={access === k} disabled={!canEdit} onClick={() => pick(k)} className={ROW}>
+            <span className={cx("shrink-0", k === "full" ? "text-warn" : "text-muted")}>{k === "full" ? <ShieldAlert size={16} /> : k === "read-only" ? <Eye size={16} /> : <Shield size={16} />}</span>
+            <span className="min-w-0 flex-1 truncate font-medium">{ACCESS_LABEL[k]}</span>
+            {access === k && <Check size={15} className="shrink-0" aria-hidden />}
+          </button>
+        ))}
+      </div>
+      {error && <p className="px-1 text-xs text-bad">{error}</p>}
+    </>
+  );
+}
+
+/** Setup that is not finished: what is missing, and the one thing to do about it. */
+function WhatsMissing({ agent, devices, problem }: { agent: Agent; devices: DeviceInfo[] | null; problem: string | null }) {
+  const next = setupNextStep(agent, devices);
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-1 text-[13px]">
+      <SetupIncomplete problem={problem} />
+      {next && (
+        <a href={next.href} className="font-medium text-ink underline underline-offset-2">
+          {next.action}
+        </a>
       )}
-      <WhatItsDoing agent={agent} runs={runs} />
-      <AnswersRow agent={agent} />
-      {!readiness.ready && (
-        <p className="rounded-xl border border-line bg-panel px-3 py-2 text-xs text-muted">
-          Setup incomplete: {readiness.problem}. Messages to {agent.name} will wait until that's fixed.
-          {next && (
-            <span className="mt-1 block">
-              What to do: {next.text}{" "}
-              <a href={next.href} className="text-accent-text underline">
-                {next.action}
-              </a>
-            </span>
-          )}
-        </p>
-      )}
-      <MoreOptions title="More about it">
-        <div className="space-y-4">
-          {table([statusRow, deviceRow, computerRow, ...tail, ...technical])}
-          <div className={cx("grid gap-2", !inDm ? "grid-cols-2" : "grid-cols-1")}>
-            {!inDm && (
-              <Button onClick={onCall}>
-                <Phone size={15} /> Call
-              </Button>
-            )}
-            <Button onClick={() => go({ view: "vault", path: soulPath(agent.id) })}>
-              <BookOpen size={15} /> Memory
-            </Button>
-          </div>
-        </div>
-      </MoreOptions>
     </div>
   );
 }
 
-/** "What it's doing": the steps of its current run (or the latest one), the newest one live. */
-function WhatItsDoing({ agent, runs }: { agent: Agent; runs: LiveRun[] }) {
-  const agents = useStore((s) => s.agents);
-  const run = runs.at(-1);
-  const steps = run ? workSteps(run.tools, true) : [];
-  // nothing called yet: it's thinking or writing
-  if (run && !steps.length) steps.push({ kind: "other", count: 0, now: true, text: runActivity(run, agents).replace(/^./, (c) => c.toUpperCase()) });
-  const shown = steps.slice(-6);
-  const hidden = steps.length - shown.length;
-  return (
-    <section className="space-y-2.5">
-      <h3 className="text-[13px] font-semibold text-muted">What it's doing</h3>
-      {!run ? (
-        <p className="text-sm text-muted">Nothing right now. Ask {agent.name} for something and its steps show up here.</p>
-      ) : (
-        <ol className="space-y-2">
-          {hidden > 0 && <li className="text-xs text-faint pl-7">{hidden} earlier {hidden === 1 ? "step" : "steps"}</li>}
-          {shown.map((st, i) => (
-            <li key={i} className={cx("flex items-center gap-2.5 text-sm", st.now ? "text-ink font-medium" : "text-muted")}>
-              <span className={cx("size-5 shrink-0 rounded-full grid place-items-center", st.now ? "bg-st-working/16" : "bg-st-online/16 text-st-online")}>
-                {st.now ? <span className="size-2 rounded-full bg-st-working animate-pulse" /> : <Check size={12} strokeWidth={3} />}
-              </span>
-              <span className="min-w-0 truncate">{st.text}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-      <a href={href({ view: "agents", agentId: agent.id, tab: "runs" })} className="inline-block text-[13px] text-muted hover:text-ink underline-offset-2 hover:underline">
-        Show full log
-      </a>
-    </section>
-  );
-}
-
-/** "Answers: Only you": whose messages wake it. Only matters once other people can be in the organization. */
-function AnswersRow({ agent }: { agent: Agent }) {
+/** The rest of the agent: its look and voice, who it answers, schedules, activity, connecting an app to it, removing it; and how calls with it sound. */
+function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => string }) {
   const invite = useFeature("invite");
+  const routines = useFeature("routines");
+  const background = useFeature("background");
   const me = useStore((s) => s.me);
   const members = useStore((s) => s.members);
-  if (!invite) return null;
+  const teams = useTeams();
+  const onTeams = teams.filter((t) => t.members.some((m) => m.agentId === agent.id)).map((t) => t.name);
+  // "Only you", "Anyone", or the people picked: whose messages wake it
   const to = agent.settings.respondTo ?? "anyone";
   const mine = agent.settings.createdBy ? agent.settings.createdBy === me?.user.id : me?.role === "owner";
   const picked = (agent.settings.respondPeople ?? []).map((id) => members.find((m) => m.id === id)?.name).filter(Boolean);
-  const label = to === "anyone" ? "Anyone" : to === "people" ? (picked.length ? `${mine ? "You, " : ""}${picked.join(", ")}` : "Picked people") : mine ? "Only you" : "Only its creator";
+  const answers = to === "anyone" ? "Anyone" : to === "people" ? (picked.length ? `${mine ? "You, " : ""}${picked.join(", ")}` : "Picked people") : mine ? "Only you" : "Only its creator";
   return (
-    <a href={href({ view: "agents", agentId: agent.id, tab: "permissions" })} className="flex items-center justify-between gap-3 pt-3 border-t border-line text-[13px] hover:text-ink group" title="Change who it answers">
-      <span className="text-muted">Answers</span>
-      <span className="font-medium truncate group-hover:underline">{label}</span>
-    </a>
+    <div className="space-y-3">
+      <div className={CARD}>
+        <PanelRow label="Look and voice" href={page("look")} />
+        {invite && <PanelRow label="Who can ask it" value={answers} href={page("access")} />}
+        {routines && <PanelRow label="Schedules" href={page("routines")} />}
+        {background && <PanelRow label="Background checks" href={page("background")} />}
+        <PanelRow label="Activity" href={page("runs")} />
+        <PanelRow label="Connect" href={page("connect")} />
+        <PanelRow label="Remove" href={page("remove")} />
+      </div>
+      <div className={CARD}>
+        <FactRow label="Handle" value={`@${agent.handle}`} />
+        {onTeams.length > 0 && <FactRow label="Teams" value={onTeams.join(", ")} />}
+      </div>
+      <h3 className="px-1 pt-1 text-[13px] font-semibold text-muted">Calls</h3>
+      <div className="rounded-[14px] bg-card p-3.5">
+        <Suspense fallback={null}>
+          <CallOptions />
+        </Suspense>
+      </div>
+    </div>
   );
 }
 
@@ -285,45 +326,7 @@ export function SetupIncomplete({ problem }: { problem: string | null }) {
   return <Pill tone="warn">{problem ? `Setup incomplete · ${problem}` : "Setup incomplete"}</Pill>;
 }
 
-function SettingsTab({ agent }: { agent: Agent }) {
-  const background = useFeature("background");
-  return (
-    <div className="rounded-2xl bg-panel border border-line divide-y divide-line overflow-hidden">
-      <SettingRow icon={<LayoutGrid size={16} />} label="Overview" body="Everything at a glance" onClick={() => go({ view: "agents", agentId: agent.id, tab: "overview" })} />
-      {SECTIONS.filter((s) => s.id !== "background" || background).map((s) => (
-        <SettingRow key={s.id} icon={s.icon} label={s.label} body={s.body} onClick={() => go({ view: "agents", agentId: agent.id, tab: s.id })} />
-      ))}
-    </div>
-  );
-}
-
-function SettingRow({ icon, label, body, onClick }: { icon: ReactNode; label: string; body: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-hover">
-      <span className="text-muted shrink-0">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="block text-xs text-muted truncate">{body}</span>
-      </span>
-      <ChevronRight size={15} className="text-faint shrink-0" />
-    </button>
-  );
-}
-
 // --- computer ------------------------------------------------------------------------------------
-
-function ComputerTab({ agent }: { agent: Agent }) {
-  const computer = useStore((s) => s.computers.find((c) => c.id === agent.computerId));
-  if (!computer)
-    return (
-      <div className="rounded-2xl bg-panel border border-line p-6 text-center space-y-3">
-        <Monitor size={22} className="mx-auto text-muted" />
-        <p className="text-sm text-muted">{agent.settings.headless ? `${agent.name} runs headless, without a screen.` : `${agent.name} doesn't have a computer yet.`}</p>
-        <Button onClick={() => go({ view: "agents", agentId: agent.id, tab: "computer" })}>Give it one</Button>
-      </div>
-    );
-  return <ComputerCard agent={agent} computer={computer} />;
-}
 
 function ComputerCard({ agent, computer: c }: { agent: Agent; computer: ComputerInfo }) {
   const state = useComputerState(c);
@@ -374,7 +377,7 @@ function ComputerCard({ agent, computer: c }: { agent: Agent; computer: Computer
             ) : (
               <>
                 <Ghost look={asleep ? (agent.settings.appearance ?? defaultAppearance(agent.handle)) : { ...(agent.settings.appearance ?? defaultAppearance(agent.handle)), color: "#8d8d8d", color2: undefined }} size={56} mood="asleep" ambient={false} label="asleep" />
-                <p className="font-medium">{asleep ? "Computer is asleep" : c.paused ? "Paused at its device" : "Computer is offline"}</p>
+                <p className="font-medium">{asleep ? "Asleep" : c.paused ? "Paused" : "Offline"}</p>
                 {asleep && (
                   <Button onClick={wake} disabled={busy}>
                     {busy ? <Loader2 size={14} className="animate-spin" /> : null} Wake

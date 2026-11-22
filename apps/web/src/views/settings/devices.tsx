@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AppWindow, Globe, Monitor, Plus, Smartphone } from "lucide-react";
+import { Monitor, Plus } from "lucide-react";
 import { api } from "../../api.ts";
 import { useAccess, useAccessStore, type AccessInfo } from "../../access.ts";
 import { canApproveJoin, loadMcpClients, unavailable, type McpClient } from "../../join.ts";
@@ -10,24 +10,48 @@ import { href } from "../../router.ts";
 import { AddDeviceDialog } from "../../components/AddDevice.tsx";
 import { AwayFromHome, awayEnabled, connectorBlocker, connectorOrigin, enableTailscale } from "../../components/Access.tsx";
 import { Button, CopyBlock } from "../../components/ui.tsx";
-import { Card, Row, Toggle } from "./parts.tsx";
+import { Row, Toggle } from "./parts.tsx";
+import { Group, SRow, rowDomId } from "./rows.tsx";
 
-export function DevicesPage() {
+/** Every device in this Wisp, one line each, and Add a device. */
+export function DevicesRows() {
   const devices = useDevices(3000);
+  const allowed = useStore((s) => canApproveJoin(s.me?.role));
+  const [adding, setAdding] = useState(false);
+  return (
+    <div id={rowDomId("devices")}>
+      <Group>
+        {devices?.map((device) => (
+          <a key={device.id} href={href({ view: "computers", computerId: null, deviceId: device.id })} className="flex items-center gap-3 px-4 min-h-[52px] text-body hover:bg-hover">
+            <Monitor size={18} className="text-muted shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">{device.name}</span>
+            <span className="shrink-0 text-[13px] text-muted">
+              {device.paused ? "Paused" : device.online ? "Connected" : "Offline"}
+              {!device.mine && device.ownerName ? ` · ${device.ownerName}` : ""}
+            </span>
+          </a>
+        ))}
+        {allowed && (
+          <button type="button" onClick={() => setAdding(true)} className="w-full flex items-center gap-3 px-4 min-h-[52px] text-body text-left hover:bg-hover">
+            <Plus size={18} className="text-muted shrink-0" aria-hidden />
+            Add a device
+          </button>
+        )}
+      </Group>
+      {adding && <AddDeviceDialog onClose={() => setAdding(false)} />}
+    </div>
+  );
+}
+
+/** Away from home: the row says how it's on, the switch turns it off or opens the setup under it. `expanded` opens the setup straight away (the old Away from home page). */
+export function AwayRow({ expanded = false }: { expanded?: boolean }) {
   const info = useAccess(3000);
   const failed = useAccessStore((s) => s.failed);
   const allowed = useStore((s) => canApproveJoin(s.me?.role));
-  const [adding, setAdding] = useState(false);
   const [setupAway, setSetupAway] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const on = awayEnabled(info);
-  const owner = useStore((s) => s.me?.role === "owner");
-  const computers = useStore((s) => s.computers);
-  const mode = useComputerMode();
-  const sharedHost = computers.find((c) => c.id === mode.sharedComputerId)?.nodeId;
-  const [modeBusy, setModeBusy] = useState(false);
-  const [modeError, setModeError] = useState<string | null>(null);
   const cloudflare = info?.cloudflare?.state === "running";
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -51,101 +75,67 @@ export function DevicesPage() {
   };
   return (
     <>
-      <header className="mb-7 flex items-center justify-between gap-4">
-        <h2 className="t-title max-md:hidden">Computers and devices</h2>
-        {allowed && (
-          <Button onClick={() => setAdding(true)}>
-            <Plus size={15} />
-            Add a device
-          </Button>
-        )}
-      </header>
-      <Card>
-        {!devices && (
-          <p role="status" className="p-4 text-sm text-muted">
-            Checking your devices…
-          </p>
-        )}
-        {devices?.length === 0 && <p className="p-5 text-sm text-muted">Add your phone or another computer to your Wisp.</p>}
-        {devices?.map((device) => (
-          <a key={device.id} href={href({ view: "computers", computerId: null, deviceId: device.id })} className="flex items-center gap-3 px-4 py-4 hover:bg-hover">
-            <Monitor size={22} className="text-muted shrink-0" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium truncate">{device.name}</span>
-              <span className="block text-xs text-muted mt-1">
-                {device.paused ? "Paused" : device.online ? "Connected" : "Offline"}
-                {device.id === sharedHost && " · Agents and the shared computer live here"}
-              </span>
-            </span>
-            <span className="text-xs text-muted">{device.mine ? "Yours" : device.ownerName}</span>
-          </a>
-        ))}
-      </Card>
-      <div className="mt-3 flex justify-between gap-3 text-xs text-muted">
-        <a href={href({ view: "settings", page: "security" })} className="hover:text-ink inline-flex items-center gap-1">
-          <Smartphone size={13} />
-          Phone sign-ins
-        </a>
-        <a href={href({ view: "computers", computerId: null })} className="hover:text-ink">
-          Manage computers
-        </a>
-      </div>
-      {owner && (
-        <section className="mt-8 border-t border-line pt-3">
-          <Row label="Choose where agents run myself" hint="Off: Wisp picks for you. On: pick each agent's device, give agents their own sized computers or cloud computers, and set what each device does.">
-            <Toggle
-              label="Choose where agents run myself"
-              on={mode.advanced}
-              disabled={!mode.loaded || modeBusy}
-              onChange={(value) => {
-                setModeBusy(true);
-                setModeError(null);
-                mode
-                  .setAdvanced(value)
-                  .catch((e) => setModeError((e as Error).message))
-                  .finally(() => setModeBusy(false));
-              }}
-            />
-          </Row>
-          {modeError && (
-            <p role="alert" className="px-4 text-sm text-bad">
-              {modeError}
-            </p>
-          )}
-        </section>
+      <SRow id="away" value={on ? (cloudflare ? "Cloudflare" : info?.tailscale.serving ? "Tailscale" : "Public address") : !info && failed ? "Not available" : "Off"}>
+        <Toggle label="Away from home" on={on} disabled={!allowed || busy} onChange={(value) => (value ? setSetupAway(true) : void run(turnOff))} />
+      </SRow>
+      {(setupAway || expanded) && (
+        <div className="px-4 py-4">
+          <AwayFromHome onDone={() => setSetupAway(false)} />
+        </div>
       )}
-      <section className="mt-8 border-t border-line pt-3">
-        <Row
-          label={
-            <span className="flex items-center gap-2">
-              <Globe size={18} />
-              Away from home
-            </span>
-          }
-          hint={on ? (cloudflare ? "On, with Cloudflare" : info?.tailscale.serving ? "On, with Tailscale" : "On, with your public address") : "Only at home for now"}
-        >
-          <Toggle label="Away from home" on={on} disabled={!allowed || busy} onChange={(value) => (value ? setSetupAway(true) : void run(turnOff))} />
-        </Row>
-        {setupAway && (
-          <div className="px-4 py-4">
-            <AwayFromHome onDone={() => setSetupAway(false)} />
-          </div>
-        )}
-        {!info && failed && (
-          <p role="status" className="px-4 text-sm text-muted">
-            Away from home isn't available yet.
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="px-4 mt-2 text-sm text-bad">
-            {error}
-          </p>
-        )}
-      </section>
-      <McpConnections info={info} allowed={allowed} />
-      {adding && <AddDeviceDialog onClose={() => setAdding(false)} />}
+      {error && (
+        <p role="alert" className="px-4 py-2 text-sm text-bad">
+          {error}
+        </p>
+      )}
     </>
   );
+}
+
+/** Whether the owner picks where each agent runs (Advanced), or Wisp places them. The switch other pages read. */
+export function PickSwitch() {
+  const mode = useComputerMode();
+  const owner = useStore((s) => s.me?.role === "owner");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      {error && (
+        <span role="alert" className="text-[13px] text-bad">
+          {error}
+        </span>
+      )}
+      <Toggle
+        label="Pick each agent's computer"
+        on={mode.advanced}
+        disabled={!owner || !mode.loaded || busy}
+        onChange={(value) => {
+          setBusy(true);
+          setError(null);
+          mode
+            .setAdvanced(value)
+            .catch((e) => setError((e as Error).message))
+            .finally(() => setBusy(false));
+        }}
+      />
+    </>
+  );
+}
+
+/** What the Outside apps row says: how many apps are connected. */
+export function McpValue() {
+  const [n, setN] = useState<number | null>(null);
+  useEffect(() => {
+    loadMcpClients().then((list) => setN(list?.length ?? null), () => {});
+  }, []);
+  return <>{n === null ? "" : n === 0 ? "None" : `${n} connected`}</>;
+}
+
+/** Outside apps: the public address Grok, ChatGPT and Claude connect to, and the apps that did. */
+export function OutsideApps() {
+  const info = useAccess(3000);
+  const allowed = useStore((s) => canApproveJoin(s.me?.role));
+  return <McpConnections info={info} allowed={allowed} />;
 }
 
 export function McpConnections({ info, allowed }: { info: AccessInfo | null; allowed: boolean }) {
@@ -213,33 +203,21 @@ export function McpConnections({ info, allowed }: { info: AccessInfo | null; all
     }
   };
   return (
-    <section className="mt-5 border-t border-line pt-3">
-      <Row
-        label={
-          <span className="flex items-center gap-2">
-            <AppWindow size={18} />
-            Grok, ChatGPT and Claude
-          </span>
-        }
-      >
+    <section className="rounded-[14px] bg-card pb-3">
+      <Row label="Grok, ChatGPT and Claude">
         <Toggle label="Grok, ChatGPT and Claude" on={!!origin || confirming} disabled={!owner || busy} onChange={(value) => (value ? setConfirming(true) : confirming ? setConfirming(false) : void toggle(false))} />
       </Row>
-      <div className="px-4 pt-3 space-y-3">
+      <div className="px-4 space-y-3">
         {origin && (
           <>
             <CopyBlock text={`${origin}/mcp`} />
-            <p className="text-xs text-muted">In Grok: Connectors → Add custom connector → paste.</p>
             {info?.connectorUrl && origin === new URL(info.connectorUrl).origin && <p className="text-xs text-muted">Approve it on a device with Tailscale on.</p>}
           </>
         )}
-        {!origin && !confirming && (
-          <p className="text-sm text-muted">
-            {connectorBlocker(info)} {owner ? "Turn this on to give them a public address." : "Ask the owner of this Wisp to turn this on."}
-          </p>
-        )}
+        {!origin && !confirming && connectorBlocker(info) && <p className="text-sm text-muted">{connectorBlocker(info)}</p>}
         {confirming && (
           <div role="alertdialog" aria-label="Turn on a public address" className="space-y-3">
-            <p className="text-sm">Anyone on the internet can reach this address, but only apps you approve can use it. The rest of Wisp stays private.</p>
+            <p className="text-sm">Anyone can reach this address; only approved apps can use it.</p>
             <div className="flex gap-2">
               <Button variant="primary" disabled={busy} onClick={() => void toggle(true)}>
                 Turn on
@@ -250,26 +228,22 @@ export function McpConnections({ info, allowed }: { info: AccessInfo | null; all
             </div>
           </div>
         )}
-        {clients !== null && (
-          <div className="pt-3">
-            <h3 className="text-xs font-medium text-muted mb-2">Connected apps</h3>
-            {clients.length === 0 ? (
-              <p className="text-sm text-muted">No apps connected yet.</p>
-            ) : (
-              <div className="divide-y divide-line">
-                {clients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between gap-3 py-3">
-                    <span className="text-sm min-w-0">
-                      <span className="font-medium">{client.name}</span>
-                      {client.agentName && <span className="text-muted"> acts as {client.agentName}</span>}
-                    </span>
-                    <Button disabled={busy} onClick={() => void disconnect(client)}>
-                      Disconnect
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
+        {clients !== null && clients.length > 0 && (
+          <div className="pt-1">
+            <h3 className="text-xs font-medium text-muted mb-1">Connected apps</h3>
+            <div className="divide-y divide-line">
+              {clients.map((client) => (
+                <div key={client.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="text-sm min-w-0">
+                    <span className="font-medium">{client.name}</span>
+                    {client.agentName && <span className="text-muted"> acts as {client.agentName}</span>}
+                  </span>
+                  <Button disabled={busy} onClick={() => void disconnect(client)}>
+                    Disconnect
+                  </Button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

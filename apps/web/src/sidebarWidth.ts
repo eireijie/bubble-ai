@@ -1,21 +1,21 @@
 /**
- * The desktop sidebar's width (2026-11-21 canvas "Wisp docked sidebar"): always docked, dragged
- * wider or narrower by its edge, and it stays where it's left. Below SNAP it snaps to icons.
+ * The desktop sidebar's width (2026-11-22 "Wisp, decluttered"): always docked, dragged wider or
+ * narrower by its edge, and it stays where it's left. Below SNAP it snaps to a rail of ghosts.
  * The width and whether it's collapsed are remembered on this device.
  */
 export const SIDEBAR = {
-  /** icons only: your ghosts and the line icons */
-  rail: 64,
-  min: 208,
-  max: 400,
+  /** the rail: 51px ghost tiles and round buttons */
+  rail: 82,
+  min: 256,
+  max: 480,
   /** double-click the edge */
-  default: 260,
-  /** dragged under this, it snaps to icons; pulled back past it, it springs to min */
-  snap: 140,
+  default: 320,
+  /** dragged under this, it snaps to the rail; pulled back past it, it springs to min */
+  snap: 168,
   /** arrow keys on the edge */
   step: 16,
-  /** windows narrower than this show icons until there's room again (the saved width is kept) */
-  roomy: 900,
+  /** windows narrower than this show the rail until there's room again (the saved width is kept) */
+  roomy: 960,
 } as const;
 
 /** Grok Bot-measured motion: opening settles fast-then-slow, closing is quicker. */
@@ -23,7 +23,14 @@ export const SIDEBAR_EASE = "cubic-bezier(.165,.84,.44,1)";
 export const SIDEBAR_OPEN_MS = 200;
 export const SIDEBAR_CLOSE_MS = 100;
 
-const KEY = "wisp.sidebar";
+/** "2": the first key held widths chosen around the old 260px default (and was written on every load). */
+const KEY = "wisp.sidebar2";
+
+/** Collapse or expand the sidebar from anywhere (search, a shortcut); the sidebar listens for it. */
+export const SIDEBAR_TOGGLE = "wisp:sidebar-toggle";
+export function toggleSidebar(): void {
+  window.dispatchEvent(new Event(SIDEBAR_TOGGLE));
+}
 
 export interface SidebarState {
   /** the width it has when it isn't collapsed */
@@ -41,7 +48,7 @@ export function dragWidth(x: number): number {
   return x < SIDEBAR.snap ? SIDEBAR.rail : clampWidth(x);
 }
 
-/** After a drag ends at `w`: a full width is kept; icons collapse and keep the last full width. */
+/** After a drag ends at `w`: a full width is kept; the rail collapses and keeps the last full width. */
 export function settle(prev: SidebarState, w: number): SidebarState {
   return w <= SIDEBAR.rail ? { width: prev.width, collapsed: true } : { width: clampWidth(w), collapsed: false };
 }

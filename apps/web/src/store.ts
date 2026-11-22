@@ -5,6 +5,7 @@ import { api } from "./api.ts";
 import { notifyOn } from "./notifications.ts";
 import { agentColor } from "./components/ui.tsx";
 import { listOrgs, type Org } from "./orgs.ts";
+import { agentReadiness } from "./devices.ts";
 
 export interface Me {
   kind: "user";
@@ -659,5 +660,9 @@ export function useChatsUnread(): number {
 /** The Inbox badge: what's waiting on you, the same count as "Needs you" on the page (unread replies have the Chats badge). */
 export function useInboxCount(): number {
   const waiting = useWaitingOnYou();
-  return waiting.approvals.length + waiting.help.length;
+  // an agent that can't work until you do something is also on the Needs you page. Only what the store
+  // already knows is counted here (no computer chosen, or a sign-in the hub flagged), so the shell
+  // never polls for it; the page itself also knows about a device that went offline.
+  const unready = useStore((s) => (s.me && s.me.role !== "guest" ? s.agents.reduce((n, a) => n + (!agentReadiness(a, null).ready || a.signIn ? 1 : 0), 0) : 0));
+  return waiting.approvals.length + waiting.help.length + unready;
 }

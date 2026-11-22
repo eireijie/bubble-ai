@@ -1,158 +1,68 @@
 import { GITHUB_URL } from "@wisp/core";
-import { useState, type ReactNode } from "react";
-import { AlertTriangle, Check, ChevronLeft, CircleHelp, ExternalLink, LifeBuoy } from "lucide-react";
-import { NEXT_STEP, helperChecklist, nextStep, setupProgress, useOnboarding, type HelperCheck } from "../onboarding.ts";
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleHelp, ExternalLink } from "lucide-react";
+import { helperChecklist, pickHelper, type HelperCheck } from "../onboarding.ts";
 import { useDevices } from "../devices.ts";
-import { href } from "../router.ts";
+import { go, href } from "../router.ts";
+import { openDm } from "../openDm.ts";
 import { useStore } from "../store.ts";
-import { Button, cx } from "../components/ui.tsx";
+import { AgentAvatar, cx } from "../components/ui.tsx";
 
 const ISSUES_URL = `${GITHUB_URL}/issues`;
 
-const SECTIONS = [
-  { id: "setup", title: "Finish setup" },
-  { id: "helper", title: "My agent isn't answering" },
-  { id: "examples", title: "What can Wisp do?" },
-  { id: "words", title: "Words you'll see" },
-  { id: "report", title: "Report a problem" },
-] as const;
-
-const EXAMPLES = [
-  "Plan your meals for the week and write the shopping list.",
-  "Draft a polite message or email for you to check and send.",
-  "Summarize a long document into a few clear points.",
-  "Keep notes on what matters to you, so you don't repeat yourself.",
-  "Check a website and tell you what changed.",
-  "Help sort your inbox, once you connect Gmail.",
-];
-
-const GLOSSARY: [string, string, { label: string; to: string }?][] = [
-  ["Agent", "An AI agent you give work to, like a teammate. It has a name, remembers things, and works on a device."],
-  ["Harness", "The AI program an agent runs on, like Claude Code or Codex. You pick it once when you make an agent."],
-  ["Device", "A computer of yours with Wisp installed. Agents do their work there."],
-  ["Computer", "A desktop an agent can see and use, either a virtual one on your device or your own screen."],
-  ["Memory", "Notes Wisp keeps about you and your work, so agents don't need to be told twice. You can read and fix them."],
-  ["Skill", "Something an agent has learned how to do, like a recipe it can follow again."],
-  ["Routine", "A job an agent does on its own, on a schedule or when something happens."],
-  ["Team", "A group of agents that work on something together. Each team has its own, under Team settings."],
-  ["Connected app", "A service you link to Wisp, like Gmail, so agents can use it for you."],
-  ["Connection code (token)", "A one-time code that links a computer to this Wisp. It's shown once when you add a device."],
-  ["AI tokens", "How AI services measure and charge for work: more text, more tokens."],
-];
-
 const linkClass = "text-accent-text hover:underline rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
-const linkButtonClass = "inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium bg-accent text-accent-ink hover:bg-accent/90 outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
+const rowClass = "w-full min-h-14 px-4 flex items-center gap-3 text-left text-[14px] font-medium text-ink hover:bg-hover outline-none focus-visible:bg-hover";
 
-/** One place for a beginner to get unstuck: setup, why a helper is quiet, plain words, and where to report problems. */
+/** Help, short: ask your agent first, then why it might not be answering, the welcome again, and where to report a problem. */
 export function HelpView({ onBack }: { onBack?: () => void }) {
+  const agents = useStore((s) => s.agents);
+  const devices = useDevices();
+  const helper = pickHelper(agents, devices);
+  const checks = helperChecklist(agents, devices);
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <header className="h-15 shrink-0 px-4 md:px-6 flex items-center gap-2 border-b border-line safe-top">
+      <header className="mx-auto w-full max-w-xl h-15 shrink-0 px-4 md:px-8 md:mt-8 flex items-center gap-2 safe-top">
         {onBack && (
-          <button className="md:hidden p-1.5 -ml-1.5 rounded-md hover:bg-hover" onClick={onBack} aria-label="Back">
+          <button className="circle shrink-0 md:hidden" onClick={onBack} aria-label="Back">
             <ChevronLeft size={22} />
           </button>
         )}
-        <LifeBuoy size={17} className="text-accent-text" aria-hidden />
         <h1 className="t-title flex-1 truncate">Help</h1>
       </header>
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl px-4 md:px-6 py-5 space-y-8">
-          <nav aria-label="On this page">
-            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              {SECTIONS.map((s) => (
-                <li key={s.id}>
-                  <a className={linkClass} href={`${href({ view: "help" })}`} onClick={(e) => jumpTo(e, s.id)}>
-                    {s.title}
-                  </a>
-                </li>
+        <div className="mx-auto w-full max-w-xl px-4 md:px-8 pt-2 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-6">
+          <div className="rounded-[14px] bg-card overflow-hidden">
+            <button type="button" className={rowClass} onClick={() => (helper ? void openDm(helper.id) : go({ view: "welcome" }))}>
+              {helper && <AgentAvatar agent={helper} size={34} />}
+              <span className="flex-1 min-w-0 truncate">{helper ? `Ask ${helper.name}` : "Make your agent"}</span>
+              <ChevronRight size={15} className="text-muted" aria-hidden />
+            </button>
+          </div>
+
+          <section aria-labelledby="help-quiet" className="space-y-2">
+            <h2 id="help-quiet" className="px-1 text-[13px] font-medium text-muted">
+              My agent isn't answering
+            </h2>
+            <ul className="rounded-[14px] bg-card divide-y divide-line overflow-hidden" aria-busy={devices === null}>
+              {checks.map((c) => (
+                <CheckRow key={c.id} check={c} />
               ))}
             </ul>
-          </nav>
-          <SetupSection />
-          <HelperSection />
-          <ExamplesSection />
-          <WordsSection />
-          <ReportSection />
+          </section>
+
+          <div className="rounded-[14px] bg-card divide-y divide-line overflow-hidden">
+            <a className={rowClass} href={href({ view: "welcome", intro: true })}>
+              <span className="flex-1">See the welcome again</span>
+              <ChevronRight size={15} className="text-muted" aria-hidden />
+            </a>
+            <a className={rowClass} href={ISSUES_URL} target="_blank" rel="noreferrer">
+              <span className="flex-1">Report a problem</span>
+              <ExternalLink size={14} className="text-muted" aria-hidden />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-/** In-page jump. The hash holds the route, so scroll instead of changing the URL. */
-function jumpTo(e: React.MouseEvent, id: string) {
-  e.preventDefault();
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "start" });
-  el.focus({ preventScroll: true });
-}
-
-function Section({ id, title, children }: { id: (typeof SECTIONS)[number]["id"]; title: string; children: ReactNode }) {
-  return (
-    <section id={id} tabIndex={-1} aria-labelledby={`${id}-title`} className="scroll-mt-4 space-y-3 outline-none">
-      <h2 id={`${id}-title`} className="text-base font-semibold">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function SetupSection() {
-  const { done } = useOnboarding();
-  const { progress, steps, complete } = setupProgress(done);
-  const next = nextStep(done);
-  return (
-    <Section id="setup" title="Finish setup">
-      <div className="flex items-center gap-3">
-        <div role="progressbar" aria-valuemin={0} aria-valuemax={steps} aria-valuenow={progress} aria-label="Setup progress" className="h-2 flex-1 rounded-full bg-chip overflow-hidden">
-          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(progress / steps) * 100}%` }} />
-        </div>
-        <span className="text-sm text-muted tabular-nums whitespace-nowrap">
-          {progress} of {steps} steps done
-        </span>
-      </div>
-      {complete || !next ? (
-        <p className="text-sm text-muted">Setup is done. You're ready to go.</p>
-      ) : (
-        <p className="text-sm">
-          <span className="text-muted">Next: </span>
-          {NEXT_STEP[next]}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {!complete && (
-          <a className={linkButtonClass} href={href({ view: "welcome" })}>
-            Continue setup
-          </a>
-        )}
-        <a className={cx("text-sm", linkClass)} href={href({ view: "welcome", intro: true })}>
-          {complete ? "See the welcome again" : "What is Wisp? See the welcome again"}
-        </a>
-      </div>
-    </Section>
-  );
-}
-
-function HelperSection() {
-  const agents = useStore((s) => s.agents);
-  const devices = useDevices();
-  const checks = helperChecklist(agents, devices);
-  return (
-    <Section id="helper" title="My agent isn't answering">
-      {devices === null && (
-        <p className="text-sm text-faint" role="status">
-          Checking your devices…
-        </p>
-      )}
-      <ul className="rounded-xl border border-line divide-y divide-line">
-        {checks.map((c) => (
-          <CheckRow key={c.id} check={c} />
-        ))}
-      </ul>
-    </Section>
   );
 }
 
@@ -171,7 +81,6 @@ function CheckRow({ check }: { check: HelperCheck }) {
         <div className={check.status === "unknown" ? "text-muted" : undefined}>
           <span className="sr-only">{word}: </span>
           {check.label}
-          {check.status !== "ok" && <span className="ml-2 text-xs text-faint">{word}</span>}
         </div>
         {check.status === "bad" && check.fix && <p className="mt-0.5 text-muted">{check.fix}</p>}
         {check.status === "bad" && check.to && (
@@ -181,54 +90,5 @@ function CheckRow({ check }: { check: HelperCheck }) {
         )}
       </div>
     </li>
-  );
-}
-
-function ExamplesSection() {
-  return (
-    <Section id="examples" title="What can Wisp do?">
-      <ul className="list-disc pl-5 space-y-1.5 text-sm">
-        {EXAMPLES.map((e) => (
-          <li key={e}>{e}</li>
-        ))}
-      </ul>
-    </Section>
-  );
-}
-
-function WordsSection() {
-  return (
-    <Section id="words" title="Words you'll see">
-      <dl className="rounded-xl border border-line divide-y divide-line">
-        {GLOSSARY.map(([term, meaning, link]) => (
-          <div key={term} className="px-4 py-3">
-            <dt className="text-sm font-medium">{term}</dt>
-            <dd className="mt-0.5 text-sm text-muted">
-              {meaning}
-              {link && (
-                <>
-                  {" "}
-                  <a className={linkClass} href={link.to}>
-                    {link.label}
-                  </a>
-                </>
-              )}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </Section>
-  );
-}
-
-function ReportSection() {
-  return (
-    <Section id="report" title="Report a problem">
-      <p className="text-sm text-muted">Something broken or confusing? Tell us what you were trying to do, what you expected, and what happened instead. Leave out passwords and private details.</p>
-      <a className={cx("inline-flex items-center gap-1 text-sm", linkClass)} href={ISSUES_URL} target="_blank" rel="noreferrer">
-        Open an issue on GitHub <ExternalLink size={13} aria-hidden />
-        <span className="sr-only">(opens in a new tab)</span>
-      </a>
-    </Section>
   );
 }

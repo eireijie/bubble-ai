@@ -1,57 +1,17 @@
-import { HarnessLogo } from "../../components/HarnessLogo.tsx";
-import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type FormEvent, type ReactNode } from "react";
-import type { Message } from "@wisp/core";
-import { APPLE_APP_INFO, HARNESSES, MODEL_PROVIDER_INFO, harnessLabel, type Agent, type HarnessSettings, type ModelConnection, type ModelProvider } from "@wisp/core";
-import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { ChevronRight, Loader2 } from "lucide-react";
+import { HARNESSES, MODEL_PROVIDER_INFO, harnessLabel, type HarnessSettings, type ModelConnection, type ModelProvider } from "@wisp/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { unavailable } from "../../join.ts";
 import { ConnectModel } from "../../components/ConnectModel.tsx";
-import { switchOnRecommended } from "../../onboardingSetup.ts";
+import { HarnessLogo } from "../../components/HarnessLogo.tsx";
 import { HOST_LOOK, HostGhost, hostReact } from "../../components/onboarding/HostGhost.tsx";
-import { DrawnCheck, SlideMark, Typed } from "../../components/onboarding/obMotion.tsx";
-import { WHITE_WISP } from "../../components/SetupStage.tsx";
+import { SetupLink, SetupProblem, SetupShell, SetupTitle } from "../../components/SetupShell.tsx";
 import { canUse, readyConnection, signInProvider, useConnections } from "../../models.ts";
-import { loadAnswers, saveAnswers, type AgentDraft } from "../../onboardingV3.ts";
 import type { DeviceInfo } from "../../devices.ts";
 import type { HarnessesResponse, HarnessSignIn as HarnessSignInDialog } from "../settings/harnesses.tsx";
-import { makeFirstAgent } from "./firstAgent.ts";
-import { PageTop } from "../../components/onboarding/PageTop.tsx";
-import { useNarrow } from "../../components/SetupShell.tsx";
-
-const STYLE = `
-@keyframes ob-pop { 0% { opacity: 0; transform: translateY(6px) scale(.98); } 100% { opacity: 1; transform: none; } }
-.ob-pop { animation: ob-pop .32s cubic-bezier(.32,.72,0,1) both; }
-@keyframes ob-hop-a { 0%,100% { transform: none; } 35% { transform: translateY(-12px) scale(.95,1.06); } 70% { transform: translateY(0) scale(1.07,.93); } }
-@keyframes ob-hop-b { 0%,100% { transform: none; } 35% { transform: translateY(-12px) scale(.95,1.06); } 70% { transform: translateY(0) scale(1.07,.93); } }
-.ob-hop-a { animation: ob-hop-a .5s cubic-bezier(.32,.72,0,1); }
-.ob-hop-b { animation: ob-hop-b .5s cubic-bezier(.32,.72,0,1); }
-@keyframes ob-page { 0% { opacity: 0; transform: translateX(40px); } 100% { opacity: 1; transform: none; } }
-.ob-page { animation: ob-page .45s cubic-bezier(.32,.72,0,1) both; }
-@keyframes ob-spin { to { transform: rotate(360deg); } }
-.ob-spin { animation: ob-spin .9s linear infinite; transform-origin: center; }
-.ob-choice { transition: background .15s ease, border-color .15s ease, transform .1s ease; }
-.ob-choice:hover { border-color: rgb(28 28 28 / .32); }
-.ob-choice[aria-pressed="true"], .ob-choice[aria-pressed="true"]:hover { border-color: transparent; }
-.ob-slide > .ob-choice[aria-pressed="true"] { background: transparent; }
-.ob-choice:active { transform: scale(.98); }
-@media (prefers-reduced-motion: reduce) {
-  .ob-pop, .ob-hop-a, .ob-hop-b, .ob-page, .ob-spin { animation: none; }
-  .ob-choice { transition: none; }
-  .ob-choice:active { transform: none; }
-}`;
-
-const ICON = {
-  found: "M4 5h16v11H4zM2 20h20",
-  claude: "M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z",
-  chatgpt: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 12h8",
-  grok: "M5 4l14 16M19 4 5 20",
-  key: "M15 7a4 4 0 1 1-3.9 5H4v3h3v-3h4.1A4 4 0 0 1 15 7z",
-  more: "M5 12h.01M12 12h.01M19 12h.01",
-};
-
-/** The providers "I have an API key" offers, in the design's order. */
-const KEY_PROVIDERS: ModelProvider[] = ["anthropic", "openai", "openrouter", "google", "xai"];
+import { pointAgentAt } from "./firstAgent.ts";
 
 /** The harnesses a connection is tried on, best first: the one the provider makes, then the open ones. */
 const PREFERRED = ["claude-code", "codex", "hermes", "opencode", "goose"];
@@ -77,53 +37,77 @@ export function foundOn(device: DeviceInfo | undefined, connections: ModelConnec
   return null;
 }
 
-/** "Juno", her look and what she's for: page 4's draft, else the first agent's defaults. */
-export function draftOf(workspaceId: string): { name: string; look: GhostAppearance; draft: AgentDraft | null } {
-  const raw = (loadAnswers(workspaceId) as { agentDraft?: Partial<AgentDraft> }).agentDraft;
-  const draft = raw && typeof raw === "object" && typeof raw.name === "string" && raw.name.trim() ? (raw as AgentDraft) : null;
-  const look: GhostAppearance = { ...WHITE_WISP, color: "#8bd4ff", color2: "#ff51bf" };
-  if (draft?.color) Object.assign(look, { color: draft.color, color2: undefined });
-  if (draft?.shape) look.shape = draft.shape;
-  return { name: draft?.name.trim() || "Atlas", look, draft };
-}
-
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-type Pick = "found" | "claude" | "chatgpt" | "grok" | "key" | `h:${string}`;
-type Phase = "idle" | "checking" | "ready" | "failed";
+/** How trying an AI ended: it answered, or it didn't and why (`resign`: that harness needs signing in again). */
+export type Checked = { ok: true } | { ok: false; problem: string; resign?: string };
 
 /**
- * Page 5 of the first run: what the agent thinks with. What's already signed in on the person's
- * computer is found and picked; a subscription signs in once to Wisp (Claude pastes a code, ChatGPT
- * through Codex, Grok through Hermes); a key becomes a model connection. Any pick makes the agent
- * from page 4's draft (or updates the one made before) and checks it can answer before Continue.
+ * Wait until the agent's AI can really answer: signed in where it runs, then its hello said (the
+ * hello is its first real run; a status check can call a session signed in that can't refresh).
+ * Anything else is a failure with one line saying what went wrong. Null when nobody is waiting any more.
  */
-export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo | undefined; person: string; onDone: (agentId: string | null, channelId: string | null) => void; onBack?: () => void }) {
-  const me = useStore((s) => s.me)!;
-  const ws = me.workspace.id;
+export async function checkAI(
+  o: { agentId: string; harness: string; connectionId: string | null; deviceName: string },
+  live: () => boolean = () => true,
+  onStage: (s: "signin" | "hello") => void = () => {},
+  io: { api: typeof api; wait: (ms: number) => Promise<unknown>; now: () => number } = { api, wait, now: Date.now },
+): Promise<Checked | null> {
+  const label = harnessLabel(o.harness);
+  const again: Checked = { ok: false, problem: `${label} needs signing in again.`, resign: o.harness };
+  const deadline = io.now() + 3 * 60_000;
+  onStage("signin");
+  while (live() && io.now() < deadline) {
+    const r = await io.api<{ signedIn: boolean | null; inComputer?: boolean }>("GET", `/api/agents/${o.agentId}/harness`).catch(() => null);
+    if (r && (r.signedIn === true || (r.signedIn === null && !o.connectionId && !r.inComputer))) {
+      onStage("hello");
+      while (live() && io.now() < deadline) {
+        // signed out since (its run failed on sign-in): sign in again before anything else runs
+        const now = await io.api<{ signedIn: boolean | null }>("GET", `/api/agents/${o.agentId}/harness`).catch(() => null);
+        if (now?.signedIn === false) return again;
+        const g = await io.api<{ status: string }>("POST", `/api/agents/${o.agentId}/greet`).catch(() => null);
+        if (g?.status === "signin") return again;
+        if (g?.status === "already" || g?.status === "sent") return live() ? { ok: true } : null;
+        await io.wait(1500);
+      }
+      break;
+    }
+    if (r?.signedIn === false) return { ok: false, problem: `${label} isn't signed in on ${o.deviceName} yet.` };
+    await io.wait(2000);
+  }
+  return live() ? { ok: false, problem: `${label} took too long to start.` } : null;
+}
+
+type Row = "claude" | "chatgpt" | "grok";
+const ROWS: { id: Row; provider: ModelProvider; harness: string }[] = [
+  { id: "claude", provider: "anthropic", harness: "claude-code" },
+  { id: "chatgpt", provider: "openai", harness: "codex" },
+  { id: "grok", provider: "xai", harness: "hermes" },
+];
+type Open = Row | "else" | "key" | null;
+type Phase = "idle" | "checking" | "failed";
+
+/**
+ * The first run's third screen: what the agent thinks with. Claude, ChatGPT and Grok each open
+ * their sign-in (one already signed in on the person's computer is used as it is); "Something
+ * else" holds an API key, the other agents and "Set up later". Picking one points the agent at it
+ * and waits until it has really answered: only then does its chat open. A sign-in that fails says
+ * why in one line and stays here.
+ */
+export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; device: DeviceInfo | undefined; onDone: (channelId: string | null) => void; onBack?: () => void }) {
+  const agent = useStore((s) => s.agents.find((a) => a.id === agentId));
   const { connections, support, reload } = useConnections();
-  const [{ name, look, draft }] = useState(() => draftOf(ws));
-  const narrow = useNarrow("(max-width: 1023px)");
-  const first = person.trim().split(/\s+/)[0] ?? "";
   const found = foundOn(device, connections ?? []);
-  const [pick, setPick] = useState<Pick | null>(null);
-  // what is found on the computer is picked for you; otherwise nothing starts until you pick
-  const cur: Pick | null = pick ?? (found ? "found" : null);
-  const [keyFor, setKeyFor] = useState<ModelProvider>("openrouter");
-  const [more, setMore] = useState(false);
+  const [open, setOpen] = useState<Open>(null);
   const [phase, setPhase] = useState<Phase>("idle");
+  const [stage, setStage] = useState<"install" | "signin" | "hello" | "opening">("signin");
   const [harness, setHarness] = useState(found?.harness ?? "claude-code");
   const [problem, setProblem] = useState<string | null>(null);
   // its AI said "signed in" but its first run couldn't sign in (an expired session): sign in again
   const [resign, setResign] = useState<string | null>(null);
-  const [agentId, setAgentId] = useState<string | null>(() => loadAnswers(ws).agentId ?? null);
+  // what failed, to try again
+  const [last, setLast] = useState<(() => void) | null>(null);
   const [leaving, setLeaving] = useState(false);
-  // the three live steps while it's tried: signing in, trying a hello, ready
-  const [stage, setStage] = useState<"signin" | "hello" | "ready">("signin");
-  // the apps it reads before its hello ("Messages and Calendar"), when any were set up
-  const [reading] = useState(() => appsLine(ws));
-  // its real hello, typed in beside the host once it's said
-  const [hello, setHello] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ Dialog: ComponentType<Parameters<typeof HarnessSignInDialog>[0]>; device: HarnessesResponse["device"]; settings: HarnessSettings } | null>(null);
   const run = useRef(0);
   const alive = useRef(true);
@@ -133,93 +117,56 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
       alive.current = false;
     };
   }, []);
+  const name = agent?.name ?? "your agent";
 
-  const bump = (kind: "hop" | "nod" = "nod") => hostReact(kind);
+  const fail = (text: string, re?: string) => {
+    setResign(re ?? null);
+    setProblem(text);
+    setPhase("failed");
+    // back to the choices, so a sign-in panel doesn't start itself again under the message
+    setOpen(null);
+  };
 
-  /** Make (or point) the agent at this AI, then wait until it can answer. */
+  /** The agent's chat, once it has one (its hello starts it). */
+  const chatOf = async (): Promise<string | null> => {
+    for (let i = 0; i < 8 && alive.current; i++) {
+      await useStore.getState().refreshChannels().catch(() => {});
+      const id = useStore.getState().channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`))?.id ?? null;
+      if (id) return id;
+      await wait(1000);
+    }
+    return null;
+  };
+
+  /** Point the agent at this AI, then wait until it has answered; only then does its chat open. */
   const tryIt = async (h: string, connectionId: string | null) => {
-    if (!device) return setProblem("Waiting for a computer to connect.");
+    if (!device) return fail("Waiting for a computer to connect.");
     const n = ++run.current;
     const live = () => alive.current && run.current === n;
     setHarness(h);
     setPhase("checking");
     setStage("signin");
-    setHello(null);
     setProblem(null);
     setResign(null);
-    bump();
-    const needsSignIn = () => {
-      const e = new Error(`${harnessLabel(h)} on ${device.mine ? here : device.name} needs signing in again.`);
-      (e as Error & { resign?: string }).resign = h;
-      return e;
-    };
+    setLast(() => () => void tryIt(h, connectionId));
+    hostReact("nod");
     try {
       const st = useStore.getState();
-      const existing = agentId ? st.agents.find((a) => a.id === agentId) : undefined;
-      let agent: Agent;
-      if (existing) {
-        await api("PATCH", `/api/agents/${existing.id}`, { harness: h, settings: { connectionId } });
-        agent = { ...existing, harness: h as Agent["harness"] };
-      } else {
-        agent = await makeFirstAgent(device, h, name, st.agents, st.computers, look, connectionId ?? undefined, { greetLater: true });
-        saveAnswers(ws, { agentId: agent.id });
-        setAgentId(agent.id);
-      }
-      if (draft) await api("PATCH", `/api/agents/${agent.id}`, { instructions: draft.instructions ?? "", settings: { role: draft.role || undefined } }).catch(() => {});
-      // the apps set up on "Pick your agent" are its own from the start, so its hello can read them
-      await giveApps(ws, agent.id);
+      const a = st.agents.find((x) => x.id === agentId);
+      if (!a) throw new Error(`${name} is gone. Go back and make it again.`);
+      await pointAgentAt(a, device, h, connectionId, st.computers);
       await Promise.allSettled([st.refreshAgents(), st.refreshComputers()]);
-      // the same check setup always used: its AI answers where it runs, with no sign-in of its own left to do
-      const deadline = Date.now() + 3 * 60_000;
-      while (live() && Date.now() < deadline) {
-        const r = await api<{ signedIn: boolean | null; inComputer?: boolean }>("GET", `/api/agents/${agent.id}/harness`).catch(() => null);
-        if (r && (r.signedIn === true || (r.signedIn === null && !connectionId && !r.inComputer))) {
-          // a status check can say "signed in" for a session that can't refresh: its hello is the real
-          // first run, and only a hello it wrote (or Wisp's, if it ran out of time) means it's ready
-          setStage("hello");
-          while (live() && Date.now() < deadline) {
-            // signed out since (its run failed on sign-in): sign in again before anything else runs
-            const now = await api<{ signedIn: boolean | null }>("GET", `/api/agents/${agent.id}/harness`).catch(() => null);
-            if (now?.signedIn === false) throw needsSignIn();
-            const g = await api<{ status: string }>("POST", `/api/agents/${agent.id}/greet`).catch(() => null);
-            if (g?.status === "signin") throw needsSignIn();
-            if (g?.status === "already" || g?.status === "sent") {
-              if (!live()) return;
-              setStage("ready");
-              setPhase("ready");
-              bump("hop");
-              void readHello(agent.id).then((text) => live() && setHello(text));
-              return;
-            }
-            await wait(1500);
-          }
-          break;
-        }
-        if (r?.signedIn === false) throw new Error(`${harnessLabel(h)} isn't signed in on ${device.name} yet.`);
-        await wait(2000);
-      }
-      if (live()) throw new Error(`${harnessLabel(h)} took too long to start.`);
+      const r = await checkAI({ agentId, harness: h, connectionId, deviceName: device.name }, live, (s) => live() && setStage(s));
+      if (!r || !live()) return;
+      if (!r.ok) return fail(r.problem, r.resign);
+      hostReact("hop");
+      setStage("opening");
+      const channelId = await chatOf();
+      if (live()) onDone(channelId);
     } catch (e) {
-      if (!live()) return;
-      const re = (e as { resign?: string }).resign;
-      setResign(re ?? null);
-      setProblem(re ? (e as Error).message : unavailable(e, harnessLabel(h)));
-      setPhase("failed");
+      if (live()) fail(unavailable(e, harnessLabel(h)));
     }
   };
-
-  /** The hello it just said, from its chat (null if it can't be read yet). */
-  const readHello = async (id: string): Promise<string | null> => {
-    await useStore.getState().refreshAgents().catch(() => {});
-    const setup = useStore.getState().agents.find((a) => a.id === id)?.settings.setup;
-    if (!setup?.channelId || !setup.greetingId) return null;
-    const r = await api<{ messages: Message[] }>("GET", `/api/channels/${setup.channelId}/messages?limit=20`).catch(() => null);
-    const text = r?.messages.find((m) => m.id === setup.greetingId)?.body.trim();
-    return text ? (text.length > 280 ? `${text.slice(0, 277).trimEnd()}…` : text) : null;
-  };
-
-  /** Sign in again where this AI signs in: Claude and ChatGPT through Wisp, the rest on the computer. */
-  const signInAgain = (h: string) => (h === "claude-code" ? choose("claude") : h === "codex" ? choose("chatgpt") : void deviceHarness(h));
 
   const takeFound = async () => {
     if (!found || !device) return;
@@ -236,24 +183,25 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
     }
   };
 
-  const choose = (p: Pick) => {
+  const pick = (o: Open) => {
     run.current++;
-    setPick(p);
+    setOpen(o);
     setPhase("idle");
     setProblem(null);
-    bump();
-    if (p === "found") void takeFound();
   };
 
-  /** A harness from "More agents" that keeps its sign-in where it runs: install, then its own sign-in. */
+  /** A harness that keeps its sign-in where it runs: install it, then its own sign-in. */
   const deviceHarness = async (id: string) => {
-    choose(`h:${id}`);
-    if (!device) return;
+    run.current++;
+    setProblem(null);
+    setLast(() => () => void deviceHarness(id));
+    if (!device) return fail("Waiting for a computer to connect.");
     const signedIn = device.harnesses?.find((x) => x.id === id)?.accounts?.default === true;
     if (signedIn) return void tryIt(id, null);
     try {
       if (!device.harnesses?.some((x) => x.id === id)) {
         setPhase("checking");
+        setStage("install");
         setHarness(id);
         await api("POST", `/api/nodes/${device.id}/install`, { harness: id });
         await api("POST", `/api/nodes/${device.id}/refresh`).catch(() => {});
@@ -265,146 +213,130 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
       const { HarnessSignIn } = await import("../settings/harnesses.tsx");
       setDialog({ Dialog: HarnessSignIn, device: r.device, settings: s });
     } catch (e) {
-      setProblem(unavailable(e, harnessLabel(id)));
-      setPhase("failed");
+      fail(unavailable(e, harnessLabel(id)));
     }
   };
 
-  const proceed = async () => {
-    if (phase === "idle") {
-      if (cur === "found") return void takeFound();
-      // no computer yet: go on without an agent (it can be made later)
-      if (!device) return onDone(agentId, null);
-      return;
-    }
-    if (phase === "checking") return;
+  /** A key or sign-in from "API key": which harness runs it depends on whose it is. */
+  const connected = async (connectionId: string | null) => {
+    reload();
+    const all = await api<{ connections: ModelConnection[] }>("GET", "/api/model-connections").catch(() => null);
+    const c = connectionId ? all?.connections.find((x) => x.id === connectionId) : undefined;
+    if (c) return void tryIt(harnessFor(c.provider, c.kind, support), c.id);
+    // it said done without naming the connection: use whatever is ready now
+    const ready = foundOn(device, all?.connections ?? []);
+    if (ready) return void tryIt(ready.harness, ready.connectionId);
+    fail("That didn't connect. Try again.");
+  };
+
+  /** Sign in again where this AI signs in: Claude and ChatGPT through Wisp, the rest on the computer. */
+  const signInAgain = (h: string) => (h === "claude-code" ? pick("claude") : h === "codex" ? pick("chatgpt") : void deviceHarness(h));
+
+  /** "Set up later": the agent stays as it is and says hello anyway (the hub's plain one, saying what it still needs). */
+  const later = async () => {
+    run.current++;
     setLeaving(true);
-    let channelId: string | null = null;
-    if (agentId && phase === "ready") {
-      // its hello comes now, in its chat
-      await api("POST", `/api/agents/${agentId}/greet`).catch(() => {});
-      for (let i = 0; i < 8 && alive.current; i++) {
-        await useStore.getState().refreshChannels().catch(() => {});
-        channelId = useStore.getState().channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`))?.id ?? null;
-        if (channelId) break;
-        await wait(1000);
-      }
-    }
-    // what onboarding switches on by itself (calls, routines, a morning plan), each undoable on Here's your Wisp
-    if (agentId && phase === "ready") await switchOnRecommended(ws, agentId, person).catch(() => undefined);
-    if (alive.current) onDone(agentId, channelId);
+    setProblem(null);
+    setPhase("checking");
+    setStage("opening");
+    await api("POST", `/api/agents/${agentId}/greet`).catch(() => {});
+    const channelId = await chatOf();
+    if (alive.current) onDone(channelId);
   };
 
-  const here = /mac/i.test(typeof navigator !== "undefined" ? navigator.userAgent : "") && device?.mine ? "this Mac" : "this computer";
-  const opts: { id: Pick; title: string; sub: string; icon: string; found?: boolean; harness: string }[] = [
-    ...(found
-      ? [{ id: "found" as const, title: harnessLabel(found.harness), sub: found.connectionId ? "Already connected to Wisp." : found.harness === "claude-code" ? `Signed in on ${here}. Uses your Claude plan.` : `Signed in on ${here}.`, icon: ICON.found, found: true, harness: found.harness }]
-      : []),
-    // Claude's sign-in runs `claude setup-token` in a terminal on the device, which Windows can't do yet
-    { id: "claude", title: "Claude subscription", sub: device?.capabilities?.platform === "win32" ? "Needs a Mac or Linux computer for now. On Windows, use an API key." : "Pro or Max. Sign in, then paste the code it shows.", icon: ICON.claude, harness: "claude-code" },
-    { id: "chatgpt", title: "ChatGPT subscription", sub: "Plus or higher. Sign in with ChatGPT.", icon: ICON.chatgpt, harness: "codex" },
-    { id: "grok", title: "Grok subscription", sub: "Sign in with your Grok account.", icon: ICON.grok, harness: "hermes" },
-    { id: "key", title: "I have an API key", sub: "Claude, OpenAI, OpenRouter, Gemini or Grok.", icon: ICON.key, harness: harnessFor(keyFor, "key", support) },
-  ];
-  const others = HARNESSES.filter((h) => h.protocol !== "mcp");
-  const list = useRef<HTMLDivElement>(null);
-  const signInOf: Partial<Record<Pick, ModelProvider>> = { claude: "anthropic", chatgpt: "openai", grok: "xai" };
-  const provider = cur ? signInOf[cur] : undefined;
-  const cta = phase === "ready" ? `Meet ${name}` : phase === "failed" ? "Continue" : cur === "found" ? "Use this" : "Continue";
-  const idleNote = phase === "idle";
+  const others = HARNESSES.filter((h) => h.protocol !== "mcp" && !ROWS.some((r) => r.harness === h.id));
+  const signedInOn = (id: string) => device?.harnesses?.find((x) => x.id === id)?.accounts?.default === true;
+  const row = ROWS.find((r) => r.id === open);
+  const checking = phase === "checking";
+  const back = open && !checking ? () => pick(open === "key" ? "else" : null) : onBack;
 
   return (
-    <div className="fixed inset-0 z-10 flex flex-col bg-panel text-ink text-[14px] leading-[22px]">
-      <style>{STYLE}</style>
-      <PageTop step={5} onBack={onBack} />
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="ob-stagger min-h-full grid grid-cols-1 lg:grid-cols-[minmax(0,560px)_minmax(0,400px)] gap-10 lg:gap-20 justify-center items-center px-4 sm:px-6 pt-4 pb-10">
-          <div className="flex flex-col gap-[18px] min-w-0">
-            <div className="flex flex-col gap-0.5">
-              <h1 className="text-[24px] leading-[30px] font-[650] tracking-[-0.015em]">What should {name} think with?</h1>
-              <p className="text-[15px] leading-[22px] text-muted">Sign in once. Every agent you make can use it.</p>
-            </div>
+    <SetupShell
+      at={3}
+      onBack={checking || leaving ? null : back}
+      foot={
+        leaving ? undefined : checking || open === "else" ? (
+          // also while it's being tried (that can take minutes): nobody waits here unless they want to
+          <SetupLink onClick={() => void later()}>Set up later</SetupLink>
+        ) : open ? undefined : (
+          <>
+            <SetupLink onClick={() => pick("else")}>Something else</SetupLink>
+            {/* a sign-in that failed never ends setup by itself: this is the way on without it */}
+            {phase === "failed" && <SetupLink onClick={() => void later()}>Set up later</SetupLink>}
+          </>
+        )
+      }
+    >
+      <HostGhost look={agent?.settings.appearance ?? HOST_LOOK} size={56} mood={checking ? "working" : "awake"} />
+      <SetupTitle>What should {name} think with?</SetupTitle>
+      <p className="text-muted pb-2">Sign in once. Every agent can use it.</p>
 
-            <div ref={list} className="ob-slide" style={{ "--ob-slide-r": "14px" } as CSSProperties} role="radiogroup" aria-label="What it thinks with">
-              <SlideMark list={list} pick={`${cur}${more}`} />
-              {opts.map((o) => (
-                <Choice key={o.id} on={cur === o.id} title={o.title} sub={o.sub} icon={o.icon} badge={o.found ? `Found on ${here}` : undefined} onClick={() => choose(o.id)} />
-              ))}
-              {more &&
-                others.map((h) => {
-                  const there = device?.harnesses?.find((x) => x.id === h.id);
-                  const sub = !there ? "Wisp installs it" : there.accounts?.default === true ? `Signed in on ${device?.name ?? "this computer"}` : there.accounts?.default === false ? "Not signed in yet" : `On ${device?.name ?? "this computer"}`;
-                  return <Choice key={h.id} on={cur === `h:${h.id}`} title={h.label} sub={sub} icon={ICON.more} logo={h.id} onClick={() => void deviceHarness(h.id)} />;
-                })}
-            </div>
+      {checking && (
+        <p className="flex items-center gap-2.5" role="status">
+          <Loader2 size={16} className="animate-spin text-muted" aria-hidden />
+          {stage === "install" ? `Installing ${harnessLabel(harness)}` : stage === "signin" ? `Signing in to ${harnessLabel(harness)}` : stage === "hello" ? `${name} is saying hello` : "Opening"}
+        </p>
+      )}
 
-            {provider && idleNote && (
-              <div className="ob-pop flex flex-col gap-2 p-[14px_16px] rounded-[14px] bg-[var(--card)]">
-                {provider === "anthropic" && <span className="text-[13px] leading-[18px]">Sign in on the page that just opened. When it shows a code, paste it here.</span>}
-                <ConnectModel key={provider} provider={provider} onDone={(cid) => (reload(), void tryIt(opts.find((o) => o.id === cur)!.harness, cid))} />
-              </div>
-            )}
-
-            {cur === "key" && idleNote && (
-              <KeyBox provider={keyFor} setProvider={setKeyFor} onSaved={(cid) => (reload(), void tryIt(harnessFor(keyFor, "key", support), cid))} />
-            )}
-
-            {!device && <p className="text-[13px] text-muted">Waiting for a computer to connect…</p>}
-
-            <div className="flex flex-wrap gap-x-1 gap-y-2 items-center">
-              <button type="button" disabled={leaving || phase === "checking" || (phase === "idle" && cur !== "found" && !!device)} onClick={() => void proceed()} className="setup-press h-11 px-[22px] rounded-full bg-ink text-panel font-semibold disabled:opacity-40">
-                {leaving ? "Opening…" : cta}
-              </button>
-              {!more && (
-                <button type="button" onClick={() => setMore(true)} className="h-11 px-3.5 rounded-full text-muted hover:text-ink whitespace-nowrap">
-                  More agents ({others.length})
-                </button>
-              )}
-              {/* nothing working yet: no one is stuck here; it can be set up later in Settings */}
-              {phase !== "ready" && phase !== "checking" && cur !== "found" && (
-                <button type="button" disabled={leaving} onClick={() => onDone(agentId, null)} className="h-11 px-3.5 rounded-full text-muted hover:text-ink whitespace-nowrap">
-                  Set up later
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center gap-5 min-w-0">
-            <HostGhost look={draft ? look : HOST_LOOK} size={narrow ? 88 : 140} mood={phase === "checking" ? "working" : "awake"} happy={phase === "ready"} talking={phase === "ready" && hello === null} />
-            <div className="w-full max-w-[400px] min-h-[120px] flex flex-col gap-3 items-center text-center" aria-live="polite">
-              {phase === "idle" && <span className="text-muted">Pick one and I'll try it right away.</span>}
-              {(phase === "checking" || phase === "ready") && (
-                <ol className="ob-steps self-center text-left" aria-label="Trying it">
-                  <LiveStep state={stage === "signin" ? "now" : "done"}>Signing in to {harnessLabel(harness)}</LiveStep>
-                  <LiveStep state={stage === "signin" ? "later" : stage === "hello" ? "now" : "done"}>{reading ? `Reading ${reading}` : "Trying a hello"}</LiveStep>
-                  <LiveStep state={stage === "ready" ? "done" : "later"}>Ready</LiveStep>
-                </ol>
-              )}
-              {phase === "ready" && (
-                <span className="ob-pop bg-[var(--card)] rounded-[18px] px-3.5 py-[9px] text-left">
-                  <Typed text={hello ?? `I can think. Running on ${harnessLabel(harness)}. Ready when you are${first ? `, ${first}` : ""}.`} />
-                </span>
-              )}
-              {phase === "failed" && (
-                <>
-                  <span role="alert" className="ob-pop text-left">
-                    {problem ?? "That didn't work."}
-                  </span>
-                  {resign ? (
-                    <button type="button" className="h-9 px-4 rounded-full bg-ink text-panel text-[13px] font-semibold" onClick={() => signInAgain(resign)}>
-                      Sign in again
-                    </button>
-                  ) : (
-                    <button type="button" className="h-9 px-4 rounded-full border border-[var(--line2)] text-[13px] font-medium hover:bg-hover" onClick={() => (cur === "found" ? void takeFound() : cur?.startsWith("h:") ? void deviceHarness(cur.slice(2)) : cur && choose(cur))}>
-                      Try again
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+      {phase === "failed" && (
+        <div className="flex flex-col items-start gap-2 pb-1">
+          <SetupProblem>{problem ?? "That didn't work."}</SetupProblem>
+          <button type="button" className="h-9 px-4 rounded-full border border-line2 text-[13px] font-medium hover:bg-hover" onClick={() => (resign ? signInAgain(resign) : last ? last() : pick(null))}>
+            {resign ? "Sign in again" : "Try again"}
+          </button>
         </div>
-      </div>
+      )}
+
+      {!checking && !open && (
+        <Card>
+          {/* another AI already signed in on the person's computer goes first */}
+          {found && !ROWS.some((r) => r.harness === found.harness) && (
+            <Line onClick={() => void takeFound()} logo={found.harness} word="Signed in">
+              {harnessLabel(found.harness)}
+            </Line>
+          )}
+          {ROWS.map((r) => {
+            const here = found && found.harness === r.harness;
+            return (
+              <Line key={r.id} onClick={() => (here ? void takeFound() : pick(r.id))} word={here ? "Signed in" : undefined}>
+                {MODEL_PROVIDER_INFO[r.provider].label}
+              </Line>
+            );
+          })}
+        </Card>
+      )}
+
+      {!checking && row && (
+        <Panel title={MODEL_PROVIDER_INFO[row.provider].label}>
+          {/* Claude's sign-in runs `claude setup-token` in a terminal on the device, which Windows can't do yet */}
+          {row.id === "claude" && device?.capabilities?.platform === "win32" && <p className="text-[13px] leading-5 text-muted">Not on Windows yet. Use an API key.</p>}
+          <ConnectModel key={row.provider} provider={row.provider} onDone={(cid) => (reload(), void tryIt(row.harness, cid))} />
+        </Panel>
+      )}
+
+      {!checking && open === "key" && (
+        <Panel title="API key">
+          <ConnectModel onDone={(cid) => void connected(cid)} />
+        </Panel>
+      )}
+
+      {!checking && open === "else" && (
+        <Card>
+          <Line onClick={() => pick("key")}>API key</Line>
+          {others.map((h) => (
+            <Line key={h.id} onClick={() => void deviceHarness(h.id)} logo={h.id} word={found?.harness === h.id || signedInOn(h.id) ? "Signed in" : undefined}>
+              {h.label}
+            </Line>
+          ))}
+        </Card>
+      )}
+
+      {!device && !checking && (
+        <p className="text-[13px] text-muted" role="status">
+          Waiting for a computer to connect
+        </p>
+      )}
+
       {dialog && (
         <dialog.Dialog
           device={dialog.device}
@@ -418,137 +350,36 @@ export function AIStep({ device, person, onDone, onBack }: { device: DeviceInfo 
           }}
         />
       )}
-    </div>
+    </SetupShell>
   );
 }
 
-/** One of the three live steps: a dot before it, a spinner while it runs, a check that draws when it's done. */
-function LiveStep({ state, children }: { state: "later" | "now" | "done"; children: ReactNode }) {
-  return (
-    <li data-state={state}>
-      <span className="w-4 h-4 shrink-0 grid place-items-center">
-        {state === "done" ? (
-          <DrawnCheck size={15} />
-        ) : state === "now" ? (
-          <svg className="ob-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden>
-            <path d="M12 3a9 9 0 1 1-9 9" />
-          </svg>
-        ) : (
-          <span className="block w-1.5 h-1.5 rounded-full bg-[var(--input)]" />
-        )}
-      </span>
-      {children}
-    </li>
-  );
+/** A grouped list of rows on a card. */
+function Card({ children }: { children: ReactNode }) {
+  return <div className="shrink-0 rounded-[14px] bg-card overflow-hidden divide-y divide-line">{children}</div>;
 }
 
-function Choice({ on, title, sub, icon, logo, badge, onClick }: { on: boolean; title: string; sub: string; icon: string; logo?: string; badge?: string; onClick: () => void }) {
+/** One thing to pick: its name, and a chevron or one status word. */
+function Line({ children, onClick, word, logo }: { children: ReactNode; onClick: () => void; word?: string; logo?: string }) {
   return (
-    <button type="button" role="radio" aria-checked={on} aria-pressed={on} onClick={onClick} className="ob-choice flex items-center gap-3.5 px-4 py-3 rounded-[14px] border border-[var(--line2)] bg-panel text-ink text-left">
-      {logo ? (
-        <span className="shrink-0 w-[18px] h-[18px] flex items-center justify-center" aria-hidden>
+    <button type="button" onClick={onClick} className="w-full min-h-12 px-4 flex items-center gap-3 text-left hover:bg-hover outline-none focus-visible:bg-hover">
+      {logo && (
+        <span className="shrink-0 size-[18px] grid place-items-center" aria-hidden>
           <HarnessLogo harness={logo} size={18} />
         </span>
-      ) : (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 opacity-75">
-          <path d={icon} />
-        </svg>
       )}
-      <span className="flex-1 min-w-0 flex flex-col">
-        <span className="flex items-center gap-2 font-semibold leading-5 flex-wrap">
-          {title}
-          {badge && (
-            <span className="h-5 px-2 rounded-[10px] text-[11px] font-semibold flex items-center" style={{ background: "rgb(169 139 245 / .18)" }}>
-              {badge}
-            </span>
-          )}
-        </span>
-        <span className="text-[13px] leading-[18px] text-muted">{sub}</span>
-      </span>
-      <span aria-hidden className="w-[18px] h-[18px] rounded-full shrink-0 flex items-center justify-center border" style={{ background: on ? "var(--ink)" : "transparent", borderColor: on ? "var(--ink)" : "var(--input)" }}>
-        {on && (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--panel)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m5 12 5 5 9-10" />
-          </svg>
-        )}
-      </span>
+      <span className="flex-1 min-w-0 truncate text-[15px] font-semibold">{children}</span>
+      {word ? <span className="text-[13px] text-muted">{word}</span> : <ChevronRight size={15} className="text-muted" aria-hidden />}
     </button>
   );
 }
 
-/** "I have an API key": which provider, the key, and where to get one. Saved as a model connection. */
-function KeyBox({ provider, setProvider, onSaved }: { provider: ModelProvider; setProvider: (p: ModelProvider) => void; onSaved: (connectionId: string) => void }) {
-  const info = MODEL_PROVIDER_INFO[provider];
-  const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!key.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const c = await api<ModelConnection>("POST", "/api/model-connections", { provider, kind: "key", key: key.trim() });
-      setKey("");
-      onSaved(c.id);
-    } catch (err) {
-      const m = (err as Error).message.replace(/^key: /, "");
-      setError(m.charAt(0).toUpperCase() + m.slice(1));
-    } finally {
-      setBusy(false);
-    }
-  };
+/** One choice opened in place: its name, then its sign-in. */
+function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <form onSubmit={submit} className="ob-pop flex flex-col gap-2 p-[14px_16px] rounded-[14px] bg-[var(--card)]">
-      <div className="flex gap-1.5 flex-wrap">
-        {KEY_PROVIDERS.map((p) => (
-          <button key={p} type="button" aria-pressed={p === provider} onClick={() => (setProvider(p), setError(null))} className="ob-choice h-[30px] px-3 rounded-[15px] border border-[var(--line2)] bg-panel text-ink text-[13px]">
-            {MODEL_PROVIDER_INFO[p].label}
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <label htmlFor="ob-key" className="sr-only">
-          API key
-        </label>
-        <input
-          id="ob-key"
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          value={key}
-          onChange={(e) => (setKey(e.target.value), setError(null))}
-          placeholder={`Paste your ${info.label} key`}
-          className="flex-1 min-w-0 h-10 px-4 rounded-full border border-[var(--input)] bg-panel text-ink outline-none focus:border-ink"
-        />
-        <button type="submit" disabled={busy || !key.trim()} className="setup-press h-10 px-4 rounded-full bg-ink text-panel font-semibold disabled:opacity-40">
-          {busy ? "Checking…" : "Save"}
-        </button>
-      </div>
-      {error && <span className="text-[12px] leading-4 text-bad">{error}</span>}
-      <span className="text-[12px] leading-4 text-muted">
-        Kept on your Wisp only. Get one at the{" "}
-        <a href={info.keyUrl} target="_blank" rel="noreferrer" className="underline hover:text-ink">
-          {info.label} site
-        </a>
-        .
-      </span>
-    </form>
+    <section className="flex flex-col gap-3" aria-label={title}>
+      <h2 className="text-[15px] font-semibold">{title}</h2>
+      {children}
+    </section>
   );
-}
-
-/** The apps set up on "Pick your agent", by name, for "Reading Messages and Calendar" (null: none). */
-function appsLine(workspaceId: string): string | null {
-  const a = loadAnswers(workspaceId);
-  const names = [...(a.appleApps ?? []).map((x) => APPLE_APP_INFO[x as keyof typeof APPLE_APP_INFO]?.name).filter(Boolean), ...(a.appNames ?? [])] as string[];
-  if (!names.length) return null;
-  return names.length <= 2 ? names.join(" and ") : `${names.slice(0, 2).join(", ")} and more`;
-}
-
-/** Give the agent the connectors set up on "Pick your agent" (the Apple mod reaches every agent already). */
-export async function giveApps(workspaceId: string, agentId: string): Promise<void> {
-  const ids = loadAnswers(workspaceId).apps ?? [];
-  if (!ids.length) return;
-  const list = await api<{ id: string; agentIds: string[]; allAgents: boolean }[]>("GET", "/api/connectors").catch(() => []);
-  await Promise.allSettled(list.filter((c) => ids.includes(c.id) && !c.allAgents && !c.agentIds.includes(agentId)).map((c) => api("PATCH", `/api/connectors/${c.id}`, { agentIds: [...c.agentIds, agentId] })));
 }
