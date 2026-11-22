@@ -1,221 +1,465 @@
-import { useEffect, useState } from "react";
-import { Check, Copy, Download, ExternalLink, Eye, Link2, Loader2, Lock, Monitor, MoreHorizontal, Pause, Plus, RefreshCw, Trash2, Users } from "lucide-react";
-import { HARNESSES, OwnRemoteDesktop, REMOTE_APPS, REMOTE_APP_IDS, formatRustdeskId, remoteDesktopLink, runsInVm, type Agent, type DeviceRole, type HarnessInfo, type RemoteApp } from "@wisp/core";
+import { useEffect, useState, type ReactNode } from "react";
+import { Check, ChevronRight, Copy, Download, ExternalLink, Link2, MoreHorizontal, Plus, RefreshCw, Smartphone } from "lucide-react";
+import { HARNESSES, OwnRemoteDesktop, REMOTE_APPS, REMOTE_APP_IDS, formatRustdeskId, harnessLabel, remoteDesktopLink, runsInVm, type Actor, type Agent, type DeviceRole, type HarnessInfo, type RemoteApp } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";
-import { osName, useDevices } from "../devices.ts";
+import { isSharedComputer, useDevices } from "../devices.ts";
 import { useFeature } from "../features.ts";
 import { CreateAgent } from "./CreateAgent.tsx";
-import { RuntimeRow, HowToInstall } from "./settings/runtimes.tsx";
+import { HowToInstall } from "./settings/runtimes.tsx";
+import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { Toggle } from "./settings/parts.tsx";
-import { BackToComputers, deviceStatus } from "./ComputersParts.tsx";
-import { DeviceIcon, connectionLine, type NodeInfo } from "./deviceBits.tsx";
-import { AgentAvatar, Button, CopyBlock, Empty, Field, Input, Loader, Menu, Pill, StatusChip, cx, timeAgo } from "../components/ui.tsx";
+import { SheetHead, TilePicture, toneText, useAddFlow, usePhones, useTileStatus } from "./ComputersParts.tsx";
+import { ASK_LEVELS, activityDot, askLevel, screenSwitch, sizeLine, updateExists, watchHref, type HubVersion, type SheetTarget } from "./computerState.ts";
+import { connectionLine, type NodeInfo } from "./deviceBits.tsx";
+import { AgentAvatar, Button, CopyBlock, Field, Input, Menu, Modal, cx, timeAgo } from "../components/ui.tsx";
 
-/**
- * One device: the agents that run on it and what each works on, its own screen, and the rest of
- * its settings folded away. Only agents that run on a device can use its screen.
- */
-export function DevicePage({ nodeId }: { nodeId: string }) {
-  const [nodes, setNodes] = useState<NodeInfo[] | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const isOwner = useStore((s) => s.me)?.role === "owner";
-  const remoteDesktop = useFeature("remoteDesktop");
-  const refresh = () => api<NodeInfo[]>("GET", "/api/nodes").then(setNodes, () => setNodes([]));
-  useEffect(() => {
-    refresh();
-    const t = setInterval(refresh, 5000);
-    return () => clearInterval(t);
-  }, []);
+const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+const ROW = "flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px]";
 
-  const n = nodes?.find((x) => x.id === nodeId);
-  if (!nodes) return <Loader />;
-  if (!n)
-    return (
-      <Empty icon={<Monitor />} title="That device is gone">
-        <Button onClick={() => go({ view: "computers", computerId: null })}>Back to computers</Button>
-      </Empty>
-    );
+/** A row that opens something (a sheet in place, another computer: it has a chevron), or does something right away (`act`: no chevron). */
+function Row({ label, value, onClick, href: to, disabled, act }: { label: string; value?: ReactNode; onClick?: () => void; href?: string; disabled?: boolean; act?: boolean }) {
+  const inner = (
+    <>
+      <span className="shrink-0 font-medium">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-[13px] text-muted">{value}</span>
+      {!act && <ChevronRight size={15} className="shrink-0 text-faint" aria-hidden />}
+    </>
+  );
+  return to ? (
+    <a href={to} className={cx(ROW, "hover:bg-hover")}>
+      {inner}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} disabled={disabled} className={cx(ROW, "hover:bg-hover disabled:opacity-50 disabled:hover:bg-transparent")}>
+      {inner}
+    </button>
+  );
+}
 
-  const remove = async () => {
-    if (!confirm(`Remove ${n.name}? Its token stops working.`)) return;
-    try {
-      await api("DELETE", `/api/nodes/${n.id}`);
-      go({ view: "computers", computerId: null });
-    } catch (e) {
-      setError(`Couldn't remove ${n.name}: ${(e as Error).message}`);
-    }
-  };
-  const update = async () => {
-    try {
-      await api("POST", `/api/nodes/${n.id}/update`);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    refresh();
-  };
-  const busyUpdate = n.update?.state === "updating" || n.update?.state === "restarting";
-  const st = deviceStatus(n);
-  const canManage = n.mine || isOwner;
-
+/** A plain fact about the computer: nothing to open. */
+function Fact({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <header className="shrink-0 px-4 md:px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-3 flex items-center gap-3">
-        <BackToComputers />
-        <DeviceIcon online={n.online} />
-        <div className="flex-1 min-w-0">
-          <h1 className="t-title truncate">{n.name}</h1>
-          <div className="text-[13px] text-faint truncate">{[n.mine ? "You" : n.ownerName ? `${n.ownerName}'s` : null, n.capabilities ? osName(n.capabilities.platform) : null].filter(Boolean).join(" · ")}</div>
-        </div>
-        <Pill tone={st.tone}>
-          {n.paused && st.label === "Paused" && <Pause size={11} />}
-          {st.label}
-        </Pill>
-      </header>
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl p-4 md:px-6 md:pb-8 space-y-3.5">
-          {error && (
-            <p role="alert" className="text-xs text-bad">
-              {error}
-            </p>
-          )}
-          {n.paused && (
-            <p className="rounded-2xl bg-card px-4 py-3 text-sm text-muted">
-              Paused at the device. Resume it there with <code>wisp node resume</code>.
-            </p>
-          )}
-          {!n.online && canManage && <OfflineHelp node={n} onChanged={refresh} />}
-          {n.update?.state && n.update.state !== "idle" && <UpdateStatus node={n} />}
-          <RoleSection node={n} onChange={refresh} />
-          <AgentsHere node={n} onAdd={() => setCreating(true)} />
-          {n.mine && <YourScreen node={n} />}
-          {n.mine && remoteDesktop && <RemoteDesktop node={n} onChange={refresh} />}
-          <Harnesses node={n} />
-          {canManage && (
-            <section className="rounded-3xl bg-card divide-y divide-line overflow-hidden">
-              {isOwner && n.online && (
-                <button disabled={busyUpdate} onClick={update} className="w-full text-left px-4 py-3.5 flex items-center gap-3 hover:bg-hover disabled:opacity-50">
-                  <Download size={18} className="text-muted shrink-0" />
-                  <span className="flex-1">
-                    <span className="block text-body font-medium">{busyUpdate ? "Updating…" : "Update Wisp"}</span>
-                    <span className="block text-xs text-faint">Get the latest Wisp on this device and restart it</span>
-                  </span>
-                </button>
-              )}
-              <button onClick={remove} className="w-full text-left px-4 py-3.5 flex items-center gap-3 hover:bg-hover text-bad">
-                <Trash2 size={18} className="shrink-0" />
-                <span className="flex-1">
-                  <span className="block text-body font-medium">Remove device</span>
-                  <span className="block text-xs text-faint">Its token stops working.</span>
-                </span>
-              </button>
-            </section>
-          )}
-          {n.mine && (
-            <p className="px-1 text-xs text-muted">
-              At {n.name}: <code>wisp node screen code</code> picks a new screen code, and <code>wisp node pause</code> stops everything there until <code>wisp node resume</code>.
-            </p>
-          )}
-        </div>
-      </div>
-      {creating && <CreateAgentHere nodeId={n.id} onClose={() => setCreating(false)} />}
+    <div className={ROW}>
+      <span className="shrink-0 font-medium">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-[13px] text-muted">{value}</span>
     </div>
   );
 }
 
-/** What the device does for agents, and who else may add agents and VMs to it. */
-const ROLE_ROWS: { id: DeviceRole; title: string; body: string }[] = [
-  { id: "vms", title: "Runs VMs", body: "Agents get their own virtual computer here" },
-  { id: "screen", title: "Lets agents use its screen", body: "Agents ask before they take over your screen" },
-  { id: "headless", title: "Headless", body: "Agents work in the background only" },
-];
-
-function RoleSection({ node: n, onChange }: { node: NodeInfo; onChange: () => void }) {
-  const patch = async (body: object) => {
-    await api("PATCH", `/api/nodes/${n.id}`, body).catch((err) => alert((err as Error).message));
-    onChange();
-  };
+/** A switch with its name; `value` says what a switch that can't be changed here is set to. */
+function SwitchRow({ label, on, onChange, disabled, value }: { label: string; on: boolean; onChange?: (on: boolean) => void; disabled?: boolean; value?: string }) {
   return (
-    <section className="rounded-3xl bg-card p-4 space-y-3">
-      <h2 className="font-semibold text-body">What this device does for agents</h2>
-      <div role="radiogroup" aria-label={`What ${n.name} does for agents`} className="space-y-2">
-        {ROLE_ROWS.map((r) => {
-          const on = n.role === r.id;
-          // it can't be picked when the device can't do it; "on" stays so a device that lost it still says so
-          const vmNo = r.id === "vms" && !on && n.capabilities?.vm && !n.capabilities.vm.ok ? (n.capabilities.vm.detail || "This device can't run VMs yet.") : null;
-          return (
-            <button key={r.id} type="button" role="radio" aria-checked={on} disabled={!n.mine || !!vmNo} onClick={() => void patch({ role: r.id })} className={cx("w-full text-left rounded-2xl border px-4 py-3 flex items-center gap-3 disabled:cursor-default", on ? "border-accent bg-accent-soft" : "border-line bg-panel hover:bg-hover")}>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-medium">{r.title}</span>
-                <span className="block text-xs text-muted">{vmNo ?? r.body}</span>
-              </span>
-              {on && <Check size={18} className="text-accent-text shrink-0" />}
-            </button>
-          );
-        })}
-        {!n.role && !n.mine && <p className="text-xs text-muted">No job chosen yet</p>}
+    <div className={ROW}>
+      <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
+      {value && <span className="shrink-0 text-[13px] text-muted">{value}</span>}
+      <Toggle on={on} label={label} disabled={disabled || !onChange} onChange={(v) => onChange?.(v)} />
+    </div>
+  );
+}
+
+type Sub = "ask" | "more" | "tools" | "agents" | "activity" | "remote";
+const SUB_TITLE: Record<Sub, string> = { ask: "Ask me", more: "More", tools: "AI tools", agents: "Agents", activity: "Activity", remote: "Remote desktop" };
+
+/**
+ * What opens beside the grid: a computer's sheet. Its screen, Watch and Take over, then one card
+ * (Run commands and files, See and use the screen, Ask me, More); each row opens in place.
+ */
+export function ComputerSheet({ target, refresh }: { target: SheetTarget<NodeInfo>; refresh: () => Promise<void> }) {
+  if (target.kind === "phones") return <PhonesSheet />;
+  if (target.kind === "loading" || target.kind === "gone")
+    return (
+      <>
+        <SheetHead title="Computers" />
+        <p className="px-4 pt-1 text-[14px] text-muted">{target.kind === "loading" ? "Loading…" : "That computer is gone."}</p>
+      </>
+    );
+  return target.kind === "device" ? <Sheet node={target.node} computer={target.screen} refresh={refresh} /> : <Sheet computer={target.computer} host={target.host} refresh={refresh} />;
+}
+
+/** One sheet for a device (with its own screen, when agents have it) and for a VM or cloud computer. */
+function Sheet({ node: n, computer: c, host, refresh }: { node?: NodeInfo; computer?: ComputerInfo; host?: NodeInfo; refresh: () => Promise<void> }) {
+  const me = useStore((s) => s.me)!;
+  const agents = useStore((s) => s.agents);
+  const [sub, setSub] = useState<Sub | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const name = n?.name ?? c!.name;
+  const kind = n ? "device" : c!.kind === "orgo" ? "cloud" : c!.kind;
+  const status = useTileStatus({ kind, device: n, computer: c });
+  const isOwner = me.role === "owner";
+  const canEdit = me.role !== "guest";
+  // an agent's own VM or cloud computer is always its to use: nothing to switch
+  const sw = n ? screenSwitch(n, c, agents) : { on: true, there: false, users: [] };
+  const ask = n ? askLevel(agents, n.id) : null;
+
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // a device's screen becomes a computer the first time someone watches it
+  const screenReady = c ? c.online && !c.paused : !!n?.mine && n.online && !n.paused && !!n.capabilities?.screen.ok;
+  const open = async (take: boolean) => {
+    const comp = c ?? (await api<ComputerInfo>("POST", "/api/computers", { kind: "device", nodeId: n!.id }));
+    if (!c) await useStore.getState().refreshComputers();
+    if (take && comp.controller?.id !== me.user.id) await api("POST", `/api/computers/${comp.id}/control`, { take: true });
+    location.hash = watchHref(comp.id);
+  };
+
+  /**
+   * The one switch the hub has for a device: may agents use it. On makes lending its screen the
+   * device's job (its role). Off is the same things undone, each a call that exists today: the
+   * role goes back to headless, agents allowed to use it lose that, and agents working on its
+   * screen lose the screen ("stop sharing this screen").
+   */
+  const setScreen = (on: boolean) =>
+    run(async () => {
+      if (!n) return;
+      if (on) await api("PATCH", `/api/nodes/${n.id}`, { role: "screen" satisfies DeviceRole });
+      else {
+        if (sw.users.length && !confirm(`Turn this off? ${sw.users.map((a) => a.name).join(", ")} won't be able to use ${n.name}.`)) return;
+        if (n.role === "screen") await api("PATCH", `/api/nodes/${n.id}`, { role: "headless" satisfies DeviceRole });
+        for (const a of sw.users) {
+          if (!a.settings.useDevices?.[n.id]) continue;
+          const { [n.id]: _gone, ...rest } = a.settings.useDevices;
+          await api("PATCH", `/api/agents/${a.id}`, { settings: { useDevices: rest } });
+        }
+        const shared = !!c && sw.users.some((a) => a.computerId === c.id);
+        if (shared) await api("DELETE", `/api/computers/${c!.id}`);
+        // its own screen had an address of its own: stay on the device
+        if (shared) go({ view: "computers", computerId: null, deviceId: n.id });
+      }
+      await Promise.all([refresh(), useStore.getState().refreshComputers(), useStore.getState().refreshAgents()]);
+    });
+
+  const retry = () =>
+    run(async () => {
+      await api("POST", `/api/nodes/${n!.id}/refresh`).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1500));
+      await refresh();
+    });
+
+  const nested = sub && sub !== "ask" && sub !== "more";
+  const offline = !!n && !n.online;
+  return (
+    <>
+      <SheetHead title={sub ? SUB_TITLE[sub] : name} back={sub ? { label: nested ? "Back to More" : `Back to ${name}`, onClick: () => setSub(nested ? "more" : null) } : undefined} />
+      <div key={sub ?? "main"} className={cx("min-h-0 flex-1 overflow-y-auto px-3.5 pb-[max(1.5rem,env(safe-area-inset-bottom))]", sub && "m-panel")}>
+        {!sub && (
+          <div className="space-y-3">
+            <TilePicture tile={{ kind, computer: c }} status={status} className="aspect-[16/10] w-full" ghost={26} />
+            <div className="flex items-center gap-2 px-0.5 text-[13px] leading-5">
+              <p role="status" className={cx("min-w-0 flex-1 truncate", status.working ? "m-wait text-ink" : toneText(status.tone))}>
+                {offline ? `Offline. ${connectionLine(n, timeAgo)}` : status.text}
+              </p>
+              {offline && (n.mine || isOwner) && (
+                <button type="button" onClick={() => void retry()} disabled={busy} className="shrink-0 font-medium text-ink hover:underline disabled:opacity-50">
+                  Retry
+                </button>
+              )}
+            </div>
+            {n?.update?.message && n.update.state !== "idle" && <p className={cx("px-0.5 text-[13px] whitespace-pre-wrap", n.update.state === "failed" ? "text-bad" : "text-muted")}>{n.update.message}</p>}
+            {c?.status === "error" && c.statusText && <p className="px-0.5 text-[13px] text-bad">{c.statusText}</p>}
+            <div className="flex gap-2">
+              <Button variant="primary" className="flex-1" disabled={busy || !screenReady} onClick={() => void run(() => open(false))}>
+                Watch
+              </Button>
+              <Button className="flex-1" disabled={busy || !canEdit || !screenReady || (!!c?.controller && c.controller.id !== me.user.id)} onClick={() => void run(() => open(true))}>
+                Take over
+              </Button>
+            </div>
+            <div className={cx(CARD, "m-details-cards")}>
+              {/* the hub has one switch for both today: the first sets it, the second shows it */}
+              <SwitchRow label="Run commands and files" on={sw.on} disabled={busy || sw.there || !n?.mine} onChange={n ? (on) => void setScreen(on) : undefined} />
+              <SwitchRow label="See and use the screen" on={sw.on} value={sw.on ? "On" : "Off"} />
+              {n && <Row label="Ask me" value={ask?.level ? ASK_LEVELS.find((l) => l.id === ask.level)!.label : "Not used yet"} onClick={() => setSub("ask")} />}
+              <Row label="More" onClick={() => setSub("more")} />
+            </div>
+            {sw.there && <p className="px-1 text-[13px] text-muted">Set on this computer.</p>}
+            {error && (
+              <p role="alert" className="px-1 text-[13px] text-bad">
+                {error}
+              </p>
+            )}
+          </div>
+        )}
+        {sub === "ask" && n && <AskSheet node={n} />}
+        {sub === "more" && (n ? <DeviceMore node={n} screen={c} open={setSub} refresh={refresh} /> : <ComputerMore computer={c!} host={host} open={setSub} />)}
+        {sub === "tools" && n && <Harnesses node={n} />}
+        {sub === "agents" && n && <AgentsHere node={n} />}
+        {sub === "activity" && c && <ActivityLog computer={c} />}
+        {sub === "remote" && n && <RemoteDesktop node={n} onChange={() => void refresh()} />}
       </div>
-      <div className="flex items-center gap-3 pt-1">
-        <span className="flex-1">
-          <span className="block text-sm font-medium">{n.mine ? "Share with the workspace" : n.shared ? "Shared" : "Private"}</span>
-          <span className="block text-xs text-muted">{n.mine ? "Let others in the workspace add agents and VMs here" : n.shared ? "Anyone in the workspace can add agents and VMs here." : `Only ${n.ownerName ?? "its owner"} can add agents and VMs here.`}</span>
+    </>
+  );
+}
+
+/** The paired phones: the hub knows how many get notifications, not which. Pair another, or see their sign-ins. */
+function PhonesSheet() {
+  const phones = usePhones();
+  const add = useAddFlow();
+  return (
+    <>
+      <SheetHead title={phones > 1 ? `${phones} phones` : "Phone"} />
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3.5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <span className="grid aspect-[16/10] w-full place-items-center rounded-[10px] bg-card text-muted">
+          <Smartphone size={34} strokeWidth={1.5} />
         </span>
-        {n.mine ? <Toggle on={n.shared} onChange={(shared) => void patch({ shared })} label="Let others in the workspace add agents and VMs here" /> : n.shared ? <Users size={16} className="text-muted" /> : <Lock size={16} className="text-muted" />}
+        <p role="status" className="px-0.5 text-[13px] leading-5 text-muted">
+          Paired
+        </p>
+        <div className={cx(CARD, "m-details-cards")}>
+          <Row label="Pair a phone" onClick={() => add.start("phone")} />
+          <Row label="Phone sign-ins" href={href({ view: "settings", page: "security" })} />
+        </div>
       </div>
-    </section>
+      {add.element}
+    </>
   );
 }
 
-/** How to bring an offline device back, and a button to look again. */
-function OfflineHelp({ node: n, onChanged }: { node: NodeInfo; onChanged: () => void }) {
-  const [checking, setChecking] = useState(false);
-  const check = async () => {
-    setChecking(true);
-    await api("POST", `/api/nodes/${n.id}/refresh`).catch(() => {});
-    await new Promise((r) => setTimeout(r, 1500));
-    onChanged();
-    setChecking(false);
+/** Every time, once per task, or tell me after: how the agents allowed on this device ask before using it. */
+function AskSheet({ node: n }: { node: NodeInfo }) {
+  const agents = useStore((s) => s.agents);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { level, agents: allowed } = askLevel(agents, n.id);
+  const pick = async (next: "ask" | "tell") => {
+    if (next === level) return;
+    setBusy(true);
+    setError(null);
+    try {
+      for (const a of allowed) if (a.settings.useDevices?.[n.id] !== next) await api("PATCH", `/api/agents/${a.id}`, { settings: { useDevices: { ...a.settings.useDevices, [n.id]: next } } });
+      await useStore.getState().refreshAgents();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
-  const steps = ["Turn it on and wake it up", "Make sure it is on the same Wi-Fi, or Away from home is on", n.lastSeen ? "Open Wisp on it if it is not running" : "Open Wisp on it and pick Join my Wisp"];
   return (
-    <section className="rounded-3xl bg-card p-4 space-y-3">
-      <div>
-        <h2 className="font-semibold text-body">{n.name} is offline</h2>
-        <p className="text-sm text-muted">{connectionLine(n, timeAgo)}. Agents on it are paused until it is back.</p>
-      </div>
-      <h3 className="text-xs font-semibold text-faint">To bring it back</h3>
-      <ol className="space-y-2">
-        {steps.map((s, i) => (
-          <li key={s} className="flex items-center gap-3 rounded-2xl bg-panel border border-line px-3.5 py-2.5 text-sm">
-            <span className="size-6 shrink-0 rounded-full bg-chip grid place-items-center text-xs font-medium">{i + 1}</span>
-            {s}
-          </li>
+    <div className="space-y-3">
+      <div role="radiogroup" aria-label="Ask me" className={CARD}>
+        {ASK_LEVELS.map((l) => (
+          // "Every time" has nothing behind it on the hub yet: shown, not pickable
+          <button key={l.id} type="button" role="radio" aria-checked={level === l.id} disabled={busy || l.id === "always" || !n.mine || !allowed.length} onClick={() => l.id !== "always" && void pick(l.id)} className={cx(ROW, "hover:bg-hover disabled:opacity-50 disabled:hover:bg-transparent")}>
+            <span className="min-w-0 flex-1 truncate font-medium">{l.label}</span>
+            {level === l.id && <Check size={15} className="shrink-0" aria-hidden />}
+          </button>
         ))}
-      </ol>
-      <Button onClick={check} disabled={checking}>
-        <RefreshCw size={14} className={cx(checking && "animate-spin")} /> Check again
-      </Button>
-    </section>
+      </div>
+      <p className="px-1 text-[13px] text-muted">{allowed.length ? allowed.map((a) => a.name).join(", ") : "No agents use it yet."}</p>
+      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
+    </div>
   );
 }
 
-/** Where an update is: getting the latest, restarting, or failed. */
-function UpdateStatus({ node: n }: { node: NodeInfo }) {
-  const failed = n.update?.state === "failed";
+const ROLE_LABEL: Record<DeviceRole, string> = { vms: "Runs VMs", screen: "Uses its screen", headless: "Headless" };
+
+/** The hub's own version, to tell whether a device has a newer Wisp to get. Undefined while asking. */
+function useHubVersion(): HubVersion | null | undefined {
+  const [v, setV] = useState<HubVersion | null | undefined>(undefined);
+  useEffect(() => {
+    api<HubVersion>("GET", "/api/updates").then(setV, () => setV(null));
+  }, []);
+  return v;
+}
+
+/** The rest of a device: its kind, sharing, AI tools, agents, activity, updates, remote desktop, what is set only there, and Forget. */
+function DeviceMore({ node: n, screen, open, refresh }: { node: NodeInfo; screen?: ComputerInfo; open: (s: Sub) => void; refresh: () => Promise<void> }) {
+  const isOwner = useStore((s) => s.me)?.role === "owner";
+  const agents = useStore((s) => s.agents).filter((a) => a.nodeId === n.id);
+  const remoteDesktop = useFeature("remoteDesktop");
+  const hub = useHubVersion();
+  const [error, setError] = useState<string | null>(null);
+  const canManage = n.mine || isOwner;
+  const busyUpdate = n.update?.state === "updating" || n.update?.state === "restarting";
+  // it can't be picked when the device can't do it; a device that has it keeps saying so
+  const vmNo = n.role !== "vms" && n.capabilities?.vm && !n.capabilities.vm.ok ? n.capabilities.vm.detail || "This device can't run VMs yet." : null;
+  const installed = (n.harnesses ?? []).map((h) => harnessLabel(h.id));
+  const code = n.capabilities?.screen.code;
+  const way = n.capabilities?.rustdesk ? "RustDesk" : n.remoteDesktop ? (n.remoteDesktop.app === "other" && n.remoteDesktop.name ? n.remoteDesktop.name : REMOTE_APPS[n.remoteDesktop.app].label) : "Not set";
+
+  const patch = async (body: object) => {
+    setError(null);
+    await api("PATCH", `/api/nodes/${n.id}`, body).catch((e) => setError((e as Error).message));
+    await refresh();
+  };
+  const update = async () => {
+    setError(null);
+    await api("POST", `/api/nodes/${n.id}/update`).catch((e) => setError((e as Error).message));
+    await refresh();
+  };
+  const forget = async () => {
+    if (!confirm(`Forget ${n.name}? Its token stops working.`)) return;
+    try {
+      await api("DELETE", `/api/nodes/${n.id}`);
+      go({ view: "computers", computerId: null });
+    } catch (e) {
+      setError(`Couldn't forget ${n.name}: ${(e as Error).message}`);
+    }
+  };
+
   return (
-    <section className="rounded-3xl bg-card p-4 space-y-1.5" role="status">
-      <h2 className="font-semibold text-body flex items-center gap-2">
-        {!failed && <Loader2 size={15} className="animate-spin text-muted" />}
-        {failed ? "Update failed" : `Updating Wisp on ${n.name}`}
-      </h2>
-      <p className={cx("text-sm whitespace-pre-wrap", failed ? "text-bad" : "text-muted")}>{n.update?.message || (failed ? "Try again from this page." : "Getting the latest Wisp and restarting it. Agents on this device pause for a moment, then pick up where they left off.")}</p>
-    </section>
+    <div className="space-y-3">
+      <div className={CARD}>
+        <label className={ROW}>
+          <span className="shrink-0 font-medium">Kind</span>
+          <select aria-label="Kind" value={n.role ?? ""} disabled={!n.mine} onChange={(e) => void patch({ role: e.target.value })} className="ml-auto min-w-0 max-w-[62%] cursor-pointer bg-transparent text-right text-[13px] text-muted outline-none disabled:cursor-default">
+            {!n.role && (
+              <option value="" disabled>
+                Not set
+              </option>
+            )}
+            {(Object.keys(ROLE_LABEL) as DeviceRole[]).map((r) => (
+              <option key={r} value={r} disabled={r === "vms" && !!vmNo}>
+                {ROLE_LABEL[r]}
+              </option>
+            ))}
+          </select>
+        </label>
+        {n.mine ? <SwitchRow label="Shared with the workspace" on={n.shared} onChange={(shared) => void patch({ shared })} /> : <Fact label="Shared with" value={n.shared ? "The workspace" : `Just ${n.ownerName ?? "its owner"}`} />}
+        <Row label="AI tools" value={installed.join(", ") || "None yet"} onClick={() => open("tools")} />
+        <Row label="Agents" value={agents.map((a) => a.name).join(", ") || "None yet"} onClick={() => open("agents")} />
+        {screen && <Row label="Activity" onClick={() => open("activity")} />}
+        {n.mine && remoteDesktop && <Row label="Remote desktop" value={way} onClick={() => open("remote")} />}
+        {isOwner && n.online && hub !== undefined && (busyUpdate || updateExists(n, hub)) && <Row act label={busyUpdate ? "Updating…" : "Update Wisp"} onClick={() => void update()} disabled={busyUpdate} />}
+      </div>
+      {vmNo && n.mine && <p className="px-1 text-[13px] text-muted">{vmNo}</p>}
+      {n.mine && (
+        <>
+          <div className={CARD}>
+            <Fact label="Screen code" value={code ? (code === "pin" ? "PIN" : "Password") : "None"} />
+            <Fact label="Pause" value={n.paused ? "On" : "Off"} />
+          </div>
+          <p className="px-1 text-[13px] text-muted">Set on this computer.</p>
+        </>
+      )}
+      {error && (
+        <p role="alert" className="px-1 text-[13px] text-bad">
+          {error}
+        </p>
+      )}
+      {canManage && (
+        <button type="button" onClick={() => void forget()} className="mx-auto block h-9 px-3 text-[13px] font-medium text-bad hover:underline">
+          Forget this computer
+        </button>
+      )}
+    </div>
   );
 }
 
-/** The agent tools this device can run, with Install for the ones Wisp can install. */
+/** The rest of a VM or cloud computer: its kind, where it runs, size, who uses it, start or stop, activity, rename, and Forget. */
+function ComputerMore({ computer: c, host, open }: { computer: ComputerInfo; host?: NodeInfo; open: (s: Sub) => void }) {
+  const me = useStore((s) => s.me)!;
+  const agents = useStore((s) => s.agents).filter((a) => c.agents.includes(a.id));
+  const [renaming, setRenaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canEdit = me.role !== "guest";
+  const canRemove = c.kind === "device" ? c.ownerId === me.user.id : c.kind === "vm" ? me.role === "owner" || !!host?.mine : true;
+  const stopped = c.status === "stopped";
+  const size = sizeLine(c);
+  const forget = async () => {
+    const what = c.kind === "vm" ? "Its VM and everything on it are deleted." : c.kind === "orgo" ? "The Orgo computer is deleted too." : "Agents won't be able to use this device's screen.";
+    if (!confirm(`Forget ${c.name}? ${what}`)) return;
+    try {
+      await api("DELETE", `/api/computers/${c.id}`);
+      go({ view: "computers", computerId: null });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <div className={CARD}>
+        <Fact label="Kind" value={c.kind === "orgo" ? "Cloud computer" : c.kind === "device" ? "Own screen" : isSharedComputer(c) ? "Shared desktop" : "Own desktop"} />
+        {host && <Row label="Runs on" value={host.name} href={href({ view: "computers", computerId: null, deviceId: host.id })} />}
+        {size && <Fact label="Size" value={size} />}
+        {agents.length > 0 && <Fact label="Used by" value={agents.map((a) => a.name).join(", ")} />}
+        {c.kind !== "device" && canEdit && <Row act label={stopped ? "Start" : "Stop"} onClick={() => void api("POST", `/api/computers/${c.id}/${stopped ? "start" : "stop"}`).catch((e) => setError((e as Error).message))} />}
+        <Row label="Activity" onClick={() => open("activity")} />
+        {canEdit && <Row label="Rename" onClick={() => setRenaming(true)} />}
+      </div>
+      {error && (
+        <p role="alert" className="px-1 text-[13px] text-bad">
+          {error}
+        </p>
+      )}
+      {canRemove && (
+        <button type="button" onClick={() => void forget()} className="mx-auto block h-9 px-3 text-[13px] font-medium text-bad hover:underline">
+          Forget this computer
+        </button>
+      )}
+      {renaming && <RenameComputer computer={c} onClose={() => setRenaming(false)} />}
+    </div>
+  );
+}
+
+function RenameComputer({ computer, onClose }: { computer: ComputerInfo; onClose: () => void }) {
+  const [name, setName] = useState(computer.name);
+  return (
+    <Modal title="Rename" onClose={onClose}>
+      <form
+        className="space-y-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await api("PATCH", `/api/computers/${computer.id}`, { name });
+          onClose();
+        }}
+      >
+        <Input value={name} onChange={(e) => setName(e.target.value)} aria-label="Name" />
+        <div className="flex justify-end">
+          <Button variant="primary">Save</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Who did what on this computer, newest first. */
+function ActivityLog({ computer: c }: { computer: ComputerInfo }) {
+  const agents = useStore((s) => s.agents);
+  const members = useStore((s) => s.members);
+  const [log, setLog] = useState<{ actor: Actor; text: string; at: string }[] | null>(null);
+  const activityAt = c.activity?.at;
+  useEffect(() => {
+    api<{ actor: Actor; text: string; at: string }[]>("GET", `/api/computers/${c.id}/log`).then(setLog, () => setLog([]));
+  }, [c.id, activityAt, c.controller?.id]);
+  const who = (a: Actor) => (a.kind === "agent" ? (agents.find((x) => x.id === a.id)?.name ?? "An agent") : (members.find((m) => m.id === a.id)?.name ?? "Someone"));
+  if (!log) return null;
+  if (!log.length) return <p className="px-1 text-[13px] text-muted">Nothing yet.</p>;
+  return (
+    <ol className="space-y-2 px-1 text-[13px] leading-5" aria-label="Activity">
+      {log.slice(0, 50).map((l, i) => (
+        <li key={i} className="flex items-baseline gap-2">
+          <span className="size-[7px] shrink-0 self-center rounded-full" style={{ background: activityDot(l.text) }} aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            {l.actor.id === "system" ? (
+              // things that happened on their own (wrong codes) read as a sentence
+              <span className="text-muted">{l.text}</span>
+            ) : (
+              <>
+                <span className="font-medium">{who(l.actor)}</span> <span className="text-muted">{l.text.charAt(0).toLowerCase() + l.text.slice(1)}</span>
+              </>
+            )}
+          </span>
+          <span className="shrink-0 text-xs tabular-nums text-faint">{timeAgo(l.at)}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** The AI tools this device can run, with Install for the ones Wisp can install, and how to sign each in. */
 function Harnesses({ node: n }: { node: NodeInfo }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -230,7 +474,7 @@ function Harnesses({ node: n }: { node: NodeInfo }) {
     setNote(null);
     try {
       await api("POST", `/api/nodes/${n.id}/install`, { harness: h.id });
-      setNote(`${h.label} is installed on ${n.name}. Sign it in there before agents use it: ${h.login ?? h.binary}`);
+      setNote(`${h.label} is installed. Sign it in on ${n.name}: ${h.login ?? h.binary}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -244,22 +488,44 @@ function Harnesses({ node: n }: { node: NodeInfo }) {
     setChecking(false);
   };
   return (
-    <section className="rounded-3xl bg-card overflow-hidden">
-      <div className="px-4 pt-4 pb-1 flex items-center gap-2">
-        <h2 className="font-semibold text-body flex-1">Agent harnesses</h2>
-        <Button variant="ghost" onClick={refresh} disabled={checking || !n.online}>
-          <RefreshCw size={14} className={cx(checking && "animate-spin")} /> Refresh
-        </Button>
+    <div className="space-y-3">
+      {error && <p className="px-1 text-[13px] text-bad whitespace-pre-wrap">{error}</p>}
+      {note && <p className="rounded-[10px] bg-ok/10 px-3 py-2 text-[13px] text-ok">{note}</p>}
+      <div className={CARD}>
+        {list.map((h) => {
+          const here = n.harnesses?.find((x) => x.id === h.id);
+          const act = "shrink-0 text-[13px] font-medium text-ink hover:underline disabled:opacity-50 disabled:hover:no-underline";
+          return (
+            <div key={h.id} className={cx(ROW, "gap-2.5")}>
+              <HarnessLogo harness={h.id} size={18} />
+              <span className="min-w-0 flex-1 truncate font-medium">{h.label}</span>
+              {!here ? (
+                h.install?.npm && n.mine ? (
+                  <button type="button" className={act} disabled={busy === h.id || !n.online} onClick={() => void install(h)}>
+                    {busy === h.id ? "Installing…" : "Install"}
+                  </button>
+                ) : (
+                  <button type="button" className={act} onClick={() => setHowTo(h)}>
+                    How to install
+                  </button>
+                )
+              ) : here.accounts?.default === false ? (
+                // installed, nobody signed in: the same sheet says how
+                <button type="button" className={act} onClick={() => setHowTo(h)}>
+                  Sign in
+                </button>
+              ) : (
+                <span className="shrink-0 text-[13px] text-muted">{installed.get(h.id) ? `Version ${installed.get(h.id)}` : "Installed"}</span>
+              )}
+            </div>
+          );
+        })}
       </div>
-      {error && <p className="px-4 pb-2 text-sm text-bad whitespace-pre-wrap">{error}</p>}
-      {note && <p className="mx-4 mb-2 rounded-lg bg-ok/10 px-3 py-2 text-sm text-ok">{note}</p>}
-      <div className="divide-y divide-line">
-        {list.map((h) => (
-          <RuntimeRow key={h.id} h={h} device={n} version={installed.get(h.id)} busy={busy === h.id} onInstall={() => void install(h)} onHowTo={() => setHowTo(h)} />
-        ))}
-      </div>
+      <button type="button" onClick={() => void refresh()} disabled={checking || !n.online} className="inline-flex items-center gap-1.5 px-1 text-[13px] font-medium text-muted hover:text-ink disabled:opacity-50">
+        <RefreshCw size={13} className={cx(checking && "animate-spin")} /> Look again
+      </button>
       {howTo && <HowToInstall h={howTo} device={n} onClose={() => setHowTo(null)} />}
-    </section>
+    </div>
   );
 }
 
@@ -273,11 +539,12 @@ function CreateAgentHere({ nodeId, onClose }: { nodeId: string; onClose: () => v
 type WorksOn = { kind: "screen" } | { kind: "computer"; id: string } | { kind: "new-vm" } | { kind: "none" };
 
 /** The agents whose harness runs on this device, and what each one works on. */
-function AgentsHere({ node: n, onAdd }: { node: NodeInfo; onAdd: () => void }) {
+function AgentsHere({ node: n }: { node: NodeInfo }) {
   const agents = useStore((s) => s.agents).filter((a) => a.nodeId === n.id);
   const computers = useStore((s) => s.computers);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const screen = computers.find((c) => c.kind === "device" && c.nodeId === n.id);
   const vms = computers.filter((c) => c.kind === "vm" && c.nodeId === n.id);
   const canAdd = n.mine || n.shared;
@@ -305,35 +572,28 @@ function AgentsHere({ node: n, onAdd }: { node: NodeInfo; onAdd: () => void }) {
   };
 
   return (
-    <section className="rounded-2xl border border-line bg-panel p-4">
-      <div className="flex items-center gap-2">
-        <h2 className="font-semibold text-sm flex-1">Agents on this computer</h2>
-        {canAdd && (
-          <Button onClick={onAdd}>
-            <Plus size={15} /> Add an agent here
-          </Button>
-        )}
-      </div>
-      {agents.length ? (
-        <ul className="mt-2 divide-y divide-line">
+    <div className="space-y-3">
+      {agents.length > 0 && (
+        <ul className={CARD}>
           {agents.map((a) => (
-            <li key={a.id} className="py-2.5 flex items-center gap-3">
-              <AgentAvatar agent={a} size={28} live={n.online} />
-              <a href={href({ view: "agents", agentId: a.id, tab: null })} className="flex-1 min-w-0 text-sm font-medium truncate hover:underline">
+            <li key={a.id} className={cx(ROW, "gap-2.5")}>
+              <AgentAvatar agent={a} size={24} live={n.online} />
+              <a href={href({ view: "agents", agentId: a.id, tab: null })} className="min-w-0 flex-1 truncate font-medium hover:underline">
                 {a.name}
               </a>
-              <span className="hidden sm:flex">
-                <StatusChip status={a.status} needsSignIn={!!a.signIn} />
-              </span>
-              {n.mine ? <WorksOnPicker agent={a} node={n} screen={screen} vms={vms} busy={busy === a.id} onPick={(c) => set(a, c)} /> : <span className="text-xs text-muted">{worksOnLabel(a, computers)}</span>}
+              {n.mine ? <WorksOnPicker agent={a} node={n} screen={screen} vms={vms} busy={busy === a.id} onPick={(c) => set(a, c)} /> : <span className="shrink-0 text-[13px] text-muted">{worksOnLabel(a, computers)}</span>}
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="mt-2 text-sm text-muted">No agents here yet.</p>
       )}
-      {error && <p className="mt-2 text-xs text-bad">{error}</p>}
-    </section>
+      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
+      {canAdd && (
+        <Button onClick={() => setCreating(true)}>
+          <Plus size={15} /> Add an agent
+        </Button>
+      )}
+      {creating && <CreateAgentHere nodeId={n.id} onClose={() => setCreating(false)} />}
+    </div>
   );
 }
 
@@ -361,7 +621,7 @@ function WorksOnPicker({ agent: a, node: n, screen, vms, busy, onPick }: { agent
         const v = e.target.value;
         onPick(v === "screen" ? { kind: "screen" } : v === "new-vm" ? { kind: "new-vm" } : v === "none" ? { kind: "none" } : { kind: "computer", id: v });
       }}
-      className="h-8 max-w-44 rounded-lg border border-line bg-panel px-2 text-xs text-ink"
+      className="h-8 max-w-[7.5rem] shrink-0 rounded-lg border border-line bg-panel px-2 text-xs text-ink"
     >
       <option value="screen" disabled={!caps?.screen.ok && value !== "screen"}>
         {caps?.screen.ok || value === "screen" ? "This screen" : caps?.screen.off ? "This screen (off)" : "This screen (not available)"}
@@ -375,59 +635,6 @@ function WorksOnPicker({ agent: a, node: n, screen, vms, busy, onPick }: { agent
       {caps?.vm.ok && <option value="new-vm">New VM</option>}
       <option value="none">No screen</option>
     </select>
-  );
-}
-
-/** The device's own screen: on or off, its code, who's using it, and a way to watch it. Its owner's alone. */
-function YourScreen({ node: n }: { node: NodeInfo }) {
-  const computers = useStore((s) => s.computers);
-  const agents = useStore((s) => s.agents);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const screen = computers.find((c) => c.kind === "device" && c.nodeId === n.id);
-  const caps = n.capabilities?.screen;
-  const users = screen ? agents.filter((a) => a.computerId === screen.id) : [];
-  const working = users.filter((a) => a.status === "busy");
-
-  const watch = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const c = screen ?? (await api<ComputerInfo>("POST", "/api/computers", { kind: "device", nodeId: n.id }));
-      await useStore.getState().refreshComputers();
-      go({ view: "computers", computerId: c.id });
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const status = !n.online ? "Unknown until it connects" : !caps ? "Not checked yet" : caps.ok ? `On${caps.code ? ` · opens with your ${caps.code === "pin" ? "PIN" : "password"}` : ""}` : caps.off ? "Off" : "Can't be used";
-  const detail = !n.online || !caps ? null : caps.ok ? (working.length ? `${working.map((a) => a.name).join(", ")} ${working.length === 1 ? "is" : "are"} using it now.` : users.length ? `${users.map((a) => a.name).join(", ")} can use it.` : "Only you can see it.") : caps.off ? null : caps.detail;
-
-  return (
-    <section className="rounded-2xl border border-line bg-panel p-4">
-      <h2 className="font-semibold text-sm">Your screen</h2>
-      <div className="mt-2 flex items-center gap-3">
-        <div className="w-24 h-14 shrink-0 rounded-lg border border-line bg-hover grid place-items-center text-faint">{caps?.code ? <Lock size={17} /> : <Monitor size={17} />}</div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm">{status}</p>
-          {detail && <p className="text-xs text-muted">{detail}</p>}
-          {caps?.off && n.online && (
-            <p className="text-xs text-muted">
-              Turn it on at {n.name}: <code>wisp node screen on</code>
-            </p>
-          )}
-        </div>
-        {caps?.ok && n.online && (
-          <Button disabled={busy} onClick={watch}>
-            <Eye size={15} /> Watch
-          </Button>
-        )}
-      </div>
-      {error && <p className="mt-2 text-xs text-bad">{error}</p>}
-    </section>
   );
 }
 
@@ -456,37 +663,34 @@ function RemoteDesktop({ node: n, onChange }: { node: NodeInfo; onChange: () => 
     if (confirm(`Stop showing ${own ? REMOTE_APPS[own.app].label : "this app"} here? The app itself isn't changed.`)) void save(null).catch((e) => alert((e as Error).message));
   };
   return (
-    <section className="rounded-2xl border border-line bg-panel p-4">
-      <h2 className="font-semibold text-sm">Remote desktop</h2>
-      {rustdesk && <RemoteRow label="RustDesk" value={formatRustdeskId(rustdesk.id)} copy={rustdesk.id} link={`rustdesk://${encodeURIComponent(rustdesk.id)}`} note="Use the password you set in RustDesk. Wisp never sees it." />}
+    <section className="rounded-[14px] bg-card p-3.5">
+      {rustdesk && <RemoteRow label="RustDesk" value={formatRustdeskId(rustdesk.id)} copy={rustdesk.id} link={`rustdesk://${encodeURIComponent(rustdesk.id)}`} />}
       {own && !editing && <RemoteRow label={own.app === "other" && own.name ? own.name : REMOTE_APPS[own.app].label} value={REMOTE_APPS[own.app].field === "id" ? formatRustdeskId(own.value) : own.value} copy={own.value} link={remoteDesktopLink(own)} onChange={() => setEditing(true)} onRemove={remove} />}
       {editing ? (
         <OwnAppForm node={n} current={own ?? null} onSave={save} onCancel={() => setEditing(false)} />
       ) : !rustdesk && !own ? (
         showRustdesk ? (
-          <div className="mt-2 space-y-2 text-sm">
-            <p className="text-muted">Run this at {n.name}. It asks before installing RustDesk, then shows its ID here.</p>
+          <div className="space-y-2 text-sm">
+            <p className="text-muted">Run this on {n.name}.</p>
             <CopyBlock text="wisp node rustdesk" />
             <button className="text-xs text-muted hover:text-ink" onClick={() => setShowRustdesk(false)}>
               Back
             </button>
           </div>
         ) : (
-          <>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <button onClick={() => setShowRustdesk(true)} className="rounded-xl border-2 border-accent/60 p-3 text-left hover:bg-hover">
-                <div className="text-sm font-medium flex items-center gap-1.5">
-                  <Download size={15} /> Set up RustDesk
-                </div>
-              </button>
-              <button onClick={() => setEditing(true)} className="rounded-xl border border-line p-3 text-left hover:bg-hover">
-                <div className="text-sm font-medium flex items-center gap-1.5">
-                  <Link2 size={15} /> I already use one
-                </div>
-                <p className="mt-0.5 text-xs text-muted">{n.capabilities?.remoteApps?.length ? `${n.capabilities.remoteApps.map((a) => REMOTE_APPS[a as RemoteApp]?.label ?? a).join(", ")} ${n.capabilities.remoteApps.length === 1 ? "is" : "are"} on ${n.name}.` : "TeamViewer, AnyDesk, Chrome Remote Desktop, Windows Remote Desktop, VNC…"}</p>
-              </button>
-            </div>
-          </>
+          <div className="grid gap-2">
+            <button onClick={() => setShowRustdesk(true)} className="rounded-xl border border-line2 p-3 text-left hover:bg-hover">
+              <div className="text-sm font-medium flex items-center gap-1.5">
+                <Download size={15} /> Set up RustDesk
+              </div>
+            </button>
+            <button onClick={() => setEditing(true)} className="rounded-xl border border-line p-3 text-left hover:bg-hover">
+              <div className="text-sm font-medium flex items-center gap-1.5">
+                <Link2 size={15} /> I already use one
+              </div>
+              {!!n.capabilities?.remoteApps?.length && <p className="mt-0.5 text-xs text-muted">{`${n.capabilities.remoteApps.map((a) => REMOTE_APPS[a as RemoteApp]?.label ?? a).join(", ")} ${n.capabilities.remoteApps.length === 1 ? "is" : "are"} on ${n.name}.`}</p>}
+            </button>
+          </div>
         )
       ) : (
         !own && (
@@ -500,7 +704,7 @@ function RemoteDesktop({ node: n, onChange }: { node: NodeInfo; onChange: () => 
 }
 
 /** One way in: the app, the device's ID or address in it, Copy, and Open where the app has a link. */
-function RemoteRow({ label, value, copy, link, note, onChange, onRemove }: { label: string; value: string; copy: string; link: string | null; note?: string; onChange?: () => void; onRemove?: () => void }) {
+function RemoteRow({ label, value, copy, link, onChange, onRemove }: { label: string; value: string; copy: string; link: string | null; onChange?: () => void; onRemove?: () => void }) {
   const [copied, setCopied] = useState(false);
   const doCopy = async () => {
     await navigator.clipboard.writeText(copy).catch(() => {});
@@ -508,7 +712,7 @@ function RemoteRow({ label, value, copy, link, note, onChange, onRemove }: { lab
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="mt-2 pt-2 first-of-type:pt-0 border-t first-of-type:border-t-0 border-line">
+    <div className="mt-2 pt-2 first-of-type:mt-0 first-of-type:pt-0 border-t first-of-type:border-t-0 border-line">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex-1 min-w-36">
           <div className="text-xs text-muted">{label}</div>
@@ -534,7 +738,6 @@ function RemoteRow({ label, value, copy, link, note, onChange, onRemove }: { lab
           />
         )}
       </div>
-      {note && <p className="mt-1 text-xs text-muted">{note}</p>}
     </div>
   );
 }
@@ -567,7 +770,7 @@ function OwnAppForm({ node: n, current, onSave, onCancel }: { node: NodeInfo; cu
     }
   };
   return (
-    <form onSubmit={submit} className="mt-3 space-y-3">
+    <form onSubmit={submit} className="space-y-3">
       <Field label="App">
         <select value={app} onChange={(e) => setApp(e.target.value as RemoteApp)} className="h-9 w-full rounded-xl border border-input bg-panel px-3 text-sm text-ink">
           {order.map((a) => (
@@ -583,10 +786,9 @@ function OwnAppForm({ node: n, current, onSave, onCancel }: { node: NodeInfo; cu
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Parsec" maxLength={60} />
         </Field>
       )}
-      <Field label={field.label} hint={app === "chrome" ? "From remotedesktop.google.com/access, or leave it at that page." : undefined}>
+      <Field label={field.label}>
         <Input value={value} onChange={(e) => (setValue(e.target.value), setError(null))} placeholder={app === "chrome" ? "https://remotedesktop.google.com/access" : field.placeholder} autoFocus />
       </Field>
-      <p className="text-xs text-muted">Only you see this. Keep the app's password in your password manager; Wisp never asks for it.</p>
       {error && <p className="text-xs text-bad">{error}</p>}
       <div className="flex gap-2">
         <Button variant="primary" disabled={busy || !value.trim()}>

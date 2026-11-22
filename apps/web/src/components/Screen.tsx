@@ -1,13 +1,17 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { KeyRound, Loader2, MonitorOff, Power, RefreshCw, Sparkle } from "lucide-react";
+import { KeyRound, Loader2, MonitorOff, Power, RefreshCw } from "lucide-react";
 import type { ComputerAction, RecordedStep } from "@wisp/core";
 import { ApiError, api, getToken } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { cx } from "./ui.tsx";
 import { CodePrompt, screenCode } from "./ScreenCode.tsx";
 
-/** The screen as a still image that refreshes while it's on screen (cards, chat, lists). */
-export function ScreenThumb({ computer, refreshMs = 4000, className }: { computer: ComputerInfo; refreshMs?: number; className?: string }) {
+/**
+ * The screen as a still image that refreshes while it's on screen (cards, chat, lists). `quiet`
+ * (the Computers page): no words on it, since the tile's status line says them; without a
+ * picture it is a dim block.
+ */
+export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { computer: ComputerInfo; refreshMs?: number; className?: string; quiet?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -54,6 +58,8 @@ export function ScreenThumb({ computer, refreshMs = 4000, className }: { compute
     <div ref={box} className={cx("relative aspect-[16/10] overflow-hidden rounded-xl bg-black grid place-items-center", className)}>
       {url && computer.online && !computer.paused ? (
         <img src={url} alt={`${computer.name}'s screen`} className="absolute inset-0 size-full object-cover object-top" />
+      ) : quiet ? (
+        <span className="absolute inset-0 bg-panel/45" aria-hidden />
       ) : (
         <span className="text-xs text-white/50 flex items-center gap-1.5">
           {!computer.online ? (
@@ -99,8 +105,6 @@ interface Props {
   control: boolean;
   /** the page draws its own frame while you're in control */
   noRing?: boolean;
-  /** the page floats controls along the bottom edge, so the frame-error note sits above them */
-  raiseNote?: boolean;
   /** called for each thing you do while in control (teaching a task) */
   onInput?: (i: ScreenInput) => void;
   /** a small preview (the chat side panel): no minimum height or rounded frame of its own */
@@ -115,7 +119,7 @@ interface Props {
  * The computer's screen, live. VMs and cloud computers stream over VNC (noVNC); a device's own
  * screen streams frames through the hub. Input only goes through while you have control.
  */
-export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScreen({ computer, control, noRing, raiseNote, onInput, compact, onTakeControl, onActivity }, ref) {
+export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScreen({ computer, control, noRing, onInput, compact, onTakeControl, onActivity }, ref) {
   const [state, setState] = useState<"connecting" | "live" | "closed" | "error" | "code">("connecting");
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -384,7 +388,7 @@ export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScree
           ) : (
             <div className="space-y-3">
               <MonitorOff size={22} className="mx-auto opacity-70" />
-              <p>{!computer.online ? `${computer.name} is offline.` : computer.paused ? `${computer.name} is paused at its device. Someone there can run wisp node resume.` : (error ?? "Disconnected.")}</p>
+              <p>{!computer.online ? `${computer.name} is offline.` : computer.paused ? `${computer.name} is paused at its device.` : (error ?? "Disconnected.")}</p>
               {computer.online && !computer.paused && (
                 <button onClick={() => setAttempt((n) => n + 1)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 h-8 hover:bg-white/10">
                   <RefreshCw size={14} /> Reconnect
@@ -394,16 +398,16 @@ export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScree
           )}
         </div>
       )}
-      {state === "live" && error && transport === "frames" && <div className={cx("absolute left-3 right-3 rounded-lg bg-black/70 text-white text-xs px-3 py-2", raiseNote ? "bottom-3 md:bottom-[4.5rem]" : "bottom-3")}>{error}</div>}
+      {state === "live" && error && transport === "frames" && <div className="absolute left-3 right-3 bottom-3 rounded-lg bg-black/70 text-white text-xs px-3 py-2">{error}</div>}
     </div>
   );
 });
 
-/** "Working" with a sparkle, like a teammate's status. */
+/** "Working" with a breathing dot, like a teammate's status. */
 export function WorkingBadge({ text = "Working" }: { text?: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-st-working/16 text-st-working px-2 h-6 text-xs font-medium">
-      <Sparkle size={12} className="animate-spin [animation-duration:3s]" /> {text}
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-st-working/16 text-st-working px-2 h-6 text-xs font-medium">
+      <span className="m-wait size-1.5 rounded-full bg-st-working" aria-hidden /> {text}
     </span>
   );
 }

@@ -1,54 +1,28 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Cloud, Download, Hand, Laptop, Lock, Monitor, MoreHorizontal, Pause, Plus, Smartphone, Trash2 } from "lucide-react";
-import type { Agent } from "@wisp/core";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ChevronLeft, Laptop, Plus, Smartphone, X } from "lucide-react";
 import { api } from "../api.ts";
-import { useStore, type ComputerInfo } from "../store.ts";
-import { go, href, useRoute } from "../router.ts";
-import { agentsOnDevice, osName, useDevices, type DeviceInfo } from "../devices.ts";
-import { AddDeviceDialog } from "../components/AddDevice.tsx";
-import { ScreenThumb, WorkingBadge } from "../components/Screen.tsx";
-import { AgentAvatar, Button, Menu, Modal, Pill, cx, timeAgo } from "../components/ui.tsx";
-import { toneColor, useComputerState, type Tone } from "./computerState.ts";
+import { useStore } from "../store.ts";
+import { href } from "../router.ts";
+import { AddDeviceDialog, type AddStep } from "../components/AddDevice.tsx";
+import { ScreenThumb } from "../components/Screen.tsx";
+import { AgentAvatar, Button, agentColor, cx } from "../components/ui.tsx";
+import { computerTiles, tileStatus, type ComputerTile, type Tone } from "./computerState.ts";
 import type { NodeInfo } from "./deviceBits.tsx";
-import { AddComputer } from "./ComputersView.tsx";
-
-// --- grouping -----------------------------------------------------------------------------------
-
-export interface DeviceGroup {
-  device: DeviceInfo;
-  computers: ComputerInfo[];
-}
-
-/** Each Wisp device with the agent computers that live on it, then everything else (cloud computers). */
-export function groupComputers(devices: DeviceInfo[], computers: ComputerInfo[]): { devices: DeviceGroup[]; cloud: ComputerInfo[] } {
-  const ids = new Set(devices.map((d) => d.id));
-  return {
-    devices: devices.map((device) => ({ device, computers: computers.filter((c) => c.kind !== "orgo" && c.nodeId === device.id).sort((a, b) => Number(a.kind === "device") - Number(b.kind === "device")) })),
-    cloud: computers.filter((c) => c.kind === "orgo" || !ids.has(c.nodeId ?? "")),
-  };
-}
-
-/** "3 of 4 online": devices and cloud computers. */
-export function onlineCount(devices: DeviceInfo[], cloud: ComputerInfo[]): { online: number; total: number } {
-  return { online: devices.filter((d) => d.online).length + cloud.filter((c) => c.online).length, total: devices.length + cloud.length };
-}
-
-/** The pill on a device: Online, Offline, Paused, or where its update is. */
-export function deviceStatus(n: Pick<DeviceInfo, "online" | "paused"> & { update?: NodeInfo["update"] }): { label: string; tone: "ok" | "neutral" | "warn" | "info" | "bad" } {
-  if (n.update?.state === "updating" || n.update?.state === "restarting") return { label: "Updating", tone: "info" };
-  if (n.update?.state === "failed") return { label: "Update failed", tone: "bad" };
-  if (!n.online) return { label: "Offline", tone: "neutral" };
-  if (n.paused) return { label: "Paused", tone: "neutral" };
-  return { label: "Online", tone: "ok" };
-}
-
-function agentsOn(c: ComputerInfo, agents: Agent[]) {
-  return agents.filter((a) => c.agents.includes(a.id));
-}
-
-const dot = toneColor;
 
 // --- shared bits ----------------------------------------------------------------------------------
+
+/** The devices, looked up again every few seconds, with a way to look right now (after a change). */
+export function useNodes(): [NodeInfo[] | null, () => Promise<void>] {
+  const [nodes, setNodes] = useState<NodeInfo[] | null>(null);
+  // the same answer as last time keeps the list it already has, so a poll with no news re-renders nothing
+  const load = useCallback(() => api<NodeInfo[]>("GET", "/api/nodes").then((d) => setNodes((cur) => (cur && JSON.stringify(cur) === JSON.stringify(d) ? cur : d)), () => {}), []);
+  useEffect(() => {
+    void load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, [load]);
+  return [nodes, load];
+}
 
 /** Phones that get this person's notifications (the hub knows a count, not names). */
 export function usePhones(): number {
@@ -59,333 +33,139 @@ export function usePhones(): number {
   return n;
 }
 
-/** The one Add flow: a chooser, then the device dialog or the agent-computer dialog. */
-export function useAddFlow(): { start: () => void; element: ReactNode } {
-  const [step, setStep] = useState<null | "choose" | "device" | "computer">(null);
-  const devices = useDevices();
-  const element = (
-    <>
-      {step === "choose" && <AddChooser onClose={() => setStep(null)} onPick={setStep} />}
-      {step === "device" && <AddDeviceDialog onClose={() => setStep(null)} />}
-      {step === "computer" && devices && <AddComputerLazy devices={devices} onClose={() => setStep(null)} />}
-    </>
-  );
-  return { start: () => setStep("choose"), element };
+/** The one Add flow: the list of what can be added, then that thing's steps. `start(step)` skips the list. */
+export function useAddFlow(): { start: (step?: AddStep) => void; element: ReactNode } {
+  const [step, setStep] = useState<AddStep | null>(null);
+  return { start: (s = "list") => setStep(s), element: step && <AddDeviceDialog start={step} onClose={() => setStep(null)} /> };
 }
 
-function AddComputerLazy({ devices, onClose }: { devices: DeviceInfo[]; onClose: () => void }) {
-  return <AddComputer devices={devices} onClose={onClose} onCreated={(c) => (onClose(), go({ view: "computers", computerId: c.id }))} />;
-}
+/** The colour of a status line: amber when it waits on you, red for a problem, quiet otherwise. */
+export const toneText = (tone: Tone) => (tone === "warn" ? "text-st-needs" : tone === "bad" ? "text-bad" : "text-muted");
 
-function AddChooser({ onClose, onPick }: { onClose: () => void; onPick: (s: "device" | "computer") => void }) {
-  const row = (icon: ReactNode, title: string, body: string, to: "device" | "computer") => (
-    <button type="button" onClick={() => onPick(to)} className="w-full text-left rounded-2xl bg-card hover:bg-hover border border-line p-4 flex items-center gap-3">
-      <span className="size-10 shrink-0 rounded-xl bg-accent-computers/16 text-accent-computers grid place-items-center">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-body font-medium">{title}</span>
-        <span className="block text-sm text-muted">{body}</span>
-      </span>
-      <ChevronRight size={18} className="text-faint shrink-0" />
-    </button>
-  );
-  return (
-    <Modal title="Add" onClose={onClose}>
-      <div className="space-y-3 pt-1">
-        {row(<Laptop size={20} strokeWidth={1.8} />, "Add a device or phone", "A device is a computer running Wisp, or your phone. Scan a QR code or type a join code.", "device")}
-        {row(<Monitor size={20} strokeWidth={1.8} />, "Give an agent a computer", "A virtual computer on one of your devices, your own screen, or a cloud computer.", "computer")}
-      </div>
-    </Modal>
-  );
-}
-
-/** A glass circle that opens the Add chooser. */
-export function AddCircle({ onClick }: { onClick: () => void }) {
-  return (
-    <button className="circle circle-sm" aria-label="Add" onClick={onClick}>
-      <Plus size={18} strokeWidth={2} />
-    </button>
-  );
+/** A tile's status, looked at again as activity ages ("Atlas is working" goes back to "Ready"). */
+export function useTileStatus(tile: Pick<ComputerTile, "kind" | "device" | "computer">) {
+  const me = useStore((s) => s.me);
+  const agents = useStore((s) => s.agents);
+  const members = useStore((s) => s.members);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 5000);
+    return () => clearInterval(t);
+  }, []);
+  return tileStatus(tile, agents, me?.user.id, (id) => members.find((m) => m.id === id)?.name ?? "Someone");
 }
 
 // --- the page ----------------------------------------------------------------------------------------
 
-/** Computers and devices as one list: left column on desktops once something is open. */
-export function ComputersShell({ children, hideTreeOnPhone = true }: { children: ReactNode; hideTreeOnPhone?: boolean }) {
-  void hideTreeOnPhone;
+/**
+ * A computer's picture: its screen (live, or the last frame the hub has), a quiet block when it
+ * is asleep or offline, an icon when it has no screen. While an agent works on it, it wears that
+ * agent's colour as an outline and the agent's ghost sits in its corner.
+ */
+export function TilePicture({ tile, status, className, ghost = 22 }: { tile: Pick<ComputerTile, "kind" | "computer">; status: ReturnType<typeof tileStatus>; className?: string; ghost?: number }) {
+  const color = status.working && status.agent ? agentColor(status.agent) : undefined;
   return (
-    <div className="flex-1 min-h-0 flex">
-      <aside className="hidden md:flex w-[300px] shrink-0 border-r border-line flex-col min-h-0">
-        <ComputerTree />
-      </aside>
-      <div className="flex-1 min-w-0 min-h-0 flex flex-col">{children}</div>
-    </div>
+    <span className={cx("relative block overflow-hidden rounded-[10px] bg-card", className)} style={color ? { boxShadow: `0 0 0 1.5px ${color}` } : undefined}>
+      {tile.computer ? (
+        <ScreenThumb computer={tile.computer} quiet className="w-full rounded-none" />
+      ) : (
+        <span className="absolute inset-0 grid place-items-center text-muted">{tile.kind === "phone" ? <Smartphone size={30} strokeWidth={1.5} /> : <Laptop size={30} strokeWidth={1.5} />}</span>
+      )}
+      {color && (
+        <span className="absolute bottom-1.5 left-2">
+          <AgentAvatar agent={status.agent} size={ghost} live interactive={false} />
+        </span>
+      )}
+    </span>
   );
 }
 
-function treeRow(key: string, to: string, icon: ReactNode, title: string, sub: string, tone: Tone, active: boolean, nested: boolean, needs?: boolean) {
+/** One computer: its screen, its name, one status line. On phones a quiet one is a row; a working one stays big. */
+function Tile({ tile, open }: { tile: ComputerTile; open: boolean }) {
+  const status = useTileStatus(tile);
   return (
-    <a key={key} href={to} aria-current={active ? "page" : undefined} className={cx("flex items-center gap-3 rounded-2xl px-3 py-2.5 min-h-12 hover:bg-hover", nested && "ml-5", active && "bg-side-active")}>
-      <span className={cx("size-8 shrink-0", "grid place-items-center rounded-lg text-accent-computers bg-accent-computers/16", needs && "ring-2 ring-st-needs")}>{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium truncate">{title}</span>
-        <span className="block text-xs text-faint truncate">{sub}</span>
+    <a
+      href={tile.to}
+      aria-current={open ? "page" : undefined}
+      className={cx("flex min-w-0 rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-4 focus-visible:ring-offset-panel", status.working ? "flex-col gap-2" : "items-center gap-3 sm:flex-col sm:items-stretch sm:gap-2")}
+    >
+      <TilePicture tile={tile} status={status} className={cx("aspect-[16/10] shrink-0 sm:w-full", status.working ? "w-full" : "w-24", open && !status.working && "ring-2 ring-line2")} />
+      <span className="min-w-0 flex-1 px-0.5">
+        <span className="block truncate text-[15px] font-semibold leading-5">{tile.name}</span>
+        <span className={cx("block truncate text-[13px] leading-5", status.working ? "m-wait text-ink" : toneText(status.tone))}>{status.text}</span>
       </span>
-      <span className={cx("size-2 rounded-full shrink-0", tone === "info" && "animate-pulse")} style={{ background: dot(tone) }} />
     </a>
   );
 }
 
-/** Every device, its computers nested under it, cloud computers, and phones. */
-export function ComputerTree() {
-  const route = useRoute();
+/**
+ * Computers: a title, one plus, and one tile per computer (devices, their VMs, cloud computers,
+ * paired phones), newest activity first. The open computer's sheet sits beside the grid on
+ * desktops and over it on phones.
+ */
+export function ComputersHome({ nodes, open, children }: { nodes: NodeInfo[] | null; open?: string | null; children?: ReactNode }) {
   const computers = useStore((s) => s.computers);
-  const agents = useStore((s) => s.agents);
-  const me = useStore((s) => s.me);
-  const devices = useDevices();
   const phones = usePhones();
   const add = useAddFlow();
-  const groups = groupComputers(devices ?? [], computers);
-  const activeComputer = route.view === "computers" ? route.computerId : null;
-  const activeDevice = route.view === "computers" ? route.deviceId : null;
-  const state = (c: ComputerInfo) => {
-    const busy = agents.some((a) => c.agents.includes(a.id) && a.status === "busy");
-    const r: { sub: string; tone: Tone } = !c.online ? { sub: "Offline", tone: "neutral" } : c.paused ? { sub: "Paused", tone: "neutral" } : c.help ? { sub: "Needs you", tone: "warn" } : c.controller ? { sub: "In control", tone: "warn" } : busy ? { sub: "Working", tone: "info" } : { sub: "Ready", tone: "ok" };
-    return r;
-  };
-  const computerRow = (c: ComputerInfo, nested: boolean) => {
-    const s = state(c);
-    return treeRow(c.id, href({ view: "computers", computerId: c.id }), c.kind === "orgo" ? <Cloud size={18} strokeWidth={1.8} /> : c.kind === "device" ? <Lock size={17} strokeWidth={1.8} /> : <Monitor size={18} strokeWidth={1.8} />, c.kind === "device" ? "Your screen" : c.name, s.sub, s.tone, activeComputer === c.id, nested, !!c.help);
-  };
+  const tiles = computerTiles(nodes ?? [], computers, phones);
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto px-3.5 pt-6 pb-4 space-y-1">
-      <div className="flex items-center justify-between px-2 pb-3">
-        <a href={href({ view: "computers", computerId: null })} className="t-title">
-          Computers
-        </a>
-        {me?.role !== "guest" && <AddCircle onClick={add.start} />}
-      </div>
-      {groups.devices.map(({ device, computers: list }) => {
-        const st = deviceStatus(device);
-        return (
-          <div key={device.id}>
-            {treeRow(device.id, href({ view: "computers", computerId: null, deviceId: device.id }), <Laptop size={18} strokeWidth={1.8} />, device.name, [device.mine ? null : (device.ownerName ?? "Shared"), (() => { const count = agentsOnDevice(agents, device.id).length; return count ? `${count} agent${count === 1 ? "" : "s"}` : st.label; })()].filter(Boolean).join(" · "), st.tone, activeDevice === device.id, false)}
-            {list.map((c) => computerRow(c, true))}
-          </div>
-        );
-      })}
-      {groups.cloud.map((c) => computerRow(c, false))}
-      {phones > 0 && treeRow("phones", href({ view: "computers", computerId: null }), <Smartphone size={18} strokeWidth={1.8} />, "Phones", `${phones} get notifications`, "ok", false, false)}
-      {add.element}
-    </div>
-  );
-}
-
-// --- the overview ---------------------------------------------------------------------------------------
-
-/** One agent computer inside its device's group: live thumbnail, who and what. */
-function ComputerCard({ computer: c, agents }: { computer: ComputerInfo; agents: Agent[] }) {
-  const state = useComputerState(c);
-  const on = agentsOn(c, agents);
-  const own = c.kind === "device";
-  return (
-    <a href={href({ view: "computers", computerId: c.id })} className={cx("rounded-2xl bg-panel border overflow-hidden flex flex-col hover:shadow-panel transition-shadow", c.help ? "border-st-needs ring-1 ring-st-needs" : "border-line")}>
-      <ScreenThumb computer={c} className="rounded-none aspect-[16/9]" />
-      <div className="px-3.5 py-3 space-y-1">
-        <div className="flex items-center gap-2">
-          {own ? <Lock size={16} className="text-accent-computers shrink-0" /> : on[0] ? <AgentAvatar agent={on[0]} size={22} badge={false} /> : <Monitor size={16} className="text-accent-computers shrink-0" />}
-          <span className="font-medium text-sm truncate flex-1">{own ? "Your screen" : c.name}</span>
-          {state.working ? <WorkingBadge /> : <Pill tone={own && state.label === "Ready" ? "neutral" : state.tone}>{own && state.label === "Ready" ? "Shared" : state.label}</Pill>}
-        </div>
-        <p className="text-[13px] text-muted truncate">{c.help ? <span className="text-st-needs font-medium">Needs you: {c.help.request}</span> : c.activity && state.working ? c.activity.text : own ? "Agents ask before using it" : on.length ? on.map((a) => a.name).join(", ") : "No agents yet"}</p>
-      </div>
-    </a>
-  );
-}
-
-/** What the group header's menu can do. */
-function useDeviceActions(refresh: () => void) {
-  const [error, setError] = useState<string | null>(null);
-  const update = async (n: DeviceInfo) => {
-    try {
-      await api("POST", `/api/nodes/${n.id}/update`);
-    } catch (e) {
-      alert((e as Error).message);
-    }
-    refresh();
-  };
-  const remove = async (n: DeviceInfo) => {
-    if (!confirm(`Remove ${n.name}? It will need approval to join again.`)) return;
-    setError(null);
-    try {
-      await api("DELETE", `/api/nodes/${n.id}`);
-      refresh();
-    } catch (e) {
-      setError(`Couldn't remove ${n.name}: ${(e as Error).message}`);
-    }
-  };
-  return { error, update, remove };
-}
-
-export function ComputersHome() {
-  const computers = useStore((s) => s.computers);
-  const agents = useStore((s) => s.agents);
-  const me = useStore((s) => s.me);
-  const isOwner = me?.role === "owner";
-  const [devices, setDevices] = useState<DeviceInfo[] | null>(null);
-  const live = useDevices();
-  useEffect(() => setDevices(live), [live]);
-  const refresh = () => api<DeviceInfo[]>("GET", "/api/nodes").then(setDevices, () => {});
-  const actions = useDeviceActions(refresh);
-  const phones = usePhones();
-  const add = useAddFlow();
-  const [later, setLater] = useState<string[]>([]);
-  const groups = groupComputers(devices ?? [], computers);
-  const count = onlineCount(devices ?? [], groups.cloud);
-  const asking = computers.find((c) => c.help && !later.includes(c.id));
-  const asker = asking?.help ? agents.find((a) => a.id === asking.help!.agentId) : undefined;
-  const empty = devices && devices.length === 0 && computers.length === 0;
-
-  return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex-1 overflow-y-auto">
-        <div data-stagger className="max-w-[1120px] mx-auto px-4 md:px-7 pt-6 md:pt-8 pb-8 space-y-5">
-          <header className="flex items-center gap-3.5 safe-top">
-            <h1 className="t-title">Computers</h1>
-            <span className="text-sm text-faint flex-1">{devices ? `${count.online} of ${count.total} online` : ""}</span>
-            <Button variant="primary" onClick={add.start} className="h-[42px] px-[18px]">
-              <Plus size={16} strokeWidth={2.2} /> Add
-            </Button>
-          </header>
-          {actions.error && (
-            <p role="alert" className="text-xs text-bad">
-              {actions.error}
-            </p>
-          )}
-          {asking && (
-            <div className="rounded-3xl bg-card border border-st-needs p-4 flex flex-wrap items-center gap-3" role="status">
-              {asker ? <AgentAvatar agent={asker} size={32} badge={false} /> : <Hand size={20} className="text-st-needs" />}
-              <div className="min-w-0 flex-1 basis-44">
-                <div className="text-sm font-medium">{asker?.name ?? "An agent"} needs you on this computer</div>
-                <div className="text-sm text-muted">{asking.help!.request}</div>
-              </div>
-              <Button variant="primary" onClick={() => go({ view: "computers", computerId: asking.id })}>
-                Open computer
-              </Button>
-              <Button variant="ghost" onClick={() => setLater((l) => [...l, asking.id])}>
-                Later
-              </Button>
-            </div>
-          )}
-          {empty && (
-            <div className="rounded-3xl bg-card p-8 text-center space-y-3">
-              <Monitor className="mx-auto text-muted" size={28} />
-              <h2 className="t-title">Give your agents a computer</h2>
-              <p className="text-sm text-muted max-w-md mx-auto">Agents work on computers the way you do: they open apps and websites, sign in once, and keep their files. You can watch them work and take control anytime.</p>
-              <Button variant="primary" onClick={add.start}>
-                <Plus size={16} /> Add
-              </Button>
-            </div>
-          )}
-          {groups.devices.map(({ device, computers: list }) => (
-            <DeviceGroupCard key={device.id} device={device as NodeInfo} list={list} agents={agents} isOwner={isOwner} actions={actions} />
-          ))}
-          {(groups.cloud.length > 0 || phones > 0) && (
-            <div className={cx("grid gap-4", groups.cloud.length > 0 && phones > 0 && "md:grid-cols-2")}>
-              {groups.cloud.length > 0 && (
-                <section className="rounded-3xl bg-card border border-line p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="size-10 rounded-xl bg-accent-computers/16 text-accent-computers grid place-items-center">
-                      <Cloud size={20} strokeWidth={1.8} />
-                    </span>
-                    <h2 className="flex-1 font-semibold text-base">Cloud computers</h2>
-                  </div>
-                  <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
-                    {groups.cloud.map((c) => (
-                      <ComputerCard key={c.id} computer={c} agents={agents} />
-                    ))}
-                  </div>
-                </section>
-              )}
-              {phones > 0 && (
-                <section className="rounded-3xl bg-card border border-line p-4 flex items-center gap-3 self-start">
-                  <span className="size-10 rounded-xl bg-accent-computers/16 text-accent-computers grid place-items-center">
-                    <Smartphone size={20} strokeWidth={1.8} />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-medium text-base">Phones</span>
-                    <span className="block text-[13px] text-faint">{phones} paired · get notifications</span>
-                  </span>
-                  <Pill tone="ok">Paired</Pill>
-                </section>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-      {add.element}
-    </div>
-  );
-}
-
-function DeviceGroupCard({ device: n, list, agents, isOwner, actions }: { device: NodeInfo; list: ComputerInfo[]; agents: Agent[]; isOwner: boolean; actions: ReturnType<typeof useDeviceActions> }) {
-  const st = deviceStatus(n);
-  const busy = n.update?.state === "updating" || n.update?.state === "restarting";
-  const menu = [
-    { label: "Open device", icon: <Laptop size={15} />, onSelect: () => go({ view: "computers", computerId: null, deviceId: n.id }) },
-    ...(isOwner && n.online && !busy ? [{ label: "Update Wisp", icon: <Download size={15} />, onSelect: () => void actions.update(n) }] : []),
-    ...(n.mine || isOwner ? [{ label: "Remove device", icon: <Trash2 size={15} />, danger: true, onSelect: () => void actions.remove(n) }] : []),
-  ];
-  const count = agentsOnDevice(agents, n.id).length;
-  return (
-    <section className="rounded-3xl bg-card border border-line p-4 space-y-3.5">
-      <div className="flex items-center gap-3">
-        <a href={href({ view: "computers", computerId: null, deviceId: n.id })} className="flex items-center gap-3 min-w-0 flex-1" aria-label={`Open ${n.name}`}>
-          <span className="size-10 shrink-0 rounded-xl bg-accent-computers/16 text-accent-computers grid place-items-center">
-            <Laptop size={20} strokeWidth={1.8} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-medium text-base truncate">{n.name}</span>
-            <span className="block text-[13px] text-faint truncate">
-              {[n.capabilities ? osName(n.capabilities.platform) : null, !n.mine && n.ownerName ? `${n.ownerName}'s` : null, n.online ? (count ? `runs ${count} agent${count === 1 ? "" : "s"}` : "no agents yet") : n.lastSeen ? `last seen ${timeAgo(n.lastSeen)}` : "never connected"].filter(Boolean).join(" · ")}
-            </span>
-          </span>
-        </a>
-        <Pill tone={st.tone}>
-          {n.paused && st.label === "Paused" && <Pause size={11} />}
-          {st.label}
-        </Pill>
-        <Menu
-          align="right"
-          items={menu}
-          trigger={(open, toggle) => (
-            <button className={cx("circle circle-sm", open && "bg-hover")} aria-label={`${n.name} options`} onClick={toggle}>
-              <MoreHorizontal size={16} />
+    <div className="flex min-h-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-[1120px] space-y-5 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-7 md:pt-7">
+          <header className="flex items-center gap-3">
+            <h1 className="t-title min-w-0 flex-1 truncate">Computers</h1>
+            <button type="button" onClick={() => add.start()} aria-label="Add a computer or phone" className="m-press grid h-[34px] w-[35px] shrink-0 place-items-center rounded-full bg-side-active text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 max-md:size-11">
+              <Plus size={16} strokeWidth={1.8} />
             </button>
+          </header>
+          {nodes && tiles.length === 0 ? (
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <p className="text-[14px] text-muted">No computers yet.</p>
+              <Button variant="primary" onClick={() => add.start()}>
+                Add a computer
+              </Button>
+            </div>
+          ) : (
+            <div className={cx("grid gap-x-[18px] gap-y-5 sm:grid-cols-2 sm:gap-y-6", children ? "2xl:grid-cols-3" : "xl:grid-cols-3")}>
+              {tiles.map((t) => (
+                <Tile key={t.key} tile={t} open={open === t.key} />
+              ))}
+            </div>
           )}
-        />
-      </div>
-      {!n.online && (
-        <a href={href({ view: "computers", computerId: null, deviceId: n.id })} className="block rounded-2xl bg-panel border border-line px-3.5 py-3 text-sm text-muted hover:text-ink">
-          Not reachable. Tap to bring it back.
-        </a>
-      )}
-      {n.update?.message && n.update.state !== "idle" && <p className={cx("text-xs whitespace-pre-wrap", n.update.state === "failed" ? "text-bad" : "text-muted")}>{n.update.message}</p>}
-      {list.length > 0 && (
-        <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
-          {list.map((c) => (
-            <ComputerCard key={c.id} computer={c} agents={agents} />
-          ))}
         </div>
+      </div>
+      {/* the open computer's sheet: 310 px beside the grid on desktops (it pushes the grid as it opens), the whole screen on phones */}
+      {children && (
+        <aside aria-label="Computer details" className="m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:w-[310px] lg:shrink-0 lg:border-l lg:border-line">
+          {/* its own 310 px, so nothing reflows while the sheet opens */}
+          <div className="flex min-h-0 flex-1 flex-col lg:w-[310px]">{children}</div>
+        </aside>
       )}
-    </section>
+      {add.element}
+    </div>
   );
 }
 
-/** Header for a detail page on phones: back to the list. */
-export function BackToComputers({ label = "Computers" }: { label?: string }) {
+/** The top of a computer's sheet: its name and Close (Back on phones). `back` is set while one of its rows is open in place. */
+export function SheetHead({ title, back }: { title: string; back?: { label: string; onClick: () => void } }) {
+  const list = href({ view: "computers", computerId: null });
   return (
-    <a href={href({ view: "computers", computerId: null })} className="md:hidden circle circle-sm shrink-0" aria-label={`Back to ${label}`}>
-      <ChevronLeft size={20} />
-    </a>
+    <div className="flex h-14 shrink-0 items-center gap-2 px-3">
+      {back ? (
+        <button type="button" onClick={back.onClick} className="circle circle-sm" aria-label={back.label}>
+          <ChevronLeft size={18} />
+        </button>
+      ) : (
+        <a href={list} className="circle circle-sm lg:hidden" aria-label="Back to Computers">
+          <ChevronLeft size={18} />
+        </a>
+      )}
+      <h2 className={cx("min-w-0 flex-1 truncate font-semibold", back ? "text-center text-[14px]" : "text-[15px] lg:pl-1")}>{title}</h2>
+      <a href={list} className="circle circle-sm max-lg:hidden" aria-label="Close">
+        <X size={16} />
+      </a>
+      {/* phones: keeps a centred title centred, with no Close beside it */}
+      {back && <span className="w-11 shrink-0 lg:hidden" aria-hidden />}
+    </div>
   );
 }
