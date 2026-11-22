@@ -6,7 +6,7 @@ import { Ghost } from "../components/Ghost.tsx";
 import { useStore } from "../store.ts";
 import { AgentAvatar, cx } from "../components/ui.tsx";
 import { numberOf, titleOf } from "./flow.ts";
-import { useCreateAgent } from "./NewAgent.tsx";
+import { useCreateAgent } from "./createAgentContext.ts";
 
 /** A step's number: its place in the order things happen in. */
 export function StepNum({ n, size = 22 }: { n: number; size?: number }) {

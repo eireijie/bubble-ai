@@ -6,12 +6,13 @@ import { soulPath } from "@wisp/core/src/soul.ts";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { api } from "../api.ts";
 import { useStore, useTeams, type ComputerInfo, type LiveRun } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { useFeature } from "../features.ts";
 import { go, href, type AgentTab } from "../router.ts";
 import { MoreOptions } from "./MoreOptions.tsx";
 import { openDm } from "../openDm.ts";
 import { agentReadiness, agentSignedIn, useDevices, type DeviceInfo } from "../devices.ts";
-import { useComputerState } from "../views/ComputersView.tsx";
+import { useComputerState } from "../views/computerState.ts";
 import { LiveScreen, WorkingBadge } from "./Screen.tsx";
 import { Ghost } from "./Ghost.tsx";
 import { prettyModel, effortName } from "./EffortSlider.tsx";
@@ -49,7 +50,7 @@ export function AgentPanel({ agent, tab, onTab, onClose, onCall, inDm = false }:
     { id: "computer", label: "Computer" },
     { id: "settings", label: "Settings" },
   ];
-  const live = useStore((s) => s.live);
+  const live = useStore(liveShape);
   const runs = Object.values(live).filter((r) => r.agentId === agent.id);
   const [, tick] = useState(0);
   useEffect(() => {

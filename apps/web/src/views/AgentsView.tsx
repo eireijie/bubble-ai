@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ListTodo, Plug, Plus, Search, Wand2 } from "lucide-react";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { href, type AgentTab } from "../router.ts";
 import { useFeatures } from "../features.ts";
 import { AgentDetail, type NodeInfo } from "./AgentSettings.tsx";
@@ -19,7 +20,7 @@ export { freeHandle, importFound } from "./CreateAgent.tsx";
 /** The Agents tab: everyone on your team of agents as cards. Open one for its page; Message starts a chat. */
 export function AgentsView({ agentId, tab }: { agentId: string | null; tab: AgentTab | null }) {
   const agents = useStore((s) => s.agents);
-  const live = useStore((s) => s.live);
+  const live = useStore(liveShape);
   const me = useStore((s) => s.me);
   const [creating, setCreating] = useState(false);
   const [bringing, setBringing] = useState(false);

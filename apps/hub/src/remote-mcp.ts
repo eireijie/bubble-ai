@@ -1,11 +1,9 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import type { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { envVar } from "@wisp/core";
 import { WispClient } from "@wisp/sdk";
-import { createWispMcp } from "@wisp/mcp/src/server.ts";
 import { z } from "zod";
 import type { Caller } from "./api.ts";
 import { bearer, id, issueToken, now, resolveToken, sha } from "./auth.ts";
@@ -142,6 +140,19 @@ interface Code {
   scope: string;
   expires: number;
 }
+/**
+ * The MCP SDK and Wisp's MCP server, loaded when the first cloud client opens a session: only
+ * `/mcp` needs them, and they were about a third of everything the hub loads to start.
+ */
+const loadMcp = async () => {
+  const [{ StreamableHTTPServerTransport }, { isInitializeRequest }, { createWispMcp }] = await Promise.all([
+    import("@modelcontextprotocol/sdk/server/streamableHttp.js"),
+    import("@modelcontextprotocol/sdk/types.js"),
+    import("@wisp/mcp/src/server.ts"),
+  ]);
+  return { StreamableHTTPServerTransport, isInitializeRequest, createWispMcp };
+};
+
 interface Session {
   transport: StreamableHTTPServerTransport;
   server: McpServer;
@@ -534,7 +545,9 @@ export function registerRemoteMcp(app: FastifyInstance, hub: Hub, h: Helpers) {
       await s.transport.handleRequest(req.raw, reply.raw, req.body);
       return;
     }
-    if (req.method !== "POST" || !isInitializeRequest(req.body)) return rpcError(reply, 400, "No session: send initialize first");
+    if (req.method !== "POST") return rpcError(reply, 400, "No session: send initialize first");
+    const { StreamableHTTPServerTransport, isInitializeRequest, createWispMcp } = await loadMcp();
+    if (!isInitializeRequest(req.body)) return rpcError(reply, 400, "No session: send initialize first");
 
     const auth = { token };
     let server: McpServer;

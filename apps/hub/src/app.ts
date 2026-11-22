@@ -142,6 +142,8 @@ export async function buildHub(opts: HubOptions) {
     // wildcard serving picks up rebuilt assets without a restart
     await app.register(fastifyStatic, {
       root: opts.webDir,
+      // the web build leaves a .br and a .gz beside each file (apps/web/vite.config.ts); a browser that takes one gets it
+      preCompressed: true,
       cacheControl: false,
       setHeaders: (reply, file) => {
         // hashed assets are immutable; the shell must always revalidate
@@ -173,16 +175,22 @@ export async function buildHub(opts: HubOptions) {
  * command. They clone from wherever this hub's copy came from, when that's a public https URL.
  */
 function registerInstallers(app: FastifyInstance) {
-  let origin = "";
-  try {
-    origin = execFileSync("git", ["remote", "get-url", "origin"], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  } catch {}
-  const repo = /^https:\/\/[^@\s]+$/.test(origin) ? origin : "";
+  // asked of git once, the first time an installer is fetched (not while the hub starts)
+  let found: string | undefined;
+  const repoUrl = () => {
+    if (found !== undefined) return found;
+    let origin = "";
+    try {
+      origin = execFileSync("git", ["remote", "get-url", "origin"], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    } catch {}
+    return (found = /^https:\/\/[^@\s]+$/.test(origin) ? origin : "");
+  };
   for (const [file, type, pattern] of [
     ["install.sh", "text/x-shellscript", /^WISP_REPO=.*$/m],
     ["install.ps1", "text/plain", /^\$Repo = .*$/m],
   ] as const) {
     app.get(`/${file}`, async (_req, reply) => {
+      const repo = repoUrl();
       let text = fs.readFileSync(path.join(REPO_ROOT, file), "utf8");
       if (file === "install.sh") text = joinInstaller(text);
       if (repo)

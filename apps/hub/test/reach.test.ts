@@ -57,6 +57,16 @@ describe("reading Tailscale", () => {
     } as never;
     expect(lanAddresses(4747, ifs)).toEqual(["http://192.168.1.20:4747"]);
   });
+
+  it("looks once for everyone who asks at the same moment; a fresh read looks again", async () => {
+    const { calls, reach } = fake({ status: status("Running"), serve: serving() });
+    const [a, b] = await Promise.all([reach.tailscale(), reach.tailscale()]);
+    expect(a).toBe(b);
+    expect(a).toMatchObject({ state: "running", serving: true });
+    expect(calls).toEqual(["status --json", "serve status --json"]);
+    await reach.tailscale(true);
+    expect(calls).toHaveLength(4);
+  });
 });
 
 describe("changing Tailscale", () => {

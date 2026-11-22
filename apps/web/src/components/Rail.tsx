@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Apple, Blocks, BookOpen, ChevronDown, FolderPlus, Ghost as GhostIcon, HardDrive, LayoutGrid, LifeBuoy, ListChecks, ListTodo, MessageSquarePlus, PanelLeft, Plus, Search, SquareTerminal, Store, Users } from "lucide-react";
 import { useReadyChecklist } from "../onboarding.ts";
 import type { FeatureKey, Section } from "@wisp/core";
 import { useFeatures } from "../features.ts";
 import { useStore, useInboxCount } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { go, href, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { ComputersIcon, InboxIcon, WispGhost } from "./icons.tsx";
@@ -146,7 +147,8 @@ export function sidebarGroups(chats: Chat[], sections: Section[]): { id: string;
   ].filter((g) => g.chats.length > 0);
 }
 
-function SideRow({ chat, wide, active, working, sections, onNewSection }: { chat: Chat; wide: boolean; active: boolean; working: boolean; sections: Section[]; onNewSection: () => void }) {
+/** A chat in the sidebar. It renders again only when its own chat changes, not on every step of dragging the sidebar's edge. */
+const SideRow = memo(function SideRow({ chat, wide, active, working, sections, onNewSection }: { chat: Chat; wide: boolean; active: boolean; working: boolean; sections: Section[]; onNewSection: () => void }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const unread = chat.unread > 0 && !chat.muted;
   const label = `${chat.name}${chat.unread > 0 ? `, ${chat.unread} unread` : ""}${working ? ", working" : ""}`;
@@ -175,7 +177,7 @@ function SideRow({ chat, wide, active, working, sections, onNewSection }: { chat
       {menu && chat.channel && <ChatMenu chat={chat} channel={chat.channel} at={menu} onClose={() => setMenu(null)} sections={sections} onNewSection={onNewSection} />}
     </div>
   );
-}
+});
 
 const COLLAPSE_KEY = "wisp.chats.collapsed";
 function useCollapsedGroups(): [Record<string, boolean>, (id: string) => void] {
@@ -220,7 +222,7 @@ export function Rail({ route }: { route: Route }) {
   const me = useStore((s) => s.me)!;
   const computers = useStore((s) => s.computers);
   const sections = useStore((s) => s.sections);
-  const live = useStore((s) => s.live);
+  const live = useStore(liveShape);
   const inbox = useInboxCount();
   const isGuest = me.role === "guest";
   const features = useFeatures();
@@ -228,6 +230,7 @@ export function Rail({ route }: { route: Route }) {
   const ready = useReadyChecklist();
   const [collapsedGroups, toggleGroup] = useCollapsedGroups();
   const [editing, setEditing] = useState<Section | "new" | null>(null);
+  const newSection = useCallback(() => setEditing("new"), []);
 
   const [side, setSide] = useState<SidebarState>(loadSidebar);
   const roomy = useMedia(`(min-width: ${SIDEBAR.roomy}px)`, true);
@@ -401,7 +404,7 @@ export function Rail({ route }: { route: Route }) {
                 {!closed && (
                   <div className={cx("flex flex-col gap-px", !wide && i === 0 && "mt-2")}>
                     {g.chats.map((c) => (
-                      <SideRow key={c.key} chat={c} wide={wide} active={!!c.channel && c.channel.id === active} working={isWorking(c)} sections={sections} onNewSection={() => setEditing("new")} />
+                      <SideRow key={c.key} chat={c} wide={wide} active={!!c.channel && c.channel.id === active} working={isWorking(c)} sections={sections} onNewSection={newSection} />
                     ))}
                   </div>
                 )}

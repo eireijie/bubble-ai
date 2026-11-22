@@ -1,48 +1,73 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Brain, Building2, ChevronLeft, Ellipsis, LifeBuoy, ListTodo, SquarePen, ChevronRight, LogOut, Moon, Settings, Sparkles, Store, Sun, SunMoon, Blocks, X } from "lucide-react";
 import { api, connectEvents, getToken, setToken } from "./api.ts";
 import { useChatsUnread, useInboxCount, useStore } from "./store.ts";
-import { go, href, routeForRole, useRoute, type Route } from "./router.ts";
+import { go, href, parseRoute, routeForRole, useRoute, type Route } from "./router.ts";
 import { useAppearance, type ModeChoice } from "./theme.ts";
 import { ChatList, NewChatPicker } from "./components/ChatList.tsx";
 import { MORE_VIEWS, Rail, chatsTarget, rememberChat, initialsOf } from "./components/Rail.tsx";
-import { MorePage } from "./views/MorePage.tsx";
 import { AgentsIcon, ChatsIcon, ComputersIcon, InboxIcon } from "./components/icons.tsx";
 import { OfflineBanner, UpdatedBanner } from "./components/Banners.tsx";
 import { OrgList, useOrgs } from "./components/OrgSwitcher.tsx";
 import { ChannelBrowser } from "./components/Channels.tsx";
 import { CommandPalette } from "./components/CommandPalette.tsx";
 import { ChannelView } from "./views/ChannelView.tsx";
-import { VaultView } from "./views/VaultView.tsx";
-import { AgentsView } from "./views/AgentsView.tsx";
 import { logout } from "./logout.ts";
-import { YouPage } from "./views/YouPage.tsx";
-import { SettingsView } from "./views/SettingsView.tsx";
-import { AuthScreen } from "./views/AuthScreen.tsx";
 import { JoinApproval } from "./components/JoinApproval.tsx";
 import { HelpPopup } from "./components/HelpPopup.tsx";
-import { WelcomeView } from "./views/WelcomeView.tsx";
-import { HereView } from "./views/HereView.tsx";
-import { AboutView } from "./views/AboutView.tsx";
-import { ComputersView } from "./views/ComputersView.tsx";
-import { NewTask, TasksView } from "./views/TasksView.tsx";
-import { CodeView } from "./views/CodeView.tsx";
 import { DashboardView } from "./views/DashboardView.tsx";
-import { MarketplaceView } from "./views/MarketplaceView.tsx";
-import { ModsPage } from "./views/settings/features.tsx";
-import { HelpView } from "./views/HelpView.tsx";
 import { primeTasks } from "./notifications.ts";
 import { Loader, PopBadge, cx } from "./components/ui.tsx";
 import { enterDeskPane, enterPane, staggerRows, useBounce, usePresence } from "./motion.ts";
 import { setupProgress, useDismissed, useOnboarding } from "./onboarding.ts";
 import { useFeatures } from "./features.ts";
-import { BuddyView } from "./views/BuddyView.tsx";
-import { AuthorizeView } from "./views/AuthorizeView.tsx";
 import { useDesktopAgents } from "./desktop.ts";
+import { lazyView, preloadViews, type LazyView } from "./lazy.tsx";
+
+// The shell, the Inbox and the open chat come with the app. Every other page is a file of its own,
+// fetched in the background once the app is up (lazy.tsx), so the first file stays small.
+const MorePage = lazyView(() => import("./views/MorePage.tsx").then((m) => m.MorePage));
+const VaultView = lazyView(() => import("./views/VaultView.tsx").then((m) => m.VaultView));
+const AgentsView = lazyView(() => import("./views/AgentsView.tsx").then((m) => m.AgentsView));
+const YouPage = lazyView(() => import("./views/YouPage.tsx").then((m) => m.YouPage));
+const SettingsView = lazyView(() => import("./views/SettingsView.tsx").then((m) => m.SettingsView));
+const AuthScreen = lazyView(() => import("./views/AuthScreen.tsx").then((m) => m.AuthScreen));
+const WelcomeView = lazyView(() => import("./views/WelcomeView.tsx").then((m) => m.WelcomeView));
+const HereView = lazyView(() => import("./views/HereView.tsx").then((m) => m.HereView));
+const AboutView = lazyView(() => import("./views/AboutView.tsx").then((m) => m.AboutView));
+const ComputersView = lazyView(() => import("./views/ComputersView.tsx").then((m) => m.ComputersView));
+const TasksView = lazyView(() => import("./views/TasksView.tsx").then((m) => m.TasksView));
+const NewTask = lazyView(() => import("./views/TasksView.tsx").then((m) => m.NewTask));
+const CodeView = lazyView(() => import("./views/CodeView.tsx").then((m) => m.CodeView));
+const MarketplaceView = lazyView(() => import("./views/MarketplaceView.tsx").then((m) => m.MarketplaceView));
+const ModsPage = lazyView(() => import("./views/settings/features.tsx").then((m) => m.ModsPage));
+const HelpView = lazyView(() => import("./views/HelpView.tsx").then((m) => m.HelpView));
+const BuddyView = lazyView(() => import("./views/BuddyView.tsx").then((m) => m.BuddyView));
+const AuthorizeView = lazyView(() => import("./views/AuthorizeView.tsx").then((m) => m.AuthorizeView));
+
+/** The file the page at this address needs, so it can be fetched while the data is still on its way. */
+export const preloadRoute = (route: Route): Promise<void> => viewFor(route)?.preload() ?? Promise.resolve();
+function viewFor(route: Route): Pick<LazyView<object>, "preload"> | null {
+  const views: Partial<Record<Route["view"], Pick<LazyView<object>, "preload">>> = {
+    more: MorePage, vault: VaultView, agents: AgentsView, you: YouPage, settings: SettingsView, welcome: WelcomeView, here: HereView, about: AboutView,
+    computers: ComputersView, tasks: TasksView, code: CodeView, marketplace: MarketplaceView, connectors: MarketplaceView, skills: MarketplaceView, mods: ModsPage,
+    help: HelpView, buddy: BuddyView, authorize: AuthorizeView,
+  };
+  return views[route.view] ?? null;
+}
 
 export function App() {
-  const [authed, setAuthed] = useState(() => !!getToken());
   const route = useRoute();
+  // a page's file arrives behind the same ghost the app starts with (the desk buddy's window stays clear)
+  return (
+    <Suspense fallback={route.view === "buddy" ? null : <Loader />}>
+      <Routed route={route} />
+    </Suspense>
+  );
+}
+
+function Routed({ route }: { route: Route }) {
+  const [authed, setAuthed] = useState(() => !!getToken());
   useEffect(() => {
     if (!authed && route.view !== "buddy") window.wispDesktop?.buddy.agents([], null);
   }, [authed, route.view]);
@@ -130,6 +155,7 @@ function ChatLayer({ leaving, instant, children }: { leaving: boolean; instant: 
 function Workspace() {
   const me = useStore((s) => s.me);
   const load = useStore((s) => s.load);
+  const userId = me?.user.id;
   const handle = useStore((s) => s.handle);
   const setConnected = useStore((s) => s.setConnected);
   const newTaskOpen = useStore((s) => s.newTaskOpen);
@@ -144,8 +170,11 @@ function Workspace() {
     load().catch((e) => setError(e.message));
     return connectEvents(handle, setConnected);
   }, [load, handle, setConnected]);
+  // the rest of the app's files come in the background once it's up
+  useEffect(() => {
+    if (userId) preloadViews();
+  }, [userId]);
   // so a task finishing later can be told apart from one that was already done (notifications)
-  const userId = me?.user.id;
   useEffect(() => {
     if (userId) primeTasks();
   }, [userId]);
@@ -216,7 +245,7 @@ function Workspace() {
   const toChats = () => go({ view: "chats" });
   const toYou = () => go({ view: "you" });
   const toMore = () => go({ view: "more" });
-  const page = (() => {
+  const view = (() => {
     switch (route.view) {
       case "chat":
         // the bare root: the Inbox on desktops, the chats list on phones (the effect above fixes the URL)
@@ -275,6 +304,8 @@ function Workspace() {
         );
     }
   })();
+  // a page whose file isn't in yet (only in the app's first moments) holds its place, empty, until it is
+  const page = <Suspense fallback={<div className="flex-1 min-h-0" />}>{view}</Suspense>;
   // the tab bar stays on phones (it slips away while a chat is open), except in the vault
   const showTabs = phone && route.view !== "vault";
   if (chatOpen) heldChat.current = page;
@@ -286,7 +317,11 @@ function Workspace() {
       <HelpPopup />
       <UpdatedBanner phone={phone} />
       {newChatOpen && <NewChatPicker onClose={() => useStore.setState({ newChatOpen: false })} />}
-      {newTaskOpen && <NewTask onClose={() => useStore.setState({ newTaskOpen: false })} />}
+      {newTaskOpen && (
+        <Suspense fallback={null}>
+          <NewTask onClose={() => useStore.setState({ newTaskOpen: false })} />
+        </Suspense>
+      )}
       {channelBrowser && <ChannelBrowser sectionId={channelBrowser.sectionId} create={channelBrowser.create} onClose={() => useStore.setState({ channelBrowser: null })} />}
     </>
   );
@@ -399,3 +434,9 @@ function ChatsPage({ route }: { route: Route }) {
 }
 
 export { logout };
+
+// the page this address opens on: ask for its file now, alongside the first requests
+if (typeof location !== "undefined") {
+  void preloadRoute(parseRoute(location.hash));
+  if (!getToken()) void AuthScreen.preload();
+}

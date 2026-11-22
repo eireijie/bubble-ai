@@ -1,20 +1,25 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Archive, ArchiveRestore, Bell, BellOff, Bot, Check, Hash, Lock, LogOut, MoreHorizontal, Pencil, Pin, Plus, Search, Star, Trash2, UserPlus, Users, X } from "lucide-react";
 import { hasSteps, teamProblem, type Agent, type ChannelNotify, type ChannelTeam, type Section } from "@wisp/core";
 import { EMPTY_TEAM, TeamChart, TeamRules, addToTeam, liveTeam } from "./TeamChart.tsx";
-import { NewTeamFlow } from "../team/Create.tsx";
+import { TeamEditSession } from "../team/SessionLazy.tsx";
 import { HowLines } from "../team/How.tsx";
 import { useFlowLines } from "../team/How.tsx";
-import { NewAgentForTeam } from "../team/NewAgent.tsx";
-import { TeamEditSession } from "../team/Session.tsx";
 import { withChart } from "../team/flow.ts";
 import { agentRulesOf, type AgentRules } from "./channel-rules.ts";
 import { api } from "../api.ts";
 import { useNames, useStore, type ChannelInfo } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { go, href } from "../router.ts";
 import { AgentAvatar, Button, Field, Input, Menu, Modal, Textarea, UserAvatar, cx } from "./ui.tsx";
 import { Toggle } from "../views/settings/parts.tsx";
+import { lazyView } from "../lazy.tsx";
+
+// Making a team, and making an agent for one, bring the whole team builder and the new-agent pages
+// with them: files of their own, fetched in the background after the app is up (lazy.tsx).
+const NewTeamFlow = lazyView(() => import("../team/Create.tsx").then((m) => m.NewTeamFlow));
+const NewAgentForTeam = lazyView(() => import("../team/NewAgent.tsx").then((m) => m.NewAgentForTeam));
 
 const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
@@ -106,7 +111,12 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
     go({ view: "chat", channelId: id, threadId: null });
   }
 
-  if (step === "about") return <NewTeamFlow onClose={onClose} sectionId={sectionId} onBrowse={() => setStep("browse")} SectionPick={SectionSelect} initialName={name} />;
+  if (step === "about")
+    return (
+      <Suspense fallback={null}>
+        <NewTeamFlow onClose={onClose} sectionId={sectionId} onBrowse={() => setStep("browse")} SectionPick={SectionSelect} initialName={name} />
+      </Suspense>
+    );
 
   return (
     <Modal title="Add a team" onClose={onClose} wide>
@@ -270,14 +280,16 @@ export function ChannelSettings({ channel: initial, tab: initialTab = "about", o
   ];
   if (newAgent)
     return (
-      <NewAgentForTeam
-        onClose={() => setNewAgent(false)}
-        onCreated={(a) => {
-          const roleId = newAgent.roleId;
-          setTeam((t) => (roleId ? withChart({ ...t, roles: (t.roles ?? []).map((r) => (r.id === roleId ? { ...r, agentId: a.id } : r)) }) : addToTeam(t, a.id)));
-          setNewAgent(false);
-        }}
-      />
+      <Suspense fallback={null}>
+        <NewAgentForTeam
+          onClose={() => setNewAgent(false)}
+          onCreated={(a) => {
+            const roleId = newAgent.roleId;
+            setTeam((t) => (roleId ? withChart({ ...t, roles: (t.roles ?? []).map((r) => (r.id === roleId ? { ...r, agentId: a.id } : r)) }) : addToTeam(t, a.id)));
+            setNewAgent(false);
+          }}
+        />
+      </Suspense>
     );
   return (
     <Modal
@@ -542,7 +554,7 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
 
 /** Who's working on the chart right now, and where: "Working" or "In a thread". */
 export function useTeamWork(channelId: string): Record<string, string> {
-  const live = useStore((s) => s.live);
+  const live = useStore(liveShape);
   const out: Record<string, string> = {};
   for (const r of Object.values(live)) if (r.channelId === channelId) out[r.agentId] = r.threadId ? "Working in a thread" : "Working";
   return out;

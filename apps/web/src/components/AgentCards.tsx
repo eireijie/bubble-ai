@@ -6,8 +6,8 @@ import { api } from "../api.ts";
 import { usePrefs, useStore } from "../store.ts";
 import { undoChange, useChanges } from "../changes.ts";
 import { href } from "../router.ts";
-import { ComputerMini } from "../views/ComputersView.tsx";
-import { StorageLogo } from "../views/settings/storage.tsx";
+import { ComputerMini } from "../views/ComputerMini.tsx";
+import { StorageLogo } from "../views/settings/StorageLogo.tsx";
 import { AppleApprovalCard } from "./AppleParts.tsx";
 import { Pill, cx, clockTime } from "./ui.tsx";
 

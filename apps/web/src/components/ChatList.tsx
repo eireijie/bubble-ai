@@ -4,6 +4,7 @@ import { BellOff, Check, ChevronDown, FolderPlus, Ghost, MessageSquarePlus, Pin,
 import { harnessLabel, teamIconAgentIds, type Agent, type Section } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore, usePrefs, type ChannelInfo } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { go, href, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { AgentAvatar, Menu, cx, clockTime } from "./ui.tsx";
@@ -92,7 +93,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
   const channels = useStore((s) => s.channels);
   const sections = useStore((s) => s.sections);
   const agents = useStore((s) => s.agents);
-  const live = useStore((s) => s.live);
+  const live = useStore(liveShape);
   const approvals = useStore((s) => s.approvals);
   const prefs = usePrefs();
   const [collapsed, setCollapsed] = useState(loadCollapsed);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Hand } from "lucide-react";
 import { workSteps, type FlowLane, type TeamFlow, type TeamStep } from "@wisp/core";
-import { TeamEditSession } from "./Session.tsx";
+import { TeamEditSession } from "./SessionLazy.tsx";
 import { api } from "../api.ts";
 import { href } from "../router.ts";
 import { useStore } from "../store.ts";
