@@ -1,15 +1,14 @@
 import { Server } from "lucide-react";
 import type { ComputerInfo } from "../store.ts";
-import { href } from "../router.ts";
 import { ScreenThumb, WorkingBadge } from "../components/Screen.tsx";
 import { Pill } from "../components/ui.tsx";
-import { useComputerState } from "./computerState.ts";
+import { useComputerState, watchHref } from "./computerState.ts";
 
-/** A small live card for an agent's computer (chat, agent pages). */
+/** A small live card for an agent's computer (chat, agent pages). It opens the computer's live view. */
 export function ComputerMini({ computer, request, showOpen = true, quiet }: { computer: ComputerInfo; request?: string; showOpen?: boolean; quiet?: boolean }) {
   const state = useComputerState(computer);
   return (
-    <a href={href({ view: "computers", computerId: computer.id })} className="block max-w-md rounded-2xl border border-line bg-panel p-3 hover:shadow-panel transition-shadow">
+    <a href={watchHref(computer.id)} className="block max-w-md rounded-2xl border border-line bg-panel p-3 hover:shadow-panel transition-shadow">
       <div className="flex items-center gap-2 mb-1">
         <span className="font-medium text-sm flex items-center gap-1.5">
           <Server size={13} className="text-muted" /> Computer

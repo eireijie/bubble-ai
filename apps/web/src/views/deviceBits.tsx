@@ -1,6 +1,4 @@
-import { Server } from "lucide-react";
 import type { DeviceCapabilities, DeviceRole, OwnRemoteDesktop } from "@wisp/core";
-import { cx } from "../components/ui.tsx";
 
 export interface NodeInfo {
   id: string;
@@ -20,7 +18,8 @@ export interface NodeInfo {
   update: { state: "idle" | "updating" | "restarting" | "failed"; message: string } | null;
   /** the remote desktop app its owner uses to reach it; only they get it */
   remoteDesktop?: OwnRemoteDesktop | null;
-  harnesses?: { id: string; version: string | null }[];
+  /** the AI tools installed on it, and whether each account on it is signed in (null: nobody can tell) */
+  harnesses?: { id: string; version: string | null; accounts?: Record<string, boolean | null> }[];
 }
 
 /** "Connected" while online; otherwise when it was last seen. Never both, so it can't contradict the pill. */
@@ -45,17 +44,4 @@ export { isLocalOnlyHost } from "../loopback.ts";
 export function notConnectedLine(n: { online: boolean; lastSeen: string | null }): string | null {
   if (n.online) return null;
   return n.lastSeen ? "This device was connected before but is offline now." : "This device hasn't connected yet.";
-}
-
-/** The device's tile: a server that lights up and pulses while it's connected. */
-export function DeviceIcon({ online }: { online: boolean }) {
-  return (
-    <div className={cx("relative size-11 shrink-0 rounded-xl grid place-items-center transition-colors", online ? "bg-accent-computers/16 text-accent-computers" : "bg-hover text-faint")}>
-      <Server size={19} />
-      <span className="absolute -bottom-0.5 -right-0.5 grid size-3.5 place-items-center rounded-full bg-panel">
-        {online && <span className="absolute size-2.5 rounded-full motion-safe:animate-ping" style={{ background: "var(--status-online)", opacity: 0.6 }} />}
-        <span className="relative size-2.5 rounded-full" style={{ background: online ? "var(--status-online)" : "var(--status-idle)" }} />
-      </span>
-    </div>
-  );
 }

@@ -40,7 +40,7 @@ export function CodeInput({ kind, value, onChange, onSubmit, autoFocus, classNam
 }
 
 /** Asking for the code before a screen opens: "Screen code", checked on the device, never by Wisp. */
-export function CodePrompt({ computer, error, onSubmit, deviceName }: { computer: ComputerInfo; error: string | null; onSubmit: (code: string) => void; deviceName?: string }) {
+export function CodePrompt({ computer, error, onSubmit }: { computer: ComputerInfo; error: string | null; onSubmit: (code: string) => void }) {
   const [code, setCode] = useState("");
   const kind = computer.code ?? "pin";
   const ready = kind === "pin" ? code.length === 6 : code.length > 0;
@@ -54,15 +54,7 @@ export function CodePrompt({ computer, error, onSubmit, deviceName }: { computer
     >
       <KeyRound size={22} className="mx-auto opacity-70" />
       <h3 className="text-base font-semibold">Screen code</h3>
-      <p className="text-white/70">Type the {kind === "pin" ? "code" : "password"} you set on {deviceName ?? computer.name} to open its screen. The device checks it, not Wisp.</p>
       <CodeInput kind={kind} value={code} onChange={setCode} autoFocus className="text-center text-ink" />
-      {kind === "pin" && (
-        <div className="flex justify-center gap-2" aria-hidden="true">
-          {Array.from({ length: 6 }, (_, i) => (
-            <span key={i} className={i < code.length ? "size-2.5 rounded-full bg-white" : "size-2.5 rounded-full bg-white/25"} />
-          ))}
-        </div>
-      )}
       {error && <p className="text-xs text-red-300">{/wrong|not right|incorrect/i.test(error) ? "That code is not right. Try again." : error}</p>}
       <button type="submit" disabled={!ready} className="inline-flex items-center rounded-full border border-white/20 px-4 h-9 hover:bg-white/10 disabled:opacity-40">
         Open
