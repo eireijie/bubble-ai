@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Bot, Check, ChevronRight, Cloud, Download, Laptop, Loader2, Lock, Monitor, Plus, Search, Shuffle, UserPlus, X } from "lucide-react";
-import { GHOST_WHITE, randomAppearance, type GhostAppearance } from "@wisp/core/src/appearance.ts";
+import { ArrowLeft, ArrowRight, Bot, Check, ChevronRight, Cloud, Download, Laptop, Loader2, Lock, Monitor, Plus, Search, UserPlus, X } from "lucide-react";
+import { randomAppearance, type GhostAppearance } from "@wisp/core/src/appearance.ts";
 import { Ghost } from "../components/Ghost.tsx";
-import { GhostColors } from "../components/GhostColors.tsx";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx";
 import { prettyModel } from "../components/EffortSlider.tsx";
@@ -212,12 +211,56 @@ export function defaultsSummary(d: AgentDefaults, nodes: Pick<NodeInfo, "id" | "
   };
 }
 
+/** Names a new agent is offered: one is already in the field when the sheet opens. */
+export const AGENT_NAMES = ["Nova", "Milo", "Wren", "Otto", "Iris", "Finn", "Luna", "Hugo", "Remy", "Sage", "Piper", "Echo", "Maple", "Quill", "Pixel", "Clover", "Indigo", "Ziggy", "Juniper", "Atlas"];
+
+type Named = Pick<Agent, "name" | "handle">;
+
+/** A name none of the agents here has yet, picked at random; numbered ("Nova 2") once every one is used. */
+export function suggestName(agents: Named[], random: () => number = Math.random): string {
+  const used = new Set(agents.flatMap((a) => [a.handle, slug(a.name)]));
+  const pick = <T,>(list: T[]) => list[Math.min(list.length - 1, Math.floor(random() * list.length))];
+  const free = AGENT_NAMES.filter((n) => !used.has(slug(n)));
+  if (free.length) return pick(free);
+  const base = pick(AGENT_NAMES);
+  for (let i = 2; ; i++) if (!used.has(slug(`${base} ${i}`))) return `${base} ${i}`;
+}
+
+/** The handle a name gets when nobody typed one: its slug, numbered when that's taken ("nova", then "nova-2"); "agent" for a name with no letter a to z. */
+export function autoHandle(name: string, taken: string[]): string {
+  const base = slug(name) || "agent";
+  let h = base;
+  for (let i = 2; taken.includes(h); i++) h = `${base.slice(0, 28).replace(/-+$/, "")}-${i}`;
+  return h;
+}
+
 /**
- * New agent, on one screen (Buzz style): its ghost on the left (colors, Shuffle, the full look
- * editor), and on the right its name, what it does, a starting role, instructions, and which AI
- * and computer it uses (your defaults, or picked here). Handle, who it answers, apps and skills
- * are under More options. Agents that already run
- * somewhere come in through the link at the bottom.
+ * What stops this agent being made, as one short line; null when nothing does. A handle typed by
+ * hand is checked as typed. Without one a free handle is picked silently, so only a name another
+ * agent already has is a problem.
+ */
+export function nameProblem(name: string, typedHandle: string, agents: Named[]): string | null {
+  const clean = name.trim();
+  if (!clean) return null;
+  if (typedHandle) {
+    if (!/^[a-z][a-z0-9-]{0,31}$/.test(typedHandle)) return "A handle starts with a letter.";
+    return agents.some((a) => a.handle === typedHandle) ? `@${typedHandle} is taken.` : null;
+  }
+  return agents.some((a) => a.name.trim().toLowerCase() === clean.toLowerCase()) ? `${clean} is already here.` : null;
+}
+
+const LABEL = "block text-[13px] font-medium text-muted";
+const QUIET = "h-9 px-2.5 rounded-full text-[13px] text-muted hover:text-ink outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-50 disabled:pointer-events-none";
+const SEG = "flex rounded-xl bg-chip p-0.5";
+const SELECT = "h-10 w-full rounded-xl border border-input bg-panel px-2.5 text-sm";
+const CHOICE = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover outline-none focus-visible:bg-hover";
+
+/**
+ * New agent: one small sheet. Its ghost (click it for another look), its name with one suggested
+ * already, and Create; it uses your defaults and opens its chat, where it says hello and asks for
+ * the rest. "More options" unfolds everything else in the same sheet: what it does, instructions,
+ * which AI and computer, handle, who it answers, apps and skills, the look editor, and bringing in
+ * an agent that already runs somewhere. "Make it a team" opens the new-team flow instead.
  */
 /** `onCreated`: hand the new agent back (to a team being built, say) instead of opening its page. `nodeId`: start on this device. */
 export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringIn }: { nodes: NodeInfo[]; onClose: () => void; onCreated?: (agent: Agent) => void; nodeId?: string; bringIn?: boolean }) {
@@ -232,17 +275,20 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   useEffect(() => {
     const body = bodyRef.current;
     body?.scrollTo({ top: 0 });
-    (body?.querySelector<HTMLElement>("input") ?? body?.querySelector<HTMLElement>("h1"))?.focus();
+    const first = body?.querySelector<HTMLElement>("input") ?? body?.querySelector<HTMLElement>("h1");
+    first?.focus();
+    // the suggested name is selected, so typing replaces it
+    if (view === "form") (first as Partial<HTMLInputElement> | undefined)?.select?.();
   }, [view]);
 
   // who it is
-  const [name, setName] = useState("");
+  const [name, setName] = useState(() => suggestName(agents));
+  // only what was typed under More options; without it a free handle follows the name
   const [handle, setHandle] = useState("");
-  const [handleEdited, setHandleEdited] = useState(false);
   const [role, setRole] = useState("");
   const [instructions, setInstructions] = useState("");
-  // every new agent starts white with a face and outfit of its own, picked once (typing its name doesn't change it)
-  const [appearance, setAppearance] = useState<GhostAppearance>(() => ({ ...randomAppearance(), ...GHOST_WHITE }));
+  // every new agent gets a look of its own, picked once (typing its name doesn't change it)
+  const [appearance, setAppearance] = useState<GhostAppearance>(randomAppearance);
 
   // which AI and computer
   const [defaults, setDefaults] = useState<AgentDefaults | null | "error">(null);
@@ -266,11 +312,20 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   }, [firstUsable]);
   useEffect(() => {
     let live = true;
+    // no default AI to use: start on one that's signed in on its device (the pick is under More options)
+    const startSignedIn = () => {
+      const on = nodes.find((n) => n.id === nodeId);
+      const pick = preferSignedIn((on?.harnesses ?? []).map((h) => h.id), (id) => accountsSignedIn(on?.harnesses?.find((h) => h.id === id)?.accounts));
+      if (pick && !touched.current) setHarness(pick);
+    };
     api<AgentDefaults>("GET", "/api/settings/agent-defaults").then(
       (d) => {
         if (!live) return;
         setDefaults(d);
-        if (defaultsNeedPicking(d)) setMode("custom");
+        if (defaultsNeedPicking(d)) {
+          setMode("custom");
+          startSignedIn();
+        }
         // Customize starts from the defaults, unless you already changed something
         if (touched.current) return;
         if (d.harness) setHarness(d.harness);
@@ -282,12 +337,10 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
       },
       () => {
         if (!live) return;
-        // an older hub has no defaults: pick here instead, starting on an AI that's signed in
+        // an older hub has no defaults: pick here instead
         setDefaults("error");
         setMode("custom");
-        const on = nodes.find((n) => n.id === nodeId);
-        const pick = preferSignedIn((on?.harnesses ?? []).map((h) => h.id), (id) => accountsSignedIn(on?.harnesses?.find((h) => h.id === id)?.accounts));
-        if (pick && !touched.current) setHarness(pick);
+        startSignedIn();
       },
     );
     return () => {
@@ -304,8 +357,12 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
     }
   };
 
-  // More options: handle, who it answers, apps and skills
+  // More options: everything past the name
   const [advanced, setAdvanced] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (advanced) optionsRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [advanced]);
   const [respondTo, setRespondTo] = useState<RespondTo>("me");
   const [respondPeople, setRespondPeople] = useState<string[]>([]);
   const [connectors, setConnectors] = useState<Connector[] | null>(null);
@@ -344,12 +401,12 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   const noneSignedIn = !!signInFirst && !(node?.harnesses ?? []).some((h) => accountsSignedIn(h.accounts) !== false);
 
   const cleanName = name.trim();
-  const finalHandle = handle || slug(cleanName);
-  // every agent has its own colors: the ghost follows its handle until you pick a look
+  const typedHandle = slug(handle);
+  const finalHandle = typedHandle || autoHandle(cleanName, agents.map((a) => a.handle));
   const look = appearance;
-  const invalidHandle = !/^[a-z][a-z0-9-]{0,31}$/.test(finalHandle);
-  const taken = agents.some((a) => a.handle === finalHandle);
-  const validName = !!cleanName && !invalidHandle && !taken;
+  // one short line under the field it is about
+  const problem = nameProblem(cleanName, typedHandle, agents);
+  const validName = !!cleanName && !problem;
 
   const others = people.filter((p) => p.id !== me?.user.id);
   const togglePick = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
@@ -358,6 +415,17 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
     if (created && onCreated) return onCreated(created);
     onClose();
     if (created) go({ view: "agents", agentId: created.id, tab: "connect" });
+  };
+  // a team instead: the same flow the sidebar's plus opens
+  const makeTeam = () => {
+    onClose();
+    useStore.setState({ channelBrowser: { sectionId: null, create: true } });
+  };
+  const startInvite = () => {
+    setInvite(true);
+    // which harness it joins from is picked under More options
+    setAdvanced(true);
+    setView("form");
   };
 
   const submit = async () => {
@@ -428,351 +496,310 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   };
 
   const summary = defaults && defaults !== "error" ? defaultsSummary(defaults, nodes, simple) : null;
+  const failed = error ? `${error}${created ? " Your agent was created. Retry to finish its invitation." : ""}` : null;
+  // the line under the name: what is wrong when something is, else the one thing to know
+  const handleProblem = problem && typedHandle && advanced ? problem : null;
+  const underName = handleProblem ? null : (problem ?? (advanced ? null : failed));
+  const width = view === "look" ? "sm:max-w-[920px]!" : view === "external" || (view === "form" && !advanced) ? "sm:max-w-[420px]!" : "sm:max-w-[560px]!";
 
   return (
-    <Modal title="New agent" label="New agent" onClose={busy ? () => {} : onClose} headerless className="sm:max-w-[920px]!" contentClassName="p-0!">
+    <Modal title="New agent" label="New agent" onClose={busy ? () => {} : onClose} headerless className={cx("sm:rounded-[18px]! transition-[max-width] duration-300 ease-[cubic-bezier(.165,.84,.44,1)] motion-reduce:transition-none", width)} contentClassName="p-0!">
       <div ref={bodyRef}>
         {view === "form" && (
           <form
+            className="relative flex flex-col items-center px-6 sm:px-8 pt-9 pb-5"
             onSubmit={(e) => {
               e.preventDefault();
               void submit();
             }}
           >
-            <div className="flex items-start justify-between gap-4 px-5 sm:px-7 pt-6 pb-1">
-              <div>
-                <h1 tabIndex={-1} className="t-title">
-                  {invite ? "Invite an agent" : "New agent"}
-                </h1>
-              </div>
-              <button type="button" onClick={onClose} disabled={busy} className="size-9 shrink-0 rounded-xl bg-chip hover:bg-hover grid place-items-center text-muted hover:text-ink" aria-label="Close">
-                <X size={16} />
-              </button>
-            </div>
+            <button type="button" onClick={onClose} disabled={busy} className="circle circle-sm absolute right-3 top-3 border-0! bg-chip text-muted hover:text-ink" aria-label="Close">
+              <X size={16} />
+            </button>
+            {/* its ghost: a click gives it another look */}
+            <button type="button" disabled={busy || !!created} onClick={() => setAppearance(randomAppearance())} aria-label="Change its look" className="rounded-[20px] outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none">
+              <Ghost look={look} size={104} trackPointer label="" />
+            </button>
 
-            <div className="flex flex-col md:flex-row gap-6 md:gap-7 px-5 sm:px-7 pt-4 pb-6">
-              {/* its ghost */}
-              <div className="md:w-60 shrink-0 self-stretch md:self-start md:sticky md:top-4 rounded-xl bg-bg px-4 py-6 flex flex-col items-center gap-3.5">
-                <Ghost look={look} size={140} trackPointer label="Your new agent, looking toward your pointer" />
-                <div className="text-center min-w-0 max-w-full">
-                  <div className="text-lg font-medium truncate">{cleanName || "Your agent"}</div>
-                  <div className="text-[13px] text-muted truncate">@{finalHandle || "your-agent"}</div>
-                </div>
-                <GhostColors look={look} onChange={(c) => setAppearance({ ...look, ...c })} limit={5} size={26} disabled={!!created} />
-                <div className="flex gap-2">
-                  <Button type="button" className="h-8! rounded-full! px-3.5! text-[13px]" disabled={!!created} onClick={() => setAppearance(randomAppearance())} aria-label="Shuffle its look">
-                    <Shuffle size={14} /> Shuffle
-                  </Button>
-                  <Button type="button" variant="primary" className="h-8! rounded-full! px-3.5! text-[13px]" disabled={!!created} onClick={() => setView("look")}>
-                    Edit look
-                  </Button>
-                </div>
-              </div>
+            <fieldset disabled={busy || !!created} className="w-full min-w-0">
+              <input
+                aria-label="Name"
+                placeholder="Name"
+                maxLength={80}
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="off"
+                className="w-full bg-transparent pt-2.5 pb-0.5 text-center text-[28px] leading-9 font-[650] outline-none placeholder:text-faint border-b border-transparent focus-visible:border-line2"
+              />
+              {underName ? (
+                <p role="alert" className="pt-1.5 pb-[18px] text-center text-sm text-bad">
+                  {underName}
+                </p>
+              ) : (
+                <p className="pt-1.5 pb-[18px] text-center text-sm text-muted">{external ? "It joins with an invitation." : "It says hello and sets itself up in the chat."}</p>
+              )}
 
-              {/* the form */}
-              <fieldset disabled={busy || !!created} className="flex-1 min-w-0 space-y-5">
-                <div className="flex flex-col sm:flex-row gap-3.5">
-                  <label className="flex-1 space-y-1.5">
-                    <span className="block text-sm font-medium">Name</span>
-                    <Input
-                      maxLength={80}
-                      value={name}
-                      required
-                      placeholder="e.g. Nova"
-                      className="h-11! text-body!"
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        if (!handleEdited) setHandle(slug(e.target.value));
-                      }}
-                    />
+              {advanced && (
+                <div ref={optionsRef} className="space-y-4 pb-5 text-left">
+                  <label className="block space-y-1.5">
+                    <span className={LABEL}>What it does</span>
+                    <Input maxLength={60} value={role} onChange={(e) => setRole(e.target.value)} aria-label="What it does" className="h-10!" />
                   </label>
-                  <label className="flex-[1.4] space-y-1.5">
-                    <span className="block text-sm font-medium">
-                      What it does <span className="font-normal text-muted">· Optional</span>
-                    </span>
-                    <Input maxLength={60} value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Builds and ships websites" className="h-11! text-body!" />
+                  <label className="block space-y-1.5">
+                    <span className={LABEL}>Instructions</span>
+                    <Textarea rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} aria-label="Instructions" />
                   </label>
-                </div>
-                {cleanName && invalidHandle && <p className="text-xs text-bad -mt-3">Include a letter from a–z so your agent can have an @handle.</p>}
-                {taken && (
-                  <p className="text-xs text-bad -mt-3">
-                    @{finalHandle} is already taken. Choose another name or{" "}
-                    <button
-                      type="button"
-                      className="underline"
-                      onClick={() => {
-                        setHandle(freeHandle(cleanName, agents.map((a) => a.handle)));
-                        setHandleEdited(true);
-                      }}
-                    >
-                      use an available handle
-                    </button>
-                    .
-                  </p>
-                )}
 
-                <label className="block space-y-1.5">
-                  <span className="block text-sm font-medium">Instructions</span>
-                  <Textarea rows={4} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="What is this agent responsible for, and how should it work?" />
-                </label>
-
-                {invite ? (
-                  <div className="space-y-2.5">
-                    <span className="block text-sm font-medium">Harness it runs on</span>
-                    <HarnessGrid list={harnesses} harness={harness} onPick={setHarness} label="Agent harness" />
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span className="text-sm font-medium">AI and computer</span>
-                      {defaults !== "error" && (
-                        <div className="flex rounded-xl bg-chip p-0.5" role="radiogroup" aria-label="AI and computer">
-                          {(
-                            [
-                              ["defaults", "Use my defaults"],
-                              ["custom", "Customize"],
-                            ] as const
-                          ).map(([m, label]) => (
-                            <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={cx("h-8 px-3.5 rounded-[10px] text-[13px] font-medium", mode === m ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                  {invite ? (
+                    <div className="space-y-1.5">
+                      <span className={LABEL}>Joins from</span>
+                      <HarnessGrid list={harnesses} harness={harness} onPick={setHarness} label="Agent harness" />
                     </div>
-                    {mode === "defaults" && defaults !== "error" ? (
-                      <div className="rounded-2xl bg-bg px-4 py-3 flex flex-wrap items-center gap-4">
-                        <div className="flex-1 min-w-36">
-                          <div className="text-xs font-medium text-muted">AI</div>
-                          <div className="text-sm font-medium flex items-center gap-1.5">
-                            {defaults?.harness && <HarnessLogo harness={defaults.harness} size={16} />}
-                            {summary ? summary.ai : "Loading…"}
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-36">
-                          <div className="text-xs font-medium text-muted">Computer</div>
-                          <div className="text-sm font-medium">{summary ? summary.computer : "Loading…"}</div>
-                        </div>
-                        <a href="#/settings/agent-defaults" onClick={onClose} className="text-[13px] font-medium text-accent-text hover:underline">
-                          Change defaults
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {defaults === "error" && <p className="text-xs text-muted">Pick which AI it uses and where it works.</p>}
-                        <div className="grid sm:grid-cols-3 gap-3">
-                          <label className="space-y-1.5">
-                            <span className="block text-[13px] font-medium text-muted">Runs on</span>
-                            <select
-                              value={harness}
-                              onChange={(e) => {
-                                touched.current = true;
-                                setHarness(e.target.value);
-                              }}
-                              className="h-10 w-full rounded-xl border border-input bg-panel px-2.5 text-sm"
-                            >
-                              {harnesses.map((h) => (
-                                <option key={h.id} value={h.id}>
-                                  {h.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="space-y-1.5">
-                            <span className="block text-[13px] font-medium text-muted">Model</span>
-                            <Input
-                              value={model}
-                              onChange={(e) => {
-                                touched.current = true;
-                                setModel(e.target.value);
-                              }}
-                              placeholder="Automatic"
-                              list="new-agent-models"
-                              className="h-10!"
-                            />
-                            <datalist id="new-agent-models">{defaults && defaults !== "error" && defaults.model && <option value={defaults.model} />}</datalist>
-                          </label>
-                          {/* only ask which device when there's a real choice, and only in Advanced */}
-                          {simple ? null : usable.length < 2 ? (
-                            <div className="space-y-1.5">
-                              <span className="block text-[13px] font-medium text-muted">Device</span>
-                              <div className="h-10 flex items-center text-sm">
-                                {usable[0] ? `${usable[0].name}${usable[0].online ? "" : " (offline)"}` : "None yet. Connect one under Devices."}
-                              </div>
-                            </div>
-                          ) : (
-                          <label className="space-y-1.5">
-                            <span className="block text-[13px] font-medium text-muted">Device</span>
-                            {/* only ask which device when there's a real choice */}
-                            {usable.length < 2 ? (
-                              <p className="h-10 flex items-center text-sm text-muted">
-                                {usable[0] ? `Runs on ${usable[0].name}${usable[0].online ? "" : " (offline)"}.` : "No device yet. Connect one under Devices and pick it then."}
-                              </p>
-                            ) : (
-                            <select
-                              value={nodeId}
-                              onChange={(e) => {
-                                touched.current = true;
-                                setNodeId(e.target.value);
-                                setComputer(defaultComputer(nodes.find((n) => n.id === e.target.value), computers));
-                              }}
-                              className="h-10 w-full rounded-xl border border-input bg-panel px-2.5 text-sm"
-                            >
-                              <option value="">Decide later</option>
-                              {usable.map((n) => (
-                                <option key={n.id} value={n.id}>
-                                  {n.name} ({n.online ? "online" : "offline"})
-                                </option>
-                              ))}
-                            </select>
-                            )}
-                          </label>
-                          )}
-                        </div>
-                        {selectedHarness.protocol !== "mcp" && !simple && <ComputerPicker value={computer} onChange={chooseComputer} node={node} nodes={nodes} />}
-                        {!simple && node && !runsInVm(harness) && !installed.has(harness) && selectedHarness.protocol !== "mcp" && (
-                          <p className="text-xs text-muted">
-                            Install {selectedHarness.label} on {node.name} before its first run.
-                          </p>
-                        )}
-                        {!simple && node && !node.online && (
-                          <p role="status" className="text-xs text-warn">
-                            {node.name} is offline. You can create {cleanName || "this agent"} now, but it can't answer until {node.name} reconnects.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {signInFirst && (
-                      <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-warn/40 bg-warn/10 px-3.5 py-2.5 text-[13px]">
-                        <span className="min-w-0 flex-1">
-                          {noneSignedIn ? `No AI is signed in on ${signInFirst.where} yet. Sign in to ${harnessLabel(signInFirst.harness)} so ${cleanName || "this agent"} can answer.` : `${harnessLabel(signInFirst.harness)} isn't signed in on ${signInFirst.where}. Sign in, or pick another AI.`}
-                        </span>
-                        <HarnessSignInButton signIn={signInFirst} />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="rounded-2xl border border-line">
-                  <button type="button" onClick={() => setAdvanced(!advanced)} aria-expanded={advanced} className="w-full flex items-center gap-2.5 px-3.5 py-3 text-left">
-                    <ChevronRight size={16} className={cx("shrink-0 transition-transform", advanced && "rotate-90")} />
-                    <span className="text-sm font-medium">More options</span>
-                    <span className="text-[13px] text-muted truncate">Handle{inviteOn ? ", who it answers" : ""}, apps and skills</span>
-                  </button>
-                  {advanced && (
-                    <div className="grid sm:grid-cols-2 gap-4 px-4 pb-4 pt-1">
-                      <label className="space-y-1.5">
-                        <span className="block text-[13px] font-medium text-muted">Handle</span>
-                        <Input
-                          value={handle}
-                          onChange={(e) => {
-                            setHandle(slug(e.target.value));
-                            setHandleEdited(true);
-                          }}
-                          placeholder={slug(cleanName) || "your-agent"}
-                          aria-label="Handle"
-                          className="h-10!"
-                        />
-                        <span className="block text-xs text-muted">How people and agents @mention it.</span>
-                      </label>
-                      {inviteOn && (
-                        <div className="space-y-1.5">
-                          <span className="block text-[13px] font-medium text-muted">Answers</span>
-                          <div className="flex rounded-xl bg-chip p-0.5" role="radiogroup" aria-label="Who it answers">
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span className={LABEL}>AI and computer</span>
+                        {defaults !== "error" && (
+                          <div className={SEG} role="radiogroup" aria-label="AI and computer">
                             {(
                               [
-                                ["me", "Only me"],
-                                ["anyone", "Anyone"],
-                                ["people", "Picked people"],
+                                ["defaults", "Use my defaults"],
+                                ["custom", "Customize"],
                               ] as const
-                            ).map(([v, label]) => (
-                              <button key={v} type="button" role="radio" aria-checked={respondTo === v} onClick={() => setRespondTo(v)} className={cx("flex-1 h-8 px-2 rounded-[10px] text-[13px] font-medium whitespace-nowrap", respondTo === v ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
+                            ).map(([m, label]) => (
+                              <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={cx("h-8 px-3.5 rounded-[10px] text-[13px] font-medium", mode === m ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
                                 {label}
                               </button>
                             ))}
                           </div>
-                          {respondTo === "people" &&
-                            (others.length ? (
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                {others.map((p) => (
-                                  <Chip key={p.id} small on={respondPeople.includes(p.id)} onClick={() => setRespondPeople(togglePick(respondPeople, p.id))}>
-                                    {p.name}
-                                  </Chip>
+                        )}
+                      </div>
+                      {mode === "defaults" && defaults !== "error" ? (
+                        <div className="rounded-[14px] bg-card px-3.5 py-1.5 text-[14px]">
+                          <div className="flex h-9 items-center gap-3">
+                            <span className="shrink-0 font-medium">AI</span>
+                            <span className="min-w-0 flex-1 flex items-center justify-end gap-1.5 text-[13px] text-muted">
+                              {defaults?.harness && <HarnessLogo harness={defaults.harness} size={15} />}
+                              <span className="truncate">{summary ? summary.ai : "Loading…"}</span>
+                            </span>
+                          </div>
+                          <div className="flex h-9 items-center gap-3">
+                            <span className="shrink-0 font-medium">Computer</span>
+                            <span className="min-w-0 flex-1 truncate text-right text-[13px] text-muted">{summary ? summary.computer : "Loading…"}</span>
+                          </div>
+                          <div className="flex h-9 items-center justify-end">
+                            <a href="#/settings/agent-defaults" onClick={onClose} className="text-[13px] text-muted hover:text-ink underline underline-offset-2">
+                              Change defaults
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            <label className="space-y-1.5">
+                              <span className={LABEL}>Runs on</span>
+                              <select
+                                value={harness}
+                                onChange={(e) => {
+                                  touched.current = true;
+                                  setHarness(e.target.value);
+                                }}
+                                className={SELECT}
+                              >
+                                {harnesses.map((h) => (
+                                  <option key={h.id} value={h.id}>
+                                    {h.label}
+                                  </option>
                                 ))}
+                              </select>
+                            </label>
+                            <label className="space-y-1.5">
+                              <span className={LABEL}>Model</span>
+                              <Input
+                                value={model}
+                                onChange={(e) => {
+                                  touched.current = true;
+                                  setModel(e.target.value);
+                                }}
+                                placeholder="Automatic"
+                                list="new-agent-models"
+                                className="h-10!"
+                              />
+                              <datalist id="new-agent-models">{defaults && defaults !== "error" && defaults.model && <option value={defaults.model} />}</datalist>
+                            </label>
+                            {/* only ask which device when there's a real choice, and only in Advanced */}
+                            {simple ? null : usable.length < 2 ? (
+                              <div className="space-y-1.5">
+                                <span className={LABEL}>Device</span>
+                                <div className="h-10 flex items-center text-sm">{usable[0] ? `${usable[0].name}${usable[0].online ? "" : " (offline)"}` : "None yet. Connect one under Devices."}</div>
                               </div>
                             ) : (
-                              <p className="text-xs text-muted">Nobody else is here yet. Invite people first; until then it answers only you.</p>
-                            ))}
+                              <label className="space-y-1.5">
+                                <span className={LABEL}>Device</span>
+                                <select
+                                  value={nodeId}
+                                  onChange={(e) => {
+                                    touched.current = true;
+                                    setNodeId(e.target.value);
+                                    setComputer(defaultComputer(nodes.find((n) => n.id === e.target.value), computers));
+                                  }}
+                                  className={SELECT}
+                                >
+                                  <option value="">Decide later</option>
+                                  {usable.map((n) => (
+                                    <option key={n.id} value={n.id}>
+                                      {n.name} ({n.online ? "online" : "offline"})
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
+                          </div>
+                          {selectedHarness.protocol !== "mcp" && !simple && <ComputerPicker value={computer} onChange={chooseComputer} node={node} nodes={nodes} />}
+                          {!simple && node && !runsInVm(harness) && !installed.has(harness) && selectedHarness.protocol !== "mcp" && (
+                            <p className="text-xs text-muted">
+                              Install {selectedHarness.label} on {node.name} first.
+                            </p>
+                          )}
+                          {!simple && node && !node.online && (
+                            <p role="status" className="text-xs text-warn">
+                              {node.name} is offline. It answers once {node.name} reconnects.
+                            </p>
+                          )}
                         </div>
                       )}
-                      <div className="space-y-1.5">
-                        <span className="block text-[13px] font-medium text-muted">Connected apps</span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {connectors === null && <span className="text-xs text-muted">Loading…</span>}
-                          {connectors?.map((c) =>
-                            c.allAgents ? (
-                              <span key={c.id} className="h-8 px-2.5 rounded-lg bg-chip text-[13px] font-medium inline-flex items-center gap-1" title="On for all agents">
-                                <Check size={13} /> {c.name}
-                              </span>
-                            ) : (
-                              <Chip key={c.id} small on={pickedApps.includes(c.id)} onClick={() => setPickedApps(togglePick(pickedApps, c.id))}>
-                                {c.name}
-                              </Chip>
-                            ),
-                          )}
-                          <AddChip onClick={() => (onClose(), go({ view: "connectors" }))} />
+                      {signInFirst && (
+                        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] bg-card px-3.5 py-2.5 text-[13px]">
+                          <span className="min-w-0 flex-1">{noneSignedIn ? `No AI is signed in on ${signInFirst.where} yet.` : `${harnessLabel(signInFirst.harness)} isn't signed in on ${signInFirst.where}.`}</span>
+                          <HarnessSignInButton signIn={signInFirst} />
                         </div>
-                        {!canUseConnectedApps(selectedHarness) && <p className="text-xs text-muted">{selectedHarness.label} can't use connected apps yet.</p>}
-                      </div>
-                      <div className="space-y-1.5">
-                        <span className="block text-[13px] font-medium text-muted">Skills</span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {skills === null && <span className="text-xs text-muted">Loading…</span>}
-                          {skills?.map((sk) =>
-                            sk.allAgents ? (
-                              <span key={sk.id} className="h-8 px-2.5 rounded-lg bg-chip text-[13px] font-medium inline-flex items-center gap-1" title="On for all agents">
-                                <Check size={13} /> {sk.name}
-                              </span>
-                            ) : (
-                              <Chip key={sk.id} small on={pickedSkills.includes(sk.id)} onClick={() => setPickedSkills(togglePick(pickedSkills, sk.id))} title={sk.description}>
-                                {sk.name}
-                              </Chip>
-                            ),
-                          )}
-                          <AddChip onClick={() => (onClose(), go({ view: "skills" }))} />
-                        </div>
-                      </div>
+                      )}
                     </div>
                   )}
-                </div>
-              </fieldset>
-            </div>
 
-            {error && (
-              <p role="alert" className="px-5 sm:px-7 pb-3 text-sm text-bad">
-                {error}
-                {created ? " Your agent was created. Retry to finish its invitation." : ""}
+                  <label className="block space-y-1.5">
+                    <span className={LABEL}>Handle</span>
+                    <Input
+                      value={handle}
+                      // loose while typing (a dash can be followed by more); the handle used is its tidy form
+                      onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^[^a-z]+/, "").slice(0, 32))}
+                      placeholder={finalHandle}
+                      aria-label="Handle"
+                      aria-invalid={!!handleProblem}
+                      className="h-10!"
+                    />
+                    {handleProblem && (
+                      <span role="alert" className="block text-xs text-bad">
+                        {handleProblem}
+                      </span>
+                    )}
+                  </label>
+                  {inviteOn && (
+                    <div className="space-y-1.5">
+                      <span className={LABEL}>Answers</span>
+                      <div className={SEG} role="radiogroup" aria-label="Who it answers">
+                        {(
+                          [
+                            ["me", "Only me"],
+                            ["anyone", "Anyone"],
+                            ["people", "Picked people"],
+                          ] as const
+                        ).map(([v, label]) => (
+                          <button key={v} type="button" role="radio" aria-checked={respondTo === v} onClick={() => setRespondTo(v)} className={cx("flex-1 h-8 px-2 rounded-[10px] text-[13px] font-medium whitespace-nowrap", respondTo === v ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {respondTo === "people" &&
+                        (others.length ? (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {others.map((p) => (
+                              <Chip key={p.id} small on={respondPeople.includes(p.id)} onClick={() => setRespondPeople(togglePick(respondPeople, p.id))}>
+                                {p.name}
+                              </Chip>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted">Nobody else is here yet.</p>
+                        ))}
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <span className={LABEL}>Apps</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {connectors === null && <span className="text-xs text-muted">Loading…</span>}
+                      {connectors?.map((c) =>
+                        c.allAgents ? (
+                          <span key={c.id} className="h-8 px-2.5 rounded-lg bg-chip text-[13px] font-medium inline-flex items-center gap-1" title="On for all agents">
+                            <Check size={13} /> {c.name}
+                          </span>
+                        ) : (
+                          <Chip key={c.id} small on={pickedApps.includes(c.id)} onClick={() => setPickedApps(togglePick(pickedApps, c.id))}>
+                            {c.name}
+                          </Chip>
+                        ),
+                      )}
+                      <AddChip onClick={() => (onClose(), go({ view: "connectors" }))} />
+                    </div>
+                    {!canUseConnectedApps(selectedHarness) && <p className="text-xs text-muted">{selectedHarness.label} can't use apps yet.</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className={LABEL}>Skills</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {skills === null && <span className="text-xs text-muted">Loading…</span>}
+                      {skills?.map((sk) =>
+                        sk.allAgents ? (
+                          <span key={sk.id} className="h-8 px-2.5 rounded-lg bg-chip text-[13px] font-medium inline-flex items-center gap-1" title="On for all agents">
+                            <Check size={13} /> {sk.name}
+                          </span>
+                        ) : (
+                          <Chip key={sk.id} small on={pickedSkills.includes(sk.id)} onClick={() => setPickedSkills(togglePick(pickedSkills, sk.id))} title={sk.description}>
+                            {sk.name}
+                          </Chip>
+                        ),
+                      )}
+                      <AddChip onClick={() => (onClose(), go({ view: "skills" }))} />
+                    </div>
+                  </div>
+                  <div className="-mx-2.5 flex flex-wrap gap-x-2">
+                    <button type="button" className={QUIET} onClick={() => setView("look")}>
+                      Edit look
+                    </button>
+                    {!invite && (
+                      <button type="button" className={QUIET} onClick={() => setView("external")}>
+                        Bring one in
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </fieldset>
+
+            {advanced && failed && (
+              <p role="alert" className="w-full pb-3 text-center text-sm text-bad">
+                {failed}
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-7 py-4 border-t border-line bg-bg rounded-b-3xl">
+            <Button type="submit" variant="primary" disabled={busy || (!created && (!validName || (mode === "defaults" && !invite && defaults === null)))} className="w-full h-11! text-[15px]">
+              {busy && <Loader2 size={16} className="animate-spin" />}
+              {external ? "Create invitation" : "Create"}
+            </Button>
+            <div className="flex flex-wrap justify-center gap-x-2 pt-2">
+              <button type="button" className={QUIET} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
+                {advanced ? "Fewer options" : "More options"}
+              </button>
               {invite ? (
-                <button type="button" disabled={busy || !!created} onClick={() => setInvite(false)} className="text-[13px] font-medium text-muted hover:text-ink">
-                  Make a new agent instead
+                <button type="button" className={QUIET} disabled={busy || !!created} onClick={() => setInvite(false)}>
+                  New agent instead
                 </button>
               ) : (
-                <button type="button" disabled={busy || !!created} onClick={() => setView("external")} className="text-[13px] font-medium text-muted hover:text-ink underline-offset-2 hover:underline">
-                  Already running somewhere? Bring it in
-                </button>
+                !onCreated && (
+                  <button type="button" className={QUIET} disabled={busy || !!created} onClick={makeTeam}>
+                    Make it a team
+                  </button>
+                )
               )}
-              <div className="flex gap-2.5 ml-auto">
-                <Button type="button" variant="ghost" disabled={busy} onClick={onClose} className="h-11! rounded-full! px-5!">
-                  Cancel
-                </Button>
-                <Button type="submit" variant="primary" disabled={busy || (!created && (!validName || (mode === "defaults" && !invite && defaults === null)))} className="h-11! rounded-full! px-5!">
-                  {busy && <Loader2 size={16} className="animate-spin" />}
-                  {external ? "Create invitation" : "Create agent"}
-                </Button>
-              </div>
             </div>
           </form>
         )}
@@ -793,66 +820,39 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
         )}
 
         {view === "external" && (
-          <div className="p-5 sm:p-7 space-y-5">
-            <BackHeader title="Bring your agent along" onBack={() => setView("form")} />
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setInvite(true);
-                  setView("form");
-                }}
-                className="agent-external-choice"
-              >
-                <UserPlus size={22} className="shrink-0 mt-0.5" />
-                <span className="flex-1">
-                  <span className="block font-medium">
-                    Invite an agent <Pill>Recommended</Pill>
-                  </span>
-                  <span className="block text-sm text-muted mt-1">Connect any MCP-capable session with an invitation. No device search needed.</span>
-                </span>
-                <ArrowRight size={18} className="shrink-0" />
+          <div className="p-5 sm:p-6 space-y-4">
+            <BackHeader title="Bring one in" onBack={() => setView("form")} />
+            <div className="rounded-[14px] bg-card overflow-hidden">
+              <button type="button" onClick={startInvite} className={CHOICE}>
+                <UserPlus size={17} className="shrink-0 text-muted" aria-hidden />
+                <span className="min-w-0 flex-1 truncate font-medium">Invite an agent</span>
+                <ChevronRight size={15} className="shrink-0 text-faint" aria-hidden />
               </button>
-              <button type="button" onClick={() => setView("discover")} className="agent-external-choice">
-                <Search size={22} className="shrink-0 mt-0.5" />
-                <span className="flex-1">
-                  <span className="block font-medium">Find on a connected device</span>
-                  <span className="block text-sm text-muted mt-1">Import a saved setup with its personality, instructions, and supported memory notes.</span>
-                </span>
-                <ArrowRight size={18} className="shrink-0" />
+              <button type="button" onClick={() => setView("discover")} className={CHOICE}>
+                <Search size={17} className="shrink-0 text-muted" aria-hidden />
+                <span className="min-w-0 flex-1 truncate font-medium">Find on a device</span>
+                <ChevronRight size={15} className="shrink-0 text-faint" aria-hidden />
               </button>
             </div>
           </div>
         )}
 
         {view === "discover" && (
-          <div className="p-5 sm:p-7 space-y-5">
-            <BackHeader title="Find an existing agent" onBack={() => setView("external")} />
-            <ImportAgent
-              nodes={nodes}
-              onClose={onClose}
-              onInvite={() => {
-                setInvite(true);
-                setView("form");
-              }}
-            />
+          <div className="p-5 sm:p-6 space-y-4">
+            <BackHeader title="Find an agent" onBack={() => setView("external")} />
+            <ImportAgent nodes={nodes} onClose={onClose} onInvite={startInvite} />
           </div>
         )}
 
         {view === "invitation" && token && (
-          <div className="p-5 sm:p-7 space-y-6">
-            <div className="flex items-center gap-4">
-              <Ghost look={look} size={72} trackPointer />
-              <div>
-                <h1 tabIndex={-1} className="t-title">
-                  Invite {cleanName} to Wisp
-                </h1>
-              </div>
+          <div className="p-5 sm:p-6 space-y-5">
+            <div className="flex items-center gap-3.5">
+              <Ghost look={look} size={56} trackPointer />
+              <h1 tabIndex={-1} className="min-w-0 text-[19px] font-semibold leading-[26px] outline-none">
+                Invite {cleanName} to Wisp
+              </h1>
             </div>
             <ConnectionInstructions token={token} harness={harness} />
-            <div className="rounded-xl border border-line p-4 text-sm text-muted">
-              Once connected, ask it to introduce itself and save selected notes with <code className="text-ink">memory_write</code>. Its local profile and skills aren't imported automatically.
-            </div>
             <div className="flex justify-end gap-2">
               {!onCreated && (
                 <Button type="button" variant="ghost" onClick={finish}>
@@ -860,7 +860,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                 </Button>
               )}
               <Button type="button" variant="primary" onClick={finish}>
-                {onCreated ? "Back to the team" : "Open agent"} <ArrowRight size={16} />
+                {onCreated ? "Back to team" : "Open agent"} <ArrowRight size={16} />
               </Button>
             </div>
           </div>
@@ -888,15 +888,13 @@ function AddChip({ onClick }: { onClick: () => void }) {
 
 function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="flex items-start gap-3">
-      <button type="button" onClick={onBack} className="size-9 shrink-0 rounded-xl bg-chip hover:bg-hover grid place-items-center text-muted hover:text-ink" aria-label="Back">
-        <ArrowLeft size={17} />
+    <div className="flex items-center gap-3">
+      <button type="button" onClick={onBack} className="circle circle-sm border-0! bg-chip text-muted hover:text-ink" aria-label="Back">
+        <ArrowLeft size={16} />
       </button>
-      <div>
-        <h1 tabIndex={-1} className="t-title">
-          {title}
-        </h1>
-      </div>
+      <h1 tabIndex={-1} className="min-w-0 truncate text-[17px] font-semibold leading-6 outline-none">
+        {title}
+      </h1>
     </div>
   );
 }
@@ -1032,12 +1030,10 @@ export function ImportAgent({
 
   if (!found.length)
     return (
-      <div className="rounded-xl border border-line p-5 space-y-4 text-sm">
+      <div className="rounded-[14px] bg-card p-4 space-y-3 text-sm">
         <p className="font-medium">No saved setups found yet</p>
         <p className="text-muted">
-          Wisp checks known configuration folders on your connected devices.
-          Custom locations and other profiles may not appear; it doesn't search
-          for running processes.
+          {usableDevices(nodes).some((n) => n.online) ? "Wisp checks known folders on your connected devices." : "Connect a device first."}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="primary" onClick={onInvite}>
@@ -1057,11 +1053,6 @@ export function ImportAgent({
             {scanning ? "Looking…" : "Look again"}
           </Button>
         </div>
-        {!usableDevices(nodes).some((n) => n.online) && (
-          <p className="text-xs text-muted">
-            Connect a device under Devices to discover its saved agent setups.
-          </p>
-        )}
         {error && (
           <p role="alert" className="text-bad">
             {error}
@@ -1116,11 +1107,7 @@ export function ImportAgent({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center gap-3">
-        <p className="text-xs text-muted">
-          Imports personality, instructions, and supported notes. Skills stay on
-          the original device.
-        </p>
+      <div className="flex justify-end">
         <Button type="button" disabled={scanning} onClick={() => void scan()}>
           {scanning ? (
             <Loader2 size={15} className="animate-spin" />
@@ -1136,15 +1123,8 @@ export function ImportAgent({
         </p>
       )}
       {fresh.length > 0 && (fresh.length > 1 || imported.current.size > 0) && !pick && (
-        <div className="flex items-center gap-3 rounded-xl bg-hover px-3 py-2.5 text-sm">
-          <span className="flex-1">
-            {fresh.length} agents found. Bring them all in with their
-            instructions and notes, each on{" "}
-            {computers.some((c) => c.kind !== "device")
-              ? "a computer you already have"
-              : "its device"}
-            .
-          </span>
+        <div className="flex items-center gap-3 rounded-[14px] bg-card px-3.5 py-2.5 text-sm">
+          <span className="flex-1">{fresh.length} agents found</span>
           <Button variant="primary" disabled={busy} onClick={bringAll}>
             {busy ? (
               <Loader2 size={15} className="animate-spin" />
@@ -1155,7 +1135,7 @@ export function ImportAgent({
           </Button>
         </div>
       )}
-      <div className="rounded-xl border border-line divide-y divide-line">
+      <div className="rounded-[14px] bg-card overflow-hidden">
         {found.map((x) => {
           const taken = imported.current.has(`${x.node.id}:${x.d.key}`) || agents.some(
             (a) =>
