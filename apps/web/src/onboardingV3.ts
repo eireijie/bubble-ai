@@ -75,6 +75,16 @@ export interface OnboardingAnswers {
   agentId?: string;
   /** page 4: the agent the person shaped; page 5 creates it once its AI is chosen */
   agentDraft?: AgentDraft;
+  /** "Pick your agent": the kinds picked, "Something else" in their words, and that the page was passed */
+  agentTypes?: string[];
+  agentOther?: string;
+  typeDone?: boolean;
+  /** the connectors set up there (ids), given to the first agent once it exists */
+  apps?: string[];
+  /** their names, for "Reading GitHub" while the agent starts */
+  appNames?: string[];
+  /** the Apple apps allowed there */
+  appleApps?: string[];
   /** page 5's Continue switched on calls, routines and the morning plan (onboardingSetup) */
   setupDone?: boolean;
   savedAt?: number;
@@ -193,12 +203,10 @@ export interface AgentDraft {
   handle?: string;
   /** "What I do", one line */
   role: string;
-  /** one of FAMILY_COLORS */
+  /** one of FAMILY_COLORS; the ghost shades it into its gradient */
   color: string;
   /** the shape the app stores (GhostAppearance.shape) */
   shape: "classic" | "round" | "tall" | "sheet" | "wisp";
-  /** the family silhouette picked (the "block" one has no stored shape of its own, so it rides along here) */
-  silhouette?: "drop" | "soft" | "tall" | "wide" | "block" | "ghost";
   /** the start of its instructions */
   instructions: string;
 }

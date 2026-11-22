@@ -1,22 +1,24 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
 import type { GhostMood } from "./Ghost.tsx";
-import { ClassicGhost } from "./onboarding/ClassicGhost.tsx";
-import { WHITE_WISP } from "./SetupStage.tsx";
+import { HOST_LOOK, HostGhost, HostProp, useLookAtFields, type HostPropKind } from "./onboarding/HostGhost.tsx";
 
 /** The five steps after the account: connect, name, memory, setting up, meet. */
 export const TRACK = ["Connect your AI", "Name your agent", "Bring your memory", "Set up", "Meet your agent"] as const;
-/** A new setup's five pages: the old away and address screens, then Getting to know you, Make me yours, Its AI. */
-export const NEW_TRACK = ["Away from home", "Your address", "Getting to know you", "Make me yours", "Its AI"] as const;
+/** A new setup's four pages: away from home (with its address), then Getting to know you, Make me yours, Its AI. */
+export const NEW_TRACK = ["Your agent", "Away from home", "Getting to know you", "Make me yours", "Its AI"] as const;
 
 /**
  * First-run setup's frame: on the left the agent's wisp with one short line from it, at the top a
  * track of five dots (the current one stretched), and the step in the middle. `at` is 1–5 for
  * those steps, 0 before them (server, account, outside your home), where no dot is current yet.
  */
-export function SetupShell({ at, track = TRACK, line, look, mood = "awake", stepKey, onBack, children }: { at: number; track?: readonly string[]; line: string; look?: GhostAppearance; mood?: GhostMood; stepKey: string; onBack?: (() => void) | null; children: ReactNode }) {
+export function SetupShell({ at, track = TRACK, line, look, mood = "awake", prop = null, stepKey, onBack, children }: { at: number; track?: readonly string[]; line: string; look?: GhostAppearance; mood?: GhostMood; prop?: HostPropKind | null; stepKey: string; onBack?: (() => void) | null; children: ReactNode }) {
   useEscBack(onBack);
+  // the host looks at the field you type in, and away while you type a password
+  useLookAtFields();
+  const narrow = useNarrow();
   return (
     <div className="ob-frame" data-testid="setup">
       <aside className="ob-side">
@@ -25,8 +27,9 @@ export function SetupShell({ at, track = TRACK, line, look, mood = "awake", step
           <span>Wisp</span>
         </div>
         <div className="ob-ghost">
-          <div>
-            <ClassicGhost look={look ?? WHITE_WISP} size={132} mood={mood} trackPointer label="" />
+          <div className="ob-ghost-spot">
+            <HostGhost look={look ?? HOST_LOOK} size={narrow ? 48 : 132} mood={mood} />
+            <HostProp kind={prop} size={narrow ? 18 : 30} />
           </div>
           <p key={line} className="ob-line" aria-live="polite">
             {line}
@@ -53,6 +56,19 @@ export function SetupShell({ at, track = TRACK, line, look, mood = "awake", step
   );
 }
 
+/** Phone widths, where the frame stacks and the host sits small beside its line. */
+export function useNarrow(query = "(max-width: 760px)") {
+  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(query);
+    if (!mq) return;
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return narrow;
+}
+
 /** Esc is Back too, unless it's closing something else (a dialog) or would throw away typing. */
 export function useEscBack(onBack: (() => void) | null | undefined) {
   useEffect(() => {
@@ -69,10 +85,10 @@ export function useEscBack(onBack: (() => void) | null | undefined) {
   }, [onBack]);
 }
 
-/** Five dots; the current one is a 28px pill, the ones done and current are ink. */
+/** One dot a step; the current one is a 28px pill, the ones done and current are ink. */
 export function Track({ at, track = TRACK }: { at: number; track?: readonly string[] }) {
   return (
-    <div role="progressbar" aria-label={at ? `Step ${at} of 5: ${track[at - 1]}` : "Getting started"} aria-valuemin={0} aria-valuemax={5} aria-valuenow={at} className="ob-track">
+    <div role="progressbar" aria-label={at && at <= track.length ? `Step ${at} of ${track.length}: ${track[at - 1]}` : "Getting started"} aria-valuemin={0} aria-valuemax={track.length} aria-valuenow={Math.min(at, track.length)} className="ob-track">
       {track.map((name, i) => (
         <span key={name} className="ob-dot" data-state={i + 1 === at ? "now" : i + 1 < at ? "done" : "later"} />
       ))}

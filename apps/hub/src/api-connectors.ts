@@ -8,6 +8,7 @@ import { APP_CALLBACK_PATH, AppSignInError } from "./app-signin.ts";
 import { registerShopApi } from "./api-shop.ts";
 import { ComputerError } from "./computers.ts";
 import { holdsSecret } from "./connectors.ts";
+import { checkConnector } from "./glance.ts";
 import { agentPolicy } from "./policy.ts";
 
 interface Helpers {
@@ -386,6 +387,16 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
     const address = connectors.serverUrl(conn.id);
     if (address && address !== addressBefore) await connectors.auth.probe(conn.id, address, connectors.serverHeaders(conn.id));
     return withWarnings(conn.id);
+  });
+
+  /** Does its key work? A sign-in with the app's watcher (read-only); 200 either way, apps with no watcher aren't checked. */
+  app.post("/api/connectors/:id/check", async (req, reply) => {
+    const c = need(req, reply, { member: true });
+    if (!c) return;
+    const conn = ownConnector(c, req, reply);
+    if (!conn) return;
+    if (!canChange(c, conn, reply)) return;
+    return checkConnector(hub, conn.id);
   });
 
   app.delete("/api/connectors/:id", async (req, reply) => {
