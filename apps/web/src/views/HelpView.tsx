@@ -22,7 +22,7 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
     <div className="flex-1 min-h-0 flex flex-col">
       <header className="mx-auto w-full max-w-xl h-15 shrink-0 px-4 md:px-8 md:mt-8 flex items-center gap-2 safe-top">
         {onBack && (
-          <button className="md:hidden p-1.5 -ml-1.5 rounded-md hover:bg-hover" onClick={onBack} aria-label="Back">
+          <button className="circle shrink-0 md:hidden" onClick={onBack} aria-label="Back">
             <ChevronLeft size={22} />
           </button>
         )}
