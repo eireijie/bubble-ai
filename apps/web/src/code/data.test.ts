@@ -43,3 +43,12 @@ describe("an agent's steps as terminal lines", () => {
     expect(repoName("/Users/me/code/shop")).toBe("code/shop");
   });
 });
+
+describe("the task list's groups", () => {
+  it("lists a failed task under Failed, not under Done today", async () => {
+    const { groupTasks } = await import("./data.ts");
+    const mk = (status: string, state: "idle" | "done") => ({ state, root: { status, updatedAt: new Date().toISOString() } }) as never;
+    const groups = groupTasks([mk("failed", "idle"), mk("done", "done")]);
+    expect(groups.map((g) => [g.label, g.tasks.length])).toEqual([["Failed", 1], ["Done today", 1]]);
+  });
+});
