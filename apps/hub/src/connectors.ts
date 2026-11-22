@@ -121,7 +121,8 @@ export class ConnectorStore {
   }
 
   list(workspaceId: string): Connector[] {
-    return (this.db.prepare("SELECT * FROM connectors WHERE workspace_id = ? ORDER BY created_at").all(workspaceId) as ConnectorRow[]).map((r) => this.view(r));
+    // several can be made in one request (Gmail and Calendar with one sign-in) and share a created_at: the order they were made in settles it
+    return (this.db.prepare("SELECT * FROM connectors WHERE workspace_id = ? ORDER BY created_at, rowid").all(workspaceId) as ConnectorRow[]).map((r) => this.view(r));
   }
 
   get(connectorId: string): Connector | undefined {
@@ -236,7 +237,7 @@ export class ConnectorStore {
   private forAgentRows(agentId: string): ConnectorRow[] {
     const rows = this.db
       .prepare(
-        "SELECT c.*, (SELECT role FROM memberships m WHERE m.workspace_id = c.workspace_id AND m.user_id = c.created_by) AS creator_role, c.id IN (SELECT connector_id FROM agent_connectors WHERE agent_id = ?) AS given FROM connectors c WHERE c.id IN (SELECT connector_id FROM agent_connectors WHERE agent_id = ?) OR (c.all_agents = 1 AND c.workspace_id = (SELECT workspace_id FROM agents WHERE id = ?)) ORDER BY c.created_at",
+        "SELECT c.*, (SELECT role FROM memberships m WHERE m.workspace_id = c.workspace_id AND m.user_id = c.created_by) AS creator_role, c.id IN (SELECT connector_id FROM agent_connectors WHERE agent_id = ?) AS given FROM connectors c WHERE c.id IN (SELECT connector_id FROM agent_connectors WHERE agent_id = ?) OR (c.all_agents = 1 AND c.workspace_id = (SELECT workspace_id FROM agents WHERE id = ?)) ORDER BY c.created_at, c.rowid",
       )
       .all(agentId, agentId, agentId) as (ConnectorRow & { given: number; creator_role: string | null })[];
     const deviceOwner = (this.db.prepare("SELECT n.owner_id FROM agents a JOIN nodes n ON n.id = a.node_id WHERE a.id = ?").get(agentId) as { owner_id: string | null } | undefined)?.owner_id ?? null;
