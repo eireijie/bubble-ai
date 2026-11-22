@@ -1338,8 +1338,10 @@ describe("runs that go wrong", () => {
     const done = (await api("POST", "/api/tasks", { to: "gone", title: "Finished work", brief: "done already" })).data;
     await api("PATCH", `/api/tasks/${done.id}`, { status: "done", result: "yes" });
     const open = (await api("POST", "/api/tasks", { to: "gone", title: "Unfinished work", brief: "not yet" })).data;
-    await waitFor(async () => (await api<any[]>("GET", "/api/tasks")).data.find((t) => t.id === open.id && t.status !== "open"));
-    // the stand-in device answers at once (which finishes a task); this one is still being worked on
+    // the stand-in device answers at once, which finishes a task. Wait for that answer, then put this one back as
+    // still being worked on: waiting only for "not open" can land between the run starting and the answer, and the
+    // answer then finishes the task again before the agent is removed
+    await waitFor(async () => (await api<any[]>("GET", "/api/tasks")).data.find((t) => t.id === open.id && t.status === "done"));
     hub.store.updateTask(open.id, "in_progress");
     expect((await api("DELETE", `/api/agents/${gone.id}`)).status).toBe(200);
     const tasks = (await api<any[]>("GET", "/api/tasks")).data;

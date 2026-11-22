@@ -65,6 +65,15 @@ export class Routines {
         continue;
       }
       if (r.lastRunAt && new Date(r.lastRunAt).getTime() >= minute.getTime()) continue;
+      // its agent's plan limit is reached: the run would only fail. This time is skipped (not retried), and said once.
+      const agent = this.hub.store.agent(r.agentId);
+      const reached = agent && this.hub.limits.reached(agent, at);
+      if (agent && reached) {
+        this.hub.store.updateRoutine(r.id, { lastRunAt: minute.toISOString() });
+        const channelId = this.channelFor(r);
+        if (channelId) this.hub.limits.saySkipped(agent, channelId, `routine:${r.id}`, r.createdBy.kind === "user" ? r.createdBy.id : null, reached, `the routine "${r.name}"`, at);
+        continue;
+      }
       this.run(r, null, minute);
     }
   }

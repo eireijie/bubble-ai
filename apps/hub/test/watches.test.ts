@@ -8,6 +8,9 @@ import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 
+// these checks are about what a watch finds and delivers; sorting it first has its own suite (agents-work.test.ts)
+process.env.WISP_TRIAGE = "off";
+
 let dir: string;
 let close: () => Promise<void>;
 let daemon: NodeDaemon;
@@ -109,7 +112,7 @@ describe("watches", () => {
     watchId = w.id;
     expect(w).toMatchObject({ service: "notion", label: "Notion", userId: me, agentIds: [agentId], hasOwnKey: false, backgroundOn: true });
     expect(w.estimate.note).toMatch(/costs nothing/);
-    expect(hub.store.db.prepare("SELECT cursor FROM watches WHERE id = ?").get(w.id)).toEqual({ cursor: "2026-11-02T09:00:00.000Z" });
+    expect(hub.store.db.prepare("SELECT cursor FROM watches WHERE id = ?").get(w.id)).toEqual({ cursor: "2026-11-02T09:00:00.000Z|p1" });
     await expect(agent.startWatch({ service: "notion", key: { NOTION_TOKEN: "ntn_bad" } })).rejects.toThrow(/refused the key/);
     // an agent without the app can't be put on it
     await expect(owner.request("PATCH", `/api/watches/${w.id}`, { agentIds: [agentId, otherId] })).rejects.toThrow(/isn't connected to that app/);

@@ -129,6 +129,11 @@ export const RunRequest = z.object({
   hop: z.number().int(),
   /** start a new harness session instead of continuing this conversation's (background checks) */
   fresh: z.boolean().optional(),
+  /**
+   * Only an answer is wanted: no Wisp tools, no browser, no connectors, read-only. For sorting work
+   * (is this change worth a full look?), where every tool's description would cost more than the question.
+   */
+  bare: z.boolean().optional(),
   /** the chat this run answers in (a new one after a quiet break): its harness session is that chat's own */
   conversation: z.string().max(64).optional(),
   /** run on this model instead of the agent's own (background checks) */

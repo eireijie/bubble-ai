@@ -9,6 +9,9 @@ import { buildHub } from "../src/app.ts";
 import { QUIET_LATELY } from "../src/background.ts";
 import type { Hub } from "../src/hub.ts";
 
+// these checks are about what a watch finds and delivers; sorting it first has its own suite (agents-work.test.ts)
+process.env.WISP_TRIAGE = "off";
+
 /**
  * What background work costs the person: website watches that read the page before waking a model,
  * one pace for check-ins and site looks, no blind check-ins when watches cover everything, quiet
