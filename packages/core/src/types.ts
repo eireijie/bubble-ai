@@ -127,6 +127,8 @@ export interface AgentSetup {
   steps: Partial<Record<SetupStep, string>>;
   /** the accounts the person named */
   accounts?: string[];
+  /** what its hello read from their apps just before (hub glance.ts): each app, and words the UI can underline */
+  read?: { app: string; terms: string[] }[];
   done: boolean;
 }
 

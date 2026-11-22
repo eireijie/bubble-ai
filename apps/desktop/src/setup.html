@@ -158,7 +158,17 @@
   .seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
   .seg button { height: 34px; padding: 0 8px; font-size: 13.5px; font-weight: 500; border: 0; border-radius: 7px; background: transparent; color: var(--muted); box-shadow: none; transition: background 220ms, color 220ms, box-shadow 220ms, transform 160ms; }
   .seg button:hover:not(:disabled) { transform: none; color: var(--ink); }
-  .seg button[aria-checked="true"] { background: var(--control); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 0 0 0.5px var(--control-line); }
+  .seg button[aria-checked="true"] { color: var(--ink); }
+  /* the selection slides between the two answers instead of jumping */
+  .seg { position: relative; isolation: isolate; }
+  .seg::before { content: ""; position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 5px); border-radius: 7px; background: var(--control); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 0 0 0.5px var(--control-line); transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .seg[data-on="yes"]::before { transform: translateX(calc(100% + 4px)); }
+  #welcome { position: relative; }
+  #pick-mark { position: absolute; left: 0; right: 0; border: 1px solid var(--ink); border-radius: 8px; pointer-events: none; transition: top 450ms cubic-bezier(0.22, 1, 0.36, 1), height 450ms cubic-bezier(0.22, 1, 0.36, 1); }
+  #welcome .choice[aria-pressed="true"] { border-color: var(--line); }
+  /* what the host says on the first screen, beside it */
+  .say { position: absolute; z-index: 2; max-width: 196px; padding: 8px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-size: 13px; line-height: 1.35; box-shadow: 0 6px 18px rgb(0 0 0 / 0.08); animation: say 450ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  @keyframes say { from { opacity: 0; translate: 0 6px; } }
   .choice { transition: border-color 220ms, background 220ms, transform 200ms cubic-bezier(0.2, 0.9, 0.25, 1.3); align-items: flex-start; }
   .choice > svg { margin-top: 1px; }
   .choice[aria-pressed="true"], .choice.primary[aria-pressed="true"] { border-color: var(--ink); background: var(--panel); }
@@ -246,7 +256,8 @@
   .spark { position: absolute; color: var(--ink); animation: spark 1.4s ease-in-out infinite both; }
   @keyframes spark { 0%, 100% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) {
-    .status-row .dots i, .dot::after, .tag.rec, .plist, .waitbox, .found-token, .digit, .prop, .spark, .ga, .mo, .ground, .keys, .blink, #welcome > *, main > section > *, main > div > section > * { animation: none !important; }
+    .seg::before, #pick-mark { transition: none !important; }
+    .say, .status-row .dots i, .dot::after, .tag.rec, .plist, .waitbox, .found-token, .digit, .prop, .spark, .ga, .mo, .ground, .keys, .blink, #welcome > *, main > section > *, main > div > section > * { animation: none !important; }
     .w, #fill { transition: opacity 200ms; }
     .spark { opacity: 0.6; }
   }
@@ -255,7 +266,7 @@
     #stage { flex: none; height: 240px; }
     .side { width: 100%; flex: 1; padding: 0; }
     main { border: 0; padding: 12px 22px 24px; border-radius: 12px 12px 0 0; }
-    .prop { display: none; }
+    .prop, .say { display: none; }
   }
   [hidden] { display: none !important; }
 </style>
@@ -283,6 +294,7 @@
         <button type="button" role="radio" data-q="on" data-v="yes">Yes, it stays on</button>
       </div>
     </div>
+    <span id="pick-mark" aria-hidden="true"></span>
     <button class="choice" id="pick-cloud" aria-pressed="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.25 4.25 0 0 1-.5 8.5Z"/></svg>
       <span class="text"><strong>Cloud<span class="tag rec" id="rec-cloud" hidden>Recommended</span></strong><span>Always on, about $24 a month on your own cloud account.</span><span class="why" id="why-cloud" hidden></span></span>
@@ -464,6 +476,11 @@
     $("why-cloud").textContent = "Because this computer sleeps, and a server never does.";
     $("pick-cloud").setAttribute("aria-pressed", String(choice === "cloud"));
     $("pick-create").setAttribute("aria-pressed", String(choice === "self"));
+    const seg = document.querySelector(".seg");
+    if (seg) seg.dataset.on = answers.on;
+    const on = $(choice === "cloud" ? "pick-cloud" : "pick-create");
+    // next frame, once the screen is shown and laid out (straight away where there are no frames)
+    (window.requestAnimationFrame?.bind(window) ?? ((fn) => fn()))(() => Object.assign($("pick-mark").style, { top: `${on.offsetTop}px`, height: `${on.offsetHeight}px` }));
     $("welcome-go").textContent = `Continue with ${choice === "cloud" ? "Cloud" : "Self-Host"}`;
     window.dispatchEvent(new Event("wisp:scene"));
   }
@@ -1171,10 +1188,35 @@ const CREW = [
     const LAPTOP = '<svg class="prop" style="left:calc(50% - 90px);top:60%" width="180" height="120" viewBox="0 0 90 60" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="6" width="62" height="40" rx="3"/><path d="M4 54h82M14 46l-10 8M76 46l10 8"/></svg>';
     const CLOUD = '<svg class="prop" style="left:calc(50% - 110px);top:18%" width="220" height="150" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width=".5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 7.5a4.25 4.25 0 0 1-.5 8.5Z"/></svg>';
     const spark = (x, y, size, delay) => `<svg class="spark" style="left:${x}%;top:${y}%;animation-delay:${delay}s" width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2Q13 11 22 12Q13 13 12 22Q11 13 2 12Q11 11 12 2Z"/></svg>`;
+    // the host's one line on the first screen: where it will live
+    const say = (cloudy) => `<div class="say" style="left:calc(50% + 70px * var(--k));top:calc(47% - 84px * var(--k))">${cloudy ? "I'll live in the cloud, so I'm always up." : "I'll live right here, on this computer."}</div>`;
+    // a tiny scene for the answer to "on all day?": a moon when it sleeps, a sun when it stays on
+    const SKY = {
+      no: "M15.5 3.5a8.5 8.5 0 1 0 5 13.6A7 7 0 0 1 15.5 3.5z",
+      yes: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8",
+    };
+    const sky = (on) => `<svg class="prop sky" style="left:calc(50% - 118px * var(--k));top:calc(47% - 112px * var(--k))" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${SKY[on] || SKY.no}"/></svg>`;
+    const onAnswer = () => document.querySelector(".seg")?.dataset.on || "no";
+    const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+    let thinking = 0;
+    /** the host reacts to the answer after a short look-up, so it reads as thinking; a quick second answer replaces the first */
+    function answerReact(on) {
+      clearTimeout(thinking);
+      const el = main.firstElementChild;
+      if (reduced.matches || !el?.animate) return;
+      el.animate([{ transform: "none" }, { transform: "translateY(-2px)" }], { duration: 320, easing: EASE, fill: "forwards" });
+      thinking = setTimeout(() => {
+        const frames = on === "yes"
+          ? [{ transform: "none" }, { transform: "translateY(-14%) scale(0.95, 1.06)", offset: 0.35 }, { transform: "translateY(0) scale(1.07, 0.93)", offset: 0.7 }, { transform: "none" }]
+          : [{ transform: "none" }, { transform: "rotate(-9deg) translateY(3%)", offset: 0.3 }, { transform: "rotate(-9deg) translateY(3%)", offset: 0.78 }, { transform: "none" }];
+        el.animate(frames, { duration: on === "yes" ? 520 : 1250, easing: EASE });
+      }, 320);
+    }
     const props = document.createElement("div");
     stage.prepend(props);
     let last = "";
     let lastCloudy = false;
+    let lastOn = "";
 
     function update() {
       const m = document.querySelector("main");
@@ -1185,16 +1227,24 @@ const CREW = [
       document.getElementById("fill").style.width = (PROGRESS[id] ?? 4) + "%";
       // on the first screen, the cloud shows while Cloud is the choice
       const cloudy = id === "cloud" || id === "cloud-choose" || id === "cloud-progress" || (id === "welcome" && document.getElementById("pick-cloud").getAttribute("aria-pressed") === "true");
-      if (id === last && cloudy === lastCloudy) return;
+      const on = onAnswer();
+      if (id === last && cloudy === lastCloudy && on === lastOn) return;
       const same = id === last;
+      const answered = same && on !== lastOn;
       last = id;
       lastCloudy = cloudy;
-      if (same) { props.innerHTML = cloudy ? CLOUD : ""; return; }
+      lastOn = on;
+      if (same) {
+        props.innerHTML = (cloudy ? CLOUD : id === "welcome" ? LAPTOP : "") + (id === "welcome" ? say(cloudy) + sky(on) : "");
+        if (answered) answerReact(on);
+        else if (!reduced.matches) main.firstElementChild?.animate?.([{ transform: "none" }, { transform: "rotate(-7deg)", offset: 0.35 }, { transform: "rotate(4deg)", offset: 0.7 }, { transform: "none" }], { duration: 460, easing: EASE });
+        return;
+      }
       place(main, s[0], s[1], s[2]);
       if (s[3] !== mood) { mood = s[3]; main.innerHTML = svg(0, WHITE, mood); }
       const shown = id === "welcome" ? 1 : id === "join" || id === "waiting" ? 0.32 : 0;
       crew.forEach((el) => (el.style.opacity = shown));
-      props.innerHTML = (id === "create" || id === "ready" ? LAPTOP : "") + (cloudy ? CLOUD : "") + (id === "ready" ? spark(30, 24, 26, 0) + spark(68, 20, 34, 0.35) + spark(74, 50, 20, 0.7) + spark(24, 54, 22, 0.2) : "");
+      props.innerHTML = (id === "create" || id === "ready" || (id === "welcome" && !cloudy) ? LAPTOP : "") + (cloudy ? CLOUD : "") + (id === "welcome" ? say(cloudy) + sky(on) : "") + (id === "ready" ? spark(30, 24, 26, 0) + spark(68, 20, 34, 0.35) + spark(74, 50, 20, 0.7) + spark(24, 54, 22, 0.2) : "");
     }
     new MutationObserver(update).observe(document.querySelector("main"), { attributes: true, attributeFilter: ["data-screen", "hidden"], subtree: true });
     window.addEventListener("wisp:scene", update);

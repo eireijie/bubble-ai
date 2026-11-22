@@ -22,6 +22,8 @@ declare global {
       info(): Promise<{ version: string; platform: string; device: boolean }>;
       /** with a claim, this computer becomes that waiting device; without one, a new device */
       connectDevice(claim?: { token: string; name: string }): Promise<void>;
+      /** open the system's own notifications switch for Wisp (System Settings › Notifications › Wisp) */
+      notifications?: { openSettings(): Promise<void> };
       /** the computer's own microphone permission for calls (macOS asks once; only System Settings changes it after) */
       microphone?: {
         status(): Promise<string>;
