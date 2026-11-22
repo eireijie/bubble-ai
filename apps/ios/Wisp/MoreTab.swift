@@ -16,6 +16,13 @@ struct MoreTab: View {
           EmptyView()
         }
         ScrollView {
+          if store.role != "guest", let id = store.workspace?.id, ReadyList.showsFinishSetup(id, agentCount: store.agents.count) {
+            CardGroup {
+              NavigationLink { HereView() } label: { RowLabel(title: "Finish setup", leading: { rowIcon("checklist") }) }
+                .accessibilityIdentifier("you-finish-setup")
+            }
+            .padding(.horizontal, 18).padding(.top, 8)
+          }
           CardGroup {
             NavigationLink { MemoryView() } label: { RowLabel(title: "Memory", value: store.role == "guest" ? "Shared folder" : nil, leading: { rowIcon("book") }) }
               .accessibilityIdentifier("you-memory")

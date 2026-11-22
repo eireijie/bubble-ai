@@ -198,7 +198,7 @@ struct MessageRow: View {
               if isSummary {
                 DisclosureGroup("Summary of the conversation") { MarkdownText(message.body, edited: false, selectable: false).padding(.top, 4) }
                   .font(.system(size: 14)).foregroundStyle(Palette.muted)
-              } else if !message.body.isEmpty { MarkdownText(message.body, edited: message.editedAt != nil, selectable: false) }
+              } else if !message.body.isEmpty { MessageBody(message: message) }
             }
           }
           .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { bubbleBox.frame = $0 }
@@ -442,7 +442,10 @@ struct MarkdownText: View {
     }
   }
 
-  private var attributed: AttributedString {
+  private var attributed: AttributedString { Self.attributed(source) }
+
+  /** The message's words with its inline Markdown applied. */
+  static func attributed(_ source: String) -> AttributedString {
     var opts = AttributedString.MarkdownParsingOptions()
     opts.interpretedSyntax = .inlineOnlyPreservingWhitespace
     opts.failurePolicy = .returnPartiallyParsedIfPossible

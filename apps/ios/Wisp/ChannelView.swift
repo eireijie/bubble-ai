@@ -102,6 +102,8 @@ struct ChannelView: View {
         ArchivedBar(channel: current)
       } else {
         VStack(spacing: 6) {
+          // a new agent's first chat: one-tap answers, pings after its first answer, and what it set up
+          FirstChatExtras(channel: current)
           ActivityPill(channel: current)
           // it can't answer until its harness is signed in where it runs: say so before anyone writes
           if let agent = store.dmAgent(current), agent.signIn != nil { AgentSignInBar(agent: agent) }
