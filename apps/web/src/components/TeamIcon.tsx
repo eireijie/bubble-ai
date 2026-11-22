@@ -45,7 +45,7 @@ export function TeamIconDialog({ channel, onClose }: { channel: ChannelInfo; onC
   };
 
   return (
-    <Modal title="Team icon" onClose={onClose}>
+    <Modal title="Team picture" headerless onClose={onClose} className="sm:max-w-[380px]!" contentClassName="pt-5">
       <div className="space-y-1">
         <Option selected={!chosen} disabled={busy} onClick={() => void run(() => save(null), "Couldn't change the icon. Try again.")} art={<ChatAvatar chat={{ kind: "team", agent: null, channel }} size={44} ghostsOnly />} title="First two agents" />
         <Option selected={!!chosen} disabled={busy} onClick={() => input.current?.click()} art={chosen ? <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={44} /> : <span className="grid size-11 place-items-center rounded-full bg-chip"><Image size={19} strokeWidth={1.8} aria-hidden /></span>} title={busy ? "Uploading…" : chosen ? "Choose another image" : "Choose image"} />

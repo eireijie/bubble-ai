@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, ChevronDown, Clock, Users, GitBranch, LayoutGrid, MessageSquare, Repeat2, SlidersHorizontal, UserCheck, Bot, Share2 } from "lucide-react";
+import { Check, ChevronDown, Clock, GitBranch, LayoutGrid, MessageSquare, Repeat2, SlidersHorizontal, UserCheck, Bot, Share2 } from "lucide-react";
 import { stepAgentId, type Agent, type ChannelTeam, type TeamStep, type TeamStepKind } from "@wisp/core";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { Ghost } from "../components/Ghost.tsx";
@@ -127,8 +127,8 @@ export function PickBox({
   );
 }
 
-/** Who does a step: the agent, or a prompt to pick one (with the agents to pick from right there). */
-export function AgentField({ value, onChange, label = "Who does it", note }: { value: string | null; onChange: (id: string) => void; label?: string; note?: string }) {
+/** Who does a step: the agent, or a prompt to pick one. The list ends with "New agent". */
+export function AgentField({ value, onChange, label = "Who does it" }: { value: string | null; onChange: (id: string) => void; label?: string }) {
   const agents = useStore((s) => s.agents);
   const agent = agents.find((a) => a.id === value);
   const create = useCreateAgent();
@@ -139,20 +139,9 @@ export function AgentField({ value, onChange, label = "Who does it", note }: { v
         invalid={!agent}
         lead={agent ? <AgentAvatar agent={agent} size={32} interactive={false} /> : <span className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-bad/60 text-bad">?</span>}
         shown={agent ? agent.name : "Pick an agent"}
-        options={[...agents.map((a) => ({ value: a.id, label: a.name })), ...(create ? [{ value: "__new", label: "+ Create an agent…" }] : agents.length ? [] : [{ value: "none", label: "Add an agent first", disabled: true }])]}
+        options={[...agents.map((a) => ({ value: a.id, label: a.name })), ...(create ? [{ value: "__new", label: "New agent" }] : agents.length ? [] : [{ value: "none", label: "Add an agent first", disabled: true }])]}
         onPick={(v) => (v === "__new" ? create?.(onChange) : onChange(v))}
       />
-      {!agent && agents.length > 0 && (
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Agents">
-          {agents.slice(0, 6).map((a) => (
-            <button key={a.id} type="button" onClick={() => onChange(a.id)} className="inline-flex h-[34px] items-center gap-1.5 rounded-full border border-line bg-card pl-1.5 pr-3 text-[13px] hover:bg-hover">
-              <AgentAvatar agent={a} size={22} interactive={false} />
-              {a.name}
-            </button>
-          ))}
-        </div>
-      )}
-      {note && <p className="px-2 text-xs text-faint">{note}</p>}
     </div>
   );
 }
@@ -211,26 +200,6 @@ export function useIsPhone(): boolean {
 export function SeedGhost({ seed, size }: { seed: string; size: number }) {
   const look = useMemo(() => defaultAppearance(seed), [seed]);
   return <Ghost look={look} size={size} animate={false} label={seed} />;
-}
-
-/** The ghosts of a team's agents, two overlapped; a plain team icon when nobody is on it yet. */
-export function TeamGhosts({ agentIds, size }: { agentIds: string[]; size: number }) {
-  const agents = useStore((s) => s.agents);
-  const members = agentIds.map((id) => agents.find((a) => a.id === id)).filter((a): a is Agent => !!a);
-  if (!members.length) return <span className="grid shrink-0 place-items-center rounded-full bg-chip text-muted" style={{ width: size, height: size }} aria-hidden><Users size={size * 0.5} strokeWidth={1.8} /></span>;
-  const small = Math.round(size * 0.72);
-  return (
-    <span className="relative inline-block shrink-0" style={{ width: members[1] ? size * 1.1 : size, height: size }} aria-hidden>
-      <span className="absolute left-0 top-0">
-        <AgentAvatar agent={members[0]} size={members[1] ? small : size} live />
-      </span>
-      {members[1] && (
-        <span className="absolute bottom-0 right-0 rounded-full" style={{ filter: "drop-shadow(1.5px 0 0 var(--panel)) drop-shadow(-1.5px 0 0 var(--panel)) drop-shadow(0 1.5px 0 var(--panel)) drop-shadow(0 -1.5px 0 var(--panel))" }}>
-          <AgentAvatar agent={members[1]} size={small} live />
-        </span>
-      )}
-    </span>
-  );
 }
 
 /** The name of the team a hand-off step gives work to: "demo-crew", or "Another team" until one is picked. */

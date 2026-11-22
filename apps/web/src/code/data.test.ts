@@ -52,3 +52,37 @@ describe("the task list's groups", () => {
     expect(groups.map((g) => [g.label, g.tasks.length])).toEqual([["Failed", 1], ["Done today", 1]]);
   });
 });
+
+describe("the pill's menu, where the task list went", () => {
+  it("tells two tasks with the same title apart", async () => {
+    const { uniqueLabels } = await import("./data.ts");
+    expect(uniqueLabels(["Fix tests", "Ship it", "Fix tests", "Fix tests"])).toEqual(["Fix tests", "Ship it", "Fix tests (2)", "Fix tests (3)"]);
+  });
+});
+
+describe("one coding task, built from its pieces (also what a task's page hands to Review)", () => {
+  const row = (id: string, more: Record<string, unknown> = {}) => ({ id, toAgentId: "lead", status: "done", threadId: null, channelId: null, reviewOf: null, createdAt: `2026-11-22T00:00:0${id.length}Z`, ...more }) as never;
+  const team = { id: "t", repo: "git@github.com:eireijie/shop.git", baseBranch: "main" } as never;
+
+  it("lists its agents in the order they joined and the threads they work in", async () => {
+    const { codeTaskOf } = await import("./data.ts");
+    const root = row("r", { threadId: "th-r", channelId: "c" });
+    const piece = row("pp", { toAgentId: "builder", threadId: "th-p", channelId: "c", status: "in_progress" });
+    const task = codeTaskOf(root, [piece, root], team, {}, {});
+    expect(task.family.map((t) => t.id)).toEqual(["r", "pp"]);
+    expect(task.agentIds).toEqual(["lead", "builder"]);
+    expect(task.threads).toEqual([
+      { threadId: "th-r", channelId: "c" },
+      { threadId: "th-p", channelId: "c" },
+    ]);
+    expect(task.state).toBe("working");
+  });
+
+  it("needs you while one of its threads has a request waiting, and is done once every piece is", async () => {
+    const { codeTaskOf } = await import("./data.ts");
+    const root = row("r", { threadId: "th-r", channelId: "c" });
+    expect(codeTaskOf(root, [root], team, {}, {}).state).toBe("done");
+    expect(codeTaskOf(root, [root], team, { a: { status: "pending", threadId: "th-r" } as never }, {}).state).toBe("needs");
+    expect(codeTaskOf(root, [root], team, {}, { run: { threadId: "th-r", threadPath: [] } }).state).toBe("working");
+  });
+});

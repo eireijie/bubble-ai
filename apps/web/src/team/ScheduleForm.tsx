@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Play, Trash2 } from "lucide-react";
+import { Play } from "lucide-react";
 import { describeCron, nextRun, type ChannelTeam, type TeamStep } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { cx } from "../components/ui.tsx";
+import { MoreOptions } from "../components/MoreOptions.tsx";
 import { FieldBox, PickBox, TextBox } from "./parts.tsx";
-import { numberOf, stepById, updating } from "./flow.ts";
+import { stepById, updating } from "./flow.ts";
 import { Toggle } from "./StepForm.tsx";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -78,15 +79,12 @@ export function ScheduleForm({ team, stepId, onChange, onDelete, channelId }: { 
   const c = readCron(cron);
   const change = (patch: Partial<Parameters<typeof writeCron>[0]>) => set({ schedule: writeCron({ repeat: c.repeat === "custom" ? "weekly" : c.repeat, minute: c.minute, hour: c.hour, day: c.day, date: c.date, ...patch }) });
   const time = `${String(c.hour).padStart(2, "0")}:${String(c.minute).padStart(2, "0")}`;
-  const starts = (step.nexts ?? []).map((n) => numberOf(team, n)).filter(Boolean).sort((a, b) => a - b);
-  const startsText = starts.length ? `Starts step${starts.length > 1 ? "s" : ""} ${starts.length > 1 ? `${starts.slice(0, -1).join(", ")} and ${starts.at(-1)}` : starts[0]} ${whenText(step).replace(/^Every/, "every")}. Each result goes to the next step along the arrows. A message in the chat still starts the team too.` : "Draw an arrow to the steps it starts.";
-
   const runNow = async () => {
     setRunning(true);
     setNote(null);
     try {
       await api("POST", `/api/channels/${channelId}/schedules/${stepId}/run`);
-      setNote("Started. Follow it in the team's chat.");
+      setNote("Started");
     } catch (e) {
       setNote((e as Error).message);
     } finally {
@@ -127,14 +125,16 @@ export function ScheduleForm({ team, stepId, onChange, onDelete, channelId }: { 
           />
         </FieldBox>
       )}
-      <PickBox label="Time zone" shown={step.timezone || "UTC"} options={zones.map((z) => ({ value: z, label: z }))} onPick={(timezone) => set({ timezone })} />
-      <p className="px-2 text-xs text-faint">{startsText}</p>
-      <div className="flex gap-2 pt-2">
-        <button type="button" disabled={!saved || running} title={saved ? undefined : "Save the team first"} onClick={runNow} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-card text-body hover:bg-hover disabled:opacity-50">
-          <Play size={16} aria-hidden /> Run now
+      {nextText(step) && <p className="px-2 text-xs text-muted">{nextText(step)}</p>}
+      <MoreOptions title="Show all">
+        <PickBox label="Time zone" shown={step.timezone || "UTC"} options={zones.map((z) => ({ value: z, label: z }))} onPick={(timezone) => set({ timezone })} />
+      </MoreOptions>
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <button type="button" onClick={onDelete} className="min-h-8 text-[13px] text-bad hover:underline">
+          Delete
         </button>
-        <button type="button" onClick={onDelete} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-line bg-card px-4 text-body text-bad hover:bg-hover">
-          <Trash2 size={16} aria-hidden /> Delete
+        <button type="button" disabled={!saved || running} title={saved ? undefined : "Save the team first"} onClick={runNow} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line2 px-3.5 text-sm font-medium hover:bg-hover disabled:opacity-50">
+          <Play size={14} aria-hidden /> Run now
         </button>
       </div>
       {note && <p className="px-2 text-xs text-muted">{note}</p>}

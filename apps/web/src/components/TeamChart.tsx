@@ -10,14 +10,6 @@ const GAP = 28;
 const ROW = 132;
 const PAD = 24;
 
-/** The rules a team chart follows, in the words the chart shows them. */
-export const TEAM_RULES = [
-  "Leads read every new message in the team. Everyone else hears only when a lead hands them work or someone @mentions them.",
-  "With two or more leads, they talk the request over in its thread and agree on a plan before anyone starts.",
-  "Draw an arrow from an agent to whoever it hands work to. Every agent that isn't a lead needs one pointing at it.",
-  "Each hand-off opens its own sub-thread, and every agent on the chart knows who else is on the team.",
-];
-
 export const EMPTY_TEAM: ChannelTeam = { nodes: [], edges: [] };
 
 /** A free spot on a row of the chart. */
@@ -274,7 +266,7 @@ export function TeamChart({
                         type="button"
                         onClick={() => toggleLead(n)}
                         aria-pressed={n.lead}
-                        title={n.lead ? "Lead: reads every new message. Click to make it get work from a lead instead." : "Make it a lead"}
+                        title={n.lead ? "Lead" : "Make lead"}
                         className={cx("absolute -top-2.5 left-3 h-5 px-1.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1 border", n.lead ? "bg-ink text-panel border-ink" : "bg-panel text-muted border-line opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-coarse:opacity-100")}
                       >
                         <Crown size={10} /> {n.lead ? "Lead" : "Make lead"}
@@ -302,7 +294,7 @@ export function TeamChart({
 
             {!nodes.length && (
               <div className="absolute inset-0 grid place-items-center p-6 pointer-events-none">
-                <p className="max-w-xs text-center text-sm text-muted">{readOnly ? "This team has no agents yet." : "Drag agents here from the list, or press + next to one. The first one leads."}</p>
+                <p className="max-w-xs text-center text-sm text-muted">{readOnly ? "No agents yet" : "Add agents from the list. The first one leads."}</p>
               </div>
             )}
           </div>
@@ -321,8 +313,8 @@ export function TeamChart({
               )}
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 [scrollbar-gutter:stable]" style={{ maxHeight: height - 120 }}>
-              {!agents.length && <p className="px-1 py-4 text-xs text-muted">No agents yet. Create one below.</p>}
-              {agents.length > 0 && !listed.length && <p className="px-1 py-4 text-xs text-muted">No agents match.</p>}
+              {!agents.length && <p className="px-1 py-4 text-xs text-muted">None</p>}
+              {agents.length > 0 && !listed.length && <p className="px-1 py-4 text-xs text-muted">None</p>}
               {listed.map((a) => (
                 <AgentRow key={a.id} agent={a} onChart={nodes.some((n) => n.agentId === a.id)} onAdd={() => add(a.id)} />
               ))}
@@ -330,7 +322,7 @@ export function TeamChart({
             {onCreateAgent && (
               <div className="p-2 border-t border-line">
                 <button type="button" onClick={onCreateAgent} className="w-full h-9 rounded-xl bg-chip hover:bg-hover text-sm font-medium inline-flex items-center justify-center gap-1.5">
-                  <Plus size={15} /> Create agent
+                  <Plus size={15} /> New agent
                 </button>
               </div>
             )}
@@ -338,7 +330,6 @@ export function TeamChart({
         )}
       </div>
 
-      {linking && <p className="text-xs text-accent-text">Now click the agent {linking.name} hands work to. Esc cancels.</p>}
       {flash && <p className="text-xs text-bad">{flash}</p>}
       {!flash && !linking && problem && <p className="text-xs text-warn">{problem}</p>}
     </div>
@@ -370,17 +361,6 @@ function AgentRow({ agent, onChart, onAdd }: { agent: Agent; onChart: boolean; o
         </button>
       )}
     </div>
-  );
-}
-
-/** The rules, for under the chart. */
-export function TeamRules({ className }: { className?: string }) {
-  return (
-    <ul className={cx("space-y-1 text-xs text-muted list-disc pl-4", className)}>
-      {TEAM_RULES.map((r) => (
-        <li key={r}>{r}</li>
-      ))}
-    </ul>
   );
 }
 

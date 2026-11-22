@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { X } from "lucide-react";
 import { api } from "../api.ts";
 import { ConfirmDialog } from "../components/InboxParts.tsx";
-import { agentColor, cx, timeAgo } from "../components/ui.tsx";
+import { agentColor, cx } from "../components/ui.tsx";
 import { useStore } from "../store.ts";
 import type { TaskRow } from "../views/TasksView.tsx";
 import type { CodeTask } from "./data.ts";
 
 /**
  * Review: what a task's branch changed, its files and its checks, with Merge and Send back.
- * It slides in only when asked for (the Review button, ⌘⇧1–3), so the panes stay roomy.
+ * It lives on the task's page (Tasks), as one dark block under the task's own details.
  */
 
 export type ReviewTab = "changes" | "files" | "checks";
@@ -55,9 +54,9 @@ function splitPatch(patch: string): Map<string, string[]> {
   return out;
 }
 
-export function ReviewPanel({ task, tab, setTab, version, onClose }: { task: CodeTask; tab: ReviewTab; setTab: (t: ReviewTab) => void; version: number; onClose?: () => void }) {
+export function ReviewPanel({ task, tab, setTab, version, initial, act }: { task: CodeTask; tab: ReviewTab; setTab: (t: ReviewTab) => void; version: number; /** the piece whose branch shows first */ initial?: string; /** open already asking to merge or send back */ act?: "merge" | "back" }) {
   const branches = branchesOf(task);
-  const [branchTask, setBranchTask] = useState<string | null>(branches[0]?.id ?? null);
+  const [branchTask, setBranchTask] = useState<string | null>((branches.find((b) => b.id === initial) ?? branches[0])?.id ?? null);
   const piece = branches.find((b) => b.id === branchTask) ?? branches[0];
   const [diff, setDiff] = useState<Diff | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +101,7 @@ export function ReviewPanel({ task, tab, setTab, version, onClose }: { task: Cod
   ];
 
   return (
-    <aside aria-label="Review" className="m-panel flex w-[392px] shrink-0 flex-col border-l border-white/[.06] bg-[#0f0f11] max-md:absolute max-md:inset-0 max-md:z-30 max-md:w-auto">
+    <section aria-label="Review" className="flex h-[560px] max-h-[72vh] w-full flex-col overflow-hidden rounded-[14px] bg-[#0f0f11] text-[#f2f2f4]">
       <div role="tablist" className="flex h-12 shrink-0 items-end gap-[18px] border-b border-white/[.06] px-4">
         {tabs.map((t) => (
           <button
@@ -117,12 +116,6 @@ export function ReviewPanel({ task, tab, setTab, version, onClose }: { task: Cod
             {t.badge && <span className="ml-1.5 rounded-lg bg-[#26262b] px-[5px] text-[10.5px] text-[#a1a1aa]">{t.badge}</span>}
           </button>
         ))}
-        {/* on a phone the panel covers the Review button, so it carries its own way out */}
-        {onClose && (
-          <button type="button" onClick={onClose} aria-label="Close review" className="md:hidden ml-auto mb-1 grid h-8 w-8 place-items-center rounded-md text-[#a1a1aa] hover:text-[#f2f2f4]">
-            <X size={16} />
-          </button>
-        )}
       </div>
       {branches.length > 1 && (
         <div className="flex shrink-0 gap-1 overflow-x-auto px-3 pt-2.5">
@@ -132,15 +125,15 @@ export function ReviewPanel({ task, tab, setTab, version, onClose }: { task: Cod
         </div>
       )}
       {!piece ? (
-        <p className="px-4 py-6 text-[12.5px] text-[#8e8e96]">No branch yet: the work hasn't started on one.</p>
+        <p className="px-4 py-6 text-[12.5px] text-[#8e8e96]">No branch yet</p>
       ) : tab === "changes" ? (
-        <Changes task={task} piece={piece} diff={diff} error={error} file={file} setFile={setFile} />
+        <Changes task={task} piece={piece} diff={diff} error={error} file={file} setFile={setFile} act={act} />
       ) : tab === "files" ? (
         <Files piece={piece} diff={diff} version={version} />
       ) : (
         <Checks task={task} piece={piece} />
       )}
-    </aside>
+    </section>
   );
 }
 
@@ -156,9 +149,8 @@ function BranchChip({ t, on, onPick, twice }: { t: TaskRow; on: boolean; onPick:
   );
 }
 
-function Changes({ task, piece, diff, error, file, setFile }: { task: CodeTask; piece: TaskRow; diff: Diff | null; error: string | null; file: string | null; setFile: (f: string) => void }) {
+function Changes({ task, piece, diff, error, file, setFile, act }: { task: CodeTask; piece: TaskRow; diff: Diff | null; error: string | null; file: string | null; setFile: (f: string) => void; act?: "merge" | "back" }) {
   const chunks = useMemo(() => (diff ? splitPatch(diff.patch) : new Map<string, string[]>()), [diff]);
-  const builder = useStore((s) => s.agents.find((a) => a.id === piece.toAgentId));
   const reviews = task.family.filter((t) => t.reviewOf === piece.id);
   const lines = file ? (chunks.get(file) ?? []) : [];
   if (error) return <p className="px-4 py-6 text-[12.5px] text-[#8e8e96]">{error}</p>;
@@ -166,7 +158,7 @@ function Changes({ task, piece, diff, error, file, setFile }: { task: CodeTask; 
   return (
     <div className="m-fade-in flex min-h-0 flex-1 flex-col">
       {diff.files.length === 0 ? (
-        <p className="px-4 py-6 text-[12.5px] text-[#8e8e96]">No changes on {piece.branch} yet.</p>
+        <p className="px-4 py-6 text-[12.5px] text-[#8e8e96]">No changes yet</p>
       ) : (
         <>
           <div className="flex max-h-[34%] shrink-0 flex-col gap-px overflow-y-auto px-2 pb-1.5 pt-2.5">
@@ -179,11 +171,8 @@ function Changes({ task, piece, diff, error, file, setFile }: { task: CodeTask; 
             ))}
           </div>
           <div className="mx-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-white/[.07] bg-[#0b0b0d]">
-            <div className="flex shrink-0 justify-between border-b border-white/[.06] px-2.5 py-1.5 text-[12px] text-[#a1a1aa]">
+            <div className="flex shrink-0 border-b border-white/[.06] px-2.5 py-1.5 text-[12px] text-[#a1a1aa]">
               <span className="truncate">{file?.split("/").pop()}</span>
-              <span className="shrink-0">
-                by {builder?.name ?? "agent"} · {timeAgo(piece.updatedAt)}
-              </span>
             </div>
             <div className="min-h-0 flex-1 overflow-auto py-1 font-mono text-[11.5px] leading-[1.65]">
               {lines.map((l, i) => (
@@ -195,10 +184,10 @@ function Changes({ task, piece, diff, error, file, setFile }: { task: CodeTask; 
             </div>
             {reviews.filter((r) => r.result).slice(-1).map((r) => <ReviewNote key={r.id} r={r} />)}
           </div>
-          {diff.uncommitted && <p className="mx-3 mt-2 text-[11.5px] text-[#8e8e96]">Includes changes {builder?.name ?? "the agent"} hasn't committed yet.</p>}
+          {diff.uncommitted && <p className="mx-3 mt-2 text-[11.5px] text-[#8e8e96]">Includes uncommitted changes</p>}
         </>
       )}
-      <Actions task={task} piece={piece} empty={diff.files.length === 0 && diff.ahead === 0} />
+      <Actions task={task} piece={piece} empty={diff.files.length === 0 && diff.ahead === 0} act={act} />
     </div>
   );
 }
@@ -213,18 +202,13 @@ function ReviewNote({ r }: { r: TaskRow }) {
   );
 }
 
-/** Merge (asks first) and Send back with a note. ⌘⇧M and ⌘⇧B reach these from anywhere in Code. */
-function Actions({ task, piece, empty }: { task: CodeTask; piece: TaskRow; empty: boolean }) {
-  const [asking, setAsking] = useState<"merge" | "back" | null>(null);
+/** Merge (asks first) and Send back with a note. ⌘⇧M and ⌘⇧B in Code open the task's page on these. */
+function Actions({ task, piece, empty, act }: { task: CodeTask; piece: TaskRow; empty: boolean; act?: "merge" | "back" }) {
+  const [asking, setAsking] = useState<"merge" | "back" | null>(act === "merge" && empty ? null : (act ?? null));
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const builder = useStore((s) => s.agents.find((a) => a.id === piece.toAgentId));
-  useEffect(() => {
-    const k = (e: Event) => setAsking((e as CustomEvent<"merge" | "back">).detail);
-    window.addEventListener("wisp-code-review", k);
-    return () => window.removeEventListener("wisp-code-review", k);
-  }, []);
   const merge = async () => {
     setBusy(true);
     try {
@@ -403,12 +387,10 @@ function Checks({ task, piece }: { task: CodeTask; piece: TaskRow }) {
         return row(r.id, `Review · ${who?.name ?? "reviewer"}`, r.status === "done" ? "done" : r.status === "failed" ? "failed" : "working", r.status === "done" ? "ok" : r.status === "failed" ? "bad" : "run", r.result ?? undefined);
       })}
       {error && <p className="text-[12px] text-[#ff6b6b]">{error}</p>}
-      {mine ? (
+      {mine && (
         <button type="button" disabled={running} onClick={run} className="mt-1 inline-flex h-7 items-center justify-center self-start rounded-[7px] border border-white/[.09] bg-[#1d1d21] px-2.5 text-[12.5px] text-[#f2f2f4] transition-[background-color,transform] hover:bg-[#26262b] active:scale-[.96] disabled:opacity-40">
           {results ? "Run again" : "Run checks"}
         </button>
-      ) : (
-        !results && <p className="text-[12px] text-[#8e8e96]">Checks run on {builder?.name ?? "the agent"}'s device; its owner starts them.</p>
       )}
     </div>
   );
