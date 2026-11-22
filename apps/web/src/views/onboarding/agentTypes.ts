@@ -4,7 +4,9 @@ import type { AppleApp } from "@wisp/core";
  * "Pick your agent" (first-run page 1): what the first agent is for, and the apps each kind of agent
  * starts with. How each app is set up follows what Wisp can really do today:
  * - `mac`: an Apple app the Apple mod reads on the Mac Wisp runs on (macOS asks once);
- * - `key`: a connector from the catalog, with a key the person pastes (or their password manager fills);
+ * - `key`: a connector from the catalog. The sheet asks the hub (signInOptions) whether it signs in
+ *   from here: then the row says Sign in; otherwise Add key, with a key the person pastes (or their
+ *   password manager fills); and when it can do neither from here, Soon;
  * - `soon`: no connector for it yet, shown greyed with nothing to press, never faked.
  */
 export type AppHow = "mac" | "key" | "soon";
@@ -47,15 +49,15 @@ export const START_APPS: Record<string, StartApp> = {
   calendar: { id: "calendar", name: "Calendar", what: "Your week", how: "mac", icon: IC.cal, apple: "calendar" },
   reminders: { id: "reminders", name: "Reminders", what: "Your lists", how: "mac", icon: IC.rem, apple: "reminders" },
   contacts: { id: "contacts", name: "Contacts", what: "Who's who", how: "mac", icon: IC.per, apple: "contacts" },
-  gmail: { id: "gmail", name: "Gmail", what: "Email", how: "soon", icon: IC.mail },
-  gcal: { id: "gcal", name: "Google Calendar", what: "Your week", how: "soon", icon: IC.cal },
-  gdrive: { id: "gdrive", name: "Google Drive", what: "Documents", how: "soon", icon: IC.drive },
+  gmail: { id: "gmail", name: "Gmail", what: "Email", how: "key", icon: IC.mail , catalogId: "gmail" },
+  gcal: { id: "gcal", name: "Google Calendar", what: "Your week", how: "key", icon: IC.cal , catalogId: "gcal" },
+  gdrive: { id: "gdrive", name: "Google Drive", what: "Documents", how: "key", icon: IC.drive , catalogId: "gdrive" },
   slack: { id: "slack", name: "Slack", what: "Channels and DMs", how: "key", icon: IC.hash, catalogId: "slack" },
   notion: { id: "notion", name: "Notion", what: "Pages you share with it", how: "key", icon: IC.doc, catalogId: "notion" },
   linear: { id: "linear", name: "Linear", what: "Issues and projects", how: "key", icon: IC.tick, catalogId: "linear" },
   jira: { id: "jira", name: "Jira", what: "Tickets", how: "key", icon: IC.tick, catalogId: "jira" },
   github: { id: "github", name: "GitHub", what: "Repos, issues, pull requests", how: "key", icon: IC.code, catalogId: "github" },
-  vercel: { id: "vercel", name: "Vercel", what: "Deploys", how: "soon", icon: IC.tri },
+  vercel: { id: "vercel", name: "Vercel", what: "Deploys", how: "key", icon: IC.tri , catalogId: "vercel" },
   supabase: { id: "supabase", name: "Supabase", what: "Projects and databases", how: "key", icon: IC.db, catalogId: "supabase" },
   sentry: { id: "sentry", name: "Sentry", what: "Errors", how: "key", icon: IC.alert, catalogId: "sentry" },
   cloudflare: { id: "cloudflare", name: "Cloudflare", what: "Sites and Workers", how: "key", icon: IC.cloud, catalogId: "cloudflare" },

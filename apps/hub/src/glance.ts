@@ -56,13 +56,21 @@ export function readOnlyFetch(inner: typeof fetch): typeof fetch {
 /** A cursor meaning "since then", in the watcher's own format: unix seconds for Slack and Stripe, ISO for the rest. */
 export const cursorSince = (w: Pick<Watcher, "service">, since: Date) => (w.service === "slack" || w.service === "stripe" ? String(Math.floor(since.getTime() / 1000)) : since.toISOString());
 
-/** The values a connector signs in with; Linear connected by sign-in (no key) uses its token. */
+/**
+ * Apps connected by signing in instead of a key: the key the watcher reads, filled from the
+ * sign-in's token. GitHub's and Slack's are ordinary user tokens for their own APIs. Linear's and
+ * Notion's come from their MCP servers' own sign-in; unproven whether their APIs take them (a
+ * refused one only leaves that app out of the hello).
+ */
+const SIGNED_IN_AS: Partial<Record<string, string>> = { github: "GITHUB_TOKEN", slack: "SLACK_USER_TOKEN", linear: "LINEAR_API_KEY", notion: "NOTION_TOKEN" };
+
+/** The values a connector signs in with: its key, or the token from signing in when it has no key. */
 function credsOf(hub: Hub, connectorId: string, w: Watcher): Record<string, string> {
   const creds = { ...(hub.connectors.values(connectorId) ?? {}) };
-  // unproven: whether a token from Linear's own sign-in is accepted by its API
-  if (w.service === "linear" && !creds.LINEAR_API_KEY?.trim()) {
+  const key = SIGNED_IN_AS[w.service];
+  if (key && !has(w, creds)) {
     const token = hub.connectors.auth.accessToken(connectorId);
-    if (token) creds.LINEAR_API_KEY = token;
+    if (token) creds[key] = token;
   }
   return creds;
 }
@@ -171,6 +179,8 @@ export async function glanceApps(hub: Hub, agent: Agent, opts: { now?: Date; tim
   const timeoutMs = opts.timeoutMs ?? GLANCE_TIMEOUT_MS;
   const f = readOnlyFetch(hub.watches.fetch);
   const jobs: { app: string; read: () => Promise<Glance> }[] = [];
+  // sign-ins about to run out are renewed first, as before a run
+  await hub.connectors.prepare(agent.id).catch(() => undefined);
   const connectors = hub.connectors.forAgent(agent.id);
   for (const w of WATCHERS) {
     if (!GLANCE_SERVICES.has(w.service) || w.unavailable?.()) continue;

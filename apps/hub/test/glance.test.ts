@@ -134,6 +134,18 @@ describe("a first look at the person's apps", () => {
     expect(read.find((g) => g.app === "Stripe")!.terms).toContain("49.00 USD");
   });
 
+  it("reads an app connected by signing in, with the sign-in's token, when it has no key", async () => {
+    const agentId = await makeAgent("signedin");
+    const c = hub.connectors.create(ws, me, { kind: "mcp-http", name: "GitHub signedin", catalogId: "github", url: "https://api.githubcopilot.com/mcp/", env: {} } as never);
+    hub.connectors.attach(c.id, agentId, true);
+    const db = (hub.connectors.auth as unknown as { db: { prepare(sql: string): { run(...a: unknown[]): unknown } } }).db;
+    db.prepare("INSERT INTO connector_auth (connector_id, required, provider, tokens_json, expires_at, updated_at) VALUES (?, 1, 'github', ?, NULL, ?)").run(c.id, JSON.stringify({ access_token: "gh_good", token_type: "bearer" }), new Date().toISOString());
+    calls.length = 0;
+    const { read } = await glanceApps(hub, hub.store.agent(agentId)!, { now: NOW });
+    expect(read.map((g) => g.app)).toContain("GitHub");
+    expect(calls.some((x) => x.url.startsWith("https://api.github.com/notifications"))).toBe(true);
+  });
+
   it("leaves out an app that takes too long", async () => {
     const id = await makeAgent("jet");
     connect(id, "Jira", "jira", { JIRA_URL: "https://acme.atlassian.net", JIRA_API_TOKEN: "t", JIRA_USERNAME: "me@example.com" });
