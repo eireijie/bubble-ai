@@ -7,6 +7,7 @@ import { useStore } from "../../store.ts";
 import { AppTile, Dlg, Item, Label, Labeled, Note, Panel, Prim, Sec, Seg, TextBox, Tile } from "../../components/MarketParts.tsx";
 import { cx } from "../../components/ui.tsx";
 import { OwnersOnly, PageHeader } from "./parts.tsx";
+import { StorageLogo } from "./StorageLogo.tsx";
 
 interface StorageView {
   connections: StorageConnection[];
@@ -19,11 +20,8 @@ const APP_HELP = {
   dropbox: "https://www.dropbox.com/developers/apps",
 };
 
-/** A service's real logo, or a plain server for "Other server". */
-export function StorageLogo({ service, size = 40 }: { service: StorageService; size?: number }) {
-  const s = STORAGE_SERVICES[service];
-  return s.logo ? <AppTile name={s.name} size={size} /> : <Tile size={size}><Server size={Math.round(size * 0.5)} strokeWidth={1.7} /></Tile>;
-}
+// in a file of its own, so a card that shows the logo doesn't bring this whole page with it
+export { StorageLogo };
 
 const hostOf = (url: string | null) => {
   try {

@@ -4,7 +4,7 @@ import { FEATURE_PRESETS, type Agent, type DeviceRole, type Features } from "@wi
 import { harnessInfo, harnessLabel, runsInVm } from "@wisp/core/src/harnesses.ts";
 import { api } from "./api.ts";
 import { accessSkipped, onPublicAddress } from "./access.ts";
-import { useStore } from "./store.ts";
+import { keep, sameData, useStore } from "./store.ts";
 import { agentReadiness, agentSignedIn, type DeviceInfo } from "./devices.ts";
 import type { Route } from "./router.ts";
 
@@ -88,16 +88,39 @@ export function setupProgress(done: Record<StepId, boolean>) {
   return { progress, steps, complete: progress >= steps };
 }
 
+/** The check that's on its way, and whether something changed since it left (so one more follows it). */
+let checking: Promise<void> | null = null;
+let stale = false;
+
 const useOnboardingStore = create<{ state: OnboardingState | null; error: string | null; refresh: () => Promise<void> }>((set) => ({
   state: null,
   error: null,
-  refresh: () =>
-    api<OnboardingState>("GET", "/api/onboarding").then(
-      (state) => set({ state, error: null }),
-      (e: { status?: number; message: string }) =>
-        // a 404 means the browser has a newer app than the hub is running
-        set({ error: e.status === 404 ? "Restart Wisp on the computer it lives on, then reload this page." : `Couldn't check your progress: ${e.message}` }),
-    ),
+  // Every agent change and every message asks for this, from each place that shows progress. While one
+  // check is out the rest wait for it, and a single check follows if anything asked meanwhile, so
+  // what's shown still ends up newer than the last change without a pile of identical requests.
+  refresh: () => {
+    if (checking) {
+      stale = true;
+      return checking;
+    }
+    const run = (): Promise<void> =>
+      api<OnboardingState>("GET", "/api/onboarding")
+        .then(
+          (state) => set((s) => (s.error === null && sameData(s.state, state) ? s : { state: keep(s.state, state), error: null })),
+          (e: { status?: number; message: string }) =>
+            // a 404 means the browser has a newer app than the hub is running
+            set({ error: e.status === 404 ? "Restart Wisp on the computer it lives on, then reload this page." : `Couldn't check your progress: ${e.message}` }),
+        )
+        .then(() => {
+          if (!stale) return;
+          stale = false;
+          return run();
+        });
+    checking = run().finally(() => {
+      checking = null;
+    });
+    return checking;
+  },
 }));
 
 /**

@@ -217,36 +217,40 @@ export const useStore = create<State>((set, get) => ({
   channelBrowser: null,
 
   async load() {
-    const [me, channels, sections, agents, members] = await Promise.all([
+    const first = Promise.all([
       api<Me>("GET", "/api/me"),
       api<ChannelInfo[]>("GET", "/api/channels"),
       api<Section[]>("GET", "/api/sections"),
       api<Agent[]>("GET", "/api/agents"),
       api<Member[]>("GET", "/api/members"),
     ]);
+    // neither needs to know who you are first, so they go out with the five above instead of after them
+    get().refreshLead();
+    api<Approval[]>("GET", "/api/approvals?status=pending").then((list) => set((s) => ({ approvals: { ...s.approvals, ...Object.fromEntries(list.map((a) => [a.id, a])) } })), () => {});
+    const [me, channels, sections, agents, members] = await first;
     set({ me, channels, sections, agents, members });
     get().refreshComputers();
-    get().refreshLead();
     get().refreshOrgs();
-    api<Approval[]>("GET", "/api/approvals?status=pending").then((list) => set((s) => ({ approvals: { ...s.approvals, ...Object.fromEntries(list.map((a) => [a.id, a])) } })), () => {});
   },
 
   async refreshOrgs() {
     const list = await listOrgs();
     const { me, members, agents } = get();
-    if (list && list.length) return set({ orgs: list });
+    if (list && list.length) return set((s) => ({ orgs: keep(s.orgs, list) }));
     // no organizations on this hub (or it couldn't say): just the one you're in
     if (me) set({ orgs: [{ id: me.workspace.id, name: me.workspace.name, role: me.role, members: Math.max(1, members.length), agents: agents.length, current: true, unread: false }] });
   },
 
   async refreshLead() {
-    set({ lead: await api<LeadStatus>("GET", "/api/settings/lead").catch(() => get().lead) });
+    const lead = await api<LeadStatus>("GET", "/api/settings/lead").catch(() => get().lead);
+    set((s) => ({ lead: keep(s.lead, lead) }));
   },
 
   async refreshComputers() {
     // guests don't see computers; a hub older than this page has none
     if (get().me?.role === "guest") return set({ computers: [] });
-    set({ computers: await api<ComputerInfo[]>("GET", "/api/computers").catch(() => get().computers) });
+    const computers = await api<ComputerInfo[]>("GET", "/api/computers").catch(() => get().computers);
+    set((s) => ({ computers: keep(s.computers, computers) }));
   },
 
   async loadApproval(id) {
@@ -268,7 +272,8 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async refreshAgents() {
-    set({ agents: await api<Agent[]>("GET", "/api/agents") });
+    const agents = await api<Agent[]>("GET", "/api/agents");
+    set((s) => ({ agents: keep(s.agents, agents) }));
     // with no lead picked, the lead is worked out from the agents and teams
     get().refreshLead();
   },
@@ -287,14 +292,18 @@ export const useStore = create<State>((set, get) => ({
     // a read we haven't sent yet (debounced) or the open channel must not come back as unread
     const { activeChannel, channels } = get();
     set({
-      channels: list.map((c) =>
-        c.id === activeChannel || readTimers.has(c.id) ? { ...c, unread: 0, lastReadAt: channels.find((x) => x.id === c.id)?.lastReadAt ?? c.lastReadAt } : c.notify === "mute" ? { ...c, unread: 0 } : c,
+      channels: keep(
+        channels,
+        list.map((c) =>
+          c.id === activeChannel || readTimers.has(c.id) ? { ...c, unread: 0, lastReadAt: channels.find((x) => x.id === c.id)?.lastReadAt ?? c.lastReadAt } : c.notify === "mute" ? { ...c, unread: 0 } : c,
+        ),
       ),
     });
   },
 
   async refreshSections() {
-    set({ sections: await api<Section[]>("GET", "/api/sections") });
+    const sections = await api<Section[]>("GET", "/api/sections");
+    set((s) => ({ sections: keep(s.sections, sections) }));
   },
 
   setActive(id) {
@@ -354,10 +363,10 @@ export const useStore = create<State>((set, get) => ({
       get().refreshSections().catch(() => {});
       get().refreshComputers().catch(() => {});
       get().refreshOrgs().catch(() => {});
-      api<Me>("GET", "/api/me").then((me) => set({ me }), () => {});
-      api<Member[]>("GET", "/api/members").then((members) => set({ members }), () => {});
-      api<Approval[]>("GET", "/api/approvals").then((list) => set({ approvals: Object.fromEntries(list.map((a) => [a.id, a])) }), () => {});
-      api<DiscussionInfo[]>("GET", "/api/discussions").then((list) => set({ discussions: Object.fromEntries(list.map((d) => [d.id, d])) }), () => {});
+      api<Me>("GET", "/api/me").then((me) => set((s) => ({ me: keep(s.me, me) })), () => {});
+      api<Member[]>("GET", "/api/members").then((members) => set((s) => ({ members: keep(s.members, members) })), () => {});
+      api<Approval[]>("GET", "/api/approvals").then((list) => set((s) => ({ approvals: keep(s.approvals, Object.fromEntries(list.map((a) => [a.id, a]))) })), () => {});
+      api<DiscussionInfo[]>("GET", "/api/discussions").then((list) => set((s) => ({ discussions: keep(s.discussions, Object.fromEntries(list.map((d) => [d.id, d]))) })), () => {});
     }
   },
 
@@ -479,13 +488,69 @@ export const useStore = create<State>((set, get) => ({
     } else if (e.type === "run_event") {
       for (const tap of runTaps) tap(e);
       set((s) => {
-        const cur = s.live[e.runId] ?? { runId: e.runId, agentId: e.agentId, channelId: e.channelId, threadId: e.threadId ?? null, threadPath: e.threadPath ?? [], text: "", tools: [], last: null, usedComputer: false };
-        return { live: { ...s.live, [e.runId]: applyEvent(cur, e.event) } };
+        const had = s.live[e.runId];
+        const next = applyEvent(had ?? { runId: e.runId, agentId: e.agentId, channelId: e.channelId, threadId: e.threadId ?? null, threadPath: e.threadPath ?? [], text: "", tools: [], last: null, usedComputer: false }, e.event);
+        // an event that changes nothing about a run we already show (a tool's result, a status line) re-renders nothing
+        return next === had ? s : { live: { ...s.live, [e.runId]: next } };
       });
     }
     if (notify) notifyOn(e, before, get());
   },
 }));
+
+/** Is `b` the same data as `a`, all the way down? For what the hub sends: plain JSON. */
+export function sameData(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  const arr = Array.isArray(a);
+  if (arr !== Array.isArray(b)) return false;
+  if (arr) {
+    const x = a as unknown[], y = b as unknown[];
+    if (x.length !== y.length) return false;
+    for (let i = 0; i < x.length; i++) if (!sameData(x[i], y[i])) return false;
+    return true;
+  }
+  const x = a as Record<string, unknown>, y = b as Record<string, unknown>;
+  const keys = Object.keys(x);
+  if (keys.length !== Object.keys(y).length) return false;
+  for (const k of keys) if (!(k in y) || !sameData(x[k], y[k])) return false;
+  return true;
+}
+
+/**
+ * What a refresh should store: the copy already there when the hub sent the same thing again, so a
+ * refresh that changed nothing (every reconnect, most polls) re-renders nothing and re-runs no effect.
+ */
+export function keep<T>(have: T, got: T): T {
+  return sameData(have, got) ? have : got;
+}
+
+/**
+ * Who is working where, for everything that shows it without showing the words: the same object
+ * for as long as only a run's text grows. (`text` in it is whatever it was when the run last
+ * changed otherwise, so read it only as "has it said anything yet".)
+ */
+let shapeOf: Record<string, LiveRun> | null = null;
+let shape: Record<string, LiveRun> = {};
+function sameShape(a: Record<string, LiveRun>, b: Record<string, LiveRun>): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  for (const k of keys) {
+    const x = a[k], y = b[k];
+    if (!y) return false;
+    if (x === y) continue;
+    if (x.agentId !== y.agentId || x.channelId !== y.channelId || x.threadId !== y.threadId || x.threadPath !== y.threadPath || x.tools !== y.tools || x.last !== y.last || x.usedComputer !== y.usedComputer || !x.text !== !y.text) return false;
+  }
+  return true;
+}
+export function liveShape(s: { live: Record<string, LiveRun> }): Record<string, LiveRun> {
+  if (s.live !== shapeOf) {
+    if (!sameShape(shape, s.live)) shape = s.live;
+    shapeOf = s.live;
+  }
+  return shape;
+}
+export const useLiveShape = () => useStore(liveShape);
 
 /** Views that need every step of a run (Code's agent panes), not the store's short summary. */
 export type RunEvent = Extract<ClientEvent, { type: "run_event" }>;
@@ -523,9 +588,11 @@ async function fetchMessages(channelId: string, threadId?: string, earlier = fal
     type Page = { messages: Message[]; replyCounts?: Record<string, number> };
     const r = await api<Page>("GET", `${path}${before ? `&before=${encodeURIComponent(before)}` : ""}`);
     const root = threadId ? r.messages.find((m) => m.id === threadId) : undefined;
-    const page = r.messages.filter((m) => m.id !== threadId);
     useStore.setState((s) => {
       const current = (threadId ? s.threads[threadId] : s.messages[channelId]) ?? [];
+      // a message that came back the same keeps the object it had, so its row doesn't render again
+      const had = new Map(current.map((m) => [m.id, m]));
+      const page = r.messages.filter((m) => m.id !== threadId).map((m) => keep(had.get(m.id) ?? m, m));
       const merged = earlier ? dedupe([...page, ...current]) : [...new Map([...current, ...page].map((m) => [m.id, m])).values()].sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
       // Refreshing the latest page must not discard already loaded earlier history.
       const keptEarlier = !earlier && current.length > 0 && page.length > 0 && current[0].id !== page[0].id;

@@ -4,7 +4,7 @@ import { api } from "../api.ts";
 import { useStore, type ComputerInfo, type LiveRun } from "../store.ts";
 import { go } from "../router.ts";
 import { AgentAvatar, cx, timeAgo } from "./ui.tsx";
-import { StorageLogo } from "../views/settings/storage.tsx";
+import { StorageLogo } from "../views/settings/StorageLogo.tsx";
 import { AppleApprovalCard } from "./AppleParts.tsx";
 
 /** "Needs you", "New replies"…: the small grey heading over a group, with a count or a link on the right. */

@@ -1,13 +1,15 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { Suspense, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
 import { LogIn, RotateCcw, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, Eye, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, MoreHorizontal, Monitor, Paperclip, Phone, Plus, Shield, ShieldAlert, SquareTerminal, UserPlus, Users, X, Zap, ChevronDown, Hash, Info, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { parseMentions, SCHEDULE_MARK, type AccessLevel, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
-import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
+import { conversationKey, useHandleColors, useHandleNames, useLiveShape, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
 import { go, href, type Route } from "../router.ts";
 import type { TaskRow } from "./TasksView.tsx";
-import { renderMarkdown } from "../markdown.ts";
+import { renderMarkdown, renderMessage } from "../markdown.ts";
+import { lazyView } from "../lazy.tsx";
 import { ChannelSettings, NOTIFY, landingChannel, setArchived, setChannelPrefs, type ChannelSettingsTab } from "../components/Channels.tsx";
 import { ChatAvatar } from "../components/ChatList.tsx";
 import { patchAgent, prettyModel, tokens, useAgentContext, type AgentContext } from "../models.ts";
@@ -19,7 +21,7 @@ import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Modal, Pill, Popover, StatusDot, UserAvatar, clockTime, cx, harnessLabel } from "../components/ui.tsx";
 import { AgentPill } from "../components/AgentPill.tsx";
-import { CallScreen, type CallRecord } from "../voice/CallScreen.tsx";
+import type { CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
 import { AgentPanel, type AgentPanelTab } from "../components/AgentPanel.tsx";
 import { slashEnterAction } from "../slashCommand.ts";
@@ -43,6 +45,9 @@ import { GhostLanding, useFirstHelloHtml } from "../components/onboarding/FirstH
 type Side = { kind: "agent"; agentId: string; tab: AgentPanelTab } | { kind: "info"; tab: InfoTab };
 
 /** The DM's own agent panel stays open across DMs once you open it. */
+// a call's screen is only needed while a call is on: a file of its own (lazy.tsx)
+const CallScreen = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallScreen));
+
 /** What to do about a failed run: sign in if that's the cause, then ask again. */
 function RunFailedActions({ part, agentId }: { part: Extract<MessagePart, { type: "run_failed" }>; agentId?: string }) {
   const [busy, setBusy] = useState(false);
@@ -211,7 +216,11 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
         )}
         {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
         {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onAgain={() => { setCallRecord(null); setCalling(true); }} onHide={() => setCallRecord(null)} />}
-        {calling && dmAgent && <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} barSlot={callSlot} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />}
+        {calling && dmAgent && (
+          <Suspense fallback={null}>
+            <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} barSlot={callSlot} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
+          </Suspense>
+        )}
         {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} />}
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
@@ -574,7 +583,6 @@ function useMessageHistory(channelId: string, threadId: string | undefined, mess
 function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { messageId?: string; channel: ChannelInfo; readMark: string | null; onAddAgent: () => void; onMembers: () => void }) {
   const messages = useStore((s) => s.messages[channel.id]);
   const replyCounts = useStore((s) => s.replyCounts);
-  const live = useStore((s) => s.live);
   const me = useStore((s) => s.me);
   const ref = useRef<HTMLDivElement>(null);
   const history = useMessageHistory(channel.id, undefined, messageId, ref, messages);
@@ -585,14 +593,30 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { 
   const positioned = useRef<string | null>(null);
   const lastCount = useRef(0);
   // every run working at the top of this chat shows as a bubble, even before it has said anything
-  const runs = Object.values(live).filter((r) => r.channelId === channel.id && !r.threadId);
-  const inThreads = Object.values(live).filter((r) => r.channelId === channel.id && r.threadId);
+  // (only these re-render the list as they write; a run in a thread or another chat doesn't)
+  const runs = useStore(useShallow((s) => Object.values(s.live).filter((r) => r.channelId === channel.id && !r.threadId)));
+  const working = useWorkingByThread(channel.id);
 
   // first message from someone else after where you'd read up to
   const firstNew = useMemo(() => {
     if (!messages || !readMark) return null;
     return messages.find((m) => m.createdAt > readMark && m.author.id !== me?.user.id && m.author.id !== "system")?.id ?? null;
   }, [messages, readMark, me]);
+
+  // where each message sits among its neighbours (a new chat, a time above it, grouped with the one before,
+  // last of its group): worked out when the messages change, not again for every word of a reply
+  const places = useMemo(
+    () =>
+      (messages ?? []).map((m, i, all) => {
+        const chat = startsChat(all[i - 1], m);
+        const stamp = chat || needsStamp(all[i - 1], m);
+        const grouped = !stamp && isGrouped(all[i - 1], m) && m.id !== firstNew;
+        const next = all[i + 1];
+        const last = !next || startsChat(m, next) || needsStamp(m, next) || !isGrouped(m, next) || next.id === firstNew;
+        return { chat, stamp, grouped, last };
+      }),
+    [messages, firstNew],
+  );
 
   // on open: jump to the NEW divider (or the bottom); afterwards stick to the bottom if you're there
   useLayoutEffect(() => {
@@ -637,25 +661,21 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { 
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
-        {messages.map((m, i) => {
-          const chat = startsChat(messages[i - 1], m);
-          const stamp = chat || needsStamp(messages[i - 1], m);
-          const grouped = !stamp && isGrouped(messages[i - 1], m) && m.id !== firstNew;
-          const next = messages[i + 1];
-          const last = !next || startsChat(m, next) || needsStamp(m, next) || !isGrouped(m, next) || next.id === firstNew;
-          return (
-            <div key={m.id}>
-              {chat ? <ChatDivider at={m.createdAt} chat={m.conversationId!} messages={messages} /> : stamp && <TimeDivider at={m.createdAt} />}
-              {m.id === firstNew && (
-                <div ref={dividerRef} className="flex items-center gap-3 px-5 my-2 text-[11px] font-medium tracking-wide text-accent-text">
-                  <span className="h-px flex-1 bg-accent/40" /> NEW <span className="h-px flex-1 bg-accent/40" />
-                </div>
-              )}
-              <MessageItem m={m} grouped={grouped} last={last} replies={replyCounts[m.id]} working={inThreads.filter((r) => r.threadId === m.id || r.threadPath.includes(m.id))} onReplies={() => go({ view: "chat", channelId: channel.id, threadId: m.id })} />
-              {m.parts?.some((p) => p.type === "closed") && <ClosedLine animate={fresh.has(m.id)} />}
-            </div>
-          );
-        })}
+        {messages.map((m, i) => (
+          <ChatRow
+            key={m.id}
+            m={m}
+            channelId={channel.id}
+            chatOf={places[i].chat ? messages : undefined}
+            stamp={places[i].stamp}
+            newRef={m.id === firstNew ? dividerRef : undefined}
+            grouped={places[i].grouped}
+            last={places[i].last}
+            replies={replyCounts[m.id]}
+            working={working.get(m.id) ?? NO_RUNS}
+            arrived={fresh.has(m.id)}
+          />
+        ))}
         {runs.map((r) => (
           <StreamingItem key={r.runId} run={r} />
         ))}
@@ -677,6 +697,53 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId }: { 
     </FreshMessages.Provider>
   );
 }
+
+const NO_RUNS: LiveRun[] = [];
+
+/** The runs working in each thread of a chat (and in the threads above it), by the thread's first message. */
+function useWorkingByThread(channelId: string, under?: string): Map<string, LiveRun[]> {
+  const live = useLiveShape();
+  return useMemo(() => {
+    const by = new Map<string, LiveRun[]>();
+    for (const r of Object.values(live)) {
+      if (r.channelId !== channelId || !r.threadId || (under && !r.threadPath.includes(under))) continue;
+      for (const id of new Set([r.threadId, ...r.threadPath])) by.set(id, [...(by.get(id) ?? []), r]);
+    }
+    return by;
+  }, [live, channelId, under]);
+}
+
+/**
+ * One message in a chat with what sits around it: the line where a new chat starts or the time,
+ * the NEW line, and "closed". It renders again only when something about it changes, so a reply
+ * being written below (an update for every word) or a message arriving leaves the rest alone.
+ */
+const ChatRow = memo(function ChatRow({ m, channelId, chatOf, stamp, newRef, grouped, last, replies, working, arrived }: { m: Message; channelId: string; /** every message here, when this one starts a new chat */ chatOf?: Message[]; stamp: boolean; newRef?: RefObject<HTMLDivElement | null>; grouped: boolean; last: boolean; replies?: number; working: LiveRun[]; arrived: boolean }) {
+  const onReplies = useCallback(() => go({ view: "chat", channelId, threadId: m.id }), [channelId, m.id]);
+  return (
+    <div>
+      {chatOf ? <ChatDivider at={m.createdAt} chat={m.conversationId!} messages={chatOf} /> : stamp && <TimeDivider at={m.createdAt} />}
+      {newRef && (
+        <div ref={newRef} className="flex items-center gap-3 px-5 my-2 text-[11px] font-medium tracking-wide text-accent-text">
+          <span className="h-px flex-1 bg-accent/40" /> NEW <span className="h-px flex-1 bg-accent/40" />
+        </div>
+      )}
+      <MessageItem m={m} grouped={grouped} last={last} replies={replies} working={working} onReplies={onReplies} />
+      {m.parts?.some((p) => p.type === "closed") && <ClosedLine animate={arrived} />}
+    </div>
+  );
+});
+
+/** The same for a reply in a thread. */
+const ThreadRow = memo(function ThreadRow({ m, channelId, rootId, stamp, grouped, last, replies, working }: { m: Message; channelId: string; rootId: string; stamp: boolean; grouped: boolean; last: boolean; replies?: number; working: LiveRun[] }) {
+  const onReplies = useCallback(() => go({ view: "chat", channelId, threadId: m.id }), [channelId, m.id]);
+  return (
+    <div>
+      {stamp && <TimeDivider at={m.createdAt} />}
+      <MessageItem m={m} grouped={grouped} last={last} inThread composerThread={rootId} replies={replies} working={working} onReplies={onReplies} />
+    </div>
+  );
+});
 
 function TimeDivider({ at }: { at: string }) {
   const { clock } = usePrefs();
@@ -920,7 +987,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
   const names = useNames();
   const handles = useHandleNames();
   const colors = useHandleColors();
-  const rendered = useMemo(() => (m.body ? renderMarkdown(m.body, { handles, colors }) : ""), [m.body, handles, colors]);
+  const rendered = useMemo(() => (m.body ? renderMessage(m.body, { handles, colors }) : ""), [m.body, handles, colors]);
   // a first chat's hello types in once and underlines what it already knows
   const html = useFirstHelloHtml(m, rendered);
   const cards = useMemo(() => linkCards(m.body), [m.body]);
@@ -1348,13 +1415,25 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
   const removed = useStore((s) => s.removedRoots[rootId]);
   const replies = useStore((s) => s.threads[rootId]);
   const replyCounts = useStore((s) => s.replyCounts);
-  const live = useStore((s) => s.live);
   const loadThread = useStore((s) => s.loadThread);
   const ref = useRef<HTMLDivElement>(null);
   const history = useMessageHistory(channelId, rootId, messageId, ref, replies);
   const fresh = useFreshIds(rootId, replies);
-  const streaming = Object.values(live).filter((r) => r.channelId === channelId && r.threadId === rootId);
-  const below = Object.values(live).filter((r) => r.channelId === channelId && r.threadPath.includes(rootId));
+  // what's being written in this thread re-renders it word by word; work further down only as it starts and stops
+  const streaming = useStore(useShallow((s) => Object.values(s.live).filter((r) => r.channelId === channelId && r.threadId === rootId)));
+  const shape = useLiveShape();
+  const below = useMemo(() => Object.values(shape).filter((r) => r.channelId === channelId && r.threadPath.includes(rootId)), [shape, channelId, rootId]);
+  const working = useWorkingByThread(channelId, rootId);
+  // where each reply sits among its neighbours: worked out when the replies change, not for every word written below
+  const places = useMemo(
+    () =>
+      (replies ?? []).map((m, i, all) => {
+        const stamp = needsStamp(all[i - 1], m);
+        const next = all[i + 1];
+        return { stamp: stamp && i > 0, grouped: !stamp && isGrouped(all[i - 1], m), last: !next || needsStamp(m, next) || !isGrouped(m, next) };
+      }),
+    [replies],
+  );
 
   useEffect(() => {
     void loadThread(channelId, rootId).catch(() => {});
@@ -1386,17 +1465,9 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
           <span className="h-px flex-1 bg-line" />
         </div>
         <FreshMessages.Provider value={fresh}>
-        {replies?.map((m, i) => {
-          const stamp = needsStamp(replies[i - 1], m);
-          const next = replies[i + 1];
-          const last = !next || needsStamp(m, next) || !isGrouped(m, next);
-          return (
-            <div key={m.id}>
-              {stamp && i > 0 && <TimeDivider at={m.createdAt} />}
-              <MessageItem m={m} grouped={!stamp && isGrouped(replies[i - 1], m)} last={last} inThread composerThread={rootId} replies={replyCounts[m.id]} working={below.filter((r) => r.threadId === m.id || r.threadPath.includes(m.id))} onReplies={() => open(m.id)} />
-            </div>
-          );
-        })}
+        {replies?.map((m, i) => (
+          <ThreadRow key={m.id} m={m} channelId={channelId} rootId={rootId} stamp={places[i].stamp} grouped={places[i].grouped} last={places[i].last} replies={replyCounts[m.id]} working={working.get(m.id) ?? NO_RUNS} />
+        ))}
         </FreshMessages.Provider>
         {streaming.map((r) => (
           <StreamingItem key={r.runId} run={r} />
@@ -1491,7 +1562,7 @@ function ThreadRoot({ m }: { m: Message; composerThread?: string }) {
   const names = useNames();
   const handles = useHandleNames();
   const colors = useHandleColors();
-  const html = useMemo(() => (m.body ? renderMarkdown(m.body, { handles, colors }) : ""), [m.body, handles, colors]);
+  const html = useMemo(() => (m.body ? renderMessage(m.body, { handles, colors }) : ""), [m.body, handles, colors]);
   const meId = useStore((s) => s.me?.user.id);
   const agent = m.author.kind === "agent" ? names.agent(m.author.id) : undefined;
   const mine = m.author.kind === "user" && m.author.id === meId;
@@ -1708,7 +1779,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   const agents = useStore((s) => s.agents);
   const canEdit = useStore((s) => s.me?.role !== "guest");
   const { agent: dmAgent, ctx, models } = useAgentContext(agentId, channelId, threadId);
-  const live = useStore((s) => s.live);
+  const live = useLiveShape();
   const [{ text, files, pending, sending, error, replyTo }, updateDraft, getDraft] = useComposerDraft(channelId, threadId);
   const uploading = pending.length;
   const setText = (value: string) => updateDraft((d) => ({ ...d, text: value }));

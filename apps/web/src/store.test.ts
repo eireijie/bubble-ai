@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentEvent, Approval, Message } from "@wisp/core";
 import { api } from "./api.ts";
-import { conversationKey, useStore, type DiscussionInfo, type LiveRun } from "./store.ts";
+import { conversationKey, keep, liveShape, sameData, useStore, type DiscussionInfo, type LiveRun } from "./store.ts";
 
 vi.mock("./api.ts", () => ({ api: vi.fn() }));
 vi.mock("./notifications.ts", () => ({ notifyOn: vi.fn() }));
@@ -209,5 +209,79 @@ describe("edited and removed messages elsewhere on screen", () => {
     useStore.getState().handle({ type: "message_updated", message: { ...target, body: "fixed" } }, false);
     expect(useStore.getState().messages.channel![1].replyTo?.snippet).toBe("fixed");
     expect(useStore.getState().channels[0].last?.body).toBe("fixed");
+  });
+});
+
+describe("nothing changed, nothing re-renders", () => {
+  it("tells the same data from different data, all the way down", () => {
+    expect(sameData({ a: [1, { b: null }], c: "x" }, { c: "x", a: [1, { b: null }] })).toBe(true);
+    expect(sameData({ a: [1, 2] }, { a: [1, 2, 3] })).toBe(false);
+    expect(sameData({ a: 1 }, { a: 1, b: undefined })).toBe(false);
+    expect(sameData([], {})).toBe(false);
+    expect(sameData(null, {})).toBe(false);
+    const have = [{ id: "a" }];
+    expect(keep(have, [{ id: "a" }])).toBe(have);
+    const got = [{ id: "b" }];
+    expect(keep(have, got)).toBe(got);
+  });
+
+  it("keeps the list it has when a refresh brings the same one, and takes a changed one", async () => {
+    const agents = [{ id: "agent", name: "Ada", status: "idle" }] as never;
+    useStore.setState({ agents });
+    vi.mocked(api).mockImplementation(async (_m, path) => (path === "/api/agents" ? [{ id: "agent", name: "Ada", status: "idle" }] : null));
+    await useStore.getState().refreshAgents();
+    expect(useStore.getState().agents).toBe(agents);
+    vi.mocked(api).mockImplementation(async (_m, path) => (path === "/api/agents" ? [{ id: "agent", name: "Ada", status: "busy" }] : null));
+    await useStore.getState().refreshAgents();
+    expect(useStore.getState().agents).not.toBe(agents);
+    expect(useStore.getState().agents[0].status).toBe("busy");
+  });
+
+  it("keeps a message's object when the same message is loaded again, and replaces an edited one", async () => {
+    const [a, b] = [message("a"), message("b")];
+    vi.mocked(api).mockResolvedValueOnce({ messages: [a, b] });
+    await useStore.getState().loadChannel("channel");
+    const before = useStore.getState().messages.channel;
+    vi.mocked(api).mockResolvedValueOnce({ messages: [{ ...a }, { ...b, body: "edited" }] });
+    await useStore.getState().loadChannel("channel");
+    const after = useStore.getState().messages.channel;
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).not.toBe(before[1]);
+    expect(after[1].body).toBe("edited");
+  });
+
+  it("leaves the state alone for an event that changes nothing about a run already showing", () => {
+    event({ type: "status", text: "Thinking" });
+    // the first event of a run always shows it, whatever it is
+    expect(useStore.getState().live.run).toMatchObject({ text: "", tools: [] });
+    const before = useStore.getState();
+    event({ type: "tool_result", name: "shell", output: "Contents" });
+    expect(useStore.getState()).toBe(before);
+    event({ type: "text", text: "Hi" });
+    expect(useStore.getState()).not.toBe(before);
+  });
+
+  it("gives who-is-working views the same object while only the words grow", () => {
+    event({ type: "status", text: "Thinking" });
+    const quiet = liveShape(useStore.getState());
+    expect(quiet.run.text).toBe("");
+    // the first words change "has it said anything yet"
+    event({ type: "text", text: "Hello" });
+    const writing = liveShape(useStore.getState());
+    expect(writing).not.toBe(quiet);
+    event({ type: "text", text: " world" });
+    event({ type: "text", text: ", again" });
+    expect(liveShape(useStore.getState())).toBe(writing);
+    expect(useStore.getState().live.run.text).toBe("Hello world, again");
+    // a tool call, another run starting and a run ending all show
+    event({ type: "tool_call", name: "shell", input: {} });
+    const tool = liveShape(useStore.getState());
+    expect(tool).not.toBe(writing);
+    expect(tool.run.last).toEqual({ name: "shell", input: {} });
+    useStore.getState().handle({ type: "run_event", runId: "other", agentId: "agent2", channelId: "channel", event: { type: "text", text: "x" } }, false);
+    const two = liveShape(useStore.getState());
+    expect(Object.keys(two)).toEqual(["run", "other"]);
+    useStore.setState({ live: {} });
+    expect(liveShape(useStore.getState())).toEqual({});
   });
 });

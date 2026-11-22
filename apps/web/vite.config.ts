@@ -7,7 +7,15 @@ const hub = process.env.WISP_HUB ?? process.env.WARREN_HUB ?? "http://localhost:
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   // noVNC (live view of computers) uses top-level await
-  build: { target: "es2022" },
+  build: {
+    target: "es2022",
+    rollupOptions: {
+      output: {
+        // React changes far less often than Wisp does: in a file of its own, a browser that has it keeps it across updates
+        manualChunks: (id) => (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id) ? "react" : undefined),
+      },
+    },
+  },
   optimizeDeps: { esbuildOptions: { target: "es2022" } },
   server: {
     port: 5173,
