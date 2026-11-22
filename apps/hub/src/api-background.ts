@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { FEATURE_INFO, FEATURE_KEYS, MODS_NEED_OK, UNLISTED_FEATURES, type Agent, type Approval, type BackgroundWork, type FeatureKey, type MessagePart } from "@wisp/core";
 import type { Caller } from "./api.ts";
-import { DEFAULT_DAILY_CAP, parseWhen } from "./background.ts";
+import { DEFAULT_DAILY_CAP, DEFAULT_AGENT_DAILY_TOKENS, parseWhen } from "./background.ts";
 import { setWorkspaceFeatures, workspaceFeatures } from "./features.ts";
 import type { Hub } from "./hub.ts";
 
@@ -111,6 +111,7 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
       sources: hub.background.sources(agent.id).filter((s) => c.viewer.role !== "guest" || s.kind !== "computer"),
       usage: hub.background.usage(agent.id, c.actor.id),
       defaultDailyCap: DEFAULT_DAILY_CAP,
+      defaultDailyTokens: DEFAULT_AGENT_DAILY_TOKENS,
     };
   });
 
@@ -122,18 +123,21 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
     const notAllowed = hub.whyNotAllowed(agent, c.actor.id);
     if (notAllowed) return reply.code(403).send({ error: notAllowed });
     if (!hub.answers(agent, c.actor.id)) return reply.code(403).send({ error: `@${agent.handle} only answers the people its owner picked` });
-    const body = parse(z.object({ enabled: z.boolean(), everyMinutes: z.number().int().min(10).max(1440), focus: z.string().trim().max(2000), quietStart: HHMM, quietEnd: HHMM, model: z.string().trim().max(200).nullable(), effort: z.string().trim().max(32).nullable(), dailyCap: z.number().int().min(1).max(1000).nullable() }).partial().strict(), req.body, reply);
+    const body = parse(z.object({ enabled: z.boolean(), everyMinutes: z.number().int().min(10).max(1440), focus: z.string().trim().max(2000), quietStart: HHMM, quietEnd: HHMM, model: z.string().trim().max(200).nullable(), effort: z.string().trim().max(32).nullable(), dailyCap: z.number().int().min(1).max(1000).nullable(), dailyTokens: z.number().int().min(1000).max(1_000_000_000).nullable() }).partial().strict(), req.body, reply);
     if (!body) return;
     const was = store.background(agent.id, c.actor.id);
     // turning it on starts with a check right away, so you see it working
     // a blank model or effort means "the same as the agent"; a higher limit lets a check that was waiting for tomorrow go ahead
-    const raised = body.dailyCap === null || (body.dailyCap !== undefined && body.dailyCap > (was?.dailyCap ?? Infinity));
+    const raised = body.dailyCap === null || (body.dailyCap !== undefined && body.dailyCap > (was?.dailyCap ?? Infinity)) || (body.dailyTokens !== undefined && (body.dailyTokens ?? DEFAULT_AGENT_DAILY_TOKENS) > (was?.dailyTokens ?? DEFAULT_AGENT_DAILY_TOKENS));
     const patch = { ...body, ...(body.model !== undefined ? { model: body.model || null } : {}), ...(body.effort !== undefined ? { effort: body.effort || null } : {}) };
     const b = store.setBackground(agent.id, c.actor.id, { ...patch, ...((body.enabled && !was?.enabled) || (raised && was?.nextReason === "daily limit reached") ? { nextAt: null, nextReason: "" } : {}) });
     hub.broadcast(c.workspaceId, { type: "background_changed", agentId: agent.id });
     if (body.everyMinutes !== undefined) hub.watches.followPace(agent.id, c.actor.id, body.everyMinutes);
     // even in quiet hours: they just turned it on, so they expect to see it work
     if (body.enabled && !was?.enabled) hub.background.wake(agent.id, c.actor.id);
+    // they changed what to keep an eye on, and no regular check is coming (nothing wakes it just to look around): one look
+    // now, where the agent sets up the watches that takes
+    else if (b.enabled && body.focus !== undefined && body.focus && body.focus !== (was?.focus ?? "") && !hub.background.blindSources(agent.id, c.actor.id).length) hub.background.wake(agent.id, c.actor.id);
     if (body.enabled === false && was?.enabled) hub.background.turnedOff(agent.id, c.actor.id);
     return { background: store.background(agent.id, c.actor.id) ?? b };
   });

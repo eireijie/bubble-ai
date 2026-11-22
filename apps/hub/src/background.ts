@@ -13,7 +13,8 @@ export interface UsageReport {
   totals: { tokens: number; runs: number; failed: number; estimated: boolean };
   /** tokens in the equal-length period just before this one */
   previousTokens: number;
-  agents: { agentId: string; tokens: number; runs: number }[];
+  /** `background*` is the part nobody asked for: checks, sorting changes and memory passes */
+  agents: { agentId: string; tokens: number; runs: number; backgroundTokens: number; backgroundRuns: number }[];
   models: { model: string; tokens: number }[];
   background: { todayTokens: number; dailyTokens: number | null; resetsAt: string };
 }
@@ -24,8 +25,18 @@ export const BACKGROUND_THREAD = "background";
 export const DEFAULT_DAILY_CAP = 24;
 /** Tokens a day background checks may use for one person, across all their agents, until they pick another amount. */
 export const DEFAULT_ALLOWANCE = 1_000_000;
+/** Tokens a day one agent's unattended work may use for one person (checks, sorting changes, memory passes), until they pick another amount. */
+export const DEFAULT_AGENT_DAILY_TOKENS = 500_000;
+/**
+ * Follow-ups are promises, so they run past an agent's daily limits, but not without end: past this many
+ * times its token limit they wait for tomorrow too (an agent that keeps setting itself follow-ups can't run up a bill).
+ */
+export const FOLLOWUP_HARD_STOP = 2;
 /** What a check that didn't report its usage is counted as. */
 export const ESTIMATED_CHECK_TOKENS = 25_000;
+/** What a sort (triage.ts) that didn't report its usage is counted as: a few lines in, one line out, plus the harness's own preamble. */
+export const ESTIMATED_SORT_TOKENS = 3_000;
+const guessFor = (kind: string) => (kind === "triage" ? ESTIMATED_SORT_TOKENS : ESTIMATED_CHECK_TOKENS);
 /** Past this share of the allowance, checks come half as often. */
 export const SLOW_DOWN_AT = 0.8;
 const MIN_MINUTES = 10;
@@ -35,11 +46,11 @@ const MAX_MINUTES = 24 * 60;
  * with a watch (watches.ts) wake the agent themselves when something changes, so this only delays
  * what the hub can't see: apps without one.
  */
-export const BACKOFF_CEILING_MINUTES = 4 * 60;
+export const BACKOFF_CEILING_MINUTES = 12 * 60;
 /** An agent with nothing to watch is looked at again this often, or at its usual pace if that's sooner (no tokens: the hub only checks its sources). */
 const IDLE_RECHECK_MINUTES = 60;
-/** Quiet checks in a row that keep doubling the wait (2^6 × 10 minutes is already past the ceiling). */
-const MAX_QUIET_STREAK = 6;
+/** Quiet checks in a row that keep doubling the wait (2^8 × 10 minutes is already past the ceiling). */
+const MAX_QUIET_STREAK = 8;
 /** The person hears that usage is climbing once at least this share is used and the last hour's pace would use the rest before the day ends. */
 export const WARN_FROM_SHARE = 0.25;
 
@@ -83,6 +94,10 @@ export function startOfDay(at: Date, timeZone: string, plusDays = 0): Date {
  */
 export const NOTHING_TO_WATCH = "nothing to watch yet";
 export const QUIET_LATELY = "quiet lately";
+/** The harness said its plan's limit is reached: nothing unattended runs until it resets. */
+export const PLAN_LIMIT = "plan limit reached";
+/** Most of the plan's window is used: what's left is the person's. */
+export const SAVING_PLAN = "saving your plan";
 
 export class Background {
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -119,7 +134,16 @@ export class Background {
     for (const [key, list] of due) {
       const [agentId, userId] = key.split(":");
       if (this.checking(agentId, userId)) continue;
-      const runId = this.wake(agentId, userId, list, at);
+      // a reached limit would only fail it: the promise is kept when the plan is back (it stays due)
+      const a = store.agent(agentId);
+      const paused = a && this.hub.limits.paused(a, at);
+      if (a && paused?.full) {
+        this.hub.limits.say(a, userId, paused);
+        continue;
+      }
+      if (a && this.pastHardStop(a.workspaceId, agentId, userId, at)) continue;
+      // changes waiting for the same agent go in the same check instead of one of their own
+      const runId = this.wake(agentId, userId, list, at, this.hub.watches.waiting(agentId, userId));
       if (!runId) continue;
       for (const f of list) store.setFollowupStatus(f.id, "done");
       this.hub.loops.fired(list, runId);
@@ -145,15 +169,6 @@ export class Background {
         store.setBackground(b.agentId, b.userId, { nextAt: afterQuietHours(at, tz, b.quietStart, b.quietEnd).toISOString(), nextReason: "after quiet hours" });
         continue;
       }
-      // a regular check waits for tomorrow once the person's allowance or this agent's limit is used up; follow-ups above never wait
-      if (this.allowanceShare(ws, b.userId, at) >= 1) {
-        store.setBackground(b.agentId, b.userId, { nextAt: startOfDay(at, tz, 1).toISOString(), nextReason: "allowance used up" });
-        continue;
-      }
-      if (this.capReached(b.agentId, b.userId, b.dailyCap, at)) {
-        store.setBackground(b.agentId, b.userId, { nextAt: startOfDay(at, tz, 1).toISOString(), nextReason: "daily limit reached" });
-        continue;
-      }
       // nothing only a model can look at, and nothing the hub can see changed: a check would only spend
       // tokens finding that out. Apps and sites with a watch wake the agent themselves when they change.
       if (!this.hasSomethingToWatch(b.agentId, b.lastAt, b.userId)) {
@@ -162,8 +177,73 @@ export class Background {
         store.setBackground(b.agentId, b.userId, { nextAt: new Date(at.getTime() + Math.min(IDLE_RECHECK_MINUTES, b.everyMinutes) * 60_000).toISOString(), nextReason: reason });
         continue;
       }
-      this.wake(b.agentId, b.userId, [], at);
+      // there is something to look at, but the plan or today's limits say not now; follow-ups above only wait for a reached plan limit
+      if (this.held(b, at)) continue;
+      this.wake(b.agentId, b.userId, [], at, this.hub.watches.waiting(b.agentId, b.userId));
     }
+  }
+
+  /**
+   * Why unattended work for this agent and person can't start now, or null when it can: the plan it
+   * runs on is used up (or nearly, and the rest is the person's), or today's allowance, its own token
+   * limit or its number of checks is reached. The next look moves to when that ends, and the person
+   * is told once in the agent's chat.
+   */
+  held(b: BackgroundWork, at = new Date()): string | null {
+    const { store } = this.hub;
+    const agent = store.agent(b.agentId);
+    if (!agent) return "gone";
+    const ws = agent.workspaceId;
+    const tz = this.timezone(b.userId);
+    const wait = (until: string, reason: string) => {
+      if (b.nextReason !== reason) this.hub.broadcast(ws, { type: "background_changed", agentId: b.agentId });
+      store.setBackground(b.agentId, b.userId, { nextAt: until, nextReason: reason });
+      return reason;
+    };
+    const paused = this.hub.limits.paused(agent, at);
+    if (paused) {
+      this.hub.limits.say(agent, b.userId, paused);
+      return wait(paused.until, paused.full ? PLAN_LIMIT : SAVING_PLAN);
+    }
+    const tomorrow = startOfDay(at, tz, 1).toISOString();
+    const today = this.allowance(ws, b.userId, at);
+    if (today.dailyTokens && today.todayTokens >= today.dailyTokens) {
+      this.sayOnce(ws, `allowance-said:${b.userId}`, agent.id, b.userId, at, `Background work used today's allowance (${tokenText(today.dailyTokens)} tokens). It picks up again tomorrow; you can raise it in Settings → Usage.`);
+      return wait(tomorrow, "allowance used up");
+    }
+    const mine = today.agents.find((a) => a.agentId === b.agentId)?.tokens ?? 0;
+    const limit = b.dailyTokens ?? DEFAULT_AGENT_DAILY_TOKENS;
+    if (mine >= limit) {
+      this.sayOnce(ws, `cap-said:${b.agentId}:${b.userId}`, agent.id, b.userId, at, `${agent.name} used its ${tokenText(limit)} tokens for background work today, so it stops here and picks up again tomorrow.`);
+      return wait(tomorrow, "daily limit reached");
+    }
+    if (this.capReached(b.agentId, b.userId, b.dailyCap, at)) {
+      this.sayOnce(ws, `cap-said:${b.agentId}:${b.userId}`, agent.id, b.userId, at, `${agent.name} reached today's limit of ${b.dailyCap} background checks, so it stops here and picks up again tomorrow.`);
+      return wait(tomorrow, "daily limit reached");
+    }
+    return null;
+  }
+
+  /** Has this agent used so much today that even its follow-ups wait for tomorrow? Says so once. */
+  private pastHardStop(workspaceId: string, agentId: string, userId: string, at: Date): boolean {
+    const b = this.hub.store.background(agentId, userId);
+    const limit = (b?.dailyTokens ?? DEFAULT_AGENT_DAILY_TOKENS) * FOLLOWUP_HARD_STOP;
+    const used = this.allowance(workspaceId, userId, at).agents.find((x) => x.agentId === agentId)?.tokens ?? 0;
+    if (used < limit) return false;
+    const name = this.hub.store.agent(agentId)?.name ?? "It";
+    this.sayOnce(workspaceId, `hard-stop-said:${agentId}:${userId}`, agentId, userId, at, `${name} used ${tokenText(used)} tokens on its own today, ${FOLLOWUP_HARD_STOP} times its limit, so its follow-ups wait until tomorrow too. You can raise the limit, or write to it: your own messages are always answered.`);
+    return true;
+  }
+
+  /** A status line in the agent's chat with the person, once a day per `key`. */
+  private sayOnce(workspaceId: string, key: string, agentId: string, userId: string, at: Date, text: string) {
+    const { store } = this.hub;
+    const day = dayOf(at, this.timezone(userId));
+    if (store.setting(workspaceId, key) === day) return;
+    store.setSetting(workspaceId, key, day);
+    const channel = store.dmChannel(workspaceId, userId, agentId);
+    const msg = store.insertMessage({ channelId: channel.id, threadId: null, author: { kind: "user", id: "system" }, body: "", parts: [{ type: "status", text }], hop: 0 });
+    this.hub.broadcast(workspaceId, { type: "message", message: msg }, this.hub.audience(channel.id));
   }
 
   /** Checks started today (any kind) on the person's clock. */
@@ -202,7 +282,7 @@ export class Background {
     const per = new Map<string, { agentId: string; tokens: number; checks: number }>();
     for (const r of runs) {
       const a = per.get(r.agentId) ?? { agentId: r.agentId, tokens: 0, checks: 0 };
-      a.tokens += r.tokens ?? ESTIMATED_CHECK_TOKENS;
+      a.tokens += r.tokens ?? guessFor(r.kind);
       a.checks += 1;
       per.set(r.agentId, a);
     }
@@ -224,9 +304,9 @@ export class Background {
     else for (let i = 0; i < days; i++) starts.push(startOfDay(at, tz, 1 - days + i).getTime());
     const buckets = starts.map((s) => ({ start: new Date(s).toISOString(), chat: 0, background: 0 }));
     const owner = store.members(workspaceId).find((m) => m.role === "owner")?.id === userId;
-    const rows = store.usageRows(workspaceId, userId, owner, first.toISOString(), end.toISOString(), ESTIMATED_CHECK_TOKENS);
+    const rows = store.usageRows(workspaceId, userId, owner, first.toISOString(), end.toISOString(), ESTIMATED_CHECK_TOKENS, ESTIMATED_SORT_TOKENS);
     const totals = { tokens: 0, runs: 0, failed: 0, estimated: false };
-    const agents = new Map<string, { agentId: string; tokens: number; runs: number }>();
+    const agents = new Map<string, UsageReport["agents"][number]>();
     const models = new Map<string, number>();
     for (const r of rows) {
       const t = Date.parse(`${r.slot}:00Z`);
@@ -237,14 +317,18 @@ export class Background {
       totals.runs += r.runs;
       totals.failed += r.failed;
       if (r.guessed) totals.estimated = true;
-      const a = agents.get(r.agentId) ?? { agentId: r.agentId, tokens: 0, runs: 0 };
+      const a = agents.get(r.agentId) ?? { agentId: r.agentId, tokens: 0, runs: 0, backgroundTokens: 0, backgroundRuns: 0 };
       a.tokens += r.tokens;
       a.runs += r.runs;
+      if (r.background) {
+        a.backgroundTokens += r.tokens;
+        a.backgroundRuns += r.runs;
+      }
       agents.set(r.agentId, a);
       const m = r.model || "Unknown";
       models.set(m, (models.get(m) ?? 0) + r.tokens);
     }
-    const previousTokens = store.usageRows(workspaceId, userId, owner, prevStart.toISOString(), first.toISOString(), ESTIMATED_CHECK_TOKENS).reduce((n, r) => n + r.tokens, 0);
+    const previousTokens = store.usageRows(workspaceId, userId, owner, prevStart.toISOString(), first.toISOString(), ESTIMATED_CHECK_TOKENS, ESTIMATED_SORT_TOKENS).reduce((n, r) => n + r.tokens, 0);
     const today = this.allowance(workspaceId, userId, at);
     return {
       range,
@@ -405,7 +489,7 @@ export class Background {
     const key = `usage-warned:${userId}`;
     if (store.setting(workspaceId, key) === day) return;
     // tokens in the last hour, and what that pace adds up to by midnight
-    const hour = store.backgroundRunsFor(workspaceId, userId, new Date(at.getTime() - 3_600_000).toISOString()).reduce((n, r) => n + (r.tokens ?? ESTIMATED_CHECK_TOKENS), 0);
+    const hour = store.backgroundRunsFor(workspaceId, userId, new Date(at.getTime() - 3_600_000).toISOString()).reduce((n, r) => n + (r.tokens ?? guessFor(r.kind)), 0);
     const left = a.dailyTokens - a.todayTokens;
     const end = startOfDay(at, tz, 1).getTime();
     if (left > 0 && hour * ((end - at.getTime()) / 3_600_000) < left) return;
@@ -414,6 +498,8 @@ export class Background {
     const b = store.background(top.id, userId);
     if (b && inQuietHours(at, tz, b.quietStart, b.quietEnd)) return;
     store.setSetting(workspaceId, key, day);
+    // "used all of it" is said here, so the stop itself (held) doesn't say it a second time
+    if (left <= 0) store.setSetting(workspaceId, `allowance-said:${userId}`, day);
     const share = Math.min(100, Math.round((a.todayTokens / a.dailyTokens) * 100));
     const runsOut = left > 0 && hour > 0 ? new Date(at.getTime() + (left / hour) * 3_600_000).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz }) : null;
     const most = a.agents.length > 1 ? `, most of it by ${top.name}` : "";
@@ -473,8 +559,8 @@ export class Background {
 
   /**
    * What only a model can look at for this person: connected apps with no watch on them (Wisp can't see
-   * when those change), and the agent's computer unless a website watch already covers what it looks at
-   * there. Apps and sites with a watch don't count: the watch wakes the agent when they change.
+   * when those change), and the agent's computer until its first look (see below). Apps and sites with
+   * a watch don't count: the watch wakes the agent when they change.
    */
   blindSources(agentId: string, userId: string | null): string[] {
     const agent = this.hub.store.agent(agentId);
@@ -482,7 +568,11 @@ export class Background {
     const watched = userId ? this.hub.watches.active(agentId, userId) : [];
     const covered = (c: { id: string; catalogId?: string | null }) => watched.some((w) => w.connectorId === c.id || (!!c.catalogId && watcherFor(w.service)?.catalogIds.includes(c.catalogId)));
     const out = this.hub.connectors.forAgent(agentId).filter((c) => !covered(c)).map((c) => c.name);
-    if (agent.computerId && !watched.some((w) => w.service === "browser")) out.push("its computer");
+    // its computer counts until its first look for this person: that look is where it starts watches for what
+    // matters there. After that nothing wakes it just to look around; a model looking at nothing in particular
+    // only spends tokens.
+    const looked = userId ? !!this.hub.store.background(agentId, userId)?.lastAt : false;
+    if (agent.computerId && !looked && !watched.some((w) => w.service === "browser")) out.push("its computer");
     return out;
   }
 
@@ -575,6 +665,9 @@ export class Background {
       sources.some((x) => x.kind === "app")
         ? ""
         : `You aren't connected to any apps yet (email, calendar, drive, project tools…). If ${name} seems to expect you to watch something you can't reach, tell them once which connection would let you (Connectors in Wisp), not on every check.`,
+      sources.some((x) => x.kind === "computer") && user && !this.hub.watches.active(agent.id, user.id).some((w) => w.service === "browser")
+        ? `Wisp won't wake you again just to look around your computer: a look with nothing particular to look for only costs ${name} money. If ${name} wants something on a website kept an eye on, start a watch for it now (watch_start, service "browser", with the address and what to look for). Wisp then looks for you, for free when it can read the page itself, and wakes you when it changes.`
+        : "",
       b?.focus ? `\n${name} asked you to keep an eye on: ${b.focus}\nStart there, then look at the rest.` : `\n${name} hasn't said what matters most, so keep an eye on all of it.`,
       `Go through each source and look for what's new or changed since your last check, and what's coming up. Then decide whether any of it needs ${name} now: something to do, answer, decide or get ready for; something they'd want to know; a problem, conflict or risk; a change to something they care about; or something you said you'd follow up on.`,
       notesPath
@@ -618,3 +711,6 @@ export function parseWhen(when: string, timeZone: string): Date | null {
   }
   return new Date(t);
 }
+
+/** "300k", "1M", "1.5M" */
+const tokenText = (n: number) => (n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));

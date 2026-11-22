@@ -87,8 +87,9 @@ describe("GET /api/usage", () => {
     expect(t.totals).toEqual({ tokens: 1500 + 15 + 300 + ESTIMATED_CHECK_TOKENS, runs: 4, failed: 1, estimated: true });
     expect(t.previousTokens).toBe(4000);
     expect(t.agents).toEqual([
-      { agentId: agentB, tokens: 15 + ESTIMATED_CHECK_TOKENS, runs: 2 },
-      { agentId: agentA, tokens: 1800, runs: 2 },
+      { agentId: agentB, tokens: 15 + ESTIMATED_CHECK_TOKENS, runs: 2, backgroundTokens: 0, backgroundRuns: 0 },
+      // what nobody asked for (checks, sorts, memory passes) is counted apart, per agent
+      { agentId: agentA, tokens: 1800, runs: 2, backgroundTokens: 300, backgroundRuns: 1 },
     ]);
     expect(t.models.find((m: any) => m.model === "opus").tokens).toBe(1800);
     expect(t.models.find((m: any) => m.model === "Unknown").tokens).toBe(ESTIMATED_CHECK_TOKENS);

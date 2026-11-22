@@ -1,3 +1,4 @@
+import { PLAN_RESERVE } from "@wisp/core";
 import type { Hub } from "./hub.ts";
 
 /**
@@ -46,6 +47,8 @@ export function agentPolicy(hub: Hub, workspaceId: string) {
     learnSkills: get("agents.learnSkills") !== "false",
     /** after meaningful work an agent that saved nothing gets a short memory pass (AutoMemory); on unless an owner turns it off */
     autoMemory: get("agents.autoMemory") !== "false",
+    /** how full (percent) a plan's window may get before work nobody asked for waits for its reset; 100 = only when the limit is reached */
+    planReserve: num("agents.planReserve", Math.round(PLAN_RESERVE * 100), 50, 100),
   };
 }
 

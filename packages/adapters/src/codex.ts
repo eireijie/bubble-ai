@@ -42,6 +42,10 @@ export function codexMcpConfig(input: RunInput): { overrides: string[]; env: Rec
     viaEnv(key, spec.env ?? {});
     // exec mode can't prompt, so pre-approve these tools (the hub enforces what the agent may touch; the browser is its own VM's)
     set(`${key}.default_tools_approval_mode`, `"approve"`);
+    // Codex starts a turn without a server that's slow to come up (a busy or small computer), and the agent then
+    // works with no way to message, follow up or ask: wait for Wisp's own tools, and fail the run if they can't start
+    set(`${key}.required`, "true");
+    set(`${key}.startup_timeout_sec`, String(MCP_STARTUP_SECONDS));
   }
   for (const c of input.connectors ?? []) {
     if (c.name === "wisp" || c.name === "browser" || c.kind === "secret") continue;
@@ -61,9 +65,14 @@ export function codexMcpConfig(input: RunInput): { overrides: string[]; env: Rec
       }
     }
     set(`${key}.default_tools_approval_mode`, `"approve"`);
+    // a connected app gets the same time to start, but a broken one doesn't stop the run
+    set(`${key}.startup_timeout_sec`, String(MCP_STARTUP_SECONDS));
   }
   return { overrides, env };
 }
+
+/** How long a tool server may take to start before a run goes on (or, for Wisp's own, fails). Codex's default is a few seconds. */
+export const MCP_STARTUP_SECONDS = 180;
 
 /** Features of Codex that bring in the person's own plugins, connected apps and screen/browser control. */
 const CODEX_PERSONAL_FEATURES = ["plugins", "remote_plugin", "apps", "computer_use", "browser_use", "browser_use_external", "in_app_browser"];

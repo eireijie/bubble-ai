@@ -835,11 +835,12 @@ export class NodeDaemon {
     const abort = new AbortController();
     this.aborts.set(run.runId, abort);
     this.log(`@${agent.handle} (${adapter.label}) working on ${run.runId}${inside ? ` inside ${run.computer!.name}` : ""}`);
-    let mcp: McpServerSpec, browser: McpServerSpec | undefined;
+    let mcp: McpServerSpec | undefined, browser: McpServerSpec | undefined;
     try {
-      mcp = inside ? await this.vmMcpSpec(agent.id, run.runId, vm!) : await this.mcpSpec(agent.id, run.runId);
+      // a bare run only answers: no tools of any kind, so their descriptions cost nothing
+      if (!run.bare) mcp = inside ? await this.vmMcpSpec(agent.id, run.runId, vm!) : await this.mcpSpec(agent.id, run.runId);
       // the VM's Chrome as page-element tools, run inside the VM either way
-      if (vm) {
+      if (vm && !run.bare) {
         const browserBin = vm.user === "warren" ? "warren-browser-mcp" : "wisp-browser-mcp";
         browser = inside ? { command: browserBin, args: [], env: {} } : await this.lazyBrowser(agent.id, run.runId, vm, browserBin);
       }
@@ -851,7 +852,8 @@ export class NodeDaemon {
     if (inside) abort.signal.addEventListener("abort", () => void vm!.stopRun(run.runId), { once: true });
 
     // a connector whose command isn't here can't start; say so rather than let the harness fail quietly (inside a VM the VM has its own tools)
-    let connectors = run.connectors ?? [];
+    let connectors = run.bare ? [] : (run.connectors ?? []);
+    if (run.bare) access = "read-only";
     if (!inside) {
       const missing = connectors.filter((c) => c.kind === "mcp-stdio" && c.command && !commandExists(c.command));
       for (const c of missing) {

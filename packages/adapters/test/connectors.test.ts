@@ -46,6 +46,18 @@ describe("connectors reach the harness", () => {
     expect(codexEnv(input)).toEqual({ WISP_TOKEN: "x", PGSSL: "1", WISP_HEADER_GITHUB_AUTHORIZATION: "Bearer t0k" });
   });
 
+  it("codex: waits for Wisp's own tools and fails the run without them; a connected app gets the same time but isn't required", () => {
+    // Codex starts a turn without a server that's slow to come up, and the agent then has no way to message, follow up or ask
+    const a = codexArgs({ prompt: "", cwd: "/", mcp: wisp, browser: { command: "wisp-browser-mcp", args: [], env: {} }, connectors });
+    for (const own of ["wisp", "browser"]) {
+      expect(a).toContain(`mcp_servers.${own}.required=true`);
+      expect(a).toContain(`mcp_servers.${own}.startup_timeout_sec=180`);
+    }
+    expect(a).toContain("mcp_servers.postgres.startup_timeout_sec=180");
+    expect(a).toContain("mcp_servers.github.startup_timeout_sec=180");
+    expect(a.join(" ")).not.toMatch(/mcp_servers\.(postgres|github)\.required/);
+  });
+
   it("codex: two servers wanting the same variable with different values don't get each other's", () => {
     const two: ConnectorSpec[] = [
       { name: "a", kind: "mcp-stdio", command: "a-mcp", env: { API_KEY: "one" } },

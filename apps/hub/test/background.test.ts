@@ -239,7 +239,7 @@ describe("background work", () => {
     b = await check();
     expect(b.quietStreak).toBe(streak + 1);
     expect(b.nextReason).toBe(QUIET_LATELY);
-    expect(hours(b)).toBe(Math.min(4, 2 ** (b.quietStreak - 1)));
+    expect(hours(b)).toBe(Math.min(12, 2 ** (b.quietStreak - 1)));
     // the person writes: back to every hour
     await owner.send(dm().id, "any news?");
     await waitFor(() => hub.store.background(agentId, me)!.quietStreak === 0 || undefined);
@@ -312,7 +312,7 @@ describe("background work", () => {
       off();
     });
 
-    it("stretches the usual wait to four hours at most, not a day", async () => {
+    it("stretches the usual wait to twelve hours at most, not a day", async () => {
       await idle();
       quietFor(5);
       onCheck = async () => "nothing new";
@@ -320,8 +320,8 @@ describe("background work", () => {
       expect(b.nextReason).toBe(QUIET_LATELY);
       expect(mins(b)).toBe(BACKOFF_CEILING_MINUTES);
       // a usual wait longer than that is left as it is
-      hub.store.setBackground(agentId, me, { everyMinutes: 6 * 60, quietStreak: 5 });
-      expect(mins(await check())).toBe(6 * 60);
+      hub.store.setBackground(agentId, me, { everyMinutes: 18 * 60, quietStreak: 5 });
+      expect(mins(await check())).toBe(18 * 60);
       off();
     });
 
@@ -568,7 +568,8 @@ describe("what a check costs", () => {
   it("holds regular checks once the day's are used up, but still does follow-ups", async () => {
     onCheck = async () => "ok";
     const today = hub.store.backgroundRuns(agentId, me, startOfDay(new Date(), "UTC").toISOString()).length;
-    hub.store.setBackground(agentId, me, { enabled: true, quietStart: "00:00", quietEnd: "00:00", nextAt: null, nextReason: "", dailyCap: today });
+    // this is about the number of checks: its tokens for the day (guessed at 25k a check in this suite) are out of the way
+    hub.store.setBackground(agentId, me, { enabled: true, quietStart: "00:00", quietEnd: "00:00", nextAt: null, nextReason: "", dailyCap: today, dailyTokens: 1_000_000_000 });
     const n = calls.length;
     hub.background.tick(new Date());
     expect(calls.length).toBe(n);

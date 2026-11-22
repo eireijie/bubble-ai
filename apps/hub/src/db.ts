@@ -358,6 +358,10 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   // NULL means no limit, so existing rows get the default of 24 from the column itself
   ["background", "daily_cap", "INTEGER DEFAULT 24"],
   ["background", "quiet_streak", "INTEGER NOT NULL DEFAULT 0"],
+  // tokens a day this agent's unattended work may use for this person; NULL = the default (DEFAULT_AGENT_DAILY_TOKENS)
+  ["background", "daily_tokens", "INTEGER"],
+  // a sort (triage.ts) already said these changes are worth a check, so they aren't sorted again
+  ["app_events", "sorted", "INTEGER NOT NULL DEFAULT 0"],
   // from when agents could borrow a device's screen; only migrateLoans reads it now
   ["approvals", "loan_json", "TEXT"],
   ["approvals", "login_json", "TEXT"],

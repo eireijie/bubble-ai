@@ -532,6 +532,8 @@ export interface BackgroundWork {
   effort: string | null;
   /** most regular checks a day on the person's clock; null = no limit */
   dailyCap: number | null;
+  /** tokens a day its unattended work (checks, sorting changes, memory passes) may use for this person; null = Wisp's default */
+  dailyTokens?: number | null;
   /** checks in a row that found nothing to say: each one doubles the wait, up to a day */
   quietStreak: number;
 }
