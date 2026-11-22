@@ -41,10 +41,9 @@ export function ConnectionInstructions({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        On the agent's machine, install Wisp from this repository and run{" "}
-        <code className="text-ink">npm install && npm link</code> to make{" "}
-        <code className="text-ink">wisp-mcp</code> available. Then add this
-        configuration to its MCP settings and restart the session.
+        On the agent's machine, run{" "}
+        <code className="text-ink">npm install && npm link</code> in Wisp's
+        folder, add this to its MCP settings and restart the session.
       </p>
       <div
         className="flex flex-wrap gap-1"
@@ -73,8 +72,7 @@ export function ConnectionInstructions({
       </div>
       <CopyBlock text={config} />
       <p className="text-xs text-muted">
-        This configuration contains the agent's connection token. Copy it before
-        closing; you can create a new token on its Connect tab.
+        Holds this agent's token. Copy it before closing.
       </p>
     </div>
   );

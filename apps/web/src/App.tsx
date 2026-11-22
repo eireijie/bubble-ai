@@ -39,7 +39,6 @@ const TasksView = lazyView(() => import("./views/TasksView.tsx").then((m) => m.T
 const NewTask = lazyView(() => import("./views/TasksView.tsx").then((m) => m.NewTask));
 const CodeView = lazyView(() => import("./views/CodeView.tsx").then((m) => m.CodeView));
 const MarketplaceView = lazyView(() => import("./views/MarketplaceView.tsx").then((m) => m.MarketplaceView));
-const ModsPage = lazyView(() => import("./views/settings/features.tsx").then((m) => m.ModsPage));
 const HelpView = lazyView(() => import("./views/HelpView.tsx").then((m) => m.HelpView));
 const BuddyView = lazyView(() => import("./views/BuddyView.tsx").then((m) => m.BuddyView));
 const AuthorizeView = lazyView(() => import("./views/AuthorizeView.tsx").then((m) => m.AuthorizeView));
@@ -49,7 +48,7 @@ export const preloadRoute = (route: Route): Promise<void> => viewFor(route)?.pre
 function viewFor(route: Route): Pick<LazyView<object>, "preload"> | null {
   const views: Partial<Record<Route["view"], Pick<LazyView<object>, "preload">>> = {
     more: MorePage, vault: VaultView, agents: AgentsView, you: YouPage, settings: SettingsView, welcome: WelcomeView, here: HereView, about: AboutView,
-    computers: ComputersView, tasks: TasksView, code: CodeView, marketplace: MarketplaceView, connectors: MarketplaceView, skills: MarketplaceView, mods: ModsPage,
+    computers: ComputersView, tasks: TasksView, code: CodeView, marketplace: MarketplaceView, connectors: MarketplaceView, skills: MarketplaceView, mods: MarketplaceView,
     help: HelpView, buddy: BuddyView, authorize: AuthorizeView,
   };
   return views[route.view] ?? null;
@@ -291,22 +290,9 @@ function Workspace() {
         return backBar(<HereView agentId={route.agentId} />, false, { view: "chats" });
       case "help":
         return <HelpView onBack={phone ? toYou : undefined} />;
+      // mods are rows on the Add page now: this address opens it at Mods
       case "mods":
-        return (
-          <div className="flex-1 overflow-y-auto">
-            {phone && (
-              <header className="px-[18px] pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center gap-3">
-                <button className="circle shrink-0" onClick={toYou} aria-label="Back">
-                  <ChevronLeft size={22} aria-hidden />
-                </button>
-                <h1 className="t-title truncate">Mods</h1>
-              </header>
-            )}
-            <div className="max-w-4xl mx-auto px-4 md:px-8 pt-4 md:pt-10 pb-8">
-              <ModsPage />
-            </div>
-          </div>
-        );
+        return <MarketplaceView section="mods" onBack={phone ? toYou : undefined} />;
     }
   })();
   // a page whose file isn't in yet (only in the app's first moments) holds its place, empty, until it is
