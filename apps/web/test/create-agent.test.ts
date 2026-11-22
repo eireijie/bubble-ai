@@ -12,25 +12,23 @@ const initial = useStore.getState();
 afterEach(() => useStore.setState(initial, true));
 
 describe("add agent onboarding", () => {
-  it("is one screen: ghost, name, job, instructions, AI and computer, with More options and Bring it in", () => {
+  it("is one small sheet: its ghost, a suggested name, one line and Create, with the rest behind More options", () => {
     const html = renderToStaticMarkup(
       createElement(CreateAgent, { nodes: [], onClose() {} }),
     );
-    expect(html).toContain("New agent");
-    expect(html).toContain("looking toward your pointer");
-    expect(html).toContain("Shuffle");
-    expect(html).toContain("Edit look");
-    expect(html).toContain("What it does");
+    expect(html).toContain('aria-label="New agent"');
+    // a click on the ghost gives it another look
+    expect(html).toContain('aria-label="Change its look"');
+    expect(html).toMatch(/aria-label="Name"[^>]*value="[A-Z][a-z]+"/);
+    expect(html).toContain("It says hello and sets itself up in the chat.");
+    expect(html).toContain("More options");
+    expect(html).toContain("Make it a team");
+    // what the old form showed at once stays folded until More options (CreateAgent.test.ts opens it)
+    for (const t of ["What it does", "Instructions", "AI and computer", "Use my defaults", "Customize", "Edit look", "Bring one in", "Shuffle"]) expect(html).not.toContain(t);
     // templates live on their own page now, not in this form
     expect(html).not.toContain("Start from");
-    expect(html).toContain("Instructions");
-    expect(html).toContain("AI and computer");
-    expect(html).toContain("Use my defaults");
-    expect(html).toContain("Customize");
-    expect(html).toContain("More options");
-    expect(html).toContain("Already running somewhere? Bring it in");
-    // nothing to create until it has a name
-    expect(html).toMatch(/disabled=""[^>]*>(<!-- -->)?Create agent/);
+    // nothing to create until your defaults have loaded
+    expect(html).toMatch(/disabled=""[^>]*>(<!-- -->)?Create</);
     // no emoji tiles for roles
     for (const t of ["🧭", "📥"]) expect(html).not.toContain(t);
   });
