@@ -18,7 +18,7 @@ export function howToConnect(name: string, kind: ConnectorKind, fieldLabels: str
 
 /** How connecting works for an app with one-click sign-in, from where Wisp is open. */
 export function howToSignIn(name: string, o: SignInOption): string {
-  if (o.signIn) return `A page opens in your browser to sign in to ${name}. Wisp never sees your password.${o.reads ? ` ${o.reads}.` : ""}`;
+  if (o.signIn) return `A page opens in your browser to sign in to ${name}. Wisp never sees your password.`;
   return `${o.reason ?? `Signing in to ${name} doesn't work from here.`}${o.key ? " You can use a key instead." : ""}`;
 }
 

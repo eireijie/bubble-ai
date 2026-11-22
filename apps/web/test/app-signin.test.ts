@@ -55,7 +55,7 @@ describe("connectApps", () => {
 
 describe("howToSignIn", () => {
   it("says what signing in allows, or why it can't and what to do instead", () => {
-    expect(howToSignIn("Gmail", { signIn: true, reads: "Reads and searches your email", key: false })).toBe("A page opens in your browser to sign in to Gmail. Wisp never sees your password. Reads and searches your email.");
+    expect(howToSignIn("Gmail", { signIn: true, reads: "Reads and searches your email", key: false })).toBe("A page opens in your browser to sign in to Gmail. Wisp never sees your password.");
     expect(howToSignIn("Notion", { signIn: false, reason: "Notion only signs in when Wisp is open over https or on this computer.", key: true })).toBe("Notion only signs in when Wisp is open over https or on this computer. You can use a key instead.");
   });
 });

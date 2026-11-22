@@ -245,7 +245,9 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
   // --- apps ---
   const haveConnector = (a: AppItem) => (connectors ?? []).find((c) => c.catalogId === ("registry" in a ? `registry:${a.registry.id}` : a.builtIn.id) || squash(c.name) === squash(a.name));
   const apps: AppItem[] = useMemo(() => {
-    const fromRegistry: AppItem[] = (market.entries ?? []).map((e) => ({ key: `r:${e.id}`, name: e.name, description: e.description, category: e.category, who: e.publisher, registry: e }));
+    // Wisp's own one-click sign-in beats a registry entry of the same name (often someone else's server)
+    const signsIn = new Set(CONNECTOR_CATALOG.filter((c) => c.signIn).map((c) => squash(c.name)));
+    const fromRegistry: AppItem[] = (market.entries ?? []).filter((e) => !signsIn.has(squash(e.name))).map((e) => ({ key: `r:${e.id}`, name: e.name, description: e.description, category: e.category, who: e.publisher, registry: e }));
     const names = new Set(fromRegistry.map((a) => squash(a.name)));
     const builtIn: AppItem[] = CONNECTOR_CATALOG.filter((c) => !names.has(squash(c.name)) && match(c.name, c.description, c.category)).map((c) => ({
       key: `b:${c.id}`,
@@ -255,7 +257,8 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
       who: "Wisp",
       builtIn: c,
     }));
-    return [...fromRegistry, ...builtIn];
+    const first = builtIn.filter((a) => "builtIn" in a && a.builtIn.signIn);
+    return [...first, ...fromRegistry, ...builtIn.filter((a) => !first.includes(a))];
   }, [market.entries, needle]); // eslint-disable-line react-hooks/exhaustive-deps
   const popular = POPULAR_APPS.map((id) => featured.find((e) => e.id === id)).filter((e): e is StoreApp => !!e);
   const popularApps = popular.map((e) => apps.find((a) => a.key === `r:${e.id}`)).filter((a): a is AppItem => !!a);
