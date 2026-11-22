@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Loader2 } from "lucide-react";
-import { catalogConnector, type AppleView, type Connector } from "@wisp/core";
+import { catalogConnector, type AppleView, type Connector, type SignInOption } from "@wisp/core";
+import { connectApps, signInOptions } from "../../appSignIn.ts";
 import { api, ApiError } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { setFeatures, useFeature } from "../../features.ts";
@@ -10,6 +11,31 @@ import { PageTop } from "../../components/onboarding/PageTop.tsx";
 import { HOST_LOOK, HostGhost, hostAnswer, hostReact } from "../../components/onboarding/HostGhost.tsx";
 import { useNarrow } from "../../components/SetupShell.tsx";
 import { AGENT_TYPES, APPLE_PERMISSION, appsForTypes, missesMac, type StartApp } from "./agentTypes.ts";
+
+/** How a row connects from here: the hub says which apps sign in from this address (see signInOptions). */
+export type RowMode = "mac" | "signin" | "key" | "soon" | "loading";
+export function rowMode(app: StartApp, options: Record<string, SignInOption> | null): RowMode {
+  if (app.how === "mac" || app.how === "soon") return app.how;
+  const entry = app.catalogId ? catalogConnector(app.catalogId) : undefined;
+  if (!entry) return "soon";
+  if (entry.signIn && !options) return "loading";
+  const o = options?.[entry.id];
+  if (o?.signIn) return "signin";
+  return entry.fields.some((f) => !f.optional) && (o?.key ?? true) ? "key" : "soon";
+}
+
+/**
+ * The rows one sign-in covers: Gmail, Google Calendar and Drive share one Google sign-in, so
+ * signing in to one connects the others in the sheet that aren't connected yet.
+ */
+export function signInGroup(app: StartApp, apps: StartApp[], modes: Record<string, RowMode>, done: (id: string) => boolean): StartApp[] {
+  const s = catalogConnector(app.catalogId!)?.signIn;
+  if (s?.via !== "app") return [app];
+  return [app, ...apps.filter((a) => a.id !== app.id && modes[a.id] === "signin" && !done(a.id) && (() => {
+    const o = catalogConnector(a.catalogId!)?.signIn;
+    return o?.via === "app" && o.provider === s.provider;
+  })())].slice(0, 5);
+}
 
 /** Where an app's setup stands in the sheet. */
 type RowState = { phase: "idle" | "key" | "busy" | "done" | "failed"; error?: string; /** false: saved, but Wisp has no way to try the key */ checked?: boolean };
@@ -157,6 +183,12 @@ export function AppsSheet({ workspaceId, apps, macMissing, onClose, onDone }: { 
   const appleOn = useFeature("apple");
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [values, setValues] = useState<Record<string, Record<string, string>>>({});
+  // which apps sign in from here (asked once; on failure every app falls back to its key)
+  const [options, setOptions] = useState<Record<string, SignInOption> | null>(null);
+  useEffect(() => void signInOptions().then(setOptions, () => setOptions({})), []);
+  const modes = Object.fromEntries(apps.map((a) => [a.id, rowMode(a, options)])) as Record<string, RowMode>;
+  // apps that can't connect from here go last, as Soon
+  const shown = [...apps].sort((a, b) => Number(modes[a.id] === "soon") - Number(modes[b.id] === "soon"));
   // what was connected: catalog connectors by app id, Apple apps by name
   const made = useRef<Record<string, string>>({});
   const prior = loadAnswers(workspaceId);
@@ -254,6 +286,21 @@ export function AppsSheet({ workspaceId, apps, macMissing, onClose, onDone }: { 
     }
   };
 
+  const signIn = async (a: StartApp) => {
+    const group = signInGroup(a, apps, modes, (id) => rows[id]?.phase === "done");
+    for (const g of group) set(g.id, { phase: "busy" });
+    // agents get them when onboarding makes the first one (see onDone), like keys added here
+    const r = await connectApps(group.map((g) => g.catalogId!), { agentIds: [] });
+    for (const g of group) {
+      const c = r.connectors.find((x) => x.catalogId === g.catalogId);
+      if (r.ok && c) {
+        made.current[g.id] = c.id;
+        set(g.id, { phase: "done" });
+      } else set(g.id, { phase: "failed", error: r.ok ? `${g.name} didn't connect. Try again.` : r.error });
+    }
+    if (r.ok) hostReact("catch");
+  };
+
   const finish = () => {
     const ids = apps.filter((a) => rows[a.id]?.phase === "done" && made.current[a.id]).map((a) => made.current[a.id]);
     const apple = apps.filter((a) => rows[a.id]?.phase === "done" && a.apple).map((a) => a.apple!);
@@ -283,8 +330,8 @@ export function AppsSheet({ workspaceId, apps, macMissing, onClose, onDone }: { 
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto px-5">
           <ul className="rounded-[14px] border border-line divide-y divide-line">
-            {apps.map((a) => (
-              <AppRow key={a.id} app={a} state={rows[a.id] ?? { phase: "idle" }} values={values[a.id] ?? {}} setValue={(k, v) => setValues((all) => ({ ...all, [a.id]: { ...all[a.id], [k]: v } }))} onAllow={() => void allow(a)} onKey={() => set(a.id, { phase: "key" })} onSave={() => void addKey(a)} />
+            {shown.map((a) => (
+              <AppRow key={a.id} app={a} mode={modes[a.id]} reason={options?.[a.catalogId ?? ""]?.reason} state={rows[a.id] ?? { phase: "idle" }} values={values[a.id] ?? {}} setValue={(k, v) => setValues((all) => ({ ...all, [a.id]: { ...all[a.id], [k]: v } }))} onAllow={() => void allow(a)} onKey={() => set(a.id, { phase: "key" })} onSave={() => void addKey(a)} onSignIn={() => void signIn(a)} />
             ))}
           </ul>
         </div>
@@ -301,13 +348,16 @@ export function AppsSheet({ workspaceId, apps, macMissing, onClose, onDone }: { 
   );
 }
 
-function AppRow({ app, state, values, setValue, onAllow, onKey, onSave }: { app: StartApp; state: RowState; values: Record<string, string>; setValue: (k: string, v: string) => void; onAllow: () => void; onKey: () => void; onSave: () => void }) {
-  const soon = app.how === "soon";
+function AppRow({ app, mode, reason, state, values, setValue, onAllow, onKey, onSave, onSignIn }: { app: StartApp; mode: RowMode; reason?: string; state: RowState; values: Record<string, string>; setValue: (k: string, v: string) => void; onAllow: () => void; onKey: () => void; onSave: () => void; onSignIn: () => void }) {
+  const soon = mode === "soon";
+  // can sign in, but this row has a key too (Slack, GitHub, Notion, Linear, Vercel)
+  const keyToo = mode === "signin" && !!catalogConnector(app.catalogId!)?.fields.some((f) => !f.optional);
   const entry = app.catalogId ? catalogConnector(app.catalogId) : undefined;
   const fields = entry?.fields.filter((f) => !f.optional) ?? [];
   const link = entry?.fields.find((f) => f.link)?.link;
   let control: ReactNode;
-  if (soon) control = <span className="text-[12px] font-medium text-faint">Soon</span>;
+  if (soon) control = <span className="text-[12px] font-medium text-faint" title={reason}>Soon</span>;
+  else if (mode === "loading") control = <Loader2 size={14} className="animate-spin text-faint" aria-label="Checking" />;
   else if (state.phase === "done")
     control = (
       <span className="inline-flex items-center gap-1 text-[13px] text-muted">
@@ -319,14 +369,14 @@ function AppRow({ app, state, values, setValue, onAllow, onKey, onSave }: { app:
     control = (
       <span className="inline-flex items-center gap-1.5 text-[13px] text-muted">
         <Loader2 size={14} className="animate-spin" aria-hidden />
-        {app.how === "mac" ? "Asking macOS" : "Checking"}
+        {app.how === "mac" ? "Asking macOS" : mode === "signin" ? "Signing in" : "Checking"}
       </span>
     );
   else if (state.phase === "key") control = null;
   else
     control = (
-      <button type="button" onClick={app.how === "mac" ? onAllow : onKey} className="ob-btn h-8 px-3.5 rounded-full border border-line2 bg-panel text-[13px] font-medium hover:bg-hover">
-        {app.how === "mac" ? (state.phase === "failed" ? "Try again" : "Allow") : "Add key"}
+      <button type="button" onClick={app.how === "mac" ? onAllow : mode === "signin" ? onSignIn : onKey} className="ob-btn h-8 px-3.5 rounded-full border border-line2 bg-panel text-[13px] font-medium hover:bg-hover">
+        {app.how === "mac" || mode === "signin" ? (state.phase === "failed" ? "Try again" : app.how === "mac" ? "Allow" : "Sign in") : "Add key"}
       </button>
     );
   return (
@@ -384,6 +434,11 @@ function AppRow({ app, state, values, setValue, onAllow, onKey, onSave }: { app:
         <p role="alert" className="mt-1.5 pl-8 text-[13px] text-bad">
           {state.error}
         </p>
+      )}
+      {keyToo && state.phase === "failed" && (
+        <button type="button" onClick={onKey} className="mt-1 ml-8 text-[13px] text-muted hover:text-ink">
+          Use a key instead
+        </button>
       )}
     </li>
   );
