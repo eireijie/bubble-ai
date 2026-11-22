@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { ExternalLink, LogIn, LogOut, MessageSquare, Pencil, Power, RefreshCw, Trash2, Users } from "lucide-react";
-import { trustLabel, type Agent, type AppCategory, type CatalogConnector, type Connector, type ConnectorKind, type MarketplaceInstall, type StoreApp } from "@wisp/core";
+import { trustLabel, type Agent, type AppCategory, type CatalogConnector, type Connector, type ConnectorKind, type MarketplaceInstall, type SignInOption, type StoreApp } from "@wisp/core";
 import { api } from "../api.ts";
 import { AgentPicker } from "../components/ShopParts.tsx";
 import { AppTile, Badge, Chip, Dlg, Item, Label, Note, Panel, Prim, Sec, Tile, TrustPill } from "../components/MarketParts.tsx";
@@ -16,8 +16,14 @@ export function howToConnect(name: string, kind: ConnectorKind, fieldLabels: str
   return `If ${name} asks you to sign in, a page opens in your browser. Wisp never sees your password. After that you choose which agents can use ${name}.`;
 }
 
+/** How connecting works for an app with one-click sign-in, from where Wisp is open. */
+export function howToSignIn(name: string, o: SignInOption): string {
+  if (o.signIn) return `A page opens in your browser to sign in to ${name}. Wisp never sees your password.`;
+  return `${o.reason ?? `Signing in to ${name} doesn't work from here.`}${o.key ? " You can use a key instead." : ""}`;
+}
+
 /** An app's page: who stands behind it, what you're agreeing to, and how connecting works. */
-export function AppDetail({ app, have, canEdit, onConnect, onManage }: { app: AppItem; have: Connector | undefined; canEdit: boolean; onConnect: (install: number) => void; onManage: (c: Connector) => void }) {
+export function AppDetail({ app, have, canEdit, onConnect, onManage, signIn }: { app: AppItem; have: Connector | undefined; canEdit: boolean; onConnect: (install: number) => void; onManage: (c: Connector) => void; signIn?: SignInOption }) {
   const [pick, setPick] = useState(0);
   const registry = "registry" in app ? app.registry : null;
   const install: MarketplaceInstall | null = registry ? (registry.installs[pick] ?? registry.installs[0] ?? null) : null;
@@ -25,6 +31,8 @@ export function AppDetail({ app, have, canEdit, onConnect, onManage }: { app: Ap
   const summary = "builtIn" in app ? connectSummary({ builtIn: app.builtIn }) : registry && install ? connectSummary({ entry: registry, install }) : null;
   const trust = registry ? trustLabel(registry) : null;
   const link = registry?.website ?? registry?.repository ?? ("builtIn" in app ? app.builtIn.docs : undefined);
+  // signs in only (Gmail, Calendar) and that doesn't work from here: nothing to connect with
+  const blocked = !!signIn && !signIn.signIn && !signIn.key && !!entry && !entry.fields.length;
   return (
     <div className="space-y-6">
       <header className="flex items-start gap-4">
@@ -40,7 +48,7 @@ export function AppDetail({ app, have, canEdit, onConnect, onManage }: { app: Ap
           (have ? (
             <Sec onClick={() => onManage(have)}>Manage</Sec>
           ) : (
-            <Prim onClick={() => onConnect(pick)} disabled={!entry} className="max-sm:hidden">
+            <Prim onClick={() => onConnect(pick)} disabled={!entry || blocked} className="max-sm:hidden">
               Connect
             </Prim>
           ))}
@@ -66,7 +74,7 @@ export function AppDetail({ app, have, canEdit, onConnect, onManage }: { app: Ap
       {entry && (
         <section className="space-y-2">
           <Label>How to connect</Label>
-          <Note>{howToConnect(app.name, entry.kind, entry.fields.map((f) => f.label), entry.needs)}</Note>
+          <Note>{signIn ? howToSignIn(app.name, signIn) : howToConnect(app.name, entry.kind, entry.fields.map((f) => f.label), entry.needs)}</Note>
         </section>
       )}
 
@@ -77,7 +85,7 @@ export function AppDetail({ app, have, canEdit, onConnect, onManage }: { app: Ap
       )}
 
       {canEdit && !have && (
-        <Prim onClick={() => onConnect(pick)} disabled={!entry} className="w-full sm:hidden">
+        <Prim onClick={() => onConnect(pick)} disabled={!entry || blocked} className="w-full sm:hidden">
           Connect
         </Prim>
       )}
@@ -85,14 +93,19 @@ export function AppDetail({ app, have, canEdit, onConnect, onManage }: { app: Ap
   );
 }
 
-/** After saving an app that asks for a sign-in: the page opens in the browser, Wisp never sees the password. */
-export function ConnectSignIn({ connector, onClose, onSignIn }: { connector: Connector; onClose: () => void; onSignIn: () => void }) {
+/** After saving an app that asks for a sign-in (or before connecting one that signs in): the page opens in the browser, Wisp never sees the password. */
+export function ConnectSignIn({ connector, onClose, onSignIn, onUseKey }: { connector: { name: string }; onClose: () => void; onSignIn: () => void; onUseKey?: () => void }) {
   return (
     <Dlg title={`Connect ${connector.name}`} onClose={onClose}>
       <Panel>
         <Item icon={<AppTile name={connector.name} size={50} />} title={`Sign in to ${connector.name}`} sub={<span className="whitespace-normal">A page opens in your browser. Choose the account and allow Wisp to use {connector.name} for your helpers.</span>} />
       </Panel>
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {onUseKey && (
+          <button type="button" onClick={onUseKey} className="mr-auto text-sm text-muted hover:text-ink">
+            Use a key instead
+          </button>
+        )}
         <Sec onClick={onClose}>Not now</Sec>
         <Prim onClick={onSignIn} className="max-sm:w-full">
           <LogIn size={17} /> Open sign-in

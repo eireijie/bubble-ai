@@ -1,9 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { type Connector, SETTINGS_HARNESSES, WISP_COMMANDS, agentSkillPath, catalogSkill, fillTemplate, harnessLabel, skillBody, skillFile, skillSlug, skillTitle, type HarnessSkillFile, type Skill } from "@wisp/core";
+import { type CatalogConnector, type Connector, type SignInOption, CONNECTOR_CATALOG, SETTINGS_HARNESSES, SIGN_IN_PROVIDERS, catalogConnector, signInReturnsTo, WISP_COMMANDS, agentSkillPath, catalogSkill, fillTemplate, harnessLabel, skillBody, skillFile, skillSlug, skillTitle, type HarnessSkillFile, type Skill } from "@wisp/core";
 import type { Caller } from "./api.ts";
 import type { Hub } from "./hub.ts";
-import { CALLBACK_PATH, isPublicUrl } from "./connector-auth.ts";
+import { CALLBACK_PATH, ConnectorAuth, isPublicUrl } from "./connector-auth.ts";
+import { APP_CALLBACK_PATH, AppSignInError } from "./app-signin.ts";
 import { registerShopApi } from "./api-shop.ts";
 import { ComputerError } from "./computers.ts";
 import { holdsSecret } from "./connectors.ts";
@@ -33,6 +34,21 @@ const CONNECTOR_PATCH = z
   .object({ name: NAME, command: z.string().trim().min(1).max(1000), args: z.array(z.string().max(4000)).max(100), url: URL_, headers: HEADERS, env: ENV, enabled: z.boolean(), agentIds: AGENT_IDS, allAgents: z.boolean() })
   .partial()
   .strict();
+
+/** Where the browser goes after a sign-in: a web app page, or "close" for one opened in its own tab. */
+const RETURN_TO = z.union([z.literal("close"), z.string().regex(/^#\/[A-Za-z0-9/_-]{0,200}$/, "a web app page like #/connectors")]);
+
+/** A small page for a sign-in opened in its own tab: says how it went and closes itself. */
+function closePage(ok: boolean, message: string): string {
+  const esc = (t: string) => t.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${ok ? "Signed in" : "Not signed in"}</title><style>body{font:15px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#fff;color:#111}@media(prefers-color-scheme:dark){body{background:#111;color:#eee}}p{max-width:32ch;padding:0 16px}</style><p>${esc(message)}</p>${ok ? "<script>setTimeout(()=>window.close(),600)</script>" : ""}`;
+}
+
+/** Before finishing a sign-in that came back to a different browser than the one that started it. */
+function confirmSignInPage(who: string, names: string, continueTo: string, cancelTo: string): string {
+  const esc = (t: string) => t.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Finish signing in</title><style>:root{color-scheme:light dark}body{font:15px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#fff;color:#141414}@media(prefers-color-scheme:dark){body{background:#121214;color:#ededf0}a.go{background:#ededf0!important;color:#121214!important}}main{max-width:380px;padding:24px 16px}h1{font-size:19px;font-weight:600;margin:0 0 8px}p{margin:0 0 16px;opacity:.8}.row{display:flex;gap:12px;align-items:center}a.go{background:#141414;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-weight:500}a.no{color:inherit;opacity:.7}</style><main><h1>Finish signing in</h1><p>${esc(who)} started this sign-in for ${esc(names)} in Wisp. Continuing connects the account you just signed in with to it. Continue only if you started it.</p><div class="row"><a class="go" href="${esc(continueTo)}">Continue</a><a class="no" href="${esc(cancelTo)}">Cancel</a></div></main>`;
+}
 
 const SKILL_BODY = z.object({ name: NAME, description: z.string().trim().max(500).default(""), content: z.string().min(1).max(100_000), tags: z.array(z.string().trim().min(1).max(30)).max(10).default([]) });
 
@@ -116,6 +132,7 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
     return false;
   }
   const changed = (c: Caller) => hub.broadcast(c.workspaceId, { type: "skills_changed" });
+  const CONNECTOR_CATALOG_WITH_SIGN_IN = () => CONNECTOR_CATALOG.filter((e) => e.signIn);
 
   // --- connectors -------------------------------------------------------------------------------
 
@@ -157,37 +174,163 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
     }
   });
 
+
+  // --- one-click sign-in for catalog apps ----------------------------------------------------------
+
+  /** How each catalog app with a sign-in can be connected from where this person opened Wisp. */
+  async function signInOption(entry: CatalogConnector, origin: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const s = entry.signIn!;
+    if (s.via === "app") return connectors.auth.apps.available(s.provider);
+    if (signInReturnsTo(origin, s.localOnly)) return { ok: true };
+    return { ok: false, reason: s.localOnly ? `${entry.name} only signs in when Wisp is open on this computer (localhost).` : `${entry.name} only signs in when Wisp is open over https or on this computer.` };
+  }
+
+  app.get("/api/connectors/sign-in", async (req, reply) => {
+    const c = need(req, reply, { member: true });
+    if (!c) return;
+    const origin = String((req.query as { origin?: string }).origin ?? "");
+    if (!URL_.safeParse(origin).success) return reply.code(400).send({ error: "origin: the address Wisp is open at" });
+    const out: Record<string, SignInOption> = {};
+    for (const entry of CONNECTOR_CATALOG_WITH_SIGN_IN()) {
+      const o = await signInOption(entry, origin);
+      out[entry.id] = { signIn: o.ok, ...(o.ok ? {} : { reason: o.reason }), ...(entry.signInReads ? { reads: entry.signInReads } : {}), key: entry.fields.some((f) => f.secret) };
+    }
+    return out;
+  });
+
+  /**
+   * Connect catalog apps by signing in: makes the connector (the company's own remote MCP server)
+   * and returns the sign-in page. Several apps from one company (Gmail and Google Calendar) share
+   * one sign-in. Signing in again to a connector made this way reuses it.
+   */
+  app.post("/api/connectors/connect", async (req, reply) => {
+    const c = need(req, reply, { member: true });
+    if (!c) return;
+    const body = parse(z.object({ catalogIds: z.array(z.string().max(100)).min(1).max(5), origin: URL_, returnTo: RETURN_TO.nullish(), agentIds: AGENT_IDS.optional(), allAgents: z.boolean().optional() }).strict(), req.body, reply);
+    if (!body) return;
+    const entries = [...new Set(body.catalogIds)].map((cid) => catalogConnector(cid));
+    if (entries.some((e) => !e?.signIn)) return reply.code(400).send({ error: `can't sign in to ${body.catalogIds.filter((cid) => !catalogConnector(cid)?.signIn).join(", ")}` });
+    const list = entries as (CatalogConnector & { signIn: NonNullable<CatalogConnector["signIn"]> })[];
+    const first = list[0].signIn;
+    const together = list.every((e) => e.signIn.via === "app" && first.via === "app" && e.signIn.provider === first.provider);
+    if (list.length > 1 && !together) return reply.code(400).send({ error: "only apps from the same company can share one sign-in" });
+    const option = await signInOption(list[0], body.origin);
+    if (!option.ok) return reply.code(409).send({ error: option.reason });
+    const agentIds = agentsIn(c, body.agentIds ?? [], reply);
+    if (!agentIds || !deviceAllows(c, agentIds, reply)) return;
+
+    const made: string[] = [];
+    for (const e of list) {
+      const s = e.signIn;
+      // one made by signing in before (same app, same server): sign in to it again
+      const again = connectors.list(c.workspaceId).find((x) => x.catalogId === e.id && x.kind === "mcp-http" && x.url === s.url && (x.createdBy === c.actor.id || isOwner(c)));
+      let name = e.name;
+      for (let n = 2; !again && connectors.byName(c.workspaceId, name); n++) name = `${e.name} ${n}`;
+      const conn = again ?? connectors.create(c.workspaceId, c.actor.id, { kind: "mcp-http", name, catalogId: e.id, url: s.url, headers: s.via === "app" ? (s.headers ?? {}) : {}, env: {}, allAgents: body.allAgents ?? false });
+      const add = agentIds.filter((a) => !conn.agentIds.includes(a));
+      if (add.length) connectors.setAgents(conn.id, [...conn.agentIds, ...add]);
+      if (again && body.allAgents && !again.allAgents) connectors.update(conn.id, { allAgents: true });
+      made.push(conn.id);
+    }
+    changed(c);
+    const origin = new URL(body.origin).origin;
+    try {
+      if (first.via === "app") {
+        const scopes = [...new Set(list.flatMap((e) => (e.signIn.via === "app" ? e.signIn.scopes : [])))];
+        const url = bindBrowser(reply, await connectors.auth.apps.start(made, first.provider, scopes, origin, c.actor.id, body.returnTo ?? null), origin);
+        return { connectors: made.map((cid) => connectors.get(cid)), url };
+      }
+      const url = bindBrowser(reply, await connectors.auth.start(made[0], first.url, origin, c.actor.id, { scope: first.scope, returnTo: body.returnTo ?? null }), origin);
+      return { connectors: made.map((cid) => connectors.get(cid)), ...(url ? { url } : { signedIn: true }) };
+    } catch (e) {
+      const why = e instanceof AppSignInError ? e.message : `${list[0].name} didn't offer a way to sign in: ${(e as Error).message}`;
+      return reply.code(502).send({ error: why, connectors: made.map((cid) => connectors.get(cid)) });
+    }
+  });
+
+  /** The browser starting a sign-in gets a cookie with a secret (see ConnectorAuth.sameBrowser). Returns the sign-in page, unchanged. */
+  function bindBrowser<T extends string | null>(reply: FastifyReply, url: T, origin: string): T {
+    const state = url ? new URL(url).searchParams.get("state") : null;
+    if (state) reply.header("set-cookie", connectors.auth.bindBrowser(state, origin.startsWith("https:")));
+    return url;
+  }
+
+  const page = (reply: FastifyReply, html: string) => reply.header("cache-control", "no-store").header("referrer-policy", "no-referrer").header("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'").type("text/html").send(html);
+
+  /** After a sign-in: back to the web app page it started from, or a small page that closes its own tab. */
+  const afterSignIn = (reply: FastifyReply, returnTo: string | null, ok: boolean, message: string) => {
+    if (returnTo === "close") return page(reply, closePage(ok, message));
+    return reply.redirect(`/?signin=${ok ? "ok" : encodeURIComponent(message)}${returnTo ?? "#/connectors"}`);
+  };
+
+  /**
+   * Where every sign-in comes back: GitHub, Slack and Google (through Wisp's relay, or straight
+   * here) at APP_CALLBACK_PATH, the servers' own MCP sign-ins at CALLBACK_PATH. No Wisp token here:
+   * the state ties it to the sign-in that started it, and only the browser that started it
+   * finishes without being asked (a sign-in link passed to someone else must not quietly put
+   * their account on the sender's connector).
+   */
+  async function signInCallback(req: FastifyRequest, reply: FastifyReply, kind: "app" | "mcp") {
+    const q = req.query as { state?: string; code?: string; error?: string; error_description?: string; confirm?: string };
+    const pending = q.state ? connectors.auth.pending(q.state) : null;
+    // only a sign-in under way here gets to put the sign-in page's words on this page
+    if (!q.state || !pending || pending.app !== (kind === "app")) return afterSignIn(reply, null, false, "This sign-in link has expired. Start it again.");
+    const state = q.state;
+    const returnTo = connectors.auth.returnToFor(state);
+    reply.header("set-cookie", ConnectorAuth.clearCookie(state));
+    if (q.error || !q.code) {
+      const msg = q.error === "access_denied" ? "Sign-in was cancelled." : (q.error_description || q.error || "the sign-in page didn't send a code back").slice(0, 300);
+      connectors.auth.failPending(state, msg);
+      return afterSignIn(reply, returnTo, false, msg);
+    }
+    const names = pending.connectorIds.map((cid) => connectors.get(cid)?.name).filter(Boolean).join(" and ") || "a connected app";
+    if (!connectors.auth.sameBrowser(state, req.headers.cookie) && q.confirm !== "1") {
+      reply.removeHeader("set-cookie");
+      const who = (pending.userId && store.user(pending.userId)?.name) || "Someone";
+      const here = new URL(req.url, "http://hub");
+      here.searchParams.set("confirm", "1");
+      const cancel = new URL(req.url, "http://hub");
+      for (const k of ["code", "confirm", "error_description"]) cancel.searchParams.delete(k);
+      cancel.searchParams.set("error", "access_denied");
+      return page(reply, confirmSignInPage(who, names, here.pathname + here.search, cancel.pathname + cancel.search));
+    }
+    try {
+      let ids: string[];
+      if (kind === "app") ids = (await connectors.auth.apps.finish(state, q.code)).connectorIds;
+      else ids = [await connectors.auth.finish(state, q.code, (id) => connectors.serverUrl(id))];
+      const conns = ids.map((cid) => connectors.get(cid)).filter((x): x is Connector => !!x);
+      for (const ws of new Set(conns.map((x) => x.workspaceId))) hub.broadcast(ws, { type: "skills_changed" });
+      return afterSignIn(reply, returnTo, true, `Signed in to ${conns.map((x) => x.name).join(" and ") || "the app"}. You can close this tab.`);
+    } catch (e) {
+      return afterSignIn(reply, returnTo, false, (e as Error).message);
+    }
+  }
+
+  app.get(APP_CALLBACK_PATH, (req, reply) => signInCallback(req, reply, "app"));
+
   app.post("/api/connectors/:id/signin", async (req, reply) => {
     const c = need(req, reply, { member: true });
     if (!c) return;
     const conn = ownConnector(c, req, reply);
     if (!conn || !canChange(c, conn, reply)) return;
-    const body = parse(z.object({ origin: URL_ }), req.body, reply);
+    const body = parse(z.object({ origin: URL_, returnTo: RETURN_TO.nullish() }), req.body, reply);
     if (!body) return;
     const url = connectors.serverUrl(conn.id);
     if (!url) return reply.code(400).send({ error: "only remote MCP servers can be signed in to" });
     if (!(await addressAllowed(c, url, {}, reply))) return;
+    const s = catalogConnector(conn.catalogId ?? "")?.signIn;
     try {
-      const to = await connectors.auth.start(conn.id, url, new URL(body.origin).origin, c.actor.id);
+      // made by signing in through Wisp's app with GitHub, Slack or Google: sign in the same way again
+      if (s?.via === "app" && s.url === conn.url) return { url: bindBrowser(reply, await connectors.auth.apps.start([conn.id], s.provider, s.scopes, new URL(body.origin).origin, c.actor.id, body.returnTo ?? null), body.origin) };
+      const to = bindBrowser(reply, await connectors.auth.start(conn.id, url, new URL(body.origin).origin, c.actor.id, { scope: s?.via === "mcp" && s.url === conn.url ? s.scope : undefined, returnTo: body.returnTo ?? null }), body.origin);
       return to ? { url: to } : { signedIn: true };
     } catch (e) {
+      if (e instanceof AppSignInError) return reply.code(502).send({ error: e.message });
       return reply.code(502).send({ error: `${conn.name} didn't offer a way to sign in: ${(e as Error).message}` });
     }
   });
 
-  /** Where the sign-in page sends the browser back. No Wisp token here: the state ties it to the sign-in that started it. */
-  app.get(CALLBACK_PATH, async (req, reply) => {
-    const q = req.query as { state?: string; code?: string; error?: string; error_description?: string };
-    const back = (msg?: string) => reply.redirect(`/?signin=${msg ? encodeURIComponent(msg) : "ok"}#/connectors`);
-    if (q.error) return back(q.error_description || q.error);
-    if (!q.state || !q.code) return back("the sign-in page didn't send a code back");
-    try {
-      await connectors.auth.finish(q.state, q.code, (id) => connectors.serverUrl(id));
-      return back();
-    } catch (e) {
-      return back((e as Error).message);
-    }
-  });
+  app.get(CALLBACK_PATH, (req, reply) => signInCallback(req, reply, "mcp"));
 
   app.post("/api/connectors/:id/signout", async (req, reply) => {
     const c = need(req, reply, { member: true });

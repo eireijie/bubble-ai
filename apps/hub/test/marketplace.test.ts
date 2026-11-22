@@ -104,7 +104,10 @@ describe("signing in to a remote connector", () => {
     expect(to.searchParams.get("code_challenge_method")).toBe("S256");
 
     // the sign-in page sends the browser back
-    const back = await fetch(`${base}/api/connectors/oauth/callback?state=${to.searchParams.get("state")}&code=good`, { redirect: "manual" });
+    // the browser that started the sign-in comes back with its cookie
+    const cookie = (start.res.headers.get("set-cookie") ?? "").split(";")[0];
+    expect(cookie).toMatch(/^wisp_signin_/);
+    const back = await fetch(`${base}/api/connectors/oauth/callback?state=${to.searchParams.get("state")}&code=good`, { redirect: "manual", headers: { cookie } });
     expect(back.status).toBe(302);
     expect(back.headers.get("location")).toBe("/?signin=ok#/connectors");
     expect((await api("GET", `/api/connectors/${conn.id}`)).data.auth).toEqual({ required: true, signedIn: true, error: null });
