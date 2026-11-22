@@ -44,11 +44,15 @@ export class Logos {
     return index ? logoSlug(names, index) : null;
   }
 
-  /** The logo for the first of `names` that is a brand, as SVG in its color; null when none is. */
-  async svg(names: string[]): Promise<string | null> {
+  /**
+   * The logo for the first of `names` that is a brand, as SVG in its color. "none" when no name is
+   * a brand; "unavailable" when Simple Icons couldn't be reached, which may be different next time.
+   */
+  async find(names: string[]): Promise<{ svg: string } | "none" | "unavailable"> {
     const index = await this.loadIndex();
-    const slug = index && logoSlug(names, index);
-    if (!index || !slug) return null;
+    if (!index) return "unavailable";
+    const slug = logoSlug(names, index);
+    if (!slug) return "none";
     let hit = this.svgs.get(slug);
     if (!hit) {
       hit = this.fetchText(`${SIMPLE_ICONS}/icons/${slug}.svg`).then(
@@ -59,7 +63,14 @@ export class Logos {
       this.svgs.set(slug, hit);
       void hit.then((v) => v === null && this.svgs.delete(slug));
     }
-    return hit;
+    const svg = await hit;
+    return svg ? { svg } : "unavailable";
+  }
+
+  /** The logo for the first of `names` that is a brand, as SVG in its color; null when none is. */
+  async svg(names: string[]): Promise<string | null> {
+    const found = await this.find(names);
+    return typeof found === "object" ? found.svg : null;
   }
 }
 
