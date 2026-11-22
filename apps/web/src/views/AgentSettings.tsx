@@ -1,25 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Activity, BookOpen, ChevronLeft, Radar, Ghost, Zap, Cpu, Eye, FileText, GitCommitHorizontal, LayoutGrid, Link2, ListChecks, Lock, Monitor, Pencil, Plug, Shield, ShieldAlert, Sparkles, Trash2, Unlock, Users, Wand2 } from "lucide-react";
-import type { AccessLevel, AccessRule, Agent, HarnessCatalog, ModelOption } from "@wisp/core";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronLeft, GitCommitHorizontal, MessageSquare, ShieldAlert } from "lucide-react";
+import type { AccessLevel, Agent, HarnessCatalog } from "@wisp/core";
 import { soulPath, soulTemplate } from "@wisp/core/src/soul.ts";
 import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx";
 import { useAccess } from "../access.ts";
 import { connectorBlocker, connectorOrigin } from "../components/Access.tsx";
 import { ApiError, api } from "../api.ts";
-import { useStore, useTeams } from "../store.ts";
+import { useStore } from "../store.ts";
 import { go, guardLeaving, href, mayLeave, type AgentTab } from "../router.ts";
-import { renderMarkdown } from "../markdown.ts";
 import { LookPanel } from "./LookEditor.tsx";
-import { EffortSlider, effortName, prettyModel } from "../components/EffortSlider.tsx";
-import { Intro, SaveBar } from "./SettingsParts.tsx";
+import { effortName, prettyModel } from "../components/EffortSlider.tsx";
+import { SaveBar } from "./SettingsParts.tsx";
 import { useFeatures } from "../features.ts";
-import { AccessPanel, EditAgent, MemoryPanel, AppsPanel, OverviewRows, PageHead, RemovePanel, SkillsPanel, TAB_TITLES } from "./AgentSections.tsx";
-import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, Pill, StatusChip, Textarea, cx, timeAgo } from "../components/ui.tsx";
-import { LEVEL_LABEL, pathLabel, subjectLabel } from "../components/AccessDialog.tsx";
-import { ComputerPanel, RoutinesPanel, runsOnDevice } from "./AgentComputer.tsx";
+import { AccessPanel, CARD, CanUse, Group, HandleLine, InPlace, Knows, Line, More, RemovePanel, SELECT, ShowAll, TAB_TITLES, Toggle } from "./AgentSections.tsx";
+import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, Pill, Textarea, cx, timeAgo } from "../components/ui.tsx";
+import { RoutinesPanel, WorksOn, runsOnDevice } from "./AgentComputer.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
-import { MoreOptions } from "../components/MoreOptions.tsx";
-import { agentReadiness, computerKindLabel, isSharedComputer, useDevices, type DeviceInfo } from "../devices.ts";
+import { agentReadiness, isSharedComputer, useDevices, type DeviceInfo } from "../devices.ts";
 import { useComputerMode } from "../computerMode.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
 import { openDm } from "../openDm.ts";
@@ -28,38 +25,76 @@ export type NodeInfo = DeviceInfo;
 
 type FullAgent = Agent & { instructions?: string };
 
-/** The left list of sections on desktops (and the pages a profile row opens on phones). */
-const SIDE: { id: AgentTab; label: string; icon: ReactNode }[] = [
-  { id: "overview", label: TAB_TITLES.overview, icon: <LayoutGrid size={18} /> },
-  { id: "model", label: TAB_TITLES.model, icon: <Cpu size={18} /> },
-  { id: "computer", label: TAB_TITLES.computer, icon: <Monitor size={18} /> },
-  { id: "access", label: TAB_TITLES.access, icon: <Users size={18} /> },
-  { id: "routines", label: TAB_TITLES.routines, icon: <ListChecks size={18} /> },
-  { id: "background", label: TAB_TITLES.background, icon: <Radar size={18} /> },
-  { id: "memory", label: TAB_TITLES.memory, icon: <BookOpen size={18} /> },
-  { id: "skills", label: TAB_TITLES.skills, icon: <Wand2 size={18} /> },
-  { id: "apps", label: TAB_TITLES.apps, icon: <Plug size={18} /> },
-  { id: "permissions", label: TAB_TITLES.permissions, icon: <Shield size={18} /> },
-  { id: "connect", label: "Connect", icon: <Link2 size={18} /> },
-  { id: "runs", label: TAB_TITLES.runs, icon: <Activity size={18} /> },
-  { id: "look", label: TAB_TITLES.look, icon: <Ghost size={18} /> },
-];
+/** The six groups of an agent's page, in order: the same six rows the agent panel beside a chat has. */
+export const AGENT_GROUPS = ["thinks", "works", "can", "asks", "knows", "more"] as const;
+export type AgentGroup = (typeof AGENT_GROUPS)[number];
+export const GROUP_TITLES: Record<AgentGroup, string> = { thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
 
-/** The sections on the left list; Personality, Instructions and Device are opened from Edit and Computer, Remove from its own row. */
-export const agentSections = () => SIDE.map((i) => i.id);
+/** The group each old tab's settings live in now (the overview is the page's top). */
+const TAB_GROUP: Record<AgentTab, AgentGroup | null> = {
+  overview: null,
+  model: "thinks",
+  device: "works",
+  computer: "works",
+  skills: "can",
+  apps: "can",
+  permissions: "asks",
+  memory: "knows",
+  soul: "knows",
+  instructions: "knows",
+  look: "more",
+  access: "more",
+  background: "more",
+  routines: "more",
+  connect: "more",
+  runs: "more",
+  remove: "more",
+};
+/** Tabs that are a part of their group, opened from one of its rows; the others are the group's own rows. */
+const PARTS: readonly AgentTab[] = ["soul", "instructions", "look", "access", "background", "routines", "connect", "runs", "remove"];
+
+/** Where an address of the old 12-tab page lands: its group, and the part of it to open (null when the group's rows are the thing). */
+export function agentPlace(tab: AgentTab | null | undefined): { group: AgentGroup | null; part: AgentTab | null } {
+  return { group: tab ? TAB_GROUP[tab] : null, part: tab && PARTS.includes(tab) ? tab : null };
+}
+
+/** True from the width where the page has room for the list of groups beside the picked one. */
+function useWide(): boolean {
+  const query = "(min-width: 768px)";
+  const [wide, setWide] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(query)?.matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(query);
+    if (!mq?.addEventListener) return;
+    const on = () => setWide(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return wide;
+}
 
 /**
- * One agent's page. Phones: the profile (big ghost, grouped rows) and each row's own page.
- * Desktops: a left list of sections with the selected one beside it. Editable sections stay
- * mounted so drafts survive switching sections; sections with unsaved changes show a dot.
+ * One agent's page: its live ghost, its name and what it does (both edited in place) and Message;
+ * then six groups (Thinks with, Works on, Can use, Asks first, Knows, More) of one-line rows, the
+ * rest of each behind "Show all". Desktops list the groups on the left and show the picked one;
+ * phones show all six down one page. A row that needs room (personality, look, schedules…) opens
+ * as a part with Back. Parts you type in stay mounted, so a draft survives looking elsewhere.
  */
 export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: NodeInfo[]; tab: AgentTab | null }) {
   const features = useFeatures();
-  // a tab for a mod that's off isn't there; its old address lands on the overview
+  const refreshAgents = useStore((s) => s.refreshAgents);
+  // a tab for a mod that's off isn't there; its old address lands on the page's top
   const offTabs: AgentTab[] = [...(features.routines ? [] : ["routines" as const]), ...(features.background ? [] : ["background" as const])];
-  const side = SIDE.filter((i) => !offTabs.includes(i.id));
   const active = tab && !offTabs.includes(tab) ? tab : "overview";
-  const [editing, setEditing] = useState(false);
+  const place = agentPlace(active);
+  const part = place.part;
+  const wide = useWide();
+  const [group, setGroup] = useState<AgentGroup>(place.group ?? "thinks");
+  const picked = useRef(!!place.group);
+  useEffect(() => {
+    if (!place.group) return;
+    picked.current = true;
+    setGroup(place.group);
+  }, [place.group, active]);
   const [dirty, setDirty] = useState<Partial<Record<AgentTab, boolean>>>({});
   const hasDirty = Object.values(dirty).some(Boolean);
   useEffect(() => {
@@ -75,7 +110,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
       if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
       const url = new URL(link.href, location.href);
       if (url.origin !== location.origin || url.pathname !== location.pathname || url.search !== location.search) return;
-      // Sections stay mounted, so moving between them keeps all edits.
+      // Parts stay mounted, so moving between them keeps all edits.
       if (url.hash === `#/agents/${agent.id}` || url.hash.startsWith(`#/agents/${agent.id}/`)) return;
       if (!mayLeave()) e.preventDefault();
     };
@@ -88,176 +123,180 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
     };
   }, [hasDirty, agent.id, agent.name]);
   const markDirty = useCallback((t: AgentTab) => (d: boolean) => setDirty((cur) => (cur[t] === d ? cur : { ...cur, [t]: d })), []);
-  const content = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    content.current?.scrollTo({ top: 0 });
-  }, [active]);
 
-  const live = useStore((s) => s.live);
-  const working = agent.status === "busy" || Object.values(live).some((r) => r.agentId === agent.id);
   const devices = useDevices();
   const readiness = agentReadiness(agent, devices);
   const next = setupNextStep(agent, devices);
-  const device = active === "computer" || active === "device";
-  const title = TAB_TITLES[active];
-  const back = href({ view: "agents", agentId: agent.id, tab: "overview" });
-  const status = working ? (
-    <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-ok/15 text-ok text-xs font-medium">
-      <span className="size-[7px] rounded-full bg-ok" /> Working
-    </span>
-  ) : (
-    <StatusChip status={agent.status} needsSignIn={!!agent.signIn} />
+  // nothing picked yet and something is missing: open on the group that says what
+  useEffect(() => {
+    if (!readiness.ready && !picked.current) setGroup("works");
+  }, [readiness.ready]);
+  // a fix that lives on this page is the row right there (the device picker, or Sign in under Show all)
+  const fixHere = !!next && next.href.startsWith(`#/agents/${agent.id}/`);
+
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = content.current;
+    if (!el) return;
+    // phones show every group down one page: an old tab's address brings its group into view
+    const target = !part && !wide && place.group ? el.querySelector<HTMLElement>(`[data-group="${place.group}"]`) : null;
+    if (target) target.scrollIntoView({ block: "start" });
+    else el.scrollTo({ top: 0 });
+  }, [active, group, wide]);
+
+  const to = (t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
+  const top = to("overview");
+  const pick = (g: AgentGroup) => {
+    picked.current = true;
+    setGroup(g);
+    if (part) go({ view: "agents", agentId: agent.id, tab: "overview" });
+  };
+  const rename = async (name: string) => {
+    if (!name) throw new Error("A name is needed");
+    await api("PATCH", `/api/agents/${agent.id}`, { name });
+    await refreshAgents();
+  };
+  const setRole = async (role: string) => {
+    await api("PATCH", `/api/agents/${agent.id}`, { settings: { role } });
+    await refreshAgents();
+  };
+  const ghost = (size: number) => (
+    <a href={to("look")} aria-label={`Change ${agent.name}'s look`} className="shrink-0 rounded-full">
+      <AgentAvatar agent={agent} size={size} live />
+    </a>
+  );
+  const message = (
+    <Button variant="primary" onClick={() => void openDm(agent.id)}>
+      <MessageSquare size={15} /> Message
+    </Button>
   );
 
-  const link = (id: AgentTab, label: string, icon: ReactNode) => {
-    const here = active === id || (id === "computer" && device);
-    return (
-      <a key={id} href={href({ view: "agents", agentId: agent.id, tab: id })} aria-current={here ? "page" : undefined} className={cx("flex items-center gap-3 h-11 px-3.5 rounded-[14px] text-body font-medium", here ? "bg-card text-ink font-medium" : "text-ink/75 hover:text-ink hover:bg-hover")}>
-        <span className="flex text-muted">{icon}</span>
-        {label}
-        {dirty[id] && <span className="ml-auto size-1.5 rounded-full bg-accent" aria-label="unsaved changes" />}
-      </a>
-    );
+  const body = (g: AgentGroup): ReactNode => {
+    switch (g) {
+      case "thinks":
+        return <ThinksWith agent={agent} />;
+      case "works":
+        return <WorksOn agent={agent} nodes={nodes} problem={readiness.ready ? null : (readiness.problem ?? "Setup incomplete")} fix={fixHere ? null : next} all={fixHere && next?.action === "Sign in"} />;
+      case "can":
+        return <CanUse agent={agent} />;
+      case "asks":
+        return <AsksFirst agent={agent} nodes={nodes} />;
+      case "knows":
+        return <Knows agent={agent} />;
+      case "more":
+        return <More agent={agent} nodes={nodes} />;
+    }
   };
+  const unsaved = (g: AgentGroup) => (Object.keys(dirty) as AgentTab[]).some((t) => dirty[t] && TAB_GROUP[t] === g);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* desktops: back, ghost, name, status, Edit and Message */}
-      <header className="hidden md:flex shrink-0 items-center gap-4 px-8 pt-6 pb-5 border-b border-line">
+      {/* desktops: back, the live ghost, its name and what it does, Message */}
+      <header className="hidden md:flex shrink-0 items-center gap-4 px-8 pt-6 pb-5">
         <a href="#/agents" className="circle" aria-label="Back to agents">
           <ChevronLeft size={20} />
         </a>
-        <AgentAvatar agent={agent} size={56} live />
+        {ghost(56)}
         <div className="flex-1 min-w-0">
-          <h1 className="t-title truncate">{agent.name}</h1>
-          <p className="text-sm text-muted truncate">
-            @{agent.handle} · {harnessLabel(agent.harness)}
-          </p>
+          <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="t-title -ml-1.5 block h-9 w-full max-w-md truncate" />
+          <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="-ml-1.5 block h-6 w-full max-w-md truncate text-sm text-muted focus:text-ink" />
         </div>
-        {status}
-        <button onClick={() => setEditing(true)} className="h-[42px] px-[18px] rounded-full border border-control-line bg-control text-sm font-medium hover:bg-hover">
-          Edit
-        </button>
-        <button onClick={() => void openDm(agent.id)} className="h-[42px] px-5 rounded-full bg-accent text-accent-ink text-sm font-medium">
-          Message
-        </button>
+        {message}
       </header>
-      {/* phones: back, and over a row's page a title with the agent's name under it */}
-      <header className="md:hidden shrink-0 flex items-center gap-3 px-[18px] pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
-        <a href={active === "overview" ? "#/agents" : back} className="circle" aria-label={active === "overview" ? "Back to agents" : `Back to ${agent.name}`}>
+      {/* phones: back, and over a part its title with the agent's name under it */}
+      <header className="md:hidden shrink-0 flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+        <a href={part ? top : "#/agents"} className="circle" aria-label={part ? `Back to ${agent.name}` : "Back to agents"}>
           <ChevronLeft size={22} />
         </a>
-        {active !== "overview" && (
+        {part && (
           <>
             <div className="flex-1 min-w-0 text-center">
-              <div className="text-body font-medium truncate">{title}</div>
+              <div className="text-[14px] font-semibold truncate">{TAB_TITLES[part]}</div>
               <div className="text-[13px] text-muted truncate">{agent.name}</div>
             </div>
-            <span className="w-[52px]" aria-hidden />
+            <span className="w-11" aria-hidden />
           </>
         )}
       </header>
       <div className="flex-1 min-h-0 flex">
-        <nav className="hidden md:flex w-[250px] shrink-0 border-r border-line overflow-y-auto px-3.5 py-[18px] flex-col gap-0.5" aria-label="Agent sections">
-          {side.map((i) => link(i.id, i.label, i.icon))}
-          <span className="flex-1" />
-          <a href={href({ view: "agents", agentId: agent.id, tab: "remove" })} aria-current={active === "remove" ? "page" : undefined} className={cx("flex items-center gap-3 h-11 px-3.5 rounded-[14px] text-body font-medium text-bad hover:bg-hover", active === "remove" && "bg-card")}>
-            <Trash2 size={18} /> Remove agent
-          </a>
+        <nav className="hidden md:flex w-[208px] shrink-0 flex-col gap-0.5 overflow-y-auto pl-8 pr-2 pb-6" aria-label={`${agent.name}'s settings`}>
+          {AGENT_GROUPS.map((g) => (
+            <button key={g} type="button" aria-current={group === g ? "page" : undefined} onClick={() => pick(g)} className={cx("flex h-9 shrink-0 items-center gap-2 rounded-[8px] px-3 text-left text-[14px]", group === g ? "bg-side-active font-medium text-ink" : "text-muted hover:bg-hover hover:text-ink")}>
+              <span className="flex-1 truncate">{GROUP_TITLES[g]}</span>
+              {g === "works" && !readiness.ready && <span className="size-1.5 shrink-0 rounded-full bg-st-needs" aria-label="needs you" />}
+              {unsaved(g) && <span className="size-1.5 shrink-0 rounded-full bg-accent" aria-label="unsaved changes" />}
+            </button>
+          ))}
         </nav>
-        <div ref={content} className="flex-1 min-w-0 overflow-y-auto px-[18px] md:px-9 pt-4 md:pt-7 pb-24 md:pb-0 after:hidden md:after:block md:after:h-7 md:after:content-['']">
-          {active === "overview" && (
-            <div className="max-w-[720px] space-y-4">
-              {/* the profile, on phones */}
-              <div className="md:hidden flex flex-col items-center gap-2.5 pt-2 pb-2">
-                <AgentAvatar agent={agent} size={150} live />
-                <h1 className="t-title">{agent.name}</h1>
-                <p className="text-body text-muted">
-                  @{agent.handle} · {harnessLabel(agent.harness)}
-                </p>
-                <div className="flex gap-2">
-                  <button onClick={() => setEditing(true)} className="h-10 px-5 rounded-full bg-chip text-base font-medium">
-                    Edit
-                  </button>
-                  <button onClick={() => void openDm(agent.id)} className="h-10 px-5 rounded-full bg-accent text-accent-ink text-base font-medium">
-                    Message
-                  </button>
+        {/* md:px-8 is the room a part's save bar (-mx-8) reaches into */}
+        <div ref={content} className="flex-1 min-w-0 overflow-y-auto px-4 md:px-8 pt-1 pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="max-w-[640px] max-md:mx-auto">
+            {!part && (
+              <div className="space-y-6">
+                {/* the profile, on phones */}
+                <div className="md:hidden flex flex-col items-center gap-1 text-center">
+                  {ghost(64)}
+                  <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="mt-2 h-8 w-full max-w-xs text-center text-[19px] font-semibold leading-[26px]" />
+                  <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="h-6 w-full max-w-xs text-center text-sm text-muted focus:text-ink" />
+                  <div className="mt-2">{message}</div>
                 </div>
-              </div>
-              <PageHead title="Overview" />
-              {!readiness.ready && (
-                <div role="status" className="rounded-3xl border border-warn/40 bg-warn/10 p-4 text-sm">
-                  <div className="flex items-center gap-2 font-medium">
-                    <Pill tone="warn">Setup incomplete</Pill> {readiness.problem}
+                {(wide ? [group] : AGENT_GROUPS).map((g) => (
+                  <div key={g} data-group={g} className="scroll-mt-3">
+                    <Group title={GROUP_TITLES[g]}>{body(g)}</Group>
                   </div>
-                  <p className="text-muted mt-1">
-                    Messages to {agent.name} will wait until that's fixed.
-                    {next && (
-                      <>
-                        {" "}
-                        {next.text}{" "}
-                        <a href={next.href} className="text-accent-text underline">
-                          {next.action}
-                        </a>
-                      </>
-                    )}
-                  </p>
-                </div>
-              )}
-              <OverviewRows agent={agent} nodes={nodes} />
-            </div>
-          )}
-          {active !== "overview" && <PageHead title={device ? TAB_TITLES.computer : title} />}
-          <Panel show={active === "look"}>
-            <LookPanel agent={agent} onDirty={markDirty("look")} active={active === "look"} />
-          </Panel>
-          <Panel show={active === "soul"}>
-            <SoulPanel agent={agent} onDirty={markDirty("soul")} active={active === "soul"} />
-          </Panel>
-          <Panel show={active === "instructions"}>
-            <InstructionsPanel agent={agent} onDirty={markDirty("instructions")} active={active === "instructions"} />
-          </Panel>
-          <Panel show={active === "model"}>
-            <ModelPanel agent={agent} onDirty={markDirty("model")} active={active === "model"} />
-          </Panel>
-          <Panel show={device}>
-            <ComputerPanel agent={agent} nodes={nodes} />
-            <div className="mt-10 border-t border-line pt-6">
-              <DevicePanel agent={agent} nodes={nodes} onDirty={markDirty("device")} active={device} />
-            </div>
-          </Panel>
-          <Panel show={active === "access"}>
-            <AccessPanel agent={agent} device={nodes.find((n) => n.id === agent.nodeId)} />
-          </Panel>
-          <Panel show={active === "background"}>
-            <BackgroundPanel agent={agent} active={active === "background"} onDirty={markDirty("background")} />
-          </Panel>
-          <Panel show={active === "routines"}>
-            <RoutinesPanel agent={agent} active={active === "routines"} />
-          </Panel>
-          {active === "memory" && <MemoryPanel agent={agent} />}
-          {active === "skills" && <SkillsPanel agent={agent} />}
-          {active === "apps" && <AppsPanel agent={agent} />}
-          <Panel show={active === "permissions"}>
-            <PermissionsPanel agent={agent} nodes={nodes} onDirty={markDirty("permissions")} active={active === "permissions"} />
-          </Panel>
-          <Panel show={active === "connect"}>
-            <ConnectPanel agent={agent} nodes={nodes} />
-          </Panel>
-          <Panel show={active === "runs"}>
-            <RunsPanel agent={agent} active={active === "runs"} />
-          </Panel>
-          {active === "remove" && <RemovePanel agent={agent} />}
+                ))}
+              </div>
+            )}
+            {part && (
+              <div className="hidden md:block pb-4">
+                <a href={top} className="-ml-1 inline-flex h-7 items-center gap-0.5 text-[13px] text-muted hover:text-ink">
+                  <ChevronLeft size={15} aria-hidden /> {place.group ? GROUP_TITLES[place.group] : agent.name}
+                </a>
+                <h2 className="text-[19px] font-semibold leading-[26px]">{TAB_TITLES[part]}</h2>
+              </div>
+            )}
+            <Panel show={part === "look"}>
+              <LookPanel agent={agent} onDirty={markDirty("look")} active={part === "look"} />
+            </Panel>
+            <Panel show={part === "soul"}>
+              <SoulPanel agent={agent} onDirty={markDirty("soul")} active={part === "soul"} />
+            </Panel>
+            <Panel show={part === "instructions"}>
+              <InstructionsPanel agent={agent} onDirty={markDirty("instructions")} active={part === "instructions"} />
+            </Panel>
+            {part === "access" && (
+              <div className="m-panel">
+                <AccessPanel agent={agent} device={nodes.find((n) => n.id === agent.nodeId)} />
+              </div>
+            )}
+            <Panel show={part === "background"}>
+              <BackgroundPanel agent={agent} active={part === "background"} onDirty={markDirty("background")} />
+            </Panel>
+            <Panel show={part === "routines"}>
+              <RoutinesPanel agent={agent} active={part === "routines"} />
+            </Panel>
+            <Panel show={part === "connect"}>
+              <ConnectPanel agent={agent} />
+            </Panel>
+            <Panel show={part === "runs"}>
+              <RunsPanel agent={agent} active={part === "runs"} />
+            </Panel>
+            {part === "remove" && (
+              <div className="m-panel">
+                <RemovePanel agent={agent} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      {editing && <EditAgent agent={agent} onClose={() => setEditing(false)} />}
     </div>
   );
 }
 
+/** A part that stays mounted while it is out of sight, so what was typed in it is kept; it slides in when shown. */
 function Panel({ show, children }: { show: boolean; children: ReactNode }) {
   return (
-    <div role="tabpanel" hidden={!show} className="max-w-[720px]">
+    <div hidden={!show} className="m-panel">
       {children}
     </div>
   );
@@ -272,17 +311,15 @@ interface Commit {
   message: string;
 }
 
+/** Its personality (SOUL.md), as text. Whether it may rewrite it itself is a switch under Asks first. */
 function SoulPanel({ agent, onDirty, active }: { agent: FullAgent; onDirty: (d: boolean) => void; active: boolean }) {
-  const refreshAgents = useStore((s) => s.refreshAgents);
   const path = soulPath(agent.id);
   const [saved, setSaved] = useState<string | null>(null); // null = no soul yet
   const [draft, setDraft] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [last, setLast] = useState<Commit | null>(null);
-  const [view, setView] = useState<"write" | "preview">("write");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const locked = !!agent.settings.soulLocked;
 
   const load = useCallback(async () => {
     try {
@@ -304,7 +341,7 @@ function SoulPanel({ agent, onDirty, active }: { agent: FullAgent; onDirty: (d: 
   useEffect(() => {
     load();
   }, [load]);
-  // pick up the agent's own edits when coming back to the tab
+  // pick up the agent's own edits when coming back to it
   useEffect(() => {
     if (active && saved !== null && draft === saved) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -329,93 +366,37 @@ function SoulPanel({ agent, onDirty, active }: { agent: FullAgent; onDirty: (d: 
     }
   };
 
-  const toggleLock = async () => {
-    await api("PATCH", `/api/agents/${agent.id}`, { settings: { soulLocked: !locked } });
-    await refreshAgents();
-  };
-
-  const html = useMemo(() => renderMarkdown(draft, { stripFrontmatter: true }), [draft]);
   const editedByAgent = last?.author === `@${agent.handle}`;
 
   return (
     <div>
-      <Intro title="Personality">
-        <p>
-          Who @{agent.handle} is: personality, voice, values and boundaries. It's read at the start of every conversation. Keep it short; every line should change how the agent behaves. What it should <i>do</i> goes in{" "}
-          <a className="text-accent-text hover:underline" href={`#/agents/${agent.id}/instructions`}>
-            Instructions
-          </a>
-          .
-        </p>
-      </Intro>
-
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3">
-        <button
-          onClick={toggleLock}
-          role="switch"
-          aria-checked={!locked}
-          className={cx("relative h-6 w-11 shrink-0 rounded-full transition-colors", locked ? "bg-hover" : "m-switch-on")}
-          aria-label={`Let @${agent.handle} refine its own personality`}
-        >
-          <span className={cx("m-knob absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow", !locked && "translate-x-5")} />
-        </button>
-        <div className="flex-1 min-w-0 text-sm">
-          <div className="font-medium flex items-center gap-1.5">
-            {locked ? <Lock size={14} /> : <Unlock size={14} />} Let @{agent.handle} refine its own personality
-          </div>
-          <div className="text-muted">{locked ? "Locked: only people can change it." : "It can update this file as it learns who it is. Every change is kept in history."}</div>
-        </div>
-      </div>
-
       {!loaded ? (
-        <p className="text-sm text-muted">Loading…</p>
+        <p className="px-1 text-[13px] text-muted">Loading…</p>
       ) : saved === null && !draft ? (
-        <div className="rounded-xl border border-dashed border-line p-6 text-center space-y-3">
-          <p className="text-sm text-muted">@{agent.handle} doesn't have a personality yet.</p>
-          <Button variant="primary" onClick={() => setDraft(soulTemplate(agent.name, agent.handle))}>
-            <Sparkles size={15} /> Start from a template
-          </Button>
+        <div className="space-y-3">
+          <p className="px-1 text-[14px] text-muted">Not written yet</p>
+          <Button onClick={() => setDraft(soulTemplate(agent.name, agent.handle))}>Start from a template</Button>
         </div>
       ) : (
-        <>
-          <div className="flex items-center gap-2 mb-2 lg:hidden">
-            <Seg value={view} onChange={setView} options={[{ value: "write", label: "Write", icon: <Pencil size={13} /> }, { value: "preview", label: "Preview", icon: <Eye size={13} /> }]} />
-          </div>
-          <div className="grid lg:grid-cols-2 gap-4">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              spellCheck
-              aria-label="SOUL.md"
-              className={cx("min-h-[420px] w-full resize-y rounded-xl border border-line bg-bg px-4 py-3 font-mono text-[13.5px] leading-relaxed outline-none focus:border-accent", view === "preview" && "hidden lg:block")}
-            />
-            <div className={cx("min-h-[420px] rounded-xl border border-line px-5 py-4 overflow-y-auto", view === "write" && "hidden lg:block")}>
-              <div className="text-[13px] font-medium text-faint mb-2">Preview</div>
-              <div className="prose-w text-body" dangerouslySetInnerHTML={{ __html: html }} />
-            </div>
-          </div>
-        </>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          spellCheck
+          aria-label="SOUL.md"
+          className="min-h-[420px] w-full resize-y rounded-[14px] border border-line bg-bg px-4 py-3 font-mono text-[13.5px] leading-relaxed outline-none focus:border-ink/40"
+        />
+      )}
+      {last && (
+        <p className="mt-2 flex items-center gap-1.5 px-1 text-[13px] text-muted">
+          <GitCommitHorizontal size={14} />
+          {editedByAgent ? `Refined by @${agent.handle}` : `Edited by ${last.author}`} {timeAgo(last.date)} ·{" "}
+          <a className="text-ink underline underline-offset-2" href={`#/vault/${path}`}>
+            history
+          </a>
+        </p>
       )}
       {error && <p className="mt-3 text-sm text-bad">{error}</p>}
-
-      <SaveBar
-        dirty={dirty}
-        saving={saving}
-        onSave={save}
-        onDiscard={() => setDraft(saved ?? "")}
-        active={active}
-        note={
-          last && (
-            <span className="inline-flex items-center gap-1.5">
-              <GitCommitHorizontal size={14} />
-              {editedByAgent ? `@${agent.handle} last refined its personality` : `Last edited by ${last.author}`} {timeAgo(last.date)} ·{" "}
-              <a className="text-accent-text hover:underline" href={`#/vault/${path}`}>
-                history
-              </a>
-            </span>
-          )
-        }
-      />
+      <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => setDraft(saved ?? "")} active={active} />
     </div>
   );
 }
@@ -445,21 +426,23 @@ function useSavedDraft<T extends object>(saved: T) {
   return [draft, setDraft] as const;
 }
 
+/** The most instructions the hub keeps; the count shows once most of it is used. */
+const INSTRUCTIONS_MAX = 20_000;
+
+/** Its job in full: what the role covers, and the instructions sent with every request. The one-line role is the line under its name. */
 function InstructionsPanel({ agent, onDirty, active }: { agent: FullAgent; onDirty: (d: boolean) => void; active: boolean }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
   const others = useStore((s) => s.agents).filter((a) => a.id !== agent.id);
   const saved = agent.instructions ?? "";
-  const savedRole = agent.settings.role ?? "";
   const savedNotes = agent.settings.roleNotes ?? "";
-  const [form, setForm] = useSavedDraft({ draft: saved, role: savedRole, roleNotes: savedNotes });
-  const { draft, role, roleNotes } = form;
+  const [form, setForm] = useSavedDraft({ draft: saved, roleNotes: savedNotes });
+  const { draft, roleNotes } = form;
   const setDraft = (value: string | ((d: string) => string)) => setForm((f) => ({ ...f, draft: typeof value === "function" ? value(f.draft) : value }));
-  const setRole = (value: string) => setForm((f) => ({ ...f, role: value }));
   const setRoleNotes = (value: string) => setForm((f) => ({ ...f, roleNotes: value }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const roleDirty = role.trim() !== savedRole || roleNotes !== savedNotes;
-  const dirty = draft !== saved || roleDirty;
+  const notesDirty = roleNotes !== savedNotes;
+  const dirty = draft !== saved || notesDirty;
   useEffect(() => {
     onDirty(dirty);
   }, [dirty, onDirty]);
@@ -476,7 +459,7 @@ function InstructionsPanel({ agent, onDirty, active }: { agent: FullAgent; onDir
     setSaving(true);
     setError(null);
     try {
-      await api("PATCH", `/api/agents/${agent.id}`, { instructions: draft, ...(roleDirty ? { settings: { role: role.trim(), roleNotes } } : {}) });
+      await api("PATCH", `/api/agents/${agent.id}`, { instructions: draft, ...(notesDirty ? { settings: { roleNotes } } : {}) });
       await refreshAgents();
     } catch (e) {
       setError((e as Error).message);
@@ -488,22 +471,12 @@ function InstructionsPanel({ agent, onDirty, active }: { agent: FullAgent; onDir
 
   return (
     <div>
-      <Intro title="Instructions">
-        <p>@{agent.handle}'s job: what it's responsible for, how it should work, and who to hand things to. Sent with every request.</p>
-        <p className="inline-flex items-center gap-1">
-          <Lock size={13} /> Only people can edit instructions. Agents can't change their own.
-        </p>
-      </Intro>
-      <div className="mb-6 grid gap-3 sm:grid-cols-[minmax(0,14rem)_1fr]">
-        <Field label="Role">
-          <Input value={role} onChange={(e) => setRole(e.target.value)} maxLength={60} placeholder="Engineer" aria-label="Role" />
-        </Field>
-        <Field label="What the role covers (optional)">
+      <div className="mb-4">
+        <Field label="What the role covers">
           <Input value={roleNotes} onChange={(e) => setRoleNotes(e.target.value)} maxLength={2000} placeholder="Owns the backend and the build; send it bugs and API work." aria-label="What the role covers" />
         </Field>
       </div>
       <div className="mb-2 flex flex-wrap gap-1.5">
-        <span className="text-xs text-muted self-center mr-1">Add a section:</span>
         {snippets.map((s) => (
           <button key={s.label} onClick={() => setDraft((d) => (d.trim() ? d.replace(/\s*$/, "\n\n") : "") + s.text + "\n")} className="text-xs rounded-full border border-line px-2.5 py-1 hover:bg-hover">
             + {s.label}
@@ -518,332 +491,156 @@ function InstructionsPanel({ agent, onDirty, active }: { agent: FullAgent; onDir
         placeholder={`You own the backend. Keep notes on decisions in me/decisions.md, and hand UI work to ${helper}.`}
         className="font-mono text-[13.5px] leading-relaxed resize-y min-h-[300px]"
       />
-      <div className="mt-1 text-xs text-faint text-right">{draft.length.toLocaleString()} / 20,000</div>
+      {draft.length > INSTRUCTIONS_MAX * 0.8 && (
+        <div className="mt-1 text-xs text-faint text-right">
+          {draft.length.toLocaleString()} / {INSTRUCTIONS_MAX.toLocaleString()}
+        </div>
+      )}
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
-      <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => (setDraft(saved), setRole(savedRole), setRoleNotes(savedNotes))} active={active} note={saved ? "Instructions are active." : "No instructions yet."} />
+      <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => (setDraft(saved), setRoleNotes(savedNotes))} active={active} />
     </div>
   );
 }
 
-// --- Model --------------------------------------------------------------------
+// --- Thinks with --------------------------------------------------------------
 
-const ACCESS: Record<AccessLevel, { label: string; short: string; body: string }> = {
-  "read-only": { label: "Read only", short: "read only", body: "Reads files and answers. Changes nothing." },
-  edit: { label: "Can edit files", short: "can edit", body: "Changes files in its own folder. Recommended." },
-  full: { label: "Full access", short: "full access", body: "Can change any file and run any command." },
-};
-
-function ModelPanel({ agent, onDirty, active }: { agent: FullAgent; onDirty: (d: boolean) => void; active: boolean }) {
+/**
+ * What it thinks with, as rows: its AI, the model, the effort, and Fast when the model has it. Each
+ * saves as it changes. A model that isn't on the list is typed in ("Other model…"); its handle is
+ * behind "Show all".
+ */
+function ThinksWith({ agent }: { agent: FullAgent }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
   const [info, setInfo] = useState<{ device: { name: string; online: boolean } | null; catalog: HarnessCatalog | null } | null>(null);
-  const saved = { model: agent.model ?? "", effort: agent.settings.effort ?? "", fast: !!agent.settings.fast };
-  const [form, setForm] = useSavedDraft(saved);
   const [custom, setCustom] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hLabel = harnessLabel(agent.harness);
   const headless = runsOnDevice(agent.harness);
 
   useEffect(() => {
-    if (active) api("GET", `/api/agents/${agent.id}/models`).then(setInfo, () => setInfo({ device: null, catalog: null }));
-  }, [agent.id, agent.nodeId, active]);
+    if (headless) api<NonNullable<typeof info>>("GET", `/api/agents/${agent.id}/models`).then(setInfo, () => setInfo({ device: null, catalog: null }));
+  }, [agent.id, agent.nodeId, headless]);
 
   const models = info?.catalog?.models ?? [];
+  const model = agent.model ?? "";
   // a model id the catalog doesn't know about is shown as a custom model
   useEffect(() => {
-    if (info && form.model && !models.some((m) => m.id === form.model)) setCustom(true);
+    if (info && model && !models.some((m) => m.id === model)) setCustom(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info, form.model]);
-
-  const dirty = form.model !== saved.model || form.effort !== saved.effort || form.fast !== saved.fast;
-  useEffect(() => {
-    onDirty(dirty);
-  }, [dirty, onDirty]);
-
-  // with no model picked the harness uses its own default, which has the efforts and fast tier too
-  const selected: ModelOption | undefined = models.find((m) => m.id === (form.model || info?.catalog?.defaultModel));
-  const efforts = selected?.efforts ?? info?.catalog?.efforts ?? ["low", "medium", "high"];
-  const effortDropped = form.effort && !efforts.includes(form.effort);
-  // the device's configured effort wins over the model's own default, as in Codex
-  const defaultEffort = [info?.catalog?.defaultEffort, selected?.defaultEffort].find((e) => e && efforts.includes(e)) ?? efforts[0];
-  const shownEffort = effortDropped || !form.effort ? defaultEffort : form.effort;
-
-  const save = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      await api("PATCH", `/api/agents/${agent.id}`, {
-        model: form.model.trim() || null,
-        settings: { effort: effortDropped ? null : form.effort || null, fast: form.fast },
-      });
-      await refreshAgents();
-    } catch (e) {
-      setError((e as Error).message);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
+  }, [info, model]);
 
   if (!headless)
     return (
-      <div>
-        <Intro title="Model">
-          <p>
-            {harnessLabel(agent.harness)} joins through wisp-mcp, so its model and permissions are set inside {harnessLabel(agent.harness)} itself.
-          </p>
-        </Intro>
+      <div className={CARD}>
+        <Line label="AI" value={hLabel} />
+        <Line label="Model" value={`Set in ${hLabel}`} />
+        <ShowAll>
+          <HandleLine agent={agent} />
+        </ShowAll>
       </div>
     );
 
-  const hLabel = harnessLabel(agent.harness);
-  const isAuto = !form.model && !form.effort && !form.fast;
-  const deviceGone = !agent.nodeId || !!(info?.device && !info.device.online);
+  // with no model picked the harness uses its own default, which has the efforts and fast tier too
+  const offered = (id: string) => {
+    const m = models.find((x) => x.id === (id || info?.catalog?.defaultModel));
+    return { model: m, efforts: m?.efforts ?? info?.catalog?.efforts ?? ["low", "medium", "high"] };
+  };
+  const { model: selected, efforts } = offered(model);
+  const effort = agent.settings.effort ?? "";
+  const effortDropped = !!effort && !efforts.includes(effort);
+  // the device's configured effort wins over the model's own default, as in Codex
+  const defaultEffort = [info?.catalog?.defaultEffort, selected?.defaultEffort].find((e) => e && efforts.includes(e)) ?? efforts[0];
 
+  const patch = async (body: unknown) => {
+    setError(null);
+    try {
+      await api("PATCH", `/api/agents/${agent.id}`, body);
+      await refreshAgents();
+    } catch (e) {
+      setError((e as Error).message);
+      throw e;
+    }
+  };
+  // an effort the new model doesn't offer goes back to the default with it
+  const setModel = (id: string) => patch({ model: id.trim() || null, ...(effort && !offered(id.trim()).efforts.includes(effort) ? { settings: { effort: null } } : {}) });
+
+  // why there are no models to pick, for whoever hovers the picker
   const why = !agent.nodeId
-    ? "This agent isn't assigned to a device yet. Pick one under Device to see its models."
+    ? "No device yet"
     : !info?.device
       ? null
       : !info.catalog
         ? info.device.online
-          ? `${info.device.name} hasn't reported ${harnessLabel(agent.harness)} models. Make sure it's installed there (wisp doctor) and restart the device.`
-          : `${info.device.name} is offline. Start it to see the models it offers.`
+          ? `${info.device.name} hasn't reported ${hLabel} models`
+          : `${info.device.name} is offline`
         : null;
 
-  const controls = (
-    <div className="space-y-6">
-      <section>
-        <Intro compact title="Model">
-          <p>
-            {info?.catalog ? (
-              <>
-                What {harnessLabel(agent.harness)} offers on <b>{info.device?.name}</b>
-                {info.catalog.version && <span className="text-faint"> ({info.catalog.version})</span>}.
-              </>
-            ) : (
-              `Which ${harnessLabel(agent.harness)} model this agent uses.`
-            )}
-          </p>
-        </Intro>
-        <div className="max-w-sm space-y-2">
+  return (
+    <>
+      <div className={CARD}>
+        <Line label="AI" value={hLabel} />
+        <Line label="Model">
           <select
             aria-label="Model"
-            value={custom ? "__custom" : form.model}
+            title={why ?? undefined}
+            value={custom ? "__custom" : model}
             onChange={(e) => {
               if (e.target.value === "__custom") return setCustom(true);
               setCustom(false);
-              setForm({ ...form, model: e.target.value });
+              void setModel(e.target.value).catch(() => {});
             }}
-            className="h-9 w-full rounded-lg border border-line bg-panel px-2.5 text-sm"
+            className={SELECT}
           >
-            <option value="">Harness default</option>
-            {models.length > 0 && (
-              <optgroup label={`Available on ${info?.device?.name ?? "its device"}`}>
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {prettyModel(m.label)}
-                  </option>
-                ))}
-              </optgroup>
-            )}
+            <option value="">Automatic</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {prettyModel(m.label)}
+              </option>
+            ))}
             <option value="__custom">Other model…</option>
           </select>
-          {custom && <p className="text-xs text-muted">Type any model id the harness accepts.</p>}
-        </div>
+        </Line>
         {custom && (
-          <div className="mt-2.5 max-w-sm">
-            <Field label="Model id">
-              <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder={agent.harness === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5"} autoFocus />
-            </Field>
-          </div>
+          <Line label="Model id">
+            <InPlace value={model} onSave={setModel} label="Model id" placeholder={agent.harness === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5"} className="h-8 w-48 border border-line bg-panel text-[13px] text-ink" />
+          </Line>
         )}
-      </section>
-
-      <section>
-        <Intro compact title="Reasoning effort">
-          <p>More effort thinks deeper but replies slower. Default is {effortName(defaultEffort)}.</p>
-        </Intro>
         {efforts.length > 0 && (
-          <div className="max-w-sm space-y-1.5">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm font-medium text-accent-text">{effortName(shownEffort)}</span>
-              <button type="button" onClick={() => setForm({ ...form, effort: "" })} disabled={!form.effort} className="text-xs text-muted hover:text-ink disabled:opacity-40">
-                {form.effort ? "Reset to default" : "Default"}
-              </button>
-            </div>
-            <EffortSlider
-              size="md"
-              levels={efforts}
-              value={shownEffort}
-              onChange={(v) => setForm({ ...form, effort: v })}
-            />
-          </div>
+          <Line label="Effort">
+            <select aria-label="Reasoning effort" value={effortDropped ? "" : effort} onChange={(e) => void patch({ settings: { effort: e.target.value || null } }).catch(() => {})} className={SELECT}>
+              <option value="">Default ({effortName(defaultEffort)})</option>
+              {efforts.map((x) => (
+                <option key={x} value={x}>
+                  {effortName(x)}
+                </option>
+              ))}
+            </select>
+          </Line>
         )}
-        {effortDropped && <p className="mt-2 text-xs text-warn">{selected?.label ?? "This model"} doesn't support “{form.effort}”; it will use its default.</p>}
-      </section>
-
-      <section>
-        <Intro compact title="Fast mode">
-          <p>{selected?.fast ? `Runs on the model's faster tier${selected.fast.description ? `: ${selected.fast.description}` : ""}.` : "Not offered for this model."}</p>
-        </Intro>
-        <label className={cx("inline-flex items-center gap-2 text-sm", selected?.fast ? "cursor-pointer" : "opacity-50")}>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={form.fast}
-            disabled={!selected?.fast}
-            onClick={() => setForm({ ...form, fast: !form.fast })}
-            className={cx("relative h-5 w-9 rounded-full transition-colors", form.fast && selected?.fast ? "m-switch-on" : "bg-chip")}
-          >
-            <span className={cx("m-knob absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow", form.fast && selected?.fast && "translate-x-4")} />
-          </button>
-          <Zap size={14} className={cx(form.fast && selected?.fast && "text-accent-text fill-accent")} /> Fast mode
-        </label>
-      </section>
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-accent bg-accent-soft p-3 text-sm">
-          <div className="font-medium">{isAuto ? "Automatic (recommended)" : `Custom: ${form.model ? prettyModel(form.model) : "your own settings"}`}</div>
-          <p className="mt-0.5 text-muted">
-            {isAuto ? `Wisp lets ${hLabel} pick the model and effort. That's right for most people.` : `You chose the model or effort yourself. Automatic lets ${hLabel} pick for you.`}
-          </p>
-          {!isAuto && (
-            <Button className="mt-2" onClick={() => (setForm({ model: "", effort: "", fast: false }), setCustom(false))}>
-              Back to automatic
-            </Button>
-          )}
-        </section>
-      {/* the controls are folded, so why there are no models to pick sits by the Automatic card */}
-      {!deviceGone && why && <p className="max-w-sm rounded-lg bg-hover px-3 py-2 text-xs text-muted">{why}</p>}
-      {deviceGone ? (
-        <p className="text-sm text-muted">
-          {agent.nodeId ? (
-            `Connect ${info?.device?.name ?? "its device"} to see available models.`
-          ) : (
-            <>
-              <a className="text-accent-text hover:underline" href={`#/agents/${agent.id}/device`}>
-                Pick a device on the Computer tab
-              </a>{" "}
-              to see available models.
-            </>
-          )}
-        </p>
-      ) : (
-        <MoreOptions title="Choose the model yourself">{controls}</MoreOptions>
-      )}
-
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => (setForm(saved), setCustom(!!saved.model && !models.some((m) => m.id === saved.model)))} active={active} note="Changes apply from the next message." />
-    </div>
-  );
-}
-
-function Choice({ selected, onClick, title, body, meta, danger }: { selected: boolean; onClick: () => void; title: string; body?: string; meta?: string; danger?: boolean }) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onClick}
-      className={cx("text-left rounded-xl border p-3 flex gap-3 transition-colors", selected ? (danger ? "border-bad/60 bg-bad/10" : "border-accent bg-accent-soft") : "border-line hover:bg-hover")}
-    >
-      <span className={cx("mt-0.5 size-4 shrink-0 rounded-full border-2 grid place-items-center", selected ? (danger ? "border-bad" : "border-accent") : "border-faint")}>
-        {selected && <span className={cx("size-2 rounded-full", danger ? "bg-bad" : "bg-accent")} />}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-medium">
-          {title} {meta && meta !== title && <span className="font-mono text-[11px] text-faint ml-1">{meta}</span>}
-        </span>
-        {body && <span className="block text-xs text-muted mt-0.5">{body}</span>}
-      </span>
-    </button>
-  );
-}
-
-function Seg<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string; icon?: ReactNode }[] }) {
-  return (
-    <div className="inline-flex flex-wrap rounded-lg border border-line p-0.5" role="radiogroup">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={cx("px-3 h-8 rounded-md text-sm capitalize inline-flex items-center gap-1.5", value === o.value ? "bg-accent text-accent-ink font-medium" : "text-muted hover:text-ink")}
-        >
-          {o.icon} {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// --- Device -------------------------------------------------------------------
-
-function DevicePanel({ agent, nodes, onDirty, active }: { agent: FullAgent; nodes: NodeInfo[]; onDirty: (d: boolean) => void; active: boolean }) {
-  const refreshAgents = useStore((s) => s.refreshAgents);
-  const saved = agent.nodeId ?? "";
-  const [{ nodeId }, setDevice] = useSavedDraft({ nodeId: saved });
-  const setNodeId = (value: string) => setDevice({ nodeId: value });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const dirty = nodeId !== saved;
-  useEffect(() => {
-    onDirty(dirty);
-  }, [dirty, onDirty]);
-
-  const save = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      await api("PATCH", `/api/agents/${agent.id}`, { nodeId: nodeId || null });
-      await refreshAgents();
-    } catch (e) {
-      setError((e as Error).message);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div>
-      <Intro title="Device">
-        <p>
-          {runsOnDevice(agent.harness)
-            ? `The device that runs ${harnessLabel(agent.harness)} for @${agent.handle} whenever it's mentioned. It works in ~/.wisp/agents/${agent.handle}/ there (or in the folder it shares with its VM). Where it clicks and types is its Computer.`
-            : `Optional: ${harnessLabel(agent.harness)} can also join through wisp-mcp from wherever it runs (see Connect).`}
-        </p>
-      </Intro>
-      <div className="grid sm:grid-cols-2 gap-2 max-w-2xl">
-        <Choice selected={!nodeId} onClick={() => setNodeId("")} title="No device" body="It can't answer @mentions until it has one." />
-        {nodes
-          .filter((n) => n.mine || n.shared || n.id === saved)
-          .map((n) => (
-            <Choice key={n.id} selected={nodeId === n.id} onClick={() => setNodeId(n.id)} title={n.name} body={`${n.mine ? "Yours" : `${n.ownerName ?? "Someone"}'s`} · ${n.online ? "online" : "offline"}${n.agents.length ? ` · runs ${n.agents.map((h) => "@" + h).join(", ")}` : ""}`} />
-          ))}
+        {selected?.fast && (
+          <Line label="Fast">
+            {selected.fast.description && <span className="truncate">{selected.fast.description}</span>}
+            <Toggle label="Fast mode" on={!!agent.settings.fast} onChange={(v) => void patch({ settings: { fast: v } }).catch(() => {})} />
+          </Line>
+        )}
+        <ShowAll>
+          <HandleLine agent={agent} />
+        </ShowAll>
       </div>
-      <p className="mt-3 text-sm text-muted">
-        Need another computer?{" "}
-        <a className="text-accent-text hover:underline" href="#/nodes">
-          Add a device
-        </a>
-      </p>
-      {error && <p className="mt-2 text-sm text-bad">{error}</p>}
-      <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => setNodeId(saved)} active={active} />
-    </div>
+      {effortDropped && (
+        <p className="px-1 text-[13px] text-st-needs">
+          {selected?.label ?? "This model"} doesn't support “{effort}”; it uses its default.
+        </p>
+      )}
+      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
+    </>
   );
 }
 
-// --- Permissions --------------------------------------------------------------
+// --- Asks first ---------------------------------------------------------------
 
-/**
- * An agent whose harness runs directly on someone's device can reach that device's files, so by
- * default only the device's owner can ask it for things. The owner can open it up.
- */
+const ACCESS: Record<AccessLevel, string> = { "read-only": "Read only", edit: "Can edit files", full: "Full access" };
+
 /** Where an agent's files are, for the access text: the shared computer, its own, or a device's folder. */
 export interface AccessPlace {
   /** the device its AI runs on */
@@ -871,10 +668,13 @@ export function accessScope(access: AccessLevel, name: string, p: AccessPlace): 
 /** Harnesses Wisp can keep the person's own plugins out of. */
 const OWN_PLUGINS_HARNESSES = ["codex", "claude-code", "gemini"];
 
-function PermissionsPanel({ agent, nodes, onDirty, active }: { agent: FullAgent; nodes: NodeInfo[]; onDirty: (d: boolean) => void; active: boolean }) {
+/**
+ * What it may do without asking: its level for files and commands, and whether it may rewrite its
+ * own personality. Each saves as it changes. Using the person's own plugins (which skip Wisp's
+ * approvals) is behind "Show all"; the level's reach in full is the picker's tooltip.
+ */
+function AsksFirst({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
-  const agents = useStore((s) => s.agents);
-  const members = useStore((s) => s.members);
   const computer = useStore((s) => s.computers).find((c) => c.id === agent.computerId);
   const { advanced } = useComputerMode();
   const place: AccessPlace = {
@@ -883,148 +683,70 @@ function PermissionsPanel({ agent, nodes, onDirty, active }: { agent: FullAgent;
     handle: agent.handle,
     advanced,
   };
-  const savedAccess = agent.settings.access ?? "edit";
-  const savedOwn = !!agent.settings.ownPlugins;
-  const [{ access, ownPlugins }, setPermissions] = useSavedDraft({ access: savedAccess, ownPlugins: savedOwn });
-  const setAccess = (value: AccessLevel) => setPermissions({ access: value, ownPlugins });
-  const setOwnPlugins = (value: boolean) => setPermissions({ access, ownPlugins: value });
+  const access = agent.settings.access ?? "edit";
+  const ownPlugins = !!agent.settings.ownPlugins;
   const canOwnPlugins = OWN_PLUGINS_HARNESSES.includes(agent.harness);
-  const [memory, setMemory] = useState<{ rules: AccessRule[]; sharedOut: AccessRule[] } | null>(null);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dirty = access !== savedAccess || ownPlugins !== savedOwn;
-  useEffect(() => {
-    onDirty(dirty);
-  }, [dirty, onDirty]);
-  useEffect(() => {
-    if (active) api<{ rules: AccessRule[]; sharedOut: AccessRule[] }>("GET", `/api/access/agents/${agent.id}`).then(setMemory, () => setMemory({ rules: [], sharedOut: [] }));
-  }, [active, agent.id]);
 
-  const where = (r: AccessRule) => pathLabel(r.path, agents, members) || "the whole vault";
-  const through = (r: AccessRule) => (r.subject.kind === "agent" ? "" : ` · via ${subjectLabel(r.subject, agents, members)}`);
-
-  const save = async () => {
-    setSaving(true);
+  const patch = async (settings: { access?: AccessLevel; ownPlugins?: boolean; soulLocked?: boolean }) => {
     setError(null);
     try {
-      await api("PATCH", `/api/agents/${agent.id}`, { settings: { access, ...(canOwnPlugins ? { ownPlugins } : {}) } });
+      await api("PATCH", `/api/agents/${agent.id}`, { settings });
       await refreshAgents();
     } catch (e) {
       setError((e as Error).message);
-      return false;
-    } finally {
-      setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-8">
-      <section>
-        <Intro title="Files and commands">
-          <p>What @{agent.handle} may change{place.computer === "shared" ? " on the shared computer" : place.computer === "own" ? " on its computer" : ""} without asking.</p>
-        </Intro>
-        <div className="grid sm:grid-cols-3 gap-2">
-          {(Object.keys(ACCESS) as AccessLevel[]).map((a) => (
-            <Choice key={a} selected={access === a} onClick={() => setAccess(a)} title={ACCESS[a].label} body={ACCESS[a].body} danger={a === "full"} />
-          ))}
-        </div>
-        <p role="status" className="mt-3 text-sm">
-          {accessScope(access, agent.name, place)}
-        </p>
-        {access === "full" && (
-          <p className="mt-3 flex gap-2 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">
-            <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-            {advanced ? (
-              <>
-                It can run any command as {place.device ?? "the device"}'s user. The device must opt in with <code>wisp node start --allow-full-access</code>; otherwise it runs with edit access.
-              </>
-            ) : (
-              <>Only for an agent you trust: it can change anything {place.device ? `on ${place.device}` : ""}.</>
-            )}
-          </p>
-        )}
-        {canOwnPlugins && (
-          <div className="mt-4 max-w-2xl">
-            <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={ownPlugins}
-                aria-label={`Use my own ${harnessLabel(agent.harness)} plugins`}
-                onClick={() => setOwnPlugins(!ownPlugins)}
-                className={cx("relative h-5 w-9 rounded-full transition-colors", ownPlugins ? "m-switch-on" : "bg-chip")}
-              >
-                <span className={cx("m-knob absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow", ownPlugins && "translate-x-4")} />
-              </button>
-              Use my own {harnessLabel(agent.harness)} plugins
-            </label>
-            {ownPlugins && (
-              <p className="mt-2 flex gap-2 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">
-                <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                These skip Wisp's approvals and the screen switch.
-              </p>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <Intro title="In memory">
-          <p>
-            Which folders and notes @{agent.handle} can use, and why. Change them with the share button on any folder or note in{" "}
-            <a className="text-accent-text hover:underline" href="#/vault">
-              Memory
-            </a>
-            , or under{" "}
-            <a className="text-accent-text hover:underline" href="#/settings">
-              Settings → Memory
-            </a>
-            .
-          </p>
-        </Intro>
-        <div className="rounded-xl border border-line divide-y divide-line text-sm max-w-2xl">
-          {memory === null ? (
-            <Row label="Loading">…</Row>
-          ) : (
-            [...memory.rules].sort((a, b) => a.path.toLowerCase().localeCompare(b.path.toLowerCase())).map((r) => (
-              <Row key={`${r.path}|${r.subject.kind}|${r.id ?? "default"}`} label={where(r)}>
-                <span className={r.level === "none" ? "text-muted" : undefined}>{LEVEL_LABEL[r.level]}</span>
-                <span className="text-muted">
-                  {through(r)}
-                  {r.builtin ? " · default" : r.createdBy?.kind === "agent" ? ` · shared by ${subjectLabel({ kind: "agent", id: r.createdBy.id }, agents, members)}` : ""}
-                </span>
-                {r.startup && (
-                  <span className="ml-2 inline-flex">
-                    <Pill tone="accent">loads at startup</Pill>
-                  </span>
-                )}
-              </Row>
-            ))
+    <>
+      <div className={CARD}>
+        <Line label="Files and commands">
+          <select aria-label="Files and commands" title={accessScope(access, agent.name, place)} value={access} onChange={(e) => void patch({ access: e.target.value as AccessLevel })} className={SELECT}>
+            {(Object.keys(ACCESS) as AccessLevel[]).map((a) => (
+              <option key={a} value={a}>
+                {ACCESS[a]}
+              </option>
+            ))}
+          </select>
+        </Line>
+        <Line label="Edits its personality">
+          <Toggle label={`Let @${agent.handle} refine its own personality`} on={!agent.settings.soulLocked} onChange={(v) => void patch({ soulLocked: !v })} />
+        </Line>
+        <Line label="Approvals" value="For all agents" to={href({ view: "settings", page: "agents" })} />
+        <ShowAll>
+          {canOwnPlugins && (
+            <Line label={`My own ${harnessLabel(agent.harness)} plugins`}>
+              <Toggle label={`Use my own ${harnessLabel(agent.harness)} plugins`} on={ownPlugins} onChange={(v) => void patch({ ownPlugins: v })} />
+            </Line>
           )}
-          <Row label="Its folder is shared with">
-            {memory === null ? "…" : memory.sharedOut.length ? memory.sharedOut.map((r) => `${subjectLabel(r.subject, agents, members)} (${LEVEL_LABEL[r.level].toLowerCase()}${r.path !== `agents/${agent.id}` ? ` ${where(r)}` : ""})`).join(", ") : "No one else"}
-          </Row>
-          <Row label="Personality">{agent.settings.soulLocked ? "Locked: only people can edit it" : "It can refine its own personality"}</Row>
-          <Row label="Instructions">Only people can edit them</Row>
-        </div>
-      </section>
-
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => setPermissions({ access: savedAccess, ownPlugins: savedOwn })} active={active} note="Applies from the next message." />
-    </div>
+          <Line label="Edits its instructions" value="Only people" />
+        </ShowAll>
+      </div>
+      {access === "full" && (
+        <p className="flex gap-2 px-1 text-[13px] text-bad">
+          <ShieldAlert size={15} className="shrink-0 mt-0.5" />
+          {advanced ? (
+            <span>
+              It can run any command as {place.device ?? "the device"}'s user. The device must opt in with <code>wisp node start --allow-full-access</code>; otherwise it runs with edit access.
+            </span>
+          ) : (
+            <span>Only for an agent you trust: it can change anything{place.device ? ` on ${place.device}` : ""}.</span>
+          )}
+        </p>
+      )}
+      {canOwnPlugins && ownPlugins && (
+        <p className="flex gap-2 px-1 text-[13px] text-bad">
+          <ShieldAlert size={15} className="shrink-0 mt-0.5" />
+          These skip Wisp's approvals and the screen switch.
+        </p>
+      )}
+      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
+    </>
   );
 }
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="px-4 py-2.5 flex gap-4">
-      <span className="w-48 shrink-0 text-muted">{label}</span>
-      <span className="min-w-0">{children}</span>
-    </div>
-  );
-}
-
-// --- Overview -----------------------------------------------------------------
+// --- Activity -----------------------------------------------------------------
 
 interface RunRow {
   id: string;
@@ -1041,12 +763,6 @@ interface RunRow {
   kind?: string | null;
   /** a failure in plain words, when the hub recognised it (the harness needs signing in on its device) */
   hint?: string | null;
-}
-
-/** What's wrong with the agent right now: its latest run failed for a reason people can fix. */
-function problem(runs: RunRow[] | null): string | null {
-  const last = runs?.[0];
-  return last?.status === "failed" && last.hint ? last.hint : null;
 }
 
 const RUN_TONE: Record<string, "ok" | "bad" | "warn" | "info" | "neutral"> = { done: "ok", failed: "bad", running: "info", queued: "warn", cancelled: "neutral" };
@@ -1077,69 +793,58 @@ export function runTitle(trigger: string | null): string {
   return line.length > 80 ? `${line.slice(0, 80).trimEnd()}…` : line;
 }
 
-// --- Runs ---------------------------------------------------------------------
-
 function RunsPanel({ agent, active }: { agent: FullAgent; active: boolean }) {
   const [runs, setRuns] = useState<RunRow[] | null>(null);
   useEffect(() => {
     if (active) api<RunRow[]>("GET", `/api/agents/${agent.id}/runs?limit=50`).then(setRuns, () => setRuns([]));
   }, [active, agent.id]);
-  return (
-    <div className="max-w-4xl">
-      <Intro title="Activity">
-        <p>Every time @{agent.handle} was woken up: where, by what, and how it went.</p>
-      </Intro>
-      <RunList runs={runs} />
-    </div>
-  );
+  return <RunList runs={runs} />;
 }
 
-function RunList({ runs, compact }: { runs: RunRow[] | null; compact?: boolean }) {
-  if (!runs) return <p className="text-sm text-muted">Loading…</p>;
-  if (!runs.length) return <p className="rounded-xl border border-dashed border-line p-4 text-sm text-muted">Nothing yet. Message the agent to give it something to do.</p>;
+function RunList({ runs }: { runs: RunRow[] | null }) {
+  if (!runs) return <p className="px-1 text-[13px] text-muted">Loading…</p>;
+  if (!runs.length) return <p className="px-1 text-[13px] text-muted">Nothing yet</p>;
   return (
-    <div className="rounded-3xl bg-card border border-line/60 overflow-hidden divide-y divide-line/60">
+    <div className={CARD}>
       {runs.map((r) => {
         const secs = r.finishedAt ? Math.max(0, Math.round((new Date(r.finishedAt).getTime() - new Date(r.createdAt).getTime()) / 1000)) : null;
         const channel = r.channelKind === "dm" ? "DM" : `#${r.channelName ?? ""}`;
         const why = r.hint || r.error;
         return (
-          <div key={r.id} className="px-4 py-2.5 text-sm">
+          <div key={r.id} className="px-3.5 py-2.5 text-sm">
             <div className="flex items-center gap-3">
               <Pill tone={RUN_TONE[r.status] ?? "neutral"}>{runStatusLabel(r.status)}</Pill>
               <span className="min-w-0 flex-1">
                 <a href={`#/c/${r.channelId}${r.threadId ? `/t/${r.threadId}` : ""}`} className="block truncate hover:underline">
                   {r.kind === "background" ? "Background check" : runTitle(r.trigger) || "Message"}
                 </a>
-                {!compact && why && <span className="block text-xs text-bad break-words">{why.replace(/`/g, "")}</span>}
+                {why && <span className="block text-xs text-bad break-words">{why.replace(/`/g, "")}</span>}
               </span>
               <span className="text-xs text-muted shrink-0 hidden sm:inline">{channel}</span>
               {secs !== null && <span className="text-xs text-faint shrink-0 tabular-nums w-10 text-right">{secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`}</span>}
-              {!compact && r.status === "failed" && r.channelName !== null && (
-                <button type="button" className="text-xs text-accent-text hover:underline shrink-0" onClick={() => void api("POST", `/api/runs/${r.id}/retry`).catch((e) => alert((e as Error).message))}>
+              {r.status === "failed" && r.channelName !== null && (
+                <button type="button" className="text-xs font-medium text-ink underline underline-offset-2 shrink-0" onClick={() => void api("POST", `/api/runs/${r.id}/retry`).catch((e) => alert((e as Error).message))}>
                   Try again
                 </button>
               )}
               <span className="text-xs text-faint shrink-0 w-16 text-right">{timeAgo(r.createdAt)}</span>
             </div>
-            {!compact && (
-              <details className="mt-1 text-xs text-muted">
-                <summary className="cursor-pointer select-none">Details</summary>
-                <div className="mt-1.5 space-y-1">
-                  <ol className="mb-2 space-y-1 border-l border-line pl-3">
-                    <li>
-                      You asked: {runTitle(r.trigger) || "a message"} <span className="text-faint">· {channel}</span>
-                    </li>
-                    <li className={r.status === "failed" ? "text-bad" : undefined}>{r.status === "failed" ? `Didn't finish${why ? `: ${why}` : ""}` : r.status === "done" ? `Done${secs !== null ? ` in ${secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`}` : ""}` : runStatusLabel(r.status)}</li>
-                  </ol>
-                  <div>
-                    Run id: <span className="font-mono break-all">{r.id}</span>
-                  </div>
-                  <div>Channel: {channel}</div>
-                  {r.trigger && <div className="whitespace-pre-wrap break-words max-h-32 overflow-y-auto rounded-lg bg-hover px-2 py-1.5">{r.trigger}</div>}
+            <details className="mt-1 text-xs text-muted">
+              <summary className="cursor-pointer select-none">Details</summary>
+              <div className="mt-1.5 space-y-1">
+                <ol className="mb-2 space-y-1 border-l border-line pl-3">
+                  <li>
+                    You asked: {runTitle(r.trigger) || "a message"} <span className="text-faint">· {channel}</span>
+                  </li>
+                  <li className={r.status === "failed" ? "text-bad" : undefined}>{r.status === "failed" ? `Didn't finish${why ? `: ${why}` : ""}` : r.status === "done" ? `Done${secs !== null ? ` in ${secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`}` : ""}` : runStatusLabel(r.status)}</li>
+                </ol>
+                <div>
+                  Run id: <span className="font-mono break-all">{r.id}</span>
                 </div>
-              </details>
-            )}
+                <div>Channel: {channel}</div>
+                {r.trigger && <div className="whitespace-pre-wrap break-words max-h-32 overflow-y-auto rounded-lg bg-hover px-2 py-1.5">{r.trigger}</div>}
+              </div>
+            </details>
           </div>
         );
       })}
@@ -1149,29 +854,17 @@ function RunList({ runs, compact }: { runs: RunRow[] | null; compact?: boolean }
 
 // --- Connect ------------------------------------------------------------------
 
-function ConnectPanel({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
+/** Another app as this agent: a token for a session that is already running, the address for apps that connect by URL, and the apps connected so far. */
+function ConnectPanel({ agent }: { agent: FullAgent }) {
   const [token, setToken] = useState<string | null>(null);
-  const device = nodes.find((n) => n.id === agent.nodeId);
   return (
-    <div className="max-w-2xl space-y-8">
-      <section className="space-y-2">
-        <h3 className="font-semibold">Runs on a device</h3>
-        <p className="text-sm text-muted">
-          {runsOnDevice(agent.harness)
-            ? device
-              ? `When someone @mentions @${agent.handle}, ${device.name} starts ${harnessLabel(agent.harness)}, gives it the wisp tools, and posts the reply.`
-              : "Pick a device on the Computer tab so the agent can answer when it's mentioned."
-            : `${harnessLabel(agent.harness)} doesn't have a headless adapter yet. Connect a running session below.`}
-        </p>
-      </section>
-      <section className="space-y-3">
-        <h3 className="font-semibold flex items-center gap-2">
-          <FileText size={16} /> Connect an existing session (MCP)
-        </h3>
+    <div className="space-y-6">
+      <section className="space-y-2.5">
+        <h3 className="px-1 text-[13px] font-semibold text-muted">A running session</h3>
         {token ? (
           <ConnectionInstructions token={token} harness={agent.harness} />
         ) : (
-          <Button onClick={async () => setToken((await api<{ token: string }>("POST", `/api/agents/${agent.id}/token`)).token)}>Create connection token</Button>
+          <Button onClick={async () => setToken((await api<{ token: string }>("POST", `/api/agents/${agent.id}/token`)).token)}>Create token</Button>
         )}
       </section>
       <RemoteMcp agent={agent} />
@@ -1190,21 +883,22 @@ function RemoteMcp({ agent }: { agent: FullAgent }) {
   }, [agent.id]);
   useEffect(load, [load]);
   return (
-    <section className="space-y-3">
-      <h3 className="font-semibold flex items-center gap-2">
-        <Plug size={16} /> Connect by URL
-      </h3>
+    <section className="space-y-2.5">
+      <h3 className="px-1 text-[13px] font-semibold text-muted">By URL</h3>
       {origin ? (
         <CopyBlock text={`${origin}/mcp`} />
       ) : (
-        <p className="text-xs text-muted">
-          {connectorBlocker(info)} <a className="underline" href={href({ view: "settings", page: "devices" })}>Settings → Computers and devices</a>
+        <p className="px-1 text-[13px] text-muted">
+          {connectorBlocker(info)}{" "}
+          <a className="text-ink underline underline-offset-2" href={href({ view: "settings", page: "devices" })}>
+            Turn it on
+          </a>
         </p>
       )}
       {apps.length > 0 && (
-        <ul className="divide-y divide-line rounded-xl border border-line">
+        <ul className={CARD}>
           {apps.map((a) => (
-            <li key={a.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+            <li key={a.id} className="flex items-center gap-3 px-3.5 py-2 text-sm">
               <span className="min-w-0 flex-1">
                 <span className="block font-medium truncate">{a.name}</span>
                 <span className="block text-xs text-muted truncate">{a.lastUsed ? `Used ${timeAgo(a.lastUsed)}` : `Added ${timeAgo(a.createdAt)}`}{a.approvedBy ? ` · ${a.approvedBy}` : ""}</span>

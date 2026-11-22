@@ -211,15 +211,15 @@ describe("settings regressions", () => {
     current = { ...current, instructions: "remote", settings: { role: "Researcher", roleNotes: "remote notes" } };
     m.render();
     expect(field(m.tree, "Instructions").props.value).toBe("remote");
-    expect(field(m.tree, "Role").props.value).toBe("Researcher");
+    expect(field(m.tree, "What the role covers").props.value).toBe("remote notes");
     expect(dirty).toHaveBeenLastCalledWith(false);
-    field(m.tree, "Role").props.onChange({ target: { value: "My edit" } });
+    // the one-line role is edited under the agent's name now; this part keeps what the role covers
+    field(m.tree, "What the role covers").props.onChange({ target: { value: "My edit" } });
     m.render();
     current = { ...current, instructions: "new remote", settings: { role: "Designer", roleNotes: "new notes" } };
     m.render();
     expect(field(m.tree, "Instructions").props.value).toBe("new remote");
-    expect(field(m.tree, "Role").props.value).toBe("My edit");
-    expect(field(m.tree, "What the role covers").props.value).toBe("new notes");
+    expect(field(m.tree, "What the role covers").props.value).toBe("My edit");
     expect(dirty).toHaveBeenLastCalledWith(true);
   });
 
