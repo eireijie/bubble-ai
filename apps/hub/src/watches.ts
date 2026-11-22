@@ -18,6 +18,8 @@ const MAX_EVENTS_PER_CHECK = 40;
 const KEEP_DELIVERED_MS = 7 * 24 * 60 * 60_000;
 /** Changes that never reached an agent (its background work was off, the allowance was used up) are dropped after this. */
 const KEEP_UNDELIVERED_MS = 2 * 24 * 60 * 60_000;
+/** …unless they wait because the agent's plan is paused, which can last a weekly window: then they're kept this long. */
+const KEEP_HELD_MS = 14 * 24 * 60 * 60_000;
 /** Previews (a message line, a subject) go once the agent has seen them, or after this. */
 const KEEP_PREVIEW_MS = 24 * 60 * 60_000;
 /** A key that was refused is tried again this much later. */
@@ -486,7 +488,9 @@ export class Watches {
    * go as soon as they're due. Changes that can't go yet wait.
    */
   deliver(at = new Date()) {
-    const { store, background } = this.hub;
+    const { store, background, triage } = this.hub;
+    // a sort that never answered doesn't hold its changes for ever
+    triage.sweep(at);
     const groups = this.db
       .prepare("SELECT agent_id AS agentId, user_id AS userId, MIN(created_at) AS first, MAX(created_at) AS last, MAX(kind = 'browser_check') AS browser FROM app_events WHERE run_id IS NULL GROUP BY agent_id, user_id")
       .all() as { agentId: string; userId: string; first: string; last: string; browser: number }[];
@@ -494,24 +498,39 @@ export class Watches {
       const agent = store.agent(g.agentId);
       const b = store.background(g.agentId, g.userId);
       if (!agent || !b?.enabled || !featureOn(store, agent.workspaceId, "background")) continue;
+      // one check or sort at a time for an agent and person: what's waiting goes in the next
+      if (this.db.prepare("SELECT 1 FROM runs WHERE agent_id = ? AND requested_by = ? AND kind IN ('background','triage') AND status IN ('queued','running')").get(g.agentId, g.userId)) continue;
       const share = background.allowanceShare(agent.workspaceId, g.userId, at);
-      if (share >= 1) continue;
       // near the end of the allowance, changes are gathered for twice as long
       const slow = share >= SLOW_DOWN_AT ? 2 : 1;
       const settled = at.getTime() - new Date(g.last).getTime() >= DEBOUNCE_MS * slow || at.getTime() - new Date(g.first).getTime() >= MAX_WAIT_MS * slow;
       if (!g.browser && !settled) continue;
       const tz = store.user(g.userId)?.timezone || "UTC";
       if (inQuietHours(at, tz, b.quietStart, b.quietEnd)) continue;
-      if (background.capReached(g.agentId, g.userId, b.dailyCap, at)) continue;
-      const ids = (this.db.prepare("SELECT id FROM app_events WHERE run_id IS NULL AND agent_id = ? AND user_id = ? ORDER BY happened_at LIMIT ?").all(g.agentId, g.userId, MAX_EVENTS_PER_CHECK) as { id: string }[]).map((r) => r.id);
+      // the plan it runs on, today's allowance or its own limits say not now: the changes wait, and the person is told once
+      if (background.held(b, at)) continue;
+      const rows = this.db.prepare("SELECT id, sorted FROM app_events WHERE run_id IS NULL AND agent_id = ? AND user_id = ? ORDER BY happened_at LIMIT ?").all(g.agentId, g.userId, MAX_EVENTS_PER_CHECK) as { id: string; sorted: number }[];
+      const ids = rows.map((r) => r.id);
+      // the smallest model sorts the batch first (a few lines, no tools); the full check only starts on a yes
+      if (!rows.some((r) => r.sorted) && triage.sort(g.agentId, g.userId, ids)) continue;
       background.wake(g.agentId, g.userId, [], at, ids);
     }
+  }
+
+  /** Changes waiting for an agent and person, oldest first: a check that starts for another reason takes them along. */
+  waiting(agentId: string, userId: string): string[] {
+    return (this.db.prepare("SELECT id FROM app_events WHERE run_id IS NULL AND agent_id = ? AND user_id = ? ORDER BY happened_at LIMIT ?").all(agentId, userId, MAX_EVENTS_PER_CHECK) as { id: string }[]).map((r) => r.id);
   }
 
   /** The changes a check carries. Called by `wake` before the check is sent, so its prompt has them. */
   claim(eventIds: string[], runId: string) {
     const set = this.db.prepare("UPDATE app_events SET run_id = ? WHERE id = ? AND run_id IS NULL");
     this.db.transaction(() => eventIds.forEach((e) => set.run(runId, e)))();
+  }
+
+  /** A check that failed gives its changes back for another try, as they are: previews kept, and not sorted again. */
+  retry(runId: string) {
+    this.db.prepare("UPDATE app_events SET run_id = NULL, sorted = 1 WHERE run_id = ?").run(runId);
   }
 
   /** A check that never started gives its changes back. */
@@ -535,7 +554,14 @@ export class Watches {
 
   private prune(at: Date) {
     const ago = (ms: number) => new Date(at.getTime() - ms).toISOString();
-    this.db.prepare("DELETE FROM app_events WHERE (run_id IS NOT NULL AND created_at < ?) OR (run_id IS NULL AND created_at < ?)").run(ago(KEEP_DELIVERED_MS), ago(KEEP_UNDELIVERED_MS));
+    this.db.prepare("DELETE FROM app_events WHERE run_id IS NOT NULL AND created_at < ?").run(ago(KEEP_DELIVERED_MS));
+    // what's waiting goes after two days, except while the plan its agent runs on is paused: those changes are owed a look when it's back
+    const stale = this.db.prepare("SELECT DISTINCT agent_id AS agentId FROM app_events WHERE run_id IS NULL AND created_at < ?").all(ago(KEEP_UNDELIVERED_MS)) as { agentId: string }[];
+    for (const { agentId } of stale) {
+      const agent = this.hub.store.agent(agentId);
+      const paused = !!agent && !!this.hub.limits.paused(agent, at);
+      this.db.prepare("DELETE FROM app_events WHERE run_id IS NULL AND agent_id = ? AND created_at < ?").run(agentId, ago(paused ? KEEP_HELD_MS : KEEP_UNDELIVERED_MS));
+    }
     this.db.prepare("UPDATE app_events SET preview = NULL WHERE preview IS NOT NULL AND created_at < ?").run(ago(KEEP_PREVIEW_MS));
   }
 

@@ -80,13 +80,22 @@ describe("watchers", () => {
     const page = (id: string, title: string, created: string, edited: string) => ({ object: "page", id, url: `https://notion.so/${id}`, created_time: created, last_edited_time: edited, last_edited_by: { id: "u1" }, properties: { Name: { type: "title", title: [{ plain_text: title }] } } });
     const results = [page("p2", "Launch plan", "2026-11-02T12:03:00.000Z", "2026-11-02T12:04:00.000Z"), page("p1", "Q4 notes", "2026-10-01T00:00:00.000Z", "2026-11-02T12:02:00.000Z"), page("p0", "Old", "2026-01-01T00:00:00.000Z", "2026-10-01T00:00:00.000Z")];
     const { fetch, seen } = fakeFetch([[/api\.notion\.com\/v1\/search/, () => ({ results })]]);
-    expect(await poll("notion", ctx(fetch, { creds: { NOTION_TOKEN: "ntn" } }))).toEqual({ cursor: "2026-11-02T12:04:00.000Z", events: [] });
+    // the first look only finds where "now" is: the newest edit time, and the page seen at it
+    const first = await poll("notion", ctx(fetch, { creds: { NOTION_TOKEN: "ntn" } }));
+    expect(first).toEqual({ cursor: "2026-11-02T12:04:00.000Z|p2", events: [] });
+    // looking again with nothing changed isn't news (Notion rounds times to the minute, so that minute comes back)
+    expect(await poll("notion", ctx(fetch, { creds: { NOTION_TOKEN: "ntn" }, cursor: first.cursor }))).toEqual({ cursor: first.cursor, events: [] });
+    // another page edited in that same minute is
+    const more = [page("p3", "Budget", "2026-10-01T00:00:00.000Z", "2026-11-02T12:04:00.000Z"), ...results];
+    const again = await poll("notion", ctx(fakeFetch([[/api\.notion\.com\/v1\/search/, () => ({ results: more })]]).fetch, { creds: { NOTION_TOKEN: "ntn" }, cursor: first.cursor }));
+    expect(again.events.map((e) => e.itemId)).toEqual(["p3"]);
+    expect(again.cursor).toBe("2026-11-02T12:04:00.000Z|p2,p3");
     const r = await poll("notion", ctx(fetch, { creds: { NOTION_TOKEN: "ntn" }, cursor: "2026-11-02T12:00:00.000Z" }));
     expect(r.events.map((e) => [e.kind, e.title, e.itemId])).toEqual([
       ["created", "Launch plan", "p2"],
       ["edited", "Q4 notes", "p1"],
     ]);
-    expect(r.cursor).toBe("2026-11-02T12:04:00.000Z");
+    expect(r.cursor).toBe("2026-11-02T12:04:00.000Z|p2");
     expect(seen[0].init?.headers).toMatchObject({ "notion-version": "2022-06-28" });
   });
 

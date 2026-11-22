@@ -8,6 +8,8 @@ import { RunFiles, commandVersion, launched, runJsonl } from "./process.ts";
 
 const PERMISSION_MODE: Record<AccessLevel, string> = { "read-only": "plan", edit: "acceptEdits", full: "bypassPermissions" };
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+/** How long Claude Code waits for an MCP server to start (its MCP_TIMEOUT), in milliseconds. */
+export const MCP_STARTUP_MS = 180_000;
 
 /** The MCP servers a run gets (Wisp's tools, its computer's browser, its connectors), as Claude Code's config, or null without any. Exported for tests. */
 export function claudeMcpConfig(input: RunInput): { mcpServers: Record<string, unknown> } | null {
@@ -53,8 +55,10 @@ export function claudeArgs(input: RunInput, opts: { mcpConfigFile?: string } = {
  * device that nobody else can see, while Wisp's memory is shared and visible.
  */
 export function claudeEnv(input: RunInput): Record<string, string> {
-  if (input.ownMemory) return { ...input.env };
-  return { ...input.env, CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
+  // a tool server that's slow to start (a busy or small computer) gets time to, instead of a run without Wisp's tools
+  const env = { MCP_TIMEOUT: String(MCP_STARTUP_MS), ...input.env };
+  if (input.ownMemory) return env;
+  return { ...env, CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
 }
 
 /**

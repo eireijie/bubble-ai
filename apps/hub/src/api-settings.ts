@@ -380,7 +380,7 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     const c = need(req, reply, { owner: true });
     if (!c) return;
     const body = parse(
-      z.object({ askBefore: z.array(z.enum(ASK_BEFORE)), maxHops: z.number().int().min(1).max(30), maxRunsPerMinute: z.number().int().min(1).max(200), defaultAccess: z.enum(["read-only", "edit", "full"]), leadsCreateAgents: z.boolean(), subAgents: z.boolean(), maxAgentMade: z.number().int().min(1).max(50), learnSkills: z.boolean(), autoMemory: z.boolean() }).partial(),
+      z.object({ askBefore: z.array(z.enum(ASK_BEFORE)), maxHops: z.number().int().min(1).max(30), maxRunsPerMinute: z.number().int().min(1).max(200), defaultAccess: z.enum(["read-only", "edit", "full"]), leadsCreateAgents: z.boolean(), subAgents: z.boolean(), maxAgentMade: z.number().int().min(1).max(50), learnSkills: z.boolean(), autoMemory: z.boolean(), planReserve: z.number().int().min(50).max(100) }).partial(),
       req.body,
       reply,
     );
@@ -394,6 +394,7 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (body.maxAgentMade) store.setSetting(c.workspaceId, "agents.maxAgentMade", String(body.maxAgentMade));
     if (body.learnSkills !== undefined) store.setSetting(c.workspaceId, "agents.learnSkills", String(body.learnSkills));
     if (body.autoMemory !== undefined) store.setSetting(c.workspaceId, "agents.autoMemory", String(body.autoMemory));
+    if (body.planReserve) store.setSetting(c.workspaceId, "agents.planReserve", String(body.planReserve));
     return agentPolicy(hub, c.workspaceId);
   });
 

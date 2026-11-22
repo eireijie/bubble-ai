@@ -27,13 +27,18 @@ export const notion: Watcher = {
     });
     const results = (r.results ?? []) as any[];
     const latest = results.map((x) => x.last_edited_time as string).sort().at(-1);
-    if (!ctx.cursor) return { cursor: latest ?? ctx.now.toISOString(), events: [] };
-    // Notion rounds edit times to the minute: the same minute comes back again, and repeats are dropped
-    const fresh = results.filter((x) => x.last_edited_time >= ctx.cursor! && !x.archived && !x.in_trash);
+    // the cursor is the newest edit time seen, plus the pages seen at that time: Notion rounds edit times to the
+    // minute, so that minute comes back again, and what was already seen in it isn't news (a cursor from before
+    // this had no ids; its repeats are dropped when recorded)
+    const [at, ids = ""] = (ctx.cursor ?? "").split("|");
+    const seen = new Set(ids.split(",").filter(Boolean));
+    const stamp = (t: string, also: Iterable<string> = []) => `${t}|${[...new Set([...also, ...results.filter((x) => x.last_edited_time === t).map((x) => x.id as string)])].join(",")}`;
+    if (!ctx.cursor) return { cursor: latest ? stamp(latest) : ctx.now.toISOString(), events: [] };
+    const fresh = results.filter((x) => (x.last_edited_time > at || (x.last_edited_time === at && !seen.has(x.id))) && !x.archived && !x.in_trash);
     return {
-      cursor: latest && latest > ctx.cursor ? latest : ctx.cursor,
+      cursor: latest && latest > at ? stamp(latest) : stamp(at, seen),
       events: fresh.map((x) => ({
-        kind: x.created_time >= ctx.cursor! ? "created" : "edited",
+        kind: x.created_time >= at ? "created" : "edited",
         itemId: x.id,
         title: line(notionTitle(x), 120) ?? "Untitled",
         url: x.url ?? null,
