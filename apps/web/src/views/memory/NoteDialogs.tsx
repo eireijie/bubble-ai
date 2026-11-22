@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check, ChevronDown, Folder, Trash2 } from "lucide-react";
 import { personDir, type AccessRule } from "@wisp/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { Cards, ConfirmCard, MemoryDialog, Radio, field, pillPrimary, noteName, useFolderLabel, folderSteps } from "./parts.tsx";
 import { cx } from "../../components/ui.tsx";
-import { renameFolderPlan, renamedFolder } from "./logic.ts";
+import { leftBehind, renameFolderPlan, renamedFolder } from "./logic.ts";
 
 /** A folder as words: "Shared / projects", "Ghosty's notes / plans". */
 export function useFolderWords() {
@@ -228,28 +228,38 @@ export function DeleteDialog({ path, onClose, onDone }: { path: string; onClose:
 }
 
 /** Give a folder another name: its notes move with it, and so does who can see them. */
-export function RenameFolderDialog({ path, notes, rules, onClose, onDone }: { path: string; notes: { path: string }[]; rules: AccessRule[]; onClose: () => void; onDone: (to: string) => void }) {
+export function RenameFolderDialog({ path, notes, rules, onClose, onDone, onChanged }: { path: string; notes: { path: string }[]; rules: AccessRule[]; onClose: () => void; onDone: (to: string) => void; /** some notes moved, some did not: the list behind needs reloading */ onChanged?: () => void }) {
   const [name, setName] = useState(path.split("/").pop()!);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // where a first try that stopped halfway was heading: trying again finishes that move
+  const began = useRef<string | null>(null);
   const rename = async () => {
     const to = renamedFolder(path, name);
     if (!to) return;
     if (to === path) return onClose();
     const plan = renameFolderPlan(path, to, notes, rules);
-    if (plan.error) return setError(plan.error);
+    if (plan.error && began.current !== to) return setError(plan.error);
     setBusy(true);
     setError(null);
     try {
       // access first, so no note ever sits in a folder more people can see
       for (const r of plan.rules) await api("PUT", "/api/access", { path: r.path, subject: r.subject, level: r.level, startup: r.startup });
-      for (const m of plan.moves) await api("POST", "/api/vault/move", m);
-      for (const r of plan.rules) if (r.id) await api("DELETE", `/api/access/${r.id}`).catch(() => {});
-      onDone(to);
     } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
+      setError(`Nothing moved: ${(e as Error).message}`);
+      return setBusy(false);
     }
+    began.current = to;
+    // every note gets its turn: one that fails doesn't stop the rest, and is named afterwards
+    const stuck: string[] = [];
+    for (const m of plan.moves) await api("POST", "/api/vault/move", m).catch(() => stuck.push(m.from));
+    if (stuck.length) {
+      setError(leftBehind("Not moved", stuck));
+      setBusy(false);
+      return onChanged?.();
+    }
+    for (const r of plan.rules) if (r.id) await api("DELETE", `/api/access/${r.id}`).catch(() => {});
+    onDone(to);
   };
   return (
     <MemoryDialog
@@ -276,7 +286,7 @@ export function RenameFolderDialog({ path, notes, rules, onClose, onDone }: { pa
 }
 
 /** Delete a folder: every note in it goes, and stays in history. */
-export function DeleteFolderDialog({ path, notes, rules, onClose, onDone }: { path: string; notes: { path: string }[]; rules: AccessRule[]; onClose: () => void; onDone: () => void }) {
+export function DeleteFolderDialog({ path, notes, rules, onClose, onDone, onChanged }: { path: string; notes: { path: string }[]; rules: AccessRule[]; onClose: () => void; onDone: () => void; /** some notes were deleted, some were not: the list behind needs reloading */ onChanged?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inside = notes.filter((n) => n.path.toLowerCase().startsWith(path.toLowerCase() + "/"));
@@ -290,15 +300,17 @@ export function DeleteFolderDialog({ path, notes, rules, onClose, onDone }: { pa
       onAction={async () => {
         setBusy(true);
         setError(null);
-        try {
-          for (const n of inside) await api("DELETE", `/api/vault/note?path=${encodeURIComponent(n.path)}`);
-          // rules on a folder that is gone would only wait for a new folder of the same name
-          for (const r of renameFolderPlan(path, path, [], rules).rules) if (r.id) await api("DELETE", `/api/access/${r.id}`).catch(() => {});
-          onDone();
-        } catch (e) {
-          setError((e as Error).message);
+        // every note gets its turn: one that fails doesn't stop the rest, and is named afterwards
+        const stuck: string[] = [];
+        for (const n of inside) await api("DELETE", `/api/vault/note?path=${encodeURIComponent(n.path)}`).catch(() => stuck.push(n.path));
+        if (stuck.length) {
+          setError(leftBehind("Not deleted", stuck));
           setBusy(false);
+          return onChanged?.();
         }
+        // rules on a folder that is gone would only wait for a new folder of the same name
+        for (const r of renameFolderPlan(path, path, [], rules).rules) if (r.id) await api("DELETE", `/api/access/${r.id}`).catch(() => {});
+        onDone();
       }}
     >
       <p>

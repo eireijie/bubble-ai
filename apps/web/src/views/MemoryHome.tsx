@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronLeft, Folder, List, Plus, Search, Share2, X } from "lucide-react";
 import type { AccessRule, Agent } from "@wisp/core";
 import { useStore } from "../store.ts";
@@ -7,9 +7,8 @@ import { AgentAvatar, Popover, cx } from "../components/ui.tsx";
 import { type GraphData } from "../components/MemoryGraph.tsx";
 import { MemoryGraphView } from "./MemoryGraphView.tsx";
 import { FolderList } from "./memory/Panels.tsx";
-import { iconBtn, menuRow, pageCol, pageTitle, whoIs } from "./memory/parts.tsx";
-import { noteRows, shortWhen, type MemoryView, type NoteRow } from "./memory/logic.ts";
-import { useNotePreview, useSeen } from "./memory/preview.ts";
+import { FilterChip, iconBtn, menuRow, pageCol, pageTitle, whoIs } from "./memory/parts.tsx";
+import { noteRows, shortWhen, type MemoryView } from "./memory/logic.ts";
 import { type Hit, type NoteMeta } from "./memory/Sidebar.tsx";
 
 export interface Change {
@@ -29,6 +28,46 @@ const VIEWS: { view: MemoryView; label: string; icon: typeof List }[] = [
 ];
 /** How many notes the list draws before "Show more". */
 const PAGE = 100;
+
+/**
+ * What the view button opens: the three views with a check on the current one, then the quiet
+ * ways out of the list: who changed what, About you, the settings for sharing and storage, and
+ * seeing memory as an agent does.
+ */
+export function ViewMenu({ view, onView, onRecent, onSeeAs, close }: { view: MemoryView; onView: (view: MemoryView) => void; onRecent: () => void; onSeeAs?: () => void; close: () => void }) {
+  const quiet = cx(menuRow, "text-muted");
+  const act = (run: () => void) => () => {
+    close();
+    run();
+  };
+  return (
+    <div role="menu" aria-label="View">
+      {VIEWS.map((v) => (
+        <button key={v.view} role="menuitemradio" aria-checked={v.view === view} onClick={act(() => onView(v.view))} className={menuRow}>
+          <v.icon size={16} className="shrink-0 text-muted" aria-hidden />
+          <span className="flex-1">{v.label}</span>
+          {v.view === view && <Check size={15} className="shrink-0 text-muted" aria-hidden />}
+        </button>
+      ))}
+      <div className="-mx-1 my-1 h-px bg-line" />
+      <button role="menuitem" onClick={act(onRecent)} className={quiet}>
+        Recent changes
+      </button>
+      <a role="menuitem" href={href({ view: "about" })} onClick={close} className={quiet}>
+        About you
+      </a>
+      {/* who can see what, where memory is kept and Obsidian are settings */}
+      <a role="menuitem" href={href({ view: "settings", page: "memory" })} onClick={close} className={quiet}>
+        Sharing and storage
+      </a>
+      {onSeeAs && (
+        <button role="menuitem" onClick={act(onSeeAs)} className={quiet}>
+          See as an agent…
+        </button>
+      )}
+    </div>
+  );
+}
 
 /**
  * The Memory page: a title, a view button and New note, one search, and the notes, newest first.
@@ -51,6 +90,7 @@ export function MemoryHome({
   seeAs,
   onSeeAs,
   onStopSeeAs,
+  onRecent,
   hidden,
   graph,
   graphPick,
@@ -87,6 +127,8 @@ export function MemoryHome({
   /** pick an agent to look through (owners) */
   onSeeAs?: () => void;
   onStopSeeAs: () => void;
+  /** open the feed of who changed what */
+  onRecent: () => void;
   /** folders that agent can't see */
   hidden: string[];
   graph: GraphData | null;
@@ -129,43 +171,7 @@ export function MemoryHome({
         </button>
       )}
     >
-      {(close) => (
-        <div role="menu" aria-label="View">
-          {VIEWS.map((v) => (
-            <button
-              key={v.view}
-              role="menuitemradio"
-              aria-checked={v.view === view}
-              onClick={() => {
-                close();
-                onView(v.view);
-              }}
-              className={menuRow}
-            >
-              <v.icon size={16} className="shrink-0 text-muted" aria-hidden />
-              <span className="flex-1">{v.label}</span>
-              {v.view === view && <Check size={15} className="shrink-0 text-muted" aria-hidden />}
-            </button>
-          ))}
-          <div className="-mx-1 my-1 h-px bg-line" />
-          {/* who can see what, where memory is kept and Obsidian are settings */}
-          <a role="menuitem" href={href({ view: "settings", page: "memory" })} onClick={close} className={cx(menuRow, "text-muted")}>
-            Sharing and storage
-          </a>
-          {onSeeAs && (
-            <button
-              role="menuitem"
-              onClick={() => {
-                close();
-                onSeeAs();
-              }}
-              className={cx(menuRow, "text-muted")}
-            >
-              See as an agent…
-            </button>
-          )}
-        </div>
-      )}
+      {(close) => <ViewMenu view={view} onView={onView} onRecent={onRecent} onSeeAs={onSeeAs} close={close} />}
     </Popover>
   );
 
@@ -205,8 +211,8 @@ export function MemoryHome({
   const shown = by ? rows.length : (notes?.length ?? 0);
   const chips = (seeAs || byWho) && (
     <div className="flex flex-wrap items-center gap-2 pb-2.5">
-      {seeAs && <Chip avatar={<AgentAvatar agent={seeAs} size={16} interactive={false} />} text={`${seeAs.name} can see`} clear="Show everything again" onClear={onStopSeeAs} />}
-      {byWho && <Chip avatar={byWho.avatar} text={`By ${byWho.name}`} clear="Show everyone's notes" onClear={() => onBy(null)} />}
+      {seeAs && <FilterChip avatar={<AgentAvatar agent={seeAs} size={16} interactive={false} />} text={`${seeAs.name} can see`} clear="Show everything again" onClear={onStopSeeAs} />}
+      {byWho && <FilterChip avatar={byWho.avatar} text={`By ${byWho.name}`} clear="Show everyone's notes" onClear={() => onBy(null)} />}
       <span className="flex-1" />
       {notes && (
         <span className="text-xs text-muted" title={seeAs && hidden.length ? `Hidden: ${hidden.join(", ")}` : undefined}>
@@ -276,7 +282,7 @@ export function MemoryHome({
         ) : rows.length ? (
           <>
             {rows.slice(0, limit).map((r) => (
-              <NoteItem key={r.note.path} row={r} where={where} onOpen={onOpen} onAuthor={onBy} />
+              <Row key={r.note.path} title={r.note.title} line={where(r.note.path)} author={r.author} at={r.at} onOpen={() => onOpen(r.note.path)} onAuthor={onBy} />
             ))}
             {rows.length > limit && (
               <button onClick={() => setLimit(limit + PAGE)} className="mt-1 h-10 w-full border-t border-line text-[13px] font-medium text-muted hover:text-ink">
@@ -292,28 +298,15 @@ export function MemoryHome({
   );
 }
 
-/** A filter that is on: who or what it narrows to, and an x to drop it. */
-function Chip({ avatar, text, clear, onClear }: { avatar: ReactNode; text: string; clear: string; onClear: () => void }) {
-  return (
-    <span className="inline-flex h-[30px] max-w-full items-center gap-1.5 rounded-full bg-chip pl-2 pr-1">
-      {avatar}
-      <span className="truncate text-[13px] font-semibold">{text}</span>
-      <button onClick={onClear} aria-label={clear} title={clear} className="grid size-[22px] max-md:size-7 shrink-0 place-items-center rounded-full text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
-        <X size={12} />
-      </button>
-    </span>
-  );
-}
-
-/** One note in the list: its title, one line of it, and at the right who changed it last and when. */
-function Row({ title, aside, line, author, at, tip, onOpen, onAuthor }: { title: string; aside?: string; line: ReactNode; author: string | null; at: number; tip?: string; onOpen: () => void; onAuthor: (author: string) => void }) {
+/** One note in the list: its title, a muted line (its folder; what matched, when searching), and at the right who changed it last and when. */
+function Row({ title, aside, line, author, at, onOpen, onAuthor }: { title: string; aside?: string; line: ReactNode; author: string | null; at: number; onOpen: () => void; onAuthor: (author: string) => void }) {
   const agents = useStore((s) => s.agents);
   const members = useStore((s) => s.members);
   const w = author ? whoIs(author, agents, members, 16) : null;
   const when = shortWhen(at);
   return (
     <div className="flex min-h-16 items-start gap-3.5 border-t border-line px-1.5 py-2.5">
-      <button onClick={onOpen} title={tip} className="min-w-0 flex-1 text-left outline-none focus-visible:underline">
+      <button onClick={onOpen} className="min-w-0 flex-1 text-left outline-none focus-visible:underline">
         <span className="flex items-baseline gap-2">
           <span className="truncate text-[15px] leading-[22px] font-semibold">{title}</span>
           {aside && <span className="shrink-0 max-w-[45%] truncate text-xs text-muted">{aside}</span>}
@@ -329,18 +322,6 @@ function Row({ title, aside, line, author, at, tip, onOpen, onAuthor }: { title:
       ) : (
         when && <span className="shrink-0 pt-[3px] text-xs leading-4 text-muted">{when}</span>
       )}
-    </div>
-  );
-}
-
-/** A list row that reads its note's first line once it scrolls into view. */
-function NoteItem({ row, where, onOpen, onAuthor }: { row: NoteRow<NoteMeta>; where: (path: string) => string; onOpen: (path: string) => void; onAuthor: (author: string) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const seen = useSeen(ref);
-  const preview = useNotePreview(row.note.path, row.note.updatedAt, row.note.title, seen);
-  return (
-    <div ref={ref}>
-      <Row title={row.note.title} line={preview?.line ?? ""} author={row.author ?? preview?.by ?? null} at={row.author ? row.at : preview?.at || row.at} tip={where(row.note.path)} onOpen={() => onOpen(row.note.path)} onAuthor={onAuthor} />
     </div>
   );
 }

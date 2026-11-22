@@ -34,6 +34,19 @@ export const pageTitle = "text-[24px] leading-[30px] font-[650] tracking-[-0.01e
 /** One row of a small menu: 36px on desktops, 44px on phones. */
 export const menuRow = "w-full h-9 max-md:h-11 px-2.5 rounded-lg flex items-center gap-2.5 text-[14px] text-left text-ink outline-none hover:bg-hover focus-visible:bg-hover";
 
+/** A filter that is on: who or what it narrows to, and an x to drop it. */
+export function FilterChip({ avatar, text, clear, onClear }: { avatar: ReactNode; text: string; clear: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex h-[30px] max-w-full items-center gap-1.5 rounded-full bg-chip pl-2 pr-1">
+      {avatar}
+      <span className="truncate text-[13px] font-semibold">{text}</span>
+      <button onClick={onClear} aria-label={clear} title={clear} className="grid size-[22px] max-md:size-7 shrink-0 place-items-center rounded-full text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+        <X size={12} />
+      </button>
+    </span>
+  );
+}
+
 /** The little uppercase label above a group of cards. */
 export function Overline({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (

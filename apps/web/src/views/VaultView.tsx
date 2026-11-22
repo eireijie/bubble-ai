@@ -11,6 +11,7 @@ import { MemoryHome, type Change } from "./MemoryHome.tsx";
 import { StorageDialog } from "./memory/Storage.tsx";
 import { DeleteFolderDialog, NewNoteDialog, RenameFolderDialog } from "./memory/NoteDialogs.tsx";
 import { NoteView } from "./memory/NoteView.tsx";
+import { ActivityFeed } from "./memory/Panels.tsx";
 import { buildTree, type Hit, type NoteMeta } from "./memory/Sidebar.tsx";
 import { MemoryDialog, Cards, folderSteps, isNotePath, keepMine, useFolderLabel, useIsPhone } from "./memory/parts.tsx";
 import { lastAuthors, saveView, savedView, type MemoryView } from "./memory/logic.ts";
@@ -44,6 +45,8 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
   // only one author's notes (a ghost in the list was clicked)
   const [by, setBy] = useState<string | null>(null);
   const [byPaths, setByPaths] = useState<Set<string> | null>(null);
+  // the feed of who changed what, opened from the view menu
+  const [recent, setRecent] = useState(false);
   const [creating, setCreating] = useState<{ dir: string; name?: string } | null>(null);
   const [sharing, setSharing] = useState<{ path: string; folder: boolean } | null>(null);
   const [folderDialog, setFolderDialog] = useState<{ kind: "rename" | "delete"; path: string } | null>(null);
@@ -63,19 +66,19 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
 
   const refresh = useCallback(async () => {
     const as = viewAs ? `?as=${encodeURIComponent(viewAs)}` : "";
-    const [list, rules, links, all, recent] = await Promise.all([
+    const [list, rules, links, all, feed] = await Promise.all([
       api<NoteMeta[]>("GET", `/api/vault/notes${as}`),
       api<AccessRule[]>("GET", "/api/access/rules").catch(() => []),
       api<GraphData>("GET", `/api/vault/graph${as}`).catch(() => null),
       viewAs ? api<NoteMeta[]>("GET", "/api/vault/notes").catch(() => null) : Promise.resolve(null),
       // who changed what, newest first: the list's order, authors and times
-      api<Change[]>("GET", "/api/vault/changes?limit=200").catch(() => []),
+      api<Change[]>("GET", "/api/vault/changes?limit=100").catch(() => []),
     ]);
     setNotes(list);
     setEverything(all ?? list);
     setGraph(links);
     setRules(rules);
-    setChanges(recent);
+    setChanges(feed);
   }, [viewAs]);
   useEffect(() => {
     refresh();
@@ -103,7 +106,7 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
     setByPaths(null);
     if (!by) return;
     let live = true;
-    api<Change[]>("GET", `/api/vault/changes?limit=200&author=${encodeURIComponent(by)}`).then((c) => live && setByPaths(new Set(c.flatMap((x) => x.files.filter((f) => f.change !== "deleted").map((f) => f.path)))), () => {});
+    api<Change[]>("GET", `/api/vault/changes?limit=100&author=${encodeURIComponent(by)}`).then((c) => live && setByPaths(new Set(c.flatMap((x) => x.files.filter((f) => f.change !== "deleted").map((f) => f.path)))), () => {});
     return () => {
       live = false;
     };
@@ -112,9 +115,10 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
 
   const isNote = !!path && isNotePath(path);
   const folder = path && !isNote ? path : null;
-  // opening a note leaves the graph it was picked from
+  // opening a note leaves the graph it was picked from, and the feed of changes
   useEffect(() => {
     if (isNote) setGraphPick(null);
+    setRecent(false);
   }, [isNote, path]);
 
   /** Obsidian-style resolution: exact path, then basename (preferring the same top folder). */
@@ -197,6 +201,8 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
             // back to where the note was opened from: its folder in the folders view, else the list or the graph
             onBack={() => go({ view: "vault", path: view === "folders" && !by ? path!.split("/").slice(0, -1).join("/") || null : null })}
           />
+        ) : recent ? (
+          <ActivityFeed onOpen={openPath} onBack={() => setRecent(false)} />
         ) : (
           <MemoryHome
             view={shownView}
@@ -215,6 +221,7 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
             seeAs={asAgent ?? null}
             onSeeAs={isOwner && agents.length > 0 ? () => setPickingAs(true) : undefined}
             onStopSeeAs={() => setViewAs(null)}
+            onRecent={() => setRecent(true)}
             hidden={hidden}
             graph={graph}
             graphPick={graphPick}
@@ -254,6 +261,7 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
           notes={everything ?? []}
           rules={rules}
           onClose={() => setFolderDialog(null)}
+          onChanged={refresh}
           onDone={async (to) => {
             setFolderDialog(null);
             await refresh();
@@ -267,6 +275,7 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
           notes={everything ?? []}
           rules={rules}
           onClose={() => setFolderDialog(null)}
+          onChanged={refresh}
           onDone={async () => {
             const up = folderSteps(folderDialog.path).slice(0, -1).join("/") || null;
             setFolderDialog(null);

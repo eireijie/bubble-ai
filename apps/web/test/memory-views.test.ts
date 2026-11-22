@@ -2,33 +2,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AccessRule } from "@wisp/core";
+import { api } from "../src/api.ts";
 import { useStore } from "../src/store.ts";
-import { MemoryHome } from "../src/views/MemoryHome.tsx";
+import { MemoryHome, ViewMenu } from "../src/views/MemoryHome.tsx";
 import { mostLinked } from "../src/views/MemoryGraphView.tsx";
 import { aboutSections, type Item } from "../src/views/AboutView.tsx";
-import { accessWord, firstLine, fixedFolder, lastAuthors, noteRows, renameFolderPlan, renamedFolder, savedView, shortWhen } from "../src/views/memory/logic.ts";
+import { accessWord, changeDays, fixedFolder, lastAuthors, leftBehind, noteLinks, noteRows, renameFolderPlan, renamedFolder, savedView, shortWhen } from "../src/views/memory/logic.ts";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn(() => new Promise(() => {})), uploadFile: vi.fn() }));
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false, useMotionReduced: () => false, useAppearance: () => ({ resolvedMode: "light", mode: "light", setMode: vi.fn(), toggleMode: vi.fn() }) }));
 
 const note = (path: string, updatedAt: number, title = path.split("/").pop()!.replace(/\.md$/, "")) => ({ path, title, tags: [], links: [], updatedAt });
 const change = (author: string, date: string, ...files: [string, string?][]) => ({ hash: date, author, date, message: "", files: files.map(([path, kind]) => ({ path, change: (kind ?? "modified") as "modified" })) });
-
-describe("a note's one line in the list", () => {
-  it("skips the front matter and a heading that repeats the title", () => {
-    expect(firstLine("---\ntype: project\n---\n# Release\n\nShip Friday. Sam signs off.\n\nMore.", "Release")).toBe("Ship Friday. Sam signs off.");
-  });
-
-  it("drops Markdown marks, list bullets and link brackets", () => {
-    expect(firstLine("- [ ] Ask **Pip** about [[Photo apps compared|the photo apps]] and [Immich](https://immich.app)", "Todo")).toBe("Ask Pip about the photo apps and Immich");
-    expect(firstLine("## Status\n\ntext", "Other")).toBe("Status");
-  });
-
-  it("passes over rules and code fences, and is empty for an empty note", () => {
-    expect(firstLine("---\n\n```js\nconst x = 1\n```\n\nAfter the code", "T")).toBe("After the code");
-    expect(firstLine("# Dentist\n", "Dentist")).toBe("");
-  });
-});
 
 describe("when a note changed, in a word", () => {
   const now = new Date(2026, 10, 22, 15, 0, 0).getTime();
@@ -114,6 +99,54 @@ describe("folders", () => {
   });
 });
 
+describe("a folder change that stops halfway", () => {
+  it("names the notes left behind in one line", () => {
+    expect(leftBehind("Not moved", ["projects/Plan.md"])).toBe("Not moved: Plan");
+    expect(leftBehind("Not deleted", ["a/One.md", "a/Two.md", "a/b/Three.md", "a/Four.md", "a/Five.md"])).toBe("Not deleted: One, Two, Three and 2 more");
+  });
+});
+
+describe("recent changes", () => {
+  it("cuts the feed into days, newest first, keeping deleted and moved notes", () => {
+    const now = new Date(2026, 10, 22, 15, 0).getTime();
+    const at = (day: number, hour: number) => new Date(2026, 10, day, hour).toISOString();
+    const feed = [change("@juno", at(22, 9), ["shared/Dentist.md"]), change("Sam", at(22, 8), ["shared/Old.md", "deleted"]), change("@atlas", at(21, 20), ["work/Release.md", "renamed"]), change("Sam", at(18, 10), ["shared/Plan.md", "added"])];
+    const days = changeDays(feed, now);
+    expect(days.map((d) => [d.day, d.items.map((c) => c.files[0]!.path)])).toEqual([
+      ["Today", ["shared/Dentist.md", "shared/Old.md"]],
+      ["Yesterday", ["work/Release.md"]],
+      [new Date(2026, 10, 18).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }), ["shared/Plan.md"]],
+    ]);
+  });
+});
+
+describe("a note's links", () => {
+  const n = (id: string, title: string, path: string | null = id) => ({ id, path, title });
+  const graph = {
+    nodes: [n("shared/Release.md", "Release"), n("shared/Upload test.md", "Upload test"), n("shared/Sam.md", "Sam"), n("ghost:Launch post", "Launch post", null)],
+    edges: [
+      { source: "shared/Release.md", target: "shared/Upload test.md" },
+      { source: "shared/Release.md", target: "ghost:Launch post" },
+      { source: "shared/Release.md", target: "shared/Upload test.md" },
+      { source: "shared/Sam.md", target: "shared/Release.md" },
+    ],
+  };
+
+  it("lists what links here and what it links to, written or not", () => {
+    const links = noteLinks(graph, "shared/Release.md", ["shared/Sam.md", "agents/a1/Hidden.md"]);
+    // a note the graph doesn't hold (one an agent being looked through can't see) is left out
+    expect(links.from).toEqual([{ path: "shared/Sam.md", title: "Sam" }]);
+    expect(links.to).toEqual([
+      { path: "shared/Upload test.md", title: "Upload test" },
+      { path: null, title: "Launch post" },
+    ]);
+  });
+
+  it("still lists what links here before the graph has loaded", () => {
+    expect(noteLinks(null, "shared/Release.md", ["shared/Sam.md"])).toEqual({ from: [{ path: "shared/Sam.md", title: "Sam" }], to: [] });
+  });
+});
+
 describe("the graph", () => {
   it("names the notes most others link to", () => {
     const n = (title: string, inbound: number, path: string | null = `${title}.md`) => ({ id: title, path, title, kind: "shared" as const, type: null, tags: [], updatedAt: null, links: inbound, inbound });
@@ -161,8 +194,8 @@ describe("the Memory page", () => {
     initial.agents = [juno];
     return renderToStaticMarkup(
       createElement(MemoryHome, {
-        view: "list", onView: noop, phone: false, notes, total: 2, authors, query: "", setQuery: noop, hits: null, by: null, byPaths: null, onBy: noop, seeAs: null, onSeeAs: noop, onStopSeeAs: noop, hidden: [], graph: null, graphPick: null, folder: null, rules: [],
-        where: () => "Shared", snippetHtml: (s: string) => s, onOpen: noop, onFolder: noop, onNew: noop, onWrite: noop, onShareFolder: noop, onRenameFolder: noop, onDeleteFolder: noop,
+        view: "list", onView: noop, phone: false, notes, total: 2, authors, query: "", setQuery: noop, hits: null, by: null, byPaths: null, onBy: noop, seeAs: null, onSeeAs: noop, onStopSeeAs: noop, onRecent: noop, hidden: [], graph: null, graphPick: null, folder: null, rules: [],
+        where: (p: string) => (p.startsWith("shared/") ? "Shared" : "Juno's notes"), snippetHtml: (s: string) => s, onOpen: noop, onFolder: noop, onNew: noop, onWrite: noop, onShareFolder: noop, onRenameFolder: noop, onDeleteFolder: noop,
         ...props,
       }),
     );
@@ -180,9 +213,29 @@ describe("the Memory page", () => {
     expect(html).toContain("aria-label=\"Only Sam&#x27;s notes\"");
   });
 
+  it("gives each note its folder as the muted line, from the list alone: no request per row", () => {
+    vi.mocked(api).mockClear();
+    const html = render();
+    expect(html).toMatch(/>Release<\/span><\/span><span[^>]*>Shared<\/span>/);
+    expect(html).toMatch(/>Dentist<\/span><\/span><span[^>]*>Juno&#x27;s notes<\/span>/);
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it("keeps the ways out of the list in the view menu: recent changes, About you, sharing and storage, seeing as an agent", () => {
+    const menu = (onSeeAs?: () => void) => renderToStaticMarkup(createElement(ViewMenu, { view: "folders", onView: noop, onRecent: noop, onSeeAs, close: noop }));
+    const html = menu(noop);
+    expect([...html.matchAll(/role="menuitem(?:radio)?"[^>]*>(?:<svg.*?<\/svg>)?(?:<span[^>]*>)?([^<]+)/g)].map((m) => m[1])).toEqual(["List", "Folders", "Graph", "Recent changes", "About you", "Sharing and storage", "See as an agent…"]);
+    expect(html).toMatch(/aria-checked="true"[^>]*>.*?Folders/);
+    expect(html).toContain('href="#/about"');
+    expect(html).toContain('href="#/settings/memory"');
+    // seeing as an agent is the owner's; everything else is always there
+    expect(menu()).not.toContain("See as an agent");
+    expect(menu()).toContain("Recent changes");
+  });
+
   it("drops what the old home carried", () => {
     const html = render();
-    for (const gone of ["What your agents remember", "Recent changes", "All activity", "Most linked", "Open the graph", "More in Memory", "View as you", "Search every note"]) expect(html).not.toContain(gone);
+    for (const gone of ["What your agents remember", "All activity", "Most linked", "Open the graph", "More in Memory", "View as you", "Search every note"]) expect(html).not.toContain(gone);
   });
 
   it("shows whose view of memory it is as a chip with an x and a count", () => {

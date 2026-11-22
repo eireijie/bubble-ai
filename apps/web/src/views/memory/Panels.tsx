@@ -1,13 +1,81 @@
 import { useEffect, useMemo, useState } from "react";
-import { Folder, FolderOpen, Lock, MoreHorizontal, PencilLine, Trash2 } from "lucide-react";
+import { ChevronLeft, Folder, FolderOpen, Lock, MoreHorizontal, PencilLine, Trash2 } from "lucide-react";
 import type { AccessRule } from "@wisp/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
-import { Menu } from "../../components/ui.tsx";
-import { accessSummary } from "../../components/AccessDialog.tsx";
-import { folderSteps, noteName, useFolderLabel, whoIs } from "./parts.tsx";
-import { accessWord, fixedFolder, shortWhen } from "./logic.ts";
+import { Menu, cx } from "../../components/ui.tsx";
+import { accessSummary, pathLabel } from "../../components/AccessDialog.tsx";
+import { FilterChip, folderSteps, iconBtn, noteName, pageCol, pageTitle, useFolderLabel, whoIs } from "./parts.tsx";
+import { accessWord, changeDays, fixedFolder, shortWhen } from "./logic.ts";
 import { buildTree, type NoteMeta, type TreeNode } from "./Sidebar.tsx";
+import type { Change } from "../MemoryHome.tsx";
+
+const VERB = { added: "wrote", modified: "edited", deleted: "deleted", renamed: "moved" } as const;
+
+/**
+ * Who changed what across the memory you can see, newest first, a day at a time. Notes that were
+ * deleted or moved are listed too. A name narrows the feed to that author.
+ */
+export function ActivityFeed({ onOpen, onBack }: { onOpen: (p: string) => void; onBack: () => void }) {
+  const agents = useStore((s) => s.agents);
+  const members = useStore((s) => s.members);
+  const memoryVersion = useStore((s) => s.memoryVersion);
+  const [changes, setChanges] = useState<Change[] | null>(null);
+  const [author, setAuthor] = useState("");
+  useEffect(() => {
+    let live = true;
+    api<Change[]>("GET", `/api/vault/changes?limit=100${author ? `&author=${encodeURIComponent(author)}` : ""}`).then((c) => live && setChanges(c), () => live && setChanges([]));
+    return () => {
+      live = false;
+    };
+  }, [author, memoryVersion]);
+  const days = useMemo(() => changeDays(changes ?? []), [changes]);
+  const only = author ? whoIs(author, agents, members, 16) : null;
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className={cx(pageCol, "pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))]")}>
+        <button className={iconBtn} onClick={onBack} aria-label="Back to Memory" title="Back">
+          <ChevronLeft size={18} />
+        </button>
+        <h1 className={cx(pageTitle, "pt-4 pb-3")}>Recent changes</h1>
+        {only && (
+          <div className="pb-2.5">
+            <FilterChip avatar={only.avatar} text={`By ${only.name}`} clear="Show everyone's changes" onClear={() => setAuthor("")} />
+          </div>
+        )}
+        {changes && changes.length === 0 && <p className="border-t border-line px-1.5 py-4 text-[13px] text-muted">No changes yet</p>}
+        {days.map((g) => (
+          <section key={g.day}>
+            <h2 className="flex h-9 items-end px-1.5 pb-1.5 text-xs font-medium text-muted">{g.day}</h2>
+            {g.items.map((c) => {
+              const w = whoIs(c.author, agents, members, 16);
+              return (
+                <div key={c.hash} className="flex items-start gap-3.5 border-t border-line px-1.5 py-2.5">
+                  <p className="min-w-0 flex-1 text-[14px] leading-[22px] break-words">
+                    <button onClick={() => setAuthor(c.author)} aria-label={`Only ${w.name}'s changes`} className="mr-1 inline-flex items-center gap-1.5 align-bottom font-semibold outline-none hover:underline focus-visible:underline">
+                      {w.avatar}
+                      {w.name}
+                    </button>
+                    {c.files.slice(0, 3).map((f, i) => (
+                      <span key={f.path}>
+                        {i === 0 ? VERB[f.change] : ","}{" "}
+                        <button disabled={f.change === "deleted"} onClick={() => onOpen(f.path)} className={f.change === "deleted" ? "text-muted line-through" : "underline decoration-line2 underline-offset-[3px] outline-none hover:decoration-ink focus-visible:decoration-ink"} title={f.change === "renamed" && f.from ? `${pathLabel(f.from, agents, members)} → ${pathLabel(f.path, agents, members)}` : pathLabel(f.path, agents, members)}>
+                          {noteName(f.path)}
+                        </button>
+                      </span>
+                    ))}
+                    {c.files.length > 3 && <span className="text-muted"> and {c.files.length - 3} more</span>}
+                  </p>
+                  <span className="shrink-0 pt-[3px] text-xs leading-4 text-muted">{shortWhen(Date.parse(c.date))}</span>
+                </div>
+              );
+            })}
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 type Authors = Map<string, { author: string; at: number }>;
 

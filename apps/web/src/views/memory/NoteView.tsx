@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bold, ChevronLeft, ExternalLink, FolderInput, Hash, History, Link2, List, Lock, Pencil, PencilLine, Share2, Trash2, Type, X, MoreHorizontal } from "lucide-react";
+import { Bold, ChevronLeft, ExternalLink, FolderInput, Hash, History, Link2, List, Lock, Pencil, PencilLine, Share2, Trash2, Type, Waypoints, X, MoreHorizontal } from "lucide-react";
 import { type MemoryLevel } from "@wisp/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { go, guardLeaving } from "../../router.ts";
 import { renderMarkdown } from "../../markdown.ts";
-import { Menu, Popover, cx, timeAgo, agentColor } from "../../components/ui.tsx";
+import { Menu, cx, timeAgo, agentColor } from "../../components/ui.tsx";
 import { MoreOptions } from "../../components/MoreOptions.tsx";
-import { kindColor, kindLabel, type GraphData } from "../../components/MemoryGraph.tsx";
+import { MemoryGraph, kindColor, kindLabel, neighbourhood, type GraphData } from "../../components/MemoryGraph.tsx";
 import { obsidianLink, onHubMachine, useMemoryStorage } from "../../obsidian.ts";
-import { Cards, noteName, baseName, iconBtn, menuRow, pageCol, pill, pillPrimary, whoIs, useIsPhone } from "./parts.tsx";
-import { bodyOnly } from "./logic.ts";
+import { Cards, MemoryDialog, noteName, baseName, iconBtn, menuRow, pageCol, pill, pillPrimary, whoIs, useIsPhone } from "./parts.tsx";
+import { bodyOnly, noteLinks, type NoteLink } from "./logic.ts";
 import { DeleteDialog, MoveDialog, RenameDialog } from "./NoteDialogs.tsx";
 
 export interface Note {
@@ -108,7 +108,7 @@ export function NoteView({
   const [viewing, setViewing] = useState<{ commit: Commit; content: string } | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [dialog, setDialog] = useState<"rename" | "move" | "delete" | null>(null);
+  const [dialog, setDialog] = useState<"rename" | "move" | "delete" | "links" | "nearby" | null>(null);
   const agents = useStore((s) => s.agents);
   const members = useStore((s) => s.members);
   const memoryVersion = useStore((s) => s.memoryVersion);
@@ -174,9 +174,9 @@ export function NoteView({
     return true;
   };
 
-  const byId = useMemo(() => new Map(graph?.nodes.map((n) => [n.id, n]) ?? []), [graph]);
-  // notes that link here; while looking through an agent, only the ones it can see
-  const linkedFrom = note ? note.backlinks.filter((p) => !graph || byId.has(p)).map((p) => ({ path: p, title: byId.get(p)?.title ?? noteName(p) })) : [];
+  // the notes that link here and the ones this links to: one small list behind "Links"
+  const links = useMemo(() => noteLinks(graph, path, note?.backlinks ?? []), [graph, path, note]);
+  const linkedFrom = links.from;
 
   const back = (
     <button className={iconBtn} onClick={onBack} aria-label="Back to Memory" title="Back">
@@ -245,8 +245,10 @@ export function NoteView({
         ...(canEdit && !viewing ? [{ label: "Edit", icon: <Pencil size={17} />, onSelect: () => setDraft(note.content) }] : []),
         { label: "Share", icon: <Lock size={17} />, onSelect: onShare },
         ...(canEdit ? [{ label: "Rename", icon: <PencilLine size={17} />, onSelect: () => setDialog("rename") }, { label: "Move", icon: <FolderInput size={17} />, onSelect: () => setDialog("move") }] : []),
-        { label: "Open in Obsidian", icon: <ExternalLink size={17} />, onSelect: openObsidian },
+        { label: "Links", icon: <Link2 size={17} />, onSelect: () => setDialog("links") },
+        { label: "Show nearby", icon: <Waypoints size={17} />, onSelect: () => setDialog("nearby") },
         { label: "Show in graph", icon: <Share2 size={17} />, onSelect: () => onGraph(path) },
+        { label: "Open in Obsidian", icon: <ExternalLink size={17} />, onSelect: openObsidian },
         ...(canEdit ? ["divider" as const, { label: "Delete", icon: <Trash2 size={17} />, danger: true, onSelect: () => setDialog("delete") }] : []),
       ]}
     />
@@ -303,6 +305,36 @@ export function NoteView({
             setDialog(null);
             onChanged();
             onBack();
+          }}
+        />
+      )}
+      {dialog === "links" && (
+        <LinksDialog
+          links={links}
+          where={where}
+          onClose={() => setDialog(null)}
+          onOpen={(p) => {
+            setDialog(null);
+            go({ view: "vault", path: p });
+          }}
+          onWrite={
+            readOnly || !onWrite
+              ? undefined
+              : (t) => {
+                  setDialog(null);
+                  onWrite(t);
+                }
+          }
+        />
+      )}
+      {dialog === "nearby" && (
+        <NearbyDialog
+          path={path}
+          graph={graph}
+          onClose={() => setDialog(null)}
+          onOpen={(p) => {
+            setDialog(null);
+            go({ view: "vault", path: p });
           }}
         />
       )}
@@ -388,35 +420,9 @@ export function NoteView({
             {linkedFrom.length > 0 && (
               <>
                 <span aria-hidden>·</span>
-                <Popover
-                  inline
-                  up={false}
-                  className="w-64 max-h-[min(60vh,420px)] overflow-y-auto p-1.5"
-                  trigger={(isOpen, toggle) => (
-                    <button onClick={toggle} aria-expanded={isOpen} className="outline-none hover:text-ink focus-visible:text-ink focus-visible:underline">
-                      linked from {linkedFrom.length} {linkedFrom.length === 1 ? "note" : "notes"}
-                    </button>
-                  )}
-                >
-                  {(close) => (
-                    <div role="menu" aria-label="Linked from">
-                      {linkedFrom.map((n) => (
-                        <button
-                          key={n.path}
-                          role="menuitem"
-                          onClick={() => {
-                            close();
-                            go({ view: "vault", path: n.path });
-                          }}
-                          className={menuRow}
-                        >
-                          <span className="min-w-0 flex-1 truncate">{n.title}</span>
-                          <span className="max-w-[45%] truncate text-xs text-muted">{where(n.path)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </Popover>
+                <button onClick={() => setDialog("links")} className="outline-none hover:text-ink focus-visible:text-ink focus-visible:underline">
+                  linked from {linkedFrom.length} {linkedFrom.length === 1 ? "note" : "notes"}
+                </button>
               </>
             )}
           </div>
@@ -545,6 +551,58 @@ function Blame({ blocks }: { blocks: BlameBlock[] | null }) {
         })}
       </div>
     </div>
+  );
+}
+
+/** A note's links, both ways, as one small list: what links here, then what it links to. */
+function LinksDialog({ links, where, onClose, onOpen, onWrite }: { links: { from: NoteLink[]; to: NoteLink[] }; where: (p: string) => string; onClose: () => void; onOpen: (path: string) => void; onWrite?: (title: string) => void }) {
+  const group = (head: string, items: NoteLink[]) =>
+    items.length > 0 && (
+      <section>
+        <h3 className="flex h-9 items-end px-2.5 pb-1.5 text-xs font-medium text-muted">{head}</h3>
+        {items.map((n) =>
+          n.path ? (
+            <button key={n.path} onClick={() => onOpen(n.path!)} className={menuRow}>
+              <span className="min-w-0 flex-1 truncate">{n.title}</span>
+              <span className="max-w-[45%] truncate text-xs text-muted">{where(n.path)}</span>
+            </button>
+          ) : (
+            // linked to, but nobody wrote it yet
+            <button key={`ghost:${n.title}`} disabled={!onWrite} onClick={() => onWrite?.(n.title)} className={menuRow}>
+              <span className="min-w-0 flex-1 truncate underline decoration-dotted decoration-muted underline-offset-[3px]">{n.title}</span>
+              <span className="text-xs font-semibold text-muted">{onWrite ? "Write it" : "Not written yet"}</span>
+            </button>
+          ),
+        )}
+      </section>
+    );
+  return (
+    <MemoryDialog title="Links" onClose={onClose}>
+      {group("Linked from", links.from)}
+      {group("Links to", links.to)}
+      {!links.from.length && !links.to.length && <p className="px-2.5 py-2 text-[13px] text-muted">No links yet</p>}
+    </MemoryDialog>
+  );
+}
+
+/** The notes around this one, as a small map: what it links to and what links to it. A dot opens its note. */
+function NearbyDialog({ path, graph, onClose, onOpen }: { path: string; graph: GraphData | null; onClose: () => void; onOpen: (path: string) => void }) {
+  const local = useMemo(() => {
+    if (!graph) return null;
+    const one = neighbourhood(graph, path, 1);
+    const two = one.nodes.length < 4 ? neighbourhood(graph, path, 2) : one;
+    return two.nodes.length <= 12 ? two : one;
+  }, [graph, path]);
+  return (
+    <MemoryDialog title="Nearby" onClose={onClose}>
+      <div className="relative h-72 overflow-hidden rounded-[14px] bg-card">
+        {local && local.nodes.length > 1 ? (
+          <MemoryGraph graph={local} variant="local" active={path} onOpen={(n) => n.path && onOpen(n.path)} className="absolute inset-0" label={`${local.nodes.length - 1} notes linked with this one`} />
+        ) : (
+          <p className="absolute inset-0 grid place-items-center p-5 text-center text-[13px] text-muted">{local ? "No links yet" : "Loading…"}</p>
+        )}
+      </div>
+    </MemoryDialog>
   );
 }
 

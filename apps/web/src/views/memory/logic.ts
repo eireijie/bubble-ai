@@ -34,25 +34,57 @@ export function bodyOnly(content: string, title: string): string {
   return t;
 }
 
-/** The first line of a note worth reading in a list: no front matter, no repeated title, no Markdown marks. */
-export function firstLine(content: string, title: string): string {
-  let fenced = false;
-  for (const raw of bodyOnly(content, title).split(/\r?\n/)) {
-    if (/^\s*(```|~~~)/.test(raw)) {
-      fenced = !fenced;
-      continue;
-    }
-    if (fenced || /^\s*([-*_=]\s*){3,}$/.test(raw) || /^\s*<!--/.test(raw)) continue;
-    const line = raw
-      .replace(/^\s*(#{1,6}\s+|>\s?|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)/, "")
-      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-      .replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (_m, target: string, alias?: string) => alias?.trim() || target)
-      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-      .replace(/\*\*|__|~~|`/g, "")
-      .trim();
-    if (line) return line.length > 160 ? line.slice(0, 159) + "…" : line;
+/** "Today", "Yesterday", then the weekday and date: the day a change was made, as the feed groups it. */
+export function dayWord(iso: string, now: number = Date.now()): string {
+  const d = new Date(iso);
+  const n = new Date(now);
+  const diff = Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86_400_000);
+  return diff === 0 ? "Today" : diff === 1 ? "Yesterday" : d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+}
+
+/** The change feed (newest first) cut into days. */
+export function changeDays<C extends { date: string }>(changes: C[], now: number = Date.now()): { day: string; items: C[] }[] {
+  const out: { day: string; items: C[] }[] = [];
+  for (const c of changes) {
+    const day = dayWord(c.date, now);
+    const last = out[out.length - 1];
+    if (last?.day === day) last.items.push(c);
+    else out.push({ day, items: [c] });
   }
-  return "";
+  return out;
+}
+
+interface LinkGraph {
+  nodes: { id: string; path: string | null; title: string }[];
+  edges: { source: string; target: string }[];
+}
+export interface NoteLink {
+  /** null for a note that is linked to but nobody wrote yet */
+  path: string | null;
+  title: string;
+}
+
+/** A note's links, both ways: the notes that link to it, and the notes it links to (written or not). */
+export function noteLinks(graph: LinkGraph | null, path: string, backlinks: string[]): { from: NoteLink[]; to: NoteLink[] } {
+  const byId = new Map(graph?.nodes.map((n) => [n.id, n]) ?? []);
+  const name = (p: string) => p.split("/").pop()!.replace(/\.md$/i, "");
+  // while looking through an agent, only the notes it can see (the graph holds just those)
+  const from = backlinks.filter((p) => !graph || byId.has(p)).map((p) => ({ path: p, title: byId.get(p)?.title ?? name(p) }));
+  const seen = new Set<string>();
+  const to: NoteLink[] = [];
+  for (const e of graph?.edges ?? []) {
+    const n = e.source === path ? byId.get(e.target) : undefined;
+    if (!n || seen.has(n.id)) continue;
+    seen.add(n.id);
+    to.push({ path: n.path, title: n.title });
+  }
+  return { from, to };
+}
+
+/** "Not moved: Plan, Release and 2 more": the notes a folder change could not finish, in one line. */
+export function leftBehind(what: string, paths: string[]): string {
+  const names = paths.map((p) => p.split("/").pop()!.replace(/\.md$/i, ""));
+  return `${what}: ${names.slice(0, 3).join(", ")}${names.length > 3 ? ` and ${names.length - 3} more` : ""}`;
 }
 
 /** "now", "12m", "3h", "today", "Mon", "Nov 3", "Nov 2025": when a note last changed, in a word. */
