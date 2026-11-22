@@ -3,7 +3,7 @@ import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
 import { LogIn, RotateCcw, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, Eye, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, MoreHorizontal, Monitor, Paperclip, Phone, Plus, Shield, ShieldAlert, SquareTerminal, UserPlus, Users, X, Zap, ChevronDown, Hash, Info, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { parseMentions, SCHEDULE_MARK, type AccessLevel, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
-import { api, fileUrl, uploadFile, MAX_UPLOAD_BYTES } from "../api.ts";
+import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
 import { go, href, type Route } from "../router.ts";
 import type { TaskRow } from "./TasksView.tsx";
@@ -89,6 +89,9 @@ function storedDmPanel(): AgentPanelTab | null {
     return null;
   }
 }
+
+/** The most the hub takes in one file (apps/hub/src/api.ts, POST /api/files). */
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "chat" }>; onBack?: () => void }) {
   const channels = useStore((s) => s.channels);
@@ -1891,7 +1894,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
     const all = Array.from(list);
     const tooBig = all.filter((f) => f.size > MAX_UPLOAD_BYTES);
     const sizeError = tooBig.length ? `${tooBig.length === 1 ? `"${tooBig[0].name}" is` : `${tooBig.length} files are`} over 100 MB, too large to attach.` : null;
-    const selected = all.filter((f) => f.size <= MAX_UPLOAD_BYTES).slice(0, Math.max(0, 20 - current.files.length - current.pending.length));
+    const selected = all.filter((f) => !tooBig.includes(f)).slice(0, Math.max(0, 20 - current.files.length - current.pending.length));
     if (!selected.length) {
       if (sizeError) updateDraft((d) => ({ ...d, error: sizeError }));
       return;
