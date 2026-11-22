@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Blocks, BookOpen, Bot, Building2, ChevronLeft, Cpu, Ghost, LayoutGrid, LifeBuoy, ListTodo, Palette, Bell, Settings, SquareTerminal, ChevronRight, X } from "lucide-react";
+import { BookOpen, Bot, Building2, ChevronLeft, Cpu, Ghost, LayoutGrid, LifeBuoy, ListTodo, Palette, Bell, Settings, SquareTerminal, ChevronRight, X } from "lucide-react";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go, href, type Route } from "../router.ts";
@@ -73,7 +73,7 @@ export function YouPage() {
       ...(!isGuest && features.code ? [{ label: "Code", icon: <SquareTerminal {...ICON} />, to: { view: "code" } as Route }] : []),
     ],
     more,
-    [...(!isGuest ? [{ label: "Mods", icon: <Blocks {...ICON} />, to: { view: "mods" } as Route }] : []), { label: "Help", icon: <LifeBuoy {...ICON} />, to: { view: "help" } }],
+    [{ label: "Help", icon: <LifeBuoy {...ICON} />, to: { view: "help" } }],
   );
 
   const row = (icon: ReactNode, label: string, to: string | (() => void), hint?: ReactNode) => {
