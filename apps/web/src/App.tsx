@@ -28,7 +28,6 @@ import { NewTask, TasksView } from "./views/TasksView.tsx";
 import { CodeView } from "./views/CodeView.tsx";
 import { DashboardView } from "./views/DashboardView.tsx";
 import { MarketplaceView } from "./views/MarketplaceView.tsx";
-import { ModsPage } from "./views/settings/features.tsx";
 import { HelpView } from "./views/HelpView.tsx";
 import { primeTasks } from "./notifications.ts";
 import { Loader, cx } from "./components/ui.tsx";
@@ -262,22 +261,9 @@ function Workspace() {
         return backBar(<HereView agentId={route.agentId} />, false, { view: "chats" });
       case "help":
         return <HelpView onBack={phone ? toYou : undefined} />;
+      // mods are rows on the Add page now: this address opens it at Mods
       case "mods":
-        return (
-          <div className="flex-1 overflow-y-auto">
-            {phone && (
-              <header className="px-[18px] pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center gap-3">
-                <button className="circle shrink-0" onClick={toYou} aria-label="Back">
-                  <ChevronLeft size={22} aria-hidden />
-                </button>
-                <h1 className="t-title truncate">Mods</h1>
-              </header>
-            )}
-            <div className="max-w-4xl mx-auto px-4 md:px-8 pt-4 md:pt-10 pb-8">
-              <ModsPage />
-            </div>
-          </div>
-        );
+        return <MarketplaceView section="mods" onBack={phone ? toYou : undefined} />;
     }
   })();
   if (chatOpen) heldChat.current = page;

@@ -1,148 +1,101 @@
-import { useState, type ReactNode } from "react";
-import { ExternalLink, LogIn, LogOut, MessageSquare, Pencil, Power, RefreshCw, Trash2, Users } from "lucide-react";
-import { trustLabel, type Agent, type AppCategory, type CatalogConnector, type Connector, type ConnectorKind, type MarketplaceInstall, type SignInOption, type StoreApp } from "@wisp/core";
+import { useState } from "react";
+import { ExternalLink, LogIn, MoreHorizontal } from "lucide-react";
+import { SIGN_IN_PROVIDERS, connectorUnsupportedReason, trustLabel, type Agent, type AppCategory, type CatalogConnector, type Connector, type MarketplaceInstall, type SignInOption, type StoreApp } from "@wisp/core";
 import { api } from "../api.ts";
-import { AgentPicker } from "../components/ShopParts.tsx";
-import { AppTile, Badge, Chip, Dlg, Item, Label, Note, Panel, Prim, Sec, Tile, TrustPill } from "../components/MarketParts.tsx";
-import { BeforeYouConnect, connectSummary, connectorWhere, registryCatalog } from "./ConnectorsView.tsx";
+import { Button, Menu } from "../components/ui.tsx";
+import { WhoCanUse, whoLine } from "../components/ShopParts.tsx";
+import { AppTile, Dlg, FactRow, ItemHead, Prim, RemoveBtn, Rows, TrustPill } from "../components/MarketParts.tsx";
+import { connectSummary, connectorWhere, registryCatalog } from "./ConnectorsView.tsx";
 
 export type AppItem = { key: string; name: string; description: string; category: AppCategory | null; who: string } & ({ registry: StoreApp } | { builtIn: CatalogConnector });
 
-/** How signing in or setting up works for this kind of app, in a sentence. */
-export function howToConnect(name: string, kind: ConnectorKind, fieldLabels: string[], needs?: string): string {
-  if (kind === "secret" || fieldLabels.length)
-    return `You enter ${fieldLabels.length ? fieldLabels.join(", ") : "the key"} once. Wisp keeps ${fieldLabels.length > 1 ? "them" : "it"} and gives ${fieldLabels.length > 1 ? "them" : "it"} only to the agents you pick.`;
-  if (kind === "mcp-stdio") return `${name} runs as a program on each agent's own computer.${needs ? ` It needs ${needs}.` : ""} After that you choose which agents can use it.`;
-  return `If ${name} asks you to sign in, a page opens in your browser. Wisp never sees your password. After that you choose which agents can use ${name}.`;
-}
+const HARNESS_NAMES: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", hermes: "Hermes" };
 
-/** How connecting works for an app with one-click sign-in, from where Wisp is open. */
+/** Why signing in to an app doesn't work from where Wisp is open, and what to do instead (or, where it does, what happens). */
 export function howToSignIn(name: string, o: SignInOption): string {
   if (o.signIn) return `A page opens in your browser to sign in to ${name}. Wisp never sees your password.`;
   return `${o.reason ?? `Signing in to ${name} doesn't work from here.`}${o.key ? " You can use a key instead." : ""}`;
 }
 
-/** An app's page: who stands behind it, what you're agreeing to, and how connecting works. */
-export function AppDetail({ app, have, canEdit, onConnect, onManage, signIn }: { app: AppItem; have: Connector | undefined; canEdit: boolean; onConnect: (install: number) => void; onManage: (c: Connector) => void; signIn?: SignInOption }) {
+/** Who made an app, where Wisp can say: the maker the registry confirmed, the company its sign-in goes to, else its publisher. */
+export function appMaker(app: AppItem): string | null {
+  if ("registry" in app) {
+    const t = trustLabel(app.registry);
+    return t.kind === "maker" ? t.text.replace(/^Made by /, "") : app.registry.publisher;
+  }
+  const s = app.builtIn.signIn;
+  return s?.via === "app" ? SIGN_IN_PROVIDERS[s.provider].name : null;
+}
+
+/** The one muted line under an app's name: what it is and who made it ("Email and calendar · by Google"). */
+export function appLine(app: AppItem): string {
+  const maker = appMaker(app);
+  return [app.category ?? "App", maker && `by ${maker}`].filter(Boolean).join(" · ");
+}
+
+/** The same line for an added app Wisp has no catalog entry for: one brought in from a harness, or the person's own. */
+export function connectorLine(c: Pick<Connector, "catalogId">): string {
+  const id = c.catalogId ?? "";
+  return id.startsWith("device:") ? `App · from ${HARNESS_NAMES[id.split(":")[2]] ?? "a computer"}` : "Your own app";
+}
+
+/**
+ * An app's page, before and after it is added: its tile, name and one line; one action (Add, or
+ * Sign in again when the sign-in lapsed); one card of rows (who can use it, what it may do, the
+ * account); trust and the rest under More; Remove set apart at the bottom.
+ */
+export function AppPage({
+  app,
+  have,
+  agents,
+  canEdit,
+  signIn,
+  onAdd,
+  onUseKey,
+  onChanged,
+  onSignIn,
+  onSignOut,
+  onEdit,
+  onToggle,
+  onRemove,
+}: {
+  app: AppItem | null;
+  have: Connector | undefined;
+  agents: Agent[];
+  canEdit: boolean;
+  signIn?: SignInOption;
+  onAdd: (install: number) => void;
+  onUseKey?: () => void;
+  onChanged: () => void;
+  onSignIn: (c: Connector) => void;
+  onSignOut: (c: Connector) => void;
+  onEdit: (c: Connector) => void;
+  onToggle: (c: Connector) => void;
+  onRemove: (c: Connector) => void;
+}) {
   const [pick, setPick] = useState(0);
-  const registry = "registry" in app ? app.registry : null;
-  const install: MarketplaceInstall | null = registry ? (registry.installs[pick] ?? registry.installs[0] ?? null) : null;
-  const entry = "builtIn" in app ? app.builtIn : registry && install ? registryCatalog(registry, install) : null;
-  const summary = "builtIn" in app ? connectSummary({ builtIn: app.builtIn }) : registry && install ? connectSummary({ entry: registry, install }) : null;
-  const trust = registry ? trustLabel(registry) : null;
-  const link = registry?.website ?? registry?.repository ?? ("builtIn" in app ? app.builtIn.docs : undefined);
-  // signs in only (Gmail, Calendar) and that doesn't work from here: nothing to connect with
-  const blocked = !!signIn && !signIn.signIn && !signIn.key && !!entry && !entry.fields.length;
-  return (
-    <div className="space-y-6">
-      <header className="flex items-start gap-4">
-        <AppTile name={app.name} category={app.category} size={56} entry={registry} />
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <h2 className="t-title">{app.name}</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {trust ? <TrustPill t={trust} /> : <Badge tone="blue" title="On Wisp's list of well-known apps">On Wisp's list</Badge>}
-            {registry && <span className="text-sm text-faint">by {registry.publisher}</span>}
-          </div>
-        </div>
-        {canEdit &&
-          (have ? (
-            <Sec onClick={() => onManage(have)}>Manage</Sec>
-          ) : (
-            <Prim onClick={() => onConnect(pick)} disabled={!entry || blocked} className="max-sm:hidden">
-              Connect
-            </Prim>
-          ))}
-      </header>
-
-      <p className="px-1 text-body leading-relaxed text-ink/90">{app.description || `Lets your agents use ${app.name}.`}</p>
-
-      {registry && registry.installs.length > 1 && (
-        <section className="space-y-2">
-          <Label>Ways to connect</Label>
-          <div className="flex flex-wrap gap-2">
-            {registry.installs.map((x, j) => (
-              <Chip key={j} on={pick === j} onClick={() => setPick(j)}>
-                {x.label}
-              </Chip>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {summary && <BeforeYouConnect s={summary} />}
-
-      {entry && (
-        <section className="space-y-2">
-          <Label>How to connect</Label>
-          <Note>{signIn ? howToSignIn(app.name, signIn) : howToConnect(app.name, entry.kind, entry.fields.map((f) => f.label), entry.needs)}</Note>
-        </section>
-      )}
-
-      {link && (
-        <a href={link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-1 text-sm text-muted hover:text-ink">
-          {registry?.website ? "Website" : "More about it"} <ExternalLink size={13} />
-        </a>
-      )}
-
-      {canEdit && !have && (
-        <Prim onClick={() => onConnect(pick)} disabled={!entry || blocked} className="w-full sm:hidden">
-          Connect
-        </Prim>
-      )}
-    </div>
-  );
-}
-
-/** After saving an app that asks for a sign-in (or before connecting one that signs in): the page opens in the browser, Wisp never sees the password. */
-export function ConnectSignIn({ connector, onClose, onSignIn, onUseKey }: { connector: { name: string }; onClose: () => void; onSignIn: () => void; onUseKey?: () => void }) {
-  return (
-    <Dlg title={`Connect ${connector.name}`} onClose={onClose}>
-      <Panel>
-        <Item icon={<AppTile name={connector.name} size={50} />} title={`Sign in to ${connector.name}`} sub={<span className="whitespace-normal">A page opens in your browser. Choose the account and allow Wisp to use {connector.name} for your helpers.</span>} />
-      </Panel>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {onUseKey && (
-          <button type="button" onClick={onUseKey} className="mr-auto text-sm text-muted hover:text-ink">
-            Use a key instead
-          </button>
-        )}
-        <Sec onClick={onClose}>Not now</Sec>
-        <Prim onClick={onSignIn} className="max-sm:w-full">
-          <LogIn size={17} /> Open sign-in
-        </Prim>
-      </div>
-    </Dlg>
-  );
-}
-
-/** The connected state: who can use it now, and a way to try it. */
-export function Connected({ connector, agents, onClose, onPick, onTry }: { connector: Connector; agents: Agent[]; onClose: () => void; onPick: () => void; onTry: () => void }) {
-  const names = (connector.allAgents ? agents.map((a) => a.id) : connector.agentIds).map((id) => agents.find((a) => a.id === id)?.name).filter((n): n is string => !!n);
-  return (
-    <Dlg title={`${connector.name} is connected`} sub={connector.allAgents ? "All agents can use it now." : names.length ? `${sentence(names)} can use it now.` : "No agent can use it yet."} onClose={onClose}>
-      <Panel>
-        <Item icon={<Tile size={40}><Users size={20} strokeWidth={1.7} /></Tile>} title="Pick who can use it" sub={connector.allAgents ? "All agents" : names.length ? names.join(", ") : "No one yet"} onClick={onPick} />
-        {names.length > 0 && <Item icon={<Tile size={40}><MessageSquare size={20} strokeWidth={1.7} /></Tile>} title="Try it in a chat" sub={`Ask ${names[0]} to use ${connector.name}`} onClick={onTry} />}
-      </Panel>
-      <div className="flex justify-end">
-        <Prim onClick={onClose} className="max-sm:w-full">
-          Done
-        </Prim>
-      </div>
-    </Dlg>
-  );
-}
-
-const sentence = (names: string[]) => (names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
-
-/** Manage a connected app: status, which helpers use it, and its account (refresh, sign out, remove). */
-export function ManageApp({ connector: c, agents, canEdit, onClose, onChanged, onEdit, onSignIn, onSignOut, onToggle, onRemove }: { connector: Connector; agents: Agent[]; canEdit: boolean; onClose: () => void; onChanged: () => void; onEdit: () => void; onSignIn: () => void; onSignOut: () => void; onToggle: () => void; onRemove: () => void }) {
-  const [busy, setBusy] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  const [who, setWho] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const needsSignIn = !!c.auth?.required && !c.auth.signedIn;
-  const status = !c.enabled ? "Off" : needsSignIn ? "Needs sign-in" : c.auth?.signedIn ? "Connected" : "Connected";
+  const registry = app && "registry" in app ? app.registry : null;
+  const builtIn = app && "builtIn" in app ? app.builtIn : null;
+  const install: MarketplaceInstall | null = registry ? (registry.installs[pick] ?? registry.installs[0] ?? null) : null;
+  const entry = builtIn ?? (registry && install ? registryCatalog(registry, install) : null);
+  const summary = builtIn ? connectSummary({ builtIn }) : registry && install ? connectSummary({ entry: registry, install }) : null;
+  const trust = registry ? trustLabel(registry) : null;
+  const link = registry?.website ?? registry?.repository ?? builtIn?.docs;
+  const name = have?.name ?? app?.name ?? "";
+  const description = app?.description ?? "";
+  // signs in only (Gmail, Calendar) and that doesn't work from here: nothing to add it with
+  const blocked = !!signIn && !signIn.signIn && !signIn.key && !!entry && !entry.fields.length;
+  const lapsed = !!have?.auth?.required && !have.auth.signedIn;
+  const kind = have?.kind ?? entry?.kind;
+  const can = builtIn?.signInReads ?? signIn?.reads ?? (kind === "secret" || entry?.fields.length ? "Use your key" : "What the app allows");
+  const where = have ? connectorWhere(have) : "";
+
   const change = async (p: () => Promise<unknown>) => {
-    setBusy("all");
+    setBusy(true);
     setError(null);
     try {
       await p();
@@ -150,53 +103,128 @@ export function ManageApp({ connector: c, agents, canEdit, onClose, onChanged, o
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
-  // the picker hands back the whole list; send only what changed
-  const pick = (ids: string[]) =>
-    change(async () => {
-      for (const id of ids) if (!c.agentIds.includes(id)) await api("PUT", `/api/connectors/${c.id}/agents/${id}`);
-      for (const id of c.agentIds) if (!ids.includes(id)) await api("DELETE", `/api/connectors/${c.id}/agents/${id}`);
-    });
-  const row = (icon: ReactNode, title: string, sub: string, onClick: () => void, danger?: boolean) => <Item icon={<Tile size={40}>{icon}</Tile>} title={title} sub={sub} onClick={onClick} danger={danger} />;
+
+  const account = have
+    ? [
+        ...(have.kind === "mcp-http" ? [{ label: have.auth?.signedIn ? "Sign in again" : "Sign in", onSelect: () => onSignIn(have) }] : []),
+        ...(have.auth?.signedIn ? [{ label: "Sign out", onSelect: () => onSignOut(have) }] : []),
+        { label: "Refresh", onSelect: onChanged },
+        ...(onUseKey ? [{ label: "Use a key instead", onSelect: onUseKey }] : []),
+      ]
+    : [];
+  const accountLabel = have?.kind === "mcp-http" ? "Signed in as" : "Uses";
+  const accountValue = have?.kind === "mcp-http" ? (lapsed ? "Sign in again" : have.auth?.signedIn ? "Your account" : "Not needed") : where;
+
   return (
-    <Dlg title={c.name} onClose={onClose} wide>
-      <Panel>
-        <Item
-          icon={<AppTile name={c.name} size={50} />}
-          title={status}
-          sub={connectorWhere(c)}
-          right={<Badge tone={!c.enabled ? "grey" : needsSignIn ? "warn" : "green"}>{!c.enabled ? "Off" : needsSignIn ? "Sign in" : "On"}</Badge>}
-        />
-      </Panel>
-      {c.auth?.error && <p className="px-1 text-sm text-bad">{c.auth.error}</p>}
+    <div className="space-y-4">
+      <ItemHead tile={<AppTile name={name} category={app?.category} size={56} entry={registry} />} name={name} line={`${app ? appLine(app) : have ? connectorLine(have) : ""}${have && !have.enabled ? " · Off" : ""}`}>
+        {canEdit && !have && (
+          <Button variant="primary" onClick={() => onAdd(pick)} disabled={!entry || blocked}>
+            Add
+          </Button>
+        )}
+        {canEdit && have && lapsed && (
+          <Button variant="primary" onClick={() => onSignIn(have)}>
+            Sign in again
+          </Button>
+        )}
+        {canEdit && have && (
+          <Menu
+            align="right"
+            items={[
+              { label: "Edit settings", onSelect: () => onEdit(have) },
+              ...(link ? [{ label: "Website", onSelect: () => void window.open(link, "_blank", "noreferrer") }] : []),
+              { label: have.enabled ? "Turn off" : "Turn on", onSelect: () => onToggle(have) },
+            ]}
+            trigger={(open, toggle) => (
+              <button type="button" className="circle circle-sm" aria-label={`More for ${name}`} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>
+                <MoreHorizontal size={16} aria-hidden />
+              </button>
+            )}
+          />
+        )}
+      </ItemHead>
 
-      <section className="space-y-2">
-        <Label>Agents who can use it</Label>
-        <AgentPicker agents={agents} value={c.agentIds} onChange={(ids) => void pick(ids)} disabled={!canEdit || busy !== null} allAgents={{ on: !!c.allAgents, onChange: (on) => void change(() => api("PATCH", `/api/connectors/${c.id}`, { allAgents: on })) }} />
-      </section>
-      {error && <p className="text-sm text-bad">{error}</p>}
+      {have?.auth?.error && <p className="px-1 text-[13px] text-bad">{have.auth.error}</p>}
+      {!have && signIn && !signIn.signIn && <p className="px-1 text-[13px] text-muted">{howToSignIn(name, signIn)}</p>}
+      {!have && trust?.kind === "unverified" && registry && <p className="px-1 text-[13px] text-warn">Not verified. Add it only if you trust {registry.publisher}.</p>}
+      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
 
-      {canEdit && (
-        <section className="space-y-2">
-          <Label>Account</Label>
-          <Panel>
-            {row(<RefreshCw size={20} strokeWidth={1.7} />, "Refresh", "Check the connection", onChanged)}
-            {c.kind === "mcp-http" && row(<LogIn size={20} strokeWidth={1.7} />, c.auth?.signedIn ? "Sign in again" : "Sign in", "Opens the app's sign-in page", onSignIn)}
-            {c.auth?.signedIn && row(<LogOut size={20} strokeWidth={1.7} />, "Sign out", "Agents stop using your account", onSignOut)}
-            {row(<Pencil size={20} strokeWidth={1.7} />, "Edit settings", "Name, values and how it starts", onEdit)}
-            {row(<Power size={20} strokeWidth={1.7} />, c.enabled ? "Turn off" : "Turn on", c.enabled ? "Off for every agent" : "On for the agents above", onToggle)}
-            {row(<Trash2 size={20} strokeWidth={1.7} className="text-bad" />, "Remove", "Agents will lose access to it.", onRemove, true)}
-          </Panel>
-        </section>
+      <Rows>
+        {have && <FactRow label="Who can use it" value={whoLine(have, agents)} onClick={canEdit ? () => setWho(true) : undefined} />}
+        <FactRow label="Can" value={can} />
+        {!have && registry && registry.installs.length > 1 && (
+          <Menu align="right" items={registry.installs.map((x, j) => ({ label: x.label, onSelect: () => setPick(j) }))} trigger={(open, toggle) => <FactRow label="Connect with" value={install?.label} onClick={toggle} open={open} />} />
+        )}
+        {!have && canEdit && signIn?.signIn && onUseKey && <FactRow label="Use a key instead" onClick={onUseKey} />}
+        {have && (canEdit ? <Menu align="right" items={account} trigger={(open, toggle) => <FactRow label={accountLabel} value={accountValue} need={lapsed} onClick={toggle} open={open} />} /> : <FactRow label={accountLabel} value={accountValue} need={lapsed} />)}
+        <FactRow label="More" onClick={() => setMore(!more)} open={more} />
+      </Rows>
+
+      {more && (
+        <div className="space-y-2 px-1 text-[14px] leading-[22px] text-muted">
+          {description && <p className="text-ink/90">{description}</p>}
+          {trust && (
+            <p>
+              <TrustPill t={trust} />
+            </p>
+          )}
+          {summary && <p>{summary.runBy}</p>}
+          {have && where && have.kind !== "secret" && <p className="break-all font-mono text-[13px]">{where}</p>}
+          {link && (
+            <a href={link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-ink">
+              {registry?.website ? "Website" : "More about it"} <ExternalLink size={13} aria-hidden />
+            </a>
+          )}
+        </div>
       )}
-      <div className="flex justify-end">
-        <Prim onClick={onClose} className="max-sm:w-full">
-          Done
+
+      {canEdit && have && (
+        <div className="pt-3">
+          <RemoveBtn onClick={() => onRemove(have)}>Remove</RemoveBtn>
+        </div>
+      )}
+
+      {who && have && (
+        <WhoCanUse
+          agents={agents}
+          allAgents={!!have.allAgents}
+          agentIds={have.agentIds}
+          disabled={!canEdit || busy}
+          error={error}
+          note={(a) => connectorUnsupportedReason(a.harness, have.kind)}
+          onAll={(on) => void change(() => api("PATCH", `/api/connectors/${have.id}`, { allAgents: on }))}
+          // the picker hands back the whole list; send only what changed
+          onPick={(ids) =>
+            void change(async () => {
+              for (const id of ids) if (!have.agentIds.includes(id)) await api("PUT", `/api/connectors/${have.id}/agents/${id}`);
+              for (const id of have.agentIds) if (!ids.includes(id)) await api("DELETE", `/api/connectors/${have.id}/agents/${id}`);
+            })
+          }
+          onClose={() => setWho(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Before the browser leaves for an app's sign-in page (Wisp never sees the password); a key instead, where the app takes one. */
+export function ConnectSignIn({ connector, onClose, onSignIn, onUseKey }: { connector: { name: string }; onClose: () => void; onSignIn: () => void; onUseKey?: () => void }) {
+  return (
+    <Dlg title={`Sign in to ${connector.name}`} onClose={onClose}>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {onUseKey && (
+          <button type="button" onClick={onUseKey} className="mr-auto text-sm text-muted hover:text-ink">
+            Use a key instead
+          </button>
+        )}
+        <Prim onClick={onSignIn} className="h-11 text-body max-sm:w-full">
+          <LogIn size={17} /> Open sign-in
         </Prim>
       </div>
     </Dlg>
   );
 }
-

@@ -3,6 +3,7 @@ import {
   AppWindow,
   BadgeCheck,
   BookOpen,
+  ChevronRight,
   Cloud,
   Code2,
   CreditCard,
@@ -235,9 +236,9 @@ export function Sec({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>
   return <button type="button" {...p} className={cx(btn, "h-11 rounded-full border border-control-line bg-control px-[18px] text-body hover:bg-hover", className)} />;
 }
 
-/** "Add", "Install", "Bring in": the small button at the end of a row. */
+/** "Add", "Bring in", "Set up": the one action at the end of a row, a hairline pill. */
 export function Add({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" {...p} className={cx(btn, "h-[34px] rounded-[10px] bg-chip px-3.5 text-sm hover:bg-hover", className)} />;
+  return <button type="button" {...p} className={cx("inline-flex h-[30px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-line2 px-3.5 text-[14px] outline-none hover:bg-hover focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50 max-md:h-[34px] max-md:px-4", className)} />;
 }
 
 /** A round glass button (the circle from the tokens), with a label for screen readers. */
@@ -275,12 +276,12 @@ export function Labeled({ label, hint, children, className }: { label: string; h
   );
 }
 
-/** A search field: a capsule with a magnifier. */
+/** A search field shaped like the chat's composer: a magnifier and the words. Its placeholder is its name. */
 export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <label className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-control-line bg-control px-4 text-faint focus-within:ring-3 focus-within:ring-ring/30">
-      <Search size={18} aria-hidden className="shrink-0" />
-      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-faint" />
+    <label className="flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-[20px] border border-transparent bg-[var(--bubble-them)] px-4 text-muted focus-within:border-line2">
+      <Search size={16} aria-hidden className="shrink-0" />
+      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted md:text-[14px]" />
     </label>
   );
 }
@@ -329,4 +330,141 @@ export function Pick({ value, onChange, children, label, disabled, className }: 
 /** A card of information that isn't a list (an explanation, a callout). */
 export function Note({ children, tone }: { children: ReactNode; tone?: "warn" | "bad" }) {
   return <div className={cx("rounded-3xl bg-card px-4 py-3.5 text-body leading-snug text-ink/90 md:border md:border-line", tone === "warn" && "text-warn", tone === "bad" && "text-bad")}>{children}</div>;
+}
+
+// --- Add: one page of rows, and an item's page -----------------------------------------------------
+
+/** The first few words of a line, for the muted words on a row: "Issues, pull requests, code search and repos." gives "Issues, pull requests, code". */
+export function fewWords(text: string | null | undefined, max = 4): string {
+  const words = (text ?? "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  return words.slice(0, max).join(" ").replace(/[\s,;:.!?-]+$/, "");
+}
+
+/** The sections of the Add page, top to bottom. */
+export const ADD_SECTIONS = ["added", "found", "apps", "skills", "mods"] as const;
+export type AddSection = (typeof ADD_SECTIONS)[number];
+
+const SECTION_WORDS: Record<string, AddSection> = { app: "apps", apps: "apps", skill: "skills", skills: "skills", mod: "mods", mods: "mods", added: "added", installed: "added", found: "found", computers: "found", devices: "found" };
+
+/** What was typed, when it names a whole section ("skills", "mods", "added"): that section shows alone, in full. */
+export function sectionWord(q: string): AddSection | null {
+  return SECTION_WORDS[q.trim().toLowerCase()] ?? null;
+}
+
+/** What was typed, as lowercase words. */
+export const queryWords = (q: string) => q.toLowerCase().split(/\s+/).filter(Boolean);
+
+/** Every typed word is somewhere in what a row says (its name, what it is for, its shelf, who made it). */
+export function matchWords(words: string[], fields: (string | null | undefined)[]): boolean {
+  return words.every((w) => fields.some((f) => f?.toLowerCase().includes(w)));
+}
+
+/** How many rows a section shows: a few until "Show all", more while searching. */
+export function rowsShown(total: number, open: boolean, searching: boolean): number {
+  return open ? total : Math.min(total, searching ? 12 : 5);
+}
+
+/** A section's tiny muted header; text buttons (Look again) sit at its right. */
+export function SectionHead({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 px-0.5 pb-1 pt-3 text-[12px] leading-4 text-muted">
+      <h2 className="min-w-0 flex-1 truncate font-semibold">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+/** A plain muted text button, for a header's right or under a list ("Look again", "Show all"). */
+export function TextBtn({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" {...p} className={cx("shrink-0 rounded-md text-muted outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-60", className)} />;
+}
+
+/**
+ * One thing on the Add page: a 36 px tile, its name in bold, at most four muted words, and one
+ * thing at the right. The name opens its page. `status` (a check, "Sign in again") is part of what
+ * opens the page; `action` (Add, Bring in) is its own button.
+ */
+export function AddRow({ tile, name, words, status, action, onOpen }: { tile: ReactNode; name: string; words?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void }) {
+  const main = (
+    <>
+      {tile}
+      <span className="min-w-0 truncate text-[14px] font-semibold leading-[22px] max-sm:flex-1 sm:max-w-[64%]">{name}</span>
+      {words && <span className="min-w-0 truncate text-[13px] leading-[18px] text-muted max-sm:hidden">{words}</span>}
+      <span className="flex-1 max-sm:hidden" />
+      {status}
+    </>
+  );
+  return (
+    <div className="-mx-1.5 flex h-[52px] items-center gap-3 rounded-[10px] px-1.5 hover:bg-hover max-sm:h-14">
+      {onOpen ? (
+        <button type="button" onClick={onOpen} className="flex h-full min-w-0 flex-1 items-center gap-3 rounded-[10px] text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
+          {main}
+        </button>
+      ) : (
+        <div className="flex h-full min-w-0 flex-1 items-center gap-3">{main}</div>
+      )}
+      {action}
+    </div>
+  );
+}
+
+/** The amber dot beside something that needs the person (a sign-in that lapsed). */
+export function NeedDot() {
+  return <span aria-hidden className="size-2 shrink-0 rounded-full bg-st-needs" />;
+}
+
+/** The top of an item's page: a 56 px tile, the name, one muted line, and the one action. */
+export function ItemHead({ tile, name, line, children }: { tile: ReactNode; name: string; line?: ReactNode; children?: ReactNode }) {
+  return (
+    // on a narrow phone the action drops under the name instead of squeezing it
+    <header className="flex flex-wrap items-center gap-x-4 gap-y-3 py-1">
+      {tile}
+      <div className="min-w-[9rem] flex-1">
+        <h1 className="truncate text-[24px] font-[650] leading-[30px] tracking-[-0.01em]">{name}</h1>
+        {line && <p className="truncate text-[14px] leading-[22px] text-muted">{line}</p>}
+      </div>
+      {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
+    </header>
+  );
+}
+
+/** A card of rows on an item's page. */
+export function Rows({ children }: { children: ReactNode }) {
+  return <div className="divide-y divide-line overflow-hidden rounded-[14px] bg-card">{children}</div>;
+}
+
+/**
+ * One row of a card: what it is on the left, its value in muted text on the right. With `onClick`
+ * (or `href`) it opens something and shows a chevron; `open` turns the chevron for a row that unfolds.
+ */
+export function FactRow({ label, value, onClick, href, need, open, wrap }: { label: string; value?: ReactNode; onClick?: () => void; href?: string; need?: boolean; open?: boolean; wrap?: boolean }) {
+  const cls = "flex min-h-[52px] w-full items-center gap-3 px-3.5 py-2 text-left text-[14px] leading-[22px]";
+  const inner = (
+    <>
+      <span className="shrink-0 font-medium">{label}</span>
+      <span className={cx("flex min-w-0 flex-1 items-center justify-end gap-2 text-muted", !wrap && "whitespace-nowrap")}>
+        {need && <NeedDot />}
+        <span className={cx("min-w-0 text-right", wrap ? "break-words" : "truncate")}>{value}</span>
+      </span>
+      {(onClick || href) && <ChevronRight size={15} aria-hidden className={cx("shrink-0 text-faint", open && "rotate-90")} />}
+    </>
+  );
+  if (href)
+    return (
+      <a href={href} className={cx(cls, "hover:bg-hover")}>
+        {inner}
+      </a>
+    );
+  if (onClick)
+    return (
+      <button type="button" onClick={onClick} aria-expanded={open} className={cx(cls, "hover:bg-hover")}>
+        {inner}
+      </button>
+    );
+  return <div className={cls}>{inner}</div>;
+}
+
+/** "Remove", set apart at the bottom of an item's page. */
+export function RemoveBtn({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" {...p} className={cx("inline-flex h-9 items-center rounded-full px-3.5 text-[14px] text-bad outline-none hover:bg-hover focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50", className)} />;
 }

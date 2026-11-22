@@ -1,19 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Plug, Plus, ShieldCheck, TriangleAlert, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { CONNECTOR_HELP, connectorUnsupportedReason, harnessSupportsConnectors, isMasked, SIGN_IN_PROVIDERS, trustLabel, type Agent, type CatalogConnector, type CatalogField, type Connector, type ConnectorKind, type MarketplaceEntry, type MarketplaceInstall } from "@wisp/core";
 import { api } from "../api.ts";
-import { MoreOptions } from "../components/MoreOptions.tsx";
-import { AreaBox, Circle, Dlg, Item, Label, Labeled, Panel, Prim, Sec, Seg, TextBox, Tile } from "../components/MarketParts.tsx";
+import { AreaBox, Circle, Dlg, Label, Labeled, Prim, Seg, TextBox } from "../components/MarketParts.tsx";
 import { AgentPicker } from "../components/ShopParts.tsx";
 import { useDevices, type DeviceInfo } from "../devices.ts";
 
-
-/** Which harnesses a kind of connector reaches today, in words. */
-function worksWith(kind: ConnectorKind): string {
-  if (kind === "mcp-http") return "Works with Claude Code and Codex. Not wired yet for ACP agents (Gemini, OpenCode, Hermes…).";
-  if (kind === "mcp-stdio") return "Works with Claude Code, Codex, and ACP agents (Gemini, OpenCode, Hermes, Cursor…).";
-  return "Set in the environment of every agent Wisp runs: Claude Code, Codex and ACP agents.";
-}
 
 export interface ConnectSummary {
   /** what the helpers will be able to do */
@@ -34,7 +26,7 @@ function hostOf(url: string | undefined): string | null {
 }
 
 /**
- * "Before you connect": what helpers get and who runs the server, in plain words. Only says what
+ * What agents get and who runs the server, in plain words (an app's page, under More). Only says what
  * the entry itself tells us (its name, kind, publisher, domain and trust label); never invents
  * a list of permissions, since those are decided by the app and the account you sign in with.
  */
@@ -72,20 +64,6 @@ export function connectSummary(src: { builtIn: CatalogConnector } | { entry: Mar
     return { can, runBy: `Made and run by ${trust.text.replace(/^Made by /, "")} (${entry.domain ?? entry.publisher}), not by Wisp.`, caution: null };
   }
   return { can, runBy: `Run by ${who}, not by Wisp. The registry confirmed who they are; that doesn't mean ${name}'s own maker endorses it.`, caution: null };
-}
-
-/** "Before you connect": the summary as a card of rows. */
-export function BeforeYouConnect({ s }: { s: ConnectSummary }) {
-  return (
-    <section aria-label="Before you connect" className="space-y-2">
-      <Label>Before you connect</Label>
-      <Panel>
-        <Item icon={<Tile size={40}><Plug size={20} strokeWidth={1.7} /></Tile>} title="What agents can do" sub={<span className="whitespace-normal">{s.can}</span>} />
-        <Item icon={<Tile size={40}><ShieldCheck size={20} strokeWidth={1.7} /></Tile>} title="Who runs it" sub={<span className="whitespace-normal">{s.runBy}</span>} />
-        {s.caution && <Item icon={<Tile size={40}><TriangleAlert size={20} strokeWidth={1.7} className="text-warn" /></Tile>} title="Take care" sub={<span className="whitespace-normal text-warn">{s.caution}</span>} />}
-      </Panel>
-    </section>
-  );
 }
 
 /** A registry server in one of its install options, as something the form can fill in. */
@@ -146,10 +124,10 @@ export function connectorWhere(c: Connector): string {
 type Row = { key: string; value: string; saved?: string; field?: CatalogField };
 
 /**
- * Add your own app, set one up from the catalog, or edit one ("Connect any MCP server"). Asks for
- * the values it needs and which agents get it.
+ * Add your own app, set one up from the catalog, or edit one. Asks for the values it needs and
+ * which agents get it (every agent, unless that is switched off).
  */
-export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved, top, title: titleOverride, summary, presetEnv, presetAgents }: { entry?: CatalogConnector; existing?: Connector; agents: Agent[]; taken: string[]; onClose: () => void; onSaved: (c?: Connector) => void; top?: ReactNode; title?: string; summary?: ConnectSummary; presetEnv?: Record<string, string>; presetAgents?: string[] }) {
+export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved, top, title: titleOverride, presetEnv, presetAgents }: { entry?: CatalogConnector; existing?: Connector; agents: Agent[]; taken: string[]; onClose: () => void; onSaved: (c?: Connector) => void; top?: ReactNode; title?: string; presetEnv?: Record<string, string>; presetAgents?: string[] }) {
   const [kind, setKind] = useState<ConnectorKind>(existing?.kind ?? entry?.kind ?? "mcp-http");
   const [name, setName] = useState(existing?.name ?? entry?.name ?? "");
   const [command, setCommand] = useState(existing?.command ?? entry?.command ?? "");
@@ -172,7 +150,7 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
     return all.length || entry ? all : [{ key: "", value: "" }];
   });
   const [agentIds, setAgentIds] = useState<string[]>(existing?.agentIds ?? presetAgents ?? (agents.length === 1 && harnessSupportsConnectors(agents[0].harness, existing?.kind ?? entry?.kind ?? "mcp-stdio") ? [agents[0].id] : []));
-  const [allAgents, setAllAgents] = useState(existing?.allAgents ?? false);
+  const [allAgents, setAllAgents] = useState(existing?.allAgents ?? !presetAgents);
   // a different kind (custom form) can rule out agents that were ticked
   useEffect(() => {
     if (existing) return;
@@ -234,11 +212,10 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
 
   const setRow = (i: number, patch: Partial<Row>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const title = titleOverride ?? (existing ? `Edit ${existing.name}` : entry ? `Connect ${entry.name}` : "Add your own app");
-  const sub = custom && !existing ? "Connect any MCP server" : undefined;
   const saveLabel = existing ? "Save" : custom ? "Save app" : "Add";
 
   return (
-    <Dlg title={title} sub={sub} onClose={onClose} wide>
+    <Dlg title={title} onClose={onClose} wide>
       <form
         className="space-y-5"
         onSubmit={(e) => {
@@ -261,7 +238,7 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
           />
         )}
 
-        <Labeled label="Name" hint={nameTaken ? <span className="text-bad">You already have an app with this name.</span> : "Agents see its tools under this name."}>
+        <Labeled label="Name" hint={nameTaken ? <span className="text-bad">You already have an app with this name.</span> : undefined}>
           {(id) => <TextBox id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required />}
         </Labeled>
 
@@ -296,7 +273,7 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
 
         {(rows.length > 0 || kind === "secret" || custom) && (
           <div className="space-y-3">
-            <Label>{kind === "secret" ? "Values" : entry?.fields.length ? "What it needs" : "Variables"}</Label>
+            {rows.some((r) => !r.field) && <Label>{kind === "secret" ? "Values" : "Variables"}</Label>}
             {rows.map((r, i) =>
               r.field ? (
                 <Labeled
@@ -334,19 +311,15 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
         )}
 
         <div className="space-y-2">
-          <Label>Which agents get it</Label>
+          <Label>Who can use it</Label>
           <AgentPicker agents={agents} value={agentIds} onChange={setAgentIds} note={agentNote(kind, command, devices)} unavailable={(a) => !harnessSupportsConnectors(a.harness, kind)} allAgents={{ on: allAgents, onChange: setAllAgents }} />
         </div>
-        <MoreOptions about="what it works with">
-          <p className="text-xs text-muted">{worksWith(kind)}</p>
-        </MoreOptions>
         {cantStart.map((w) => (
           <p key={w} role="alert" className="rounded-2xl border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-            {w} You can still connect it; it starts working once the command is there.
+            {w}
           </p>
         ))}
 
-        {summary && <BeforeYouConnect s={summary} />}
         {error && <p className="text-sm text-bad">{error}</p>}
         {blocked && (
           <p role="status" className="text-sm text-warn">
@@ -354,7 +327,6 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
           </p>
         )}
         <div className="flex justify-end gap-2 pt-1">
-          <Sec onClick={onClose}>Cancel</Sec>
           <Prim type="submit" className="h-11 text-body" disabled={busy || !name.trim() || nameTaken || missing.length > 0 || blocked} title={blocked ? CONNECTOR_HELP : missing.length ? `Needs: ${missing.join(", ")}` : undefined}>
             {saveLabel}
           </Prim>

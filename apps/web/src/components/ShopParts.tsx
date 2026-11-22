@@ -45,7 +45,7 @@ import {
 } from "lucide-react";
 import type { Agent } from "@wisp/core";
 import { AgentAvatar, harnessLabel } from "./ui.tsx";
-import { Item, Panel, Switch, Tile } from "./MarketParts.tsx";
+import { Dlg, Item, Panel, Switch, Tile } from "./MarketParts.tsx";
 
 /** Icons the connector and skill catalogs name. */
 const ICONS: Record<string, LucideIcon> = {
@@ -76,7 +76,7 @@ export function AgentPicker({ agents, value, onChange, note, disabled, unavailab
     </Panel>
   );
   if (allAgents?.on) return <div className="space-y-1.5">{allRow}</div>;
-  if (!agents.length) return allRow ? <div className="space-y-1.5">{allRow}</div> : <p className="text-sm text-muted">No agents yet. Add one from the Agents page first.</p>;
+  if (!agents.length) return allRow ? <div className="space-y-1.5">{allRow}</div> : <p className="text-sm text-muted">No agents yet.</p>;
   // agents that can't take part can't be picked; "all" means all of the rest
   const pickable = unavailable ? agents.filter((a) => !unavailable(a)) : agents;
   const all = pickable.length > 0 && pickable.every((a) => value.includes(a.id));
@@ -113,6 +113,26 @@ export function AgentPicker({ agents, value, onChange, note, disabled, unavailab
         })}
       </Panel>
     </div>
+  );
+}
+
+/** Who has something, in a word or two: "All agents", "Nova", "3 agents", "No one yet". */
+export function whoLine(x: { allAgents?: boolean; agentIds: string[] }, agents: Pick<Agent, "id" | "name">[]): string {
+  if (x.allAgents) return "All agents";
+  const names = x.agentIds.map((id) => agents.find((a) => a.id === id)?.name).filter((n): n is string => !!n);
+  return names.length === 0 ? "No one yet" : names.length === 1 ? names[0] : `${names.length} agents`;
+}
+
+/**
+ * "Who can use it", opened from an item's page: all agents (the default), or the ones switched on.
+ * Each change is saved as it is made.
+ */
+export function WhoCanUse({ agents, allAgents, agentIds, onAll, onPick, note, disabled, error, onClose }: { agents: Agent[]; allAgents: boolean; agentIds: string[]; onAll: (on: boolean) => void; onPick: (ids: string[]) => void; note?: (a: Agent) => string | null; disabled?: boolean; error?: string | null; onClose: () => void }) {
+  return (
+    <Dlg title="Who can use it" onClose={onClose}>
+      <AgentPicker agents={agents} value={agentIds} onChange={onPick} note={note} disabled={disabled} allAgents={{ on: allAgents, onChange: onAll }} />
+      {error && <p className="px-1 text-sm text-bad">{error}</p>}
+    </Dlg>
   );
 }
 
