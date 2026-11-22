@@ -57,6 +57,7 @@ export function TerminalPane({
   launch,
   label,
   fixes,
+  bare,
 }: {
   target: ShellTarget;
   session: string;
@@ -74,6 +75,8 @@ export function TerminalPane({
   label?: string;
   /** things to do instead when the terminal can't start (shown beside Try again) */
   fixes?: { label: string; onClick: () => void }[];
+  /** the only terminal on the page: no header row or frame of its own (the page's row names the computer), just a small close button */
+  bare?: boolean;
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const term = useRef<Terminal | null>(null);
@@ -245,8 +248,14 @@ export function TerminalPane({
   return (
     <section
       onMouseDown={onFocus}
-      className={cx("m-pane relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[10px] border bg-[#0c0c0e]", focused ? "border-white/20" : "border-white/[.08]")}
+      aria-label={bare ? `${title ?? target.name}, ${label ?? session}` : undefined}
+      className={cx("m-pane relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#0c0c0e]", !bare && "rounded-[10px] border", !bare && (focused ? "border-white/20" : "border-white/[.08]"))}
     >
+      {bare ? (
+        <button type="button" onClick={close} aria-label="Close terminal" title="Close (ends the shell)" className="absolute right-1.5 top-1.5 z-10 grid h-7 w-7 place-items-center rounded-md text-[#6b6b75] transition-colors hover:bg-white/[.08] hover:text-[#f2f2f4]">
+          <X size={14} strokeWidth={2} />
+        </button>
+      ) : (
       <header className="flex h-9 shrink-0 items-center gap-2 border-b border-white/[.06] px-3 text-[12.5px] text-[#a1a1aa]">
         <span className="h-1.5 w-1.5 shrink-0 rounded-full transition-colors" style={{ background: dot }} />
         <span className="truncate font-medium text-[#f2f2f4]">{title ?? target.name}</span>
@@ -262,6 +271,7 @@ export function TerminalPane({
           </button>
         )}
       </header>
+      )}
       <div className="relative min-h-0 flex-1 px-2 pt-1.5">
         <div ref={holder} className="h-full w-full" />
         {status.state !== "live" && <Overlay status={status} target={target} onCode={submitCode} fixes={fixes} onRetry={() => setAttempt((n) => n + 1)} />}

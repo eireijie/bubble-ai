@@ -5,15 +5,17 @@ import { api } from "../api.ts";
 import { useStore, type ChannelInfo } from "../store.ts";
 import { Button, Modal } from "../components/ui.tsx";
 import { TeamBuilder } from "./Builder.tsx";
-import { prepareTeam, withChart } from "./flow.ts";
+import { addStep, prepareTeam, withChart, type AddKind } from "./flow.ts";
 
 /** Editing how an existing team works: the builder over the team's own steps, saved to its channel. */
-export function TeamEditSession({ channel, onClose }: { channel: ChannelInfo; onClose: () => void }) {
+export function TeamEditSession({ channel, onClose, select = null, add = null }: { channel: ChannelInfo; onClose: () => void; /** open with this step's sheet showing */ select?: string | null; /** open with a new step of this kind added and picked (a schedule, from the team panel) */ add?: AddKind | null }) {
   const refreshChannels = useStore((s) => s.refreshChannels);
   const live = useStore((s) => s.channels.find((c) => c.id === channel.id)) ?? channel;
   const agents = useStore((s) => s.agents);
   const [original] = useState(() => prepareTeam(live.settings.team, new Set(agents.map((a) => a.id))));
-  const [team, setTeam] = useState(original);
+  // a step asked for on the way in is added to the copy being edited, so leaving without Done drops it again
+  const [started] = useState(() => (add ? addStep(original, add, {}, agents) : null));
+  const [team, setTeam] = useState(started?.team ?? original);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [discarding, setDiscarding] = useState(false);
@@ -54,12 +56,11 @@ export function TeamEditSession({ channel, onClose }: { channel: ChannelInfo; on
 
   return (
     <>
-      <TeamBuilder team={team} onChange={setTeam} name={live.name} channelId={channel.id} saving={busy} error={error} onBack={() => (changed ? setDiscarding(true) : onClose())} onDone={() => void save()} />
+      <TeamBuilder team={team} onChange={setTeam} name={live.name} channelId={channel.id} saving={busy} error={error} select={started?.id ?? select} onBack={() => (changed ? setDiscarding(true) : onClose())} onDone={() => void save()} />
       {discarding &&
         createPortal(
-        <Modal title="Leave without saving?" onClose={() => setDiscarding(false)}>
-          <p className="text-sm text-muted">The changes you made to how {live.name} works will be lost.</p>
-          <div className="mt-4 flex flex-col gap-2">
+        <Modal title="Discard changes?" onClose={() => setDiscarding(false)}>
+          <div className="flex flex-col gap-2">
             <Button type="button" variant="primary" onClick={() => setDiscarding(false)} className="h-11">
               Keep editing
             </Button>

@@ -2,32 +2,40 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useOverlay } from "../overlays.ts";
 import { builderCovered } from "./escape.ts";
-import { AlertCircle, ChevronDown, ChevronLeft, Loader2, MoreHorizontal, Plus, Workflow, X } from "lucide-react";
-import { stepOrder, type ChannelTeam, type TeamTemplate } from "@wisp/core";
+import { ArrowUp, ChevronLeft, Loader2, MoreHorizontal, Plus, X } from "lucide-react";
+import { TEAM_TEMPLATES, type ChannelTeam, type TeamDraft, type TeamTemplate } from "@wisp/core";
 import { api } from "../api.ts";
+import { inkOn } from "../chatTint.ts";
 import { useStore } from "../store.ts";
-import { Button, Menu, Modal, cx } from "../components/ui.tsx";
-import { StepCanvas, kindsFor } from "./Canvas.tsx";
-import { HowPage } from "./How.tsx";
+import { AgentAvatar, Button, Menu, Modal, agentColor, cx } from "../components/ui.tsx";
+import { StepCanvas } from "./Canvas.tsx";
+import { useFlowLines } from "./How.tsx";
 import { AddStepSheet, PhoneFlow, ReorderSheet } from "./Phone.tsx";
+import { useRunningSteps } from "./Runs.tsx";
 import { StepForm, stepHeading } from "./StepForm.tsx";
 import { TemplateBrowser } from "./Templates.tsx";
-import { KindIcon, TeamGhosts, useIsPhone } from "./parts.tsx";
+import { useIsPhone } from "./parts.tsx";
 import { CreateAgentContext, NewAgentForTeam } from "./NewAgent.tsx";
-import { addStep, fillTemplate, relayout, removingStep, isStepDeleteKey, stepById, stepNeedsConfirm, stepProblems, teamAgentIds, updating, withChart, type AddAt, type AddKind } from "./flow.ts";
-
-type Tab = "canvas" | "how";
+import { addStep, changeRequest, fillTemplate, leadOf, relayout, removingStep, isStepDeleteKey, stepById, stepNeedsConfirm, stepProblems, teamFromSteps, updating, withChart, type AddAt, type AddKind } from "./flow.ts";
 
 export interface BuilderProps {
   team: ChannelTeam;
   onChange: (team: ChannelTeam) => void;
   name: string;
-  /** the team's channel once it exists (to save it as a template, and to leave it out of the hand-off list) */
+  /** the team's channel once it exists (to save it as a template, to leave it out of the hand-off list, and to light up the step a request is on) */
   channelId?: string;
   saving?: boolean;
   /** what the hub said when saving didn't work */
   error?: string | null;
   doneLabel?: string;
+  /** Done works with no steps at all (a new team whose agents were picked by name) */
+  allowEmpty?: boolean;
+  /** why Done can't be pressed yet, beyond what the steps themselves need (a new team with too few agents) */
+  blocked?: string | null;
+  /** open with this step's sheet showing */
+  select?: string | null;
+  /** who the field at the bottom talks to while the steps name nobody */
+  leadId?: string | null;
   onBack: () => void;
   onDone: () => void;
 }
@@ -35,32 +43,22 @@ export interface BuilderProps {
 /** The steps as a shape (who leads to whom), so the chart is laid out again only when that changes. */
 const shape = (t: ChannelTeam) => JSON.stringify((t.steps ?? []).map((s) => [s.id, s.inputs, s.nexts, s.ifTrue, s.ifFalse]));
 
-const TOOLBAR: { kind: AddKind; label: string }[] = [
-  { kind: "schedule", label: "Schedule" },
-  { kind: "agent", label: "Agent" },
-  { kind: "beside", label: "Side by side" },
-  { kind: "review", label: "Repeat" },
-  { kind: "ask", label: "Ask me" },
-  { kind: "handoff", label: "Hand off" },
-  { kind: "branch", label: "If / else" },
-  { kind: "custom", label: "Custom" },
-  { kind: "handOut", label: "Split" },
-];
-const iconKind = (k: AddKind) => (k === "agent" ? "do" : k === "handOut" ? "hand_out" : k);
+/** Three ways a team can work, said in a few words: a start for the field at the bottom while the chart is empty. */
+const TRIES = ["One builds, one reviews", "Research, then I approve", "Triage, reply, check"];
 
 /**
- * The flowchart builder. On a desktop: a pan and zoom canvas with a box for every step, arrows
- * with a + on them, a toolbar of step types, and a panel to edit the picked step. At phone width:
- * a vertical flow with steps that run together side by side, and sheets to edit them.
+ * The team builder: a window of its own over the whole app. Back, the team's name and Done; the
+ * steps as cards joined by arrows (a + on each arrow adds one); a step's sheet at the right when
+ * one is picked; and one field at the bottom to tell the lead how the team should work. At phone
+ * width the steps run top to bottom and a step opens as a sheet.
  */
-export function TeamBuilder({ team, onChange, name, channelId, saving = false, error = null, doneLabel = "Save", onBack, onDone }: BuilderProps) {
+export function TeamBuilder({ team, onChange, name, channelId, saving = false, error = null, doneLabel = "Done", allowEmpty = false, blocked = null, select = null, leadId = null, onBack, onDone }: BuilderProps) {
   const phone = useIsPhone();
   const overlayId = useRef(Symbol("builder")).current;
   useOverlay(overlayId, "builder");
   const agents = useStore((s) => s.agents);
-  const [tab, setTab] = useState<Tab>("canvas");
-  const [sel, setSel] = useState<string | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
+  const [sel, setSel] = useState<string | null>(phone ? null : select);
+  const [editing, setEditing] = useState<string | null>(phone ? select : null);
   const [adding, setAdding] = useState<AddAt | null>(null);
   const [reordering, setReordering] = useState(false);
   const [templates, setTemplates] = useState(false);
@@ -70,10 +68,12 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
   const [holding, setHolding] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const manual = useRef(new Set<string>());
+  const working = useRunningSteps(channelId);
 
   const steps = team.steps ?? [];
   const problems = useMemo(() => stepProblems(team), [team]);
-  const ready = steps.length > 0 && problems.lines.length === 0;
+  const problem = steps.length ? (problems.lines[0] ?? blocked) : allowEmpty ? blocked : "Add a step first";
+  const ready = !problem;
 
   // steps that were never laid out (an agent drew them, or an older chart) get a place on the chart
   useEffect(() => {
@@ -118,7 +118,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
   // Delete or Backspace takes off the picked step (on a desktop, when not typing in a field)
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
   keyRef.current = (e) => {
-    if (phone || tab !== "canvas") return;
+    if (phone) return;
     if (!isStepDeleteKey(e, sel && stepById(team, sel) ? sel : null, builderCovered())) return;
     e.preventDefault();
     askRemove(sel!);
@@ -143,138 +143,98 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
     setFitKey((k) => k + 1);
   };
 
-  const last = stepOrder(steps).at(-1)?.id ?? null;
-  const anchor = sel && stepById(team, sel) ? sel : last;
-  const banner = (problems.lines.length > 0 || error) && steps.length > 0 && (
-    <div role="alert" aria-label="Problems" className="w-full rounded-xl bg-bad/15 p-4 text-left">
-      <div className="flex items-center gap-2 text-body font-medium text-bad">
-        <AlertCircle size={17} aria-hidden />
-        {error ? "Couldn't save" : `${problems.lines.length} ${problems.lines.length === 1 ? "thing" : "things"} to fix`}
-      </div>
-      <ul className="mt-1.5 space-y-0.5 text-[14px]">
-        {(error ? [error] : problems.lines).map((l) => (
-          <li key={l}>{l}</li>
-        ))}
-      </ul>
-    </div>
-  );
-
-  // the builder opens beside the docked sidebar, wherever its edge was left, so no clipped sliver of it shows
-  const [sideEdge, setSideEdge] = useState(() => (typeof document === "undefined" ? 0 : Math.round(document.querySelector("nav.side")?.getBoundingClientRect().right ?? 0)));
+  // --- "Tell {lead} how the team should work": an agent draws the steps from a sentence -----------
+  const [leadPick, setLeadPick] = useState<string | null>(null);
+  const [workspaceLead, setWorkspaceLead] = useState<string | null>(null);
   useEffect(() => {
-    const nav = document.querySelector("nav.side");
-    if (!nav) return;
-    const measure = () => setSideEdge(Math.round(nav.getBoundingClientRect().right));
-    measure();
-    // dragged, collapsed or expanded while the builder is open: follow it
-    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
-    watch?.observe(nav);
-    window.addEventListener("resize", measure);
-    return () => {
-      watch?.disconnect();
-      window.removeEventListener("resize", measure);
-    };
+    api<{ lead: string | null }>("GET", "/api/settings/lead")
+      .then((r) => setWorkspaceLead(r.lead))
+      .catch(() => {});
   }, []);
+  const lead = agents.find((a) => a.id === (leadPick ?? leadOf(team, agents, leadId ?? workspaceLead)));
+  const lines = useFlowLines(team);
+  const [text, setText] = useState("");
+  const [drawing, setDrawing] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const token = useRef(0);
+  useEffect(() => () => void (token.current += 1), []);
+  const latest = useRef(team);
+  latest.current = team;
+
+  const tell = async () => {
+    const ask = text.trim();
+    if (!ask || !lead || drawing) return;
+    const mine = ++token.current;
+    setDrawing(true);
+    setFailure(null);
+    try {
+      let d = await api<TeamDraft>("POST", "/api/team-drafts", { description: changeRequest(ask, lines), agentId: lead.id });
+      while (d.status === "working") {
+        await new Promise((r) => setTimeout(r, 1500));
+        if (mine !== token.current) return;
+        d = await api<TeamDraft>("GET", `/api/team-drafts/${d.id}`);
+      }
+      if (mine !== token.current) return;
+      if (d.status === "ready" && d.steps?.length) {
+        manual.current.clear();
+        onChange(teamFromSteps(d.steps, latest.current));
+        setSel(null);
+        setEditing(null);
+        setText("");
+        setFitKey((k) => k + 1);
+      } else setFailure(d.problem ?? "Try saying it another way.");
+    } catch (e) {
+      if (mine === token.current) setFailure((e as Error).message);
+    } finally {
+      if (mine === token.current) setDrawing(false);
+    }
+  };
+
+  const banner = (error || (problems.lines.length > 0 && steps.length > 0)) && (
+    <p role="alert" aria-label="Problems" className="mx-auto w-fit max-w-full rounded-full bg-bad/12 px-3.5 py-1.5 text-center text-[13px] text-bad">
+      {error ?? problems.lines[0]}
+      {!error && problems.lines.length > 1 && ` (and ${problems.lines.length - 1} more)`}
+    </p>
+  );
 
   const menu = (
     <Menu
       align="right"
       trigger={(isOpen, toggle) => (
-        <button type="button" onClick={toggle} aria-expanded={isOpen} aria-haspopup="menu" aria-label="More" className="circle circle-sm">
+        <button type="button" onClick={toggle} aria-expanded={isOpen} aria-haspopup="menu" aria-label="More" className="circle circle-sm shrink-0">
           <MoreHorizontal size={18} />
         </button>
       )}
       items={[
-        { label: "Start from a template", onSelect: () => setTemplates(true) },
-        ...(phone ? [{ label: "Reorder steps", onSelect: () => setReordering(true) }] : [{ label: "Tidy up", onSelect: tidy }]),
+        { label: "Templates", onSelect: () => setTemplates(true) },
+        ...(phone ? (steps.length > 1 ? [{ label: "Reorder steps", onSelect: () => setReordering(true) }] : []) : [{ label: "Tidy up", onSelect: tidy }]),
         ...(channelId ? [{ label: "Save as template", onSelect: () => setNaming(true) }] : []),
       ]}
     />
   );
 
-  const tabs = (
-    <div role="tablist" aria-label="View" className="glass flex h-[42px] items-center rounded-full p-[3px] text-[14px]">
-      {(["canvas", "how"] as const).map((t) => (
-        <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cx("h-9 rounded-full px-4 font-medium", tab === t ? "bg-chip text-ink" : "text-muted hover:text-ink")}>
-          {t === "canvas" ? (phone ? "Steps" : "Canvas") : "How it works"}
-        </button>
-      ))}
-    </div>
-  );
-
-  const saveButton = (
-    <Button type="button" variant="primary" onClick={onDone} disabled={!ready || saving} title={!ready ? (problems.lines[0] ?? "Add a step first") : undefined} className="h-[42px] px-5 text-body">
-      {saving ? "Saving" : doneLabel}
-    </Button>
-  );
-
   const selected = sel ? stepById(team, sel) : undefined;
   const form = (id: string) => <StepForm team={team} stepId={id} onChange={commit} onDelete={() => askRemove(id)} channelId={channelId} />;
+  const empty = <EmptyState onAdd={() => (phone ? setAdding({}) : add("agent", {}))} onTemplates={() => setTemplates(true)} onTemplate={useTemplate} />;
 
   return createPortal(
     <CreateAgentContext.Provider value={(done) => setNewAgent(() => done)}>
-    <div role="dialog" data-team-builder aria-label={`How ${name} works`} style={{ "--builder-left": `${sideEdge}px` } as React.CSSProperties} className="fixed inset-0 z-50 flex flex-col bg-panel text-ink md:left-[var(--builder-left)]">
-      <header className="flex h-[72px] shrink-0 items-center gap-3 px-4 md:px-6">
-        <div className="flex min-w-0 flex-1 basis-0 items-center gap-3">
-          <button type="button" onClick={onBack} aria-label="Back" className="circle circle-sm shrink-0">
-            <ChevronLeft size={19} />
-          </button>
-          {!phone && (
-            <>
-              <TeamGhosts agentIds={teamAgentIds(team)} size={34} />
-              <div className="min-w-0">
-                <div className="truncate text-body font-medium leading-tight">{name}</div>
-                <div className="text-[13px] text-muted">How the team works</div>
-              </div>
-            </>
-          )}
-        </div>
-        {tabs}
-        <div className="flex flex-1 basis-0 items-center justify-end gap-2.5">
-          {!phone && menu}
-          {phone ? (
-            <button type="button" onClick={onDone} disabled={!ready || saving} aria-label={doneLabel} title={!ready ? (problems.lines[0] ?? "Add a step first") : undefined} className="circle circle-sm shrink-0 disabled:opacity-40">
-              {saving ? <Loader2 size={17} className="animate-spin" /> : <CheckIcon />}
-            </button>
-          ) : (
-            saveButton
-          )}
-        </div>
+    <div role="dialog" data-team-builder aria-label={`How ${name} works`} className="fixed inset-0 z-50 flex flex-col bg-panel text-ink safe-top">
+      <header className="flex h-[60px] shrink-0 items-center gap-2 px-3 md:px-4">
+        <button type="button" onClick={onBack} aria-label="Back" className="circle circle-sm shrink-0">
+          <ChevronLeft size={19} />
+        </button>
+        <h1 className={cx("min-w-0 flex-1 truncate text-[15px] font-semibold", phone ? "text-center" : "pl-1")}>{name}</h1>
+        {menu}
+        <Button type="button" variant="primary" onClick={onDone} disabled={!ready || saving || drawing} title={problem ?? undefined} className="shrink-0 px-4">
+          {saving ? <Loader2 size={15} className="animate-spin" aria-label="Saving" /> : doneLabel}
+        </Button>
       </header>
 
-      {phone && (
-        <div className="flex shrink-0 items-center justify-between px-7 pb-1">
-          <span className="truncate text-body text-muted">{name}</span>
-          {steps.length > 0 && (
-            <Menu
-              align="right"
-              trigger={(isOpen, toggle) => (
-                <button type="button" onClick={toggle} aria-expanded={isOpen} aria-haspopup="menu" className="inline-flex min-h-11 items-center gap-1 text-body text-muted">
-                  {steps.length} {steps.length === 1 ? "step" : "steps"} <ChevronDown size={13} />
-                </button>
-              )}
-              items={[
-                { label: "Reorder steps", onSelect: () => setReordering(true) },
-                { label: "Start from a template", onSelect: () => setTemplates(true) },
-                ...(channelId ? [{ label: "Save as template", onSelect: () => setNaming(true) }] : []),
-              ]}
-            />
-          )}
-        </div>
-      )}
-
       <div className="relative flex min-h-0 flex-1">
-        {tab === "how" ? (
+        {phone ? (
           <div className="min-w-0 flex-1 overflow-y-auto">
-            <HowPage team={team} name={name} wide={!phone} onEdit={() => setTab("canvas")} />
-          </div>
-        ) : phone ? (
-          <div className="min-w-0 flex-1 overflow-y-auto">
-            {steps.length === 0 ? (
-              <EmptyState onAdd={() => setAdding({})} onTemplates={() => setTemplates(true)} />
-            ) : (
-              <PhoneFlow team={team} problems={problems.byStep} banner={banner ? <div className="mb-4 w-full">{banner}</div> : null} onOpen={open} onHold={setHolding} onAdd={setAdding} />
-            )}
+            {steps.length === 0 ? <div className="relative h-full">{empty}</div> : <PhoneFlow team={team} problems={problems.byStep} working={working} banner={banner ? <div className="mb-4 w-full">{banner}</div> : null} onOpen={open} onHold={setHolding} onAdd={setAdding} />}
           </div>
         ) : (
           <>
@@ -284,6 +244,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
                 selected={sel}
                 problems={problems.byStep}
                 fitKey={fitKey}
+                working={working}
                 onSelect={setSel}
                 onDelete={askRemove}
                 onMove={(id, pos) => {
@@ -291,48 +252,88 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
                   onChange(updating(team, id, pos));
                 }}
                 onAdd={add}
-                empty={steps.length === 0 ? <EmptyState onAdd={() => add("agent", {})} onTemplates={() => setTemplates(true)} /> : null}
+                empty={steps.length === 0 ? empty : null}
               />
-              {banner && <div className="absolute left-1/2 top-4 z-10 w-[560px] max-w-[calc(100%-22rem)] -translate-x-1/2">{banner}</div>}
-              <div data-ui role="toolbar" aria-label="Add a step" className="glass absolute bottom-6 left-1/2 z-10 flex max-w-[calc(100%-2rem)] -translate-x-1/2 gap-0.5 overflow-x-auto rounded-3xl p-2">
-                {TOOLBAR.map((b) => {
-                  const ok = kindsFor(steps.length === 0, { after: anchor }).includes(b.kind);
-                  return (
-                    <button key={b.kind} type="button" disabled={!ok} title={ok ? undefined : "Add a first step before this one"} onClick={() => add(b.kind, { after: anchor })} className="flex h-14 w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl text-[12px] font-medium text-ink/85 hover:bg-hover disabled:opacity-35 disabled:hover:bg-transparent">
-                      <KindIcon kind={iconKind(b.kind)} size={19} />
-                      {b.label}
-                    </button>
-                  );
-                })}
-              </div>
+              {banner && <div className="pointer-events-none absolute inset-x-4 top-3 z-10">{banner}</div>}
             </div>
-            <aside aria-label={selected ? "Step" : "Step panel"} className="flex w-[360px] shrink-0 flex-col border-l border-line bg-panel">
-              <div className="flex h-[60px] shrink-0 items-center justify-between px-5">
-                <h2 className="text-body font-semibold">{selected ? stepHeading(team, selected) : steps.length ? "No step picked" : "No steps yet"}</h2>
-                {selected && (
-                  <button type="button" onClick={() => setSel(null)} aria-label="Close" className="circle circle-sm">
+            {selected && (
+              <aside aria-label="Step" className="m-details flex w-[360px] shrink-0 flex-col overflow-hidden border-l border-line bg-panel">
+                <div className="flex h-14 w-[360px] shrink-0 items-center justify-between gap-2 px-4">
+                  <h2 className="min-w-0 truncate text-[15px] font-semibold">{stepHeading(team, selected)}</h2>
+                  <button type="button" onClick={() => setSel(null)} aria-label="Close" className="circle circle-sm shrink-0">
                     <X size={16} />
                   </button>
-                )}
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6" data-scroll>
-                {selected ? form(selected.id) : <p className="text-sm text-muted">{steps.length ? "Pick a step to edit it." : "Steps you add show up here to edit."}</p>}
-              </div>
-            </aside>
+                </div>
+                <div className="min-h-0 w-[360px] flex-1 overflow-y-auto px-4 pb-6" data-scroll>
+                  {form(selected.id)}
+                </div>
+              </aside>
+            )}
           </>
         )}
-        {saving && (
-          <div className="absolute inset-0 z-30 grid place-items-center bg-panel/55" role="status">
-            <div className="flex w-[300px] items-center gap-3 rounded-3xl border border-line bg-card p-5 shadow-panel">
-              <Loader2 size={22} className="animate-spin text-muted" />
-              <div>
-                <div className="text-body font-medium">Saving</div>
-                <div className="text-sm text-muted">Telling the team how it works</div>
+        {(saving || drawing) && (
+          <div className="absolute inset-0 z-30 grid place-items-center bg-panel/60" role="status">
+            {drawing && lead ? (
+              <div className="flex flex-col items-center gap-2">
+                <AgentAvatar agent={{ ...lead, status: "busy" }} size={56} live />
+                <span className="text-[14px] text-muted">{lead.name} is drawing</span>
               </div>
-            </div>
+            ) : (
+              <Loader2 size={22} className="animate-spin text-muted" aria-label="Saving" />
+            )}
           </div>
         )}
       </div>
+
+      <form
+        className="mx-auto w-full max-w-[592px] shrink-0 space-y-2 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void tell();
+        }}
+      >
+        {steps.length === 0 && lead && !drawing && (
+          <div className="flex flex-wrap justify-center gap-1.5" role="group" aria-label="Try">
+            {TRIES.map((t) => (
+              <button key={t} type="button" onClick={() => setText(t)} className="h-8 rounded-full border border-line px-3 text-[13px] text-muted hover:bg-hover hover:text-ink">
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
+        {failure && (
+          <p role="alert" className="text-center text-[13px] text-bad">
+            It couldn't draw that. {failure}
+          </p>
+        )}
+        <div className="flex h-[46px] items-center gap-1.5 rounded-[20px] border border-line bg-card pl-2 pr-1.5 focus-within:border-ring">
+          {lead && agents.length > 1 ? (
+            <Menu
+              up
+              trigger={(isOpen, toggle) => (
+                <button type="button" onClick={toggle} aria-expanded={isOpen} aria-haspopup="menu" aria-label={`${lead.name} builds it. Pick another agent`} className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <AgentAvatar agent={lead} size={30} interactive={false} />
+                </button>
+              )}
+              items={agents.map((a) => ({ label: a.name, icon: <AgentAvatar agent={a} size={18} interactive={false} />, onSelect: () => setLeadPick(a.id) }))}
+            />
+          ) : (
+            lead && <AgentAvatar agent={lead} size={30} interactive={false} />
+          )}
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            disabled={!lead || drawing}
+            maxLength={600}
+            placeholder={lead ? (phone ? `Tell ${lead.name} how it should work` : `Tell ${lead.name} how the team should work`) : "Add an agent first"}
+            aria-label={lead ? `Tell ${lead.name} how the team should work` : "Tell the lead how the team should work"}
+            className="h-full min-w-0 flex-1 bg-transparent px-1.5 text-[14px] outline-none placeholder:text-faint"
+          />
+          <button type="submit" disabled={!text.trim() || !lead || drawing} aria-label="Send" className="grid size-[34px] shrink-0 place-items-center rounded-full disabled:opacity-40" style={lead ? { background: agentColor(lead), color: inkOn(agentColor(lead)) } : { background: "var(--chip)" }}>
+            <ArrowUp size={16} strokeWidth={2.4} />
+          </button>
+        </div>
+      </form>
 
       {phone && editing && stepById(team, editing) && (
         <Modal title={stepHeading(team, stepById(team, editing)!)} onClose={() => setEditing(null)} label="Step">
@@ -366,7 +367,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
       )}
       {adding && <AddStepSheet team={team} at={adding} onPick={(kind, a) => add(kind, adding.between ? adding : { after: a })} onClose={() => setAdding(null)} />}
       {reordering && <ReorderSheet team={team} onChange={commit} onClose={() => setReordering(false)} />}
-      {templates && <TemplateBrowser title="Start from a template" onClose={() => setTemplates(false)} onUse={useTemplate} />}
+      {templates && <TemplateBrowser onClose={() => setTemplates(false)} onUse={useTemplate} />}
       {naming && channelId && <SaveTemplate channelId={channelId} onClose={() => setNaming(false)} />}
       {newAgent && (
         <NewAgentForTeam
@@ -383,30 +384,23 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </svg>
-  );
-}
-
-function EmptyState({ onAdd, onTemplates }: { onAdd: () => void; onTemplates: () => void }) {
+/** An empty chart: one plus for the first step, the first three ready-made teams by name, and the rest behind "Templates". */
+function EmptyState({ onAdd, onTemplates, onTemplate }: { onAdd: () => void; onTemplates: () => void; onTemplate: (t: TeamTemplate) => void }) {
   return (
     <div className="absolute inset-0 z-[5] grid place-items-center p-6 text-center" data-ui>
-      <div className="flex max-w-[420px] flex-col items-center gap-3">
-        <span className="grid size-[104px] place-items-center rounded-full border border-dashed border-input text-faint">
-          <Workflow size={40} strokeWidth={1.5} />
-        </span>
-        <h2 className="t-title">Add your first step</h2>
-        <p className="text-body text-muted">A step is an agent doing one thing. Add more and join them up.</p>
-        <div className="mt-2 flex flex-wrap justify-center gap-2.5">
-          <Button type="button" variant="primary" onClick={onAdd} className="h-[42px] px-5">
-            <Plus size={16} /> Add a step
-          </Button>
-          <Button type="button" onClick={onTemplates} className="h-[42px] px-5">
-            Browse templates
-          </Button>
+      <div className="flex max-w-[460px] flex-col items-center gap-4">
+        <button type="button" onClick={onAdd} aria-label="Add a step" className="grid size-12 place-items-center rounded-full bg-accent text-accent-ink outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
+          <Plus size={20} strokeWidth={2.2} />
+        </button>
+        <div className="flex flex-wrap justify-center gap-1.5">
+          {TEAM_TEMPLATES.slice(0, 3).map((t) => (
+            <button key={t.id} type="button" onClick={() => onTemplate(t)} title={t.blurb} className="h-8 rounded-full border border-line bg-panel px-3 text-[13px] hover:bg-hover">
+              {t.name}
+            </button>
+          ))}
+          <button type="button" onClick={onTemplates} className="h-8 rounded-full px-2.5 text-[13px] text-muted hover:text-ink">
+            Templates
+          </button>
         </div>
       </div>
     </div>
@@ -414,7 +408,7 @@ function EmptyState({ onAdd, onTemplates }: { onAdd: () => void; onTemplates: ()
 }
 
 /** Save the team's steps as a template anyone here can start from (who does each step is left out). */
-function SaveTemplate({ channelId, onClose }: { channelId: string; onClose: () => void }) {
+export function SaveTemplate({ channelId, onClose }: { channelId: string; onClose: () => void }) {
   const [name, setName] = useState("");
   const [state, setState] = useState<"idle" | "saving" | string>("idle");
   return (
@@ -433,7 +427,7 @@ function SaveTemplate({ channelId, onClose }: { channelId: string; onClose: () =
         }}
       >
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Template name" maxLength={60} aria-label="Template name" autoFocus className="h-11 w-full rounded-2xl border border-input bg-transparent px-3.5 text-body outline-none focus:border-ring" />
-        <p className="text-xs text-muted">Anyone here can start a team from it. Who does each step is left out. It saves the steps as they are in the team now, not changes you haven't saved yet.</p>
+        <p className="text-xs text-muted">Who does each step is left out. Unsaved changes are not included.</p>
         {state !== "idle" && state !== "saving" && <p className="text-sm text-bad">{state}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" onClick={onClose}>
@@ -447,4 +441,3 @@ function SaveTemplate({ channelId, onClose }: { channelId: string; onClose: () =
     </Modal>
   );
 }
-

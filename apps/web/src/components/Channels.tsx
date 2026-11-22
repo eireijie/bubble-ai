@@ -1,22 +1,14 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { Archive, ArchiveRestore, Bell, BellOff, Bot, Check, Hash, Lock, LogOut, MoreHorizontal, Pencil, Pin, Plus, Search, Star, Trash2, UserPlus, Users, X } from "lucide-react";
-import { hasSteps, teamProblem, type Agent, type ChannelNotify, type ChannelTeam, type Section } from "@wisp/core";
-import { EMPTY_TEAM, TeamChart, TeamRules, addToTeam, liveTeam } from "./TeamChart.tsx";
-import { NewTeamFlow } from "../team/Create.tsx";
-import { HowLines } from "../team/How.tsx";
-import { useFlowLines } from "../team/How.tsx";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Hash, Lock, Plus, Search, UserPlus, X } from "lucide-react";
+import { teamProblem, type ChannelNotify, type ChannelTeam, type Section } from "@wisp/core";
+import { EMPTY_TEAM, TeamChart, addToTeam, liveTeam } from "./TeamChart.tsx";
+import { NewTeamFlow, teamSlug as slug } from "../team/Create.tsx";
 import { NewAgentForTeam } from "../team/NewAgent.tsx";
-import { TeamEditSession } from "../team/Session.tsx";
-import { withChart } from "../team/flow.ts";
-import { agentRulesOf, type AgentRules } from "./channel-rules.ts";
 import { api } from "../api.ts";
 import { useNames, useStore, type ChannelInfo } from "../store.ts";
-import { go, href } from "../router.ts";
-import { AgentAvatar, Button, Field, Input, Menu, Modal, Textarea, UserAvatar, cx } from "./ui.tsx";
-import { Toggle } from "../views/settings/parts.tsx";
-
-const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+import { go } from "../router.ts";
+import { AgentAvatar, Button, Field, Input, Modal, Textarea, UserAvatar, cx } from "./ui.tsx";
+import { TeamPanel, type TeamSheet } from "./TeamInfo.tsx";
 
 /** A channel's icon: a lock for a private one, a hash otherwise. */
 export function ChannelIcon({ channel, size = 14, className = "text-faint" }: { channel: Pick<ChannelInfo, "private">; size?: number; className?: string }) {
@@ -58,20 +50,6 @@ export const NOTIFY: Record<ChannelNotify, { label: string; body: string }> = {
   mute: { label: "Mute", body: "No unread badge and no notifications. Agents asking for your OK still reach you." },
 };
 
-/** "Who answers messages without an @mention?": one agent, or nobody (only @mentioned agents). */
-export function AnswerSelect({ agents, value, onChange, disabled }: { agents: Agent[]; value: string | null; onChange: (v: string | null) => void; disabled?: boolean }) {
-  return (
-    <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} disabled={disabled} className="h-9 w-full rounded-lg border border-line bg-panel px-2 text-sm" aria-label="Who answers messages without an @mention">
-      <option value="">Nobody: only agents someone @mentions</option>
-      {agents.map((a) => (
-        <option key={a.id} value={a.id}>
-          {a.name} (@{a.handle})
-        </option>
-      ))}
-    </select>
-  );
-}
-
 export { NewAgentForTeam };
 
 /** "Add a channel": one box to search, join, or create (Buzz-style). Creating is the New team flow (team/Create.tsx). */
@@ -106,7 +84,7 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
     go({ view: "chat", channelId: id, threadId: null });
   }
 
-  if (step === "about") return <NewTeamFlow onClose={onClose} sectionId={sectionId} onBrowse={() => setStep("browse")} SectionPick={SectionSelect} initialName={name} />;
+  if (step === "about") return <NewTeamFlow onClose={onClose} sectionId={sectionId} initialName={name} />;
 
   return (
     <Modal title="Add a team" onClose={onClose} wide>
@@ -168,20 +146,6 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
     </Modal>
   );
 }
-
-export function SectionSelect({ sections, value, onChange }: { sections: Section[]; value: string | null; onChange: (v: string | null) => void }) {
-  return (
-    <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} className="h-9 w-full rounded-lg border border-line bg-panel px-2 text-sm">
-      <option value="">No section</option>
-      {sections.map((s) => (
-        <option key={s.id} value={s.id}>
-          {s.emoji} {s.name}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 
 /** Create or rename a sidebar section. */
 export function SectionDialog({ section, onClose }: { section?: Section; onClose: () => void }) {
@@ -248,145 +212,27 @@ export async function leaveChannel(channel: ChannelInfo) {
   if (useStore.getState().activeChannel === channel.id) toGeneral();
 }
 
-/** A channel's settings: its name and topic; how agents behave in it; who's in it; pins; archiving and deleting. */
-export function ChannelSettings({ channel: initial, tab: initialTab = "about", onClose }: { channel: ChannelInfo; tab?: ChannelSettingsTab; onClose: () => void }) {
-  const role = useStore((s) => s.me?.role);
-  // follow the live channel, so pins and members update while the dialog is open
+/** Where each tab of the old settings dialog lives in the team panel now. */
+const SHEET_OF: Record<ChannelSettingsTab, TeamSheet> = { about: "details", team: "who", agents: "more", members: "who", pins: "pins", danger: "more" };
+
+/**
+ * A team's settings from outside its chat (a sidebar row's menu, "Add agent" in an empty team):
+ * the team panel itself, in a sheet. There is no second settings dialog: everything is in the
+ * panel's rows.
+ */
+export function ChannelSettings({ channel: initial, tab = "about", onClose }: { channel: ChannelInfo; tab?: ChannelSettingsTab; onClose: () => void }) {
+  // follow the live channel, so pins and members update while the sheet is open
   const channel = useStore((s) => s.channels.find((c) => c.id === initial.id)) ?? initial;
-  const canManage = role === "owner" || role === "member";
-  const canRemove = canManage;
-  const [tab, setTab] = useState<ChannelSettingsTab>(initialTab === "danger" && !canRemove ? "about" : initialTab);
-  // the team being edited lives here, so it survives a trip to the New agent dialog
-  const agents = useStore((s) => s.agents);
-  const [team, setTeam] = useState<ChannelTeam>(() => liveTeam(channel.settings.team, agents) ?? EMPTY_TEAM);
-  const [newAgent, setNewAgent] = useState<false | { roleId?: string }>(false);
-  const tabs: { id: ChannelSettingsTab; label: string }[] = [
-    { id: "about", label: "About" },
-    { id: "team", label: "Team" },
-    { id: "agents", label: "Agents" },
-    { id: "members", label: `Members · ${channel.memberCount}` },
-    { id: "pins", label: channel.pinnedIds.length ? `Pins · ${channel.pinnedIds.length}` : "Pins" },
-    ...(canRemove ? [{ id: "danger" as const, label: channel.archivedAt ? "Archived" : "Archive" }] : []),
-  ];
-  if (newAgent)
-    return (
-      <NewAgentForTeam
-        onClose={() => setNewAgent(false)}
-        onCreated={(a) => {
-          const roleId = newAgent.roleId;
-          setTeam((t) => (roleId ? withChart({ ...t, roles: (t.roles ?? []).map((r) => (r.id === roleId ? { ...r, agentId: a.id } : r)) }) : addToTeam(t, a.id)));
-          setNewAgent(false);
-        }}
-      />
-    );
   return (
-    <Modal
-      title={
-        <span className="flex items-center gap-1">
-          <ChannelIcon channel={channel} size={16} />
-          {channel.name}
-        </span>
-      }
-      label={`#${channel.name} settings`}
-      onClose={onClose}
-      wide
-      className={tab === "team" ? "sm:max-w-5xl!" : undefined}
-    >
-      <div className="flex gap-4 border-b border-line text-sm mb-4" role="tablist">
-        {tabs.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={cx("pb-2 -mb-px border-b-2", tab === t.id ? "border-ink text-ink font-medium" : "border-transparent text-muted hover:text-ink")}>
-            {t.label}
-          </button>
-        ))}
+    <Modal title={channel.name} label={`${channel.name} settings`} headerless onClose={onClose} className="sm:max-w-[360px]!" contentClassName="p-0!">
+      <div className="flex h-[min(640px,84vh)] flex-col">
+        <TeamPanel channel={channel} sheet={SHEET_OF[tab]} onClose={onClose} />
       </div>
-      {tab === "about" && <AboutChannel channel={channel} canManage={canManage} onClose={onClose} />}
-      {tab === "team" && <ChannelTeamTab channel={channel} team={team} onChange={setTeam} canManage={canManage && !channel.archivedAt} onCreateAgent={() => setNewAgent({})} onClose={onClose} />}
-      {tab === "agents" && <ChannelAgents channel={channel} canManage={canManage && !channel.archivedAt} onClose={onClose} />}
-      {tab === "members" && <ChannelMembers channel={channel} canManage={canManage} onClose={onClose} />}
-      {tab === "pins" && <ChannelPins channel={channel} onClose={onClose} />}
-      {tab === "danger" && <ArchiveOrDelete channel={channel} onClose={onClose} />}
     </Modal>
   );
 }
 
-export function AboutChannel({ channel, canManage, onClose }: { channel: ChannelInfo; canManage: boolean; onClose: () => void }) {
-  const sections = useStore((s) => s.sections);
-  const refreshChannels = useStore((s) => s.refreshChannels);
-  const [name, setName] = useState(channel.name);
-  const [topic, setTopic] = useState(channel.topic);
-  const [section, setSection] = useState<string | null>(channel.sectionId);
-  const [isPrivate, setPrivate] = useState(channel.private);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const changed = name !== channel.name || topic !== channel.topic || section !== channel.sectionId || isPrivate !== channel.private;
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setError(null);
-        setSaving(true);
-        try {
-          await api("PATCH", `/api/channels/${channel.id}`, { ...(name !== channel.name ? { name } : {}), topic, sectionId: section, ...(isPrivate !== channel.private ? { private: isPrivate } : {}) });
-          await refreshChannels();
-          onClose();
-        } catch (err) {
-          setError((err as Error).message);
-        } finally {
-          setSaving(false);
-        }
-      }}
-    >
-      <fieldset disabled={!canManage} className="space-y-4">
-      <Field label="Name" hint={channel.name === "general" ? "Everyone in the workspace lands in #general, so it keeps its name." : "Lowercase, no spaces. Links to the team keep working after a rename."}>
-        <div className="relative">
-          <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-          <Input value={name} onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, "-"))} required maxLength={80} className="pl-8" disabled={channel.name === "general"} />
-        </div>
-      </Field>
-      <Field label="Topic">
-        <Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="What's this team for?" maxLength={250} />
-      </Field>
-      <Field label="Sidebar section">
-        <SectionSelect sections={sections} value={section} onChange={setSection} />
-      </Field>
-      {!isProtected(channel) && (
-        <label className="flex items-center justify-between gap-3 text-sm">
-          <span>
-            <span className="font-medium flex items-center gap-1.5">
-              <Lock size={13} /> Private
-            </span>
-            <span className="block text-xs text-muted">{isPrivate ? "Only its members (and workspace owners) can see it." : "Anyone in the workspace can find and join it."}</span>
-          </span>
-          <Toggle on={isPrivate} onChange={setPrivate} label="Private team" disabled={!canManage} />
-        </label>
-      )}
-      </fieldset>
-      {!canManage && <p className="text-xs text-muted">Guests can't change teams.</p>}
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <div className="flex items-center justify-between gap-2 pt-1">
-        {channel.joined && channel.name !== "general" ? (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={async () => {
-              await leaveChannel(channel);
-              onClose();
-            }}
-          >
-            <LogOut size={14} /> Leave team
-          </Button>
-        ) : (
-          <span />
-        )}
-        <Button variant="primary" disabled={!canManage || !changed || !name || saving}>
-          Save
-        </Button>
-      </div>
-    </form>
-  );
-}
-
+/** Who is on a team: add an agent or a person by name, take one off, and leave it yourself. */
 export function ChannelMembers({ channel, canManage, onClose }: { channel: ChannelInfo; canManage: boolean; onClose: () => void }) {
   const me = useStore((s) => s.me);
   const people = useStore((s) => s.members);
@@ -436,18 +282,19 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
   const peopleIn = (members ?? []).filter((m) => m.kind === "user");
   const agentsIn = (members ?? []).filter((m) => m.kind === "agent");
   const agentById = (id: string) => agents.find((a) => a.id === id);
+  const nodes = channel.settings.team?.nodes ?? [];
 
   return (
-    <div className="space-y-4">
-      {canManage && (
+    <div className="space-y-3">
+      {canManage && !channel.archivedAt && (
         <div className="relative">
           <UserPlus size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Add people or agents"
+            placeholder="Add an agent or a person"
             className="pl-9 h-10"
-            aria-label="Add people or agents"
+            aria-label="Add an agent or a person"
             onKeyDown={(e) => {
               if (e.key === "Enter" && candidates[0]) {
                 e.preventDefault();
@@ -457,13 +304,12 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
           />
           {needle && (
             <div className="absolute z-10 left-0 right-0 top-full mt-1 rounded-xl border border-line bg-panel shadow-panel p-1 max-h-64 overflow-y-auto">
-              {candidates.length === 0 && <p className="px-3 py-2 text-sm text-muted">No one else matches “{q.trim()}”.</p>}
+              {candidates.length === 0 && <p className="px-3 py-2 text-sm text-muted">None</p>}
               {candidates.map((c) => (
                 <button key={`${c.kind}:${c.id}`} onClick={() => change("PUT", c)} disabled={!!busy} className="w-full px-2 h-10 rounded-lg flex items-center gap-2.5 text-sm text-left hover:bg-hover">
                   {c.kind === "agent" ? <AgentAvatar agent={agentById(c.id)} size={24} /> : <UserAvatar name={c.name} size={24} />}
-                  <span className="font-medium">{c.name}</span>
-                  <span className="text-xs text-muted">{c.kind === "agent" ? `@${c.handle} · agent` : c.role}</span>
-                  <Plus size={14} className="ml-auto text-faint" />
+                  <span className="min-w-0 truncate font-medium">{c.name}</span>
+                  <Plus size={14} className="ml-auto shrink-0 text-faint" />
                 </button>
               ))}
             </div>
@@ -471,71 +317,56 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
         </div>
       )}
       {error && <p className="text-sm text-bad">{error}</p>}
-      {!members ? (
-        <p className="text-sm text-muted py-6 text-center">Loading members…</p>
-      ) : members.length === 0 ? (
-        <p className="text-sm text-muted py-6 text-center">Nobody's in #{channel.name} right now.</p>
-      ) : (
-        <div className="space-y-4">
-          {[
-            { title: "People", list: peopleIn },
-            { title: "Agents", list: agentsIn },
-          ]
-            .filter((g) => g.list.length)
-            .map((g) => (
-              <div key={g.title}>
-                <div className="text-xs font-medium text-muted mb-1.5">
-                  {g.title} · {g.list.length}
-                </div>
-                <div className="rounded-xl border border-line divide-y divide-line">
-                  {g.list.map((m) => {
-                    const isMe = m.kind === "user" && m.id === me?.user.id;
-                    return (
-                      <div key={`${m.kind}:${m.id}`} className="px-3 h-12 flex items-center gap-3">
-                        {m.kind === "agent" ? <AgentAvatar agent={agentById(m.id) ?? { name: m.name, handle: m.handle ?? undefined, harness: "custom" }} size={28} /> : <UserAvatar name={m.name} size={28} />}
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium truncate">
-                            {m.name}
-                            {isMe && <span className="text-muted font-normal"> (you)</span>}
-                          </div>
-                          <div className="text-xs text-muted truncate">{m.kind === "agent" ? `@${m.handle}` : m.role}</div>
-                        </div>
-                        {isMe && channel.name !== "general" ? (
-                          <Button
-                            variant="ghost"
-                            className="h-8 text-xs"
-                            onClick={async () => {
-                              await leaveChannel(channel);
-                              onClose();
-                            }}
-                          >
-                            Leave
-                          </Button>
-                        ) : (
-                          canManage && (
-                            <button
-                              onClick={() => change("DELETE", m)}
-                              disabled={busy === `${m.kind}:${m.id}`}
-                              className="size-8 rounded-lg grid place-items-center text-muted hover:text-bad hover:bg-hover"
-                              aria-label={`Remove ${m.name} from #${channel.name}`}
-                              title={`Remove from #${channel.name}`}
-                            >
-                              <X size={15} />
-                            </button>
-                          )
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+      {!!members?.length && (
+        <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+          {[...agentsIn, ...peopleIn].map((m) => {
+            const isMe = m.kind === "user" && m.id === me?.user.id;
+            const node = m.kind === "agent" ? nodes.find((n) => n.agentId === m.id) : undefined;
+            const sub = m.kind === "agent" ? (node?.lead ? "Leads" : (node?.role ?? `@${m.handle}`)) : m.role;
+            const who = (
+              <>
+                {m.kind === "agent" ? <AgentAvatar agent={agentById(m.id) ?? { name: m.name, handle: m.handle ?? undefined, harness: "custom" }} size={28} interactive={false} /> : <UserAvatar name={m.name} size={28} />}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-medium">
+                    {m.name}
+                    {isMe && <span className="font-normal text-muted"> (you)</span>}
+                  </span>
+                  {sub && <span className="block truncate text-[12px] text-muted">{sub}</span>}
+                </span>
+              </>
+            );
+            return (
+              <div key={`${m.kind}:${m.id}`} className="flex min-h-[50px] items-center gap-1 pl-3.5 pr-2">
+                {m.kind === "agent" ? (
+                  <button type="button" onClick={() => (onClose(), go({ view: "agents", agentId: m.id, tab: "overview" }))} className="flex min-w-0 flex-1 items-center gap-3 py-1.5 text-left">
+                    {who}
+                  </button>
+                ) : (
+                  <div className="flex min-w-0 flex-1 items-center gap-3 py-1.5">{who}</div>
+                )}
+                {isMe && channel.name !== "general" ? (
+                  <Button
+                    variant="ghost"
+                    className="h-8 text-xs"
+                    onClick={async () => {
+                      await leaveChannel(channel);
+                      onClose();
+                    }}
+                  >
+                    Leave
+                  </Button>
+                ) : (
+                  canManage && (
+                    <button onClick={() => change("DELETE", m)} disabled={busy === `${m.kind}:${m.id}`} className="grid size-8 shrink-0 place-items-center rounded-full text-faint hover:bg-hover hover:text-bad" aria-label={`Remove ${m.name} from ${channel.name}`}>
+                      <X size={15} />
+                    </button>
+                  )
+                )}
               </div>
-            ))}
+            );
+          })}
         </div>
       )}
-      <p className="text-xs text-muted">
-        Agents here answer when someone @mentions them{channel.settings.defaultAgentId ? "; the team's own agent answers everything else (see Agents)" : ""}.{" "}
-        {channel.private ? `Only the people and agents listed can see #${channel.name}.` : `Anyone in the workspace can still read and join #${channel.name}.`}
-      </p>
     </div>
   );
 }
@@ -549,24 +380,23 @@ export function useTeamWork(channelId: string): Record<string, string> {
 }
 
 /**
- * A channel's team. A team that runs on steps shows how it works in plain lines, and the flowchart
- * builder (team/Builder.tsx) opens from there to change it. An older plain chart (who hands work
- * to whom) is still drawn here. Saving it adds everyone on it to the channel.
+ * The older kind of team, a plain chart of who hands work to whom: its leads, its arrows and each
+ * agent's role. Teams made by picking agents by name start as one. (A team that runs on steps is
+ * edited in the builder instead.) Saving adds everyone on the chart to the team.
  */
-export function ChannelTeamTab({ channel, team, onChange, canManage, onCreateAgent, onClose }: { channel: ChannelInfo; team: ChannelTeam; onChange: (t: ChannelTeam) => void; canManage: boolean; onCreateAgent: () => void; onClose: () => void }) {
+export function PlainChartDialog({ channel, onClose }: { channel: ChannelInfo; onClose: () => void }) {
+  const names = useNames();
   const agents = useStore((s) => s.agents);
   const refreshChannels = useStore((s) => s.refreshChannels);
   const working = useTeamWork(channel.id);
+  const saved = liveTeam(channel.settings.team, agents) ?? EMPTY_TEAM;
+  const [team, setTeam] = useState<ChannelTeam>(saved);
+  const [newAgent, setNewAgent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [building, setBuilding] = useState(false);
-  const saved = liveTeam(channel.settings.team, agents) ?? EMPTY_TEAM;
   const changed = JSON.stringify(team) !== JSON.stringify(saved);
-  const stepped = hasSteps(team);
-  const problem = team.nodes.length || stepped ? teamProblem(team) : null;
-  // a new team starts by choosing how it works; a plain chart is the other way to draw one
-  const [plain, setPlain] = useState(false);
-  const lines = useFlowLines(team);
+  const problem = team.nodes.length ? teamProblem(team) : null;
+  const setNode = (agentId: string, patch: { role?: string; roleNotes?: string }) => setTeam({ ...team, nodes: team.nodes.map((n) => (n.agentId === agentId ? { ...n, ...patch } : n)) });
   const save = async (next: ChannelTeam | null) => {
     setError(null);
     setSaving(true);
@@ -580,213 +410,54 @@ export function ChannelTeamTab({ channel, team, onChange, canManage, onCreateAge
       setSaving(false);
     }
   };
-  /** The builder saves on its own; take what it saved back into this tab. */
-  const closeBuilder = () => {
-    setBuilding(false);
-    const now = useStore.getState().channels.find((c) => c.id === channel.id)?.settings.team ?? null;
-    onChange(liveTeam(now, agents) ?? EMPTY_TEAM);
-  };
+  if (newAgent)
+    return (
+      <NewAgentForTeam
+        onClose={() => setNewAgent(false)}
+        onCreated={(a) => {
+          setTeam((t) => addToTeam(t, a.id));
+          setNewAgent(false);
+        }}
+      />
+    );
   return (
-    <div className="space-y-4">
-      {stepped || (!saved.nodes.length && !plain) ? (
-        <section aria-label="How the team works" className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted">How the team works</h3>
-          <div className="rounded-3xl bg-card p-4">
-            {stepped ? <HowLines lines={lines} /> : <p className="text-sm text-muted">{`#${channel.name} has no steps yet, so only agents someone @mentions (or the one under Agents) answer here. Draw the steps and say how each one works.`}</p>}
+    <Modal title={channel.name} label={`Who hands work to whom in ${channel.name}`} onClose={onClose} className="sm:max-w-5xl!">
+      <div className="space-y-4">
+        <TeamChart team={team} onChange={setTeam} working={working} onCreateAgent={() => setNewAgent(true)} />
+        {team.nodes.length > 0 && (
+          <div className="space-y-2" aria-label="Roles">
+            {team.nodes.map((n) => {
+              const a = names.agent(n.agentId);
+              if (!a) return null;
+              return (
+                <div key={n.agentId} className="grid sm:grid-cols-[10rem_1fr] gap-2 items-start">
+                  <span className="flex items-center gap-2 min-w-0 h-9 text-sm">
+                    <AgentAvatar agent={a} size={22} badge={false} interactive={false} /> <span className="truncate">{a.name}</span>
+                  </span>
+                  <div className="space-y-1.5">
+                    <Input value={n.role ?? ""} onChange={(e) => setNode(n.agentId, { role: e.target.value })} placeholder="Role, e.g. Backend" aria-label={`${a.name}'s role`} maxLength={60} />
+                    {(n.role || n.roleNotes) && <Textarea rows={2} value={n.roleNotes ?? ""} onChange={(e) => setNode(n.agentId, { roleNotes: e.target.value })} placeholder="What it owns" aria-label={`What ${a.name}'s role owns`} maxLength={4000} />}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {canManage && (
-            <div className="flex flex-wrap items-center gap-3">
-              <Button variant="primary" onClick={() => setBuilding(true)}>
-                {stepped ? "Edit how it works" : "Set up how it works"}
-              </Button>
-              {!stepped && (
-                <button type="button" className="text-sm text-accent-text hover:underline" onClick={() => setPlain(true)}>
-                  Draw who hands work to whom instead
-                </button>
-              )}
-            </div>
-          )}
-        </section>
-      ) : (
-        <>
-          <p className="text-sm text-muted">
-            {saved.nodes.length
-              ? `The leads read every new message in #${channel.name} and hand out the work along the arrows.`
-              : `#${channel.name} has no steps yet, so only agents someone @mentions (or the one under Agents) answer here. Drag agents onto the chart and make one of them a lead.`}{" "}
-            {canManage && (
-              <button type="button" className="text-accent-text hover:underline" onClick={() => setBuilding(true)}>
-                Use steps instead
-              </button>
-            )}
-          </p>
-          <TeamChart team={team} onChange={canManage ? onChange : undefined} readOnly={!canManage} working={working} onCreateAgent={canManage ? () => onCreateAgent() : undefined} />
-          <details className="rounded-xl bg-bg px-3.5 py-2.5">
-            <summary className="text-sm font-medium cursor-pointer">How the team works</summary>
-            <TeamRules className="mt-2" />
-          </details>
-        </>
-      )}
-      {team.nodes.length > 0 && <TeamMore team={team} onChange={onChange} canManage={canManage} />}
-      {!canManage && <p className="text-xs text-muted">{channel.archivedAt ? "This team is archived." : "Guests can't change teams."}</p>}
-      {error && <p className="text-sm text-bad">{error}</p>}
-      {canManage && (
+        )}
+        {error && <p className="text-sm text-bad">{error}</p>}
         <div className="flex items-center justify-between gap-2">
           {saved.nodes.length > 0 ? (
-            <Button variant="ghost" disabled={saving} onClick={() => void save(null)} title="Back to agents answering only when someone @mentions them">
-              Remove the team
+            <Button variant="ghost" disabled={saving} onClick={() => void save(null)} title="Agents answer only when someone @mentions them">
+              Remove chart
             </Button>
           ) : (
             <span />
           )}
           <Button variant="primary" disabled={!changed || !!problem || !team.nodes.length || saving} onClick={() => void save(team)} title={problem ?? undefined}>
-            Save team
+            Save
           </Button>
         </div>
-      )}
-      {building && <TeamEditSession channel={channel} onClose={closeBuilder} />}
-    </div>
-  );
-}
-
-/** The rest of a team, out of the way until it's wanted: each agent's role, a shared memory folder, a repo, and who it reports to. */
-function TeamMore({ team, onChange, canManage }: { team: ChannelTeam; onChange: (t: ChannelTeam) => void; canManage: boolean }) {
-  const names = useNames();
-  const agents = useStore((s) => s.agents);
-  const set = (patch: Partial<ChannelTeam>) => onChange({ ...team, ...patch });
-  const setNode = (agentId: string, patch: { role?: string; roleNotes?: string }) => set({ nodes: team.nodes.map((n) => (n.agentId === agentId ? { ...n, ...patch } : n)) });
-  const onTeam = new Set(team.nodes.map((n) => n.agentId));
-  const folder = team.folder ?? "";
-  return (
-    <details className="rounded-xl bg-bg px-3.5 py-2.5">
-      <summary className="text-sm font-medium cursor-pointer">More</summary>
-      <fieldset disabled={!canManage} className="mt-3 space-y-5">
-        {/* a stepped team's roles live on its chart */}
-        {!hasSteps(team) && (
-        <div className="space-y-2">
-          <div className="text-sm font-medium">Roles</div>
-          {team.nodes.map((n) => {
-            const a = names.agent(n.agentId);
-            if (!a) return null;
-            return (
-              <div key={n.agentId} className="grid sm:grid-cols-[10rem_1fr] gap-2 items-start">
-                <span className="flex items-center gap-2 min-w-0 h-9 text-sm">
-                  <AgentAvatar agent={a} size={22} badge={false} interactive={false} /> <span className="truncate">{a.name}</span>
-                </span>
-                <div className="space-y-1.5">
-                  <Input value={n.role ?? ""} onChange={(e) => setNode(n.agentId, { role: e.target.value })} placeholder="Role, e.g. Backend" aria-label={`${a.name}'s role`} maxLength={60} />
-                  {(n.role || n.roleNotes) && <Textarea rows={2} value={n.roleNotes ?? ""} onChange={(e) => setNode(n.agentId, { roleNotes: e.target.value })} placeholder="What it owns and what to send its way. The agent reads this." aria-label={`What ${a.name}'s role owns`} maxLength={4000} />}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        )}
-        <Field
-          label="Memory folder"
-          hint={
-            <>
-              Everyone on the team reads and writes it.{" "}
-              {folder && (
-                <a className="text-accent-text hover:underline" href={href({ view: "vault", path: `${folder}/README.md` })}>
-                  Open
-                </a>
-              )}
-            </>
-          }
-        >
-          <Input value={folder} onChange={(e) => set({ folder: e.target.value })} placeholder="teams/web" maxLength={200} />
-        </Field>
-        <div className="grid sm:grid-cols-[1fr_10rem] gap-4">
-          <Field label="Code repository" hint="A git URL, or a path on the device the agents run on. Tasks for this team get their own branch and checkout.">
-            <Input value={team.repo ?? ""} onChange={(e) => set({ repo: e.target.value || null })} placeholder="git@github.com:you/app.git" maxLength={500} />
-          </Field>
-          <Field label="Base branch">
-            <Input value={team.baseBranch ?? ""} onChange={(e) => set({ baseBranch: e.target.value })} placeholder="main" maxLength={100} />
-          </Field>
-        </div>
-        <Field label="Reports to" hint="An agent outside the team that can see and steer its work.">
-          <select value={team.reportsTo ?? ""} onChange={(e) => set({ reportsTo: e.target.value || null })} className="h-9 w-full rounded-lg border border-line bg-panel px-2 text-sm">
-            <option value="">Nobody</option>
-            {agents
-              .filter((a) => !onTeam.has(a.id) || a.id === team.reportsTo)
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  @{a.handle} ({a.name})
-                </option>
-              ))}
-          </select>
-        </Field>
-      </fieldset>
-    </details>
-  );
-}
-
-/** How agents behave here: who answers un-@mentioned messages, where they reply, and notes they all follow. */
-export function ChannelAgents({ channel, canManage, onClose }: { channel: ChannelInfo; canManage: boolean; onClose: () => void }) {
-  const agents = useStore((s) => s.agents);
-  const refreshChannels = useStore((s) => s.refreshChannels);
-  const [rules, setRules] = useState<AgentRules>(() => agentRulesOf(channel.settings));
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const changed = JSON.stringify(rules) !== JSON.stringify(agentRulesOf(channel.settings));
-  const answerer = agents.find((a) => a.id === rules.defaultAgentId);
-  return (
-    <form
-      className="space-y-5"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setError(null);
-        setSaving(true);
-        try {
-          await api("PATCH", `/api/channels/${channel.id}`, { settings: agentRulesOf(rules) });
-          await refreshChannels();
-          onClose();
-        } catch (err) {
-          setError((err as Error).message);
-        } finally {
-          setSaving(false);
-        }
-      }}
-    >
-      <fieldset disabled={!canManage} className="space-y-5">
-        <Field
-          label="Who answers messages without an @mention?"
-          hint={
-            channel.settings.team?.nodes.length
-              ? undefined
-              : answerer
-              ? `${answerer.name} answers anything nobody @mentions, and joins #${channel.name} to do it. @mention another agent to ask them instead.`
-              : "Right now a message only reaches an agent when someone @mentions it. Pick an agent to answer here."
-          }
-        >
-          {channel.settings.team?.nodes.length ? (
-            <p className="text-sm text-muted">The team's leads read every new message here (see Team), so they answer what nobody @mentions.</p>
-          ) : agents.length ? (
-            <AnswerSelect agents={agents} value={rules.defaultAgentId} onChange={(v) => setRules({ ...rules, defaultAgentId: v })} />
-          ) : (
-            <p className="text-sm text-muted">No agents in this workspace yet.</p>
-          )}
-        </Field>
-        <label className="flex items-center justify-between gap-3 text-sm">
-          <span>
-            <span className="font-medium">Answer in a thread</span>
-            <span className="block text-xs text-muted">Agents reply under the message they're answering, so the chat stays easy to read.</span>
-          </span>
-          <Toggle on={rules.replyInThread} onChange={(v) => setRules({ ...rules, replyInThread: v })} label="Agents answer in a thread" disabled={!canManage} />
-        </label>
-        <Field label="Notes for agents here" hint="Every agent reads these when it works in this team, e.g. which repo to use or how long replies should be.">
-          <Textarea value={rules.instructions} onChange={(e) => setRules({ ...rules, instructions: e.target.value })} rows={4} maxLength={4000} placeholder={`e.g. "This is where we plan the launch. Keep answers short and link the doc in shared/launch.md."`} />
-        </Field>
-        <p className="text-xs text-muted">In a thread, a plain reply goes back to the agent already talking there; no @mention needed.</p>
-      </fieldset>
-      {!canManage && <p className="text-xs text-muted">{channel.archivedAt ? "This team is archived." : "Guests can't change teams."}</p>}
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <div className="flex justify-end">
-        <Button variant="primary" disabled={!canManage || !changed || saving}>
-          Save
-        </Button>
       </div>
-    </form>
+    </Modal>
   );
 }
 
@@ -814,16 +485,10 @@ export function ChannelPins({ channel, onClose }: { channel: ChannelInfo; onClos
   }, [channel.id, key]);
   const who = (a: import("@wisp/core").Actor) => (a.kind === "agent" ? names.agent(a.id)?.name : names.member(a.id)?.name) ?? "Someone";
   if (error) return <p className="text-sm text-bad">{error}</p>;
-  if (!pins) return <p className="text-sm text-muted py-6 text-center">Loading pins…</p>;
-  if (!pins.length)
-    return (
-      <div className="py-8 text-center text-sm text-muted">
-        <Pin size={18} className="mx-auto mb-2 text-faint" />
-        Nothing pinned yet. Pin a message from its “…” menu so everyone here can find it again.
-      </div>
-    );
+  if (!pins) return null;
+  if (!pins.length) return <p className="px-1 py-2 text-[13px] text-muted">Nothing pinned</p>;
   return (
-    <div className="rounded-xl border border-line divide-y divide-line max-h-[55vh] overflow-y-auto">
+    <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
       {pins.map((p) => (
         <div key={p.message.id} className="px-3 py-2.5 flex gap-3 items-start">
           <button
@@ -846,113 +511,5 @@ export function ChannelPins({ channel, onClose }: { channel: ChannelInfo; onClos
         </div>
       ))}
     </div>
-  );
-}
-
-function ArchiveOrDelete({ channel, onClose }: { channel: ChannelInfo; onClose: () => void }) {
-  const refreshChannels = useStore((s) => s.refreshChannels);
-  const [typed, setTyped] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  return (
-    <div className="space-y-5">
-      <div className="rounded-xl border border-line p-4 space-y-3">
-        <div className="font-medium flex items-center gap-2">{channel.archivedAt ? <ArchiveRestore size={15} /> : <Archive size={15} />} {channel.archivedAt ? `#${channel.name} is archived` : `Archive #${channel.name}`}</div>
-        <p className="text-sm text-muted">
-          {channel.archivedAt
-            ? "It's read-only and out of everyone's sidebar. Unarchive it to post here again."
-            : "It leaves everyone's sidebar and becomes read-only; nothing is deleted and you can still find and search it. Agents working here are stopped. You can unarchive it any time."}
-        </p>
-        <Button
-          type="button"
-          disabled={busy}
-          onClick={async () => {
-            setError(null);
-            setBusy(true);
-            try {
-              await setArchived(channel, !channel.archivedAt);
-              onClose();
-            } catch (err) {
-              setError((err as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {channel.archivedAt ? "Unarchive team" : "Archive team"}
-        </Button>
-      </div>
-      <form
-        className="rounded-xl border border-line p-4 space-y-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setError(null);
-          setBusy(true);
-          try {
-            await api("DELETE", `/api/channels/${channel.id}`);
-            const wasOpen = useStore.getState().activeChannel === channel.id;
-            await refreshChannels();
-            onClose();
-            if (wasOpen) toGeneral();
-          } catch (err) {
-            setError((err as Error).message);
-            setBusy(false);
-          }
-        }}
-      >
-        <div className="font-medium flex items-center gap-2 text-bad">
-          <Trash2 size={15} /> Delete #{channel.name}
-        </div>
-        <p className="text-sm text-muted">Every message, thread and discussion in it is deleted for everyone, and agents working here are stopped. Tasks and routines that pointed here keep going without a team. This can't be undone.</p>
-        <Field label={`Type ${channel.name} to confirm`}>
-          <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={channel.name} autoComplete="off" />
-        </Field>
-        <div className="flex justify-end">
-          <Button variant="danger" disabled={typed !== channel.name || busy}>
-            Delete team
-          </Button>
-        </div>
-      </form>
-      {error && <p className="text-sm text-bad">{error}</p>}
-    </div>
-  );
-}
-
-/**
- * A "…" menu for one channel (Rename, Members, Leave) that opens the settings dialog itself, for
- * places like the sidebar's channel rows. Pass `trigger` to draw your own button.
- */
-export function ChannelMenu({ channel, trigger, align = "right" }: { channel: ChannelInfo; trigger?: (open: boolean, toggle: () => void) => ReactNode; align?: "left" | "right" }) {
-  const [settings, setSettings] = useState<ChannelSettingsTab | null>(null);
-  const role = useStore((s) => s.me?.role);
-  if (channel.kind !== "channel") return null;
-  return (
-    <>
-      <Menu
-        align={align}
-        trigger={
-          trigger ??
-          ((open, toggle) => (
-            <button onClick={toggle} aria-expanded={open} aria-label={`#${channel.name} options`} className="size-6 rounded-md grid place-items-center text-muted hover:text-ink hover:bg-hover">
-              <MoreHorizontal size={14} />
-            </button>
-          ))
-        }
-        items={[
-          { label: channel.starred ? "Unpin" : "Pin to top", icon: <Pin size={14} />, onSelect: () => void setChannelPrefs(channel, { starred: !channel.starred }) },
-          channel.notify === "mute"
-            ? { label: "Unmute", icon: <Bell size={14} />, onSelect: () => void setChannelPrefs(channel, { notify: "default" }) }
-            : { label: "Mute", icon: <BellOff size={14} />, onSelect: () => void setChannelPrefs(channel, { notify: "mute" }) },
-          "divider" as const,
-          ...(role !== "guest" ? [{ label: "Rename…", icon: <Pencil size={14} />, onSelect: () => setSettings("about") }] : []),
-          { label: "Agents", icon: <Bot size={14} />, onSelect: () => setSettings("agents") },
-          { label: "Members", icon: <Users size={14} />, onSelect: () => setSettings("members") },
-          ...(channel.joined && channel.name !== "general" ? ["divider" as const, { label: "Leave team", icon: <LogOut size={14} />, onSelect: () => void leaveChannel(channel), danger: true }] : []),
-          ...(role !== "guest" && !channel.archivedAt ? [{ label: "Archive…", icon: <Archive size={14} />, onSelect: () => setSettings("danger"), danger: true }] : []),
-        ]}
-      />
-      {/* the sidebar row only shows this button on hover (opacity-0 otherwise), which would hide the dialog too: draw it on the page */}
-      {settings && createPortal(<ChannelSettings channel={channel} tab={settings} onClose={() => setSettings(null)} />, document.body)}
-    </>
   );
 }

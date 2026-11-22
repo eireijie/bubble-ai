@@ -67,19 +67,24 @@ export function useCodeTasks(): { tasks: CodeTask[] | null; error: string | null
       const root = byId.get(rootId)!;
       const team = teams.find((x) => x.id === root.teamId);
       if (!team?.repo) continue;
-      family.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-      const agentIds = [...new Set(family.map((t) => t.toAgentId).filter((x): x is string => !!x))];
-      const threads = family.filter((t) => t.threadId && t.channelId).map((t) => ({ threadId: t.threadId!, channelId: t.channelId! }));
-      const inThreads = new Set(threads.map((t) => t.threadId));
-      const asking = Object.values(approvals).some((a) => a.status === "pending" && !!a.threadId && inThreads.has(a.threadId));
-      const running = Object.values(live).some((r) => (r.threadId && inThreads.has(r.threadId)) || r.threadPath.some((p) => inThreads.has(p)));
-      const open = family.some((t) => t.status === "open" || t.status === "in_progress");
-      out.push({ root, team, family, agentIds, threads, state: asking ? "needs" : running || open ? "working" : root.status === "done" ? "done" : "idle" });
+      out.push(codeTaskOf(root, family, team, approvals, live));
     }
     return out.sort((a, b) => b.root.updatedAt.localeCompare(a.root.updatedAt));
   }, [rows, teams, approvals, live]);
 
   return { tasks, error };
+}
+
+/** One coding task from its pieces: who is on it, where they work and how it stands. Also what a task's page hands to Review. */
+export function codeTaskOf(root: TaskRow, pieces: TaskRow[], team: Team, approvals: Record<string, Approval>, live: Record<string, { threadId?: string | null; threadPath: string[] }>): CodeTask {
+  const family = [...pieces].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const agentIds = [...new Set(family.map((t) => t.toAgentId).filter((x): x is string => !!x))];
+  const threads = family.filter((t) => t.threadId && t.channelId).map((t) => ({ threadId: t.threadId!, channelId: t.channelId! }));
+  const inThreads = new Set(threads.map((t) => t.threadId));
+  const asking = Object.values(approvals).some((a) => a.status === "pending" && !!a.threadId && inThreads.has(a.threadId));
+  const running = Object.values(live).some((r) => (r.threadId && inThreads.has(r.threadId)) || r.threadPath.some((p) => inThreads.has(p)));
+  const open = family.some((t) => t.status === "open" || t.status === "in_progress");
+  return { root, team, family, agentIds, threads, state: asking ? "needs" : running || open ? "working" : root.status === "done" ? "done" : "idle" };
 }
 
 /** The task list's groups, like the design: what needs you, what's working, what finished today. */
@@ -93,6 +98,16 @@ export function groupTasks(tasks: CodeTask[]) {
     { label: "Done today", tasks: tasks.filter((t) => !failed(t) && (t.state === "done" || t.state === "idle") && now - Date.parse(t.root.updatedAt) < DAY) },
     { label: "Earlier", tasks: tasks.filter((t) => !failed(t) && (t.state === "done" || t.state === "idle") && now - Date.parse(t.root.updatedAt) >= DAY) },
   ].filter((g) => g.tasks.length > 0);
+}
+
+/** Names for a menu that tells its rows apart by their text: a repeated name gets "(2)", "(3)"… */
+export function uniqueLabels(names: string[]): string[] {
+  const seen = new Map<string, number>();
+  return names.map((n) => {
+    const count = (seen.get(n) ?? 0) + 1;
+    seen.set(n, count);
+    return count === 1 ? n : `${n} (${count})`;
+  });
 }
 
 /** "eireijie/shop" from a git URL or a path on the device. */
