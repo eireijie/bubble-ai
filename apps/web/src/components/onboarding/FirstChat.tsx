@@ -20,6 +20,7 @@ export const QUICK = ["Yes, go ahead", "Something else first"] as const;
 const ASKED_KEY = (workspaceId: string) => `wisp.notifyAsked.${workspaceId}`;
 export const hereSeenKey = (agentId: string) => `wisp.hereSeen.${agentId}`;
 const FRESH_MS = 7 * 86_400_000;
+const NO_MESSAGES: readonly Message[] = [];
 
 const read = (k: string) => {
   try {
@@ -78,7 +79,9 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
   const [sent, setSent] = useState(false);
   const [justOn, setJustOn] = useState(false);
   const [perm, setPerm] = useState(() => permission());
-  const messages = useStore((s) => s.messages[channelId] ?? []);
+  // Default outside the selector: `?? []` inside it hands back a new array on every read while the
+  // chat's messages haven't loaded, and useSyncExternalStore loops on it (React error #185).
+  const messages = useStore((s) => s.messages[channelId]) ?? NO_MESSAGES;
   // quick replies, until you've said something yourself
   const youSpoke = messages.some((m) => m.author.kind === "user");
   if (!agent || !isFirstChat(agent, channelId)) return null;
