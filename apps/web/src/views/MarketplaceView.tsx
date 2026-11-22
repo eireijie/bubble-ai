@@ -47,6 +47,7 @@ import {
   type DeviceShelf,
   type ShelfItem,
   type Skill,
+  type SignInOption,
   type StoreApp,
   type StoreSkill,
 } from "@wisp/core";
@@ -172,6 +173,9 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
   const [detail, setDetail] = useState<Detail | null>(null);
   const [form, setForm] = useState<{ entry?: CatalogConnector; existing?: Connector; presetEnv?: Record<string, string>; summary?: ConnectSummary; title?: string } | null>(null);
   const [signInFor, setSignInFor] = useState<string | null>(null);
+  // catalog apps with one-click sign-in: whether it works from this address
+  const [signInOptions, setSignInOptions] = useState<Record<string, SignInOption>>({});
+  const [signInEntry, setSignInEntry] = useState<CatalogConnector | null>(null);
   const [connectedId, setConnectedId] = useState<string | null>(null);
   const [manageId, setManageId] = useState<string | null>(null);
   const [trying, setTrying] = useState<{ name: string; description: string; agentIds: string[] } | null>(null);
@@ -203,6 +207,7 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
     });
     void loadSkills();
     void loadShelves();
+    if (canEdit) api<Record<string, SignInOption>>("GET", `/api/connectors/sign-in?origin=${encodeURIComponent(location.origin)}`).then(setSignInOptions, () => {});
     api<{ skills: StoreSkill[]; errors: string[] }>("GET", "/api/skill-store").then(setStore, (e) => setStore({ skills: [], errors: [(e as Error).message] }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -314,6 +319,22 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
       } else void loadConnectors();
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+  /** Connect a catalog app by signing in: the hub makes the connector, the browser goes to the sign-in page. */
+  async function connectBySignIn(e: CatalogConnector) {
+    setError(null);
+    try {
+      const r = await api<{ url?: string; connectors: Connector[] }>("POST", "/api/connectors/connect", { catalogIds: [e.id], origin: location.origin });
+      try {
+        sessionStorage.setItem(CONNECTING, r.connectors[0]?.id ?? "");
+      } catch {
+        /* private window */
+      }
+      if (r.url) location.href = r.url;
+      else (setSignInEntry(null), void loadConnectors().then(() => setConnectedId(r.connectors[0]?.id ?? null)));
+    } catch (err) {
+      setError((err as Error).message);
     }
   }
   async function act(p: Promise<unknown>) {
@@ -587,12 +608,13 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
   // an open detail replaces the shelves
   const detailPage = (() => {
     if (!detail) return null;
-    if (detail.kind === "app") return <AppDetail app={detail.app} have={haveConnector(detail.app)} canEdit={canEdit} onManage={(c) => setManageId(c.id)} onConnect={(i) => connect(detail.app, i)} />;
+    if (detail.kind === "app") return <AppDetail app={detail.app} have={haveConnector(detail.app)} canEdit={canEdit} onManage={(c) => setManageId(c.id)} onConnect={(i) => connect(detail.app, i)} signIn={"builtIn" in detail.app ? signInOptions[detail.app.builtIn.id] : undefined} />;
     if (detail.kind === "store") return <StoreSkillDetail s={detail.skill} icon={detail.icon} canEdit={canEdit} onAdd={() => setInstalling({ entry: detail.skill, body: { storeId: detail.skill.id } })} onTry={() => setTrying({ name: detail.skill.name, description: detail.skill.description, agentIds: [] })} />;
     return <SkillDetail open={detail.open} agents={agents} canEdit={canEdit} onInstall={(e) => setInstalling({ entry: e, body: { catalogId: e.id } })} onEdit={(s) => setEditing(s)} onChanged={(id) => void refreshSkills(id)} onGone={() => setDetail(null)} onTry={setTrying} onShare={(s) => setSharing(s)} />;
   })();
   function connect(app: AppItem, installIndex: number) {
-    if ("builtIn" in app) setForm({ entry: app.builtIn });
+    if ("builtIn" in app && signInOptions[app.builtIn.id]?.signIn) setSignInEntry(app.builtIn);
+    else if ("builtIn" in app) setForm({ entry: app.builtIn });
     else {
       const install = app.registry.installs[installIndex] ?? app.registry.installs[0];
       if (install) setForm({ entry: registryCatalog(app.registry, install) });
@@ -715,6 +737,14 @@ export function MarketplaceView({ section, onBack, embedded }: { section: Market
         />
       )}
       {signInC && <ConnectSignIn connector={signInC} onClose={() => setSignInFor(null)} onSignIn={() => void signIn(signInC)} />}
+      {signInEntry && (
+        <ConnectSignIn
+          connector={signInEntry}
+          onClose={() => setSignInEntry(null)}
+          onSignIn={() => void connectBySignIn(signInEntry)}
+          onUseKey={signInOptions[signInEntry.id]?.key ? () => (setSignInEntry(null), setForm({ entry: signInEntry })) : undefined}
+        />
+      )}
       {connectedC && (
         <Connected
           connector={connectedC}

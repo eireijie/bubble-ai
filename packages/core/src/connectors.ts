@@ -249,7 +249,8 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
     needs: "Node on the device",
     docs: "https://github.com/makenotion/notion-mcp-server",
     signIn: { via: "mcp", url: "https://mcp.notion.com/mcp" },
-    signInReads: "Reads and searches your pages",
+    // Notion's sign-in has no read-only choice: agents can also edit the pages picked there
+    signInReads: "Reads and edits the pages you pick",
   },
   {
     id: "gdrive",
@@ -483,7 +484,7 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
     docs: "https://vercel.com/docs/mcp/vercel-mcp",
     // Vercel only sends people back to this computer (localhost) for apps it doesn't know
     signIn: { via: "mcp", url: "https://mcp.vercel.com", localOnly: true },
-    signInReads: "Reads projects, deployments and logs",
+    signInReads: "Reads and manages projects and deployments",
   },
   {
     id: "aws",
@@ -523,6 +524,18 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
 
 export function catalogConnector(id: string): CatalogConnector | undefined {
   return CONNECTOR_CATALOG.find((c) => c.id === id);
+}
+
+/** What `GET /api/connectors/sign-in` says about one catalog app, from where Wisp is open. */
+export interface SignInOption {
+  /** Sign in works from here */
+  signIn: boolean;
+  /** why not, in plain words */
+  reason?: string;
+  /** what signing in lets agents do */
+  reads?: string;
+  /** a pasted key works instead */
+  key: boolean;
 }
 
 /** Whether a hub opened at this address can be sent back to by a sign-in page: https, or this computer. */

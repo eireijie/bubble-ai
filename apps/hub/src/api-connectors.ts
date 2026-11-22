@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { type CatalogConnector, type Connector, CONNECTOR_CATALOG, SETTINGS_HARNESSES, SIGN_IN_PROVIDERS, catalogConnector, signInReturnsTo, WISP_COMMANDS, agentSkillPath, catalogSkill, fillTemplate, harnessLabel, skillBody, skillFile, skillSlug, skillTitle, type HarnessSkillFile, type Skill } from "@wisp/core";
+import { type CatalogConnector, type Connector, type SignInOption, CONNECTOR_CATALOG, SETTINGS_HARNESSES, SIGN_IN_PROVIDERS, catalogConnector, signInReturnsTo, WISP_COMMANDS, agentSkillPath, catalogSkill, fillTemplate, harnessLabel, skillBody, skillFile, skillSlug, skillTitle, type HarnessSkillFile, type Skill } from "@wisp/core";
 import type { Caller } from "./api.ts";
 import type { Hub } from "./hub.ts";
 import { CALLBACK_PATH, isPublicUrl } from "./connector-auth.ts";
@@ -183,7 +183,7 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
     if (!c) return;
     const origin = String((req.query as { origin?: string }).origin ?? "");
     if (!URL_.safeParse(origin).success) return reply.code(400).send({ error: "origin: the address Wisp is open at" });
-    const out: Record<string, { signIn: boolean; reason?: string; reads?: string; key: boolean }> = {};
+    const out: Record<string, SignInOption> = {};
     for (const entry of CONNECTOR_CATALOG_WITH_SIGN_IN()) {
       const o = await signInOption(entry, origin);
       out[entry.id] = { signIn: o.ok, ...(o.ok ? {} : { reason: o.reason }), ...(entry.signInReads ? { reads: entry.signInReads } : {}), key: entry.fields.some((f) => f.secret) };
