@@ -56,7 +56,8 @@ describe("docked sidebar", () => {
     const data = new Map<string, string>(stored ? [["wisp.sidebar2", JSON.stringify(stored)]] : []);
     vi.stubGlobal("localStorage", { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) });
     initial.me = { kind: "user", role: "owner", user: { id: "person", name: "Sam Rivera", email: "me@example.com", createdAt: "now" }, workspace: { id: "workspace", name: "Home" }, prefs: { experience: "advanced", sendWith: "enter", clock: "auto", toolCalls: "collapsed" } };
-    initial.agents = [{ id: "a1", name: "Iris", status: "idle" } as (typeof initial.agents)[number]];
+    // Iris has a computer, so she is not waiting on the person (an agent with none counts under Needs you)
+    initial.agents = [{ id: "a1", name: "Iris", status: "idle", nodeId: "n1", harness: "claude-code" } as (typeof initial.agents)[number]];
     return renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
   }
 

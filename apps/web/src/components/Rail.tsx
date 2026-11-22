@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Apple, Bell, Blocks, BookOpen, Building2, ChevronDown, FolderPlus, Ghost as GhostIcon, HardDrive, LayoutGrid, LifeBuoy, ListChecks, ListTodo, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
+import { Apple, Bell, Blocks, BookOpen, Building2, ChevronDown, FolderPlus, Ghost as GhostIcon, HardDrive, LayoutGrid, LifeBuoy, ListChecks, ListTodo, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
 import { useReadyChecklist } from "../onboarding.ts";
 import type { FeatureKey, Section } from "@wisp/core";
 import { api } from "../api.ts";
 import { useFeatures } from "../features.ts";
+import { logout } from "../logout.ts";
 import { useStore, useInboxCount, usePrefs } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
 import { go, href, type Route } from "../router.ts";
@@ -464,6 +465,7 @@ export function Rail({ route }: { route: Route }) {
       ),
       onSelect: openWorkspaces,
     },
+    { label: "Sign out", icon: <LogOut {...icon} />, onSelect: () => void logout() },
   ];
 
   const search = (
