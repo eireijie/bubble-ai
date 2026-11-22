@@ -106,7 +106,8 @@ final class OrgFeatureTests: XCTestCase {
     store.handle(Data(#"{"type":"run_event","runId":"r1","agentId":"a1","channelId":"c1","event":{"type":"status","text":"started"}}"#.utf8))
     store.handle(Data(#"{"type":"run_event","runId":"r1","agentId":"a1","channelId":"c1","event":{"type":"status","text":"Editing files"}}"#.utf8))
     store.handle(Data(#"{"type":"run_event","runId":"r1","agentId":"a1","channelId":"c1","event":{"type":"tool_call","name":"Bash"}}"#.utf8))
-    XCTAssertEqual(store.activitySteps["a1"], ["Editing files", "Used Bash"])
+    // a tool call shows as what it does in plain words (StepWords), not the tool's name
+    XCTAssertEqual(store.activitySteps["a1"], ["Editing files", "Running a command"])
     XCTAssertEqual(store.activityRun["a1"], "r1")
     XCTAssertEqual(ActivityText.phrase("Editing files"), "is editing files")
     XCTAssertEqual(ActivityText.phrase(nil), "is working")

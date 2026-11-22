@@ -1,5 +1,5 @@
 import { closedLanes } from "./task-lanes.ts";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Check, ChevronRight, Circle, CircleCheck, CircleX, Crown, Loader2, MoreHorizontal, Paperclip, Plus, Sparkles, Users, WifiOff, X } from "lucide-react";
 import { harnessInfo, type Actor, type Agent } from "@wisp/core";
 import { api, uploadFile } from "../api.ts";
@@ -777,10 +777,10 @@ export function NewTask({ onClose, defaultTo }: { onClose: () => void; defaultTo
             {choice(to === "auto", () => setTo("auto"), <AgentAvatar agent={lead} size={22} interactive={false} />, `Let ${lead.name} plan it`, <Sparkles size={14} className="text-muted" />)}
             {agents
               .filter((a) => a.id !== lead.id)
-              .map((a) => choice(to === a.id, () => setTo(a.id), <AgentAvatar agent={a} size={22} interactive={false} key={a.id} />, <span key={a.id + "n"}>{a.name}</span>))}
+              .map((a) => <Fragment key={a.id}>{choice(to === a.id, () => setTo(a.id), <AgentAvatar agent={a} size={22} interactive={false} />, a.name)}</Fragment>)}
             {teams
               .filter((t) => t.leadId)
-              .map((t) => choice(to === `team:${t.name}`, () => setTo(`team:${t.name}`), <Users size={16} key={t.id} />, `Team ${t.name}`))}
+              .map((t) => <Fragment key={t.id}>{choice(to === `team:${t.name}`, () => setTo(`team:${t.name}`), <Users size={16} />, `Team ${t.name}`)}</Fragment>)}
           </div>
         )}
         {hint && <p className="px-1.5 text-xs text-muted">{hint}</p>}

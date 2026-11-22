@@ -79,6 +79,8 @@ struct Agent: Codable, Identifiable, Hashable {
     var createdBy: String?
     /** the model connection it runs on (Settings → Models); nil runs on its computer's own sign-in */
     var connectionId: String?
+    /** its first chat with the person it works for: the hello Wisp wrote for it, then a few questions */
+    var setup: AgentSetup?
   }
   enum Status: String, Codable { case online, busy, offline }
 

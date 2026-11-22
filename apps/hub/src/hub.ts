@@ -620,6 +620,8 @@ export class Hub {
     });
     socket.on("close", () => {
       if (this.closed || this.nodes.get(nodeId) !== conn) return;
+      // "last seen" is when it went away, not when it last said hello
+      this.store.touchNode(nodeId);
       this.nodes.delete(nodeId);
       this.pausedNodes.delete(nodeId);
       for (const a of this.store.agentsOnNode(nodeId)) this.broadcast(workspaceId, { type: "agent_status", agentId: a.id, status: "offline" });
@@ -1453,6 +1455,8 @@ export class Hub {
       async (prompt) => {
         // sign-ins to remote connectors that are about to expire are refreshed first
         await this.connectors.prepare(agent.id).catch(() => {});
+        // the hub stopped while this was being prepared: its database is closed and its devices are gone
+        if (this.closed) return;
         // looked up after the prompt so a task handed out in this same tick is linked to its thread by now
         const workspace = this.workspaceFor(run);
         // a task the agent starts on is being worked on
@@ -1481,7 +1485,8 @@ export class Hub {
         });
       },
       // the prompt couldn't be built (a vault read failed, say): say so like any other failure
-      (err) => this.finishRun(conn.workspaceId, run, { error: `couldn't prepare the request: ${(err as Error).message}` }),
+      // (unless the hub stopped meanwhile: a closed database fails every read, and there's nowhere to say it)
+      (err) => (this.closed ? undefined : this.finishRun(conn.workspaceId, run, { error: `couldn't prepare the request: ${(err as Error).message}` })),
     );
   }
 

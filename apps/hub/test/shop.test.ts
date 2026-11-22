@@ -71,6 +71,29 @@ describe("logos", () => {
     expect(seen.filter((u) => u.endsWith("simple-icons.json")).length).toBe(1);
     expect(seen.filter((u) => u.endsWith("googlecalendar.svg")).length).toBe(1);
   });
+
+  it("keeps a logo and a plain \"not a brand\" for a day, but never a failed lookup", async () => {
+    hub.fetchImpl = async (url) => {
+      if (String(url).endsWith("/data/simple-icons.json")) return json([{ title: "Notion", hex: "000000" }, { title: "Slack", hex: "4A154B" }]);
+      if (String(url).endsWith("/icons/notion.svg")) return new Response('<svg viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg>');
+      // Slack's file can't be fetched right now
+      return new Response("", { status: 503 });
+    };
+    // the list from the test before is still held; a fresh hub would fetch this one
+    (hub.logos as unknown as { index: unknown; svgs: Map<string, unknown> }).index = null;
+    (hub.logos as unknown as { svgs: Map<string, unknown> }).svgs.clear();
+    const ok = await api("GET", "/api/logo?for=Notion", undefined, null);
+    expect([ok.status, ok.res.headers.get("cache-control")]).toEqual([200, "public, max-age=86400"]);
+    const none = await api("GET", "/api/logo?for=Square%20Root%20Calculator", undefined, null);
+    expect([none.status, none.res.headers.get("cache-control")]).toEqual([204, "public, max-age=86400"]);
+    const failed = await api("GET", "/api/logo?for=Slack", undefined, null);
+    expect([failed.status, failed.res.headers.get("cache-control")]).toEqual([204, "no-store"]);
+    // and when the list itself can't be read
+    (hub.logos as unknown as { index: unknown }).index = null;
+    hub.fetchImpl = async () => new Response("", { status: 503 });
+    const down = await api("GET", "/api/logo?for=Notion", undefined, null);
+    expect([down.status, down.res.headers.get("cache-control")]).toEqual([204, "no-store"]);
+  });
 });
 
 describe("apps", () => {

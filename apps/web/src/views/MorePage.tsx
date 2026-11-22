@@ -6,7 +6,7 @@ import { UserAvatarButton, useMoreItems } from "../components/Rail.tsx";
 /** Phones: the More tab, the same list the rail's More menu holds on desktops. */
 export function MorePage() {
   const guest = useStore((s) => s.me?.role) === "guest";
-  const items = useMoreItems(guest, 20);
+  const items = useMoreItems(guest, 20, false, true);
   return (
     <div className="flex-1 overflow-y-auto safe-top">
       <div className="px-[18px] pt-3 space-y-4">

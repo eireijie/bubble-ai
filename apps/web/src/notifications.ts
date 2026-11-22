@@ -54,13 +54,12 @@ export function setNotifyPrefs(patch: Partial<NotifyPrefs>) {
   if (categoriesChanged) void syncPushPrefs();
 }
 
+// one subscribe function for good: a new one on every render makes React unsubscribe and subscribe again each time
+const subscribePrefs = (l: () => void) => (listeners.add(l), () => void listeners.delete(l));
+const prefsSnapshot = () => snap;
+
 export function useNotifyPrefs(): NotifyPrefs {
-  return JSON.parse(
-    useSyncExternalStore(
-      (l) => (listeners.add(l), () => listeners.delete(l)),
-      () => snap,
-    ),
-  );
+  return JSON.parse(useSyncExternalStore(subscribePrefs, prefsSnapshot));
 }
 
 export const notificationsSupported = () => typeof window !== "undefined" && "Notification" in window;

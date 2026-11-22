@@ -19,7 +19,12 @@
         "link": "https://github.com/settings/personal-access-tokens"
       }
     ],
-    "docs": "https://github.com/github/github-mcp-server"
+    "docs": "https://github.com/github/github-mcp-server",
+    "signIn": {
+      "via": "app",
+      "provider": "github"
+    },
+    "signInReads": "Reads repos, issues and pull requests"
   },
   {
     "id": "git",
@@ -116,7 +121,12 @@
       }
     ],
     "needs": "Node on the device",
-    "docs": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/slack"
+    "docs": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/slack",
+    "signIn": {
+      "via": "app",
+      "provider": "slack"
+    },
+    "signInReads": "Reads channels, DMs and threads"
   },
   {
     "id": "notion",
@@ -141,7 +151,11 @@
       }
     ],
     "needs": "Node on the device",
-    "docs": "https://github.com/makenotion/notion-mcp-server"
+    "docs": "https://github.com/makenotion/notion-mcp-server",
+    "signIn": {
+      "via": "mcp"
+    },
+    "signInReads": "Reads and edits the pages you pick"
   },
   {
     "id": "gdrive",
@@ -169,7 +183,44 @@
       }
     ],
     "needs": "Node on the device, and a one-time Google sign-in there",
-    "docs": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gdrive"
+    "docs": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gdrive",
+    "signIn": {
+      "via": "app",
+      "provider": "google"
+    },
+    "signInReads": "Reads and searches your files"
+  },
+  {
+    "id": "gmail",
+    "name": "Gmail",
+    "description": "Search and read email, through Google's own Gmail MCP server.",
+    "icon": "Mail",
+    "category": "Chat & docs",
+    "kind": "mcp-http",
+    "url": "https://gmailmcp.googleapis.com/mcp/v1",
+    "fields": [],
+    "docs": "https://developers.google.com/workspace/guides/configure-mcp-servers",
+    "signIn": {
+      "via": "app",
+      "provider": "google"
+    },
+    "signInReads": "Reads and searches your email"
+  },
+  {
+    "id": "gcal",
+    "name": "Google Calendar",
+    "description": "See calendars and events, through Google's own Calendar MCP server.",
+    "icon": "Calendar",
+    "category": "Chat & docs",
+    "kind": "mcp-http",
+    "url": "https://calendarmcp.googleapis.com/mcp/v1",
+    "fields": [],
+    "docs": "https://developers.google.com/workspace/guides/configure-mcp-servers",
+    "signIn": {
+      "via": "app",
+      "provider": "google"
+    },
+    "signInReads": "Reads your calendars and events"
   },
   {
     "id": "linear",
@@ -191,7 +242,11 @@
         "link": "https://linear.app/settings/account/security"
       }
     ],
-    "docs": "https://linear.app/docs/mcp"
+    "docs": "https://linear.app/docs/mcp",
+    "signIn": {
+      "via": "mcp"
+    },
+    "signInReads": "Reads issues, projects and comments"
   },
   {
     "id": "jira",
@@ -458,6 +513,28 @@
     "fields": [],
     "needs": "Node on the device",
     "docs": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking"
+  },
+  {
+    "id": "vercel",
+    "name": "Vercel",
+    "description": "Projects, deployments and build logs. Signing in uses Vercel's own MCP server; a token goes in the agent's environment for the vercel CLI.",
+    "icon": "Triangle",
+    "category": "Code",
+    "kind": "secret",
+    "fields": [
+      {
+        "key": "VERCEL_TOKEN",
+        "label": "Access token",
+        "secret": true,
+        "link": "https://vercel.com/account/settings/tokens"
+      }
+    ],
+    "docs": "https://vercel.com/docs/mcp/vercel-mcp",
+    "signIn": {
+      "via": "mcp",
+      "localOnly": true
+    },
+    "signInReads": "Reads and manages projects and deployments"
   },
   {
     "id": "aws",

@@ -66,7 +66,7 @@ export function YouPage() {
     );
   };
   const card = (children: ReactNode) => <div className="rounded-3xl bg-card overflow-hidden">{children}</div>;
-  const label = (text: string) => <div className="px-4 -mb-2.5 text-[13px] font-medium text-faint">{text}</div>;
+  const label = (text: string) => <div className="px-4 mb-2.5 text-[13px] font-medium text-faint">{text}</div>;
 
   return (
     <div className="flex-1 overflow-y-auto safe-top">

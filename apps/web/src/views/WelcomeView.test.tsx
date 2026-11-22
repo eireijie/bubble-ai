@@ -5,6 +5,7 @@ import type { Agent, ModelConnection } from "@wisp/core";
 import { api } from "../api.ts";
 import { advanceTailscale, askableOn, makeFirstAgent, NO_NODE, serverAddress, SETUP_LABELS, TailscaleScreen, tailscaleProblem } from "./WelcomeView.tsx";
 import { readiness } from "./onboarding/ConnectStep.tsx";
+import { devicesLine, stepsFinished } from "../onboarding.ts";
 import type { AccessInfo } from "../access.ts";
 import type { DeviceInfo } from "../devices.ts";
 
@@ -23,6 +24,12 @@ const device: DeviceInfo = { id: "mac", name: "My Mac", mine: true, online: true
 describe("Wisp setup after the account", () => {
   it("goes outside your home, address, agent, devices", () => {
     expect(Object.keys(SETUP_LABELS)).toEqual(["anywhere", "address", "agent", "devices"]);
+  });
+  it("leaves the agent step open when the AI was skipped, and names no agent on the phone page", () => {
+    expect(stepsFinished(false)).toEqual(["devices"]);
+    expect(stepsFinished(true)).toEqual(["agent", "devices"]);
+    expect(devicesLine(null)).not.toMatch(/Say hi/);
+    expect(devicesLine("Juno")).toBe("Say hi to Juno from your phone too.");
   });
   describe("server address", () => {
     const home = { origin: "http://localhost:4747", protocol: "http:", hostname: "localhost" };

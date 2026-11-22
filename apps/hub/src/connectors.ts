@@ -121,7 +121,7 @@ export class ConnectorStore {
   }
 
   list(workspaceId: string): Connector[] {
-    return (this.db.prepare("SELECT * FROM connectors WHERE workspace_id = ? ORDER BY created_at").all(workspaceId) as ConnectorRow[]).map((r) => this.view(r));
+    return (this.db.prepare("SELECT * FROM connectors WHERE workspace_id = ? ORDER BY created_at, rowid").all(workspaceId) as ConnectorRow[]).map((r) => this.view(r));
   }
 
   get(connectorId: string): Connector | undefined {
@@ -234,9 +234,12 @@ export class ConnectorStore {
    * creator's own devices (a VM counts as its device), like a model connection.
    */
   private forAgentRows(agentId: string): ConnectorRow[] {
+    // Oldest first, and in the order they were made when two share a millisecond (Gmail and Calendar
+    // from one sign-in usually do): without the tie-break these come out in id order, which is random,
+    // so an agent's apps, and which of two same-named ones gets the "-2", could swap.
     const rows = this.db
       .prepare(
-        "SELECT c.*, (SELECT role FROM memberships m WHERE m.workspace_id = c.workspace_id AND m.user_id = c.created_by) AS creator_role, c.id IN (SELECT connector_id FROM agent_connectors WHERE agent_id = ?) AS given FROM connectors c WHERE c.id IN (SELECT connector_id FROM agent_connectors WHERE agent_id = ?) OR (c.all_agents = 1 AND c.workspace_id = (SELECT workspace_id FROM agents WHERE id = ?)) ORDER BY c.created_at",
+        "SELECT c.*, (SELECT role FROM memberships m WHERE m.workspace_id = c.workspace_id AND m.user_id = c.created_by) AS creator_role, c.id IN (SELECT connector_id FROM agent_connectors WHERE agent_id = ?) AS given FROM connectors c WHERE c.id IN (SELECT connector_id FROM agent_connectors WHERE agent_id = ?) OR (c.all_agents = 1 AND c.workspace_id = (SELECT workspace_id FROM agents WHERE id = ?)) ORDER BY c.created_at, c.rowid",
       )
       .all(agentId, agentId, agentId) as (ConnectorRow & { given: number; creator_role: string | null })[];
     const deviceOwner = (this.db.prepare("SELECT n.owner_id FROM agents a JOIN nodes n ON n.id = a.node_id WHERE a.id = ?").get(agentId) as { owner_id: string | null } | undefined)?.owner_id ?? null;
@@ -406,7 +409,7 @@ export class SkillStore {
 
   /** The skills an agent learned. */
   learnedBy(workspaceId: string, agentId: string): Skill[] {
-    return (this.db.prepare("SELECT * FROM skills WHERE workspace_id = ? AND source = 'learned' AND learned_by = ? ORDER BY created_at").all(workspaceId, agentId) as SkillRow[]).map((r) => this.view(r));
+    return (this.db.prepare("SELECT * FROM skills WHERE workspace_id = ? AND source = 'learned' AND learned_by = ? ORDER BY created_at, rowid").all(workspaceId, agentId) as SkillRow[]).map((r) => this.view(r));
   }
 
   /** Every-agent skills in the workspace. */

@@ -401,7 +401,7 @@ export function CodeView() {
         )}
       </main>
       )}
-      {review && task && <ReviewPanel key={task.root.id} task={task} tab={reviewTab} setTab={setReviewTab} version={tasksVersion} />}
+      {review && task && <ReviewPanel key={task.root.id} task={task} tab={reviewTab} setTab={setReviewTab} version={tasksVersion} onClose={() => setReview(false)} />}
       {sheet && <NewTaskSheet onClose={() => setSheet(false)} onStarted={(id) => (setSheet(false), id && setSelected(id))} />}
       {palette && <Palette items={paletteItems} onClose={() => setPalette(false)} />}
     </div>
