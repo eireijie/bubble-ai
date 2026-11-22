@@ -313,7 +313,7 @@ final class OnboardingTests: XCTestCase {
     ManagementHTTPStub.responses.withLock { $0 = [:] }; ManagementHTTPStub.requests.withLock { $0 = [] }
     let configuration = URLSessionConfiguration.ephemeral; configuration.protocolClasses = [ManagementHTTPStub.self]
     let store = Store(loadSession: false)
-    store.api = API(base: URL(string: "https://wisp.example.test:8443/")!, token: "test", session: URLSession(configuration: configuration))
+    store.api = API(base: URL(string: "https://management.test:8443/")!, token: "test", session: URLSession(configuration: configuration))
     store.role = "owner"; store.me = User(id: "u1", email: "sam@example.test", name: "Sam")
     store.workspace = Workspace(id: "w-\(UUID().uuidString)", name: "Sam's Wisp")
     return store
@@ -324,11 +324,11 @@ final class OnboardingTests: XCTestCase {
 
   func testSignInGoesThroughTheHubNeverAPassword() async throws {
     let store = makeStore()
-    XCTAssertEqual(store.hubOrigin, "https://wisp.example.test:8443")
+    XCTAssertEqual(store.hubOrigin, "https://management.test:8443")
     reply("GET", "/api/connectors/sign-in", ##"{"notion":{"signIn":true,"key":true,"reads":"Reads and edits the pages you pick"},"gmail":{"signIn":false,"key":false,"reason":"Signing in with Google isn't set up for Wisp yet."}}"##)
     let options = try await store.signInOptions()
     XCTAssertEqual(options["notion"]?.signIn, true); XCTAssertEqual(options["gmail"]?.key, false)
-    XCTAssertEqual(try sent("GET", "/api/connectors/sign-in").url?.query, "origin=https://wisp.example.test:8443")
+    XCTAssertEqual(try sent("GET", "/api/connectors/sign-in").url?.query, "origin=https://management.test:8443")
 
     reply("POST", "/api/connectors/connect", ##"{"url":"https://mcp.notion.com/authorize?state=abc","connectors":[{"id":"cn1","name":"Notion","kind":"mcp-http","catalogId":"notion","auth":{"required":true,"signedIn":false}}]}"##)
     reply("GET", "/api/connectors", ##"[{"id":"cn1","name":"Notion","kind":"mcp-http","catalogId":"notion","auth":{"required":true,"signedIn":false}}]"##)
@@ -339,7 +339,7 @@ final class OnboardingTests: XCTestCase {
     let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any])
     // only which apps, where to come back to, and who gets them: nothing the person typed
     XCTAssertEqual(Set(body.keys), ["catalogIds", "origin", "returnTo", "agentIds"])
-    XCTAssertEqual(body["catalogIds"] as? [String], ["notion"]); XCTAssertEqual(body["returnTo"] as? String, "close"); XCTAssertEqual(body["origin"] as? String, "https://wisp.example.test:8443")
+    XCTAssertEqual(body["catalogIds"] as? [String], ["notion"]); XCTAssertEqual(body["returnTo"] as? String, "close"); XCTAssertEqual(body["origin"] as? String, "https://management.test:8443")
     // the browser sheet only opens web pages
     XCTAssertNil(BrowserPage("javascript:alert(1)")); XCTAssertNil(BrowserPage("wisp://pair")); XCTAssertNil(BrowserPage(nil))
   }

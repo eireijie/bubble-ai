@@ -132,7 +132,7 @@ struct OnboardingAIStep: View {
       .animation(Motion.pick(Motion.soft, reduceMotion), value: phase)
       .animation(Motion.pick(Motion.soft, reduceMotion), value: trying)
     } bottom: {
-      Button(leaving ? "Opening…" : cta) { Task { await proceed() } }
+      Button(leaving ? "Opening…" : device == nil && loaded && phase == .idle ? "Continue" : cta) { Task { await proceed() } }
         .buttonStyle(ObPrimary())
         .disabled(leaving || phase == .checking || (phase == .idle && cur != .found && device != nil))
         .accessibilityIdentifier("ob-ai-next")
@@ -389,9 +389,9 @@ struct OnboardingAIStep: View {
 
   private func proceed() async {
     if phase == .idle {
-      if cur == .found { return await takeFound() }
       // no computer yet: go on without an agent (it can be made later)
-      if device == nil { onDone(agentId, nil) }
+      if device == nil { return onDone(agentId, nil) }
+      if cur == .found { await takeFound() }
       return
     }
     if phase == .checking { return }

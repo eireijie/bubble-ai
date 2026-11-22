@@ -194,18 +194,17 @@ struct AppsSheet: View {
               AppRow(app: a, mode: modes[a.id] ?? .soon, reason: options?[a.catalogId ?? ""]?.reason, state: rows[a.id] ?? AppRowState(),
                      values: Binding(get: { values[a.id] ?? [:] }, set: { values[a.id] = $0 }),
                      onAllow: { Task { await allow(a) } }, onKey: { set(a.id, AppRowState(phase: .key)); keyRow = a.id }, onSave: { Task { await addKey(a) } }, onSignIn: { Task { await signIn(a) } })
-                .id(a.id)
             }
           }
           .padding(.horizontal, 20).padding(.bottom, 8)
           .animation(Motion.pick(Motion.soft, reduceMotion), value: rows)
         }
         .scrollDismissesKeyboard(.interactively)
-        // a key form opens with the keyboard: bring its row to the top so the field and Connect stay in view
+        // a key form opens with the keyboard: bring it to the middle of what's left, so the field and Connect stay in view
         .task(id: keyRow) {
           guard let keyRow else { return }
           try? await Task.sleep(for: .milliseconds(350))
-          if !Task.isCancelled { withAnimation(Motion.pick(Motion.soft, reduceMotion)) { proxy.scrollTo(keyRow, anchor: .top) } }
+          if !Task.isCancelled { withAnimation(Motion.pick(Motion.soft, reduceMotion)) { proxy.scrollTo(AppRow.formId(keyRow), anchor: .center) } }
         }
       }
       HStack(spacing: 4) {
@@ -398,7 +397,7 @@ struct AppsSheet: View {
 }
 
 /** One app: its icon, name and what it reads, and the one thing to press. A key row opens a small form under it. */
-private struct AppRow: View {
+struct AppRow: View {
   var app: StartApp
   var mode: AppRowMode
   var reason: String?
@@ -409,6 +408,9 @@ private struct AppRow: View {
   var onSave: () -> Void
   var onSignIn: () -> Void
   @FocusState private var focused: String?
+
+  /** where the sheet scrolls to when this row's key form opens */
+  static func formId(_ appId: String) -> String { "key-form-\(appId)" }
 
   private var entry: AppConnector? { OnboardingCatalog.connector(app.catalogId) }
   private var fields: [ConnectorField] { (entry?.fields ?? []).filter { $0.optional != true } }
@@ -428,7 +430,7 @@ private struct AppRow: View {
         control
       }
       .frame(minHeight: 36)
-      if state.phase == .key { keyForm.padding(.top, 10).padding(.leading, 34).obPop() }
+      if state.phase == .key { keyForm.padding(.top, 10).padding(.leading, 34).id(Self.formId(app.id)).obPop() }
       if state.phase == .failed, let error = state.error {
         Text(error).font(.system(size: 13)).foregroundStyle(Palette.red).fixedSize(horizontal: false, vertical: true)
           .padding(.top, 6).padding(.leading, 34).accessibilityLabel("Error: \(error)")
