@@ -125,7 +125,9 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   // the pane beside the chat: an agent's details or the team's info page
   const [side, setSideState] = useState<Side | null>(null);
   useEffect(() => {
-    const tab = dmAgentId ? storedDmPanel() : null;
+    // remembered only where the panel sits beside the chat: on a phone it would cover the chat it belongs to
+    const beside = typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches;
+    const tab = dmAgentId && beside ? storedDmPanel() : null;
     setSideState(dmAgentId && tab ? { kind: "agent", agentId: dmAgentId, tab: "details" } : null);
   }, [channel?.id, dmAgentId]);
   const setSide = (next: Side | null) => {
