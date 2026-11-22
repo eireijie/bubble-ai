@@ -26,6 +26,26 @@ export const pill = "inline-flex items-center justify-center gap-1.5 h-10 px-4 r
 export const pillPrimary = "inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-full bg-accent text-accent-ink text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent/90 disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 export const pillDanger = "inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-full bg-bad text-white text-sm font-medium whitespace-nowrap transition-colors hover:opacity-90 disabled:opacity-50 outline-none";
 export const field = "h-11 w-full rounded-2xl border border-control-line bg-control px-4 text-body text-ink outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30";
+/** A round icon button with a soft fill: 32px on desktops, 44px on phones. */
+export const iconBtn = "grid size-8 max-md:size-11 shrink-0 place-items-center rounded-full bg-chip text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
+/** The one column every Memory page keeps to, and its title. */
+export const pageCol = "mx-auto w-full max-w-[632px] px-4";
+export const pageTitle = "text-[24px] leading-[30px] font-[650] tracking-[-0.01em]";
+/** One row of a small menu: 36px on desktops, 44px on phones. */
+export const menuRow = "w-full h-9 max-md:h-11 px-2.5 rounded-lg flex items-center gap-2.5 text-[14px] text-left text-ink outline-none hover:bg-hover focus-visible:bg-hover";
+
+/** A filter that is on: who or what it narrows to, and an x to drop it. */
+export function FilterChip({ avatar, text, clear, onClear }: { avatar: ReactNode; text: string; clear: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex h-[30px] max-w-full items-center gap-1.5 rounded-full bg-chip pl-2 pr-1">
+      {avatar}
+      <span className="truncate text-[13px] font-semibold">{text}</span>
+      <button onClick={onClear} aria-label={clear} title={clear} className="grid size-[22px] max-md:size-7 shrink-0 place-items-center rounded-full text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+        <X size={12} />
+      </button>
+    </span>
+  );
+}
 
 /** The little uppercase label above a group of cards. */
 export function Overline({ children, action }: { children: ReactNode; action?: ReactNode }) {

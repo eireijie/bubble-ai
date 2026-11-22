@@ -1,27 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Eye, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { Check } from "lucide-react";
 import { type AccessRule } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go, mayLeave } from "../router.ts";
-import { Menu, AgentAvatar, cx } from "../components/ui.tsx";
+import { AgentAvatar } from "../components/ui.tsx";
 import { AccessDialog, folderPaths } from "../components/AccessDialog.tsx";
-import { type GraphData, type GraphKind } from "../components/MemoryGraph.tsx";
-import { MemoryGraphView } from "./MemoryGraphView.tsx";
-import { MemoryHome } from "./MemoryHome.tsx";
-import { AboutView } from "./AboutView.tsx";
-import { AccessRulesDialog } from "./memory/Access.tsx";
+import { type GraphData } from "../components/MemoryGraph.tsx";
+import { MemoryHome, type Change } from "./MemoryHome.tsx";
 import { StorageDialog } from "./memory/Storage.tsx";
-import { NewNoteDialog } from "./memory/NoteDialogs.tsx";
+import { DeleteFolderDialog, NewNoteDialog, RenameFolderDialog } from "./memory/NoteDialogs.tsx";
 import { NoteView } from "./memory/NoteView.tsx";
-import { ActivityFeed, FolderView } from "./memory/Panels.tsx";
-import { Sidebar, buildTree, sidebarIcons, type Hit, type NoteMeta } from "./memory/Sidebar.tsx";
-import { MemoryDialog, Overline, Cards, PhoneBar, Radio, folderSteps, isNotePath, keepMine, pillPrimary, useFolderLabel, useIsPhone } from "./memory/parts.tsx";
+import { ActivityFeed } from "./memory/Panels.tsx";
+import { buildTree, type Hit, type NoteMeta } from "./memory/Sidebar.tsx";
+import { MemoryDialog, Cards, folderSteps, isNotePath, keepMine, useFolderLabel, useIsPhone } from "./memory/parts.tsx";
+import { lastAuthors, saveView, savedView, type MemoryView } from "./memory/logic.ts";
 
 const norm = (s: string) => s.trim().replace(/\.md$/i, "").toLowerCase();
 const base = (p: string) => p.split("/").pop()!.replace(/\.md$/i, "");
-
-type Panel = { view: "graph"; kind?: GraphKind; select?: string } | { view: "activity" } | { view: "about" } | null;
 
 function snippetHtml(s: string) {
   const esc = s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
@@ -29,9 +25,8 @@ function snippetHtml(s: string) {
 }
 
 /**
- * Memory: a folder tree and a note side by side on desktops; pages that take turns on phones.
- * Home, folders, notes (read, edit, history, who wrote what), the graph, activity, About you,
- * who can see what, and where memory is stored.
+ * Memory: one page with a search and the notes, newest first; a view button swaps the list for
+ * folders or the graph. A note opens on a page of its own (read, edit, history, who wrote what).
  */
 export function VaultView({ path, onBack }: { path: string | null; onBack?: () => void }) {
   const phone = useIsPhone();
@@ -41,16 +36,25 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[] | null>(null);
   const searchGeneration = useRef(0);
-  const [panel, setPanel] = useState<Panel>(null);
+  // list, folders or graph: the choice is kept for next time
+  const [view, setView] = useState<MemoryView>(savedView);
+  // "Show in graph" from a note: the graph opens on it, without changing the kept choice
+  const [graphPick, setGraphPick] = useState<string | null>(null);
   const [graph, setGraph] = useState<GraphData | null>(null);
+  const [changes, setChanges] = useState<Change[] | null>(null);
+  // only one author's notes (a ghost in the list was clicked)
+  const [by, setBy] = useState<string | null>(null);
+  const [byPaths, setByPaths] = useState<Set<string> | null>(null);
+  // the feed of who changed what, opened from the view menu
+  const [recent, setRecent] = useState(false);
   const [creating, setCreating] = useState<{ dir: string; name?: string } | null>(null);
   const [sharing, setSharing] = useState<{ path: string; folder: boolean } | null>(null);
-  const [rulesOpen, setRulesOpen] = useState(false);
+  const [folderDialog, setFolderDialog] = useState<{ kind: "rename" | "delete"; path: string } | null>(null);
   const [storageOpen, setStorageOpen] = useState(false);
   const [pickingAs, setPickingAs] = useState(false);
   // owners can look at memory the way one agent sees it
   const [viewAs, setViewAs] = useState<string | null>(null);
-  const [ruled, setRuled] = useState<Set<string>>(new Set());
+  const [rules, setRules] = useState<AccessRule[]>([]);
   // a note just created here opens straight into editing; NoteView remounts per path, so the intent lives here
   const pendingEdit = useRef<string | null>(null);
   const meId = useStore((s) => s.me?.user.id);
@@ -62,20 +66,27 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
 
   const refresh = useCallback(async () => {
     const as = viewAs ? `?as=${encodeURIComponent(viewAs)}` : "";
-    const [list, rules, links, all] = await Promise.all([
+    const [list, rules, links, all, feed] = await Promise.all([
       api<NoteMeta[]>("GET", `/api/vault/notes${as}`),
       api<AccessRule[]>("GET", "/api/access/rules").catch(() => []),
       api<GraphData>("GET", `/api/vault/graph${as}`).catch(() => null),
       viewAs ? api<NoteMeta[]>("GET", "/api/vault/notes").catch(() => null) : Promise.resolve(null),
+      // who changed what, newest first: the list's order, authors and times
+      api<Change[]>("GET", "/api/vault/changes?limit=100").catch(() => []),
     ]);
     setNotes(list);
     setEverything(all ?? list);
     setGraph(links);
-    setRuled(new Set(rules.map((r) => r.path.toLowerCase())));
+    setRules(rules);
+    setChanges(feed);
   }, [viewAs]);
   useEffect(() => {
     refresh();
   }, [refresh, memoryVersion]);
+  // edits made outside Wisp (Obsidian, a git pull) are picked up as the page opens; after that the hub says when memory changes
+  useEffect(() => {
+    api<{ changed: number }>("POST", "/api/vault/sync").then((r) => void (r.changed && refresh()), () => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const generation = ++searchGeneration.current;
@@ -90,10 +101,25 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
   // while viewing as an agent, only show hits it could open
   const visibleHits = useMemo(() => (hits && viewAs && notes ? hits.filter((h) => notes.some((n) => n.path === h.path)) : hits), [hits, viewAs, notes]);
 
-  // opening a note from the graph or Activity leaves them
+  // one author's notes: the change feed names their recent ones; this reaches the older ones too
   useEffect(() => {
-    setPanel(null);
-  }, [path]);
+    setByPaths(null);
+    if (!by) return;
+    let live = true;
+    api<Change[]>("GET", `/api/vault/changes?limit=100&author=${encodeURIComponent(by)}`).then((c) => live && setByPaths(new Set(c.flatMap((x) => x.files.filter((f) => f.change !== "deleted").map((f) => f.path)))), () => {});
+    return () => {
+      live = false;
+    };
+  }, [by, memoryVersion]);
+  const authors = useMemo(() => lastAuthors(changes ?? []), [changes]);
+
+  const isNote = !!path && isNotePath(path);
+  const folder = path && !isNote ? path : null;
+  // opening a note leaves the graph it was picked from, and the feed of changes
+  useEffect(() => {
+    if (isNote) setGraphPick(null);
+    setRecent(false);
+  }, [isNote, path]);
 
   /** Obsidian-style resolution: exact path, then basename (preferring the same top folder). */
   const resolve = useCallback(
@@ -113,18 +139,25 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
     const dir = p.split("/").slice(0, -1).join("/");
     return dir ? folderSteps(dir).map((s) => label(s)).join(" / ") : "Top folder";
   };
-  const openPath = (p: string) => {
-    if (p === path) setPanel(null);
-    go({ view: "vault", path: p });
-  };
-  const show = (next: Panel) => mayLeave() && setPanel(next);
-  const goHome = () => {
-    if (!mayLeave()) return;
-    setPanel(null);
+  const openPath = (p: string) => go({ view: "vault", path: p });
+  const home = () => {
     if (path) go({ view: "vault", path: null });
   };
-  const isNote = !!path && isNotePath(path);
-  const folder = path && !isNote ? path : null;
+  // a folder in the address opens the folders view; a note picked for the graph opens the graph; one author's notes are a list
+  const shownView: MemoryView = folder ? "folders" : graphPick ? "graph" : by ? "list" : view;
+  const chooseView = (next: MemoryView) => {
+    if (!mayLeave()) return;
+    setView(next);
+    saveView(next);
+    setGraphPick(null);
+    setBy(null);
+    if (next !== "folders") home();
+  };
+  const onlyBy = (author: string | null) => {
+    setBy(author);
+    setGraphPick(null);
+    if (author) home();
+  };
   const newNoteDir = isNote ? path!.split("/").slice(0, -1).join("/") : folder ? folder : keepMine(meId);
   /** A note that's linked to but not written yet: write it next to the first note that links to it. */
   const writeMissing = (title: string) => {
@@ -134,148 +167,78 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
   const folders = useMemo(() => (everything ? folderPaths(everything) : []), [everything]);
   const canNew = !viewAs;
 
-  // who a helper can't see: the top folders missing from its list
+  // what an agent can't see: the top folders missing from its list
   const hidden = useMemo(() => {
-    if (!viewAs || !notes || !everything) return null;
+    if (!viewAs || !notes || !everything) return [];
     const have = new Set(buildTree(notes, meId).map((n) => n.path));
-    const gone = buildTree(everything, meId).filter((n) => !n.note && !have.has(n.path));
-    return { count: gone.length, names: gone.map((n) => label(n.name)) };
+    return buildTree(everything, meId)
+      .filter((n) => !n.note && !have.has(n.path))
+      .map((n) => label(n.name));
   }, [viewAs, notes, everything, meId, label]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const links = [
-    { key: "graph", label: "Graph", icon: sidebarIcons.graph, onClick: () => show({ view: "graph" }) },
-    { key: "activity", label: "Recent changes", icon: sidebarIcons.activity, onClick: () => show({ view: "activity" }) },
-    { key: "access", label: "Who can see and edit what", icon: sidebarIcons.access, onClick: () => setRulesOpen(true) },
-    { key: "about", label: "About you", icon: sidebarIcons.about, onClick: () => show({ view: "about" }) },
-    { key: "storage", label: "Obsidian and storage", icon: sidebarIcons.storage, onClick: () => setStorageOpen(true) },
-  ];
-  const moreMenu = (
-    <Menu
-      align="right"
-      trigger={(_o, toggle) => (
-        <button onClick={toggle} className="circle" aria-haspopup="menu" aria-label="More in Memory" title="More">
-          <MoreHorizontal size={20} />
-        </button>
-      )}
-      items={[
-        { label: "Refresh", icon: <RefreshCw size={16} />, onSelect: () => api("POST", "/api/vault/sync").then(refresh) },
-        "divider",
-        ...links.map((l) => ({ label: l.label, icon: l.icon, onSelect: l.onClick })),
-      ]}
-    />
-  );
-  const newButton = canNew && (
-    <button className={cx(pillPrimary, "h-11")} onClick={() => setCreating({ dir: newNoteDir })} title="Write a new note here">
-      <Plus size={16} /> New note
-    </button>
-  );
-  const asChip = isOwner && agents.length > 0 && (
-    <button onClick={() => setPickingAs(true)} className="h-10 px-4 rounded-full border border-control-line bg-control inline-flex items-center gap-2 text-[14px] font-medium">
-      <Eye size={15} /> {asAgent ? `View as ${asAgent.name}` : "View as you"}
-    </button>
-  );
-
-  // ---- what fills the page ------------------------------------------------------------------
-  const page = (() => {
-    if (panel?.view === "activity") return <ActivityFeed onOpen={openPath} onBack={() => setPanel(null)} />;
-    if (panel?.view === "about") return <AboutView embedded onBack={phone ? () => setPanel(null) : undefined} />;
-    if (panel?.view === "graph")
-      return (
-        <div className="h-full flex flex-col min-h-0">
-          {phone && <PhoneBar title="Graph" onBack={() => setPanel(null)} trailing={moreMenu} />}
-          <div className="flex-1 min-h-0">
-            <MemoryGraphView key={`${viewAs}:${panel.kind ?? ""}:${panel.select ?? ""}`} graph={graph} initialKind={panel.kind} initialSelect={panel.select} where={where} onOpen={openPath} onWrite={viewAs ? undefined : writeMissing} />
-          </div>
-        </div>
-      );
-    if (isNote)
-      return (
-        <NoteView
-          key={path}
-          path={path!}
-          pendingEdit={pendingEdit}
-          resolve={resolve}
-          graph={graph}
-          where={where}
-          folders={folders}
-          readOnly={!!viewAs}
-          onChanged={refresh}
-          onShare={() => setSharing({ path: path!, folder: false })}
-          onGraph={(p) => show({ view: "graph", select: p })}
-          onStorage={() => setStorageOpen(true)}
-          onBack={() => go({ view: "vault", path: path!.split("/").slice(0, -1).join("/") || null })}
-          onOpenFolder={(d) => go({ view: "vault", path: d })}
-        />
-      );
-    if (folder)
-      return <FolderView path={folder} notes={notes ?? []} onOpen={openPath} onFolder={(p) => go({ view: "vault", path: p })} onNew={() => setCreating({ dir: folder })} onBack={() => go({ view: "vault", path: null })} canNew={canNew} />;
-    return (
-      <div className="h-full flex flex-col min-h-0">
-        {phone && <PhoneBar title="Memory" onBack={onBack ?? (() => go({ view: "more" }))} trailing={moreMenu} />}
-        <div className="flex-1 min-h-0">
-          <MemoryHome
+  return (
+    <section className="flex-1 min-w-0 min-h-0 flex flex-col" aria-label="Memory">
+      <div className="flex-1 min-h-0">
+        {isNote ? (
+          <NoteView
+            key={path}
+            path={path!}
+            pendingEdit={pendingEdit}
+            resolve={resolve}
             graph={graph}
+            where={where}
+            folders={folders}
+            readOnly={!!viewAs}
+            onChanged={refresh}
+            onShare={() => setSharing({ path: path!, folder: false })}
+            onGraph={(p) => {
+              setGraphPick(p);
+              setBy(null);
+              go({ view: "vault", path: null });
+            }}
+            onStorage={() => setStorageOpen(true)}
+            onWrite={viewAs ? undefined : writeMissing}
+            // back to where the note was opened from: its folder in the folders view, else the list or the graph
+            onBack={() => go({ view: "vault", path: view === "folders" && !by ? path!.split("/").slice(0, -1).join("/") || null : null })}
+          />
+        ) : recent ? (
+          <ActivityFeed onOpen={openPath} onBack={() => setRecent(false)} />
+        ) : (
+          <MemoryHome
+            view={shownView}
+            onView={chooseView}
+            phone={phone}
+            onBack={phone ? (onBack ?? (() => go({ view: "more" }))) : undefined}
             notes={notes}
-            hiddenFolders={hidden ? { count: hidden.count, name: asAgent?.name ?? "this agent" } : null}
+            total={everything?.length ?? 0}
+            authors={authors}
+            query={query}
+            setQuery={setQuery}
+            hits={visibleHits}
+            by={by}
+            byPaths={byPaths}
+            onBy={onlyBy}
+            seeAs={asAgent ?? null}
+            onSeeAs={isOwner && agents.length > 0 ? () => setPickingAs(true) : undefined}
+            onStopSeeAs={() => setViewAs(null)}
+            onRecent={() => setRecent(true)}
+            hidden={hidden}
+            graph={graph}
+            graphPick={graphPick}
+            folder={folder}
+            rules={rules}
             where={where}
             snippetHtml={snippetHtml}
             onOpen={openPath}
             onFolder={(p) => go({ view: "vault", path: p })}
-            onGraph={(kind) => show({ view: "graph", kind })}
-            onActivity={() => show({ view: "activity" })}
             onNew={canNew ? () => setCreating({ dir: newNoteDir }) : undefined}
-            viewAs={asChip || undefined}
-            actions={
-              <>
-                {newButton}
-                {moreMenu}
-              </>
-            }
+            onWrite={viewAs ? undefined : writeMissing}
+            onShareFolder={(dir) => setSharing({ path: dir, folder: true })}
+            onRenameFolder={(dir) => setFolderDialog({ kind: "rename", path: dir })}
+            onDeleteFolder={(dir) => setFolderDialog({ kind: "delete", path: dir })}
           />
-        </div>
-      </div>
-    );
-  })();
-
-  const sideActive = panel?.view === "graph" ? "graph" : panel?.view === "activity" ? "activity" : panel?.view === "about" ? "about" : null;
-
-  return (
-    <div className="flex-1 min-h-0 flex">
-      {!phone && (
-        <Sidebar
-          notes={notes}
-          query={query}
-          setQuery={setQuery}
-          hits={visibleHits}
-          snippetHtml={snippetHtml}
-          active={isNote ? path : folder}
-          onOpen={openPath}
-          onFolder={(p) => go({ view: "vault", path: p })}
-          onShare={(dir) => setSharing({ path: dir, folder: true })}
-          ruled={ruled}
-          onNew={() => setCreating({ dir: newNoteDir })}
-          canNew={canNew}
-          viewAs={viewAs}
-          setViewAs={setViewAs}
-          canViewAs={isOwner && agents.length > 0}
-          panel={sideActive}
-          links={links}
-        />
-      )}
-      <section className="flex-1 min-w-0 min-h-0 flex flex-col" aria-label="Memory">
-        {viewAs && asAgent && (
-          <div role="status" className="mx-4 md:mx-6 mt-3 rounded-2xl bg-info/20 px-4 py-2.5 text-sm flex items-center gap-3">
-            <AgentAvatar agent={asAgent} size={22} interactive={false} />
-            <span className="flex-1 min-w-0">
-              Viewing as <b>@{asAgent.handle}</b>. Only the notes it can read are listed.{hidden && hidden.names.length > 0 ? ` ${hidden.names.slice(0, 3).join(" and ")} ${hidden.names.length === 1 ? "is" : "are"} hidden.` : ""}
-            </span>
-            <button className={cx(pillPrimary, "h-9 px-4")} onClick={() => setViewAs(null)}>
-              Stop
-            </button>
-          </div>
         )}
-        <div className="flex-1 min-h-0">{page}</div>
-      </section>
+      </div>
 
       {creating !== null && (
         <NewNoteDialog
@@ -292,53 +255,55 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
         />
       )}
       {sharing && <AccessDialog path={sharing.path} folder={sharing.folder} onClose={() => setSharing(null)} onChanged={refresh} />}
-      {rulesOpen && <AccessRulesDialog onClose={() => setRulesOpen(false)} />}
+      {folderDialog?.kind === "rename" && (
+        <RenameFolderDialog
+          path={folderDialog.path}
+          notes={everything ?? []}
+          rules={rules}
+          onClose={() => setFolderDialog(null)}
+          onChanged={refresh}
+          onDone={async (to) => {
+            setFolderDialog(null);
+            await refresh();
+            go({ view: "vault", path: to });
+          }}
+        />
+      )}
+      {folderDialog?.kind === "delete" && (
+        <DeleteFolderDialog
+          path={folderDialog.path}
+          notes={everything ?? []}
+          rules={rules}
+          onClose={() => setFolderDialog(null)}
+          onChanged={refresh}
+          onDone={async () => {
+            const up = folderSteps(folderDialog.path).slice(0, -1).join("/") || null;
+            setFolderDialog(null);
+            await refresh();
+            go({ view: "vault", path: up });
+          }}
+        />
+      )}
       {storageOpen && <StorageDialog onClose={() => setStorageOpen(false)} />}
-      {pickingAs && <ViewAsDialog viewAs={viewAs} total={everything?.length ?? 0} visible={notes?.length ?? 0} hiddenNames={hidden?.names ?? []} onClose={() => setPickingAs(false)} onPick={(v) => (setViewAs(v), setPickingAs(false))} />}
-    </div>
+      {pickingAs && <ViewAsDialog viewAs={viewAs} onClose={() => setPickingAs(false)} onPick={(v) => (setViewAs(v), setPickingAs(false))} />}
+    </section>
   );
 }
 
-/** Phones: pick a helper to see memory as; shows how many notes it can read once chosen. */
-function ViewAsDialog({ viewAs, total, visible, hiddenNames, onClose, onPick }: { viewAs: string | null; total: number; visible: number; hiddenNames: string[]; onClose: () => void; onPick: (v: string | null) => void }) {
+/** Pick an agent to see memory the way it does. The chip under the search says who, and its x ends it. */
+function ViewAsDialog({ viewAs, onClose, onPick }: { viewAs: string | null; onClose: () => void; onPick: (v: string | null) => void }) {
   const agents = useStore((s) => s.agents);
-  const [sel, setSel] = useState<string | null>(viewAs);
-  const picked = agents.find((a) => `agent:${a.id}` === sel);
   return (
-    <MemoryDialog
-      title="View memory as"
-      onClose={onClose}
-      footer={
-        <button className={cx(pillPrimary, "h-12 px-6")} onClick={() => onPick(sel)}>
-          <Eye size={17} /> {picked ? `View as ${picked.name}` : "View as you"}
-        </button>
-      }
-    >
-      <Overline>Agent</Overline>
+    <MemoryDialog title="See as an agent" onClose={onClose}>
       <Cards>
-        <button onClick={() => setSel(null)} className="w-full min-h-12 px-4 flex items-center gap-3 text-left hover:bg-hover/60">
-          <span className="flex-1 text-body">You</span>
-          <Radio on={!sel} />
-        </button>
         {agents.map((a) => (
-          <button key={a.id} onClick={() => setSel(`agent:${a.id}`)} className="w-full min-h-12 px-4 flex items-center gap-3 text-left hover:bg-hover/60">
+          <button key={a.id} onClick={() => onPick(`agent:${a.id}`)} aria-pressed={viewAs === `agent:${a.id}`} className="w-full min-h-12 px-4 flex items-center gap-3 text-left hover:bg-hover/60">
             <AgentAvatar agent={a} size={30} interactive={false} />
             <span className="flex-1 text-body">{a.name}</span>
-            <Radio on={sel === `agent:${a.id}`} />
+            {viewAs === `agent:${a.id}` && <Check size={16} className="text-muted" aria-hidden />}
           </button>
         ))}
       </Cards>
-      {picked && sel === viewAs && total > 0 && (
-        <>
-          <Overline>Result</Overline>
-          <div className="rounded-3xl bg-card px-4 py-3.5">
-            <p className="font-medium">
-              {picked.name} can read {visible} of {total} notes
-            </p>
-            {hiddenNames.length > 0 && <p className="mt-1 text-sm text-muted">{hiddenNames.join(" and ")} stay hidden.</p>}
-          </div>
-        </>
-      )}
     </MemoryDialog>
   );
 }
