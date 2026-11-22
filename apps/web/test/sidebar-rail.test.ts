@@ -7,7 +7,7 @@ import type { Chat } from "../src/components/ChatList.tsx";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn(() => new Promise(() => {})), uploadFile: vi.fn() }));
 vi.mock("../src/App.tsx", () => ({ logout: vi.fn() }));
-vi.mock("../src/components/OrgSwitcher.tsx", () => ({ OrgSwitcher: () => null, useOrgs: () => ({ orgs: [], current: null, homeId: null }) }));
+vi.mock("../src/components/OrgSwitcher.tsx", () => ({ OrgSwitcher: () => null, OrgList: () => null, NewOrgDialog: () => null, useOrgs: () => ({ orgs: [], current: null, homeId: null }) }));
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false, useMotionReduced: () => false, useAppearance: () => ({ resolvedMode: "light", mode: "light", setMode: vi.fn(), toggleMode: vi.fn() }) }));
 vi.mock("../src/onboarding.ts", () => ({
   useOnboarding: () => ({ done: {} }),
@@ -19,59 +19,92 @@ vi.mock("../src/onboarding.ts", () => ({
 const chat = (key: string, kind: "dm" | "team", extra: Partial<Chat> = {}): Chat => ({ key, kind, channel: null, agent: null, name: key, at: 0, unread: 0, pinned: false, muted: false, sectionId: null, ...extra });
 
 describe("sidebar groups", () => {
-  it("puts pinned first, then your sections, then agents and teams", () => {
+  it("puts pinned first, then agents and teams in no section as one list, then your sections", () => {
     const groups = sidebarGroups(
       [chat("ledger", "dm", { pinned: true, sectionId: "work" }), chat("iris", "dm"), chat("launch", "team"), chat("mason", "dm", { sectionId: "work" }), chat("old", "team", { sectionId: "gone" })],
       [{ id: "work", name: "Work" } as never],
     );
     expect(groups.map((g) => [g.label, g.chats.map((c) => c.key)])).toEqual([
       ["Pinned", ["ledger"]],
+      // agents and teams together, in the order they came in (newest first); a chat in a deleted section falls back here
+      ["Agents and teams", ["iris", "launch", "old"]],
       ["Work", ["mason"]],
-      ["Agents", ["iris"]],
-      // a chat in a deleted section falls back to its kind's group
-      ["Teams", ["launch", "old"]],
     ]);
   });
 
-  it("leaves out empty groups", () => {
-    expect(sidebarGroups([chat("iris", "dm")], []).map((g) => g.label)).toEqual(["Agents"]);
+  it("gives only Pinned and your own sections a header", () => {
+    const groups = sidebarGroups([chat("ledger", "dm", { pinned: true }), chat("iris", "dm"), chat("mason", "dm", { sectionId: "work" })], [{ id: "work", name: "Work" } as never]);
+    expect(groups.map((g) => [g.id, !g.plain])).toEqual([["pinned", true], ["chats", false], ["work", true]]);
+    expect(groups[2].section?.name).toBe("Work");
+  });
+
+  it("leaves out Pinned and the plain list when empty, and keeps a section you made", () => {
+    expect(sidebarGroups([chat("iris", "dm")], []).map((g) => g.id)).toEqual(["chats"]);
+    expect(sidebarGroups([chat("iris", "dm", { sectionId: "work" })], [{ id: "work", name: "Work" } as never, { id: "later", name: "Later" } as never]).map((g) => [g.label, g.chats.length])).toEqual([["Work", 1], ["Later", 0]]);
   });
 });
 
 describe("docked sidebar", () => {
   const initial = useStore.getInitialState();
-  const saved = { me: initial.me, agents: initial.agents };
+  const saved = { me: initial.me, agents: initial.agents, approvals: initial.approvals, channels: initial.channels };
   afterEach(() => {
     Object.assign(initial, saved);
     vi.unstubAllGlobals();
   });
 
   function render(stored: unknown) {
-    const data = new Map<string, string>(stored ? [["wisp.sidebar", JSON.stringify(stored)]] : []);
+    const data = new Map<string, string>(stored ? [["wisp.sidebar2", JSON.stringify(stored)]] : []);
     vi.stubGlobal("localStorage", { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) });
     initial.me = { kind: "user", role: "owner", user: { id: "person", name: "Sam Rivera", email: "me@example.com", createdAt: "now" }, workspace: { id: "workspace", name: "Home" }, prefs: { experience: "advanced", sendWith: "enter", clock: "auto", toolCalls: "collapsed" } };
     initial.agents = [{ id: "a1", name: "Iris", status: "idle" } as (typeof initial.agents)[number]];
     return renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
   }
 
-  it("opens at the remembered width with names and a resize edge", () => {
-    const html = render({ width: 320, collapsed: false });
-    expect(html).toContain("width:320px");
+  it("opens at the remembered width with names, the two round buttons and a resize edge", () => {
+    const html = render({ width: 360, collapsed: false });
+    expect(html).toContain("width:360px");
     expect(html).toContain('role="separator"');
-    expect(html).toContain('aria-label="Collapse sidebar"');
-    expect(html).toContain(">Agents<");
     expect(html).toContain(">Iris<");
-    expect(html).toContain(">Settings, memory, usage<");
+    expect(html).toContain(">Computers<");
+    for (const control of ["Search", "New agent or team", "You and settings", "Computers"]) expect(html).toContain(`aria-label="${control}"`);
   });
 
-  it("collapsed shows icons only, and every place is still reachable", () => {
-    const html = render({ width: 320, collapsed: true });
-    expect(html).toContain("width:64px");
-    expect(html).toContain('aria-label="Expand sidebar"');
-    expect(html).not.toContain(">Agents<");
-    expect(html).not.toContain(">Settings, memory, usage<");
-    for (const place of ["Inbox", "All chats and search", "Iris", "New agent or team", "Computers", "Apps, skills and mods", "Account and settings"]) expect(html).toContain(`aria-label="${place}`);
+  it("holds only agents and teams: what left the sidebar isn't drawn in it", () => {
+    const html = render({ width: 360, collapsed: false });
+    for (const gone of ["Collapse sidebar", "All chats and search", "Inbox", "Needs you", ">Agents<", ">Teams<", "Finish setup", "Apps, skills and mods", "Settings, memory, usage", ">Home<", "No chats yet"]) expect(html).not.toContain(gone);
   });
 
-  it("starts at 260 with nothing saved", () => expect(render(null)).toContain("width:260px"));
+  it("gives a row its name, the newest message under it and one dot when unread, with no count", () => {
+    initial.channels = [{ id: "c1", kind: "dm", name: "dm:person:a1", unread: 3, notify: "default", starred: false, sectionId: null, last: { at: "2026-11-22T10:00:00Z", body: "My pick is Immich.", author: { kind: "agent", id: "a1" } } } as unknown as (typeof initial.channels)[number]];
+    const html = render({ width: 360, collapsed: false });
+    expect(html).toMatch(/href="#\/[^"]*c1"/);
+    expect(html).toContain('aria-label="Iris, 3 unread"');
+    expect(html).toContain(">My pick is Immich.<");
+    expect(html).not.toContain(">3<");
+    // collapsed: the same chat as a tile, still marked
+    const rail = render({ width: 360, collapsed: true });
+    expect(rail).toContain('aria-label="Iris, 3 unread"');
+    expect(rail).not.toContain(">My pick is Immich.<");
+  });
+
+  it("shows Needs you with its count only while something waits", () => {
+    initial.approvals = { ok: { id: "ok", status: "pending", channelId: "c1", summary: "Send it?" } as (typeof initial.approvals)[string] };
+    const html = render({ width: 360, collapsed: false });
+    expect(html).toContain('aria-label="Needs you, 1 waiting"');
+    expect(html).toContain(">Needs you<");
+    expect(html).toContain('href="#/dashboard"');
+    // it's the open page here, so it reads as selected
+    expect(html).toMatch(/aria-label="Needs you, 1 waiting"[^>]*aria-current="page"/);
+  });
+
+  it("collapsed is an 82px rail of tiles, and every place is still reachable", () => {
+    initial.approvals = { ok: { id: "ok", status: "pending", channelId: "c1", summary: "Send it?" } as (typeof initial.approvals)[string] };
+    const html = render({ width: 360, collapsed: true });
+    expect(html).toContain("width:82px");
+    expect(html).not.toContain(">Iris<");
+    expect(html).not.toContain(">Computers<");
+    for (const place of ["Search", "Needs you, 1 waiting", "Iris", "New agent or team", "Computers", "You and settings"]) expect(html).toContain(`aria-label="${place}`);
+  });
+
+  it("starts at 320 with nothing saved", () => expect(render(null)).toContain("width:320px"));
 });

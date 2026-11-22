@@ -38,7 +38,7 @@ export function useMessageActionList(m: Message, opts: { onReply: () => void; on
 /** Phones and touch screens get the lifted version of the menu; a mouse gets it at the pointer. */
 const touchFirst = () => window.matchMedia("(hover: none)").matches || window.innerWidth < 768;
 
-/** Letter keys for the menu's items, shown on desktops. */
+/** Letter keys for the menu's items (they work; the menu doesn't spell them out). */
 const KEYS: Partial<Record<MessageAction["id"], string>> = { reply: "R", thread: "T", copy: "C", pin: "P", edit: "E", delete: "⌫" };
 
 /**
@@ -210,7 +210,6 @@ export function MessageMenu({ actions, reacted, onReact, at, source, preview, mi
             >
               <span className="shrink-0 opacity-80">{a.icon}</span>
               <span className="flex-1">{a.label}</span>
-              {!lift && KEYS[a.id] && <span className="text-xs opacity-60">{KEYS[a.id]}</span>}
             </button>
           </div>
         ))}
@@ -378,8 +377,7 @@ export function DeleteMessageDialog({ m, onClose }: { m: Message; onClose: () =>
   const [error, setError] = useState<string | null>(null);
   return (
     <Modal title="Delete this message?" label="Delete this message" onClose={onClose}>
-      <p className="text-sm text-muted">Everyone will see “This message was deleted.” instead. Replies in its thread stay.</p>
-      {m.body && <p className="mt-3 line-clamp-2 rounded-2xl bg-card px-3.5 py-2.5 text-sm">{m.body}</p>}
+      {m.body && <p className="line-clamp-2 rounded-2xl bg-card px-3.5 py-2.5 text-sm">{m.body}</p>}
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button onClick={onClose} className="h-11 rounded-full border border-control-line bg-control px-5 text-body font-medium">
@@ -444,8 +442,7 @@ export function EditMessageDialog({ m, onClose }: { m: Message; onClose: () => v
       />
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-3 flex items-center gap-2">
-        <p className="mr-auto text-xs text-faint">Others will see “(edited)” next to the time.</p>
-        <button onClick={onClose} disabled={busy} className="h-11 rounded-full border border-control-line bg-control px-5 text-body font-medium">
+        <button onClick={onClose} disabled={busy} className="ml-auto h-11 rounded-full border border-control-line bg-control px-5 text-body font-medium">
           Cancel
         </button>
         <button onClick={() => void save()} disabled={busy || !canSave} className="h-11 rounded-full bg-accent px-5 text-body font-medium text-accent-ink disabled:opacity-50">

@@ -11,7 +11,8 @@ const MOOD_TEXT: Partial<Record<GhostMood, string>> = { working: "working", thin
 /**
  * Where an agent lives in its DM: a pill at the top of the conversation with its pet ghost, which
  * watches your cursor, gets busy while it works, waves for your OK, cheers when it's done and
- * dozes while its device is off. Poke the ghost to play; click the rest to see the agent.
+ * dozes while its device is off. The ghost's pose says how it is (the words are only read out).
+ * Poke the ghost to play; click the rest to open the agent's panel.
  */
 export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boolean; onClick: () => void }) {
   const base = useStore((s) => agentMood(agent, s.approvals, s.computers));
@@ -34,7 +35,7 @@ export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boole
       onClick={onClick}
       aria-expanded={open}
       className={cx(
-        "agent-pill inline-flex items-center gap-[9px] h-10 pl-2 pr-4 rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "agent-pill inline-flex max-w-full items-center gap-[9px] h-10 pl-2 pr-4 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring",
         open ? "bg-side-active" : "hover:bg-hover",
       )}
       aria-label={`${agent.name}${note ? `, ${note}` : ""}. About ${agent.name}`}
@@ -43,8 +44,7 @@ export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boole
       <span onClick={(e) => e.stopPropagation()} className="grid place-items-center">
         <Ghost look={look} size={26} mood={mood} interactive label={agent.name} seed={agent.handle} />
       </span>
-      <span className="font-semibold">{agent.name}</span>
-      {note && <span className={cx("text-xs", mood === "waiting" ? "text-st-needs" : mood === "error" ? "text-st-problem" : "text-muted")}>{note}</span>}
+      <span className="truncate font-semibold">{agent.name}</span>
     </button>
   );
 }

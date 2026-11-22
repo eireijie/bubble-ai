@@ -30,12 +30,12 @@
           root.dataset.text = s === "small" || s === "large" ? s : "default";
           if (localStorage.getItem("wisp.motion") === "reduce") root.dataset.motion = "reduce";
         } catch (e) {}
-        if (m === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#161616");
+        if (m === "dark") document.querySelector('meta[name="theme-color"]').setAttribute("content", "#121212");
       })();
     </script>
     <style>
       html { background: #fff; color: #a3a3a3; }
-      html[data-mode="dark"] { background: #161616; color: #6b6b6b; }
+      html[data-mode="dark"] { background: #121212; color: #6b6b6b; }
     </style>
   </head>
   <body>

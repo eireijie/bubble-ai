@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/** What a person sets for their own calls (the panel in the call). Kept on this device. */
+/** What a person sets for their own calls (the agent panel › More). Kept on this device. */
 export interface CallPrefs {
   /** playback speed of the agent's voice, 1 is normal */
   speed: number;
@@ -8,8 +8,10 @@ export interface CallPrefs {
   language: string;
   /** show the "Reading main.ts" line while the agent works */
   showActivity: boolean;
+  /** show what you both say under the call bar; off, the words still land in the chat as messages */
+  showTranscript: boolean;
 }
-export const DEFAULT_CALL_PREFS: CallPrefs = { speed: 1, language: "", showActivity: true };
+export const DEFAULT_CALL_PREFS: CallPrefs = { speed: 1, language: "", showActivity: true, showTranscript: false };
 export const SPEEDS = [0.8, 1, 1.25, 1.5];
 const KEY = "wisp-call-prefs";
 let cache: CallPrefs | null = null;
@@ -23,6 +25,7 @@ export function callPrefs(): CallPrefs {
       speed: SPEEDS.includes(raw.speed as number) ? (raw.speed as number) : 1,
       language: typeof raw.language === "string" ? raw.language : "",
       showActivity: raw.showActivity !== false,
+      showTranscript: raw.showTranscript === true,
     };
   } catch { cache = { ...DEFAULT_CALL_PREFS }; }
   return cache;

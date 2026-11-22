@@ -9,12 +9,12 @@ function fakeStorage() {
 describe("docked sidebar width", () => {
   it("follows the pointer between the narrowest and widest", () => {
     expect(dragWidth(300)).toBe(300);
-    expect(dragWidth(150)).toBe(SIDEBAR.min);
+    expect(dragWidth(200)).toBe(SIDEBAR.min);
     expect(dragWidth(900)).toBe(SIDEBAR.max);
-    expect(dragWidth(250.6)).toBe(251);
+    expect(dragWidth(300.6)).toBe(301);
   });
 
-  it("snaps to icons under the snap point", () => {
+  it("snaps to the rail under the snap point", () => {
     expect(dragWidth(SIDEBAR.snap - 1)).toBe(SIDEBAR.rail);
     expect(dragWidth(10)).toBe(SIDEBAR.rail);
     expect(dragWidth(-40)).toBe(SIDEBAR.rail);
@@ -35,6 +35,15 @@ describe("docked sidebar width", () => {
     expect(stepWidth({ width: 300, collapsed: true }, -1)).toEqual({ width: 300, collapsed: true });
   });
 
+  it("is 320 wide by default with an 82px rail, and the range sits around that", () => {
+    expect(SIDEBAR.default).toBe(320);
+    expect(SIDEBAR.rail).toBe(82);
+    expect(SIDEBAR.min).toBeLessThan(SIDEBAR.default);
+    expect(SIDEBAR.max).toBeGreaterThan(SIDEBAR.default);
+    expect(SIDEBAR.snap).toBeGreaterThan(SIDEBAR.rail);
+    expect(SIDEBAR.snap).toBeLessThan(SIDEBAR.min);
+  });
+
   it("clamps junk to a sane width", () => {
     expect(clampWidth(NaN)).toBe(SIDEBAR.default);
     expect(clampWidth(5)).toBe(SIDEBAR.min);
@@ -44,17 +53,22 @@ describe("docked sidebar width", () => {
     beforeEach(() => vi.stubGlobal("localStorage", fakeStorage()));
     afterEach(() => vi.unstubAllGlobals());
 
-    it("defaults to 260 and open", () => expect(loadSidebar()).toEqual({ width: SIDEBAR.default, collapsed: false }));
+    it("defaults to 320 and open", () => expect(loadSidebar()).toEqual({ width: SIDEBAR.default, collapsed: false }));
 
     it("survives a reload", () => {
       saveSidebar({ width: 333, collapsed: true });
       expect(loadSidebar()).toEqual({ width: 333, collapsed: true });
     });
 
-    it("ignores a broken or out-of-range saved value", () => {
-      localStorage.setItem("wisp.sidebar", "{not json");
+    it("starts from the new default when only a width from before the redesign is saved", () => {
+      localStorage.setItem("wisp.sidebar", JSON.stringify({ width: 260, collapsed: true }));
       expect(loadSidebar()).toEqual({ width: SIDEBAR.default, collapsed: false });
-      localStorage.setItem("wisp.sidebar", JSON.stringify({ width: 9000, collapsed: "yes" }));
+    });
+
+    it("ignores a broken or out-of-range saved value", () => {
+      localStorage.setItem("wisp.sidebar2", "{not json");
+      expect(loadSidebar()).toEqual({ width: SIDEBAR.default, collapsed: false });
+      localStorage.setItem("wisp.sidebar2", JSON.stringify({ width: 9000, collapsed: "yes" }));
       expect(loadSidebar()).toEqual({ width: SIDEBAR.max, collapsed: false });
     });
 

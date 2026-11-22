@@ -1,61 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, Plus, Zap } from "lucide-react";
+import { Check, ChevronRight, Plus, Zap } from "lucide-react";
 import { harnessLabel, providerLabel, type Agent, type ConnectionModel, type ModelConnection } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { href } from "../router.ts";
-import { agentComputer, canUse, connectionModelList, connectionName, connectionModels, connectionSub, connectionsFor, contextColor, contextLine, effortShort, forgetConnectionModels, harnessSwitch, modelName, planLeft, patchAgent, prettyModel, runLine, useConnections, useHarnessComputers, type AgentContext, type AgentModels } from "../models.ts";
+import { agentComputer, canUse, connectionModelList, connectionName, connectionModels, connectionSub, connectionsFor, contextColor, contextLine, effortShort, forgetConnectionModels, harnessSwitch, modelName, planLeft, patchAgent, prettyModel, useConnections, useHarnessComputers, type AgentContext, type AgentModels } from "../models.ts";
 import { HarnessLogo } from "./HarnessLogo.tsx";
-import { Modal, Popover, cx } from "./ui.tsx";
+import { cx } from "./ui.tsx";
 import { useAgentCommands } from "./SlashMenu.tsx";
 import { ConnectModel } from "./ConnectModel.tsx";
 import { BackHeader, GroupLabel, SegBar, ThinBar } from "./RunParts.tsx";
 
-/**
- * The chat's one quiet line about how an agent runs: "Hermes · Opus 5.5 · High ⌄", above the
- * message box on phones (it opens a sheet) and inside the composer on larger screens (it opens a popover). Either opens the same panel: harness, model, effort, context, plan.
- */
-export function ModelLine({ place, agent, ctx, models, channelId, threadId, canEdit }: { place: "phone" | "desktop"; agent: Agent; ctx: AgentContext; models: AgentModels | null; channelId: string; threadId?: string; canEdit: boolean }) {
-  const [sheet, setSheet] = useState(false);
-  const text = runLine(ctx, models);
-  const trigger = (open: boolean, toggle: () => void) => (
-    <button
-      type="button"
-      onClick={canEdit ? toggle : undefined}
-      aria-haspopup="dialog"
-      aria-expanded={open}
-      aria-label={`${text}. Change harness, model or effort`}
-      title={canEdit ? undefined : text}
-      className={cx("inline-flex min-w-0 max-w-full items-center gap-1 whitespace-nowrap text-[12px] leading-none text-muted", canEdit && "hover:text-ink", open && "text-ink")}
-    >
-      {ctx.fast && ctx.fastAvailable && <Zap size={11} className="shrink-0 fill-current" aria-hidden />}
-      <span className="truncate">{text}</span>
-      {canEdit && <ChevronDown size={11} className={cx("shrink-0 transition-transform duration-200", open && "rotate-180")} aria-hidden />}
-    </button>
-  );
-  if (place === "phone")
-    return (
-      <>
-        {trigger(sheet, () => setSheet(true))}
-        {sheet && (
-          <Modal title={agent.name} headerless onClose={() => setSheet(false)} contentClassName="!px-4 !pb-4" label={`How ${agent.name} runs`}>
-            <div className="mx-auto mt-2 mb-3 h-1 w-9 rounded-full bg-ink/20" aria-hidden />
-            <RunPanel big agent={agent} ctx={ctx} models={models} channelId={channelId} threadId={threadId} close={() => setSheet(false)} />
-          </Modal>
-        )}
-      </>
-    );
-  return (
-    <Popover align="right" className="w-[296px] !rounded-xl p-1.5" trigger={trigger}>
-      {(close) => <RunPanel agent={agent} ctx={ctx} models={models} channelId={channelId} threadId={threadId} close={close} />}
-    </Popover>
-  );
-}
-
 type View = "main" | "harness" | "model" | "connect";
 
-/** Harness ›, Model ›, effort, context and plan; the pickers open in place. */
-export function RunPanel({ agent, ctx, models, channelId, threadId, close, big }: { agent: Agent; ctx: AgentContext; models: AgentModels | null; channelId?: string; threadId?: string; close: () => void; big?: boolean }) {
+/**
+ * What an agent thinks with (the agent panel's "Thinks with" sheet): Harness ›, Model ›, effort,
+ * fast, how full this conversation is, Compact and Start fresh; the pickers open in place.
+ * `canEdit` false shows it all read-only (a guest).
+ */
+export function RunPanel({ agent, ctx, models, channelId, threadId, close, big, canEdit = true }: { agent: Agent; ctx: AgentContext; models: AgentModels | null; channelId?: string; threadId?: string; close: () => void; big?: boolean; canEdit?: boolean }) {
   const [view, setView] = useState<View>("main");
   const [error, setError] = useState<string | null>(null);
   const go = (v: View) => (setError(null), setView(v));
@@ -82,7 +45,7 @@ export function RunPanel({ agent, ctx, models, channelId, threadId, close, big }
   // each sub-page slides in from the side (a fade with reduced motion)
   return (
     <div key={view} className={cx(view !== "main" && "m-panel")}>
-      {view === "main" && <Main agent={agent} ctx={ctx} models={models} channelId={channelId} threadId={threadId} big={big} go={go} close={close} save={save} error={err} />}
+      {view === "main" && <Main agent={agent} ctx={ctx} models={models} channelId={channelId} threadId={threadId} big={big} canEdit={canEdit} go={go} close={close} save={save} error={err} />}
       {view === "harness" && <HarnessPicker agent={agent} ctx={ctx} models={models} big={big} onBack={() => go("main")} save={save} error={err} />}
       {view === "model" && <ModelPicker agent={agent} ctx={ctx} models={models} big={big} onBack={() => go("main")} onConnect={() => go("connect")} save={save} error={err} />}
       {view === "connect" && (
@@ -95,11 +58,11 @@ export function RunPanel({ agent, ctx, models, channelId, threadId, close, big }
   );
 }
 
-const row = (big?: boolean) => cx("flex w-full items-center gap-2 rounded-lg px-2.5 text-left hover:bg-hover", big ? "min-h-12 text-[15px]" : "min-h-9 text-[13px]");
+const row = (big?: boolean) => cx("flex w-full items-center gap-2 rounded-lg px-2.5 text-left hover:bg-hover disabled:hover:bg-transparent", big ? "min-h-11 text-[14px]" : "min-h-9 text-[13px]");
 
 type Save = (body: unknown, then?: View, opts?: { brief?: boolean }) => Promise<boolean>;
 
-function Main({ agent, ctx, models, channelId, threadId, big, go, close, save, error }: { agent: Agent; ctx: AgentContext; models: AgentModels | null; channelId?: string; threadId?: string; big?: boolean; go: (v: View) => void; close: () => void; save: Save; error: ReactNode }) {
+function Main({ agent, ctx, models, channelId, threadId, big, canEdit, go, close, save, error }: { agent: Agent; ctx: AgentContext; models: AgentModels | null; channelId?: string; threadId?: string; big?: boolean; canEdit: boolean; go: (v: View) => void; close: () => void; save: Save; error: ReactNode }) {
   const name = modelName(ctx, models);
   const levels = ctx.efforts ?? [];
   // move the thumb right away; the save follows, and a failed save puts it back
@@ -115,10 +78,11 @@ function Main({ agent, ctx, models, channelId, threadId, big, go, close, save, e
   const commands = useAgentCommands(agent.id);
   const shrink = commands.find((x) => x.via === "raw" && (x.name === "compact" || x.name === "compress"));
   const channelKind = useStore((s) => s.channels.find((x) => x.id === channelId)?.kind);
-  const compact = async () => {
-    if (!shrink || !channelId) return;
+  // both are asked for in the chat, as the "/" command the agent already answers
+  const say = async (command: string) => {
+    if (!channelId) return;
     close();
-    await api("POST", `/api/channels/${channelId}/messages`, { body: `${channelKind === "dm" ? "" : `@${agent.handle} `}/${shrink.name}`, threadId });
+    await api("POST", `/api/channels/${channelId}/messages`, { body: `${channelKind === "dm" ? "" : `@${agent.handle} `}/${command}`, threadId });
   };
   // phones: the name left, the value right (an iOS settings row); larger screens: a narrow label column
   const label = (t: string) => <span className={cx("shrink-0", big ? "text-ink" : "w-16 text-muted")}>{t}</span>;
@@ -126,12 +90,12 @@ function Main({ agent, ctx, models, channelId, threadId, big, go, close, save, e
     <div className="space-y-1">
       {big ? (
         <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
-          <button type="button" onClick={() => go("harness")} className={row(big)}>
+          <button type="button" disabled={!canEdit} onClick={() => go("harness")} className={row(big)}>
             {label("Harness")}
             <span className="ml-auto min-w-0 truncate text-right text-muted">{harnessLabel(ctx.harness)}</span>
             <ChevronRight size={15} className="shrink-0 text-faint" />
           </button>
-          <button type="button" onClick={() => go("model")} className={row(big)}>
+          <button type="button" disabled={!canEdit} onClick={() => go("model")} className={row(big)}>
             {label("Model")}
             <span className="ml-auto flex min-w-0 flex-col items-end py-1.5 text-right leading-tight">
               <span className="max-w-full truncate text-muted">{name.name}</span>
@@ -142,12 +106,12 @@ function Main({ agent, ctx, models, channelId, threadId, big, go, close, save, e
         </div>
       ) : (
         <div>
-          <button type="button" onClick={() => go("harness")} className={row(big)}>
+          <button type="button" disabled={!canEdit} onClick={() => go("harness")} className={row(big)}>
             {label("Harness")}
             <span className="truncate">{harnessLabel(ctx.harness)}</span>
             <ChevronRight size={12} className="ml-auto shrink-0 text-faint" />
           </button>
-          <button type="button" onClick={() => go("model")} className={row(big)}>
+          <button type="button" disabled={!canEdit} onClick={() => go("model")} className={row(big)}>
             {label("Model")}
             <span className="truncate">{name.name}</span>
             {name.provider && <span className="shrink-0 text-[12px] text-faint">{name.provider}</span>}
@@ -161,6 +125,7 @@ function Main({ agent, ctx, models, channelId, threadId, big, go, close, save, e
           <SegBar
             label="Effort"
             big={big}
+            disabled={!canEdit}
             value={effort && levels.includes(effort) ? effort : null}
             options={levels.map((l) => [l, effortShort(l, levels.length > 4)] as const)}
             onChange={(l) => {
@@ -176,6 +141,7 @@ function Main({ agent, ctx, models, channelId, threadId, big, go, close, save, e
           type="button"
           role="switch"
           aria-checked={fast}
+          disabled={!canEdit}
           onClick={() => {
             const was = fast;
             setFast(!was);
@@ -202,11 +168,19 @@ function Main({ agent, ctx, models, channelId, threadId, big, go, close, save, e
             <span className="shrink-0 tabular-nums">{plan.text}</span>
           </div>
         )}
-        {shrink && ctx.contextUsed !== null && channelId && (
-          <div className="flex justify-end pt-0.5">
-            <button type="button" onClick={compact} className="text-muted hover:text-ink">
-              {shrink.name === "compact" ? "Compact" : "Compress"}
-            </button>
+        {channelId && (
+          <div className="flex justify-end gap-4 pt-0.5">
+            {shrink && ctx.contextUsed !== null && (
+              <button type="button" onClick={() => void say(shrink.name)} className="text-muted hover:text-ink">
+                {shrink.name === "compact" ? "Compact" : "Compress"}
+              </button>
+            )}
+            {/* a thread is one conversation: a fresh one starts in the main chat */}
+            {!threadId && (
+              <button type="button" onClick={() => void say("new")} className="text-muted hover:text-ink">
+                Start fresh
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -254,12 +228,10 @@ function HarnessPicker({ agent, ctx, models, big, onBack, save, error }: { agent
         })}
       </div>
       {error}
-      {computers && !computer?.reported && <p className="px-2.5 py-1 text-[12px] text-faint">{models?.computer?.name ?? "Its computer"} hasn't listed its harnesses yet.</p>}
       <a href={href({ view: "settings", page: "harnesses" })} className={cx(row(big), "text-accent-text")}>
         <Plus size={big ? 16 : 13} className="shrink-0" />
         Add a harness
       </a>
-      <p className="px-2.5 pt-1 pb-1.5 text-[12px] leading-snug text-faint">{agent.name} keeps its model, memory, skills and chats when you switch.</p>
     </div>
   );
 }

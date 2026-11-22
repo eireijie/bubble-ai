@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { BellOff, Check, ChevronDown, FolderPlus, Ghost, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
-import { harnessLabel, teamIconAgentIds, type Agent, type Section } from "@wisp/core";
+import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, Ghost, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
+import { harnessLabel, teamIconAgentIds, type Agent, type Approval, type Section } from "@wisp/core";
 import { api } from "../api.ts";
-import { useStore, usePrefs, type ChannelInfo } from "../store.ts";
+import { useStore, usePrefs, useWaitingOnYou, type ChannelInfo, type ComputerInfo, type LiveRun } from "../store.ts";
 import { go, href, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { AgentAvatar, Menu, cx, clockTime } from "./ui.tsx";
@@ -81,11 +81,77 @@ export function ChatAvatar({ chat, size, ghostsOnly = false }: { chat: Pick<Chat
   );
 }
 
+/** What a preview line needs besides the chat itself: who is who, what waits on you, how you read the clock. */
+export interface PreviewContext {
+  /** your own user id, for "You: …" */
+  meId: string | null;
+  agents: Pick<Agent, "id" | "name">[];
+  members: { id: string; name: string }[];
+  approvals: Record<string, Pick<Approval, "status" | "channelId" | "summary">>;
+  clock?: "auto" | "12h" | "24h";
+}
+
+/** The line under a chat's name, and how to show it: working (it is doing something now) or needs (it waits on you). */
+export interface PreviewLine {
+  text: string;
+  working: boolean;
+  needs?: boolean;
+  icon?: ReactNode;
+}
+
+/** The context as the store has it right now, for callers that already re-render when the store changes. */
+function storePreviewContext(): PreviewContext {
+  const s = useStore.getState();
+  return { meId: s.me?.user.id ?? null, agents: s.agents, members: s.members, approvals: s.approvals, clock: s.me?.prefs?.clock ?? "auto" };
+}
+
+/**
+ * The one line under a chat's name, the same words on the phone's list and the desktop sidebar:
+ * what an agent is doing right now, else what waits on you, else the newest message. Nothing for
+ * a chat with no messages yet.
+ */
+export function chatPreviewLine(c: Chat, live: Record<string, LiveRun>, ctx: PreviewContext = storePreviewContext()): PreviewLine {
+  const run = c.channel ? Object.values(live).find((r) => r.channelId === c.channel!.id && (c.kind === "team" || r.agentId === c.agent?.id)) : undefined;
+  if (run) {
+    const who = c.kind === "team" ? `${ctx.agents.find((a) => a.id === run.agentId)?.name ?? "An agent"} · ` : "";
+    return { text: `${who}${workingLine(run.last?.name, !!run.text)}`, working: true };
+  }
+  if (c.kind === "dm" && c.agent?.status === "busy") return { text: "Working", working: true };
+  if (c.kind === "dm" && c.agent?.status === "online" && c.agent.signIn) return { text: `Needs sign-in · ${harnessLabel(c.agent.harness)} on ${c.agent.signIn.where}`, working: false, needs: true };
+  const ask = c.channel ? Object.values(ctx.approvals).find((a) => a.status === "pending" && a.channelId === c.channel!.id) : undefined;
+  if (ask) return { text: `Needs approval · ${cleanPreview(ask.summary, 70)}`, working: false, needs: true };
+  // waiting on you, or when its agent will be back with something
+  const line = c.kind === "dm" && c.channel ? loopLine(c.channel, ctx.clock) : null;
+  if (line) return { text: line.text, working: false, needs: line.tone === "warn", icon: line.icon };
+  const last = c.channel?.last;
+  if (!last) return { text: "", working: false };
+  const body = cleanPreview(last.body, 90) || "Sent something";
+  if (last.author.kind === "user" && last.author.id === ctx.meId) return { text: `You: ${body}`, working: false };
+  if (c.kind === "dm") return { text: body, working: false, icon: c.channel?.loop?.status === "done" ? <Check size={12} className="text-ok" aria-label="Done" /> : undefined };
+  const who = last.author.kind === "agent" ? ctx.agents.find((a) => a.id === last.author.id)?.name : last.author.kind === "user" ? ctx.members.find((m) => m.id === last.author.id)?.name?.split(" ")[0] : undefined;
+  return { text: who ? `${who}: ${body}` : body, working: false };
+}
+
+/** Just the words of `chatPreviewLine`. */
+export function chatPreview(c: Chat, live: Record<string, LiveRun>, ctx?: PreviewContext): string {
+  return chatPreviewLine(c, live, ctx).text;
+}
+
+/** The first thing waiting on you, as one sentence and who asks it: an approval, else help on a computer. */
+export function firstWaiting(waiting: { approvals: Pick<Approval, "agentId" | "summary">[]; help: Pick<ComputerInfo, "name" | "help">[] }): { agentId: string | null; text: string } | null {
+  const ask = waiting.approvals[0];
+  if (ask) return { agentId: ask.agentId, text: cleanPreview(ask.summary, 120) || "Wants your approval" };
+  const c = waiting.help[0];
+  if (c) return { agentId: c.help?.agentId ?? null, text: cleanPreview(c.help?.request ?? "", 120) || `Help on ${c.name}` };
+  return null;
+}
+
 /**
  * The chats list: every chat with an agent and every team in one flat list, newest first, with
  * your own Sections as optional groups. On desktops it's the column beside the open chat; on
- * phones it's the home screen (variant "page"). The + makes a chat, agent, team or section;
- * a right-click or long-press on a row has pin, move to section, mute and the rest.
+ * phones it's the home screen (variant "page"): you, Search and + on top, a Needs you card when
+ * something waits, then the rows. The + makes an agent, team or section; a right-click or
+ * long-press on a row has pin, move to section, mute and the rest.
  */
 export function ChatList({ route, variant = "column" }: { route: Route; variant?: "column" | "page" }) {
   const me = useStore((s) => s.me)!;
@@ -94,6 +160,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
   const agents = useStore((s) => s.agents);
   const live = useStore((s) => s.live);
   const approvals = useStore((s) => s.approvals);
+  const members = useStore((s) => s.members);
   const prefs = usePrefs();
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [q, setQ] = useState("");
@@ -130,30 +197,8 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
   };
 
   /** the preview line: what an agent is doing right now, else the newest message */
-  const preview = (c: Chat): { text: string; working: boolean; needs?: boolean; icon?: ReactNode } => {
-    const run = c.channel ? Object.values(live).find((r) => r.channelId === c.channel!.id && (c.kind === "team" || r.agentId === c.agent?.id)) : undefined;
-    if (run) {
-      const who = c.kind === "team" ? `${agents.find((a) => a.id === run.agentId)?.name ?? "An agent"} · ` : "";
-      return { text: `${who}${workingLine(run.last?.name, !!run.text)}`, working: true };
-    }
-    if (!c.agent?.status || c.kind === "team") {
-      /* fall through to the message */
-    } else if (c.agent.status === "busy") return { text: "Working", working: true };
-    else if (c.agent.status === "online" && c.agent.signIn) return { text: `Needs sign-in · ${harnessLabel(c.agent.harness)} on ${c.agent.signIn.where}`, working: false, needs: true };
-    const ask = c.channel ? Object.values(approvals).find((a) => a.status === "pending" && a.channelId === c.channel!.id) : undefined;
-    if (ask) return { text: `Needs approval · ${cleanPreview(ask.summary, 70)}`, working: false, needs: true };
-    // waiting on you, or when its agent will be back with something
-    const line = c.kind === "dm" && c.channel ? loopLine(c.channel, prefs.clock) : null;
-    if (line) return { text: line.text, working: false, needs: line.tone === "warn", icon: line.icon };
-    const last = c.channel?.last;
-    if (!last) return { text: c.kind === "dm" ? "No messages yet" : "No messages yet", working: false };
-    const body = cleanPreview(last.body, 90) || "Sent something";
-    const mine = last.author.kind === "user" && last.author.id === me.user.id;
-    if (mine) return { text: `You: ${body}`, working: false };
-    if (c.kind === "dm") return { text: body, working: false, icon: c.channel?.loop?.status === "done" ? <Check size={12} className="text-ok" aria-label="Done" /> : undefined };
-    const who = last.author.kind === "agent" ? agents.find((a) => a.id === last.author.id)?.name : last.author.kind === "user" ? useStore.getState().members.find((m) => m.id === last.author.id)?.name?.split(" ")[0] : undefined;
-    return { text: who ? `${who}: ${body}` : body, working: false };
-  };
+  const previewCtx: PreviewContext = { meId: me.user.id, agents, members, approvals, clock: prefs.clock };
+  const preview = (c: Chat) => chatPreviewLine(c, live, previewCtx);
 
   const open = (c: Chat) => (c.channel ? go({ view: "chat", channelId: c.channel.id, threadId: null }) : c.agent && void openDm(c.agent.id));
 
@@ -167,12 +212,12 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
     <Menu
       align="right"
       trigger={(isOpen, t) => (
-        <button onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label="New chat, agent or team" className="circle">
+        <button onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label={page ? "New agent or team" : "New chat, agent or team"} className="circle">
           <Plus size={page ? 22 : 20} strokeWidth={2} />
         </button>
       )}
       items={[
-        { label: "New chat", icon: <MessageSquarePlus size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ newChatOpen: true }) },
+        ...(!page ? [{ label: "New chat", icon: <MessageSquarePlus size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ newChatOpen: true }) }] : []),
         ...(!isGuest ? [{ label: "New agent", icon: <Ghost size={18} strokeWidth={1.8} />, onSelect: startNewAgent }] : []),
         ...(!isGuest ? [{ label: "New team", icon: <Users size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
         { label: "Browse teams", icon: <Search size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
@@ -184,22 +229,25 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
   return (
     <nav className={cx("h-full flex flex-col min-h-0", page ? "safe-top" : "pt-[18px] px-3")} aria-label="Chats">
       {page ? (
-        <div className="shrink-0 flex items-center justify-between px-[18px] pt-3 pb-2">
+        <div className="shrink-0 flex items-center gap-2 px-4 pt-3 pb-2">
           <UserAvatarButton size={44} />
+          <SearchField page value={q} onChange={setQ} />
           {newMenu}
         </div>
       ) : (
-        <div className="shrink-0 flex items-center justify-between px-1.5 pb-3">
-          <h1 className="t-title">Chats</h1>
-          {newMenu}
-        </div>
+        <>
+          <div className="shrink-0 flex items-center justify-between px-1.5 pb-3">
+            <h1 className="t-title">Chats</h1>
+            {newMenu}
+          </div>
+          <div className="shrink-0 px-1 pb-2.5">
+            <SearchField page={false} value={q} onChange={setQ} />
+          </div>
+        </>
       )}
 
-      <div className={cx("shrink-0", page ? "px-[18px] pb-1" : "px-1 pb-2.5")}>
-        <SearchField page={page} value={q} onChange={setQ} />
-      </div>
-
-      <div data-stagger className={cx("flex-1 min-h-0 overflow-y-auto", page ? "px-[18px] pt-1 pb-28" : "pb-4 -mx-1 px-1")}>
+      <div data-stagger className={cx("flex-1 min-h-0 overflow-y-auto", page ? "px-2 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]" : "pb-4 -mx-1 px-1")}>
+        {page && <NeedsYouCard />}
         {rows(plain)}
         {sections.map((s) => {
           const list = shown.filter((c) => c.sectionId === s.id);
@@ -207,7 +255,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
           return (
             <section key={s.id}>
               <SectionHeader section={s} count={list.length} collapsed={!!collapsed[s.id]} onToggle={() => toggle(s.id)} onRename={() => setEditing(s)} page={page} canEdit={!isGuest} />
-              {!collapsed[s.id] && (list.length ? rows(list) : <p className="px-3 py-1 text-[13px] text-faint">No chats in this section.</p>)}
+              {!collapsed[s.id] && (list.length ? rows(list) : !page && <p className="px-3 py-1 text-[13px] text-faint">No chats in this section.</p>)}
             </section>
           );
         })}
@@ -216,7 +264,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
             <Search size={18} strokeWidth={1.8} /> Search messages and memory for “{q.trim()}”
           </button>
         )}
-        {!needle && chats.length === 0 && <p className="px-3 py-6 text-sm text-muted text-center">No chats yet. Tap + to start one.</p>}
+        {!needle && chats.length === 0 && <p className="px-3 py-6 text-sm text-muted text-center">{page ? "No agents yet" : "No chats yet. Tap + to start one."}</p>}
         {needle && shown.length === 0 && <p className="px-3 py-2 text-sm text-faint">No chats match.</p>}
       </div>
 
@@ -225,23 +273,45 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
   );
 }
 
-/** Desktop: a field you type in to narrow the list (⌘K searches everything). Phones: it opens the full search. */
+/** Desktop: a field you type in to narrow the list (⌘K searches everything). Phones: a pill that opens the full search. */
 function SearchField({ page, value, onChange }: { page: boolean; value: string; onChange: (v: string) => void }) {
   const setPalette = useStore((s) => s.setPalette);
+  if (page)
+    return (
+      <button type="button" onClick={() => setPalette(true)} className="flex-1 min-w-0 h-11 flex items-center gap-2.5 rounded-full bg-card px-4 text-left text-body text-faint">
+        <Search size={18} strokeWidth={2} className="shrink-0" aria-hidden />
+        Search
+      </button>
+    );
   return (
-    <label className={cx("flex items-center gap-2.5 bg-card text-faint", page ? "h-11 rounded-full px-4" : "h-9 rounded-full px-3")}>
-      <Search size={page ? 18 : 16} strokeWidth={2} className="shrink-0" />
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={page ? (e) => (e.currentTarget.blur(), setPalette(true)) : undefined}
-        readOnly={page}
-        placeholder={page ? "Search chats" : "Search"}
-        aria-label="Search chats"
-        className={cx("flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-faint", "text-body")}
-      />
-      {!page && <kbd className="text-xs font-sans text-faint">⌘K</kbd>}
+    <label className="flex items-center gap-2.5 bg-card text-faint h-9 rounded-full px-3">
+      <Search size={16} strokeWidth={2} className="shrink-0" />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Search" aria-label="Search chats" className={cx("flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-faint", "text-body")} />
+      <kbd className="text-xs font-sans text-faint">⌘K</kbd>
     </label>
+  );
+}
+
+/** Phones: what waits on you, on top of the list. One tap opens the Needs you page. */
+function NeedsYouCard() {
+  const waiting = useWaitingOnYou();
+  const agents = useStore((s) => s.agents);
+  const count = waiting.approvals.length + waiting.help.length;
+  const first = firstWaiting(waiting);
+  if (!first) return null;
+  const agent = agents.find((a) => a.id === first.agentId);
+  return (
+    <a href={href({ view: "dashboard" })} aria-label={`Needs you, ${count} waiting. ${first.text}`} className="mx-2 mb-2 flex items-center gap-3 rounded-[14px] bg-card px-3.5 py-3 text-left">
+      {agent && <AgentAvatar agent={agent} size={36} live />}
+      <span className="flex-1 min-w-0">
+        <span className="line-clamp-2 text-[15px] font-semibold leading-5">{first.text}</span>
+        <span className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted">
+          <span aria-hidden className="size-2 shrink-0 rounded-full bg-st-needs" />
+          <span className="truncate">{["Needs you", agent?.name, count > 1 ? `${count - 1} more` : null].filter(Boolean).join(" · ")}</span>
+        </span>
+      </span>
+      <ChevronRight size={16} className="shrink-0 text-faint" aria-hidden />
+    </a>
   );
 }
 
@@ -249,12 +319,12 @@ function SectionHeader({ section, count, collapsed, onToggle, onRename, page, ca
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const press = useLongPress((x, y) => canEdit && setMenu({ x, y }));
   return (
-    <div className={cx("flex items-center justify-between text-faint font-medium uppercase tracking-wide text-xs", page ? "pt-4 pb-1 px-1" : "pt-3.5 pb-1.5 px-3")} onContextMenu={(e) => canEdit && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
+    <div className={cx("flex items-center justify-between text-xs", page ? "mt-2 h-7 px-2 text-muted" : "text-faint font-medium uppercase tracking-wide pt-3.5 pb-1.5 px-3")} onContextMenu={(e) => canEdit && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
       <button onClick={onToggle} aria-expanded={!collapsed} className="flex items-center gap-1.5 min-w-0 h-7 hover:text-ink">
         <ChevronDown size={13} strokeWidth={2.4} className={cx("shrink-0 transition-transform", collapsed && "-rotate-90")} />
         <span className="truncate">{section.name}</span>
       </button>
-      <span className="font-medium normal-case tracking-normal">{count}</span>
+      {!page && <span className="font-medium normal-case tracking-normal">{count}</span>}
       {menu && (
         <ContextMenu at={menu} onClose={() => setMenu(null)} title={<><span className="font-medium text-ink">{section.name}</span><span className="block text-xs text-faint">{count} {count === 1 ? "chat" : "chats"}</span></>}>
           {(close) => (
@@ -294,13 +364,34 @@ export function withMentions(text: string) {
   return text.split(/(@\w+)/g).map((part, i) => (part.startsWith("@") && part.length > 1 ? <span key={i} className="text-accent-agents">{part}</span> : part));
 }
 
-function ChatRow({ chat, page, active, preview, time, onOpen, sections, onNewSection }: { chat: Chat; page: boolean; active: boolean; preview: { text: string; working: boolean; needs?: boolean; icon?: ReactNode }; time: string; onOpen: () => void; sections: Section[]; onNewSection: () => void }) {
+function ChatRow({ chat, page, active, preview, time, onOpen, sections, onNewSection }: { chat: Chat; page: boolean; active: boolean; preview: PreviewLine; time: string; onOpen: () => void; sections: Section[]; onNewSection: () => void }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const press = useLongPress((x, y) => chat.channel && setMenu({ x, y }));
   const size = 68;
   const unread = chat.unread > 0 && !chat.muted;
   const url = chat.channel ? href({ view: "chat", channelId: chat.channel.id, threadId: null }) : undefined;
-  const inner = (
+  const line = preview.text && (
+    <span className={cx("min-w-0 flex items-center gap-1.5", "text-[13px]", preview.working ? "text-st-working" : preview.needs ? "text-st-needs" : "text-muted")}>
+      {preview.working && <PulseDots />}
+      {preview.icon && <span className="shrink-0 inline-flex">{preview.icon}</span>}
+      <span className="truncate">{preview.working || preview.needs ? preview.text : withMentions(preview.text)}</span>
+    </span>
+  );
+  // phones: 64px, a 44px ghost, the name, one line, and one dot when it is unread or waits on you
+  const inner = page ? (
+    <>
+      <span className="shrink-0 grid h-11 w-12 place-items-center">
+        <ChatAvatar chat={chat} size={44} />
+      </span>
+      <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <span className={cx("truncate text-[15px] font-semibold leading-5", chat.muted && "opacity-60")}>{chat.name}</span>
+        {line}
+      </span>
+      {chat.unread > 0 && chat.muted && <span role="img" aria-label="Unread" className="shrink-0 size-2 rounded-full bg-faint" />}
+      {unread && <span role="img" aria-label={`${chat.unread} unread`} className="shrink-0 size-2 rounded-full bg-accent-chats" />}
+      {!chat.unread && preview.needs && <span role="img" aria-label="Needs you" className="shrink-0 size-2 rounded-full bg-st-needs" />}
+    </>
+  ) : (
     <>
       <span className="shrink-0 flex items-center" style={{ width: 76, height: size }}>
         <ChatAvatar chat={chat} size={size} />
@@ -315,18 +406,14 @@ function ChatRow({ chat, page, active, preview, time, onOpen, sections, onNewSec
           </span>
         </span>
         <span className="flex items-center justify-between gap-2">
-          <span className={cx("min-w-0 flex items-center gap-1.5", "text-[13px]", preview.working ? "text-st-working" : preview.needs ? "text-st-needs" : "text-muted")}>
-            {preview.working && <PulseDots />}
-            {preview.icon && <span className="shrink-0 inline-flex">{preview.icon}</span>}
-            <span className="truncate">{preview.working || preview.needs ? preview.text : withMentions(preview.text)}</span>
-          </span>
+          {line || <span />}
           {chat.unread > 0 && chat.muted && <span aria-label="Unread" className="shrink-0 size-2 rounded-full bg-faint" />}
           {unread && <span role="img" aria-label={`${chat.unread} unread`} className="shrink-0 size-2.5 rounded-full bg-accent-chats" />}
         </span>
       </span>
     </>
   );
-  const cls = cx("w-full flex items-center text-left transition-colors", page ? "gap-3.5 py-3 px-2 rounded-xl min-h-[92px]" : "gap-3 px-2.5 py-2.5 rounded-xl min-h-[88px]", active ? "bg-side-active" : "hover:bg-hover");
+  const cls = cx("w-full flex items-center text-left transition-colors", page ? "gap-3 px-2 h-16 rounded-[10px]" : "gap-3 px-2.5 py-2.5 rounded-xl min-h-[88px]", active ? "bg-side-active" : "hover:bg-hover");
   return (
     <div onContextMenu={(e) => chat.channel && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
       {url ? (
