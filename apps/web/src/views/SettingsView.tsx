@@ -1,290 +1,278 @@
-import { useEffect, type ReactNode } from "react";
-import { Apple, Bell, BookOpen, ChevronLeft, ChevronRight, Ghost, Database, Gauge, HardDrive, Info, KeyRound, Link2, Mic, Monitor, Palette, Plug, Settings, ShieldCheck, SlidersHorizontal, Store, User, Users, Wifi, Wrench, Building2, Bot, SquareTerminal, Wand2 } from "lucide-react";
-import { resolveFeatures, type Features } from "@wisp/core";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useStore } from "../store.ts";
-import { go, href, type SettingsPage } from "../router.ts";
+import { go, href, useRoute, type SettingsPage } from "../router.ts";
 import { cx } from "../components/ui.tsx";
-import { setFeatures, useFeatures } from "../features.ts";
-import { AppearancePage, NotificationsPage, PreferencesPage, ProfilePage, SecurityPage } from "./settings/account.tsx";
-import { AgentsPolicyPage, ComputersPage, ConnectionsPage, DataPage, GeneralPage, PeoplePage } from "./settings/workspace.tsx";
+import { findByWords } from "../components/searchIndex.ts";
+import { useFeatures } from "../features.ts";
+import { NotificationsPage, PasswordForm, SessionsPage } from "./settings/account.tsx";
+import { AskBeforePage, ConnectionsPage, DataPage, GeneralPage, MemoryRules, OrgoPage, PeoplePage } from "./settings/workspace.tsx";
 import { RuntimesPage } from "./settings/runtimes.tsx";
 import { HarnessesPage } from "./settings/harnesses.tsx";
 import { ModelsPage } from "./settings/models.tsx";
 import { VoicePage } from "./settings/voice.tsx";
-import { MemoryPage } from "./settings/memory.tsx";
+import { ImportFromAI, MemoryFolderPage, ObsidianPage } from "./settings/memory.tsx";
 import { SkillsPage } from "./settings/skills.tsx";
-import { DevicesPage } from "./settings/devices.tsx";
-import { MobilePage } from "./settings/mobile.tsx";
+import { OutsideApps } from "./settings/devices.tsx";
+import { PhonePairing } from "./settings/mobile.tsx";
 import { LoginsPage } from "./settings/logins.tsx";
 import { StoragePage } from "./settings/storage.tsx";
 import { ApplePage } from "./settings/apple.tsx";
 import { UsagePage } from "./settings/usage.tsx";
 import { AskAndChanges } from "./settings/changes.tsx";
 import { AgentDefaultsPage } from "./settings/defaults.tsx";
-import { AboutPage } from "./settings/about.tsx";
-import { SignOutButton } from "./settings/signout.tsx";
+import { AboutPage, WhatsNewPage } from "./settings/about.tsx";
+import { AgentsFive, ComputersFive, PrivacyFive, YouFive } from "./settings/five.tsx";
 import { MarketplaceView } from "./MarketplaceView.tsx";
-import { AccessPanel } from "../components/Access.tsx";
-import { MergedPageContext, PageHeader, Row, Card } from "./settings/parts.tsx";
-import { Switch } from "./settings/features.tsx";
+import { MergedPageContext } from "./settings/parts.tsx";
+import { FiveContext, rowDomId, setShowAll, useShowAll } from "./settings/rows.tsx";
+import { FIVE_LABEL, FIVE_ROUTE, fivePages, rowAvailable, rowById, rowTarget, searchableRows, settingsLanding, type Five, type SettingRow } from "./settings/map.ts";
 
 /**
- * Settings: a short list of sections. A section with more than one page lists them under it
- * while it's open. A page can need a feature (Voice, People, Usage), and some aren't for guests.
- * Page ids are the routes (SETTINGS_PAGES), so old links still open the same page.
+ * Settings: five pages (You, Agents, Computers, Privacy and data, About), a search over every
+ * setting, and "Show all" on a page for the rest. The map of rows, and where each of the 24 old
+ * routes lands, is in settings/map.ts. A row with more inside opens as a sheet in the same place.
  */
-type NavPage = { id: SettingsPage; label: string; icon: ReactNode; noGuests?: boolean; feature?: keyof Features };
-type NavSection = { section: string; pages: NavPage[] };
-const ic = (I: typeof Settings) => <I size={17} strokeWidth={1.8} />;
-const NAV: NavSection[] = [
-  {
-    section: "You",
-    pages: [
-      { id: "profile", label: "Profile", icon: ic(User) },
-      { id: "notifications", label: "Notifications", icon: ic(Bell) },
-      { id: "appearance", label: "Appearance", icon: ic(Palette) },
-      { id: "preferences", label: "App behavior", icon: ic(SlidersHorizontal) },
-      { id: "voice", label: "Voice", icon: ic(Mic), noGuests: true },
-      { id: "buddy", label: "Desk buddy", icon: ic(Ghost), noGuests: true },
-      { id: "security", label: "Security", icon: ic(ShieldCheck) },
-    ],
-  },
-  {
-    section: "Workspace",
-    pages: [
-      { id: "general", label: "Workspace", icon: ic(Building2), noGuests: true },
-      { id: "people", label: "People", icon: ic(Users), feature: "invite", noGuests: true },
-      { id: "usage", label: "Usage", icon: ic(Gauge), feature: "background", noGuests: true },
-    ],
-  },
-  {
-    section: "Agents",
-    pages: [
-      { id: "agents", label: "Permissions", icon: ic(Bot), noGuests: true },
-      { id: "agent-defaults", label: "Agent defaults", icon: ic(Wrench), noGuests: true },
-      { id: "harnesses", label: "AI", icon: ic(SquareTerminal), noGuests: true },
-      { id: "logins", label: "Logins", icon: ic(KeyRound), noGuests: true },
-      { id: "storage", label: "Storage", icon: ic(HardDrive), feature: "storage", noGuests: true },
-      { id: "apple", label: "Apple", icon: ic(Apple), feature: "apple", noGuests: true },
-      { id: "apps", label: "Connected apps", icon: ic(Store), noGuests: true },
-      { id: "skills", label: "Skills", icon: ic(Wand2), noGuests: true },
-      { id: "connections", label: "Outside agents", icon: ic(Plug), noGuests: true },
-      { id: "memory", label: "Memory", icon: ic(BookOpen), noGuests: true },
-    ],
-  },
-  {
-    section: "Devices",
-    pages: [
-      { id: "devices", label: "Computers and devices", icon: ic(Monitor), noGuests: true },
-      { id: "access", label: "Away from home", icon: ic(Wifi), noGuests: true },
-    ],
-  },
-  {
-    section: "More",
-    pages: [
-      { id: "data", label: "Data", icon: ic(Database), noGuests: true },
-      { id: "updates", label: "About", icon: ic(Info) },
-    ],
-  },
-];
+const FIVE_PAGE: Record<Five, () => ReactNode> = {
+  you: () => <YouFive />,
+  agents: () => <AgentsFive />,
+  computers: () => <ComputersFive />,
+  privacy: () => <PrivacyFive />,
+  about: () => <AboutPage />,
+};
 
-/** The settings sections for a guest or not, with the organization's features. Pages that don't apply, and sections left empty, are left out. */
-export function settingsNav(guest: boolean, features: Features = resolveFeatures(null)): NavSection[] {
-  return NAV.map((s) => ({ ...s, pages: s.pages.filter((p) => !(guest && p.noGuests) && (!p.feature || features[p.feature])) })).filter((s) => s.pages.length);
-}
-
-/** The Desk buddy mod's switch, here so it can be found without opening Mods. It stays a mod. */
-function BuddyPage() {
-  const features = useFeatures();
-  const owner = useStore((s) => s.me?.role) === "owner";
-  return (
-    <>
-      <PageHeader title="Desk buddy">A small ghost on your desktop that shows what your agents are up to.</PageHeader>
-      <Card>
-        <Row label="Show the desk buddy" hint={owner ? undefined : "Only owners can change this."}>
-          <Switch on={features.buddy} label="Desk buddy" disabled={!owner} onChange={(v) => void setFeatures({ buddy: v })} />
-        </Row>
-      </Card>
-    </>
-  );
-}
-
-const PAGES: Record<Exclude<SettingsPage, "apps">, () => ReactNode> = {
-  profile: () => <ProfilePage />,
-  preferences: () => <PreferencesPage />,
+/** What each sheet row opens, by row id. (Apps is the Add page's "installed" list, which fills the pane itself.) */
+const SHEETS: Record<string, () => ReactNode> = {
   notifications: () => <NotificationsPage />,
   voice: () => <VoicePage />,
-  appearance: () => <AppearancePage />,
-  security: () => <SecurityPage />,
-  // Devices holds Computers (defaults, cloud) and Mobile (phone pairing) too
-  devices: () => (
-    <>
-      <DevicesPage />
-      <MergedPageContext.Provider value>
-        <ComputersPage />
-        <MobilePage />
-      </MergedPageContext.Provider>
-    </>
-  ),
-  buddy: () => <BuddyPage />,
+  thinks: () => <AgentDefaultsPage />,
+  asks: () => <AskBeforePage />,
+  accounts: () => <ModelsPage />,
   usage: () => <UsagePage />,
-  general: () => (
+  logins: () => <LoginsPage />,
+  outside: () => (
     <>
-      <AskAndChanges />
-      <GeneralPage />
+      <OutsideApps />
+      <div className="mt-7">
+        <ConnectionsPage />
+      </div>
     </>
   ),
-  access: () => (
-    <>
-      <PageHeader title="Away from home" />
-      <AccessPanel />
-    </>
-  ),
-  "agent-defaults": () => <AgentDefaultsPage />,
-  people: () => <PeoplePage />,
-  agents: () => <AgentsPolicyPage />,
-  // AI holds Harnesses, Models (connections and keys) and Harness setup (installs)
-  harnesses: () => (
+  // the AI tools on each computer, then installing more
+  tools: () => (
     <>
       <HarnessesPage />
       <MergedPageContext.Provider value>
-        <ModelsPage />
         <RuntimesPage />
       </MergedPageContext.Provider>
+      <a href={href({ view: "settings", ...rowTarget(rowById("accounts")) })} className="mt-7 flex items-center gap-3 px-4 min-h-[52px] rounded-[14px] bg-card text-body hover:bg-hover">
+        <span className="flex-1">{rowById("accounts").label}</span>
+        <ChevronRight size={15} className="text-faint" aria-hidden />
+      </a>
     </>
   ),
-  memory: () => <MemoryPage />,
-  logins: () => <LoginsPage />,
+  skills: () => <SkillsPage />,
+  apps: () => <MarketplaceView section="installed" embedded />,
   storage: () => <StoragePage />,
   apple: () => <ApplePage />,
-  connections: () => <ConnectionsPage />,
-  skills: () => <SkillsPage />,
-  data: () => <DataPage />,
-  updates: () => <AboutPage />,
+  phone: () => <PhonePairing compact />,
+  cloud: () => <OrgoPage />,
+  password: () => <PasswordForm />,
+  sessions: () => <SessionsPage />,
+  people: () => <PeoplePage />,
+  "memory-access": () => <MemoryRules />,
+  "memory-folder": () => <MemoryFolderPage />,
+  backup: () => <DataPage />,
+  workspace: () => <GeneralPage />,
+  changes: () => <AskAndChanges />,
+  obsidian: () => <ObsidianPage />,
+  import: () => <ImportFromAI />,
+  news: () => <WhatsNewPage />,
 };
+/** The rows that have a sheet to open (map.ts marks the same ones `sheet`). */
+export const SHEET_IDS = Object.keys(SHEETS);
 
-/** A link in the list that isn't a settings page: it opens its own area. (Memory, Tasks, Marketplace, Mods and Help live under More in the rail, not here.) */
-const LINKS: { after: string; label: string; icon: ReactNode; to: () => string; noGuests?: boolean; feature?: keyof Features }[] = [
-];
+const pageTop = (p: Five) => href({ view: "settings", page: FIVE_ROUTE[p] });
+const rowHref = (r: SettingRow) => href({ view: "settings", ...rowTarget(r) });
 
-/** The links under a section, for a guest or not, with the organization's features. */
-export function settingsLinks(section: string, guest: boolean, features: Features = resolveFeatures(null)) {
-  return LINKS.filter((l) => l.after === section && !(guest && l.noGuests) && (!l.feature || features[l.feature]));
+function SearchField({ value, onChange, onEnter, className }: { value: string; onChange: (v: string) => void; onEnter: () => void; className?: string }) {
+  return (
+    <label className={cx("flex items-center gap-2 h-9 px-3 rounded-[18px] bg-card text-sm focus-within:ring-2 focus-within:ring-ring/40", className)}>
+      <Search size={15} className="shrink-0 text-muted" aria-hidden />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onEnter();
+          if (e.key === "Escape") onChange("");
+        }}
+        placeholder="Search settings"
+        aria-label="Search settings"
+        className="flex-1 min-w-0 bg-transparent outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+      />
+    </label>
+  );
 }
 
-/**
- * Settings: on desktops a full page inside the rail layout, a list of sections on the left and the
- * page on the right. On phones it is a list, then a page with a back button.
- */
 export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage | null; onBack?: () => void; fullWindow?: boolean }) {
   const me = useStore((s) => s.me)!;
   const guest = me.role === "guest";
   const features = useFeatures();
-  const nav = settingsNav(guest, features);
-  const all = nav.flatMap((s) => s.pages);
-  // a page whose feature is off (or that a guest can't use) isn't shown; fall back to the first page
-  const known = page && all.some((p) => p.id === page) ? page : null;
-  const current = known ?? (fullWindow ? all[0].id : null);
-  const label = all.find((p) => p.id === current)?.label;
-  const who = `${me.user.name} · ${me.role === "owner" ? "Owner" : me.role === "guest" ? "Guest" : "Member"}`;
+  const route = useRoute();
+  const item = route.view === "settings" ? (route.item ?? null) : null;
+  const pages = fivePages(guest, features);
+  const [query, setQuery] = useState("");
+  const [pulse, setPulse] = useState(0);
+  const [target, setTarget] = useState<string | null>(null);
 
-  const items = (s: NavSection) => [
-    ...s.pages.map((p) => ({ key: p.id, label: p.label, icon: p.icon, to: href({ view: "settings", page: p.id }), on: current === p.id })),
-    ...settingsLinks(s.section, guest, features).map((l) => ({ key: l.label, label: l.label, icon: l.icon, to: l.to(), on: false })),
-  ];
+  // where the address lands; something a guest can't use lands on the first page instead
+  const wanted = page ? settingsLanding(page, item) : null;
+  const wantedRow = wanted?.row ? rowById(wanted.row) : null;
+  const allowed = !!wanted && pages.includes(wanted.page) && !(wantedRow && guest && wantedRow.noGuests);
+  const landing = wanted && allowed ? wanted : wanted ? settingsLanding(null) : null;
+  const row = landing?.row ? rowById(landing.row) : null;
+  const current: Five | null = landing?.page ?? (fullWindow ? pages[0] : null);
+  const sheet = row && landing?.sheet ? row : null;
+  // its mod is switched off: say so instead of opening it
+  const modOff = !!row && !rowAvailable(row, guest, features);
+  const showAll = useShowAll(current ?? "you");
 
-  const list = fullWindow ? (
-    <nav aria-label="Settings" className="space-y-px">
-      {nav.map((s) => (
-        <div key={s.section}>
-          <div className="px-3 pt-4 pb-1.5 text-xs font-medium tracking-wide text-faint uppercase">{s.section}</div>
-          {items(s).map((it) => (
-            <a
-              key={it.key}
-              href={it.to}
-              aria-current={it.on ? "page" : undefined}
-              className={cx("flex items-center gap-2.5 h-10 px-3 rounded-xl text-sm font-medium", it.on ? "bg-control text-ink font-medium" : "text-ink/80 hover:text-ink hover:bg-side-hover")}
-            >
-              <span className="shrink-0 opacity-80">{it.icon}</span>
-              <span className="truncate">{it.label}</span>
-            </a>
-          ))}
-        </div>
+  // arriving at a row: open Show all if it's under it, bring it into view and mark it for a moment
+  useEffect(() => {
+    if (!current || !row || modOff) return;
+    if (row.all) setShowAll(current, true);
+    if (sheet) return;
+    setTarget(row.id);
+    const look = setTimeout(() => document.getElementById(rowDomId(row.id))?.scrollIntoView({ block: "center" }), 60);
+    const done = setTimeout(() => setTarget(null), 1800);
+    return () => {
+      clearTimeout(look);
+      clearTimeout(done);
+    };
+  }, [current, row?.id, sheet?.id, modOff, pulse]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const found = useMemo(() => (query.trim() ? findByWords(query, searchableRows(guest, features)) : []), [query, guest, features]);
+  const pick = () => {
+    setQuery("");
+    setPulse((n) => n + 1);
+  };
+  const openFirst = () => {
+    if (!found[0]) return;
+    go({ view: "settings", ...rowTarget(found[0]) });
+    pick();
+  };
+
+  const results = (
+    <div className="rounded-[14px] bg-card divide-y divide-line overflow-hidden" role="list" aria-label="Settings that match">
+      {found.map((r) => (
+        <a key={r.id} role="listitem" href={rowHref(r)} onClick={pick} className="flex items-center gap-3 px-4 min-h-[52px] text-body hover:bg-hover">
+          <span className="flex-1 min-w-0 truncate">{r.label}</span>
+          <span className="shrink-0 text-[13px] text-muted">{FIVE_LABEL[r.page]}</span>
+        </a>
       ))}
-    </nav>
-  ) : (
-    <nav aria-label="Settings" className="space-y-5">
-      {nav.map((s) => (
-        <section key={s.section}>
-          <h2 className="px-4 pb-1.5 text-[13px] font-semibold text-faint">{s.section}</h2>
-          <div className="rounded-3xl bg-card overflow-hidden">
-            {items(s).map((it) => (
-              <a key={it.key} href={it.to} className="flex items-center gap-3.5 px-4 min-h-12 border-b border-line last:border-0 hover:bg-hover">
-                <span className="size-5 shrink-0 grid place-items-center text-muted">{it.icon}</span>
-                <span className="flex-1 text-body">{it.label}</span>
-                <ChevronRight size={16} className="text-faint" />
-              </a>
-            ))}
-          </div>
-        </section>
-      ))}
-      <SignOutButton icon className="w-full h-12 rounded-full bg-card text-bad text-body font-medium inline-flex items-center justify-center gap-2" />
-    </nav>
+      {found.length === 0 && <p className="px-4 py-3.5 text-sm text-muted">No settings match</p>}
+    </div>
   );
 
-  const offPage = page && !known && !guest ? page : null;
-  const body = (id: SettingsPage) =>
-    offPage ? (
-      <div className="flex-1 grid place-items-center p-6 text-center text-sm text-muted">
-        <p>This page belongs to a mod that's off. <a className="text-accent-text hover:underline" href={href({ view: "mods" })}>Open Mods</a></p>
-      </div>
-    ) : id === "apps" ? (
-      <MarketplaceView section="installed" embedded />
+  const pageBody = (p: Five) => (
+    <FiveContext.Provider value={{ page: p, guest, features, showAll, landed: row && !sheet ? row.id : null, target }}>
+      <div className="space-y-4">{FIVE_PAGE[p]()}</div>
+    </FiveContext.Provider>
+  );
+  const sheetBody = (r: SettingRow) =>
+    modOff ? (
+      <p className="px-1 text-sm text-muted">
+        {r.label} is off.{" "}
+        <a className="text-accent-text hover:underline" href={href({ view: "mods" })}>
+          Add it
+        </a>
+      </p>
     ) : (
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className={cx("max-w-[640px] pb-16", fullWindow ? "mx-auto px-8 py-9" : "p-4")}>{PAGES[id]()}</div>
-      </div>
+      SHEETS[r.id]()
     );
+  // the installed apps list is the Add page's own view: it fills the pane and scrolls by itself
+  const fills = sheet?.id === "apps" && !modOff;
+  const bottom = "pb-[max(2rem,env(safe-area-inset-bottom))]";
 
   if (fullWindow)
     return (
       <div className="flex-1 min-w-0 min-h-0 flex">
-        <aside className="w-[268px] shrink-0 border-r border-line overflow-y-auto px-3.5 pt-[max(1.75rem,env(safe-area-inset-top))] pb-7 flex flex-col">
-          <div className="px-3 pb-1.5">
-            <h1 className="t-title">Settings</h1>
-            <div className="mt-0.5 text-[13px] text-faint truncate">{who}</div>
-          </div>
-          {list}
-          <SignOutButton label="Sign out" className="mt-4 h-10 px-3 rounded-xl text-sm font-medium text-bad hover:bg-side-hover text-left" />
+        <aside className="w-[200px] shrink-0 overflow-y-auto pl-5 pr-2 pt-[max(1.75rem,env(safe-area-inset-top))] pb-6">
+          <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="mb-3" />
+          <nav aria-label="Settings" className="space-y-0.5">
+            {pages.map((p) => (
+              <a key={p} href={pageTop(p)} onClick={() => setQuery("")} aria-current={current === p && !query ? "page" : undefined} className={cx("flex items-center h-[38px] px-3 rounded-[10px] text-sm", current === p && !query ? "bg-side-active text-ink font-semibold" : "text-ink/80 hover:text-ink hover:bg-side-hover")}>
+                {FIVE_LABEL[p]}
+              </a>
+            ))}
+          </nav>
         </aside>
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col" aria-label={label ? `${label} settings` : "Settings"}>
-          {body(current!)}
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col" aria-label={query ? "Settings search" : `${sheet?.label ?? FIVE_LABEL[current!]} settings`}>
+          {fills && !query ? (
+            SHEETS.apps()
+          ) : (
+            <div key={query ? "search" : `${current}:${sheet?.id ?? ""}`} className="flex-1 min-h-0 overflow-y-auto">
+              <div className={cx("max-w-[640px] pl-7 pr-9 pt-7", bottom)}>
+                {query ? (
+                  <>
+                    <h1 className="t-title mb-4">Search</h1>
+                    {results}
+                  </>
+                ) : sheet ? (
+                  <>
+                    <a href={pageTop(current!)} className="-ml-1 mb-1 inline-flex items-center gap-0.5 h-7 text-[13px] text-muted hover:text-ink">
+                      <ChevronLeft size={15} aria-hidden /> {FIVE_LABEL[current!]}
+                    </a>
+                    <h1 className="t-title mb-4">{sheet.label}</h1>
+                    {sheetBody(sheet)}
+                  </>
+                ) : (
+                  <>
+                    <h1 className="t-title mb-4">{FIVE_LABEL[current!]}</h1>
+                    {pageBody(current!)}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     );
 
-  // phones: the list first, then a page with Back
+  // phones: the five pages as a list with the search on top, then a page, then a sheet, each with Back
+  const back = sheet ? () => go({ view: "settings", page: FIVE_ROUTE[current!] }) : current ? () => go({ view: "settings", page: null }) : onBack;
+  if (fills) return <MarketplaceView section="installed" embedded onBack={back} />;
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {current !== "apps" && (
-        <header className="shrink-0 px-[18px] pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 flex items-center gap-3">
-          {(onBack || current) && (
-            <button className="circle shrink-0" onClick={() => (current ? go({ view: "settings", page: null }) : onBack?.())} aria-label={current ? "Back to all settings" : "Back"}>
-              <ChevronLeft size={22} aria-hidden />
-            </button>
+      <header className="shrink-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 flex items-center gap-3">
+        {back && (
+          <button className="circle shrink-0" onClick={back} aria-label={sheet ? `Back to ${FIVE_LABEL[current!]}` : current ? "Back to all settings" : "Back"}>
+            <ChevronLeft size={22} aria-hidden />
+          </button>
+        )}
+        {current ? <h1 className="t-title truncate">{sheet?.label ?? FIVE_LABEL[current]}</h1> : <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="flex-1" />}
+      </header>
+      <div key={`${current}:${sheet?.id ?? ""}`} className="flex-1 min-h-0 overflow-y-auto">
+        <div className={cx("px-4 pt-2", bottom)}>
+          {sheet ? (
+            sheetBody(sheet)
+          ) : current ? (
+            pageBody(current)
+          ) : query ? (
+            results
+          ) : (
+            <nav aria-label="Settings" className="rounded-[14px] bg-card divide-y divide-line overflow-hidden">
+              {pages.map((p) => (
+                <a key={p} href={pageTop(p)} className="flex items-center gap-3 px-4 min-h-[52px] text-body hover:bg-hover">
+                  <span className="flex-1">{FIVE_LABEL[p]}</span>
+                  <ChevronRight size={15} className="text-faint" aria-hidden />
+                </a>
+              ))}
+            </nav>
           )}
-          <h1 className="t-title truncate">{label ?? "Settings"}</h1>
-        </header>
-      )}
-      {current === "apps" ? (
-        <MarketplaceView section="installed" embedded onBack={() => go({ view: "settings", page: null })} />
-      ) : current ? (
-        body(current)
-      ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="p-[18px] pb-28">{list}</div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

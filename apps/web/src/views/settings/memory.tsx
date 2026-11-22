@@ -2,38 +2,43 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ExternalLink, KeyRound, Trash2 } from "lucide-react";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
-import { Button, CopyBlock, Input, Pill, timeAgo } from "../../components/ui.tsx";
+import { Button, CopyBlock, Input, timeAgo } from "../../components/ui.tsx";
 import { obsidianLink, onHubMachine, type MemoryStorage } from "../../obsidian.ts";
-import { Card, OwnersOnly, PageHeader, Row, Section } from "./parts.tsx";
-import { MemoryRules } from "./workspace.tsx";
-import { MoreOptions } from "../../components/MoreOptions.tsx";
+import { Card, Row } from "./parts.tsx";
 import { MemoryImport, type Askable } from "../../components/MemoryImport.tsx";
 import { useDevices } from "../../devices.ts";
 
 const Code = ({ children }: { children: ReactNode }) => <code className="rounded bg-code px-1 py-0.5 text-[12px] break-all">{children}</code>;
 
-/** Settings → Memory: where notes are kept, how to use them in Obsidian, and who may see or edit what. */
-export function MemoryPage() {
-  const isOwner = useStore((s) => s.me)?.role === "owner";
+/** Where memory is kept, loaded once for the sheet that needs it. */
+function useMemoryStorage() {
   const [storage, setStorage] = useState<MemoryStorage | null>(null);
   const load = useCallback(() => api<MemoryStorage>("GET", "/api/memory/storage").then(setStorage, () => {}), []);
   useEffect(() => {
     load();
   }, [load]);
+  return { storage, load };
+}
 
-  return (
-    <>
-      <PageHeader title="Memory" />
-      <MemoryRules />
-      <ImportFromAI />
-      {storage && (
-        <MoreOptions about="use another notes app (Obsidian) and sync">
-          {isOwner && <Location storage={storage} reload={load} />}
-          <ObsidianSteps storage={storage} reload={load} />
-        </MoreOptions>
-      )}
-    </>
-  );
+/** What the Memory folder row says: the folder. */
+export function MemoryFolderValue() {
+  const { storage } = useMemoryStorage();
+  return <>{storage?.path ?? ""}</>;
+}
+
+/** Memory folder: where notes are kept, and moving them. */
+export function MemoryFolderPage() {
+  const isOwner = useStore((s) => s.me)?.role === "owner";
+  const { storage, load } = useMemoryStorage();
+  if (!storage) return null;
+  if (!isOwner) return storage.path ? <Code>{storage.path}</Code> : null;
+  return <Location storage={storage} reload={load} />;
+}
+
+/** Sync to Obsidian: open the folder there, or sync another computer with a token. */
+export function ObsidianPage() {
+  const { storage, load } = useMemoryStorage();
+  return storage ? <ObsidianSteps storage={storage} reload={load} /> : null;
 }
 
 function Location({ storage, reload }: { storage: MemoryStorage; reload: () => void }) {
@@ -56,15 +61,14 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
     }
   };
   return (
-    <Section title="Where memory is kept">
+    <div>
       {storage.path && (
         <Card>
           <div className="px-4 py-3.5 space-y-1.5">
-            <div className="text-sm font-medium">Current folder</div>
             <div>
               <Code>{storage.path}</Code>
             </div>
-            <div className="text-xs text-muted">{storage.movable === false ? "Each extra workspace keeps its memory in Wisp's own data folder, so it can't be moved." : fixed ? "Set by WISP_VAULT_DIR where Wisp runs, so it can only be changed there." : storage.source === "default" ? "Wisp's own data folder, the default." : "Chosen here."}</div>
+            {fixed && <div className="text-xs text-muted">{storage.movable === false ? "An extra workspace's memory can't be moved." : "Set by WISP_VAULT_DIR where Wisp runs."}</div>}
           </div>
           {!fixed && (
             <form
@@ -88,9 +92,7 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
                   </Button>
                 )}
               </div>
-              <p className="text-xs text-muted">
-                Type the full path on the machine that runs Wisp. If the folder is an Obsidian vault, its notes are used as they are and its <Code>.obsidian</Code> settings are never touched or saved. If you were already using Wisp, your earlier notes are copied across the next time Wisp starts: an empty folder gets everything (history included); a folder with notes only gets the files it doesn't have. Your earlier folder is left exactly as it was. Running in Docker? The folder has to be inside a volume you mounted.
-              </p>
+              <p className="text-xs text-muted">The full path on the machine that runs Wisp. In Docker, a folder inside a volume you mounted.</p>
               {error && <p className="text-sm text-bad">{error}</p>}
             </form>
           )}
@@ -99,7 +101,7 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
       {storage.pendingRestart && (
         <div className="mt-3 rounded-xl bg-accent-soft p-4 text-sm space-y-2">
           <p>
-            Wisp will use <Code>{storage.nextPath}</Code> after it restarts. Nothing changes until then.
+            Wisp will use <Code>{storage.nextPath}</Code> after it restarts.
           </p>
           {storage.restartable ? (
             <Button
@@ -118,17 +120,12 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
           )}
         </div>
       )}
-      {storage.moved && storage.moved.how !== "none" && (
-        <p className="mt-3 text-sm text-muted">
-          {storage.moved.how === "copied" ? "Your earlier memory was copied here" : `${storage.moved.files} notes from your earlier memory were added here, and nothing in this folder was overwritten`} the last time Wisp started.
-        </p>
-      )}
       {storage.previous && (
         <p className="mt-3 text-sm text-muted">
-          Your earlier memory is still in <Code>{storage.previous}</Code>. Wisp never deletes it; remove it yourself once you're happy with the new place.
+          Earlier copy kept in <Code>{storage.previous}</Code>.
         </p>
       )}
-    </Section>
+    </div>
   );
 }
 
@@ -156,14 +153,14 @@ function ObsidianSteps({ storage, reload }: { storage: MemoryStorage; reload: ()
     }
   };
   return (
-    <Section title="Use it in Obsidian">
-      <div className="space-y-6">
+    <div>
+      <div className="space-y-4">
         {storage.path && (
           <Card>
             <div className="px-4 py-3.5 space-y-2">
               <div className="text-sm font-medium">On the computer that runs Wisp</div>
               <p className="text-sm text-muted">
-                In Obsidian choose <b>Open folder as vault</b> and pick <Code>{storage.path}</Code>. Edits you make are picked up within a few seconds and saved as "Edited in Obsidian".
+                Open <Code>{storage.path}</Code> as a vault.
               </p>
               {local && (
                 <a href={obsidianLink(storage.path)} className="inline-flex items-center gap-1.5 h-9 rounded-lg border border-line px-3 text-sm font-medium hover:bg-hover whitespace-nowrap">
@@ -175,62 +172,31 @@ function ObsidianSteps({ storage, reload }: { storage: MemoryStorage; reload: ()
         )}
 
         <div className="rounded-xl border border-line p-4 space-y-4">
-          <div>
-            <h4 className="text-sm font-semibold">On another computer</h4>
-            <p className="mt-0.5 text-sm text-muted">
-              Wisp shares memory as a git repository, which Obsidian's free <b>Git</b> plugin can copy to your computer and keep in step, both ways.
-            </p>
-          </div>
+          <h4 className="text-sm font-semibold">On another computer</h4>
 
           {!storage.sync.allowed ? (
             <p className="text-sm rounded-lg bg-hover p-3">{storage.sync.reason}</p>
           ) : (
             <>
-              <ol className="list-decimal pl-5 space-y-3 text-sm marker:text-faint">
-                <li>
-                  Make sure <b>git</b> is installed on that computer (<Code>git --version</Code> in a terminal tells you), and install <b>Obsidian</b>.
-                </li>
-                <li>
-                  Make a sign-in token for that computer. It's shown once, so copy it right away.
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name, e.g. My laptop" className="max-w-56" aria-label="Token name" />
-                    <Button onClick={create}>
-                      <KeyRound size={15} /> Create token
-                    </Button>
-                  </div>
-                  {error && <p className="mt-1 text-bad">{error}</p>}
-                </li>
-                <li>
-                  Copy memory to that computer. In a terminal, in the folder where you keep your vaults:
-                  <div className="mt-2">
-                    <CopyBlock text={`git clone "${remoteUrl(fresh ?? "YOUR-TOKEN")}" "Wisp memory"`} />
-                  </div>
-                  {!fresh && <p className="mt-1 text-xs text-muted">Replace YOUR-TOKEN with the token from step 2.</p>}
-                  {window.location.protocol === "http:" && !local && (
-                    <p className="mt-1 text-xs text-muted">This address isn't encrypted. That's fine on your home network or a private network like Tailscale; otherwise use an https address so the token can't be read on the way.</p>
-                  )}
-                </li>
-                <li>
-                  In Obsidian choose <b>Open folder as vault</b> and pick the new <Code>Wisp memory</Code> folder. Then open <b>Settings → Community plugins → Browse</b>, install <b>Git</b> (by Vinzent03) and turn it on.
-                </li>
-                <li>
-                  In the Git plugin's settings set <b>Auto pull interval</b> and <b>Auto commit-and-sync interval</b> (called "Vault backup interval" in older versions) to a few minutes, and turn on <b>Pull on startup</b>. From then on it brings in what agents and others wrote, and sends what you write.
-                </li>
-              </ol>
-              <ul className="list-disc pl-5 space-y-1.5 text-sm text-muted marker:text-faint">
-                <li>Your changes show up in Wisp under your name, in Activity.</li>
-                <li>Wisp checks every change against the same rules as the app. If you edit a note you're not allowed to edit, the sync is refused and the plugin says so; undo that edit and sync again.</li>
-                <li>If you and an agent changed the same note, the plugin shows a merge conflict the way any git project does. Keep the text you want and sync again.</li>
-                <li>Obsidian's own settings and plugins (the <Code>.obsidian</Code> folder) stay on your computer and are never synced.</li>
-                <li>Syncing hands over all of memory, history included, so it's only for people who are allowed to read every note. Revoke a token below the moment a computer is lost.</li>
-              </ul>
+              <div className="flex flex-wrap gap-2">
+                <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name, e.g. My laptop" className="max-w-56" aria-label="Token name" />
+                <Button onClick={create}>
+                  <KeyRound size={15} /> Create token
+                </Button>
+              </div>
+              {error && <p className="text-sm text-bad">{error}</p>}
+              <CopyBlock text={`git clone "${remoteUrl(fresh ?? "YOUR-TOKEN")}" "Wisp memory"`} />
+              {!fresh && <p className="text-xs text-muted">Replace YOUR-TOKEN with a token. It's shown once.</p>}
+              {window.location.protocol === "http:" && !local && <p className="text-xs text-muted">This address isn't encrypted. Use it only on your home network or a private one like Tailscale.</p>}
+              {/* what a token gives away, so nobody hands one out lightly */}
+              <p className="text-xs text-muted">A token reads all of memory, history included. Revoke it the moment a computer is lost.</p>
             </>
           )}
         </div>
 
         {storage.tokens.length > 0 && (
           <div>
-            <h4 className="mb-2 text-sm font-semibold">Your sign-in tokens</h4>
+            <h4 className="mb-2 px-1 text-[13px] font-semibold text-muted">Tokens</h4>
             <Card>
               {storage.tokens.map((t) => (
                 <Row key={t.id} label={t.label || "Obsidian"} hint={`Made ${timeAgo(t.createdAt)} · ${t.lastUsed ? `last used ${timeAgo(t.lastUsed)}` : "never used"}`}>
@@ -247,18 +213,15 @@ function ObsidianSteps({ storage, reload }: { storage: MemoryStorage; reload: ()
                 </Row>
               ))}
             </Card>
-            <p className="mt-2 text-xs text-muted">
-              Sync with the <Pill>{storage.sync.branch ?? "main"}</Pill> branch. Tokens work only for syncing memory, not for signing in to Wisp.
-            </p>
           </div>
         )}
       </div>
-    </Section>
+    </div>
   );
 }
 
 /** Bring what another AI knows about you into one agent's notes: the same step as first-run setup. */
-function ImportFromAI() {
+export function ImportFromAI() {
   const agents = useStore((s) => s.agents);
   const me = useStore((s) => s.me);
   const devices = useDevices();
@@ -272,7 +235,7 @@ function ImportFromAI() {
   if (!agent) return null;
   const askable: Askable[] = (devices ?? []).filter((d) => d.mine && d.online).flatMap((d) => ["claude-code", "codex"].filter((h) => d.harnesses?.some((x) => x.id === h)).map((harness) => ({ harness, nodeId: d.id, device: d.name })));
   return (
-    <Section title="Import from another AI" description="Give an agent what Claude, ChatGPT or another AI already knows about you.">
+    <div>
       {!open ? (
         <Card>
           <Row label="Import into" hint={done}>
@@ -323,6 +286,6 @@ function ImportFromAI() {
           {error && <p className="text-[13px] text-bad">{error}</p>}
         </div>
       )}
-    </Section>
+    </div>
   );
 }

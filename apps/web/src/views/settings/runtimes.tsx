@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
-import { HARNESSES, harnessInfo, harnessLabel, runsInVm, type HarnessInfo } from "@wisp/core";
+import { HARNESSES, harnessInfo, harnessLabel, type HarnessInfo } from "@wisp/core";
 import { api } from "../../api.ts";
 import { usableDevices, useDevices, type DeviceInfo } from "../../devices.ts";
 import { href } from "../../router.ts";
@@ -93,7 +93,6 @@ export function InstallHarness({ device, onClose }: { device: DeviceInfo; onClos
           <RuntimeRow key={h.id} h={h} device={live} version={installed.get(h.id)} busy={busy === h.id} onInstall={() => install(h)} onHowTo={() => setHowTo(h)} />
         ))}
       </Panel>
-      <p className="px-1 text-sm text-faint">Wisp installs it on that computer and asks you before it runs anything.</p>
       {note && <p className="rounded-2xl bg-ok/10 px-4 py-3 text-sm text-ok">{note}</p>}
       {error && <p className="whitespace-pre-wrap text-sm text-bad">{error}</p>}
       <button
@@ -131,7 +130,6 @@ export function RuntimesPage() {
   const installed = new Map((device?.harnesses ?? []).map((h) => [h.id, h.version]));
   const declared = (device?.harnesses ?? []).filter((h) => h.id.startsWith("acp:"));
   const onDevice = HARNESSES.filter((h) => h.protocol !== "mcp");
-  const anywhere = HARNESSES.filter((h) => h.protocol === "mcp");
 
   const check = async () => {
     if (!device) return;
@@ -148,7 +146,7 @@ export function RuntimesPage() {
 
   return (
     <>
-      <PageHeader title="Harness setup" />
+      <PageHeader title="Install on a computer" />
       {devices === null ? (
         <p className="text-sm text-muted">Loading devices…</p>
       ) : !device ? (
@@ -213,24 +211,6 @@ export function RuntimesPage() {
           </section>
         </div>
       )}
-      <section className="mt-8 space-y-2">
-        <Label>Inside your agents' VMs</Label>
-        <p className="px-1 text-sm text-faint">Every VM comes with these, so an agent can run entirely inside its computer. Sign each in once per VM, on the agent's Computer tab.</p>
-        <Panel>
-          {HARNESSES.filter((h) => runsInVm(h.id)).map((h) => (
-            <Item key={h.id} icon={<Mark id={h.id} />} title={h.label} sub={h.note} right={<Badge tone="green">In every VM</Badge>} />
-          ))}
-        </Panel>
-      </section>
-      <section className="mt-8 space-y-2">
-        <Label>Connect from anywhere</Label>
-        <p className="px-1 text-sm text-faint">Agents that run somewhere Wisp doesn't start them join through wisp-mcp: add the agent, then make a connection token on its Connect tab.</p>
-        <Panel>
-          {anywhere.map((h) => (
-            <Item key={h.id} icon={<Mark id={h.id} />} title={h.label} sub={h.note} right={<Badge>Through MCP</Badge>} />
-          ))}
-        </Panel>
-      </section>
       {howTo && <HowToInstall h={howTo} device={device} onClose={() => setHowTo(null)} />}
       {adding && <AddRuntime device={device} onClose={() => setAdding(false)} />}
     </>

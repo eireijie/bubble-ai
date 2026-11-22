@@ -2,16 +2,20 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { Check } from "lucide-react";
 import { cx } from "../../components/ui.tsx";
 
-/** The top of a settings page: its name and what it's for. */
-/** Set by a merged page that holds several pages: each one's header becomes a section heading under the merged page's title. */
+/** Set by a sheet that holds several old pages: each one's header becomes a section heading inside it. */
 export const MergedPageContext = createContext(false);
 
+/**
+ * The top of what a settings sheet shows. The sheet itself carries the name, so this is only a
+ * section heading inside a merged sheet, plus a line when there is something to say ("Loading…").
+ */
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
   const merged = useContext(MergedPageContext);
+  if (!merged && !children) return null;
   return (
-    <div className={merged ? "mb-4 mt-2" : "mb-6"}>
-      {merged ? <h3 className="text-[15px] font-semibold">{title}</h3> : <h2 className="t-title max-md:hidden">{title}</h2>}
-      {children && <p className="mt-1.5 text-body leading-snug text-muted max-w-xl">{children}</p>}
+    <div className={merged ? "mb-3 mt-7" : "mb-4"}>
+      {merged && <h3 className="px-1 text-[13px] font-semibold text-muted">{title}</h3>}
+      {children && <p className="mt-1.5 px-1 text-sm leading-snug text-muted max-w-xl">{children}</p>}
     </div>
   );
 }
@@ -34,14 +38,14 @@ export function Section({ title, description, action, children }: { title: strin
 
 /** Rows in a bordered card. */
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("rounded-xl bg-card border border-line divide-y divide-line overflow-hidden", className)}>{children}</div>;
+  return <div className={cx("rounded-[14px] bg-card divide-y divide-line overflow-hidden", className)}>{children}</div>;
 }
 
 /** One setting: what it is on the left, the control on the right (stacked on phones). */
 export function Row({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children?: ReactNode; className?: string }) {
   return (
-    <div className={cx("px-[18px] py-2.5 min-h-[54px] md:min-h-[52px] flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6", className)}>
-      <div className="min-w-0 flex-1">
+    <div className={cx("px-4 py-1.5 min-h-[52px] flex flex-wrap items-center gap-x-4 gap-y-1", className)}>
+      <div className="min-w-[6.5rem] flex-1">
         <div className="text-body">{label}</div>
         {hint && <div className="mt-0.5 text-[13px] leading-snug text-faint">{hint}</div>}
       </div>
@@ -118,6 +122,7 @@ export function SavedNote({ shown }: { shown: boolean }) {
   );
 }
 
-export function OwnersOnly({ show }: { show: boolean }) {
-  return show ? <p className="mb-6 rounded-lg bg-hover px-3 py-2 text-xs text-muted">Only owners can change these. You can see how they're set.</p> : null;
+/** Non-owners see the same controls, switched off: no banner says so. Kept so pages needn't change. */
+export function OwnersOnly(_: { show: boolean }) {
+  return null;
 }

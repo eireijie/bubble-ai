@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { Button, Input } from "../../components/ui.tsx";
-import { MoreOptions } from "../../components/MoreOptions.tsx";
-import { href } from "../../router.ts";
-import { useStore } from "../../store.ts";
-import { canRecognize, createSpeaker, DEFAULT_VOICE, inDesktopApp, type VoiceSettings, type VoiceSpeaker } from "../../voice/providers.ts";
-import { Card, PageHeader, Row, Section, Select } from "./parts.tsx";
+import { createSpeaker, DEFAULT_VOICE, inDesktopApp, type VoiceSettings, type VoiceSpeaker } from "../../voice/providers.ts";
+import { Card, Row, Select } from "./parts.tsx";
 
 type Result = { ok: boolean; text: string } | null;
 const MIC_SECONDS = 3;
@@ -84,68 +81,55 @@ function Outcome({ result }: { result: Result }) {
   return <p role="status" className={result ? `text-xs ${result.ok ? "text-muted" : "text-bad"}` : "sr-only"}>{result?.text}</p>;
 }
 
+const ENGINE: Record<string, string> = { device: "On this device", openai: "OpenAI", elevenlabs: "ElevenLabs" };
+
+/** What the Voice row says: the engine that speaks. */
+export function VoiceValue() {
+  const [speak, setSpeak] = useState<string | null>(null);
+  useEffect(() => { api<VoiceSettings>("GET", "/api/voice/settings").then((s) => setSpeak(s.speak), () => {}); }, []);
+  return <>{speak ? (ENGINE[speak] ?? speak) : ""}</>;
+}
+
 export function VoicePage() {
   const [settings, setSettings] = useState<VoiceSettings>(DEFAULT_VOICE);
   const [loaded, setLoaded] = useState(false);
-  // the settings as the hub has them (loaded or last saved): typing a key mustn't move its field into the folded section
+  // the settings as the hub has them (loaded or last saved): whether a key is still needed comes from these, not from what's typed
   const [saved, setSaved] = useState<VoiceSettings>(DEFAULT_VOICE);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const agents = useStore((s) => s.agents);
   const mic = useMicTest();
   const speakerTest = useSpeakerTest(settings.speak);
   useEffect(() => { api<VoiceSettings>("GET", "/api/voice/settings").then((s) => { setSettings(s); setSaved(s); setLoaded(true); }, (e) => setMessage(e.message)); }, []);
   const save = async () => {
     setSaving(true); setMessage("");
-    try { const next = await api<VoiceSettings>("PUT", "/api/voice/settings", settings); setSettings(next); setSaved(next); setMessage("Saved. Your next call will use these settings."); }
+    try { const next = await api<VoiceSettings>("PUT", "/api/voice/settings", settings); setSettings(next); setSaved(next); setMessage("Saved"); }
     catch (e) { setMessage((e as Error).message); }
     finally { setSaving(false); }
   };
-  const canListen = typeof window !== "undefined" && canRecognize();
   // the engines come from the draft (picking OpenAI asks for its key right away); whether a key exists comes from the hub
   const listen = inDesktopApp() ? "openai" : settings.listen; // the draft choice: picking OpenAI asks for its key right away
   const needOpenai = (listen === "openai" || settings.speak === "openai") && !saved.openaiKey;
   const needEleven = settings.speak === "elevenlabs" && !saved.elevenlabsKey;
-  const openaiRow = <Row key="openai" label="OpenAI key" hint="Needed for OpenAI listening and voices. OpenAI bills you for it."><Input aria-label="OpenAI API key" type="password" autoComplete="off" disabled={!loaded} value={settings.openaiKey} onChange={(e) => setSettings({ ...settings, openaiKey: e.target.value })} /></Row>;
-  const elevenRow = <Row key="eleven" label="ElevenLabs key" hint="Needed for ElevenLabs voices. ElevenLabs bills you for it."><Input aria-label="ElevenLabs API key" type="password" autoComplete="off" disabled={!loaded} value={settings.elevenlabsKey} onChange={(e) => setSettings({ ...settings, elevenlabsKey: e.target.value })} /></Row>;
-  const neededRows = [needOpenai && openaiRow, needEleven && elevenRow].filter(Boolean);
-  const otherRows = [!needOpenai && openaiRow, !needEleven && elevenRow].filter(Boolean);
-  return <>
-    <PageHeader title="Voice" />
-    <Section title="How voices work" description="Your microphone is only used when you start a call or a test.">
-      <Card>
-        <Row label="On this device" hint="Uses your device's voices. It's free and needs no key. Browser speech recognition may use an online service, sending what you say to the browser provider." />
-        <Row label="Online voices" hint="Audio goes to OpenAI or ElevenLabs, and they bill you separately for it. You need your own key from them." />
-      </Card>
-    </Section>
-    <Section title="Your voice choices">
-      <Card>
-        <Row label="Listening"><Select label="Listening engine" disabled={!loaded} value={listen} onChange={(listen) => setSettings({ ...settings, listen: listen as VoiceSettings["listen"] })}>{!inDesktopApp() && <option value="device">On this device</option>}<option value="openai">OpenAI (online)</option></Select></Row>
-        <Row label="Speaking"><Select label="Speaking engine" disabled={!loaded} value={settings.speak} onChange={(speak) => setSettings({ ...settings, speak: speak as VoiceSettings["speak"] })}><option value="device">On this device</option><option value="openai">OpenAI (online)</option><option value="elevenlabs">ElevenLabs (online)</option></Select></Row>
-      </Card>
-    </Section>
-    {neededRows.length > 0 && <Section title="One more thing"><Card>{neededRows}</Card></Section>}
-    <MoreOptions className="mb-8" about="API keys and troubleshooting">
-      {otherRows.length > 0 && <Section title="API keys"><Card>{otherRows}</Card></Section>}
-      <p className="mb-8 text-xs text-muted">Calls need a secure connection (HTTPS, or localhost on this computer). Headphones help when you interrupt, and stop your speakers from echoing into the microphone.</p>
-    </MoreOptions>
-    <Button variant="primary" disabled={!loaded || saving} onClick={save}>{saving ? "Saving…" : "Save voice settings"}</Button>
-    {message && <p role="status" className="text-sm text-muted mt-3">{message}</p>}
-
-    <div className="mt-10" />
-    <Section title="Try it out">
-      <Card>
-        <Row label="Listening in this browser" hint={listen === "openai" ? "You chose OpenAI for listening, so this browser's own listening isn't needed." : canListen ? "Listening on this device works in this browser." : "This browser can't listen on its own. Try Chrome or Safari, or choose OpenAI above."} />
-        <Row label="Microphone" hint={<>
-          {mic.testing ? `Say something. Listening for ${MIC_SECONDS} seconds…` : "Say a few words while it listens."}
-          {mic.testing && <span className="mt-1.5 block h-1.5 w-40 max-w-full overflow-hidden rounded-full bg-chip" aria-hidden><span className="block h-full rounded-full bg-accent" style={{ width: `${Math.round(mic.level * 100)}%` }} /></span>}
-          <Outcome result={mic.result} />
-        </>}><Button disabled={mic.testing} onClick={mic.start}>{mic.testing ? "Listening…" : "Test microphone"}</Button></Row>
-        <Row label="Speaker" hint={<>Plays a short sentence.<Outcome result={speakerTest.result} /></>}><Button disabled={speakerTest.testing} onClick={speakerTest.start}>{speakerTest.testing ? "Playing…" : "Test speaker"}</Button></Row>
-      </Card>
-    </Section>
-    <Section title="Each agent's voice">
-      {agents.length ? <Card>{agents.map((a) => <Row key={a.id} label={a.name}><a href={href({ view: "agents", agentId: a.id, tab: "look" })} className="text-sm text-accent-text hover:underline" aria-label={`Choose voice for ${a.name}`}>Choose voice</a></Row>)}</Card> : <p className="text-sm text-muted">Add an agent first, then you can choose its voice.</p>}
-    </Section>
-  </>;
+  // a key's field shows once its engine is picked (or a key is already saved, so it can be changed)
+  const usesOpenai = listen === "openai" || settings.speak === "openai" || !!saved.openaiKey;
+  const usesEleven = settings.speak === "elevenlabs" || !!saved.elevenlabsKey;
+  return <div className="space-y-4">
+    <Card>
+      <Row label="Listening"><Select label="Listening engine" disabled={!loaded} value={listen} onChange={(listen) => setSettings({ ...settings, listen: listen as VoiceSettings["listen"] })}>{!inDesktopApp() && <option value="device">On this device</option>}<option value="openai">OpenAI (online)</option></Select></Row>
+      <Row label="Speaking"><Select label="Speaking engine" disabled={!loaded} value={settings.speak} onChange={(speak) => setSettings({ ...settings, speak: speak as VoiceSettings["speak"] })}><option value="device">On this device</option><option value="openai">OpenAI (online)</option><option value="elevenlabs">ElevenLabs (online)</option></Select></Row>
+      {usesOpenai && <Row label={needOpenai ? "OpenAI key (needed)" : "OpenAI key"}><Input aria-label="OpenAI API key" type="password" autoComplete="off" disabled={!loaded} value={settings.openaiKey} onChange={(e) => setSettings({ ...settings, openaiKey: e.target.value })} /></Row>}
+      {usesEleven && <Row label={needEleven ? "ElevenLabs key (needed)" : "ElevenLabs key"}><Input aria-label="ElevenLabs API key" type="password" autoComplete="off" disabled={!loaded} value={settings.elevenlabsKey} onChange={(e) => setSettings({ ...settings, elevenlabsKey: e.target.value })} /></Row>}
+    </Card>
+    <div className="flex items-center gap-3">
+      <Button variant="primary" disabled={!loaded || saving} onClick={save}>{saving ? "Saving…" : "Save"}</Button>
+      {message && <p role="status" className="text-sm text-muted">{message}</p>}
+    </div>
+    <Card>
+      <Row label="Microphone" hint={(mic.testing || mic.result) && <>
+        {mic.testing && <span className="mt-1.5 block h-1.5 w-40 max-w-full overflow-hidden rounded-full bg-chip" aria-hidden><span className="block h-full rounded-full bg-accent" style={{ width: `${Math.round(mic.level * 100)}%` }} /></span>}
+        <Outcome result={mic.result} />
+      </>}><Button disabled={mic.testing} onClick={mic.start}>{mic.testing ? "Listening…" : "Test microphone"}</Button></Row>
+      <Row label="Speaker" hint={speakerTest.result && <Outcome result={speakerTest.result} />}><Button disabled={speakerTest.testing} onClick={speakerTest.start}>{speakerTest.testing ? "Playing…" : "Test speaker"}</Button></Row>
+    </Card>
+  </div>;
 }

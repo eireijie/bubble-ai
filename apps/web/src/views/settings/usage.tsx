@@ -231,7 +231,6 @@ function LimitCard({ current, onSave }: { current: number | null; onSave: (token
         </label>
       )}
       {error && <p className="mt-2 text-xs text-bad">{error}</p>}
-      <p className="mt-2.5 text-xs text-faint">At 80% agents slow down. At the limit they wait for the reset.</p>
     </div>
   );
 }
@@ -291,8 +290,7 @@ export function UsagePage() {
   };
 
   const header = (
-    <div className="flex items-end justify-between gap-4">
-      <h2 className="t-title max-md:hidden">Usage</h2>
+    <div className="flex items-end justify-end gap-4">
       <Seg label="Range" value={range} options={RANGES.map(([key, label]) => ({ key, label }))} onChange={(k) => setRange(k as Range)} className="w-[220px] max-w-[60%]" />
     </div>
   );

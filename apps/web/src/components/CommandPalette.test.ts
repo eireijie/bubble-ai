@@ -221,10 +221,10 @@ describe("typing", () => {
 
   it("finds settings by the words a person would type", () => {
     const first = (typed: string) => draw(typed).rows.find((r) => r.group === "Places");
-    expect(first("password")).toMatchObject({ label: "Security", meta: "Settings" });
+    expect(first("password")).toMatchObject({ label: "Password", meta: "Settings" });
     expect(first("dark")).toMatchObject({ label: "Appearance", meta: "Settings" });
     expect(first("tailscale")).toMatchObject({ label: "Away from home", meta: "Settings" });
-    expect(first("api key")).toMatchObject({ label: "AI", meta: "Settings" });
+    expect(first("api key")).toMatchObject({ label: "AI accounts and keys", meta: "Settings" });
     first("away")!.click();
     expect(location.hash).toBe("#/settings/access");
   });
@@ -284,19 +284,19 @@ describe("plain words", () => {
   const find = (typed: string) => findByWords(typed, placesFor(false, all)).map((p) => p.label);
 
   it("finds a place by words that aren't in its name", () => {
-    expect(find("password")[0]).toBe("Security");
+    expect(find("password")[0]).toBe("Password");
     expect(find("dark")).toEqual(["Appearance"]);
     expect(find("tailscale")).toEqual(["Away from home"]);
     expect(find("away")[0]).toBe("Away from home");
     expect(find("voice")[0]).toBe("Voice");
-    expect(find("api key")).toEqual(["AI"]);
+    expect(find("api key")[0]).toBe("AI accounts and keys");
     expect(find("marketplace")).toEqual(["Add apps and skills"]);
     expect(find("terminal")).toEqual(["Code"]);
   });
 
   it("puts a name that matches ahead of other words that match", () => {
-    expect(find("memory").slice(0, 2)).toEqual(["Memory", "Memory"]);
-    expect(find("comp").slice(0, 2)).toEqual(["Computers", "Computers and devices"]);
+    expect(find("memory").slice(0, 2)).toEqual(["Memory", "Memory access"]);
+    expect(find("comp").slice(0, 2)).toEqual(["Computers", "Computers"]);
     expect(wordMatch("away", "Away from home")).toBe(3);
     expect(wordMatch("home", "Away from home")).toBe(2);
     expect(wordMatch("tailscale", "Away from home", "tailscale vpn")).toBe(1);
