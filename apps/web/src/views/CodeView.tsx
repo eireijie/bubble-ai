@@ -7,6 +7,7 @@ import { TerminalPane, type ShellTarget } from "../components/TerminalPane.tsx";
 import { ShellWorkspace } from "../code/ShellWorkspace.tsx";
 import { useFeatures } from "../features.ts";
 import { useStore } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { AgentPane, GhostIcon, STATE_COLOR } from "../code/AgentPane.tsx";
 import { NewTaskSheet } from "../code/NewTaskSheet.tsx";
 import { Palette, type PaletteItem } from "../code/Palette.tsx";
@@ -61,7 +62,7 @@ export function CodeView() {
   const on = useFeatures().code;
   const agents = useStore((s) => s.agents);
   const approvals = useStore((s) => s.approvals);
-  const live = useStore((s) => s.live);
+  const live = useStore(liveShape);
   const { tasks, error } = useCodeTasks();
   const [targets, setTargets] = useState<ShellTarget[] | null>(null);
   const [selected, setSelected] = useState<string>(() => load("wisp.code.task", SHELLS));

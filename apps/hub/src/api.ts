@@ -498,8 +498,11 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
         .all(c.workspaceId, greetings.size + 1) as { id: string; channelId: string; agentId: string }[]
     ).find((m) => !greetings.has(m.id));
     const canRead = readable(c);
-    const agentNotes = vaultOf(c).list((p) => canRead(p) && agents.some((a) => p.startsWith(`agents/${a.id}/`))).filter((n) => !/\/(About|SOUL)\.md$/.test(n.path) && !/\/skills\/[^/]+\/SKILL\.md$/.test(n.path));
-    const sharedNotes = vaultOf(c).list((p) => canRead(p) && p.startsWith("shared/")).filter((n) => n.path !== "shared/Welcome.md");
+    // memory is read once for both kinds of note (this runs every time the page's agents or messages change)
+    const ofAgent = (p: string) => agents.some((a) => p.startsWith(`agents/${a.id}/`));
+    const notes = vaultOf(c).list((p) => (ofAgent(p) || p.startsWith("shared/")) && canRead(p));
+    const agentNotes = notes.filter((n) => ofAgent(n.path) && !/\/(About|SOUL)\.md$/.test(n.path) && !/\/skills\/[^/]+\/SKILL\.md$/.test(n.path));
+    const sharedNotes = notes.filter((n) => n.path.startsWith("shared/") && n.path !== "shared/Welcome.md");
     return {
       devices: nodes.map((n) => ({ id: n.id, name: n.name, online: hub.isNodeOnline(n.id), mine: n.ownerId === c.actor.id, role: n.role })),
       // computers agents can share: VMs and cloud computers (never someone's own screen)
@@ -548,7 +551,9 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   app.get("/api/channels", async (req, reply) => {
     const c = need(req, reply);
     if (!c) return;
-    const visible = store.channels(c.workspaceId).filter((ch) => channelVisible(c, ch.id) && (ch.kind === "channel" || store.isMember(ch.id, c.actor)));
+    // the same test as channelVisible plus isMember, asked of the database once instead of three times a channel
+    const mine = store.memberOf(c.actor);
+    const visible = store.channels(c.workspaceId).filter((ch) => (!(ch.kind === "dm" || ch.private) || mine.has(ch.id) || c.viewer.role === "owner") && (ch.kind === "channel" || mine.has(ch.id)));
     const agentsIn = store.agentMemberIds(visible.map((ch) => ch.id));
     // a chat with an agent that was removed has nobody left to talk to: it isn't listed (nor counted as unread)
     const list = visible.filter((ch) => ch.kind !== "dm" || (agentsIn[ch.id] ?? []).length > 0);
@@ -564,7 +569,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       ...ch,
       ...(loops && ch.kind === "dm" ? loops(ch.id) : { loop: null, next: null }),
       last: lasts[ch.id] ?? null,
-      joined: store.isMember(ch.id, c.actor),
+      joined: mine.has(ch.id),
       memberCount: counts[ch.id] ?? 0,
       agentIds: (agentsIn[ch.id] ?? []).slice(0, 8),
       unread: reads[ch.id]?.unread ?? 0,

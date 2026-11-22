@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useStore, type Me } from "../src/store.ts";
-import { App } from "../src/App.tsx";
+import { App, preloadRoute } from "../src/App.tsx";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn(() => new Promise(() => {})), uploadFile: vi.fn(), getToken: () => "session", setToken: vi.fn(), connectEvents: vi.fn() }));
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false, useAppearance: () => ({}), THEMES: [] }));
@@ -16,6 +16,14 @@ vi.mock("../src/views/ComputersView.tsx", () => ({ ComputersView: () => createEl
 vi.mock("../src/views/BuddyView.tsx", () => ({ BuddyView: () => null }));
 vi.mock("../src/desktop.ts", () => ({ useDesktopAgents: () => {} }));
 vi.mock("../src/hubUpdate.ts", () => ({ useHubUpdated: () => null }));
+
+// pages are files of their own now: the app asks for the one its address needs as it starts (App.tsx), and so does this
+// (the computers page, and the phone's account pages the tests below open)
+beforeAll(async () => {
+  await preloadRoute({ view: "computers", computerId: "private", teach: "atlas" });
+  await preloadRoute({ view: "you" });
+  await preloadRoute({ view: "more" });
+});
 
 const initial = useStore.getInitialState();
 const saved = initial.me;

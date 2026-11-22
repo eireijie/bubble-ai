@@ -56,9 +56,10 @@ export function registerOrgApi(app: FastifyInstance, hub: Hub, h: Helpers) {
 
   /** Has anything been posted, where this person is, that they haven't read? */
   const hasUnread = (workspaceId: string, userId: string) => {
+    const mine = store.memberOf({ kind: "user", id: userId });
     const ids = store
       .channels(workspaceId)
-      .filter((ch) => !ch.archivedAt && store.isMember(ch.id, { kind: "user", id: userId }))
+      .filter((ch) => !ch.archivedAt && mine.has(ch.id))
       .map((ch) => ch.id);
     return Object.values(store.readState(userId, ids)).some((r) => r.unread > 0);
   };

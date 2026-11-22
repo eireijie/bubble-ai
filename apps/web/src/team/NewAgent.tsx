@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Agent } from "@wisp/core";
 import { CreateAgent } from "../views/CreateAgent.tsx";
 import { useDevices } from "../devices.ts";
@@ -32,6 +32,5 @@ export function NewAgentForTeam({ onClose, onCreated }: { onClose: () => void; o
   );
 }
 
-/** Lets a field that picks an agent offer "Create an agent…": the builder shows the dialog and hands the new agent back. */
-export const CreateAgentContext = createContext<((done: (agentId: string) => void) => void) | null>(null);
-export const useCreateAgent = () => useContext(CreateAgentContext);
+// in a file of its own, so a field that only reads it doesn't bring the New agent pages with it
+export { CreateAgentContext, useCreateAgent } from "./createAgentContext.ts";

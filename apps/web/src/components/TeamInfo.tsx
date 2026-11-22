@@ -13,7 +13,7 @@ import { RightPane } from "./RightPane.tsx";
 import { AgentAvatar, Modal, StatusDot, cx } from "./ui.tsx";
 import { prettyModel, effortName } from "./EffortSlider.tsx";
 import { HowLines, useFlowLines } from "../team/How.tsx";
-import { TeamEditSession } from "../team/Session.tsx";
+import { TeamEditSession } from "../team/SessionLazy.tsx";
 
 export type InfoTab = "about" | "agents" | "members" | "pins";
 const TABS: { id: InfoTab; label: string }[] = [

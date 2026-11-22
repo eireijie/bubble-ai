@@ -98,3 +98,21 @@ export function renderMarkdown(src: string, opts: { known?: (target: string) => 
   const html = marked.parse(text, { async: false }) as string;
   return DOMPurify.sanitize(html, { ADD_ATTR: ["data-wikilink", "target"], ADD_TAGS: ["svg", "path", "rect"] });
 }
+
+/**
+ * The same for a message in a chat. A chat's messages turn into the same HTML every time the chat
+ * is opened, so the most recent ones are remembered instead of parsed and sanitized again.
+ * (Not for text that's still being written: every word would be a new entry.)
+ */
+const recent = new Map<string, { handles: unknown; colors: unknown; html: string }>();
+const RECENT = 2000;
+export function renderMessage(src: string, opts: { handles?: Set<string> | Map<string, string>; colors?: Map<string, string> }): string {
+  const hit = recent.get(src);
+  if (hit && hit.handles === opts.handles && hit.colors === opts.colors) return hit.html;
+  const html = renderMarkdown(src, opts);
+  recent.delete(src);
+  recent.set(src, { handles: opts.handles, colors: opts.colors, html });
+  // the oldest goes first (a Map keeps the order things were added)
+  if (recent.size > RECENT) recent.delete(recent.keys().next().value!);
+  return html;
+}

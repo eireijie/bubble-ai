@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Apple, Bell, Blocks, BookOpen, Building2, ChevronDown, FolderPlus, Ghost as GhostIcon, HardDrive, LayoutGrid, LifeBuoy, ListChecks, ListTodo, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
 import { useReadyChecklist } from "../onboarding.ts";
@@ -6,6 +6,7 @@ import type { FeatureKey, Section } from "@wisp/core";
 import { api } from "../api.ts";
 import { useFeatures } from "../features.ts";
 import { useStore, useInboxCount, usePrefs } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { go, href, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { ComputersIcon } from "./icons.tsx";
@@ -168,7 +169,11 @@ export function sidebarGroups(chats: Chat[], sections: Section[]): SideGroup[] {
 
 const NO_LINE: PreviewLine = { text: "", working: false };
 
-function SideRow({ chat, wide, active, line, sections, onNewSection }: { chat: Chat; wide: boolean; active: boolean; line: PreviewLine; sections: Section[]; onNewSection: () => void }) {
+/** The same line under a name: a row whose words didn't change keeps the line object it had. */
+const sameLine = (a: PreviewLine | undefined, b: PreviewLine): a is PreviewLine => !!a && a.text === b.text && a.working === b.working && !a.needs === !b.needs && !a.icon && !b.icon;
+
+/** A chat in the sidebar. It renders again only when its own chat or its line changes, not on every step of dragging the sidebar's edge. */
+const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNewSection }: { chat: Chat; wide: boolean; active: boolean; line: PreviewLine; sections: Section[]; onNewSection: () => void }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const unread = chat.unread > 0;
   const label = `${chat.name}${unread ? `, ${chat.unread} unread` : ""}${line.working ? ", working" : ""}${line.needs ? ", needs you" : ""}`;
@@ -210,7 +215,7 @@ function SideRow({ chat, wide, active, line, sections, onNewSection }: { chat: C
       {menu && chat.channel && <ChatMenu chat={chat} channel={chat.channel} at={menu} onClose={() => setMenu(null)} sections={sections} onNewSection={onNewSection} />}
     </div>
   );
-}
+});
 
 async function deleteSection(id: string) {
   try {
@@ -289,11 +294,9 @@ export function Rail({ route }: { route: Route }) {
   const agents = useStore((s) => s.agents);
   const people = useStore((s) => s.members);
   const approvals = useStore((s) => s.approvals);
-  // what a row's line reads of the live runs, as a string: a run streaming its words doesn't redraw
-  // the sidebar; only a run starting, changing tools or ending does
-  const runKey = useStore((s) => JSON.stringify(Object.values(s.live).map((r) => [r.runId, r.channelId, r.agentId, r.last?.name ?? null, !!r.text])));
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- the runs as they were when that string last changed
-  const live = useMemo(() => useStore.getState().live, [runKey]);
+  // who is working where, not the words: a run streaming its reply doesn't redraw the sidebar; only
+  // a run starting, changing tools or ending does (liveShape.ts)
+  const live = useStore(liveShape);
   const inbox = useInboxCount();
   const prefs = usePrefs();
   const { orgs } = useOrgs();
@@ -303,6 +306,7 @@ export function Rail({ route }: { route: Route }) {
   const ready = useReadyChecklist();
   const [collapsedGroups, toggleGroup] = useCollapsedGroups();
   const [editing, setEditing] = useState<Section | "new" | null>(null);
+  const newSection = useCallback(() => setEditing("new"), []);
   const [orgAt, setOrgAt] = useState<CSSProperties | null>(null);
   const [newOrg, setNewOrg] = useState(false);
   const footRef = useRef<HTMLDivElement>(null);
@@ -410,10 +414,19 @@ export function Rail({ route }: { route: Route }) {
   const groups = sidebarGroups(chats, sections);
   // the rail has no headers, so a group with nothing in it shows nothing
   const shown = wide ? groups : groups.filter((g) => g.chats.length > 0);
-  // the line under each name: the same words as the phone's list
+  // the line under each name: the same words as the phone's list. A line that reads the same keeps
+  // its object, so one agent starting to work redraws its own row, not every row
+  const hadLines = useRef(new Map<string, PreviewLine>());
   const lines = useMemo(() => {
     const ctx = { meId: me.user.id, agents, members: people, approvals, clock: prefs.clock };
-    return new Map(chats.map((c) => [c.key, chatPreviewLine(c, live, ctx)]));
+    const had = hadLines.current;
+    return (hadLines.current = new Map(
+      chats.map((c) => {
+        const line = chatPreviewLine(c, live, ctx);
+        const was = had.get(c.key);
+        return [c.key, sameLine(was, line) ? was : line];
+      }),
+    ));
   }, [chats, live, agents, people, approvals, me.user.id, prefs.clock]);
   const elsewhere = orgs.some((o) => o.unread && !o.current && o.id !== me.workspace.id);
 
@@ -523,7 +536,7 @@ export function Rail({ route }: { route: Route }) {
                 ) : (
                   i > 0 && <div className={cx("h-px bg-line2", wide ? "mx-2 my-1.5" : "mx-auto my-2 w-6")} aria-hidden />
                 )}
-                {!closed && g.chats.map((c) => <SideRow key={c.key} chat={c} wide={wide} active={!!c.channel && c.channel.id === active} line={lines.get(c.key) ?? NO_LINE} sections={sections} onNewSection={() => setEditing("new")} />)}
+                {!closed && g.chats.map((c) => <SideRow key={c.key} chat={c} wide={wide} active={!!c.channel && c.channel.id === active} line={lines.get(c.key) ?? NO_LINE} sections={sections} onNewSection={newSection} />)}
               </section>
             );
           })}

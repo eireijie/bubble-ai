@@ -1,23 +1,28 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { isTopOverlay, toBody, useOverlay } from "../overlays.ts";
 import { Check, ChevronLeft, ChevronRight, Eye, Hand, Loader2, Maximize2, MessageSquare, Minimize2, Shield, ShieldAlert, Video, X } from "lucide-react";
 import { harnessLabel, type AccessLevel, type Agent } from "@wisp/core";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { api } from "../api.ts";
 import { useStore, useTeams, type ComputerInfo } from "../store.ts";
+import { liveShape } from "../liveShape.ts";
 import { useFeature } from "../features.ts";
 import { go, href, type AgentTab } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { agentReadiness, agentSignedIn, useDevices, type DeviceInfo } from "../devices.ts";
 import { patchAgent, prettyModel, runLine, useAgentContext } from "../models.ts";
-import { useComputerState } from "../views/ComputersView.tsx";
-import { CallOptions } from "../voice/CallScreen.tsx";
+import { useComputerState } from "../views/computerState.ts";
 import { LiveScreen, WorkingBadge } from "./Screen.tsx";
 import { Ghost } from "./Ghost.tsx";
 import { AgentAvatar, Button, Pill, cx } from "./ui.tsx";
 import { RunPanel } from "./RunPanel.tsx";
 import { stopRuns, workDetail } from "./ActivityPill.tsx";
 import { minutesSince, runStartedAt } from "./agentActivity.ts";
+import { lazyView } from "../lazy.tsx";
+
+// How calls sound sits in More, and lives with the call screen: a file of its own, fetched in the
+// background after the app is up (lazy.tsx), so a chat doesn't bring the voice engine with it.
+const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallOptions));
 
 /** What the panel shows: the agent itself ("details"), or the sheet one of its rows opens. */
 export type AgentPanelTab = "details" | "thinks" | "works" | "can" | "asks" | "knows" | "more";
@@ -41,7 +46,8 @@ export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { a
   const [sheet, setSheet] = useState<AgentPanelTab>(() => panelSheet(tab));
   // the chat can ask for a sheet while the panel is open (the header's "nearly full" ring)
   useEffect(() => setSheet(panelSheet(tab)), [tab]);
-  const live = useStore((s) => s.live);
+  // who is working, not the words: streamed text must not re-render the panel (liveShape.ts)
+  const live = useStore(liveShape);
   const agents = useStore((s) => s.agents);
   const canEdit = useStore((s) => s.me?.role !== "guest");
   const computer = useStore((s) => s.computers.find((c) => c.id === agent.computerId));
@@ -291,7 +297,9 @@ function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => strin
       </div>
       <h3 className="px-1 pt-1 text-[13px] font-semibold text-muted">Calls</h3>
       <div className="rounded-[14px] bg-card p-3.5">
-        <CallOptions />
+        <Suspense fallback={null}>
+          <CallOptions />
+        </Suspense>
       </div>
     </div>
   );

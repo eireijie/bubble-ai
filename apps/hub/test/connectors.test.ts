@@ -105,6 +105,19 @@ describe("connectors", () => {
     expect(hub.connectors.specsFor(atlas.id)).toEqual([]);
   });
 
+  it("lists connectors made in the same instant in the order they were made", async () => {
+    // one sign-in can make several at once (Gmail and Calendar), close enough to share a created_at
+    const agent = (await api("POST", "/api/agents", { handle: "tied", name: "Tied", harness: "custom" })).data;
+    const names = ["Zulu", "Mike", "Alpha", "Kilo", "Echo", "Yankee"];
+    const made: any[] = [];
+    for (const name of names) made.push((await api("POST", "/api/connectors", { kind: "mcp-http", name: `Tie ${name}`, url: "https://example.com/mcp", agentIds: [agent.id] })).data);
+    hub.store.db.prepare(`UPDATE connectors SET created_at = ? WHERE id IN (${made.map(() => "?").join(", ")})`).run("2026-01-01T00:00:00.000Z", ...made.map((c) => c.id));
+    // for the agent's runs, and in the list people see
+    expect(hub.connectors.specsFor(agent.id).map((s) => s.name)).toEqual(names.map((n) => `tie-${n.toLowerCase()}`));
+    const listed = (await api<any[]>("GET", "/api/connectors")).data.filter((c) => c.name.startsWith("Tie ")).map((c) => c.name);
+    expect(listed).toEqual(names.map((n) => `Tie ${n}`));
+  });
+
   it("lets guests look but not change", async () => {
     const { code } = (await api("POST", "/api/invites", { role: "guest" })).data;
     const guest = (await api("POST", "/api/invites/accept", { code, email: "g@example.com", name: "Guest", password: "password123" }, "")).data.token;
