@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -51,6 +51,8 @@ class FakeNode {
   ws!: WebSocket;
   runs: HubToNode[] = [];
   held: string[] = [];
+  /** Set by a test: runs it picks stay open (`held`) like "HOLD:", as while an agent is still working; the test ends them itself with run_done. */
+  holdIf: ((agentId: string, prompt: string) => boolean) | null = null;
   constructor(
     readonly token: string,
     readonly reply: (prompt: string, agentId: string) => string,
@@ -70,7 +72,7 @@ class FakeNode {
         }
         if (msg.type === "run") {
           this.runs.push(msg);
-          const text = this.reply(msg.run.prompt, msg.run.agentId);
+          const text = this.holdIf?.(msg.run.agentId, msg.run.prompt) ? "HOLD:" : this.reply(msg.run.prompt, msg.run.agentId);
           if (text.startsWith("HOLD:")) {
             this.held.push(msg.run.runId);
             return;
@@ -983,6 +985,30 @@ describe("agents inside their computers", () => {
 });
 
 describe("the lead", () => {
+  /** Whether the message that started a run (the end of its prompt) hands over the task called `title`. */
+  const handedOff = (text: string, title: string) => text.slice(text.lastIndexOf("\nNew message from ")).includes(`New task **${title}**`);
+  /** The run an agent got for the task called `title`, once its device has it. */
+  const startOf = async (agent: any, title: string) => {
+    const r = await waitFor(async () => node.runs.find((r) => r.type === "run" && r.run.agentId === agent.id && handedOff(r.run.prompt, title)));
+    return r.type === "run" ? r.run : (undefined as never);
+  };
+  const runOf = async (agent: any, id: string) => (await api<any[]>("GET", `/api/agents/${agent.id}/runs?limit=100`)).data.find((r) => r.id === id);
+  const taskNow = async (id: string) => (await api<any[]>("GET", "/api/tasks")).data.find((t) => t.id === id);
+  /** The device reports a run it kept open as finished; resolves once the hub has it as done. */
+  const finish = async (agent: any, runId: string, finalText: string) => {
+    node.send({ type: "run_done", runId, finalText });
+    await waitFor(async () => (await runOf(agent, runId)).status === "done");
+  };
+  /** For this test, the device keeps the runs `pick` chooses open. Whatever happens, no later test finds those agents still busy. */
+  const stillWorking = (pick: NonNullable<FakeNode["holdIf"]>) => {
+    const heldBefore = node.held.length;
+    node.holdIf = pick;
+    onTestFinished(() => {
+      node.holdIf = null;
+      for (const runId of node.held.slice(heldBefore)) node.send({ type: "run_done", runId, finalText: "" });
+    });
+  };
+
   it("takes every unassigned task, knows who has which role, and hands out subtasks", async () => {
     // only owners pick the lead
     const sam = (await api("POST", "/api/auth/login", { email: "sam@example.com", password: "password123" }, "")).data.token;
@@ -997,34 +1023,35 @@ describe("the lead", () => {
     const tess = (await api("POST", "/api/agents", { handle: "tess", name: "Tess", harness: "kimi", nodeId: atlas.nodeId })).data;
     await makeTeam({ name: "squad", leadId: atlas.id, members: [{ agentId: tess.id, role: "Frontend & design", roleNotes: "Owns how it looks." }] });
 
+    // The stand-in device answers at once, and an answer finishes a task nobody marked. Here the lead
+    // is still planning and nova is still on its pieces, so those runs stay open until the test ends
+    // them, the way a device reports: nothing below depends on when an answer happens to land.
+    stillWorking((agentId, text) => (agentId === atlas.id && handedOff(text, "Ship the release")) || (agentId === nova.id && (handedOff(text, "Run the release build") || handedOff(text, "Write the changelog"))));
+
     // no add-on to turn on: an unassigned task goes to the lead, who's told to plan it
-    const before = node.runs.length;
     const parent = (await api<any>("POST", "/api/tasks", { title: "Ship the release", brief: "Get 2.0 out." })).data;
     expect(parent.toAgentId).toBe(atlas.id);
     expect(parent.parentId).toBeNull();
     expect(parent.brief).toBe("Get 2.0 out.");
-    const run = await waitFor(async () => node.runs.slice(before).find((r) => r.type === "run" && r.run.agentId === atlas.id));
-    const prompt = run.type === "run" ? run.run.prompt : "";
+    const { runId, prompt } = await startOf(atlas, "Ship the release");
     expect(prompt).toContain("## You're the lead");
     expect(prompt).toContain("@nova (Nova, codex): Engineer. Owns the build.");
     expect(prompt).toContain("@tess (Tess, kimi): Frontend & design. Owns how it looks.");
 
     // what the lead hands out while working the task becomes its subtask
-    const file = path.join(dir, "wisp.db");
-    const db = openDb(file);
-    const runId = run.type === "run" ? run.run.runId : "";
-    db.prepare("UPDATE runs SET status = 'running' WHERE id = ?").run(runId);
-    // the stand-in device already answered, which finishes a task nobody marked; the real lead is still working it
-    db.prepare("UPDATE tasks SET status = 'in_progress' WHERE id = ?").run(parent.id);
+    expect((await runOf(atlas, runId)).status).toBe("running");
     const asAtlas = { "x-wisp-agent": atlas.id };
     const sub = (await api<any>("POST", "/api/tasks", { to: "nova", title: "Run the release build", brief: "build it" }, nodeToken, asAtlas)).data;
-    db.prepare("UPDATE runs SET status = 'done' WHERE id = ?").run(runId);
-    db.close();
     expect(sub.parentId).toBe(parent.id);
-    // or names it outright
+    const building = await startOf(nova, "Run the release build");
+    // the lead's run ends with a piece still out: its answer doesn't finish the task, the pieces do
+    await finish(atlas, runId, "Nova has the build.");
+    expect((await taskNow(parent.id)).status).toBe("in_progress");
+    // with no run of its own open, the lead names the task outright
     const sub2 = (await api<any>("POST", "/api/tasks", { to: "nova", title: "Write the changelog", brief: "notes", parentTaskId: parent.id }, nodeToken, asAtlas)).data;
     expect(sub2.parentId).toBe(parent.id);
     expect((await api("POST", "/api/tasks", { to: "nova", title: "x", brief: "x", parentTaskId: "task_nope" }, nodeToken, asAtlas)).status).toBe(404);
+    const writing = await startOf(nova, "Write the changelog");
 
     // a finished subtask tells the lead how far along the whole thing is
     await api("PATCH", `/api/tasks/${sub.id}`, { status: "done", result: "built" }, nodeToken, { "x-wisp-agent": nova.id });
@@ -1032,15 +1059,40 @@ describe("the lead", () => {
     expect(report.body).toContain("1/2 subtasks done");
     expect(report.body).toContain("@atlas");
     // which wakes the lead up with it
-    await waitFor(async () => node.runs.find((r) => r.type === "run" && r.run.agentId === atlas.id && r.run.prompt.includes("1/2 subtasks done")));
-    await waitFor(async () => node.runs.find((r) => r.type === "run" && r.run.agentId === nova.id && r.run.prompt.includes("Write the changelog")));
-    await new Promise((r) => setTimeout(r, 200));
+    const woken = await waitFor(async () => node.runs.find((r) => r.type === "run" && r.run.agentId === atlas.id && r.run.prompt.includes("1/2 subtasks done")));
+    // everyone finishes what they were on before the next test
+    await waitFor(async () => woken.type === "run" && (await runOf(atlas, woken.run.runId)).status === "done");
+    await finish(nova, building.runId, "built");
+    await finish(nova, writing.runId, "The changelog is written.");
+    expect((await taskNow(sub2.id)).status).toBe("done");
 
     // unpicking falls back to a team lead
     await api("PUT", "/api/settings/lead", { leadId: null });
     const status = (await api<any>("GET", "/api/settings/lead")).data;
     expect(status.leadId).toBeNull();
     expect(status.lead).toBeTruthy();
+  });
+
+  it("files a piece under the task of the run that handed it out, when the lead is on two at once", async () => {
+    stillWorking((agentId, text) => agentId === atlas.id && (handedOff(text, "Plan the launch") || handedOff(text, "Plan the retreat")));
+    // in a room of its own, so these runs don't count towards the DMs' runs-per-minute limit
+    const channelId = room({ name: "two-at-once" }).data.id;
+    const launch = (await api<any>("POST", "/api/tasks", { to: "atlas", title: "Plan the launch", brief: "Next month.", channelId })).data;
+    const first = await startOf(atlas, "Plan the launch");
+    const retreat = (await api<any>("POST", "/api/tasks", { to: "atlas", title: "Plan the retreat", brief: "In spring.", channelId })).data;
+    const second = await startOf(atlas, "Plan the retreat");
+    expect((await runOf(atlas, first.runId)).status).toBe("running");
+    expect((await runOf(atlas, second.runId)).status).toBe("running");
+
+    // its device says which run each call comes from (x-wisp-run): the older run's piece isn't the newer task's
+    const from = (runId: string) => ({ "x-wisp-agent": atlas.id, "x-wisp-run": runId });
+    const press = (await api<any>("POST", "/api/tasks", { to: "nova", title: "Draft the press note", brief: "for the launch", channelId }, nodeToken, from(first.runId))).data;
+    expect(press.parentId).toBe(launch.id);
+    const venue = (await api<any>("POST", "/api/tasks", { to: "nova", title: "Book the venue", brief: "for the retreat", channelId }, nodeToken, from(second.runId))).data;
+    expect(venue.parentId).toBe(retreat.id);
+
+    await finish(atlas, first.runId, "Nova has the press note.");
+    await finish(atlas, second.runId, "Nova is booking the venue.");
   });
 
   it("keeps the dispatcher an old workspace picked as its lead", () => {

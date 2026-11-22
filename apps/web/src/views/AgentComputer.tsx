@@ -9,6 +9,7 @@ import { AddComputer, ComputerMini, useComputerState } from "./ComputersView.tsx
 import { ScreenThumb } from "../components/Screen.tsx";
 import { Toggle } from "./settings/parts.tsx";
 import { useComputerMode } from "../computerMode.ts";
+import { useFeature } from "../features.ts";
 import { Intro } from "./SettingsParts.tsx";
 import { Button, Field, Input, Modal, Pill, Textarea, cx, timeAgo } from "../components/ui.tsx";
 import { MoreOptions } from "../components/MoreOptions.tsx";
@@ -39,6 +40,7 @@ export function ComputerPanel({ agent, nodes }: { agent: Agent; nodes: DeviceInf
 
 /** Simple: what its computer is doing, where it works (shared or its own), and your computers it may use. */
 function SimpleComputerPanel({ agent, nodes, sharedId }: { agent: Agent; nodes: DeviceInfo[]; sharedId: string | null }) {
+  const teachOn = useFeature("teach");
   const computers = useStore((s) => s.computers);
   const refreshAgents = useStore((s) => s.refreshAgents);
   const isOwner = useStore((s) => s.me?.role === "owner");
@@ -89,9 +91,11 @@ function SimpleComputerPanel({ agent, nodes, sharedId }: { agent: Agent; nodes: 
               <Button variant="primary" onClick={() => go({ view: "computers", computerId: current.id })}>
                 <Eye size={15} /> {off ? "Turn on and watch" : "Watch"}
               </Button>
-              <Button onClick={() => go({ view: "computers", computerId: current.id, teach: agent.id })}>
-                <Video size={15} /> Teach a task
-              </Button>
+              {teachOn && (
+                <Button onClick={() => go({ view: "computers", computerId: current.id, teach: agent.id })}>
+                  <Video size={15} /> Teach a task
+                </Button>
+              )}
             </div>
             <p className="text-xs text-muted">
               {off ? `${current.activity ? `Last used ${timeAgo(current.activity.at)}. ` : ""}Files, sign-ins and apps are kept.` : <StateLabel computer={current} />}
@@ -246,6 +250,7 @@ function UseMyComputers({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] })
 
 /** Advanced: every choice of computer, and where its AI tool runs. */
 function AdvancedComputerPanel({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
+  const teachOn = useFeature("teach");
   const computers = useStore((s) => s.computers);
   const agents = useStore((s) => s.agents);
   const refreshAgents = useStore((s) => s.refreshAgents);
@@ -322,11 +327,13 @@ function AdvancedComputerPanel({ agent, nodes }: { agent: Agent; nodes: DeviceIn
                     .join(", ")}
                 </div>
               )}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button onClick={() => go({ view: "computers", computerId: current.id, teach: agent.id })}>
-                  <Video size={15} /> Teach a task
-                </Button>
-              </div>
+              {teachOn && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button onClick={() => go({ view: "computers", computerId: current.id, teach: agent.id })}>
+                    <Video size={15} /> Teach a task
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -533,6 +540,7 @@ export function routinesWaitingFor(agent: Pick<Agent, "id" | "nodeId" | "harness
 export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean }) {
   const version = useStore((s) => s.routinesVersion);
   const [routines, setRoutines] = useState<Routine[] | null>(null);
+  const teachOn = useFeature("teach");
   const waitingFor = routinesWaitingFor(agent, useDevices());
   const [writing, setWriting] = useState(false);
   const [scheduling, setScheduling] = useState<Routine | null>(null);
@@ -560,14 +568,16 @@ export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean
         <p>Things @{agent.handle} knows how to do again on its own. Teach one by doing the task once while it watches, or write the steps yourself. Routines can run on a schedule.</p>
       </Intro>
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" onClick={teach} title={agent.computerId ? undefined : "Give it a computer first"}>
-          <Video size={15} /> Teach a task
-        </Button>
-        <Button onClick={() => setWriting(true)}>
+        {teachOn && (
+          <Button variant="primary" onClick={teach} title={agent.computerId ? undefined : "Give it a computer first"}>
+            <Video size={15} /> Teach a task
+          </Button>
+        )}
+        <Button variant={teachOn ? undefined : "primary"} onClick={() => setWriting(true)}>
           <FileText size={15} /> Write a routine
         </Button>
       </div>
-      {!agent.computerId && <p className="text-xs text-muted">Teaching needs a computer: pick one on the Computer tab.</p>}
+      {teachOn && !agent.computerId && <p className="text-xs text-muted">Teaching needs a computer: pick one on the Computer tab.</p>}
       {error && <p className="text-sm text-bad">{error}</p>}
       {routines === null ? (
         <p className="text-sm text-muted">Loading…</p>

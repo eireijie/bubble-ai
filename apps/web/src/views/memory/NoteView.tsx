@@ -380,13 +380,13 @@ export function NoteView({
           <div className={cx("mx-auto px-4 md:px-6 pt-2 pb-36 md:pb-12", historyOpen ? "max-w-[560px]" : "max-w-[640px]")}>
             {phone && <p className="px-1 text-[13px] text-muted">{crumbs.map((c) => c.text).join(" / ")}</p>}
             <h2 className="t-title mt-1 break-words">{title}</h2>
-            <p className="mt-3 px-0.5 flex items-center gap-2 text-[14px] text-muted flex-wrap">
+            <div className="mt-3 px-0.5 flex items-center gap-2 text-[14px] text-muted flex-wrap">
               {w && w.avatar}
               <span>
                 {w ? `Written by ${w.name}` : "Not saved yet"}
                 {note.editedAt ? ` · edited ${timeAgo(note.editedAt)}` : ""}
               </span>
-            </p>
+            </div>
             {(type || tags.length > 0) && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {type && (

@@ -93,7 +93,8 @@ const useOnboardingStore = create<{ state: OnboardingState | null; error: string
   error: null,
   refresh: () =>
     api<OnboardingState>("GET", "/api/onboarding").then(
-      (state) => set({ state, error: null }),
+      // unchanged progress keeps the state it has: this is refetched on a timer and on every message
+      (state) => set((s) => (s.error === null && JSON.stringify(s.state) === JSON.stringify(state) ? s : { state, error: null })),
       (e: { status?: number; message: string }) =>
         // a 404 means the browser has a newer app than the hub is running
         set({ error: e.status === 404 ? "Restart Wisp on the computer it lives on, then reload this page." : `Couldn't check your progress: ${e.message}` }),

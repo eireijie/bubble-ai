@@ -256,24 +256,26 @@ describe("edits made in Obsidian on this machine", () => {
     fs.mkdirSync(path.join(root, "Projects"), { recursive: true });
     fs.writeFileSync(path.join(root, "Projects/Idea.md"), "# Idea\nwritten straight to disk zebrafinch\n");
     await waitFor(async () => (await api<any[]>("GET", "/api/vault/search?q=zebrafinch")).data.length > 0);
-    const changes = (await api<any[]>("GET", "/api/vault/changes")).data;
-    expect(changes[0]).toMatchObject({ author: "Edited in Obsidian" });
-    expect(changes[0].files[0].path).toBe("Projects/Idea.md");
+    // the change that brought the note in (not simply the newest one: Wisp's daily tidy can commit in between)
+    const change = (await api<any[]>("GET", "/api/vault/changes")).data.find((c) => c.files.some((f: any) => f.path === "Projects/Idea.md"));
+    expect(change).toMatchObject({ author: "Edited in Obsidian" });
+    expect(change.files.map((f: any) => f.path)).toEqual(["Projects/Idea.md"]);
 
-    // Wisp's own save is not mistaken for an outside edit
-    const before = await git(root, "rev-list", "--count", "HEAD");
+    // Wisp's own save is not mistaken for an outside edit: one commit by the person, none for an
+    // edit found on disk. Counted by who made them, not in total and not by which is newest: Wisp
+    // also commits on a timer of its own (the daily tidy, first 30s after the hub starts), as "Wisp".
+    const by = async (author: string) => Number(await git(root, "rev-list", "--count", `--author=^${author} <`, "HEAD"));
+    const commits = async () => ({ alex: await by("Alex"), outside: await by("Edited in Obsidian") });
+    const before = await commits();
     await api("PUT", "/api/vault/note", { path: "shared/agent-note.md", content: "# Agent\nsaved by Wisp\n" });
     await sleep(2500);
-    expect(Number(await git(root, "rev-list", "--count", "HEAD"))).toBe(Number(before) + 1);
-    expect(await git(root, "log", "-1", "--format=%an")).toBe("Alex");
+    expect(await commits()).toEqual({ alex: before.alex + 1, outside: before.outside });
 
     // editing and deleting in Wisp (the web app's Save and Delete) don't add outside-edit commits either
-    const n = Number(await git(root, "rev-list", "--count", "HEAD"));
     await api("PUT", "/api/vault/note", { path: "shared/agent-note.md", content: "# Agent\nfixed by a person" });
     await api("DELETE", "/api/vault/note?path=shared/agent-note.md");
     await sleep(2500);
-    expect(Number(await git(root, "rev-list", "--count", "HEAD"))).toBe(n + 2);
-    expect(await git(root, "log", "-2", "--format=%an")).toBe("Alex\nAlex");
+    expect(await commits()).toEqual({ alex: before.alex + 3, outside: before.outside });
 
     // deleting in Obsidian removes it from search too
     fs.rmSync(path.join(root, "Projects/Idea.md"));

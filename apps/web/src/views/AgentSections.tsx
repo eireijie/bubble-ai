@@ -9,6 +9,7 @@ import { effortName, prettyModel } from "../components/EffortSlider.tsx";
 import { setChannelPrefs } from "../components/Channels.tsx";
 import { computerSummary, whoCanAsk, type DeviceInfo } from "../devices.ts";
 import { useComputerMode } from "../computerMode.ts";
+import { useFeatures } from "../features.ts";
 import { AgentAvatar, cx, harnessLabel, timeAgo } from "../components/ui.tsx";
 
 /** What each section is called, on the left list and at the top of its page. */
@@ -95,6 +96,7 @@ export function OverviewRows({ agent, nodes }: { agent: Agent; nodes: DeviceInfo
   }, [agent.id, skillsVersion]);
   const to = (tab: AgentTab) => href({ view: "agents", agentId: agent.id, tab });
   const { advanced } = useComputerMode();
+  const features = useFeatures();
   const computer = computers.find((c) => c.id === agent.computerId);
   const device = nodes.find((n) => n.id === agent.nodeId);
   const model = [agent.model ? prettyModel(agent.model) : "Automatic", agent.settings.effort ? effortName(agent.settings.effort) : null].filter(Boolean).join(" · ");
@@ -108,14 +110,14 @@ export function OverviewRows({ agent, nodes }: { agent: Agent; nodes: DeviceInfo
       <RowCard>
         <NavRow to={to("model")} label="Model" value={model} />
         <NavRow to={to("computer")} label="Computer" value={computerValue} />
-        <NavRow to={to("routines")} label="Routines" value={routines ? (on ? `${on} on` : "None") : ""} />
+        {features.routines && <NavRow to={to("routines")} label="Routines" value={routines ? (on ? `${on} on` : "None") : ""} />}
         <NavRow to={to("memory")} label="Memory" value={`agents/${agent.handle}`} />
         <NavRow to={to("skills")} label="Skills" value={skills ? String(mine) : ""} />
       </RowCard>
       <div className="md:hidden">
       <RowCard>
         <NavRow to={to("access")} label="Who can ask it" value={respond === "me" ? "Only me" : respond === "people" ? "Picked people" : "Anyone"} />
-        <NavRow to={to("background")} label="Background" />
+        {features.background && <NavRow to={to("background")} label="Background" />}
         <NavRow to={to("apps")} label="Connected apps" />
         <NavRow to={to("permissions")} label="Permissions" />
         <NavRow to={to("connect")} label="Connect via MCP" />

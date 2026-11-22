@@ -338,6 +338,15 @@ describe("editing and deleting messages", () => {
     expect((hub.store.db.prepare("SELECT COUNT(*) AS n FROM channel_members WHERE channel_id = ? AND member_id = ?").get(ch.id, gone.id) as { n: number }).n).toBe(0);
   });
 
+  it("stops listing the chat with an agent once the agent is removed", async () => {
+    const temp = (await api("POST", "/api/agents", { handle: "soon-gone", name: "Soon gone", harness: "custom" })).data;
+    hub.store.dmChannel(who.workspaceId, who.userId, temp.id);
+    const dmOf = async () => (await api<any[]>("GET", "/api/channels")).data.find((c) => c.kind === "dm" && c.name.endsWith(`:${temp.id}`));
+    expect(await dmOf()).toBeTruthy();
+    await api("DELETE", `/api/agents/${temp.id}`);
+    expect(await dmOf()).toBeUndefined();
+  });
+
   it("keeps an image shared in the team as its icon, and refuses any other file", async () => {
     const upload = async (channelId: string | null, mime: string) => {
       const res = await fetch(base + "/api/files", { method: "POST", headers: { authorization: `Bearer ${owner}`, "content-type": "application/octet-stream", "x-filename": "i", "x-mime-type": mime, ...(channelId ? { "x-channel-id": channelId } : {}) }, body: Buffer.from(mime + channelId) });
