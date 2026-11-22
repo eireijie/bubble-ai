@@ -60,7 +60,8 @@ export function ModsPage() {
     }
   };
 
-  const listed = FEATURE_KEYS.filter((k) => !UNLISTED_FEATURES.includes(k));
+  // an unlisted mod (Code) stays hidden while on, but shows once it is off so "Code is turned off → Mods" is not a dead end
+  const listed = FEATURE_KEYS.filter((k) => !UNLISTED_FEATURES.includes(k) || !features[k]);
   const on = listed.filter((k) => features[k]);
   const off = listed.filter((k) => !features[k]);
   const card = (k: FeatureKey, control: ReactNode) => (
