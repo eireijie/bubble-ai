@@ -39,6 +39,10 @@
   /* Wisp violet: app-level actions (New agent), your bubbles, the call orb */
   --wisp: #a98bf5;
   --wisp-ink: #161616;
+  /* the same violet, deep enough for icons and words on white; and a faint wash of it */
+  --wisp-strong: #7a5bdc;
+  --wisp-soft: rgb(169 139 245 / 0.14);
+  --switch-on: #8466ea;
   /* unread counts: ink, like the canvas sidebar */
   --badge: var(--ink);
   --badge-ink: var(--panel);
@@ -95,6 +99,9 @@
 
 :root[data-mode="dark"] {
   /* the greys Grok Bot uses in the dark: #121212 page, #0e0e0e sidebar, #1f1f1f bubbles */
+  --wisp-strong: #bba5fa;
+  --wisp-soft: rgb(169 139 245 / 0.16);
+  --switch-on: #8d70ee;
   --app: #0e0e0e;
   --panel: #121212;
   --bg: #1b1b1b;
@@ -251,6 +258,8 @@
   --color-card: var(--card);
   --color-wisp: var(--wisp);
   --color-wisp-ink: var(--wisp-ink);
+  --color-wisp-strong: var(--wisp-strong);
+  --color-wisp-soft: var(--wisp-soft);
   --color-line2: var(--line2);
   --color-float: var(--float);
   --shadow-float: var(--shadow-float);
@@ -789,8 +798,8 @@ body {
 @media (prefers-reduced-motion: reduce) { .m-savebar { animation: none; } }
 
 /* the "on" track of every switch: a clear green in every theme, since the accent is near-white in the mono themes */
-.m-switch-on { background-color: #2fb457; }
-:root[data-mode="dark"] .m-switch-on { background-color: #30d158; }
+/* a switch that's on wears the Wisp violet, the same in every part of the app */
+.m-switch-on { background-color: var(--switch-on); }
 
 /* First-run setup (2026-11 design): the wisp on the left, five dots on top, the step in the middle */
 .ob-frame { position: fixed; inset: 0; z-index: 40; display: flex; background: var(--app); color: var(--ink); }

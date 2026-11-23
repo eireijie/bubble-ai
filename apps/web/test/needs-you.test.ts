@@ -117,12 +117,12 @@ describe("the Needs you page", () => {
     expect(render()).not.toContain(">Details<");
   });
 
-  it("says one line when nothing waits, with no button", () => {
+  it("says it's all caught up when nothing waits, with no button", () => {
     Object.assign(initial, { me, agents: [agent("a1", "Juno")], approvals: {}, computers: [] });
     const html = render();
     expect(html).toContain("Nothing needs you.");
     expect(html).not.toContain("<button");
-    expect(html).not.toContain("All caught up");
+    expect(html).toContain("All caught up");
   });
 
   it("has a Back to home on phones", () => {

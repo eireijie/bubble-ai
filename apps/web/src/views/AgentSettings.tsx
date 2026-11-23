@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, GitCommitHorizontal, MessageSquare, ShieldAlert } from "lucide-react";
+import { BookOpen, Brain, ChevronLeft, GitCommitHorizontal, Monitor, MessageSquare, MoreHorizontal, Plug, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { AccessLevel, Agent, HarnessCatalog } from "@wisp/core";
 import { soulPath, soulTemplate } from "@wisp/core/src/soul.ts";
 import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx";
@@ -13,7 +13,8 @@ import { effortName, prettyModel } from "../components/EffortSlider.tsx";
 import { SaveBar } from "./SettingsParts.tsx";
 import { useFeatures } from "../features.ts";
 import { AccessPanel, CARD, CanUse, Group, HandleLine, InPlace, Knows, Line, More, RemovePanel, SELECT, ShowAll, TAB_TITLES, Toggle } from "./AgentSections.tsx";
-import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, Pill, Textarea, cx, timeAgo } from "../components/ui.tsx";
+import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, Pill, StatusDot, Textarea, cx, timeAgo, AGENT_STATUS } from "../components/ui.tsx";
+import { PopNav } from "../components/SettingsDialog.tsx";
 import { RoutinesPanel, WorksOn, runsOnDevice } from "./AgentComputer.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
 import { agentReadiness, isSharedComputer, useDevices, type DeviceInfo } from "../devices.ts";
@@ -29,6 +30,14 @@ type FullAgent = Agent & { instructions?: string };
 export const AGENT_GROUPS = ["thinks", "works", "can", "asks", "knows", "more"] as const;
 export type AgentGroup = (typeof AGENT_GROUPS)[number];
 export const GROUP_TITLES: Record<AgentGroup, string> = { thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
+const GROUP_ICON: Record<AgentGroup, ReactNode> = {
+  thinks: <Brain size={17} strokeWidth={1.8} />,
+  works: <Monitor size={17} strokeWidth={1.8} />,
+  can: <Plug size={17} strokeWidth={1.8} />,
+  asks: <ShieldCheck size={17} strokeWidth={1.8} />,
+  knows: <BookOpen size={17} strokeWidth={1.8} />,
+  more: <MoreHorizontal size={17} strokeWidth={1.8} />,
+};
 
 /** The group each old tab's settings live in now (the overview is the page's top). */
 const TAB_GROUP: Record<AgentTab, AgentGroup | null> = {
@@ -191,18 +200,6 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* desktops: back, the live ghost, its name and what it does, Message */}
-      <header className="hidden md:flex shrink-0 items-center gap-4 px-8 pt-6 pb-5">
-        <a href="#/agents" className="circle" aria-label="Back to agents">
-          <ChevronLeft size={20} />
-        </a>
-        {ghost(56)}
-        <div className="flex-1 min-w-0">
-          <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="t-title -ml-1.5 block h-9 w-full max-w-md truncate" />
-          <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="-ml-1.5 block h-6 w-full max-w-md truncate text-sm text-muted focus:text-ink" />
-        </div>
-        {message}
-      </header>
       {/* phones: back, and over a part its title with the agent's name under it */}
       <header className="md:hidden shrink-0 flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
         <a href={part ? top : "#/agents"} className="circle" aria-label={part ? `Back to ${agent.name}` : "Back to agents"}>
@@ -219,17 +216,26 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
         )}
       </header>
       <div className="flex-1 min-h-0 flex">
-        <nav className="hidden md:flex w-[208px] shrink-0 flex-col gap-0.5 overflow-y-auto pl-8 pr-2 pb-6" aria-label={`${agent.name}'s settings`}>
-          {AGENT_GROUPS.map((g) => (
-            <button key={g} type="button" aria-current={group === g ? "page" : undefined} onClick={() => pick(g)} className={cx("flex h-9 shrink-0 items-center gap-2 rounded-[8px] px-3 text-left text-[14px]", group === g ? "bg-side-active font-medium text-ink" : "text-muted hover:bg-hover hover:text-ink")}>
-              <span className="flex-1 truncate">{GROUP_TITLES[g]}</span>
-              {g === "works" && !readiness.ready && <span className="size-1.5 shrink-0 rounded-full bg-st-needs" aria-label="needs you" />}
-              {unsaved(g) && <span className="size-1.5 shrink-0 rounded-full bg-accent" aria-label="unsaved changes" />}
-            </button>
-          ))}
-        </nav>
+        {/* desktops (the pop-up): the live ghost, its name and what it does, how it is, Message, then its sections */}
+        <aside className="hidden md:flex w-[248px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-3 pt-5 pb-5">
+          <div className="mb-4 flex flex-col items-start gap-2.5 px-2">
+            {ghost(64)}
+            <div className="w-full min-w-0">
+              <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="-ml-1.5 block h-8 w-full truncate text-[19px] font-semibold leading-[26px]" />
+              <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="-ml-1.5 block h-6 w-full truncate text-[13px] text-muted focus:text-ink" />
+              <div className="mt-1 flex items-center gap-1.5 text-[12px] text-muted">
+                <StatusDot status={agent.status} needsSignIn={!!agent.signIn} />
+                <span className="truncate">
+                  {harnessLabel(agent.harness)} · {agent.signIn && agent.status === "online" ? "needs sign-in" : (AGENT_STATUS[agent.status]?.label ?? "Offline")}
+                </span>
+              </div>
+            </div>
+            <div className="mt-1">{message}</div>
+          </div>
+          <PopNav label={`${agent.name}'s settings`} current={group} items={AGENT_GROUPS.map((g) => ({ key: g, label: GROUP_TITLES[g], icon: GROUP_ICON[g], onSelect: () => pick(g), dot: unsaved(g) ? "unsaved" : g === "works" && !readiness.ready ? "needs" : null }))} />
+        </aside>
         {/* md:px-8 is the room a part's save bar (-mx-8) reaches into */}
-        <div ref={content} className="flex-1 min-w-0 overflow-y-auto px-4 md:px-8 pt-1 pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <div ref={content} className="flex-1 min-w-0 overflow-y-auto px-4 md:px-8 pt-1 md:pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div className="max-w-[640px] max-md:mx-auto">
             {!part && (
               <div className="space-y-6">
@@ -241,7 +247,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
                   <div className="mt-2">{message}</div>
                 </div>
                 {(wide ? [group] : AGENT_GROUPS).map((g) => (
-                  <div key={g} data-group={g} className="scroll-mt-3">
+                  <div key={g} data-group={g} className={cx("scroll-mt-3", wide && "settings-pop-section")}>
                     <Group title={GROUP_TITLES[g]}>{body(g)}</Group>
                   </div>
                 ))}

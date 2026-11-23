@@ -67,12 +67,13 @@ describe("chats list", () => {
     expect(at('href="#/you"')).toBeLessThan(at(">Search<"));
     expect(at(">Search<")).toBeLessThan(at('aria-label="New agent or team"'));
     expect(html).not.toContain("New chat");
-    // newest first, each with its preview; unread shows as one dot, and there are no times
+    // newest first, each with its preview and when; unread shows as one dot
     expect(at("release-crew")).toBeLessThan(at("Ghosty"));
     expect(html).toContain("You: newer");
     expect(html).toContain("My pick is Immich.");
     expect(html).toContain('aria-label="2 unread"');
-    expect(html).not.toMatch(/Oct 2\d|No messages yet/);
+    expect(html).toContain("Oct 24");
+    expect(html).not.toContain("No messages yet");
     // nothing waits on you: no Needs you card
     expect(html).not.toContain('href="#/dashboard"');
   });

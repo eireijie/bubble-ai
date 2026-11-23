@@ -7,7 +7,8 @@ import { href, type AgentTab } from "../router.ts";
 import { AgentDetail, type NodeInfo } from "./AgentSettings.tsx";
 import { agentReadiness, useDevices, type DeviceInfo } from "../devices.ts";
 import { workingLine } from "../components/agentActivity.ts";
-import { AgentAvatar, harnessLabel, cx } from "../components/ui.tsx";
+import { AgentAvatar, StatusDot, harnessLabel, cx } from "../components/ui.tsx";
+import { prettyModel } from "../components/EffortSlider.tsx";
 import { openDm } from "../openDm.ts";
 
 import { CreateAgent } from "./CreateAgent.tsx";
@@ -79,15 +80,24 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
             {shown.map((a) => {
               const line = agentListLine(a, devices, Object.values(live).find((r) => r.agentId === a.id));
               return (
-                <li key={a.id} className="relative flex h-[51px] items-center gap-3 rounded-[10px] px-2 hover:bg-side-active">
-                  <button type="button" onClick={() => void openDm(a.id)} aria-label={`Message ${a.name}`} className="flex min-w-0 flex-1 items-center gap-3 text-left after:absolute after:inset-0 after:rounded-[10px]">
-                    <AgentAvatar agent={a} size={38} live />
+                <li key={a.id} className="group relative flex h-[68px] items-center gap-3 rounded-[12px] px-2 transition-colors duration-150 hover:bg-side-active">
+                  <button type="button" onClick={() => void openDm(a.id)} aria-label={`Message ${a.name}`} className="flex min-w-0 flex-1 items-center gap-3.5 text-left after:absolute after:inset-0 after:rounded-[12px]">
+                    <AgentAvatar agent={a} size={48} live />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-medium leading-5">{a.name}</span>
-                      <span className={cx("block truncate text-[13px] leading-5", line.warn ? "text-st-needs" : line.working ? "text-st-working" : "text-muted")}>{line.text}</span>
+                      <span className="flex items-baseline gap-2">
+                        <span className="truncate text-[15px] font-semibold leading-5">{a.name}</span>
+                        <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-faint">
+                          <StatusDot status={a.status} needsSignIn={!!a.signIn} className="size-1.5" />
+                          {harnessLabel(a.harness)}
+                          {a.model ? ` · ${prettyModel(a.model)}` : ""}
+                        </span>
+                      </span>
+                      <span className={cx("block truncate text-[13px] leading-5", line.warn ? "text-st-needs" : line.working ? "text-wisp-strong" : "text-muted")}>
+                        <span className={cx(line.working && "shimmer-text")}>{line.text}</span>
+                      </span>
                     </span>
                   </button>
-                  <a href={href({ view: "agents", agentId: a.id, tab: "overview" })} aria-label={`${a.name}'s page`} className="circle circle-sm relative z-10 shrink-0 text-muted hover:text-ink">
+                  <a href={href({ view: "agents", agentId: a.id, tab: "overview" })} aria-label={`${a.name}'s settings`} className="circle circle-sm relative z-10 shrink-0 text-muted opacity-70 transition-opacity duration-150 hover:text-ink group-hover:opacity-100">
                     <MoreHorizontal size={16} />
                   </a>
                 </li>

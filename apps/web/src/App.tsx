@@ -2,7 +2,7 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode 
 import { BookOpen, Brain, Building2, ChevronLeft, LifeBuoy, ListTodo, SquarePen, ChevronRight, LogOut, Moon, Settings, Sparkles, Store, Sun, SunMoon, Blocks, X } from "lucide-react";
 import { api, connectEvents, getToken, setToken } from "./api.ts";
 import { useInboxCount, useStore } from "./store.ts";
-import { go, href, parseRoute, routeForRole, useRoute, type Route } from "./router.ts";
+import { appHashBeforeSettings, go, href, isDialogRoute, parseRoute, routeForRole, useRoute, type Route } from "./router.ts";
 import { useAppearance, type ModeChoice } from "./theme.ts";
 import { ChatList, NewChatPicker } from "./components/ChatList.tsx";
 import { Rail, rememberChat } from "./components/Rail.tsx";
@@ -10,6 +10,7 @@ import { OfflineBanner, UpdatedBanner } from "./components/Banners.tsx";
 import { OrgList, useOrgs } from "./components/OrgSwitcher.tsx";
 import { ChannelBrowser } from "./components/Channels.tsx";
 import { CommandPalette } from "./components/CommandPalette.tsx";
+import { SettingsDialog } from "./components/SettingsDialog.tsx";
 import { ChannelView } from "./views/ChannelView.tsx";
 import { logout } from "./logout.ts";
 import { JoinApproval } from "./components/JoinApproval.tsx";
@@ -157,8 +158,13 @@ function Workspace() {
   const channelBrowser = useStore((s) => s.channelBrowser);
   const loaded = useStore((s) => s.channels.length > 0);
   const waiting = useInboxCount();
-  const route = routeForRole(useRoute(), me?.role);
+  const asked = routeForRole(useRoute(), me?.role);
   const phone = useIsPhone();
+  // desktops: Settings and an agent's settings pop up over the page you were on, which stays under them
+  const popped = !phone && isDialogRoute(asked);
+  const route = popped ? routeForRole(parseRoute(appHashBeforeSettings()), me?.role) : asked;
+  const popPresence = usePresence(popped, 200);
+  const heldPop = useRef<{ route: Route; node: ReactNode } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -223,10 +229,10 @@ function Workspace() {
       const newest = waiting > 0 ? null : newestChat();
       location.replace(newest ? href({ view: "chat", channelId: newest, threadId: null }) : href({ view: "dashboard" }));
     }
-    if (!phone && route.view === "you") go({ view: "settings" });
-    if (!phone && route.view === "more") go({ view: "dashboard" });
+    if (!phone && asked.view === "you") go({ view: "settings" });
+    if (!phone && asked.view === "more") go({ view: "dashboard" });
     if (phone && route.view === "chat" && !route.channelId) go({ view: "chats" });
-  }, [phone, route, loaded, waiting]);
+  }, [phone, route, asked, loaded, waiting]);
 
   if (error)
     return (
@@ -245,7 +251,7 @@ function Workspace() {
   const toYou = () => go({ view: "you" });
   // phones have no tab bar: a page whose own header has no Back gets a slim bar with one
   const backBar = (node: ReactNode, pull = true, to: Route = { view: "you" }) => (phone ? <PhoneBack to={href(to)} pull={pull}>{node}</PhoneBack> : node);
-  const view = (() => {
+  const viewFor = (route: Route): ReactNode => {
     switch (route.view) {
       case "chat":
         // the bare root: the Inbox on desktops, the chats list on phones (the effect above fixes the URL)
@@ -293,12 +299,26 @@ function Workspace() {
       // mods are rows on the Add page now: this address opens it at Mods
       case "mods":
         return <MarketplaceView section="mods" onBack={phone ? toYou : undefined} />;
+      case "buddy":
+      case "authorize":
+        return null;
     }
-  })();
+  };
+  const view = viewFor(route);
   // a page whose file isn't in yet (only in the app's first moments) holds its place, empty, until it is
   const page = <Suspense fallback={<div className="flex-1 min-h-0" />}>{view}</Suspense>;
   if (chatOpen) heldChat.current = page;
   const chatLayer = chatOpen || chatPresence.mounted;
+  // the pop-up keeps what it showed while it closes
+  if (popped) heldPop.current = { route: asked, node: <Suspense fallback={<div className="flex-1" />}>{viewFor(asked)}</Suspense> };
+  const closePop = () => {
+    location.hash = appHashBeforeSettings();
+  };
+  const pop = (popped || popPresence.mounted) && heldPop.current && (
+    <SettingsDialog label={heldPop.current.route.view === "agents" ? "Agent settings" : "Settings"} closing={!popped} onClose={closePop}>
+      {heldPop.current.node}
+    </SettingsDialog>
+  );
   const dialogs = (
     <>
       <CommandPalette />
@@ -321,7 +341,7 @@ function Workspace() {
       {!phone && <Rail route={route} />}
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="relative flex-1 min-h-0 flex">
-          <main ref={mainRef} className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel overflow-hidden">
+          <main ref={mainRef} inert={popped} className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel overflow-hidden">
             <OfflineBanner phone={phone} />
             {phone ? (
               // phones: the page, and over it the open chat. The page shifts back 96px and dims as the chat slides in
@@ -343,6 +363,7 @@ function Workspace() {
         </div>
       </div>
       {dialogs}
+      {pop}
     </div>
   );
 }

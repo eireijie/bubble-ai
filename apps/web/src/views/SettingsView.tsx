@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ghost as GhostIcon, Info, Monitor, Search, ShieldCheck, UserRound } from "lucide-react";
 import { useStore } from "../store.ts";
 import { go, href, useRoute, type SettingsPage } from "../router.ts";
 import { cx } from "../components/ui.tsx";
+import { PopNav } from "../components/SettingsDialog.tsx";
+import { initialsOf } from "../components/Rail.tsx";
 import { findByWords } from "../components/searchIndex.ts";
 import { useFeatures } from "../features.ts";
 import { NotificationsPage, PasswordForm, SessionsPage } from "./settings/account.tsx";
@@ -91,6 +93,33 @@ const SHEETS: Record<string, () => ReactNode> = {
 };
 /** The rows that have a sheet to open (map.ts marks the same ones `sheet`). */
 export const SHEET_IDS = Object.keys(SHEETS);
+
+/** Each page's line icon in the list down the left. */
+const FIVE_ICON: Record<Five, ReactNode> = {
+  you: <UserRound size={17} strokeWidth={1.8} />,
+  agents: <GhostIcon size={17} strokeWidth={1.8} />,
+  computers: <Monitor size={17} strokeWidth={1.8} />,
+  privacy: <ShieldCheck size={17} strokeWidth={1.8} />,
+  about: <Info size={17} strokeWidth={1.8} />,
+};
+
+/** The top of You: your picture, your name, your role and workspace. */
+function YouHeader() {
+  const me = useStore((s) => s.me)!;
+  return (
+    <div className="mb-5 flex items-center gap-3.5">
+      <span className="grid size-14 shrink-0 place-items-center rounded-full bg-wisp-soft text-[17px] font-semibold text-wisp-strong" aria-hidden>
+        {initialsOf(me.user.name)}
+      </span>
+      <div className="min-w-0">
+        <div className="truncate text-[17px] font-semibold leading-6">{me.user.name}</div>
+        <div className="truncate text-[13px] text-muted">
+          {me.role === "owner" ? "Owner" : me.role === "guest" ? "Guest" : "Member"} · {me.workspace.name}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const pageTop = (p: Five) => href({ view: "settings", page: FIVE_ROUTE[p] });
 const rowHref = (r: SettingRow) => href({ view: "settings", ...rowTarget(r) });
@@ -198,22 +227,17 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   if (fullWindow)
     return (
       <div className="flex-1 min-w-0 min-h-0 flex">
-        <aside className="w-[200px] shrink-0 overflow-y-auto pl-5 pr-2 pt-[max(1.75rem,env(safe-area-inset-top))] pb-6">
-          <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="mb-3" />
-          <nav aria-label="Settings" className="space-y-0.5">
-            {pages.map((p) => (
-              <a key={p} href={pageTop(p)} onClick={() => setQuery("")} aria-current={current === p && !query ? "page" : undefined} className={cx("flex items-center h-[38px] px-3 rounded-[10px] text-sm", current === p && !query ? "bg-side-active text-ink font-semibold" : "text-ink/80 hover:text-ink hover:bg-side-hover")}>
-                {FIVE_LABEL[p]}
-              </a>
-            ))}
-          </nav>
+        <aside className="flex w-[232px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-3 pt-[max(1.25rem,env(safe-area-inset-top))] pb-6">
+          <h2 className="mb-3 px-2 text-[15px] font-semibold">Settings</h2>
+          <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="mb-3 bg-panel" />
+          <PopNav label="Settings" current={query ? null : current} onPick={() => setQuery("")} items={pages.map((p) => ({ key: p, label: FIVE_LABEL[p], icon: FIVE_ICON[p], href: pageTop(p) }))} />
         </aside>
         <main className="flex-1 min-w-0 min-h-0 flex flex-col" aria-label={query ? "Settings search" : `${sheet?.label ?? FIVE_LABEL[current!]} settings`}>
           {fills && !query ? (
             SHEETS.apps()
           ) : (
-            <div key={query ? "search" : `${current}:${sheet?.id ?? ""}`} className="flex-1 min-h-0 overflow-y-auto">
-              <div className={cx("max-w-[640px] pl-7 pr-9 pt-7", bottom)}>
+            <div key={query ? "search" : `${current}:${sheet?.id ?? ""}`} className="settings-pop-section flex-1 min-h-0 overflow-y-auto">
+              <div className={cx("max-w-[640px] pl-8 pr-12 pt-6", bottom)}>
                 {query ? (
                   <>
                     <h1 className="t-title mb-4">Search</h1>
@@ -230,6 +254,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
                 ) : (
                   <>
                     <h1 className="t-title mb-4">{FIVE_LABEL[current!]}</h1>
+                    {current === "you" && <YouHeader />}
                     {pageBody(current!)}
                   </>
                 )}

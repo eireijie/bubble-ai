@@ -62,7 +62,8 @@ function Settled({ approval, className }: { approval: Approval; className?: stri
 }
 
 const PILL = "m-press h-8 rounded-full px-4 text-[13px] disabled:opacity-50";
-const ALLOW = cx(PILL, "bg-ink font-semibold text-panel hover:bg-ink/85");
+/** Allow wears the open agent's colour (the Wisp violet in a team), like your bubbles and the send button. */
+const ALLOW = cx(PILL, "bg-[var(--bubble-me)] font-semibold text-[var(--bubble-me-ink)] transition-[filter,transform] duration-150 hover:brightness-[0.94]");
 const NOT_NOW = cx(PILL, "border border-line2 font-medium hover:bg-hover");
 
 /**

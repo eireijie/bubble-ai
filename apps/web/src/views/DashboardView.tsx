@@ -166,6 +166,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
             </button>
           )}
           <h1 className="text-[22px] md:text-[24px] leading-[30px] font-[650] tracking-[-0.01em]">Needs you</h1>
+          {count > 0 && <span key={count} className="m-fade-in grid h-6 min-w-6 place-items-center rounded-full bg-st-needs/15 px-2 text-[13px] font-semibold tabular-nums text-st-needs">{count}</span>}
         </div>
       </header>
 
@@ -192,8 +193,11 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
           ) : (
             <div className="flex-1 grid place-items-center py-16">
               <div className="flex flex-col items-center gap-3 text-center">
-                <Ghost look={sleeper} size={64} mood="asleep" ambient={false} label="" />
-                <p className="text-[15px] leading-[22px] text-muted">Nothing needs you.</p>
+                <Ghost look={sleeper} size={72} mood="asleep" label="" />
+                <div>
+                  <p className="text-[15px] font-semibold leading-[22px]">All caught up</p>
+                  <p className="text-[14px] leading-[22px] text-muted">Nothing needs you.</p>
+                </div>
               </div>
             </div>
           )}

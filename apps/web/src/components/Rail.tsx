@@ -10,8 +10,8 @@ import { useStore, useInboxCount, usePrefs } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
 import { go, href, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
-import { ComputersIcon } from "./icons.tsx";
-import { NewOrgDialog, OrgList, useOrgs } from "./OrgSwitcher.tsx";
+import { ComputersIcon, WispGhost } from "./icons.tsx";
+import { NewOrgDialog, OrgList, OrgSwitcher, useOrgs } from "./OrgSwitcher.tsx";
 import { Menu, PopBadge, agentColor, cx } from "./ui.tsx";
 import { ChatAvatar, ChatMenu, chatPreviewLine, startNewAgent, type Chat, type PreviewLine } from "./ChatList.tsx";
 import { SectionDialog } from "./Channels.tsx";
@@ -88,9 +88,9 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
 /** A round sidebar button, 35×34 with a soft fill: search, the plus, Computers on the rail. */
 const ROUND = "relative grid h-[34px] w-[35px] shrink-0 place-items-center rounded-full text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
 const SOFT = "bg-side-active";
-/** A row of the wide sidebar (51px, a 38px picture, a rounded tile when it's the open one), and its square on the rail. Hover doesn't fade. */
-const ITEM = "relative flex h-[51px] w-full items-center gap-[11px] rounded-[10px] px-2 text-left text-[14px] outline-none transition-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
-const TILE = "relative grid size-[51px] place-items-center rounded-[10px] outline-none transition-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
+/** A row of the wide sidebar (51px, a 38px picture, a rounded tile when it's the open one), and its square on the rail. Hover eases in; a press gives a little. */
+const ITEM = "relative flex h-[51px] w-full items-center gap-[11px] rounded-[10px] px-2 text-left text-[14px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
+const TILE = "relative grid size-[51px] place-items-center rounded-[10px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
 const MENU_ITEM = "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-body hover:bg-hover";
 
 /** A small violet dot that breathes while an agent is working. */
@@ -192,10 +192,10 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
         <span className={cx("flex min-w-0 flex-1 flex-col", chat.muted && "opacity-60")}>
           <span className="truncate font-semibold leading-[19px] text-ink">{chat.name}</span>
           {line.text && (
-            <span className="flex min-w-0 items-center gap-1.5 text-[13px] leading-[18px] text-muted">
+            <span className={cx("flex min-w-0 items-center gap-1.5 text-[13px] leading-[18px]", line.working ? "text-wisp-strong" : "text-muted")}>
               {line.working && <WorkDot />}
               {line.icon && <span className="inline-flex shrink-0">{line.icon}</span>}
-              <span className="truncate">{line.text}</span>
+              <span className={cx("truncate", line.working && "shimmer-text")}>{line.text}</span>
             </span>
           )}
         </span>
@@ -511,7 +511,18 @@ export function Rail({ route }: { route: Route }) {
   return (
     <div className="relative z-30 flex shrink-0">
       <nav ref={navRef} aria-label="Wisp" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(11px,env(safe-area-inset-top))] pb-[11px]" style={{ width, transition }}>
-        <div className={cx("mb-2.5 flex h-[34px] shrink-0 items-center gap-1.5", wide ? "justify-end px-[11px]" : "justify-center")}>
+        {/* Wisp's ghost and the workspace's name (switch workspace), then search and the plus */}
+        <div className={cx("mb-2.5 flex shrink-0 items-center gap-1.5", wide ? "h-[34px] px-[11px]" : "flex-col gap-2")}>
+          <OrgSwitcher
+            trigger={(open, t) => (
+              <button type="button" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label={`${me.workspace.name}, switch workspace`} title={wide ? undefined : me.workspace.name} className={cx("side-brand flex min-w-0 items-center rounded-[10px] text-ink outline-none transition-colors duration-150 hover:bg-side-hover focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "h-[34px] flex-1 gap-2 pl-1.5 pr-2" : "size-[51px] justify-center", open && "bg-side-hover")}>
+                <WispGhost size={wide ? 24 : 28} />
+                {wide && <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{me.workspace.name}</span>}
+                {wide && <ChevronDown size={14} strokeWidth={2} className={cx("shrink-0 text-faint transition-transform duration-200", open && "rotate-180")} aria-hidden />}
+                {elsewhere && <span className="size-2 shrink-0 rounded-full bg-badge" aria-label="New messages in another workspace" />}
+              </button>
+            )}
+          />
           {search}
           {wide && plus(false)}
         </div>
