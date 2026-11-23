@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { limitProblem, planState, smallestModel } from "../src/usage-limits.ts";
+import { limitProblem, planState, smallestModel, spentTokens } from "../src/usage-limits.ts";
 
 const now = new Date("2026-11-22T15:00:00Z");
 
@@ -83,5 +83,18 @@ describe("the smallest model a harness offers", () => {
   it("says nothing when none looks small", () => {
     expect(smallestModel([{ id: "big", label: "Big" }])).toBeUndefined();
     expect(smallestModel([])).toBeUndefined();
+  });
+});
+
+describe("spentTokens", () => {
+  it("counts fresh input and output in full and cache reads at a tenth", () => {
+    // the owner's check-back on Codex: 283k read, 259k of it from the cache
+    expect(spentTokens({ inputTokens: 283_213, cachedInputTokens: 258_816, outputTokens: 1_534 })).toBe(51_813);
+    expect(spentTokens({ inputTokens: 1_000, outputTokens: 10 })).toBe(1_010);
+    // a cached count larger than the input (a harness quirk) never goes negative
+    expect(spentTokens({ inputTokens: 100, cachedInputTokens: 500 })).toBe(10);
+    expect(spentTokens({ outputTokens: 5 })).toBe(5);
+    expect(spentTokens({ contextUsed: 9 } as never)).toBeNull();
+    expect(spentTokens(null)).toBeNull();
   });
 });

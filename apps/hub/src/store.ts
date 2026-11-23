@@ -1,4 +1,4 @@
-import { channelTeams, chartFromSteps, cleanRulePath, hasSteps, isGraphTeam, migrateTeam, parseSubjectKey, subjectKey, teamOf, type AccessRule, type Actor, type Agent, type AgentSettings, type Approval, type Channel, type ChannelNotify, type ChannelSettings, DEFAULT_CHANNEL_SETTINGS, type Computer, type ComputerConfig, type ComputerKind, type ComputerStatus, type ContextUsage, type DeviceCapabilities, type Discussion, type DiscoveredAgent, type HarnessCatalog, type Team, type HarnessId, type MemoryLevel, type Message, type MessagePart, type Reaction, type Role, type Routine, type Section, type Subject, type User, type UserPrefs, type DeviceRole, type OwnRemoteDesktop, type BackgroundWork, type Followup, type Change, type ChatLoop, conversationFor } from "@wisp/core";
+import { channelTeams, chartFromSteps, cleanRulePath, hasSteps, isGraphTeam, migrateTeam, parseSubjectKey, subjectKey, teamOf, type AccessRule, type Actor, type Agent, type AgentSettings, type Approval, type Channel, type ChannelNotify, type ChannelSettings, DEFAULT_CHANNEL_SETTINGS, type Computer, type ComputerConfig, type ComputerKind, type ComputerStatus, type ContextUsage, type DeviceCapabilities, type Discussion, type DiscoveredAgent, type HarnessCatalog, type Team, type HarnessId, type MemoryLevel, type Message, type MessagePart, type Reaction, type Role, type Routine, type Section, type Subject, type User, type UserPrefs, type DeviceRole, type OwnRemoteDesktop, type BackgroundWork, type Followup, type Change, type ChatLoop, conversationFor, CACHED_INPUT_WEIGHT, spentTokens } from "@wisp/core";
 import { id, now } from "./auth.ts";
 import type { Db } from "./db.ts";
 
@@ -1133,7 +1133,7 @@ export class Store {
     return rows.map((r) => {
       const u = r.usage ? (JSON.parse(r.usage) as Omit<ContextUsage, "at">) : null;
       // tokens only when the harness said how many
-      const tokens = u && (u.inputTokens !== undefined || u.outputTokens !== undefined) ? (u.inputTokens ?? 0) + (u.outputTokens ?? 0) : null;
+      const tokens = spentTokens(u);
       return { status: r.status, createdAt: r.createdAt, tokens };
     });
   }
@@ -1325,12 +1325,11 @@ export class Store {
   /** Background checks for one person since `since`, by every agent in a workspace: what each used. */
   backgroundRunsFor(workspaceId: string, userId: string, since: string) {
     const rows = this.db
-      .prepare("SELECT r.agent_id AS agentId, r.usage_json AS usage, r.kind FROM runs r JOIN agents a ON a.id = r.agent_id WHERE a.workspace_id = ? AND r.requested_by = ? AND r.kind IN ('background','memory','triage') AND r.status != 'queued' AND r.created_at >= ?")
-      .all(workspaceId, userId, since) as { agentId: string; usage: string | null; kind: string }[];
+      .prepare("SELECT r.agent_id AS agentId, r.usage_json AS usage, r.kind, r.created_at AS createdAt FROM runs r JOIN agents a ON a.id = r.agent_id WHERE a.workspace_id = ? AND r.requested_by = ? AND r.kind IN ('background','memory','triage') AND r.status != 'queued' AND r.created_at >= ?")
+      .all(workspaceId, userId, since) as { agentId: string; usage: string | null; kind: string; createdAt: string }[];
     return rows.map((r) => {
       const u = r.usage ? (JSON.parse(r.usage) as Omit<ContextUsage, "at">) : null;
-      const tokens = u && (u.inputTokens !== undefined || u.outputTokens !== undefined) ? (u.inputTokens ?? 0) + (u.outputTokens ?? 0) : null;
-      return { agentId: r.agentId, tokens, kind: r.kind };
+      return { agentId: r.agentId, tokens: spentTokens(u), kind: r.kind, createdAt: r.createdAt };
     });
   }
 
@@ -1342,12 +1341,16 @@ export class Store {
    */
   usageRows(workspaceId: string, userId: string, includeUnattributed: boolean, from: string, to: string, guess: number, sortGuess = guess) {
     const tokenSql = "(json_extract(r.usage_json, '$.inputTokens') IS NOT NULL OR json_extract(r.usage_json, '$.outputTokens') IS NOT NULL)";
+    // spentTokens() in SQL: cache reads count at CACHED_INPUT_WEIGHT
+    const input = "COALESCE(json_extract(r.usage_json, '$.inputTokens'), 0)";
+    const cached = `MAX(0, MIN(${input}, COALESCE(json_extract(r.usage_json, '$.cachedInputTokens'), 0)))`;
+    const spentSql = `CAST(ROUND(${input} - ${cached} + ${cached} * ${CACHED_INPUT_WEIGHT} + COALESCE(json_extract(r.usage_json, '$.outputTokens'), 0)) AS INTEGER)`;
     return this.db
       .prepare(
         `SELECT substr(r.created_at, 1, 14) || printf('%02d', (CAST(substr(r.created_at, 15, 2) AS INTEGER) / 15) * 15) AS slot,
                 r.agent_id AS agentId, r.kind IN ('background','memory','triage') AS background, json_extract(r.usage_json, '$.model') AS model,
                 COUNT(*) AS runs, SUM(r.status = 'failed') AS failed,
-                SUM(CASE WHEN ${tokenSql} THEN COALESCE(json_extract(r.usage_json, '$.inputTokens'), 0) + COALESCE(json_extract(r.usage_json, '$.outputTokens'), 0) WHEN r.kind = 'triage' THEN ? ELSE ? END) AS tokens,
+                SUM(CASE WHEN ${tokenSql} THEN ${spentSql} WHEN r.kind = 'triage' THEN ? ELSE ? END) AS tokens,
                 SUM(NOT ${tokenSql}) AS guessed
          FROM runs r JOIN agents a ON a.id = r.agent_id
          WHERE a.workspace_id = ? AND (r.requested_by = ? ${includeUnattributed ? "OR r.requested_by IS NULL" : ""})

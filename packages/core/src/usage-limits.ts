@@ -9,6 +9,23 @@ import type { ModelOption } from "./types.ts";
  * when the harness says the limit is reached, until the time it gives. Nothing is retried meanwhile.
  */
 
+/**
+ * How much a token read from the harness's cache counts against an allowance. Harnesses report
+ * `inputTokens` as everything the model read, every turn of a run, cached prefix included; a long
+ * check can re-read the same 30k of context ten times. Plans charge a cache read a small fraction of
+ * a fresh token (about a tenth on Claude and ChatGPT), so counting them in full made one quiet check
+ * look like a quarter of a day's allowance.
+ */
+export const CACHED_INPUT_WEIGHT = 0.1;
+
+/** What a run's reported usage costs against an allowance: fresh input and output in full, cache reads at CACHED_INPUT_WEIGHT; null when the harness didn't say. */
+export function spentTokens(u: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number } | null | undefined): number | null {
+  if (!u || (u.inputTokens === undefined && u.outputTokens === undefined)) return null;
+  const input = u.inputTokens ?? 0;
+  const cached = Math.min(input, Math.max(0, u.cachedInputTokens ?? 0));
+  return Math.round(input - cached + cached * CACHED_INPUT_WEIGHT + (u.outputTokens ?? 0));
+}
+
 /** Unattended work stops once a plan window is this full, so what's left is the person's own. */
 export const PLAN_RESERVE = 0.9;
 /** How long to wait when a limit is reached and the harness didn't say when it resets; doubles each time it's hit again. */

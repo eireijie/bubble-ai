@@ -193,36 +193,99 @@ describe("what background work costs", () => {
     await agent.stopWatch(w.id);
   });
 
-  it("tells the person once, in the chat, when usage is climbing fast", async () => {
-    // "on pace to run out before the day ends" depends on the hour, so the day is pinned at noon:
-    // only the clock is faked (timers still run), and nothing here waits, so the hub never sees it
-    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2027-03-10T12:00:00Z") });
+  // only the clock is faked (timers still run), and nothing here waits, so the hub never sees it
+  function at<T>(iso: string, f: () => T): T {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(iso) });
     try {
-      climbing();
+      return f();
     } finally {
       vi.useRealTimers();
     }
+  }
+
+  const notices = () => {
+    const dm = hub.store.dmChannel(ws, me, agentId);
+    return hub.store.messages(dm.id, { limit: 200 }).filter((m) => m.author.id === "system" && m.parts.some((p) => p.type === "status" && p.text.includes("of today's allowance")));
+  };
+  /** A finished background run at the faked "now", with what the harness reported. */
+  const burn = (usage: { inputTokens: number; outputTokens?: number; cachedInputTokens?: number }) => {
+    const dm = hub.store.dmChannel(ws, me, agentId);
+    const id = hub.store.createRun({ agentId, channelId: dm.id, threadId: null, triggerMessageId: "", hop: 0, requestedBy: me, kind: "background" });
+    hub.store.setRunStatus(id, "running");
+    hub.store.setRunUsage(id, { outputTokens: 0, ...usage } as never);
+    hub.store.setRunStatus(id, "done");
+  };
+  const clearDay = () => {
+    hub.store.db.prepare("DELETE FROM runs WHERE kind IN ('background','memory','triage') AND agent_id = ?").run(agentId);
+    hub.store.db.prepare("DELETE FROM workspace_settings WHERE key LIKE 'usage-warned:%' OR key LIKE 'allowance-said:%'").run();
+  };
+
+  it("counts cache reads at a tenth: the owner's one check-back was 5%, not 28%, and said nothing", () => {
+    clearDay();
+    hub.background.setDailyTokens(ws, me, 1_000_000);
+    const before = notices().length;
+    // the owner's real run (2026-11-22, 8:01am): one check-back that dropped a stale chat, on Codex
+    at("2027-03-10T13:00:35Z", () => {
+      burn({ inputTokens: 283_213, cachedInputTokens: 258_816, outputTokens: 1_534 });
+      hub.background.warnIfClimbing(ws, me);
+      // 24,397 fresh + 25,882 (a tenth of 258,816 cached) + 1,534 out
+      expect(hub.background.allowance(ws, me).todayTokens).toBe(51_813);
+    });
+    expect(notices()).toHaveLength(before);
+    // the Usage page counts the same way
+    const report = at("2027-03-10T13:05:00Z", () => hub.background.usageReport(ws, me, "today"));
+    expect(report.background.todayTokens).toBe(51_813);
+    expect(report.agents.find((x) => x.agentId === agentId)?.backgroundTokens).toBe(51_813);
   });
 
-  function climbing() {
-    const dm = hub.store.dmChannel(ws, me, agentId);
-    const notices = () => hub.store.messages(dm.id, { limit: 100 }).filter((m) => m.author.id === "system" && m.parts.some((p) => p.type === "status" && p.text.includes("of today's allowance")));
+  it("doesn't project a day from one big run, or from the first hours after midnight", () => {
+    clearDay();
     hub.background.setDailyTokens(ws, me, 1_000_000);
-    const burn = (tokens: number) => {
-      const id = hub.store.createRun({ agentId, channelId: dm.id, threadId: null, triggerMessageId: "", hop: 0, requestedBy: me, kind: "background" });
-      hub.store.setRunStatus(id, "running");
-      hub.store.setRunUsage(id, { inputTokens: tokens, outputTokens: 0 } as never);
-      hub.store.setRunStatus(id, "done");
-    };
-    hub.background.warnIfClimbing(ws, me);
-    expect(notices()).toHaveLength(0);
-    burn(300_000);
-    hub.background.warnIfClimbing(ws, me);
-    const [n] = notices();
-    expect(n.parts[0]).toMatchObject({ type: "status" });
-    expect((n.parts[0] as { text: string }).text).toMatch(/^Background work used \d+% of today's allowance already\. At this pace it runs out around .+, and then checks wait until tomorrow\. You can change it in Settings → Usage, or ask Atlas to check less often\.$/);
-    burn(300_000);
-    hub.background.warnIfClimbing(ws, me);
-    expect(notices()).toHaveLength(1);
-  }
+    const before = notices().length;
+    // a single run that really used 45%: one run isn't a pace
+    at("2027-03-11T15:00:00Z", () => {
+      burn({ inputTokens: 450_000 });
+      hub.background.warnIfClimbing(ws, me);
+    });
+    expect(notices()).toHaveLength(before);
+    clearDay();
+    // shortly after midnight on the person's clock: three heavy runs in the first hour still aren't a day's pace
+    const tz = hub.store.user(me)?.timezone || "UTC";
+    expect(tz).toBe("UTC");
+    for (const t of ["2027-03-12T00:05:00Z", "2027-03-12T00:20:00Z", "2027-03-12T00:40:00Z"]) at(t, () => burn({ inputTokens: 150_000 }));
+    at("2027-03-12T00:41:00Z", () => hub.background.warnIfClimbing(ws, me));
+    expect(notices()).toHaveLength(before);
+  });
+
+  it("tells the person once, in the chat, when a few hours of checks really are on pace to run out", () => {
+    clearDay();
+    hub.background.setDailyTokens(ws, me, 1_000_000);
+    const before = notices().length;
+    // under the share that's worth a word: nothing, however fast
+    for (const t of ["2027-03-13T09:30:00Z", "2027-03-13T10:30:00Z", "2027-03-13T11:30:00Z"]) at(t, () => burn({ inputTokens: 100_000 }));
+    at("2027-03-13T12:00:00Z", () => hub.background.warnIfClimbing(ws, me));
+    expect(notices()).toHaveLength(before);
+    // three hours of 50k-an-hour-plus: 45% used, the rest gone by about 4pm
+    at("2027-03-13T12:10:00Z", () => burn({ inputTokens: 150_000 }));
+    at("2027-03-13T12:15:00Z", () => hub.background.warnIfClimbing(ws, me));
+    const said = notices().slice(before);
+    expect(said).toHaveLength(1);
+    expect((said[0].parts[0] as { text: string }).text).toMatch(/^Background work used 45% of today's allowance\. At this pace it stops around \d{1,2}:\d{2} [AP]M\. Settings → Usage, or ask Atlas to check less often\.$/);
+    // once a day
+    at("2027-03-13T12:30:00Z", () => {
+      burn({ inputTokens: 150_000 });
+      hub.background.warnIfClimbing(ws, me);
+    });
+    expect(notices().slice(before)).toHaveLength(1);
+  });
+
+  it("stays quiet when the pace leaves room until midnight", () => {
+    clearDay();
+    hub.background.setDailyTokens(ws, me, 1_000_000);
+    const before = notices().length;
+    // half used by 8pm: 100k an hour over the last three, so the 4 hours left need 400k of the 500k left
+    for (const t of ["2027-03-14T10:00:00Z", "2027-03-14T14:00:00Z", "2027-03-14T17:30:00Z", "2027-03-14T18:30:00Z", "2027-03-14T19:30:00Z"]) at(t, () => burn({ inputTokens: 100_000 }));
+    at("2027-03-14T20:00:00Z", () => hub.background.warnIfClimbing(ws, me));
+    expect(notices()).toHaveLength(before);
+  });
 });

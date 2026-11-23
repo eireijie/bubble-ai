@@ -59,8 +59,17 @@ export const BACKOFF_CEILING_MINUTES = 12 * 60;
 const IDLE_RECHECK_MINUTES = 60;
 /** Quiet checks in a row that keep doubling the wait (2^8 × 10 minutes is already past the ceiling). */
 const MAX_QUIET_STREAK = 8;
-/** The person hears that usage is climbing once at least this share is used and the last hour's pace would use the rest before the day ends. */
-export const WARN_FROM_SHARE = 0.25;
+/** The person hears that usage is climbing once at least this share is used and the recent pace would use the rest before the day ends. */
+export const WARN_FROM_SHARE = 0.4;
+/** The pace is measured over the last this-many hours of the day (never across midnight). */
+export const PACE_WINDOW_HOURS = 3;
+/** No pace from less than this much of the day: a few minutes after midnight says nothing about the rest of it. */
+export const MIN_PACE_HOURS = 2;
+/** Quiet hours for a person who never set any (the database's own defaults). */
+const DEFAULT_QUIET_START = "22:00";
+const DEFAULT_QUIET_END = "07:00";
+/** Nor from fewer runs than this in the window: one check is a check, not a pace (an agent that's basically idle never warns). */
+export const MIN_PACE_RUNS = 3;
 
 const minutes = (hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number);
@@ -588,9 +597,11 @@ export class Background {
   }
 
   /**
-   * Tell the person once a day, in plain words, when background work is on pace to use up their allowance
-   * well before the day ends: a status line in the chat with the agent that used the most. Not during
-   * their quiet hours; it says again the next day if it's still true.
+   * Tell the person once a day, in plain words, when background work is really on pace to use up their
+   * allowance before the day ends: a status line in the chat with the agent that used the most. The pace
+   * comes from the last few hours of today, and only once there are a few runs to go on, so one long
+   * check (or a few minutes after midnight) never projects a whole day. Not during their quiet hours; it
+   * says again the next day if it's still true.
    */
   warnIfClimbing(workspaceId: string, userId: string, at = new Date()) {
     const { store } = this.hub;
@@ -600,27 +611,45 @@ export class Background {
     const day = dayOf(at, tz);
     const key = `usage-warned:${userId}`;
     if (store.setting(workspaceId, key) === day) return;
-    // tokens in the last hour, and what that pace adds up to by midnight
-    const hour = store.backgroundRunsFor(workspaceId, userId, new Date(at.getTime() - 3_600_000).toISOString()).reduce((n, r) => n + (r.tokens ?? guessFor(r.kind)), 0);
     const left = a.dailyTokens - a.todayTokens;
-    const end = startOfDay(at, tz, 1).getTime();
-    if (left > 0 && hour * ((end - at.getTime()) / 3_600_000) < left) return;
+    const pace = this.pace(workspaceId, userId, at);
+    let runsOut: Date | null = null;
+    if (left > 0) {
+      // not enough to go on yet, or the pace leaves room till midnight: nothing to say
+      if (!pace) return;
+      runsOut = new Date(at.getTime() + (left / pace) * 3_600_000);
+      if (runsOut >= startOfDay(at, tz, 1)) return;
+    }
     const top = store.agent(a.agents[0].agentId);
     if (!top) return;
+    // an agent with no background settings of its own (only follow-ups ran) keeps the usual quiet hours
     const b = store.background(top.id, userId);
-    if (b && inQuietHours(at, tz, b.quietStart, b.quietEnd)) return;
+    if (inQuietHours(at, tz, b?.quietStart ?? DEFAULT_QUIET_START, b?.quietEnd ?? DEFAULT_QUIET_END)) return;
     store.setSetting(workspaceId, key, day);
     // "used all of it" is said here, so the stop itself (held) doesn't say it a second time
-    if (left <= 0) store.setSetting(workspaceId, `allowance-said:${userId}`, day);
+    if (!runsOut) store.setSetting(workspaceId, `allowance-said:${userId}`, day);
     const share = Math.min(100, Math.round((a.todayTokens / a.dailyTokens) * 100));
-    const runsOut = left > 0 && hour > 0 ? new Date(at.getTime() + (left / hour) * 3_600_000).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz }) : null;
-    const most = a.agents.length > 1 ? `, most of it by ${top.name}` : "";
-    const text = left <= 0
-      ? `Background work used all of today's allowance${most}. Checks wait until tomorrow; you can raise it in Settings → Usage.`
-      : `Background work used ${share}% of today's allowance already${most}. At this pace it runs out around ${runsOut}, and then checks wait until tomorrow. You can change it in Settings → Usage, or ask ${top.name} to check less often.`;
+    const most = a.agents.length > 1 ? `, mostly ${top.name}` : "";
+    const text = runsOut
+      ? `Background work used ${share}% of today's allowance${most}. At this pace it stops around ${runsOut.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}. Settings → Usage, or ask ${top.name} to check less often.`
+      : `Background work used all of today's allowance${most}. It picks up again tomorrow; you can raise it in Settings → Usage.`;
     const channel = store.dmChannel(workspaceId, userId, top.id);
     const msg = store.insertMessage({ channelId: channel.id, threadId: null, author: { kind: "user", id: "system" }, body: "", parts: [{ type: "status", text }], hop: 0 });
     this.hub.broadcast(workspaceId, { type: "message", message: msg }, this.hub.audience(channel.id));
+  }
+
+  /**
+   * Tokens an hour unattended work is using lately: the last PACE_WINDOW_HOURS of today, or null when
+   * that's too little to go on (under MIN_PACE_HOURS of the day so far, or fewer than MIN_PACE_RUNS runs).
+   */
+  pace(workspaceId: string, userId: string, at = new Date()): number | null {
+    const dayStart = startOfDay(at, this.timezone(userId)).getTime();
+    const from = Math.max(dayStart, at.getTime() - PACE_WINDOW_HOURS * 3_600_000);
+    const hours = (at.getTime() - from) / 3_600_000;
+    if (hours < MIN_PACE_HOURS) return null;
+    const runs = this.hub.store.backgroundRunsFor(workspaceId, userId, new Date(from).toISOString());
+    if (runs.length < MIN_PACE_RUNS) return null;
+    return runs.reduce((n, r) => n + (r.tokens ?? guessFor(r.kind)), 0) / hours;
   }
 
   /** Is the next check still the one `started` set? If it's anything else, the agent or the person chose it. */
