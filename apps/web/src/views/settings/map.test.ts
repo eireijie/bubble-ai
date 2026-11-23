@@ -17,7 +17,7 @@ describe("where the 24 settings routes land", () => {
     ["agents", "agents", null, false, false],
     ["agent-defaults", "agents", "thinks", true, false],
     ["harnesses", "agents", "tools", true, true],
-    ["usage", "agents", "usage", true, true],
+    ["usage", "agents", "usage", true, false],
     ["logins", "agents", "logins", true, true],
     ["storage", "agents", "storage", true, false],
     ["apple", "agents", "apple", true, false],
@@ -77,7 +77,7 @@ describe("settings rows", () => {
       expect(shown, page).toBeGreaterThanOrEqual(4);
       expect(shown, page).toBeLessThanOrEqual(7);
     }
-    expect(pageRows("agents", false, everything, true).map((r) => r.id)).toEqual(["lead", "makers", "made-max", "hops", "runs", "usage", "logins", "outside", "tools", "skills", "apps"]);
+    expect(pageRows("agents", false, everything, true).map((r) => r.id)).toEqual(["lead", "makers", "made-max", "hops", "runs", "logins", "outside", "tools", "skills", "apps"]);
   });
 
   it("opens each page at its top by a route of its own", () => {
@@ -93,7 +93,8 @@ describe("settings rows", () => {
   it("leaves out rows whose mod is off, and never lists a mod's own settings as a row", () => {
     const off = { ...everything, invite: false, background: false, storage: false, apple: false };
     expect(pageRows("privacy", false, off).map((r) => r.id)).not.toContain("people");
-    expect(pageRows("agents", false, off, true).map((r) => r.id)).not.toContain("usage");
+    // usage isn't a mod's: it's on the Agents page without Show all, whatever is switched off
+    expect(pageRows("agents", false, off).map((r) => r.id)).toContain("usage");
     const listed = [...pageRows("agents", false, everything), ...pageRows("agents", false, everything, true)].map((r) => r.id);
     expect(listed).not.toContain("storage");
     expect(listed).not.toContain("apple");

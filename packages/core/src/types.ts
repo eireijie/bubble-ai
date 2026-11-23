@@ -402,7 +402,8 @@ export interface Message {
 export type MessagePart =
   | { type: "tool_call"; name: string; input: unknown; output?: unknown }
   | { type: "file"; fileId: string; name: string }
-  | { type: "status"; text: string }
+  /** a line from Wisp; `link` is one place in the app it points to, an address inside the app ("#/settings/usage") */
+  | { type: "status"; text: string; link?: { label: string; href: string } }
   /** the run this message reports failed: what the person can do next. retry when asking again makes sense; fix when something must be signed in first */
   | { type: "run_failed"; runId: string; retry: boolean; fix?: "signin" | "computer" | "connection" }
   /** a quiet line from Wisp, e.g. "Round 2 of 3" */

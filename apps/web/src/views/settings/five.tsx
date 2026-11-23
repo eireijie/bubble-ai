@@ -142,6 +142,7 @@ export function AgentsFive() {
           <Toggle label="Learn skills on their own" on={p?.learnSkills ?? true} disabled={off} onChange={(v) => void save({ learnSkills: v })} />
         </SRow>
         <SRow id="accounts" value={<AccountsValue />} />
+        <SRow id="usage" value={<UsageValue />} />
       </Group>
       {error && <Note bad>{error}</Note>}
       <ShowAll />
@@ -173,7 +174,6 @@ export function AgentsFive() {
         </SRow>
       </Group>
       <Group>
-        <SRow id="usage" value={<UsageValue />} />
         <SRow id="logins" value={<LoginsValue />} />
         <SRow id="outside" value={<McpValue />} />
         <SRow id="tools" value={<ToolsValue />} />

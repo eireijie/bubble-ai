@@ -270,7 +270,9 @@ describe("what background work costs", () => {
     at("2027-03-13T12:15:00Z", () => hub.background.warnIfClimbing(ws, me));
     const said = notices().slice(before);
     expect(said).toHaveLength(1);
-    expect((said[0].parts[0] as { text: string }).text).toMatch(/^Background work used 45% of today's allowance\. At this pace it stops around \d{1,2}:\d{2} [AP]M\. Settings → Usage, or ask Atlas to check less often\.$/);
+    expect((said[0].parts[0] as { text: string }).text).toMatch(/^Background work used 45% of today's allowance\. At this pace it stops around \d{1,2}:\d{2} [AP]M\. Raise the limit, or ask Atlas to check less often\.$/);
+    // one click to the place that changes it
+    expect((said[0].parts[0] as { link?: unknown }).link).toEqual({ label: "Usage and daily limit", href: "#/settings/usage" });
     // once a day
     at("2027-03-13T12:30:00Z", () => {
       burn({ inputTokens: 150_000 });

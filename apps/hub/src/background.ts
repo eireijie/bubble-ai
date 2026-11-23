@@ -65,6 +65,8 @@ export const WARN_FROM_SHARE = 0.4;
 export const PACE_WINDOW_HOURS = 3;
 /** No pace from less than this much of the day: a few minutes after midnight says nothing about the rest of it. */
 export const MIN_PACE_HOURS = 2;
+/** Where a person changes the daily limit: Settings → Agents → Usage and daily limit (apps/web settings map). */
+export const USAGE_LINK = { label: "Usage and daily limit", href: "#/settings/usage" };
 /** Quiet hours for a person who never set any (the database's own defaults). */
 const DEFAULT_QUIET_START = "22:00";
 const DEFAULT_QUIET_END = "07:00";
@@ -235,7 +237,7 @@ export class Background {
     const tomorrow = startOfDay(at, this.timezone(userId), 1).toISOString();
     const today = this.allowance(ws, userId, at);
     if (today.dailyTokens && today.todayTokens >= today.dailyTokens) {
-      this.sayOnce(ws, `allowance-said:${userId}`, agent.id, userId, at, `Background work used today's allowance (${tokenText(today.dailyTokens)} tokens). It picks up again tomorrow; you can raise it in Settings → Usage.`);
+      this.sayOnce(ws, `allowance-said:${userId}`, agent.id, userId, at, `Background work used today's allowance (${tokenText(today.dailyTokens)} tokens). It picks up again tomorrow, or raise the limit.`, USAGE_LINK);
       return { reason: "allowance used up", until: tomorrow };
     }
     const mine = today.agents.find((a) => a.agentId === agentId)?.tokens ?? 0;
@@ -342,13 +344,13 @@ export class Background {
   }
 
   /** A status line in the agent's chat with the person, once a day per `key`. */
-  private sayOnce(workspaceId: string, key: string, agentId: string, userId: string, at: Date, text: string) {
+  private sayOnce(workspaceId: string, key: string, agentId: string, userId: string, at: Date, text: string, link?: { label: string; href: string }) {
     const { store } = this.hub;
     const day = dayOf(at, this.timezone(userId));
     if (store.setting(workspaceId, key) === day) return;
     store.setSetting(workspaceId, key, day);
     const channel = store.dmChannel(workspaceId, userId, agentId);
-    const msg = store.insertMessage({ channelId: channel.id, threadId: null, author: { kind: "user", id: "system" }, body: "", parts: [{ type: "status", text }], hop: 0 });
+    const msg = store.insertMessage({ channelId: channel.id, threadId: null, author: { kind: "user", id: "system" }, body: "", parts: [{ type: "status", text, ...(link ? { link } : {}) }], hop: 0 });
     this.hub.broadcast(workspaceId, { type: "message", message: msg }, this.hub.audience(channel.id));
   }
 
@@ -631,10 +633,10 @@ export class Background {
     const share = Math.min(100, Math.round((a.todayTokens / a.dailyTokens) * 100));
     const most = a.agents.length > 1 ? `, mostly ${top.name}` : "";
     const text = runsOut
-      ? `Background work used ${share}% of today's allowance${most}. At this pace it stops around ${runsOut.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}. Settings → Usage, or ask ${top.name} to check less often.`
-      : `Background work used all of today's allowance${most}. It picks up again tomorrow; you can raise it in Settings → Usage.`;
+      ? `Background work used ${share}% of today's allowance${most}. At this pace it stops around ${runsOut.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}. Raise the limit, or ask ${top.name} to check less often.`
+      : `Background work used all of today's allowance${most}. It picks up again tomorrow, or raise the limit.`;
     const channel = store.dmChannel(workspaceId, userId, top.id);
-    const msg = store.insertMessage({ channelId: channel.id, threadId: null, author: { kind: "user", id: "system" }, body: "", parts: [{ type: "status", text }], hop: 0 });
+    const msg = store.insertMessage({ channelId: channel.id, threadId: null, author: { kind: "user", id: "system" }, body: "", parts: [{ type: "status", text, link: USAGE_LINK }], hop: 0 });
     this.hub.broadcast(workspaceId, { type: "message", message: msg }, this.hub.audience(channel.id));
   }
 
