@@ -424,7 +424,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
           b ? `Background work: ${b.enabled ? "on" : "off"}, every ${b.everyMinutes} minutes, quiet ${b.quietStart}–${b.quietEnd}, keeping an eye on: ${b.focus || "everything you can reach"}.` : "Background work: never turned on for them.",
           `Mods (${s.canChangeMods ? "you can change these for them" : "only an owner can change these"}):`,
           ...s.mods.map((m) => `- ${m.key}: ${m.name} (${m.on ? "on" : "off"}): ${m.description}`),
-          `Allowance: ${a.dailyTokens ? `${k(a.todayTokens)} of ${k(a.dailyTokens)} tokens used today` : `no limit, ${k(a.todayTokens)} tokens used today`}. They change the allowance themselves in Settings → Usage.`,
+          `Allowance: ${a.dailyTokens ? `${k(a.todayTokens)} of ${k(a.dailyTokens)} tokens used today` : `no limit, ${k(a.todayTokens)} tokens used today`}. They change it themselves in Settings → Agents → Usage and daily limit.`,
         ].join("\n"),
       );
     }),

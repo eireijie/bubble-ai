@@ -66,6 +66,17 @@ the person gets **one** status line in the agent's chat.
 | Follow-ups (promises) run past the first two, but stop at | 2 × the agent's token limit | `FOLLOWUP_HARD_STOP` |
 | The plan the agent runs on | stops at 90% of a window; stops completely when the harness says the limit is reached | `limits.ts` |
 
+**How tokens are counted** (`spentTokens` in `@wisp/core`): fresh input and output in full, input
+read from the harness's cache at a tenth (`CACHED_INPUT_WEIGHT`), about what plans charge for it.
+Harnesses report every turn's whole context as input, so a check that takes ten turns re-reads the same
+prefix ten times; counting that in full made one quiet Codex check-back (283k read, 259k of it cached,
+about 26k really new) look like 28% of the day. The Usage page counts the same way.
+
+**The "on pace to run out" line** says something only when it's real: at least 40% of the day's
+allowance is used, at least 3 runs in the last 3 hours of today and at least 2 hours of the day gone
+(never a projection from one run or from the minutes after midnight), and that pace would use the rest
+before midnight. Once a day, not in quiet hours (10pm–7am when the agent has no settings of its own).
+
 ### The plan comes first (`limits.ts`)
 
 Each sign-in an agent runs on (a model connection, or a harness's own sign-in on a device) is

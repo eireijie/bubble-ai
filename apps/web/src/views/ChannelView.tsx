@@ -733,6 +733,7 @@ function SystemItem({ m, replies, onReplies, working = [] }: { m: Message; repli
     <div className="px-5 py-1.5 text-xs text-muted flex items-center gap-2" data-message-id={m.id}>
       <span className="h-px flex-1 bg-line" />
       {m.parts.map((p, i) => (p.type === "status" || p.type === "notice") && <span key={i}>{p.text}</span>)}
+      {m.parts.map((p, i) => p.type === "status" && p.link?.href.startsWith("#/") && <a key={`l${i}`} href={p.link.href} className="shrink-0 whitespace-nowrap underline underline-offset-2 hover:text-ink">{p.link.label}</a>)}
       {m.body && <span className="text-center">{m.body.replace(/\*\*/g, "")}</span>}
       {m.parts.map((p) => p.type === "routine" && <RoutineChip key={p.routineId} id={p.routineId} />)}
       <span className="h-px flex-1 bg-line" />

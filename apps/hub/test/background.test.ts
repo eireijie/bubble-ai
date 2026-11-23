@@ -552,8 +552,9 @@ describe("what a check costs", () => {
     reportUsage = { type: "usage", model: "haiku", contextUsed: 9000, contextWindow: 200000, inputTokens: 30_000, outputTokens: 8_000, cachedInputTokens: 25_000 };
     await settle(wake);
     const { usage } = await owner.request("GET", `/api/agents/${agentId}/background`);
-    expect(usage.lastTokens).toBe(38_000);
-    expect(usage.todayTokens).toBeGreaterThanOrEqual(38_000);
+    // 5,000 fresh + a tenth of the 25,000 read from the cache + 8,000 out
+    expect(usage.lastTokens).toBe(15_500);
+    expect(usage.todayTokens).toBeGreaterThanOrEqual(15_500);
     expect(usage.weekTokens).toBeGreaterThanOrEqual(usage.todayTokens);
     // the context-window numbers still land beside the token counts
     const run = hub.store.db.prepare("SELECT usage_json FROM runs WHERE kind = 'background' ORDER BY created_at DESC LIMIT 1").get() as { usage_json: string };
