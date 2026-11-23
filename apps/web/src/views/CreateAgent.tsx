@@ -518,7 +518,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
             </button>
             {/* its ghost: a click gives it another look */}
             <button type="button" disabled={busy || !!created} onClick={() => setAppearance(randomAppearance())} aria-label="Change its look" className="rounded-[20px] outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none">
-              <Ghost look={look} size={104} trackPointer label="" />
+              <Ghost look={look} size={132} trackPointer label="" />
             </button>
 
             <fieldset disabled={busy || !!created} className="w-full min-w-0">

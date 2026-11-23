@@ -203,7 +203,15 @@ export function go(r: Route) {
   transition(href(r), true);
 }
 
-/** The last place in the app outside Settings, for Settings' "Back to app". */
+/**
+ * Desktops open Settings and one agent's settings as a pop-up over the app, not as a page: these
+ * addresses are the pop-up, and the page under it is the last address that wasn't one.
+ */
+export function isDialogRoute(r: Route): boolean {
+  return r.view === "settings" || (r.view === "agents" && !!r.agentId);
+}
+
+/** The last place in the app outside the Settings pop-up, for closing it (and Settings' "Back to app"). */
 let lastAppHash: string | null = null;
 let currentHash = typeof location === "undefined" ? "" : location.hash;
 const listeners = new Set<() => void>();
@@ -226,7 +234,7 @@ function transition(hash: string, push = false) {
 
 function noteAppHash() {
   if (typeof location === "undefined") return;
-  if (parseRoute(currentHash).view !== "settings") lastAppHash = currentHash || "#/";
+  if (!isDialogRoute(parseRoute(currentHash))) lastAppHash = currentHash || "#/";
 }
 if (typeof window !== "undefined") {
   noteAppHash();

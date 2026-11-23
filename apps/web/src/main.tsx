@@ -5,6 +5,9 @@ import "./motion.css";
 import "./theme.ts";
 import { App } from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
+import { applyTitleBar } from "./desktop.ts";
+
+applyTitleBar();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
