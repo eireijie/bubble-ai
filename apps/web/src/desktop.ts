@@ -17,6 +17,9 @@ declare global {
   interface Window {
     wispDesktop?: {
       setBadge(n: number): void;
+      /** how the window's title bar is drawn: Mac lights over the page's top-left, Windows buttons over its top-right, or the OS frame */
+      titleBar?: "inset" | "overlay" | "native";
+      setTitleBarColors?(bg: string, fg: string): void;
       /** bring the window back from the menu bar (a clicked notification) */
       focus(): void;
       info(): Promise<{ version: string; platform: string; device: boolean }>;
@@ -90,4 +93,33 @@ export function useDesktopInfo(): { inDesktop: boolean; info: DesktopInfo | null
     await desktop?.info().then(setInfo).catch(() => {});
   };
   return { inDesktop: !!desktop, info, connect };
+}
+
+/** "rgb(r, g, b)" → "#rrggbb" (null for anything else, like a transparent colour). */
+export function hexColor(css: string): string | null {
+  const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/.exec(css.trim());
+  if (!m || (m[4] !== undefined && Number(m[4]) < 1)) return null;
+  return "#" + [m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * In the desktop app there's no grey title bar: the page says how the window draws its buttons
+ * (`data-titlebar` on <html>, which the CSS makes room for), and on Windows keeps the buttons the
+ * colour of the page as the theme changes.
+ */
+export function applyTitleBar() {
+  const desktop = typeof window !== "undefined" ? window.wispDesktop : undefined;
+  const kind = desktop?.titleBar;
+  if (!kind || kind === "native") return;
+  const root = document.documentElement;
+  root.dataset.titlebar = kind;
+  if (kind !== "overlay" || !desktop.setTitleBarColors) return;
+  const send = () => {
+    const page = getComputedStyle(document.body);
+    const bg = hexColor(page.backgroundColor);
+    const fg = hexColor(page.color);
+    if (bg && fg) desktop.setTitleBarColors?.(bg, fg);
+  };
+  new MutationObserver(send).observe(root, { attributes: true, attributeFilter: ["data-mode", "data-theme"] });
+  send();
 }

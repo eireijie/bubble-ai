@@ -166,6 +166,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
             </button>
           )}
           <h1 className="text-[22px] md:text-[24px] leading-[30px] font-[650] tracking-[-0.01em]">Needs you</h1>
+          {count > 0 && <span key={count} className="m-fade-in grid h-6 min-w-6 place-items-center rounded-full bg-st-needs/15 px-2 text-[13px] font-semibold tabular-nums text-st-needs">{count}</span>}
         </div>
       </header>
 
@@ -192,8 +193,11 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
           ) : (
             <div className="flex-1 grid place-items-center py-16">
               <div className="flex flex-col items-center gap-3 text-center">
-                <Ghost look={sleeper} size={64} mood="asleep" ambient={false} label="" />
-                <p className="text-[15px] leading-[22px] text-muted">Nothing needs you.</p>
+                <Ghost look={sleeper} size={96} mood="asleep" label="" />
+                <div>
+                  <p className="text-[17px] font-semibold leading-6">All caught up</p>
+                  <p className="text-[15px] leading-6 text-muted">Nothing needs you.</p>
+                </div>
               </div>
             </div>
           )}
@@ -271,7 +275,7 @@ function TeamNeed({ flow, lane }: { flow: TeamFlow; lane: FlowLane }) {
 function AgentNeed({ agent, need }: { agent: Agent; need: NonNullable<ReturnType<typeof agentNeed>> }) {
   const chat = () => void openDm(agent.id);
   return (
-    <NeedRow avatar={<AgentAvatar agent={agent} size={40} live />} text={need.text} onOpen={chat} meta={[agent.name]}>
+    <NeedRow avatar={<AgentAvatar agent={agent} size={48} live />} text={need.text} onOpen={chat} meta={[agent.name]}>
       <div>
         <CardButton tone="primary" onClick={() => (need.href ? void (location.hash = need.href) : chat())}>
           {need.action}

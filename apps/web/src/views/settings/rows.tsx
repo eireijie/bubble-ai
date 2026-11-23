@@ -1,3 +1,4 @@
+import { useSlidingThumb } from "../../motion.ts";
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { href } from "../../router.ts";
@@ -60,7 +61,7 @@ export function Group({ children, className }: { children: ReactNode; className?
 }
 
 export const rowDomId = (id: string) => `setting-${id}`;
-const ROW = "flex items-center gap-3 px-4 min-h-[52px] text-body";
+const ROW = "flex items-center gap-3 px-4 min-h-[52px] md:min-h-[60px] text-body";
 
 /**
  * One setting, named by its id in the map: the label on the left, its value or control on the
@@ -117,8 +118,10 @@ export function ShowAll({ children }: { children?: ReactNode }) {
 
 /** Pick one of a few, small enough to sit on a row. */
 export function Seg<T extends string>({ value, options, onChange, label, disabled }: { value: T; options: [T, ReactNode][]; onChange: (v: T) => void; label: string; disabled?: boolean }) {
+  const thumb = useSlidingThumb<HTMLDivElement>(value, options.length);
   return (
-    <div className="inline-flex shrink-0 gap-0.5 rounded-full border border-line p-0.5" role="radiogroup" aria-label={label}>
+    <div ref={thumb.ref} className="relative inline-flex shrink-0 gap-0.5 rounded-full border border-line p-0.5" role="radiogroup" aria-label={label}>
+      {thumb.ready && <span aria-hidden className="seg-thumb absolute top-0.5 bottom-0.5 left-0 rounded-full bg-side-active" style={thumb.style} />}
       {options.map(([v, text]) => (
         <button
           key={v}
@@ -127,7 +130,7 @@ export function Seg<T extends string>({ value, options, onChange, label, disable
           aria-checked={value === v}
           disabled={disabled}
           onClick={() => onChange(v)}
-          className={cx("h-[26px] px-3 rounded-full text-[13px] leading-[18px] whitespace-nowrap disabled:opacity-50", value === v ? "bg-side-active text-ink font-semibold" : "text-muted hover:text-ink")}
+          className={cx("relative h-[26px] px-3 rounded-full text-[13px] leading-[18px] whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-semibold" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-side-active")}
         >
           {text}
         </button>

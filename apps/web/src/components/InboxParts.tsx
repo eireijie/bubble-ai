@@ -11,7 +11,7 @@ import { PickTime, changeFollowup, reminderTimes, whenText } from "./Loops.tsx";
 /** The small grey heading over a group, with a count or a link on the right. */
 export function SectionHead({ title, right, needs }: { title: string; right?: ReactNode; needs?: boolean }) {
   return (
-    <div className="flex items-baseline justify-between gap-2.5 px-0.5 pt-4 first:pt-0 text-[13px] font-semibold text-muted">
+    <div className="flex items-baseline justify-between gap-2.5 px-0.5 pt-4 first:pt-0 text-[13px] md:text-[14px] font-semibold text-muted">
       <h2>{title}</h2>
       {right !== undefined && right !== null && <span className={cx("font-medium", needs && "text-st-needs")}>{right}</span>}
     </div>
@@ -96,7 +96,7 @@ export function dismissHelp(c: ComputerInfo) {
  * asked), who and when, and its buttons underneath.
  */
 export function NeedRow({ avatar, text, to, onOpen, meta, children }: { avatar: ReactNode; text: string; to?: string; onOpen?: () => void; meta: (string | null | undefined | false)[]; children?: ReactNode }) {
-  const line = "text-[15px] leading-[22px] font-semibold break-words";
+  const line = "text-[15px] md:text-[17px] leading-[22px] md:leading-6 font-semibold break-words";
   const link = cx(line, "text-left rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/40");
   return (
     <li className="flex items-start gap-3.5 py-3.5">
@@ -114,7 +114,7 @@ export function NeedRow({ avatar, text, to, onOpen, meta, children }: { avatar: 
           ) : (
             <span className={line}>{text}</span>
           )}
-          <span className="max-w-full truncate text-[13px] leading-[18px] text-muted">{meta.filter(Boolean).join(" · ")}</span>
+          <span className="max-w-full truncate text-[13px] md:text-[14px] leading-[18px] text-muted">{meta.filter(Boolean).join(" · ")}</span>
         </div>
         {children}
       </div>
@@ -132,7 +132,7 @@ function SettledLine({ approval: a }: { approval: Approval }) {
   const who = useStore((s) => (a.decidedBy && a.decidedBy !== s.me?.user.id ? (s.members.find((m) => m.id === a.decidedBy)?.name ?? null) : null));
   const ok = a.status === "approved";
   return (
-    <div className="flex items-center gap-1.5 text-[13px] leading-5 text-muted" role="status">
+    <div className="flex items-center gap-1.5 text-[13px] md:text-[14px] leading-5 text-muted" role="status">
       {ok ? <Check size={14} aria-hidden /> : <X size={14} aria-hidden />}
       {ok ? "Allowed" : "Not now"}
       {who && <span>· {who}</span>}
@@ -187,7 +187,7 @@ export function ApprovalNeed({ approval: a, text }: { approval: Approval; text: 
           {!pending ? (
             <SettledLine approval={a} />
           ) : waitingFor ? (
-            <p className="text-[13px] leading-5 text-muted">Waiting for {waitingFor}.</p>
+            <p className="text-[13px] md:text-[14px] leading-5 text-muted">Waiting for {waitingFor}.</p>
           ) : (
             <Answers>
               <CardButton tone={a.storage?.action === "delete" ? "danger" : "primary"} disabled={busy} onClick={() => decide(true)}>

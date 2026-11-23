@@ -119,6 +119,24 @@ app.setAboutPanelOptions?.({ applicationName: "Wisp", copyright: "Apache-2.0", w
 
 // ---------------------------------------------------------------- window
 
+/**
+ * No grey title bar: on a Mac the traffic lights sit inside the sidebar (the page leaves room for
+ * them and makes its top strip draggable); on Windows the page runs to the top and the window
+ * buttons float over its top-right corner, coloured to match it. Linux keeps its own frame, since
+ * window managers there draw very different ones.
+ */
+const TITLE_BAR =
+  process.platform === "darwin" ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 18, y: 18 } }
+  : process.platform === "win32" ? { titleBarStyle: "hidden", titleBarOverlay: { color: "#ffffff", symbolColor: "#1b1a22", height: 40 } }
+  : {};
+
+// the page tells us its colours so the Windows buttons blend in, light or dark
+ipcMain.on("titlebar:colors", (e, bg, fg) => {
+  if (process.platform !== "win32" || !win || e.sender !== win.webContents) return;
+  if (typeof bg !== "string" || typeof fg !== "string" || !/^#[0-9a-f]{6}$/i.test(bg) || !/^#[0-9a-f]{6}$/i.test(fg)) return;
+  try { win.setTitleBarOverlay({ color: bg, symbolColor: fg }); } catch {}
+});
+
 function createWindow() {
   const b = config.bounds;
   win = new BrowserWindow({
@@ -132,6 +150,7 @@ function createWindow() {
     icon: ICON,
     show: false,
     backgroundColor: "#ffffff",
+    ...TITLE_BAR,
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true, spellcheck: true, backgroundThrottling: false }, // so notifications keep coming while the window is hidden
   });
   win.once("ready-to-show", () => win?.show());

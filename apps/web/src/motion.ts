@@ -154,3 +154,23 @@ export function useSheetBackdrop(active = true) {
     };
   }, [active]);
 }
+
+/**
+ * A thumb that slides under the chosen option of a row of options (segmented controls, tabs). Put
+ * `ref` on the row and render `style` on an absolutely placed span; the chosen option is the child
+ * with `aria-checked="true"` or `aria-selected="true"`. The first placement is instant.
+ */
+export function useSlidingThumb<T extends HTMLElement>(value: unknown, count: number) {
+  const ref = useRef<T>(null);
+  const [at, setAt] = useState<{ left: number; width: number } | null>(null);
+  const placed = useRef(false);
+  useLayoutEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>('[aria-checked="true"], [aria-selected="true"]');
+    setAt(el ? { left: el.offsetLeft, width: el.offsetWidth } : null);
+  }, [value, count]);
+  useEffect(() => {
+    if (at) placed.current = true;
+  }, [at]);
+  const style = at ? { width: at.width, transform: `translateX(${at.left}px)`, transition: placed.current ? undefined : "none" } : undefined;
+  return { ref, style, ready: !!at };
+}

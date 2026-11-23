@@ -70,6 +70,19 @@ describe("hash routing", () => {
     expect(router.appHashBeforeSettings()).toBe("#/vault/note.md");
   });
 
+  it("opens Settings and an agent's settings as the pop-up over the last page that wasn't one", () => {
+    expect(router.isDialogRoute(router.parseRoute("#/settings/voice"))).toBe(true);
+    expect(router.isDialogRoute(router.parseRoute("#/agents/agt1/look"))).toBe(true);
+    // the list of agents is a page of its own, not the pop-up
+    expect(router.isDialogRoute(router.parseRoute("#/agents"))).toBe(false);
+    expect(router.isDialogRoute(router.parseRoute("#/c/ch1"))).toBe(false);
+    router.go({ view: "chat", channelId: "ch1", threadId: null });
+    router.go({ view: "agents", agentId: "agt1", tab: "look" });
+    router.go({ view: "settings", page: "voice" });
+    // moving between pop-ups keeps the page under them: closing lands back in the chat
+    expect(router.appHashBeforeSettings()).toBe("#/c/ch1");
+  });
+
   it("keeps go guarded and supports unregistering a guard", () => {
     const remove = router.guardLeaving(() => "Discard changes?");
     router.go({ view: "dashboard" });

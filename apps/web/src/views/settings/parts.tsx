@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useSlidingThumb } from "../../motion.ts";
 import { Check } from "lucide-react";
 import { cx } from "../../components/ui.tsx";
 
@@ -14,7 +15,7 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
   if (!merged && !children) return null;
   return (
     <div className={merged ? "mb-3 mt-7" : "mb-4"}>
-      {merged && <h3 className="px-1 text-[13px] font-semibold text-muted">{title}</h3>}
+      {merged && <h3 className="px-1 text-[13px] md:text-[14px] font-semibold text-muted">{title}</h3>}
       {children && <p className="mt-1.5 px-1 text-sm leading-snug text-muted max-w-xl">{children}</p>}
     </div>
   );
@@ -26,8 +27,8 @@ export function Section({ title, description, action, children }: { title: strin
     <section className="mb-7">
       <div className="mb-2 px-1 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[13px] font-semibold text-faint tracking-wide">{title}</h3>
-          {description && <p className="mt-0.5 text-[13px] leading-snug text-faint">{description}</p>}
+          <h3 className="text-[13px] md:text-[14px] font-semibold text-faint tracking-wide">{title}</h3>
+          {description && <p className="mt-0.5 text-[13px] md:text-[14px] leading-snug text-faint">{description}</p>}
         </div>
         {action && <div className="shrink-0">{action}</div>}
       </div>
@@ -44,10 +45,10 @@ export function Card({ children, className }: { children: ReactNode; className?:
 /** One setting: what it is on the left, the control on the right (stacked on phones). */
 export function Row({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children?: ReactNode; className?: string }) {
   return (
-    <div className={cx("px-4 py-1.5 min-h-[52px] flex flex-wrap items-center gap-x-4 gap-y-1", className)}>
+    <div className={cx("px-4 py-1.5 min-h-[52px] md:min-h-[60px] flex flex-wrap items-center gap-x-4 gap-y-1", className)}>
       <div className="min-w-[6.5rem] flex-1">
         <div className="text-body">{label}</div>
-        {hint && <div className="mt-0.5 text-[13px] leading-snug text-faint">{hint}</div>}
+        {hint && <div className="mt-0.5 text-[13px] md:text-[14px] leading-snug text-faint">{hint}</div>}
       </div>
       {children !== undefined && <div className="shrink-0 flex items-center gap-2">{children}</div>}
     </div>
@@ -63,17 +64,19 @@ export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChang
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!on)}
-      className={cx("relative inline-flex h-[30px] w-[52px] shrink-0 items-center rounded-full transition-colors disabled:opacity-40", on ? "bg-badge" : "bg-control border border-control-line")}
+      className={cx("relative inline-flex h-[30px] w-[52px] shrink-0 items-center rounded-full transition-colors disabled:opacity-40", on ? "m-switch-on" : "bg-control border border-control-line")}
     >
       <span className={cx("m-knob inline-block size-6 rounded-full shadow bg-white ml-[3px]", on && "translate-x-[22px]")} />
     </button>
   );
 }
 
-/** Pick one of a few options, inline. */
+/** Pick one of a few options, inline. The chosen one sits on a thumb that slides to the next one picked. */
 export function Segmented<T extends string>({ value, options, onChange, label, disabled }: { value: T; options: [T, ReactNode][]; onChange: (v: T) => void; label: string; disabled?: boolean }) {
+  const thumb = useSlidingThumb<HTMLDivElement>(value, options.length);
   return (
-    <div className="inline-flex rounded-full border border-control-line p-[3px] bg-control" role="radiogroup" aria-label={label}>
+    <div ref={thumb.ref} className="relative inline-flex rounded-full border border-control-line p-[3px] bg-control" role="radiogroup" aria-label={label}>
+      {thumb.ready && <span aria-hidden className="seg-thumb absolute top-[3px] bottom-[3px] left-0 rounded-full bg-ink/15" style={thumb.style} />}
       {options.map(([v, text]) => (
         <button
           key={v}
@@ -82,7 +85,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, d
           aria-checked={value === v}
           disabled={disabled}
           onClick={() => onChange(v)}
-          className={cx("h-[34px] px-3.5 rounded-full text-sm inline-flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50", value === v ? "bg-ink/15 text-ink font-medium" : "text-muted hover:text-ink")}
+          className={cx("relative h-[34px] px-3.5 rounded-full text-sm inline-flex items-center gap-1.5 whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-medium" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-ink/15")}
         >
           {text}
         </button>

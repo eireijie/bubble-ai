@@ -75,8 +75,8 @@ export function LookEditor({ value: look, onChange, name, below, extra, speaking
   const set = <K extends keyof GhostAppearance>(k: K, v: GhostAppearance[K]) => onChange({ ...look, [k]: v });
   return (
     <div className="w-full max-w-[560px] space-y-4">
-      <div className="grid h-64 place-items-center overflow-hidden rounded-[14px] bg-card sm:h-72">
-        <Ghost look={look} size={200} mood={mood} speakingLevel={speakingLevel} trackPointer interactive label={`${name}'s ghost, looking toward your pointer`} />
+      <div className="grid h-72 place-items-center overflow-hidden rounded-[14px] bg-card sm:h-80">
+        <Ghost look={look} size={240} mood={mood} speakingLevel={speakingLevel} trackPointer interactive label={`${name}'s ghost, looking toward your pointer`} />
       </div>
       <div className="flex flex-col items-center gap-3">
         <Button type="button" onClick={() => onChange(randomAppearance())}>

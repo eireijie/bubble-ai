@@ -375,17 +375,20 @@ function ChatRow({ chat, page, active, preview, time, onOpen, sections, onNewSec
     <span className={cx("min-w-0 flex items-center gap-1.5", "text-[13px]", preview.working ? "text-st-working" : preview.needs ? "text-st-needs" : "text-muted")}>
       {preview.working && <PulseDots />}
       {preview.icon && <span className="shrink-0 inline-flex">{preview.icon}</span>}
-      <span className="truncate">{preview.working || preview.needs ? preview.text : withMentions(preview.text)}</span>
+      <span className={cx("truncate", preview.working && "shimmer-text")}>{preview.working || preview.needs ? preview.text : withMentions(preview.text)}</span>
     </span>
   );
-  // phones: 64px, a 44px ghost, the name, one line, and one dot when it is unread or waits on you
+  // phones: 76px, a 56px wisp, the name and when, one line, and one dot when it is unread or waits on you
   const inner = page ? (
     <>
-      <span className="shrink-0 grid h-11 w-12 place-items-center">
-        <ChatAvatar chat={chat} size={44} />
+      <span className="shrink-0 grid size-14 place-items-center">
+        <ChatAvatar chat={chat} size={56} />
       </span>
       <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <span className={cx("truncate text-[15px] font-semibold leading-5", chat.muted && "opacity-60")}>{chat.name}</span>
+        <span className="flex items-baseline justify-between gap-2">
+          <span className={cx("truncate text-[15px] font-semibold leading-5", chat.muted && "opacity-60")}>{chat.name}</span>
+          {time && <span className={cx("shrink-0 text-[12px] tabular-nums", unread ? "text-ink" : "text-faint")}>{time}</span>}
+        </span>
         {line}
       </span>
       {chat.unread > 0 && chat.muted && <span role="img" aria-label="Unread" className="shrink-0 size-2 rounded-full bg-faint" />}
@@ -414,7 +417,7 @@ function ChatRow({ chat, page, active, preview, time, onOpen, sections, onNewSec
       </span>
     </>
   );
-  const cls = cx("w-full flex items-center text-left transition-colors", page ? "gap-3 px-2 h-16 rounded-[10px]" : "gap-3 px-2.5 py-2.5 rounded-xl min-h-[88px]", active ? "bg-side-active" : "hover:bg-hover");
+  const cls = cx("w-full flex items-center text-left transition-colors", page ? "gap-3 px-2 h-[76px] rounded-[12px] active:scale-[0.99] transition-[background-color,transform] duration-150" : "gap-3 px-2.5 py-2.5 rounded-xl min-h-[88px]", active ? "bg-side-active" : "hover:bg-hover");
   return (
     <div onContextMenu={(e) => chat.channel && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
       {url ? (
