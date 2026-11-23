@@ -67,7 +67,7 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
           <div className="mb-3 flex items-center gap-2">
             <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[10px] bg-card px-3 text-faint">
               <Search size={15} strokeWidth={2} className="shrink-0" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search agents" className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search agents" className="min-w-0 flex-1 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" />
             </label>
             {canEdit && (
               <button onClick={() => setCreating(true)} className="circle shrink-0" aria-label="New agent">
@@ -80,19 +80,19 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
             {shown.map((a) => {
               const line = agentListLine(a, devices, Object.values(live).find((r) => r.agentId === a.id));
               return (
-                <li key={a.id} className="group relative flex h-[68px] items-center gap-3 rounded-[12px] px-2 transition-colors duration-150 hover:bg-side-active">
+                <li key={a.id} className="group relative flex h-[76px] items-center gap-3 rounded-[14px] px-2 transition-colors duration-150 hover:bg-side-active">
                   <button type="button" onClick={() => void openDm(a.id)} aria-label={`Message ${a.name}`} className="flex min-w-0 flex-1 items-center gap-3.5 text-left after:absolute after:inset-0 after:rounded-[12px]">
-                    <AgentAvatar agent={a} size={48} live />
+                    <AgentAvatar agent={a} size={58} live />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-2">
-                        <span className="truncate text-[15px] font-semibold leading-5">{a.name}</span>
-                        <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-faint">
+                        <span className="truncate text-[17px] font-semibold leading-6">{a.name}</span>
+                        <span className="flex shrink-0 items-center gap-1.5 text-[14px] text-faint">
                           <StatusDot status={a.status} needsSignIn={!!a.signIn} className="size-1.5" />
                           {harnessLabel(a.harness)}
                           {a.model ? ` · ${prettyModel(a.model)}` : ""}
                         </span>
                       </span>
-                      <span className={cx("block truncate text-[13px] leading-5", line.warn ? "text-st-needs" : line.working ? "text-wisp-strong" : "text-muted")}>
+                      <span className={cx("block truncate text-[15px] leading-[22px]", line.warn ? "text-st-needs" : line.working ? "text-wisp-strong" : "text-muted")}>
                         <span className={cx(line.working && "shimmer-text")}>{line.text}</span>
                       </span>
                     </span>

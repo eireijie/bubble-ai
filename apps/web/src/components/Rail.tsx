@@ -85,12 +85,12 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
   ];
 }
 
-/** A round sidebar button, 35×34 with a soft fill: search, the plus, Computers on the rail. */
-const ROUND = "relative grid h-[34px] w-[35px] shrink-0 place-items-center rounded-full text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
+/** A round sidebar button, 40px with a soft fill: search, the plus, Computers on the rail. */
+const ROUND = "relative grid size-[40px] shrink-0 place-items-center rounded-full text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
 const SOFT = "bg-side-active";
-/** A row of the wide sidebar (51px, a 38px picture, a rounded tile when it's the open one), and its square on the rail. Hover eases in; a press gives a little. */
-const ITEM = "relative flex h-[51px] w-full items-center gap-[11px] rounded-[10px] px-2 text-left text-[14px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
-const TILE = "relative grid size-[51px] place-items-center rounded-[10px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
+/** A row of the wide sidebar (60px, a big wisp, a rounded tile when it's the open one), and its square on the rail. Hover eases in; a press gives a little. */
+const ITEM = "relative flex h-[60px] w-full items-center gap-3 rounded-[12px] px-2 text-left text-[16px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
+const TILE = "relative grid size-[58px] place-items-center rounded-[12px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
 const MENU_ITEM = "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-body hover:bg-hover";
 
 /** A small violet dot that breathes while an agent is working. */
@@ -185,14 +185,14 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
   const cls = cx(wide ? ITEM : TILE, active ? "bg-side-active" : "hover:bg-side-hover");
   const inner = (
     <>
-      <span className="grid size-[38px] shrink-0 place-items-center">
-        <ChatAvatar chat={chat} size={38} />
+      <span className="grid size-[46px] shrink-0 place-items-center">
+        <ChatAvatar chat={chat} size={chat.kind === "dm" ? 54 : 46} />
       </span>
       {wide && (
         <span className={cx("flex min-w-0 flex-1 flex-col", chat.muted && "opacity-60")}>
-          <span className="truncate font-semibold leading-[19px] text-ink">{chat.name}</span>
+          <span className="truncate font-medium leading-[22px] text-ink">{chat.name}</span>
           {line.text && (
-            <span className={cx("flex min-w-0 items-center gap-1.5 text-[13px] leading-[18px]", line.working ? "text-wisp-strong" : "text-muted")}>
+            <span className={cx("flex min-w-0 items-center gap-1.5 text-[15px] leading-[21px]", line.working ? "text-wisp-strong" : "text-muted")}>
               {line.working && <WorkDot />}
               {line.icon && <span className="inline-flex shrink-0">{line.icon}</span>}
               <span className={cx("truncate", line.working && "shimmer-text")}>{line.text}</span>
@@ -228,14 +228,14 @@ async function deleteSection(id: string) {
   }
 }
 
-/** "Pinned" or one of your sections: 28px of small muted text that folds its rows. Right-click one of yours to rename or delete it. */
+/** "Pinned" or one of your sections: 36px of muted text that folds its rows. Right-click one of yours to rename or delete it. */
 function GroupHeader({ label, closed, onToggle, section, onRename, first }: { label: string; closed: boolean; onToggle: () => void; section?: Section; onRename: () => void; first: boolean }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   return (
-    <div className={cx("group/sec flex h-7 items-center px-2", !first && "mt-1.5")} onContextMenu={section ? (e) => (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY })) : undefined}>
-      <button type="button" onClick={onToggle} aria-expanded={!closed} className="flex min-w-0 items-center gap-1 rounded text-[12px] leading-4 text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+    <div className={cx("group/sec flex h-9 items-center px-2", !first && "mt-3")} onContextMenu={section ? (e) => (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY })) : undefined}>
+      <button type="button" onClick={onToggle} aria-expanded={!closed} className="flex min-w-0 items-center gap-1 rounded text-[15px] leading-5 text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
         <span className="truncate">{label}</span>
-        <ChevronDown size={12} strokeWidth={2.2} aria-hidden className={cx("shrink-0", closed ? "-rotate-90" : "opacity-0 group-hover/sec:opacity-100")} />
+        <ChevronDown size={14} strokeWidth={2.2} aria-hidden className={cx("shrink-0", closed ? "-rotate-90" : "opacity-0 group-hover/sec:opacity-100")} />
       </button>
       {menu && section && (
         <Float role="menu" label={section.name} at={{ left: Math.max(8, Math.min(menu.x, window.innerWidth - 232)), top: Math.max(8, Math.min(menu.y, window.innerHeight - 108)) }} className="min-w-56 p-1.5" onClose={() => setMenu(null)}>
@@ -469,7 +469,7 @@ export function Rail({ route }: { route: Route }) {
 
   const search = (
     <button type="button" onClick={() => useStore.getState().setPalette(true)} aria-label="Search" className={cx(ROUND, SOFT)}>
-      <Search size={16} strokeWidth={1.8} />
+      <Search size={19} strokeWidth={1.8} />
     </button>
   );
   const plus = (up: boolean) => (
@@ -479,7 +479,7 @@ export function Rail({ route }: { route: Route }) {
       items={addItems}
       trigger={(open, t) => (
         <button type="button" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New agent or team" className={cx(ROUND, open ? "bg-line2" : SOFT)}>
-          <Plus size={16} strokeWidth={1.8} />
+          <Plus size={20} strokeWidth={1.8} />
         </button>
       )}
     />
@@ -489,7 +489,7 @@ export function Rail({ route }: { route: Route }) {
       up
       items={accountItems}
       trigger={(open, t) => (
-        <button type="button" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="You and settings" className={cx("relative grid size-[34px] shrink-0 place-items-center rounded-full text-[13px] font-semibold text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", open || route.view === "settings" ? "bg-line2" : SOFT)}>
+        <button type="button" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="You and settings" className={cx("relative grid size-[42px] shrink-0 place-items-center rounded-full text-[15px] font-semibold text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", open || route.view === "settings" ? "bg-line2" : SOFT)}>
           {initialsOf(me.user.name)}
           {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
         </button>
@@ -503,8 +503,8 @@ export function Rail({ route }: { route: Route }) {
   const needsLabel = `Needs you, ${inbox} waiting`;
   const count = inbox > 99 ? "99+" : String(inbox);
   const bell = (
-    <span className="grid size-[38px] shrink-0 place-items-center rounded-full bg-st-needs/20 text-st-needs" aria-hidden>
-      <Bell size={17} strokeWidth={1.8} />
+    <span className="grid size-[44px] shrink-0 place-items-center rounded-full bg-st-needs/20 text-st-needs" aria-hidden>
+      <Bell size={20} strokeWidth={1.8} />
     </span>
   );
 
@@ -512,12 +512,12 @@ export function Rail({ route }: { route: Route }) {
     <div className="relative z-30 flex shrink-0">
       <nav ref={navRef} aria-label="Wisp" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(11px,env(safe-area-inset-top))] pb-[11px]" style={{ width, transition }}>
         {/* Wisp's ghost and the workspace's name (switch workspace), then search and the plus */}
-        <div className={cx("mb-2.5 flex shrink-0 items-center gap-1.5", wide ? "h-[34px] px-[11px]" : "flex-col gap-2")}>
+        <div className={cx("side-top mb-3 flex shrink-0 items-center gap-2", wide ? "h-[40px] px-[11px]" : "flex-col gap-2.5")}>
           <OrgSwitcher
             trigger={(open, t) => (
-              <button type="button" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label={`${me.workspace.name}, switch workspace`} title={wide ? undefined : me.workspace.name} className={cx("side-brand flex min-w-0 items-center rounded-[10px] text-ink outline-none transition-colors duration-150 hover:bg-side-hover focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "h-[34px] flex-1 gap-2 pl-1.5 pr-2" : "size-[51px] justify-center", open && "bg-side-hover")}>
-                <WispGhost size={wide ? 24 : 28} />
-                {wide && <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{me.workspace.name}</span>}
+              <button type="button" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label={`${me.workspace.name}, switch workspace`} title={wide ? undefined : me.workspace.name} className={cx("side-brand flex min-w-0 items-center rounded-[10px] text-ink outline-none transition-colors duration-150 hover:bg-side-hover focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "h-[40px] flex-1 gap-2 pl-1.5 pr-2" : "size-[58px] justify-center", open && "bg-side-hover")}>
+                <WispGhost size={wide ? 30 : 34} />
+                {wide && <span className="truncate text-[17px] font-semibold tracking-[-0.01em]">{me.workspace.name}</span>}
                 {wide && <ChevronDown size={14} strokeWidth={2} className={cx("shrink-0 text-faint transition-transform duration-200", open && "rotate-180")} aria-hidden />}
                 {elsewhere && <span className="size-2 shrink-0 rounded-full bg-badge" aria-label="New messages in another workspace" />}
               </button>
@@ -528,17 +528,17 @@ export function Rail({ route }: { route: Route }) {
         </div>
 
         {inbox > 0 && (
-          <div className={cx("shrink-0", wide ? "px-[11px]" : "px-[15px]")}>
+          <div className={cx("shrink-0", wide ? "px-[11px]" : "px-3")}>
             <a href={href({ view: "dashboard" })} aria-label={needsLabel} title={wide ? undefined : needsLabel} aria-current={needsOn ? "page" : undefined} className={cx(wide ? ITEM : TILE, needsOn ? "bg-side-active" : "hover:bg-side-hover")}>
               {bell}
-              {wide && <span className="min-w-0 flex-1 truncate font-semibold text-ink">Needs you</span>}
-              {wide && <span className="shrink-0 pr-1 text-[12px] font-semibold tabular-nums text-st-needs">{count}</span>}
+              {wide && <span className="min-w-0 flex-1 truncate font-medium text-ink">Needs you</span>}
+              {wide && <span className="shrink-0 pr-1 text-[14px] font-semibold tabular-nums text-st-needs">{count}</span>}
               {!wide && <PopBadge count={inbox} label={count} className="absolute right-[1px] top-[1px] box-content grid h-4 min-w-4 place-items-center rounded-full border-2 border-sidebar bg-badge px-1 text-[10px] font-bold tabular-nums text-badge-ink" />}
             </a>
           </div>
         )}
 
-        <div className={cx("side-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden", wide ? "px-[11px]" : "px-[15px]")}>
+        <div className={cx("side-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden", wide ? "px-[11px]" : "px-3")}>
           {shown.map((g, i) => {
             const closed = wide && !g.plain && !!collapsedGroups[g.id];
             return (
@@ -555,13 +555,13 @@ export function Rail({ route }: { route: Route }) {
         </div>
 
         {wide ? (
-          <div ref={footRef} className="flex shrink-0 items-center gap-2 px-[13px] pt-2">
+          <div ref={footRef} className="flex shrink-0 items-center gap-2.5 px-[13px] pt-3">
             {you}
             {!isGuest && (
-              <a href={computersTo} aria-label={computersLabel} aria-current={computersOn ? "page" : undefined} className={cx("flex h-[34px] min-w-0 items-center gap-2 rounded-full pl-2.5 pr-3.5 text-[13px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", computersOn ? "bg-line2" : SOFT)}>
+              <a href={computersTo} aria-label={computersLabel} aria-current={computersOn ? "page" : undefined} className={cx("flex h-[42px] min-w-0 items-center gap-2.5 rounded-full pl-3.5 pr-5 text-[16px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", computersOn ? "bg-line2" : SOFT)}>
                 <span className="flex shrink-0 gap-[3px]" aria-hidden>
-                  <span className={cx("h-[11px] w-4 rounded-[3px]", working ? "bg-ok" : "bg-muted opacity-45")} />
-                  <span className="h-[11px] w-4 rounded-[3px] bg-muted opacity-45" />
+                  <span className={cx("h-[13px] w-[19px] rounded-[4px]", working ? "bg-ok" : "bg-muted opacity-45")} />
+                  <span className="h-[13px] w-[19px] rounded-[4px] bg-muted opacity-45" />
                 </span>
                 <span className="truncate">Computers</span>
               </a>
@@ -572,7 +572,7 @@ export function Rail({ route }: { route: Route }) {
             {plus(true)}
             {!isGuest && (
               <a href={computersTo} aria-label={computersLabel} title="Computers" aria-current={computersOn ? "page" : undefined} className={cx(ROUND, computersOn ? "bg-line2" : SOFT)}>
-                <ComputersIcon size={17} />
+                <ComputersIcon size={20} />
                 {working && <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-ok" />}
               </a>
             )}

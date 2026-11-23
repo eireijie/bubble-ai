@@ -31,12 +31,12 @@ export const AGENT_GROUPS = ["thinks", "works", "can", "asks", "knows", "more"] 
 export type AgentGroup = (typeof AGENT_GROUPS)[number];
 export const GROUP_TITLES: Record<AgentGroup, string> = { thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
 const GROUP_ICON: Record<AgentGroup, ReactNode> = {
-  thinks: <Brain size={17} strokeWidth={1.8} />,
-  works: <Monitor size={17} strokeWidth={1.8} />,
-  can: <Plug size={17} strokeWidth={1.8} />,
-  asks: <ShieldCheck size={17} strokeWidth={1.8} />,
-  knows: <BookOpen size={17} strokeWidth={1.8} />,
-  more: <MoreHorizontal size={17} strokeWidth={1.8} />,
+  thinks: <Brain size={20} strokeWidth={1.8} />,
+  works: <Monitor size={20} strokeWidth={1.8} />,
+  can: <Plug size={20} strokeWidth={1.8} />,
+  asks: <ShieldCheck size={20} strokeWidth={1.8} />,
+  knows: <BookOpen size={20} strokeWidth={1.8} />,
+  more: <MoreHorizontal size={20} strokeWidth={1.8} />,
 };
 
 /** The group each old tab's settings live in now (the overview is the page's top). */
@@ -217,9 +217,9 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
       </header>
       <div className="flex-1 min-h-0 flex">
         {/* desktops (the pop-up): the live ghost, its name and what it does, how it is, Message, then its sections */}
-        <aside className="hidden md:flex w-[248px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-3 pt-5 pb-5">
+        <aside className="hidden md:flex w-[280px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-3 pt-5 pb-5">
           <div className="mb-4 flex flex-col items-start gap-2.5 px-2">
-            {ghost(64)}
+            {ghost(76)}
             <div className="w-full min-w-0">
               <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="-ml-1.5 block h-8 w-full truncate text-[19px] font-semibold leading-[26px]" />
               <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="-ml-1.5 block h-6 w-full truncate text-[13px] text-muted focus:text-ink" />
@@ -241,7 +241,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
               <div className="space-y-6">
                 {/* the profile, on phones */}
                 <div className="md:hidden flex flex-col items-center gap-1 text-center">
-                  {ghost(64)}
+                  {ghost(76)}
                   <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="mt-2 h-8 w-full max-w-xs text-center text-[19px] font-semibold leading-[26px]" />
                   <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="h-6 w-full max-w-xs text-center text-sm text-muted focus:text-ink" />
                   <div className="mt-2">{message}</div>

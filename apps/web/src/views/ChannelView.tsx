@@ -67,10 +67,10 @@ function RunFailedActions({ part, agentId, detail }: { part: Extract<MessagePart
   // the agent still can't answer for want of a sign-in: open that sign-in right here
   const signIn = useStore((s) => (agentId && (part.fix === "signin" || part.fix === "computer") ? s.agents.find((a) => a.id === agentId)?.signIn : null));
   const to = part.fix === "computer" && agentId ? href({ view: "agents", agentId, tab: "computer" }) : part.fix === "connection" ? href({ view: "settings", page: "harnesses" }) : part.fix === "signin" ? href({ view: "settings", page: "harnesses" }) : null;
-  if (sent) return <div className="mt-1 px-1 text-[13px] text-muted">Trying again…</div>;
+  if (sent) return <div className="mt-1 px-1 text-[14px] text-muted">Trying again…</div>;
   const link = "font-medium text-ink hover:underline disabled:opacity-50";
   return (
-    <div className="mt-1 px-1 text-[13px] leading-5 text-muted">
+    <div className="mt-1 px-1 text-[14px] leading-5 text-muted">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {detail ? (
           <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="hover:text-ink">
@@ -193,7 +193,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
     <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         {/* only the name pill, centred: it opens the panel that holds everything else */}
-        <header className="shrink-0 px-3 md:px-6 h-[4.75rem] md:h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
+        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
             {onBack && (
               <span className="md:hidden">
@@ -250,9 +250,9 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
   const m = Math.floor(record.seconds / 60);
   const length = `${String(m).padStart(2, "0")}:${String(record.seconds % 60).padStart(2, "0")}`;
   return (
-    <div className="shrink-0 px-3 md:px-5 w-full max-w-3xl mx-auto">
+    <div className="shrink-0 px-3 md:px-5 w-full max-w-3xl md:max-w-[840px] mx-auto">
       <section className="call-record overflow-hidden rounded-[18px] border border-line bg-card" aria-label={`Call with ${agent.name}`}>
-        <div className="flex h-11 items-center gap-2 border-b border-line pl-3.5 pr-2 text-[13px] text-muted">
+        <div className="flex h-11 items-center gap-2 border-b border-line pl-3.5 pr-2 text-[14px] text-muted">
           <AudioLines size={15} strokeWidth={1.7} aria-hidden />
           <span className="flex-1 truncate">Call with {agent.name} · {length}</span>
           <button type="button" onClick={onHide} aria-label="Hide" title="Hide" className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink"><X size={14} strokeWidth={1.8} /></button>
@@ -260,7 +260,7 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
         {record.lines.length > 0 && (
           <div className="flex max-h-48 flex-col gap-2 overflow-y-auto px-3.5 py-3">
             {record.lines.map((l, i) => (
-              <div key={i} className={cx("max-w-[480px] rounded-2xl px-[13px] py-[7px] text-[13px] leading-5", l.who === "you" ? "self-end bg-[var(--bubble-me)] text-[var(--bubble-me-ink)]" : "self-start bg-[var(--bubble-them)]")}>{l.text}</div>
+              <div key={i} className={cx("max-w-[480px] rounded-2xl px-[13px] py-[7px] text-[14px] leading-5", l.who === "you" ? "self-end bg-[var(--bubble-me)] text-[var(--bubble-me-ink)]" : "self-start bg-[var(--bubble-them)]")}>{l.text}</div>
             ))}
           </div>
         )}
@@ -272,8 +272,8 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
 /** A team's name in a pill at the top of its chat, with its agents' ghosts; opens its info page. */
 function TeamPill({ channel, open, onClick }: { channel: ChannelInfo; open: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-10 max-w-[min(20rem,60vw)] rounded-full pl-2 pr-4 inline-flex items-center gap-[9px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
-      <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={26} />
+    <button onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-12 max-w-[min(22rem,60vw)] rounded-full pl-2 pr-5 inline-flex items-center gap-2.5 text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
+      <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={34} />
       <span className="min-w-0 truncate font-semibold">{channel.name}</span>
       {channel.archivedAt && <span className="shrink-0 text-xs text-muted">Archived</span>}
     </button>
@@ -349,7 +349,7 @@ function ContextCard({ usage }: { usage: ContextUsage | null }) {
           <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 2)}%`, background: color }} />
         </div>
       )}
-      <p className="mt-2 text-[13px] text-muted">{used !== null ? `${tokens(used)}${window ? ` of ${tokens(window)}` : ""} used. Older messages are summarized when it fills up.` : "This shows up after its first reply here."}</p>
+      <p className="mt-2 text-[14px] text-muted">{used !== null ? `${tokens(used)}${window ? ` of ${tokens(window)}` : ""} used. Older messages are summarized when it fills up.` : "This shows up after its first reply here."}</p>
       {shrink && used !== null && (
         <button className="mt-2.5 h-10 rounded-full border border-control-line bg-control px-4 text-sm font-medium" onClick={run}>
           {shrink.name === "compact" ? "Compact" : "Compress"}
@@ -495,7 +495,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
           if (bottom) setNewSince(0);
         }}
       >
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="mx-auto w-full max-w-3xl md:max-w-[840px]">
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
@@ -598,7 +598,7 @@ const ThreadRow = memo(function ThreadRow({ m, channelId, rootId, stamp, grouped
 
 function TimeDivider({ at }: { at: string }) {
   const { clock } = usePrefs();
-  return <div className="px-5 py-3 text-center text-[13px] text-faint">{stampLabel(at, (d) => clockTime(d, clock))}</div>;
+  return <div className="px-5 py-3 text-center text-[14px] text-faint">{stampLabel(at, (d) => clockTime(d, clock))}</div>;
 }
 
 /** The chat that's going on now in this list: a reply into an earlier one says when that was. */
@@ -755,7 +755,7 @@ function ScheduleRow({ m, replies, onReplies }: { m: Message; replies?: number; 
         <div className="mt-0.5 text-body">{m.body}</div>
         <FlowStrip channelId={m.channelId} threadId={m.id} />
         {onReplies && (
-          <button type="button" onClick={onReplies} className="mt-1 text-[13px] text-muted hover:text-ink">
+          <button type="button" onClick={onReplies} className="mt-1 text-[14px] text-muted hover:text-ink">
             {replies ? `${replies} ${replies === 1 ? "reply" : "replies"}` : "Open the thread"}
           </button>
         )}
@@ -796,7 +796,7 @@ function HandoffRow({ m, taskId, replies, working, onOpen }: { m: Message; taskI
       <button
         onClick={onOpen}
         title={task?.title}
-        className="inline-flex max-w-full items-center gap-2 h-9 rounded-full border border-control-line bg-control pl-3 pr-3.5 text-[13px] hover:bg-hover"
+        className="inline-flex max-w-full items-center gap-2 h-9 rounded-full border border-control-line bg-control pl-3 pr-3.5 text-[14px] hover:bg-hover"
       >
         <ChevronRight size={14} className="shrink-0 text-muted" />
         <span className="truncate">
@@ -908,7 +908,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         }}
         data-dragging={swipe.dragging}
         style={swipe.dx ? { transform: `translateX(${swipe.dx}px)` } : undefined}
-        className={cx("m-swipe relative min-w-0 flex flex-col max-w-[84%] md:max-w-[640px] rounded-[18px] outline-none focus-visible:ring-2 focus-visible:ring-ring touch-pan-y", mine ? "items-end" : "items-start")}
+        className={cx("m-swipe relative min-w-0 flex flex-col max-w-[84%] md:max-w-[680px] rounded-[18px] outline-none focus-visible:ring-2 focus-visible:ring-ring touch-pan-y", mine ? "items-end" : "items-start")}
       >
         {swipe.dx > 0 && (
           <span
@@ -941,7 +941,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           <div className="bubble them text-body text-muted italic">This message was deleted.</div>
         ) : (
           showBubble && (
-            <div ref={bubbleRef} className={cx("bubble relative text-[14px]", mine ? "me" : "them", arrived && (mine ? "m-bubble-me" : "m-bubble-them"))} title={time}>
+            <div ref={bubbleRef} className={cx("bubble relative text-[15px] md:text-[16px]", mine ? "me" : "them", arrived && (mine ? "m-bubble-me" : "m-bubble-them"))} title={time}>
               {!!m.reactions?.length && <ReactionBadges reactions={m.reactions} meId={meId} mine={mine} onToggle={react} />}
               {quote && (
                 <button
@@ -992,7 +992,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         {(!!replies || working.length > 0) && onReplies && !inThread && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {!!replies && (
-              <button onClick={onReplies} className="h-8 px-3 rounded-full border border-control-line bg-control text-[13px] hover:bg-hover inline-flex items-center gap-1.5">
+              <button onClick={onReplies} className="h-8 px-3 rounded-full border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
                 <MessageSquare size={13} /> {replies} {replies === 1 ? "reply" : "replies"} <ChevronRight size={13} className="text-muted" />
               </button>
             )}
@@ -1000,7 +1000,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           </div>
         )}
         {(!!replies || working.length > 0) && onReplies && inThread && (
-          <button onClick={onReplies} className="mt-1 h-8 px-3 rounded-full border border-control-line bg-control text-[13px] hover:bg-hover inline-flex items-center gap-1.5">
+          <button onClick={onReplies} className="mt-1 h-8 px-3 rounded-full border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
             <MessageSquare size={13} /> {replies ? `${replies} ${replies === 1 ? "reply" : "replies"}` : "Working"} <ChevronRight size={13} className="text-muted" />
           </button>
         )}
@@ -1015,7 +1015,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           source={bubbleRef.current ?? colRef.current}
           preview={
             bubbleRef.current ? (
-              <div className={cx("bubble !max-w-none text-[14px]", mine ? "me" : "them")}>
+              <div className={cx("bubble !max-w-none text-[15px] md:text-[16px]", mine ? "me" : "them")}>
                 <div className="prose-w line-clamp-[12]" dangerouslySetInnerHTML={{ __html: html || "&nbsp;" }} />
               </div>
             ) : undefined
@@ -1080,7 +1080,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
           (s.text === "Voice message" || !failed) &&
           // a run you stopped didn't fail: it says so quietly
           (s.text === "Run failed: cancelled" ? (
-            <div key={i} className="mt-1 px-1 text-[13px] text-muted">Stopped.</div>
+            <div key={i} className="mt-1 px-1 text-[14px] text-muted">Stopped.</div>
           ) : (
             <div key={i} className={cx("mt-1 px-1", s.text === "Voice message" ? "text-[11px] text-faint inline-flex items-center gap-1" : "text-sm text-bad")}>{s.text === "Voice message" && <Mic size={11} />}{s.text.replace(/`/g, "")}</div>
           )),
@@ -1099,12 +1099,12 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
               {shown.length > 0 && (
                 <div className="mt-1.5 overflow-hidden rounded-[14px] bg-card divide-y divide-line">
                   {/* one line of what it did, like "Searched the web · read 6 pages"; then each tool call */}
-                  <div className="px-4 py-2 text-[13px] font-medium text-muted">{summary}</div>
+                  <div className="px-4 py-2 text-[14px] font-medium text-muted">{summary}</div>
                   {shown.map(
                     (t, i) =>
                       t.type === "tool_call" && (
                         <details key={i} className="text-xs">
-                          <summary className="px-4 py-2 cursor-pointer text-[13px]">{toolLine(t.name, t.input)}</summary>
+                          <summary className="px-4 py-2 cursor-pointer text-[14px]">{toolLine(t.name, t.input)}</summary>
                           <pre className="px-4 pb-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-muted">
                             {JSON.stringify(t.input, null, 2)}
                             {t.output !== undefined && `\n→ ${typeof t.output === "string" ? t.output : JSON.stringify(t.output, null, 2)}`}
@@ -1245,9 +1245,9 @@ function StreamingItem({ run }: { run: LiveRun }) {
           <AgentAvatar agent={agent} size={32} live />
         </div>
       )}
-      <div className="min-w-0 flex flex-col items-start gap-[3px] max-w-[84%] md:max-w-[640px]">
+      <div className="min-w-0 flex flex-col items-start gap-[3px] max-w-[84%] md:max-w-[680px]">
         {!home && <div className="px-3.5 pb-0.5 text-[12px] text-muted">{agent?.name ?? "Agent"}</div>}
-        {html && <div className="bubble them text-[14px]"><div className="prose-w" dangerouslySetInnerHTML={{ __html: html }} /></div>}
+        {html && <div className="bubble them text-[15px] md:text-[16px]"><div className="prose-w" dangerouslySetInnerHTML={{ __html: html }} /></div>}
         {screen && <ComputerPart computerId={computerId} />}
       </div>
     </div>
@@ -1311,7 +1311,7 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
         {gone && <p role="status" className="px-5 py-6 text-sm text-muted text-center">This thread isn't here any more.</p>}
         {!removed && root && (handoff && handoff.type === "task" ? <HandoffBrief m={root} taskId={handoff.taskId} /> : <ThreadRoot m={root} composerThread={rootId} />)}
         {!gone && (
-          <div className="flex items-center gap-3 px-5 py-2 text-[13px] text-muted">
+          <div className="flex items-center gap-3 px-5 py-2 text-[14px] text-muted">
             {history.error ? "" : replies ? `${replies.length} ${replies.length === 1 ? "reply" : "replies"}` : "Loading…"}
             <span className="h-px flex-1 bg-line" />
           </div>
@@ -1341,7 +1341,7 @@ function ThreadHeader({ channelId, parent, onBack, onClose }: { channelId: strin
       </span>
       <div className="min-w-0 flex-1 px-1">
         <div className="truncate text-body font-medium leading-tight">{parent ? "Sub-thread" : "Thread"}</div>
-        {channel && <div className="truncate text-[13px] text-muted">{channel.kind === "dm" ? "Chat" : channel.name}</div>}
+        {channel && <div className="truncate text-[14px] text-muted">{channel.kind === "dm" ? "Chat" : channel.name}</div>}
       </div>
       <span className="max-lg:hidden">
         <button onClick={onClose} className="circle circle-sm" aria-label="Close thread">
@@ -1370,7 +1370,7 @@ function HandoffHeader({ taskId, runs, parent, onBack, onClose }: { taskId: stri
         {agent && <AgentAvatar agent={agent} size={32} live={mine.length > 0} />}
         <div className="min-w-0">
           <div className="truncate text-body font-medium leading-tight">Handed to {agent?.name ?? "an agent"}</div>
-          <div className={cx("text-[13px]", mine.length ? "text-st-working" : st?.tone === "bad" ? "text-st-problem" : "text-muted")}>{mine.length ? "Working" : (st?.label ?? "")}</div>
+          <div className={cx("text-[14px]", mine.length ? "text-st-working" : st?.tone === "bad" ? "text-st-problem" : "text-muted")}>{mine.length ? "Working" : (st?.label ?? "")}</div>
         </div>
       </div>
       {canStop && (
@@ -1399,7 +1399,7 @@ function HandoffBrief({ m, taskId }: { m: Message; taskId: string }) {
     <div className="px-3 pb-1">
       <ChatCard icon={<ArrowRightLeft size={13} />} label={`${from ?? "Someone"} handed this to ${to ?? "an agent"}`} className="max-w-none">
         <div className="mt-2 text-body font-medium leading-snug">{task?.title ?? m.body.replace(/^@[\w-]+\s*/, "")}</div>
-        <div className="mt-2 flex items-center gap-2 text-[13px] text-muted">
+        <div className="mt-2 flex items-center gap-2 text-[14px] text-muted">
           {st && <Pill tone={st.tone}>{st.label}</Pill>}
           <span>Started {clockTime(m.createdAt, clock)}</span>
         </div>
@@ -1425,7 +1425,7 @@ function ThreadRoot({ m }: { m: Message; composerThread?: string }) {
         <div className="flex items-center gap-2.5">
           {agent ? <AgentAvatar agent={agent} size={24} interactive={false} /> : <UserAvatar name={names.member(m.author.id)?.name ?? name} size={24} />}
           <span className="text-[14px] font-medium">{name}</span>
-          <span className="text-[13px] text-faint">{clockTime(m.createdAt, clock)}</span>
+          <span className="text-[14px] text-faint">{clockTime(m.createdAt, clock)}</span>
         </div>
         {m.deletedAt ? (
           <div className="mt-2 text-body italic text-muted">This message was deleted.</div>
@@ -1456,7 +1456,7 @@ function ThreadWork({ runs, threadId, onClick }: { runs: LiveRun[]; threadId: st
   const deeper = runs.every((r) => r.threadId !== threadId);
   const who = agents.length === 1 ? agents[0].name : agents.length === 2 ? `${agents[0].name} and ${agents[1].name}` : `${agents[0].name} and ${agents.length - 1} more`;
   return (
-    <button onClick={onClick} className="h-8 pl-1.5 pr-3 rounded-full bg-chip hover:bg-hover text-[13px] inline-flex items-center gap-1.5" title={deeper ? "Working in a sub-thread" : "Working in this thread"}>
+    <button onClick={onClick} className="h-8 pl-1.5 pr-3 rounded-full bg-chip hover:bg-hover text-[14px] inline-flex items-center gap-1.5" title={deeper ? "Working in a sub-thread" : "Working in this thread"}>
       <span className="flex">
         {agents.slice(0, 3).map((a, i) => (
           <span key={a.id} className={cx("rounded-full ring-2 ring-chip", i > 0 && "-ml-1.5")}>
@@ -1501,7 +1501,7 @@ function TaskChip({ id }: { id: string }) {
         <div className="mt-2 flex items-center gap-2">
           <Pill tone={st.tone}>{st.label}</Pill>
           {agent && (
-            <span className="inline-flex items-center gap-1 text-[13px] text-muted">
+            <span className="inline-flex items-center gap-1 text-[14px] text-muted">
               <AgentAvatar agent={agent} size={18} badge={false} interactive={false} /> {agent.name}
             </span>
           )}
@@ -1819,7 +1819,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   // the icon pops in when what you've typed swaps it (not when the composer first opens)
   const swapped = useChangedSinceMount(action);
   return (
-    <div className="shrink-0 px-3 md:px-5 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-3xl mx-auto flex flex-col">
+    <div className="shrink-0 px-3 md:px-5 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-3xl md:max-w-[840px] mx-auto flex flex-col">
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       {/* who's working here and on what, in one line; it opens their panel */}
@@ -1832,8 +1832,8 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
         <div className="mb-2 flex items-center gap-3 rounded-[14px] bg-card pl-4 pr-1.5 py-1.5">
           <CornerUpLeft size={15} className="shrink-0 text-muted" />
           <div className="min-w-0 flex-1 border-l-2 border-accent pl-2.5 leading-tight">
-            <div className="text-[13px] font-medium">Replying to {replyTo.name}</div>
-            <div className="truncate text-[13px] text-muted">{replyTo.snippet}</div>
+            <div className="text-[14px] font-medium">Replying to {replyTo.name}</div>
+            <div className="truncate text-[14px] text-muted">{replyTo.snippet}</div>
           </div>
           <button onClick={() => updateDraft((d) => ({ ...d, replyTo: null }))} className="size-9 shrink-0 rounded-full grid place-items-center text-muted hover:bg-hover hover:text-ink" aria-label="Cancel reply">
             <X size={16} />
@@ -1845,7 +1845,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
           {files.map((f) => (
             <span key={f.id} className="flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card pl-3 pr-1" title={fileSize(f.size) || undefined}>
               <FileText size={15} className="shrink-0 text-muted" />
-              <span className="min-w-0 truncate text-[13px] font-medium">{f.name}</span>
+              <span className="min-w-0 truncate text-[14px] font-medium">{f.name}</span>
               <button onClick={() => setFiles(files.filter((x) => x.id !== f.id))} aria-label={`Remove ${f.name}`} className="size-7 shrink-0 rounded-full grid place-items-center text-muted hover:bg-hover">
                 <X size={14} />
               </button>
@@ -1854,7 +1854,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
           {pending.map((f) => (
             <span key={f.key} className="flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card px-3" aria-busy>
               <Loader2 size={15} className="shrink-0 animate-spin text-muted" />
-              <span className="min-w-0 truncate text-[13px] font-medium">{f.name}</span>
+              <span className="min-w-0 truncate text-[14px] font-medium">{f.name}</span>
             </span>
           ))}
         </div>
@@ -1876,7 +1876,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                   <AgentAvatar agent={a} size={28} badge={false} interactive={false} />
                   <span className="min-w-0 flex-1 leading-tight">
                     <span className="block text-body font-medium">{a.name}</span>
-                    <span className="block truncate text-[13px] text-muted">
+                    <span className="block truncate text-[14px] text-muted">
                       {node?.role ?? `@${a.handle}`}
                       {node?.lead ? " · leads" : ""}
                     </span>
@@ -1888,12 +1888,12 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
           </div>
         )}
         {/* one line: plus, the text, the round button. Past one line it grows upward into two rows: the text on top, plus and the button underneath */}
-        <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2 rounded-[20px] border border-transparent bg-[var(--bubble-them)] px-[7px] py-[5px] focus-within:border-line2", tall && "gap-y-1 pt-2")}>
+        <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2 rounded-[20px] md:rounded-[26px] border border-transparent bg-[var(--bubble-them)] px-[7px] py-[5px] md:py-[7px] focus-within:border-line2", tall && "gap-y-1 pt-2")}>
           <span className={cx("col-start-1 shrink-0", tall ? "row-start-2" : "row-start-1")}>
             <Popover
               className="w-60 p-1.5 !rounded-[14px]"
               trigger={(open, toggle) => (
-                <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-10 md:size-[34px] rounded-full grid place-items-center text-ink hover:bg-hover", open && "bg-hover")}>
+                <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-10 rounded-full grid place-items-center text-ink hover:bg-hover", open && "bg-hover")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
                 </button>
               )}
@@ -1946,7 +1946,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 send();
               }
             }}
-            className={cx("block min-w-0 resize-none bg-transparent py-[9px] md:py-[6px] text-[15px] md:text-[14px] leading-[22px] outline-none placeholder:text-muted placeholder:truncate row-start-1", tall ? "col-span-3 col-start-1 px-2" : "col-start-2")}
+            className={cx("block min-w-0 resize-none bg-transparent py-[9px] text-[15px] md:text-[16px] leading-[22px] md:leading-6 outline-none placeholder:text-muted placeholder:truncate row-start-1", tall ? "col-span-3 col-start-1 px-2" : "col-start-2")}
           />
           <button
             type="button"
@@ -1965,7 +1965,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             aria-pressed={action === "listening" ? true : undefined}
             title={round.title}
             className={cx(
-              "m-press col-start-3 size-10 md:size-[34px] shrink-0 select-none rounded-full grid place-items-center disabled:bg-chip disabled:text-faint",
+              "m-press col-start-3 size-10 shrink-0 select-none rounded-full grid place-items-center disabled:bg-chip disabled:text-faint",
               tall ? "row-start-2" : "row-start-1",
               action === "listening" ? "bg-bad text-white" : "bg-[var(--bubble-me)] text-[var(--bubble-me-ink)]",
             )}

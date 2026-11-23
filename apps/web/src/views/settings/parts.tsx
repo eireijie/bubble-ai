@@ -15,7 +15,7 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
   if (!merged && !children) return null;
   return (
     <div className={merged ? "mb-3 mt-7" : "mb-4"}>
-      {merged && <h3 className="px-1 text-[13px] font-semibold text-muted">{title}</h3>}
+      {merged && <h3 className="px-1 text-[13px] md:text-[14px] font-semibold text-muted">{title}</h3>}
       {children && <p className="mt-1.5 px-1 text-sm leading-snug text-muted max-w-xl">{children}</p>}
     </div>
   );
@@ -27,8 +27,8 @@ export function Section({ title, description, action, children }: { title: strin
     <section className="mb-7">
       <div className="mb-2 px-1 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[13px] font-semibold text-faint tracking-wide">{title}</h3>
-          {description && <p className="mt-0.5 text-[13px] leading-snug text-faint">{description}</p>}
+          <h3 className="text-[13px] md:text-[14px] font-semibold text-faint tracking-wide">{title}</h3>
+          {description && <p className="mt-0.5 text-[13px] md:text-[14px] leading-snug text-faint">{description}</p>}
         </div>
         {action && <div className="shrink-0">{action}</div>}
       </div>
@@ -45,10 +45,10 @@ export function Card({ children, className }: { children: ReactNode; className?:
 /** One setting: what it is on the left, the control on the right (stacked on phones). */
 export function Row({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children?: ReactNode; className?: string }) {
   return (
-    <div className={cx("px-4 py-1.5 min-h-[52px] flex flex-wrap items-center gap-x-4 gap-y-1", className)}>
+    <div className={cx("px-4 py-1.5 min-h-[52px] md:min-h-[60px] flex flex-wrap items-center gap-x-4 gap-y-1", className)}>
       <div className="min-w-[6.5rem] flex-1">
         <div className="text-body">{label}</div>
-        {hint && <div className="mt-0.5 text-[13px] leading-snug text-faint">{hint}</div>}
+        {hint && <div className="mt-0.5 text-[13px] md:text-[14px] leading-snug text-faint">{hint}</div>}
       </div>
       {children !== undefined && <div className="shrink-0 flex items-center gap-2">{children}</div>}
     </div>

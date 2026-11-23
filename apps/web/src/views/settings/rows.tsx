@@ -61,7 +61,7 @@ export function Group({ children, className }: { children: ReactNode; className?
 }
 
 export const rowDomId = (id: string) => `setting-${id}`;
-const ROW = "flex items-center gap-3 px-4 min-h-[52px] text-body";
+const ROW = "flex items-center gap-3 px-4 min-h-[52px] md:min-h-[60px] text-body";
 
 /**
  * One setting, named by its id in the map: the label on the left, its value or control on the

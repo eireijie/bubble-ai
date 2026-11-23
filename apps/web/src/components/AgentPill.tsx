@@ -35,18 +35,18 @@ export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boole
       onClick={onClick}
       aria-expanded={open}
       className={cx(
-        "agent-pill inline-flex max-w-full items-center gap-[9px] h-10 pl-2 pr-4 rounded-full outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+        "agent-pill inline-flex max-w-full items-center gap-2.5 h-12 pl-2 pr-5 rounded-full text-[17px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
         open ? "bg-side-active" : "hover:bg-hover",
       )}
       aria-label={`${agent.name}${note ? `, ${note}` : ""}. About ${agent.name}`}
     >
       {/* poking the ghost plays with it instead of opening the panel */}
       <span onClick={(e) => e.stopPropagation()} className="grid place-items-center">
-        <Ghost look={look} size={30} mood={mood} interactive label={agent.name} seed={agent.handle} />
+        <Ghost look={look} size={40} mood={mood} interactive label={agent.name} seed={agent.handle} />
       </span>
       <span className="truncate font-semibold">{agent.name}</span>
       {note && mood !== "awake" && (
-        <span key={mood} className={cx("m-fade-in shrink-0 text-[12px]", mood === "waiting" ? "text-st-needs" : mood === "error" ? "text-st-problem" : mood === "working" || mood === "thinking" ? "shimmer-text text-wisp-strong" : "text-muted")} aria-hidden>
+        <span key={mood} className={cx("m-fade-in shrink-0 text-[14px]", mood === "waiting" ? "text-st-needs" : mood === "error" ? "text-st-problem" : mood === "working" || mood === "thinking" ? "shimmer-text text-wisp-strong" : "text-muted")} aria-hidden>
           {note}
         </span>
       )}

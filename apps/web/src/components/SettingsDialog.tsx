@@ -62,10 +62,10 @@ export function SettingsDialog({ label, closing, onClose, children }: { label: s
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={cx("settings-pop-panel relative flex h-[min(720px,calc(100vh-48px))] w-[min(1000px,calc(100vw-48px))] flex-col overflow-hidden rounded-[18px] border border-line bg-panel shadow-float outline-none", closing && "pointer-events-none")}
+        className={cx("settings-pop-panel relative flex h-[min(800px,calc(100vh-48px))] w-[min(1100px,calc(100vw-48px))] flex-col overflow-hidden rounded-[22px] border border-line bg-panel shadow-float outline-none", closing && "pointer-events-none")}
       >
-        <button type="button" onClick={onClose} aria-label="Close" title="Close (Esc)" className="absolute right-3 top-3 z-20 grid size-8 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
-          <X size={17} strokeWidth={1.9} />
+        <button type="button" onClick={onClose} aria-label="Close" title="Close (Esc)" className="absolute right-3.5 top-3.5 z-20 grid size-10 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+          <X size={20} strokeWidth={1.9} />
         </button>
         <SettingsDialogContext.Provider value={{ close: onClose }}>{children}</SettingsDialogContext.Provider>
       </div>
@@ -104,10 +104,10 @@ export function PopNav({ label, items, current, onPick }: { label: string; items
       {mark && <span aria-hidden className="pop-nav-mark" style={{ transform: `translateY(${mark.top}px)`, height: mark.height, transition: glide.current ? undefined : "none" }} />}
       {items.map((it) => {
         const on = it.key === current;
-        const cls = cx("relative flex h-9 shrink-0 items-center gap-2.5 rounded-[10px] px-3 text-left text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", on ? "font-medium text-ink" : "text-ink/75 hover:bg-hover hover:text-ink");
+        const cls = cx("relative flex h-11 shrink-0 items-center gap-3 rounded-[12px] px-3 text-left text-[16px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", on ? "font-medium text-ink" : "text-ink/75 hover:bg-hover hover:text-ink");
         const inner = (
           <>
-            <span className={cx("grid size-[18px] shrink-0 place-items-center", on ? "text-wisp-strong" : "text-muted")} aria-hidden>
+            <span className={cx("grid size-[21px] shrink-0 place-items-center", on ? "text-wisp-strong" : "text-muted")} aria-hidden>
               {it.icon}
             </span>
             <span className="min-w-0 flex-1 truncate">{it.label}</span>

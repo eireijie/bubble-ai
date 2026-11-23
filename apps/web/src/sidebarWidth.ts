@@ -4,7 +4,7 @@
  * The width and whether it's collapsed are remembered on this device.
  */
 export const SIDEBAR = {
-  /** the rail: 51px ghost tiles and round buttons */
+  /** the rail: 58px ghost tiles and round buttons */
   rail: 82,
   min: 256,
   max: 480,

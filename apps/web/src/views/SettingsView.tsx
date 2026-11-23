@@ -96,11 +96,11 @@ export const SHEET_IDS = Object.keys(SHEETS);
 
 /** Each page's line icon in the list down the left. */
 const FIVE_ICON: Record<Five, ReactNode> = {
-  you: <UserRound size={17} strokeWidth={1.8} />,
-  agents: <GhostIcon size={17} strokeWidth={1.8} />,
-  computers: <Monitor size={17} strokeWidth={1.8} />,
-  privacy: <ShieldCheck size={17} strokeWidth={1.8} />,
-  about: <Info size={17} strokeWidth={1.8} />,
+  you: <UserRound size={20} strokeWidth={1.8} />,
+  agents: <GhostIcon size={20} strokeWidth={1.8} />,
+  computers: <Monitor size={20} strokeWidth={1.8} />,
+  privacy: <ShieldCheck size={20} strokeWidth={1.8} />,
+  about: <Info size={20} strokeWidth={1.8} />,
 };
 
 /** The top of You: your picture, your name, your role and workspace. */
@@ -227,7 +227,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   if (fullWindow)
     return (
       <div className="flex-1 min-w-0 min-h-0 flex">
-        <aside className="flex w-[232px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-3 pt-[max(1.25rem,env(safe-area-inset-top))] pb-6">
+        <aside className="flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-3 pt-[max(1.25rem,env(safe-area-inset-top))] pb-6">
           <h2 className="mb-3 px-2 text-[15px] font-semibold">Settings</h2>
           <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="mb-3 bg-panel" />
           <PopNav label="Settings" current={query ? null : current} onPick={() => setQuery("")} items={pages.map((p) => ({ key: p, label: FIVE_LABEL[p], icon: FIVE_ICON[p], href: pageTop(p) }))} />

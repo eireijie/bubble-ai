@@ -338,6 +338,7 @@ function Workspace() {
 
   return (
     <div ref={shellRef} className="h-full flex overflow-hidden bg-app">
+      <div className="titlebar-drag" aria-hidden />
       {!phone && <Rail route={route} />}
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="relative flex-1 min-h-0 flex">

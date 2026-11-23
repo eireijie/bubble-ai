@@ -248,8 +248,8 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
     const line = (Icon: LucideIcon) => <Icon size={17} strokeWidth={1.8} />;
     const dmOf = (agentId: string) => channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`));
     const stamp = (c: ChannelInfo | undefined, fallback = "") => Date.parse(c?.last?.at ?? c?.createdAt ?? fallback) || 0;
-    const agentRow = (a: Agent, group: string, meta?: string): Row => ({ key: `a:${a.id}`, group, icon: <ChatAvatar chat={{ kind: "dm", agent: a, channel: null }} size={22} />, label: <span className="font-semibold">{a.name}</span>, meta, run: () => void openDm(a.id) });
-    const teamRow = (c: ChannelInfo, group: string, meta?: string): Row => ({ key: `c:${c.id}`, group, icon: <ChatAvatar chat={{ kind: "team", agent: null, channel: c }} size={22} />, label: <span className="font-semibold">{c.name}</span>, meta, run: () => go({ view: "chat", channelId: c.id, threadId: null }) });
+    const agentRow = (a: Agent, group: string, meta?: string): Row => ({ key: `a:${a.id}`, group, icon: <ChatAvatar chat={{ kind: "dm", agent: a, channel: null }} size={28} />, label: <span className="font-semibold">{a.name}</span>, meta, run: () => void openDm(a.id) });
+    const teamRow = (c: ChannelInfo, group: string, meta?: string): Row => ({ key: `c:${c.id}`, group, icon: <ChatAvatar chat={{ kind: "team", agent: null, channel: c }} size={28} />, label: <span className="font-semibold">{c.name}</span>, meta, run: () => go({ view: "chat", channelId: c.id, threadId: null }) });
     const needsYou: Row = { key: "needs-you", group: "", icon: line(Bell), label: waiting > 0 ? `Needs you (${waiting})` : "Needs you", run: () => go({ view: "dashboard" }) };
 
     // nothing typed: who you talked to last, and what waits on you
@@ -409,11 +409,11 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
                   data-index={i}
                   onMouseMove={() => setSel(i)}
                   onClick={() => choose(r)}
-                  className={cx("flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-base md:h-10 md:gap-2.5 md:rounded-lg md:px-2.5 md:text-[14px]", i === sel && "bg-hover")}
+                  className={cx("flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-base md:h-12 md:gap-3 md:rounded-xl md:px-3 md:text-[16px]", i === sel && "bg-hover")}
                 >
                   <span className="grid w-6 shrink-0 place-items-center text-muted md:w-[22px]">{r.icon}</span>
                   <span className="min-w-0 flex-1 truncate">{r.label}</span>
-                  {r.meta && <span className="max-w-[45%] shrink-0 truncate text-[13px] text-muted">{r.meta}</span>}
+                  {r.meta && <span className="max-w-[45%] shrink-0 truncate text-[14px] text-muted">{r.meta}</span>}
                   {i === sel && <CornerDownLeft size={14} strokeWidth={1.8} className="hidden shrink-0 text-muted md:block" aria-hidden />}
                 </button>
               </div>
