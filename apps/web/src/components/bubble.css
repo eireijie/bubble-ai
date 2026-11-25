@@ -33,7 +33,7 @@
 .bub-small.bub-round .bub-r { -webkit-mask: radial-gradient(closest-side, transparent 62%, #000 86%); mask: radial-gradient(closest-side, transparent 62%, #000 86%); }
 .bub-h { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(ellipse 21% 12% at 34% 23%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0)), radial-gradient(ellipse 7% 5% at 72% 78%, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0)); }
 .bub-face { position: absolute; inset: 0; }
-.bub-e { position: absolute; top: 38%; width: 11%; height: 17%; border-radius: 50%; background: var(--bub-eye); translate: var(--ex, 0px) var(--ey, 0px); transition: translate 0.3s cubic-bezier(0.2, 0.8, 0.3, 1), height 0.2s, top 0.2s; }
+.bub-e { position: absolute; top: 38%; width: 11%; height: 17%; border-radius: 50%; background: var(--bub-eye); translate: calc(var(--ex, 0px) + var(--gx, 0%)) calc(var(--ey, 0px) + var(--gy, 0%)); transition: translate 0.3s cubic-bezier(0.2, 0.8, 0.3, 1), height 0.2s, top 0.2s; }
 .bub-e1 { left: 31%; }
 .bub-e2 { left: 58%; }
 .bub-flag { position: absolute; right: -3%; top: -3%; width: 26%; height: 26%; min-width: 7px; min-height: 7px; border-radius: 50%; background: var(--bub-flag, #ff9f0a); box-shadow: 0 0 0 2px var(--bub-ring-bg, var(--app)); display: none; }
@@ -70,6 +70,19 @@
 .bub-move.bub-spin { animation: bub-spin 0.9s cubic-bezier(0.65, 0, 0.35, 1); }
 /* the page has been left alone a while: everything rests, nothing redraws */
 .bub-rest, .bub-rest * { animation-play-state: paused !important; }
+/* off screen, or the page is hidden: nothing redraws (bubbleMotion.ts sets these) */
+.bub-move[data-off], .bub-move[data-off] *, [data-bub-hidden] .bub-move, [data-bub-hidden] .bub-move * { animation-play-state: paused !important; }
+
+/*
+ * Small bubbles (80px and under: lists, pins, chat headers) are cheap: the glass, rim and body hold
+ * still, and the eyes blink and glance from one shared timer (bubbleMotion.ts) instead of CSS loops
+ * that re-run styles every frame. Moods that mean something still move: working bobs, scans and
+ * sends up bubbles, needs you hops, speaking wobbles, and a click still spins it.
+ */
+.bub.bub-lite .bub-p, .bub.bub-lite .bub-r { animation: none; }
+.bub.bub-lite.bub-idle:not(.bub-hop-once) .bub-w, .bub.bub-lite.bub-listen:not(.bub-hop-once) .bub-w, .bub.bub-lite.bub-done:not(.bub-hop-once) .bub-w, .bub.bub-lite.bub-sleep:not(.bub-hop-once) .bub-w { animation: none; }
+.bub.bub-lite:not(.bub-work) .bub-e { animation: none; transition: translate 0.6s cubic-bezier(0.4, 0, 0.2, 1), height 0.2s, top 0.2s; }
+.bub.bub-lite[data-hov] .bub-e { transition: translate 0.3s cubic-bezier(0.2, 0.8, 0.3, 1), height 0.2s, top 0.2s; }
 
 @keyframes bub-morph { 0%, 100% { border-radius: 50%; } 33% { border-radius: 54% 46% 52% 48% / 47% 54% 46% 53%; } 66% { border-radius: 47% 53% 46% 54% / 53% 47% 54% 46%; } }
 @keyframes bub-hue { to { filter: hue-rotate(360deg); } }

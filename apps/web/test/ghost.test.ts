@@ -6,9 +6,11 @@ import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { Ghost } from "../src/components/Ghost.tsx";
 import { agentMood } from "../src/ghostMood.ts";
 import { activitySnapshot, subscribeActivity } from "../src/ghostActivity.ts";
+import { Bubble } from "../src/components/Bubble.tsx";
+import { bubbleMotionState, liteEyes } from "../src/components/bubbleMotion.ts";
 
 const motion = vi.hoisted(() => ({ reduced: false }));
-vi.mock("../src/theme.ts", () => ({ useMotionReduced: () => motion.reduced }));
+vi.mock("../src/theme.ts", () => ({ useMotionReduced: () => motion.reduced, motionReduced: () => motion.reduced }));
 afterEach(() => { motion.reduced = false; vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("work moods", () => {
@@ -112,5 +114,64 @@ describe("onboarding shares the app's bubble", async () => {
     expect(html).toContain('class="bub ');
     expect(html).toContain("--bub-c:#a59bff");
     expect(renderToStaticMarkup(createElement(OnboardingGhost, { size: 140, working: true }))).toContain("bub-work");
+  });
+});
+
+describe("cheap small bubbles (2026-11-25 speed pass)", () => {
+  const look = { ...defaultAppearance("nova"), bubble: "round" as const };
+  const html = (size: number, mood?: "awake" | "working") => renderToStaticMarkup(createElement(Bubble, { look, seed: "nova", size, mood }));
+
+  it("holds small bubbles still except their eyes; big ones keep every loop", () => {
+    expect(html(40)).toContain("bub-lite");
+    expect(html(70)).toContain("bub-lite");
+    expect(html(132)).not.toContain("bub-lite");
+    expect(html(132)).toContain("bub-move");
+    motion.reduced = true;
+    expect(html(40)).not.toContain("bub-lite");
+    expect(html(40)).not.toContain("bub-move");
+  });
+
+  function fakeBubble() {
+    const eyes = [{ animate: vi.fn() }, { animate: vi.fn() }];
+    const props = new Map<string, string>();
+    const el = {
+      dataset: {} as Record<string, string>,
+      style: { setProperty: (k: string, v: string) => props.set(k, v), removeProperty: (k: string) => props.delete(k) },
+      querySelectorAll: () => eyes,
+    };
+    return { el: el as unknown as HTMLElement, eyes, props, raw: el };
+  }
+
+  it("blinks and glances from one shared timer, skips bubbles off screen, and stops when done", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("document", { hidden: false });
+    const a = fakeBubble();
+    const b = fakeBubble();
+    b.raw.dataset.off = "";
+    const undoA = liteEyes(a.el, { sleepy: false, glances: true });
+    const undoB = liteEyes(b.el, { sleepy: false, glances: true });
+    expect(bubbleMotionState()).toEqual({ lite: 2, timer: true });
+    vi.advanceTimersByTime(20_000);
+    expect(a.eyes[0].animate).toHaveBeenCalled();
+    expect(a.props.has("--gx")).toBe(true);
+    expect(b.eyes[0].animate).not.toHaveBeenCalled();
+    undoA();
+    undoB();
+    expect(a.props.has("--gx")).toBe(false);
+    expect(bubbleMotionState()).toEqual({ lite: 0, timer: false });
+  });
+
+  it("does nothing with reduced motion or while the page is hidden", () => {
+    vi.useFakeTimers();
+    const a = fakeBubble();
+    vi.stubGlobal("document", { hidden: true });
+    const undo = liteEyes(a.el, { sleepy: true, glances: true });
+    vi.advanceTimersByTime(30_000);
+    vi.stubGlobal("document", { hidden: false });
+    motion.reduced = true;
+    vi.advanceTimersByTime(30_000);
+    expect(a.eyes[0].animate).not.toHaveBeenCalled();
+    expect(a.props.size).toBe(0);
+    undo();
   });
 });
