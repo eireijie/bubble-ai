@@ -23,7 +23,7 @@ struct Workspace: Codable, Hashable {
 }
 
 struct Me: Codable {
-  struct Prefs: Codable { var experience: String?; var sendWith: String?; var clock: String?; var toolCalls: String? }
+  struct Prefs: Codable { var experience: String?; var sendWith: String?; var clock: String?; var toolCalls: String?; var sidebar: SidebarLayout? }
   var prefs: Prefs?
   var kind: String
   var user: User?
@@ -54,6 +54,8 @@ struct GhostLook: Codable, Hashable {
   var hat: String?
   var accessory: String?
   var motion: String?
+  /** the bubble's shape (2026-11-25); unset on looks saved before bubbles, which show as "round" */
+  var bubble: String? = nil
 }
 
 struct Agent: Codable, Identifiable, Hashable {

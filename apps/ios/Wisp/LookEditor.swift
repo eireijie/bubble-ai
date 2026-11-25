@@ -1,10 +1,10 @@
 import SwiftUI
 
 /**
- * Look (agent-Look.dc.html): the ghost, Shuffle, Color, Hat, Neckwear, Back to its original ghost,
- * Save. Shape, eyes, mouth, motion, cheeks and a mood to preview it in are under More options,
- * so the same wardrobe as on the web is still here. A ghost stays one simple piece; hats and
- * neckwear sit rigid on the body.
+ * Look (2026-11-25 "Wisp, bubbles", board "Bubble shapes"): the agent's bubble, big, with small
+ * bubbles drifting up behind it and a mood to preview it in; then its shape (eight) and colour
+ * (six, or your own). Every shape keeps the clear body, rainbow rim and face. Back to its
+ * original look and Save sit at the bottom.
  */
 struct LookEditor: View {
   @Environment(Store.self) private var store
@@ -15,7 +15,6 @@ struct LookEditor: View {
   private var seed: String
   @State private var look: GhostLook
   @State private var mood: GhostMood = .awake
-  @State private var more = false
   @State private var saving = false
   @State private var error: String?
 
@@ -35,39 +34,63 @@ struct LookEditor: View {
     _look = State(initialValue: look.wrappedValue.resolved)
   }
 
-  static let previewMoods: [(GhostMood, String)] = [(.awake, "Awake"), (.working, "Working"), (.asleep, "Asleep")]
+  static let previewMoods: [(GhostMood, String)] = [(.awake, "Idle"), (.working, "Working"), (.waiting, "Needs you"), (.asleep, "Offline")]
+
+  private var shape: BubbleForm { BubbleForm(look) }
+  private var color: String { BubbleColors.color(look, seed: seed) }
 
   var body: some View {
     NavigationStack {
       AgentFrame(title: "Look", subtitle: name, close: true) {
-        VStack(spacing: 12) {
-          GhostView(look: look, seed: seed, size: 160, mood: mood, interactive: true)
-            .frame(width: 160, height: 160).accessibilityHidden(true)
-          AgentChip(title: "Shuffle", symbol: "shuffle") { look = GhostLook.shuffled(keeping: look.motion) }
-            .accessibilityIdentifier("look-shuffle")
-        }.frame(maxWidth: .infinity).padding(.vertical, 4)
-        CardCaption("Color")
-        GhostColors(look: $look, labels: true).padding(.horizontal, 18)
-        options("Hat", values: GhostLook.hats, key: \.hat)
-        options("Neckwear", values: GhostLook.accessories, key: \.accessory)
-        CardGroup {
-          Button { more.toggle() } label: {
-            RowLabel(title: "More options", chevron: false)
-              .overlay(alignment: .trailing) { Image(systemName: more ? "chevron.up" : "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.faint).padding(.trailing, 18) }
-          }.buttonStyle(.plain).accessibilityIdentifier("look-more")
+        ZStack {
+          BubbleField().clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+          GhostView(look: look, seed: seed, size: 132, mood: mood, interactive: true)
+            .frame(width: 132, height: 132).accessibilityLabel("\(name)'s bubble")
         }
-        if more {
-          options("Shape", values: GhostLook.shapes, key: \.shape)
-          options("Eyes", values: GhostLook.eyeStyles, key: \.eyes)
-          options("Mouth", values: GhostLook.mouths, key: \.mouth)
-          options("Motion", values: GhostLook.motions, key: \.motion)
-          CardGroup { SwitchRow(title: "Rosy cheeks", isOn: flag(\.cheeks)) }
-          Segments(options: Self.previewMoods.map { ($0.0, $0.1) }, selection: $mood)
-          CardCaption("Preview it awake, working or asleep.")
+        .frame(maxWidth: .infinity).frame(height: 200)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.card))
+        Segments(options: Self.previewMoods.map { ($0.0, $0.1) }, selection: $mood)
+        CardCaption("Shape")
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+          ForEach(BubbleForm.allCases) { s in
+            let on = s == shape
+            Button { look.bubble = s.rawValue } label: {
+              VStack(spacing: 6) {
+                GhostView(look: preview(s), seed: seed, size: 40, animate: false).frame(width: 40, height: 40)
+                Text(s.name).font(.system(size: 12, weight: on ? .semibold : .regular)).foregroundStyle(on ? Palette.text : Palette.muted)
+              }
+              .frame(maxWidth: .infinity).frame(height: 84)
+              .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(on ? Palette.hairline : .clear))
+              .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(on ? Palette.mine : .clear, lineWidth: 2))
+              .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Shape: \(s.name)")
+            .accessibilityAddTraits(on ? .isSelected : [])
+            .accessibilityIdentifier("look-shape-\(s.rawValue)")
+          }
+        }
+        CardCaption("Colour")
+        HStack(spacing: 8) {
+          ForEach(BubbleColors.all, id: \.hex) { c in
+            let on = c.hex == color.lowercased()
+            Button { setColor(c.hex) } label: {
+              Circle().fill(Color(hex: c.hex)).frame(width: 30, height: 30)
+                .overlay { if on { Circle().stroke(Palette.text, lineWidth: 2).padding(-4) } }
+                .frame(width: 40, height: 40).contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(c.name)
+            .accessibilityAddTraits(on ? .isSelected : [])
+          }
+          ColorPicker("Your own colour", selection: Binding(get: { Color(hex: color) }, set: { setColor($0.hexString) }), supportsOpacity: false)
+            .labelsHidden()
+            .frame(width: 40, height: 40)
+          Spacer(minLength: 0)
         }
         CardGroup {
           Button { look = GhostLook.defaultAppearance(seed).resolved } label: {
-            RowLabel(title: "Back to its original ghost", chevron: false, leading: { rowIcon("arrow.counterclockwise") })
+            RowLabel(title: "Back to its original look", chevron: false, leading: { rowIcon("arrow.counterclockwise") })
           }.buttonStyle(.plain).accessibilityIdentifier("look-reset")
         }
         AgentError(text: error)
@@ -76,6 +99,17 @@ struct LookEditor: View {
     }
     .agentSheet()
     .interactiveDismissDisabled(saving)
+  }
+
+  private func preview(_ s: BubbleForm) -> GhostLook {
+    var result = look
+    result.bubble = s.rawValue
+    return result
+  }
+
+  private func setColor(_ hex: String) {
+    look.color = hex
+    look.color2 = nil
   }
 
   private func save() {
@@ -94,45 +128,6 @@ struct LookEditor: View {
     }
   }
 
-  private func options(_ title: String, values: [String], key: WritableKeyPath<GhostLook, String?>) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      CardCaption(title)
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 8) {
-          ForEach(values, id: \.self) { value in
-            let selected = (look[keyPath: key] ?? (value == values.first ? value : nil)) == value
-            Button { look[keyPath: key] = value } label: {
-              VStack(spacing: 4) {
-                GhostView(look: preview(value, key: key), seed: seed, size: 52, animate: title == "Motion")
-                  .frame(width: 52, height: 52)
-                Text(label(value)).font(.system(size: 13, weight: .medium)).foregroundStyle(selected ? Color(light: 0xFFFFFF, dark: 0x111113) : Palette.text).lineLimit(1)
-              }
-              .padding(.horizontal, 10).padding(.vertical, 8).frame(minWidth: 76)
-              .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(selected ? Palette.text : Palette.card))
-              .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(title): \(label(value))")
-            .accessibilityAddTraits(selected ? .isSelected : [])
-          }
-        }.padding(.horizontal, 2)
-      }
-    }
-  }
-
-  private func preview(_ value: String, key: WritableKeyPath<GhostLook, String?>) -> GhostLook {
-    var result = look
-    result[keyPath: key] = value
-    if key == \.shape || key == \.eyes || key == \.mouth { result.hat = "none"; result.accessory = "none" }
-    if key == \.accessory { result.hat = "none" }
-    return result
-  }
-
-  private func label(_ value: String) -> String { GhostLabels.label(value) }
-
-  private func flag(_ key: WritableKeyPath<GhostLook, Bool?>) -> Binding<Bool> {
-    Binding(get: { look[keyPath: key] ?? false }, set: { look[keyPath: key] = $0 })
-  }
 }
 
 enum GhostLabels {

@@ -1,11 +1,15 @@
 import SwiftUI
 
-/** Wisp's web ghost, painted in its original SVG coordinates. */
+/**
+ * An agent's avatar: a bubble (Bubble.swift) in its own shape and colour. The name stays from the
+ * ghost days so every screen that drew a ghost now draws a bubble. Eyes glance around and look
+ * toward your finger; a tap spins it once. Reduce Motion (the system's or Wisp's) stills it.
+ */
 struct GhostView: View {
   var look: GhostLook?
   var seed: String
   var asleep = false
-  /** the agent's device is disconnected: the only time a wisp is drawn gray */
+  /** the agent's device is disconnected: drawn drowsy */
   var offline = false
   var size: CGFloat = 36
   var mood: GhostMood = .awake
@@ -16,34 +20,37 @@ struct GhostView: View {
   private var reduceMotion: Bool { systemReduceMotion || motionSetting }
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.colorScheme) private var colorScheme
-  @State private var pokeAt: Date?
-  @State private var pokeCount = 0
+  @State private var spunAt: Date?
+  @State private var gaze = BubbleGaze()
 
-  private var animated: Bool { animate && !reduceMotion && scenePhase == .active }
+  private var animated: Bool { animate && !reduceMotion && scenePhase == .active && size >= 12 }
 
   var body: some View {
-    let appearance = (look ?? GhostLook.defaultAppearance(seed)).resolved
-    let currentMood = asleep ? GhostMood.asleep : mood
+    let currentMood = asleep || offline ? GhostMood.asleep : mood
+    let shape = BubbleForm(look)
+    let color = BubbleColors.color(look, seed: seed)
     let phase = Double(GhostLook.hash(seed) % 10_000) / 1000
-    let overflow = max(12, size * 0.3)
-    let rendered = TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !animated)) { timeline in
+    let overflow = max(8, size * 0.3)
+    let dark = colorScheme == .dark
+    let rendered = TimelineView(.animation(minimumInterval: size >= 60 ? 1.0 / 60 : 1.0 / 30, paused: !animated)) { timeline in
       Canvas { context, _ in
         var context = context
         context.translateBy(x: overflow, y: overflow)
-        let time = animated ? timeline.date.timeIntervalSinceReferenceDate + phase : 0
-        let poke = animated ? pokeAt.map { timeline.date.timeIntervalSince($0) } : nil
-        GhostRenderer(look: appearance, mood: currentMood, size: size, time: time, animated: animated,
-          poke: poke, pokeCount: pokeCount, darkMode: colorScheme == .dark, offline: offline || asleep).draw(context)
+        let now = timeline.date.timeIntervalSinceReferenceDate
+        BubblePainter(shape: shape, color: color, mood: currentMood, size: size, dark: dark,
+          time: animated ? now + phase : 0, animated: animated, gaze: animated ? eyes(now) : nil,
+          spin: animated ? spunAt.map { timeline.date.timeIntervalSince($0) } : nil,
+          ground: Palette.ground).draw(context)
       }
-      // SVG overflow is visible on the web, including hats and hops.
       .frame(width: size + overflow * 2, height: size + overflow * 2)
     }
     .frame(width: size, height: size)
+    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { gaze.frame = $0 }
     if interactive && size >= 24 {
       rendered
         .contentShape(Rectangle())
         .onTapGesture(perform: react)
-        .accessibilityLabel("Ghost, \(currentMood.rawValue)")
+        .accessibilityLabel("Bubble, \(currentMood.rawValue)")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(.default, react)
     } else {
@@ -51,11 +58,28 @@ struct GhostView: View {
     }
   }
 
+  /** Where the eyes look while a finger is on the screen (the web's pointer follow), eased. */
+  private func eyes(_ now: TimeInterval) -> CGPoint? {
+    let f = gaze.frame
+    var target = CGPoint.zero
+    let touching = BubbleTouch.point != nil && f.width > 0
+    if let p = BubbleTouch.point, f.width > 0 {
+      let dx = (p.x - f.midX) / (f.width / 2), dy = (p.y - (f.minY + f.height * 0.45)) / (f.height / 2)
+      let d = hypot(dx, dy), k = d > 1 ? 1 / d : 1
+      target = CGPoint(x: dx * k * size * 0.08, y: dy * k * size * 0.06)
+    }
+    let dt = gaze.last == 0 ? 1 : min(1, now - gaze.last)
+    gaze.last = now
+    let a = CGFloat(1 - exp(-dt / 0.09))
+    gaze.offset = CGPoint(x: gaze.offset.x + (target.x - gaze.offset.x) * a, y: gaze.offset.y + (target.y - gaze.offset.y) * a)
+    if touching { gaze.following = true }
+    else if gaze.following, hypot(gaze.offset.x, gaze.offset.y) < 0.05 { gaze.following = false }
+    return gaze.following ? gaze.offset : nil
+  }
+
   private func react() {
     guard animated else { return }
-    let now = Date()
-    pokeCount = pokeAt.map { now.timeIntervalSince($0) < 1.8 } == true ? pokeCount + 1 : 1
-    pokeAt = now
+    spunAt = Date()
     UIImpactFeedbackGenerator(style: .light).impactOccurred()
   }
 }
@@ -116,19 +140,3 @@ extension Color {
 }
 
 
-#Preview("Moods and looks") {
-  ScrollView {
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))]) {
-      ForEach(GhostMood.allCases, id: \.self) { mood in
-        VStack {
-          GhostView(look: nil, seed: "warren", size: 100, mood: mood, interactive: true)
-          Text(mood.rawValue).font(.caption)
-        }
-      }
-      ForEach(GhostLook.shapes, id: \.self) { shape in
-        GhostView(look: GhostLook(color: "#7516cf", color2: "#00e8d1", shape: shape,
-          glow: false, hat: "propeller", accessory: "bowtie"), seed: shape, size: 100)
-      }
-    }.padding()
-  }
-}

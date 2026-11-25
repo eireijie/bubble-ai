@@ -97,7 +97,10 @@ struct MessageRow: View {
 
   private var isSummary: Bool { message.parts.contains { if case .summary = $0 { true } else { false } } }
   private var hasChange: Bool { message.parts.contains { if case .change = $0 { true } else { false } } }
-  private var showsBubble: Bool { message.deletedAt == nil && (!message.body.isEmpty || message.replyTo != nil) && !hasChange }
+  private var showsBubble: Bool { message.deletedAt == nil && (!message.body.isEmpty || message.replyTo != nil) && !hasChange && !onlyLink }
+  private var links: [LinkPreview] { message.deletedAt == nil && !hasChange ? LinkPreview.find(message.body) : [] }
+  /** a message that is only a link shows just its card */
+  private var onlyLink: Bool { message.replyTo == nil && links.count == 1 && message.body.trimmingCharacters(in: .whitespacesAndNewlines) == links[0].url }
 
   private var held: Bool { actions?.held?.message.id == message.id }
   private var hasReactions: Bool { (message.reactions ?? []).contains { !$0.actors.isEmpty } }
@@ -190,9 +193,9 @@ struct MessageRow: View {
         if message.deletedAt != nil {
           Text("This message was deleted.").font(.system(size: 15)).italic().foregroundStyle(Palette.muted)
             .padding(.horizontal, 13).padding(.vertical, 9)
-            .background(BubbleShape(mine: mine).fill(Palette.bubble))
+            .background(BubbleShape(mine: mine, tail: last).fill(Palette.bubble))
         } else if showsBubble {
-          Bubble(side: mine ? .mine : .theirs) {
+          Bubble(side: mine ? .mine : .theirs, tail: last) {
             VStack(alignment: .leading, spacing: 6) {
               if let quote = message.replyTo { QuoteBlock(quote: quote, side: mine ? .mine : .theirs, chat: message.conversationId) }
               if isSummary {
@@ -209,6 +212,7 @@ struct MessageRow: View {
           }
         }
         if !showsBubble && message.deletedAt == nil && hasReactions { ReactionBadges(message: message) }
+        ForEach(links) { LinkCard(link: $0) }
         ForEach(Array(message.parts.enumerated()), id: \.offset) { _, part in
           PartView(part: part, message: message)
         }

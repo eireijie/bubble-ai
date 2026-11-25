@@ -627,9 +627,9 @@ private struct SampleBubble: View {
       if you { Spacer(minLength: 40) } else { GhostView(look: nil, seed: line.who, size: 26) }
       VStack(alignment: you ? .trailing : .leading, spacing: 3) {
         if !you { Text(line.who).font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 6) }
-        Text(line.text).font(.system(size: 15)).foregroundStyle(you ? Color.white : Palette.text)
+        Text(line.text).font(.system(size: 15)).foregroundStyle(you ? Palette.mineInk : Palette.text)
           .padding(.horizontal, 14).padding(.vertical, 10)
-          .background(you ? Palette.blue : Palette.bubble, in: BubbleShape(mine: you))
+          .background(you ? Palette.mine : Palette.bubble, in: BubbleShape(mine: you, tail: true))
       }
       if !you { Spacer(minLength: 40) }
     }

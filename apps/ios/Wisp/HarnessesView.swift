@@ -757,18 +757,10 @@ struct AgentSignInBar: View {
   }
 
   private func bar(_ signIn: AgentSignIn) -> some View {
-      HStack(spacing: 10) {
-        Text("\(HarnessChoice.label(signIn.harness)) isn't signed in on \(signIn.where_), so \(agent.name) can't answer yet.")
-          .font(.system(size: 13)).foregroundStyle(Palette.text).fixedSize(horizontal: false, vertical: true)
-        Spacer(minLength: 4)
-        AgentSignInButton(agent: agent, signIn: signIn) { open = $0 }
-      }
-      .padding(.horizontal, 14).padding(.vertical, 10)
-      .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.statusNeeds.tint16))
-      .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Palette.statusNeeds.opacity(0.35)))
-      .padding(.horizontal, 12)
-      .accessibilityElement(children: .contain)
-      .accessibilityIdentifier("agent-sign-in-bar")
+    SuggestionBanner(symbol: "key", text: "\(HarnessChoice.label(signIn.harness)) isn't signed in on \(signIn.where_), so \(agent.name) can't answer yet.") {
+      AgentSignInButton(agent: agent, signIn: signIn) { open = $0 }
+    }
+    .accessibilityIdentifier("agent-sign-in-bar")
   }
 }
 
