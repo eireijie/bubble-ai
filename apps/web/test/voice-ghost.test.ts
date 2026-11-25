@@ -7,13 +7,14 @@ const motion = vi.hoisted(() => ({ reduced: false }));
 vi.mock("../src/theme.ts", () => ({ useMotionReduced: () => motion.reduced }));
 afterEach(() => { motion.reduced = false; });
 const ghost = (level: number) => renderToStaticMarkup(createElement(Ghost, { look: defaultAppearance("pip"), size: 220, speakingLevel: level }));
-it("moves the mouth with speech amplitude and keeps it still with reduced motion", () => {
-  expect(ghost(0)).not.toEqual(ghost(1));
+it("wobbles faster while speaking (bubbles have no mouth) and stays still with reduced motion", () => {
+  expect(ghost(0)).not.toContain("bub-speak");
+  expect(ghost(1)).toContain("bub-speak");
   motion.reduced = true;
-  expect(ghost(0)).toEqual(ghost(1));
+  expect(ghost(1)).not.toContain("bub-move");
 });
-it("gives listening its own attentive face and lean", () => {
+it("gives listening its own attentive eyes", () => {
   const html = renderToStaticMarkup(createElement(Ghost, { look: defaultAppearance("pip"), size: 220, mood: "listening", label: "Pip is listening" }));
-  expect(html).toContain("ghost-listening");
+  expect(html).toContain("bub-listen");
   expect(html).toContain('aria-label="Pip is listening"');
 });

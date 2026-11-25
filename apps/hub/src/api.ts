@@ -11,6 +11,7 @@ import {
   GHOST_MOTIONS,
   GHOST_MOUTHS,
   GHOST_SHAPES,
+  BUBBLE_SHAPES,
   MAX_MODEL_ID_LENGTH,
   accessChecker,
   atLeast,
@@ -122,6 +123,7 @@ const APPEARANCE = z
     hat: z.enum(GHOST_HATS),
     accessory: z.enum(GHOST_ACCESSORIES),
     motion: z.enum(GHOST_MOTIONS),
+    bubble: z.enum(BUBBLE_SHAPES).optional(),
   })
   .strict();
 const SETTINGS = z

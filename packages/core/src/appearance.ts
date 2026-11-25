@@ -11,6 +11,23 @@ export const GHOST_ACCESSORIES = ["none", "glasses", "sunglasses", "monocle", "b
 export const GHOST_MOTIONS = ["float", "bounce", "sway", "still"] as const;
 
 /**
+ * Agents are drawn as bubbles (2026-11-25). The shape is picked in the agent's Look; a look saved
+ * before bubbles has none and shows as "round" in its own colour.
+ */
+export const BUBBLE_SHAPES = ["round", "squircle", "egg", "drop", "blob", "capsule", "double", "cluster"] as const;
+export type BubbleShape = (typeof BUBBLE_SHAPES)[number];
+
+/** The bubble colours offered in Look (any #rrggbb is allowed too). */
+export const BUBBLE_COLORS: { name: string; hex: string }[] = [
+  { name: "Violet", hex: "#a59bff" },
+  { name: "Blue", hex: "#6cc4ff" },
+  { name: "Pink", hex: "#ff7d8f" },
+  { name: "Amber", hex: "#ffc04d" },
+  { name: "Green", hex: "#74dba6" },
+  { name: "Orange", hex: "#ff9d6b" },
+];
+
+/**
  * Two-color body gradients, top color first. These are ClipLab's cap-v1 palettes (MIT, as
  * used by Paperclip). Any other pair of #rrggbb colors is allowed too.
  */
@@ -75,6 +92,8 @@ export interface GhostAppearance {
   hat: GhostHat;
   accessory: GhostAccessory;
   motion: GhostMotion;
+  /** the bubble's shape; unset = "round" */
+  bubble?: BubbleShape;
 }
 
 function hash(str: string): number {

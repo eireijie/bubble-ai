@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, Ghost, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
+import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
+import { BubbleIcon } from "./icons.tsx";
 import { harnessLabel, teamIconAgentIds, type Agent, type Approval, type Section } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore, usePrefs, useWaitingOnYou, type ChannelInfo, type ComputerInfo, type LiveRun } from "../store.ts";
@@ -14,6 +15,7 @@ import { workingLine } from "./agentActivity.ts";
 import { cleanPreview } from "./CommandPalette.tsx";
 import { loopLine } from "./Loops.tsx";
 import { UserAvatarButton } from "./Rail.tsx";
+import { SideList, newSideSection } from "./SideList.tsx";
 import { useTeamImage } from "./teamImage.ts";
 
 const COLLAPSE_KEY = "wisp.chats.collapsed";
@@ -69,14 +71,16 @@ export function ChatAvatar({ chat, size, ghostsOnly = false }: { chat: Pick<Chat
   // nobody on the team yet: a plain team icon, never somebody's ghost
   if (!members.length) return <span className="grid shrink-0 place-items-center rounded-full bg-chip text-muted" style={{ width: size, height: size }} aria-hidden><Users size={size * 0.5} strokeWidth={1.8} /></span>;
   if (members.length === 1) return <AgentAvatar agent={members[0]} size={size} live />;
-  const small = Math.round(size * 0.72);
+  // two of its agents' bubbles, overlapped (board 7): the first up and left, the second down and right
+  const a = Math.round(size * 0.66);
+  const b = Math.round(size * 0.7);
   return (
-    <span className="relative inline-block shrink-0" style={{ width: size * 1.1, height: size }} aria-hidden>
-      <span className="absolute left-0 top-0">
-        <AgentAvatar agent={members[0]} size={small} live />
+    <span className="relative inline-block shrink-0" style={{ width: size, height: size }} aria-hidden>
+      <span className="absolute left-0 top-[4%]">
+        <AgentAvatar agent={members[0]} size={a} live />
       </span>
-      <span className="absolute right-0 bottom-0 rounded-full" style={{ filter: "drop-shadow(1.5px 0 0 var(--panel)) drop-shadow(-1.5px 0 0 var(--panel)) drop-shadow(0 1.5px 0 var(--panel)) drop-shadow(0 -1.5px 0 var(--panel))" }}>
-        <AgentAvatar agent={members[1]} size={small} live />
+      <span className="absolute right-0 bottom-0">
+        <AgentAvatar agent={members[1]} size={b} live />
       </span>
     </span>
   );
@@ -219,10 +223,10 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
       )}
       items={[
         ...(!page ? [{ label: "New chat", icon: <MessageSquarePlus size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ newChatOpen: true }) }] : []),
-        ...(!isGuest ? [{ label: "New agent", icon: <Ghost size={18} strokeWidth={1.8} />, onSelect: startNewAgent }] : []),
+        ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon size={18} strokeWidth={1.8} />, onSelect: startNewAgent }] : []),
         ...(!isGuest ? [{ label: "New team", icon: <Users size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
         { label: "Browse teams", icon: <Search size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
-        ...(!isGuest ? [{ label: "New section", icon: <FolderPlus size={18} strokeWidth={1.8} />, onSelect: () => setEditing("new") }] : []),
+        ...(!isGuest ? [{ label: "New section", icon: <FolderPlus size={18} strokeWidth={1.8} />, onSelect: newSideSection }] : []),
       ]}
     />
   );
@@ -249,8 +253,12 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
 
       <div data-stagger className={cx("flex-1 min-h-0 overflow-y-auto", page ? "px-2 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]" : "pb-4 -mx-1 px-1")}>
         {page && <NeedsYouCard />}
-        {rows(plain)}
-        {sections.map((s) => {
+        {/* phones: pins, All / Your turn and your sections, as in the desktop sidebar; the desktop's
+            own Chats column (nothing open yet) is a plain newest-first list, since the sidebar beside it has the rest */}
+        {!needle && page && chats.length > 0 && <SideList chats={chats} lines={new Map(chats.map((c) => [c.key, preview(c)]))} active={active} phone />}
+        {!needle && !page && rows([...chats].sort((x, y) => y.at - x.at || x.name.localeCompare(y.name)))}
+        {needle && rows(plain)}
+        {needle && sections.map((s) => {
           const list = shown.filter((c) => c.sectionId === s.id);
           if (needle && !list.length) return null;
           return (
@@ -559,6 +567,11 @@ export function NewChatPicker({ onClose }: { onClose: () => void }) {
       void openDm(agents[0].id);
     }
   }, [agents, onClose]);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
   useSheetBackdrop();
   return createPortal(
     <div className="m-scrim fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

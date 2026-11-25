@@ -1,3 +1,4 @@
+import { Bubble } from "./Bubble.tsx";
 import type { ReactNode } from "react";
 
 /**
@@ -42,11 +43,16 @@ export const ComputersIcon = (p: { size?: number; className?: string }) => (
 
 /** Wisp's ghost, filled: the mark on the rail's top button. */
 export function WispGhost({ size = 34, className }: { size?: number; className?: string }) {
+  // Wisp's mark: its violet bubble, still (2026-11-25 "Wisp, bubbles")
+  return <Bubble look={{ color: "#a59bff" }} size={size} animate={false} label="" className={className} />;
+}
+
+/** A line icon of a bubble with two eyes: "agents" in Wisp's own menus (lucide-sized, stroke). */
+export function BubbleIcon({ size = 18, strokeWidth = 1.8, className }: { size?: number; strokeWidth?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden className={className}>
-      <path d="M12 2.5a7.5 7.5 0 0 0-7.5 7.5v11l2.5-1.7 2.5 1.7 2.5-1.7 2.5 1.7 2.5-1.7 2.5 1.7V10A7.5 7.5 0 0 0 12 2.5z" fill="currentColor" />
-      <circle cx="9.5" cy="10.5" r="1.3" fill="var(--app)" />
-      <circle cx="14.5" cy="10.5" r="1.3" fill="var(--app)" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" aria-hidden className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 10.5v1.5M14.5 10.5v1.5" />
     </svg>
   );
 }

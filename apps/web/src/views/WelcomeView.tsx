@@ -7,11 +7,14 @@ import { go } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { loadAnswers, saveAnswers } from "../onboardingV3.ts";
 import { AgentStep } from "./onboarding/AgentStep.tsx";
+import { Ghost } from "../components/Ghost.tsx";
 import { AIStep } from "./onboarding/AIStep.tsx";
+import { GoalsStep, RecsStep, type SetupPath } from "./onboarding/BubbleSetup.tsx";
+import { startSetupTour, type SetupTourState } from "../components/onboarding/SetupTour.tsx";
 export { askableOn, makeFirstAgent, NO_NODE } from "./onboarding/firstAgent.ts";
 
 /** The first run's screens after the account ("You", which AuthScreen shows before anyone is signed in). */
-export type WelcomeScreen = "agent" | "ai";
+export type WelcomeScreen = "agent" | "ai" | "goals" | "recs";
 
 /**
  * The agent this first run is about: the one it made (remembered in this browser), else, coming
@@ -65,7 +68,37 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     else go({ view: "dashboard" });
   };
 
-  if (screen === "ai" && agent) return <AIStep key={agent.id} agentId={agent.id} device={device} onBack={() => setWanted("agent")} onDone={finish} />;
+  const [path, setPathState] = useState<SetupPath>(() => loadAnswers(ws).path ?? "advanced");
+  const setPath = (p: SetupPath) => (setPathState(p), saveAnswers(ws, { path: p }));
+  const [goals, setGoalsState] = useState<string[]>(() => loadAnswers(ws).setupGoals ?? ["inbox", "cal"]);
+  const setGoals = (g: string[]) => (setGoalsState(g), saveAnswers(ws, { setupGoals: g }));
+  // the chat the AI step opened, kept while Advanced asks its goals and apps
+  const [chatId, setChatId] = useState<string | null>(null);
+  const toChat = (tour: Omit<SetupTourState, "agentId">) => {
+    if (agent) startSetupTour({ agentId: agent.id, ...tour });
+    finish(chatId);
+  };
+
+  const top = agent ? <Ghost look={agent.settings.appearance} seed={agent.id} size={72} label="" ambient /> : null;
+  if (screen === "goals" && agent) return <GoalsStep bubble={top} name={agent.name} picked={goals} onPicked={setGoals} onBack={() => setWanted("ai")} onNext={() => setWanted("recs")} />;
+  if (screen === "recs" && agent) return <RecsStep bubble={top} goals={goals} onBack={() => setWanted("goals")} onNext={(on, off) => toChat({ path: "advanced", on, off })} />;
+  if (screen === "ai" && agent)
+    return (
+      <AIStep
+        key={agent.id}
+        agentId={agent.id}
+        device={device}
+        onBack={() => setWanted("agent")}
+        onDone={(channelId) => {
+          setChatId(channelId);
+          if (path === "advanced") setWanted("goals");
+          else {
+            startSetupTour({ agentId: agent.id, path: "simple", on: [], off: [] });
+            finish(channelId);
+          }
+        }}
+      />
+    );
   return (
     <AgentStep
       workspaceId={ws}
@@ -79,6 +112,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
       }}
       // only offered after the hub wouldn't make the agent: leave, with the agent step still open
       onLeave={() => finish(null)}
+      path={path}
+      onPath={setPath}
     />
   );
 }

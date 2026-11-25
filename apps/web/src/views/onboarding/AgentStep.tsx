@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { Agent, GhostShape } from "@wisp/core";
 import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
@@ -9,8 +9,10 @@ import { unavailable } from "../../join.ts";
 import { useConnections } from "../../models.ts";
 import type { DeviceInfo } from "../../devices.ts";
 import { agentInstructions, saveAnswers } from "../../onboardingV3.ts";
-import { HostGhost, OB_EASE, hostReact, useLookAtFields } from "../../components/onboarding/HostGhost.tsx";
-import { SetupButton, SetupLink, SetupProblem, SetupShell, setupField } from "../../components/SetupShell.tsx";
+import { OB_EASE } from "../../components/onboarding/HostGhost.tsx";
+import { Ghost } from "../../components/Ghost.tsx";
+import { SetupLink, SetupProblem } from "../../components/SetupShell.tsx";
+import { BubbleStage, PathChoice, type SetupPath } from "./BubbleSetup.tsx";
 import { AGENT_TYPES } from "./agentTypes.ts";
 import { lookOf, makeNamedAgent, renameNamedAgent, type AgentShape } from "./firstAgent.ts";
 import { foundOn } from "./AIStep.tsx";
@@ -35,7 +37,7 @@ export function nextLook(look: GhostAppearance, random: () => number = Math.rand
     const rest = xs.filter((x) => x !== not);
     return rest[Math.floor(random() * rest.length)] ?? not;
   };
-  return { ...look, color: any<string>(FAMILY_COLORS, look.color), color2: undefined, shape: any(SHAPES, look.shape) };
+  return { ...look, color: any<string>(FAMILY_COLORS, look.color), color2: undefined, shape: any(SHAPES, look.shape), bubble: look.bubble ?? "round" };
 }
 
 /** What Continue saves: the agent's name, its one line, its look and the start of its instructions. */
@@ -66,18 +68,15 @@ export async function saveNamedAgent(o: { workspaceId: string; existing: Pick<Ag
  * The first run's second screen: your agent. Its ghost (click it for another look), its name and
  * the one line of what it does, each already filled in. Continue makes the agent.
  */
-export function AgentStep({ workspaceId, person, device, existing, onContinue, onLeave }: { workspaceId: string; person: string; device: DeviceInfo | undefined; existing?: Pick<Agent, "id" | "name" | "handle" | "settings">; onContinue: (agentId: string) => void; onLeave?: () => void }) {
+export function AgentStep({ workspaceId, person, device, existing, onContinue, onLeave, path, onPath }: { workspaceId: string; person: string; device: DeviceInfo | undefined; existing?: Pick<Agent, "id" | "name" | "handle" | "settings">; onContinue: (agentId: string) => void; onLeave?: () => void; path?: SetupPath; onPath?: (p: SetupPath) => void }) {
   const { connections } = useConnections();
   // the agent Continue made, kept even if the list of agents hasn't caught up: pressing Continue again never makes a second one
   const made = useRef<Pick<Agent, "id" | "name" | "handle" | "settings"> | null>(null);
   const [name, setName] = useState(() => existing?.name ?? suggestedName(person, useStore.getState().agents.map((a) => a.name)));
-  const [role, setRole] = useState(() => existing?.settings.role ?? JOBS[0]);
-  const [look, setLook] = useState<GhostAppearance>(() => existing?.settings.appearance ?? lookOf(FAMILY_COLORS[0], "classic"));
+  const [role] = useState(() => existing?.settings.role ?? "");
+  const [look, setLook] = useState<GhostAppearance>(() => existing?.settings.appearance ?? ({ ...lookOf(FAMILY_COLORS[0], "classic"), bubble: "round" }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const jobs = useId();
-  // the ghost looks at the field being typed in
-  useLookAtFields();
   // a new look morphs in (a quick shrink and twist back to rest), never a cut
   const morph = useRef<HTMLSpanElement>(null);
   const shown = useRef(look);
@@ -110,51 +109,43 @@ export function AgentStep({ workspaceId, person, device, existing, onContinue, o
   };
 
   return (
-    <SetupShell
-      at={2}
-      center
-      onSubmit={() => void save()}
-      foot={
-        <>
-          <SetupButton disabled={!name.trim() || busy}>
-            {busy && <Loader2 size={16} className="animate-spin" aria-hidden />}
-            Continue
-          </SetupButton>
-          {/* the hub wouldn't make the agent: nobody is kept here, and the agent step stays open */}
-          {error && onLeave && <SetupLink onClick={onLeave}>Not now</SetupLink>}
-        </>
-      }
-    >
-      <h1 className="sr-only">Your agent</h1>
-      <button
-        type="button"
-        aria-label="Change its look"
-        className="mt-2 rounded-[24px] p-2 outline-none transition-transform active:scale-[.96] focus-visible:ring-3 focus-visible:ring-ring/40 motion-reduce:transition-none"
-        onClick={() => {
-          setLook((l) => nextLook(l));
-          hostReact("hop");
+    <BubbleStage>
+      <form
+        className="flex w-full flex-col items-center"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
         }}
       >
-        <span ref={morph} className="block">
-          <HostGhost look={look} size={128} />
-        </span>
-      </button>
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        maxLength={40}
-        autoComplete="off"
-        aria-label="Name"
-        placeholder="Name"
-        className="w-full bg-transparent pt-3 pb-1.5 text-center text-[28px] leading-9 font-[650] tracking-[-0.02em] text-ink outline-none placeholder:text-faint"
-      />
-      <input value={role} onChange={(e) => setRole(e.target.value)} maxLength={ROLE_MAX} autoComplete="off" list={jobs} aria-label={`What should ${called} do?`} placeholder={`What should ${called} do?`} className={setupField} />
-      <datalist id={jobs}>
-        {JOBS.map((j) => (
-          <option key={j} value={j} />
-        ))}
-      </datalist>
-      <SetupProblem>{error}</SetupProblem>
-    </SetupShell>
+        <h1 className="sr-only">Your agent</h1>
+        <button
+          type="button"
+          aria-label="Change its colour"
+          className="mt-[max(0px,calc(18vh-60px))] rounded-full p-2 outline-none transition-transform active:scale-[.96] focus-visible:ring-3 focus-visible:ring-ring/40 motion-reduce:transition-none"
+          onClick={() => setLook((l) => nextLook(l))}
+        >
+          <span ref={morph} className="block">
+            <Ghost look={look} size={190} label="" ambient />
+          </span>
+        </button>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={40}
+          autoComplete="off"
+          aria-label="Name"
+          placeholder="Name"
+          className="mt-4 w-full max-w-[400px] bg-transparent text-center text-[34px] font-bold leading-[42px] tracking-[-0.02em] text-ink outline-none placeholder:text-faint"
+        />
+        {onPath && <PathChoice name={name.trim()} path={path ?? "advanced"} onPath={onPath} />}
+        <button type="submit" disabled={!name.trim() || busy} className="setup-press mt-8 inline-flex h-11 w-full max-w-[320px] items-center justify-center gap-2 rounded-full bg-ink px-[22px] text-[16px] font-semibold text-panel outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-40">
+          {busy && <Loader2 size={16} className="animate-spin" aria-hidden />}
+          Continue
+        </button>
+        {/* the hub wouldn't make the agent: nobody is kept here, and the agent step stays open */}
+        {error && onLeave && <SetupLink onClick={onLeave}>Not now</SetupLink>}
+        <SetupProblem>{error}</SetupProblem>
+      </form>
+    </BubbleStage>
   );
 }

@@ -1,3 +1,4 @@
+import { BubbleField } from "./BubbleField.tsx";
 import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import { cx } from "./ui.tsx";
@@ -31,9 +32,11 @@ export function SetupShell({ at, onBack, onSubmit, foot, center, children }: { a
       {foot && <div className="shrink-0 px-7 pt-3 pb-[max(24px,env(safe-area-inset-bottom))] flex flex-col items-center gap-1">{foot}</div>}
     </>
   );
-  const card = "flex flex-col w-full flex-1 min-h-0 bg-panel md:flex-none md:w-[400px] md:h-[min(660px,calc(100dvh-48px))] md:rounded-[14px] md:border md:border-line";
+  // 2026-11-25: the whole window, small bubbles drifting up behind (no card)
+  const card = "relative flex flex-col w-full flex-1 min-h-0 md:flex-none md:w-[440px] md:h-[min(700px,calc(100dvh-48px))]";
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-panel md:bg-app md:items-center md:justify-center text-ink text-[14px] leading-[22px]" data-testid="setup">
+    <div className="fixed inset-0 z-40 flex flex-col bg-panel md:items-center md:justify-center text-ink text-[14px] leading-[22px]" data-testid="setup">
+      <BubbleField count={26} maxSize={16} rise={1100} />
       {onSubmit ? (
         <form
           className={card}

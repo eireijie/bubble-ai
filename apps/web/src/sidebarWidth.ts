@@ -9,7 +9,7 @@ export const SIDEBAR = {
   min: 256,
   max: 480,
   /** double-click the edge */
-  default: 320,
+  default: 325,
   /** dragged under this, it snaps to the rail; pulled back past it, it springs to min */
   snap: 168,
   /** arrow keys on the edge */

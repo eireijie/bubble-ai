@@ -414,6 +414,13 @@ body {
 .bubble { padding: 9px 14px; border-radius: 18px; width: fit-content; max-width: min(640px, 100%); line-height: 22px; }
 @media (min-width: 768px) { .bubble { padding: 11px 17px; border-radius: 22px; max-width: min(680px, 100%); line-height: 25px; } }
 .bubble.them { background: var(--bubble-them); color: var(--ink); }
+/* the last bubble of a group gets a small tail at its bottom corner, like Messages; the second shape
+   is the chat's own background, which cuts the curve */
+.bubble.tail::before, .bubble.tail::after { content: ""; position: absolute; bottom: 0; height: 17px; pointer-events: none; }
+.bubble.tail.them::before { left: -7px; width: 18px; background: var(--bubble-them); border-bottom-right-radius: 16px 14px; }
+.bubble.tail.them::after { left: -10px; width: 10px; background: var(--panel); border-bottom-right-radius: 10px; }
+.bubble.tail.me::before { right: -7px; width: 18px; background: var(--bubble-me); border-bottom-left-radius: 16px 14px; }
+.bubble.tail.me::after { right: -10px; width: 10px; background: var(--panel); border-bottom-left-radius: 10px; }
 .bubble.me { background: var(--bubble-me); color: var(--bubble-me-ink); margin-left: auto; }
 .bubble.me a, .bubble.me .wikilink { color: inherit; background: none; }
 .bubble.me code, .bubble.me pre { background: rgb(0 0 0 / 0.1); }

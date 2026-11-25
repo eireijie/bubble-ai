@@ -1,7 +1,7 @@
 import { Suspense, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { SquarePen, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Phone } from "lucide-react";
 import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -20,6 +20,8 @@ import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, agentColor, clockTime, cx } from "../components/ui.tsx";
 import { AgentPill } from "../components/AgentPill.tsx";
+import { BannerSlot } from "../components/SuggestionBanner.tsx";
+import { linkPreviews, type LinkPreview } from "../linkPreview.ts";
 import type { CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
 import { chatTint, didThings, roundAction } from "../chatTint.ts";
@@ -36,6 +38,7 @@ import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
 import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
+import { SetupTour } from "../components/onboarding/SetupTour.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
 import { GhostLanding, useFirstHelloHtml } from "../components/onboarding/FirstHello.tsx";
 
@@ -114,6 +117,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const loadChannel = useStore((s) => s.loadChannel);
   const names = useNames();
   const [calling, setCalling] = useState(!!route.call);
+  const [bannerSlot, setBannerSlot] = useState<HTMLDivElement | null>(null);
   // the record a finished call leaves in the chat
   const [callRecord, setCallRecord] = useState<(CallRecord & { channelId: string }) | null>(null);
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
@@ -192,8 +196,9 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
     // the open agent's colour tints its chat: your bubbles and the round button (a team keeps the Wisp violet)
     <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
+        <BannerSlot.Provider value={bannerSlot}>
         {/* only the name pill, centred: it opens the panel that holds everything else */}
-        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
+        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
             {onBack && (
               <span className="md:hidden">
@@ -202,6 +207,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
                 </button>
               </span>
             )}
+            {/* round new-chat button in the top-left corner (desktop; phones keep Back there) */}
+            <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
+              <SquarePen size={16} strokeWidth={1.8} />
+            </button>
           </div>
           {dmAgent ? (
             // the agent lives here, in the middle, and nowhere else in its DM
@@ -213,16 +222,23 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
           ) : (
             <TeamPill channel={channel} open={infoOpen} onClick={toggleInfo} />
           )}
-          <div className="flex items-center justify-end">{dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}</div>
+          <div className="flex items-center justify-end gap-2">
+            {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
+            {/* round floating call button in the top corner */}
+            {dmAgent && !calling && (
+              <button type="button" onClick={() => setCalling(true)} aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`} className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
+                <Phone size={17} strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
         </header>
+        {/* one suggested step sits here, under the header, in its own space (SuggestionBanner) */}
+        <div ref={setBannerSlot} className="relative z-20 flex shrink-0 flex-col items-center gap-2 px-4 pb-2 empty:hidden" />
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
           <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!dmAgent} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
-        {!channel.archivedAt && dmFull?.signIn && (
-          <div className="px-3 sm:px-5">
-            <SignInNeededBar agent={dmFull} />
-          </div>
-        )}
+        {!channel.archivedAt && dmFull?.signIn && <SignInNeededBar agent={dmFull} />}
+        {!channel.archivedAt && dmFull && <SetupTour key={channel.id} agent={dmFull} channelId={channel.id} />}
         {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
         {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onHide={() => setCallRecord(null)} />}
         {calling && dmAgent && (
@@ -230,7 +246,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
           </Suspense>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} />}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} /></div>}
+        </BannerSlot.Provider>
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
       {sideAgent && side?.kind === "agent" && <AgentPanel key={sideAgent.id} agent={sideAgent} channelId={channel.id} tab={side.tab} inDm={sideAgent.id === dmAgent?.id} onClose={() => setSide(null)} />}
@@ -443,9 +460,25 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
 
   // where each message sits among its neighbours (a new chat, a time above it, grouped with the one before,
   // last of its group): worked out when the messages change, not again for every word of a reply
+  // a system notice repeated over a run of messages ("isn't connected to a device yet") shows once,
+  // the latest one, at the bottom of the run; an answer from anyone but you ends the run
+  const repeats = useMemo(() => {
+    const hide = new Set<string>();
+    const seen = new Set<string>();
+    const all = messages ?? [];
+    for (let i = all.length - 1; i >= 0; i--) {
+      const m = all[i];
+      if (m.author.id === "system") {
+        if (seen.has(m.body)) hide.add(m.id);
+        else seen.add(m.body);
+      } else if (m.author.kind !== "user") seen.clear();
+    }
+    return hide;
+  }, [messages]);
+  const shown = useMemo(() => (messages ?? []).filter((m) => !repeats.has(m.id)), [messages, repeats]);
   const places = useMemo(
     () =>
-      (messages ?? []).map((m, i, all) => {
+      shown.map((m, i, all) => {
         const chat = startsChat(all[i - 1], m);
         const stamp = chat || needsStamp(all[i - 1], m);
         const grouped = !stamp && isGrouped(all[i - 1], m) && m.id !== firstNew;
@@ -453,7 +486,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
         const last = !next || startsChat(m, next) || needsStamp(m, next) || !isGrouped(m, next) || next.id === firstNew;
         return { chat, stamp, grouped, last };
       }),
-    [messages, firstNew],
+    [shown, firstNew],
   );
 
   // on open: jump to the NEW divider (or the bottom); afterwards stick to the bottom if you're there
@@ -499,7 +532,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
-        {messages.map((m, i) => (
+        {shown.map((m, i) => (
           <ChatRow
             key={m.id}
             m={m}
@@ -598,7 +631,7 @@ const ThreadRow = memo(function ThreadRow({ m, channelId, rootId, stamp, grouped
 
 function TimeDivider({ at }: { at: string }) {
   const { clock } = usePrefs();
-  return <div className="px-5 py-3 text-center text-[14px] text-faint">{stampLabel(at, (d) => clockTime(d, clock))}</div>;
+  return <div className="px-5 py-3 text-center text-[12px] font-medium text-muted">{stampLabel(at, (d) => clockTime(d, clock))}</div>;
 }
 
 /** The chat that's going on now in this list: a reply into an earlier one says when that was. */
@@ -824,6 +857,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
   // a first chat's hello types in once and underlines what it already knows
   const html = useFirstHelloHtml(m, rendered);
   const cards = useMemo(() => linkCards(m.body), [m.body]);
+  const previews = useMemo(() => linkPreviews(m.body), [m.body]);
   const isSummary = m.parts.some((p) => p.type === "summary");
   const [menu, setMenu] = useState<{ at: { x: number; y: number } | null } | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -863,7 +897,9 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
   const openMenu = (at: { x: number; y: number } | null) => !m.deletedAt && actions.length > 0 && setMenu({ at });
   const hasChange = m.parts.some((p) => p.type === "change");
   const quote = m.replyTo;
-  const showBubble = !m.deletedAt && (!!html || !!quote) && !hasChange;
+  // a message that is only a link shows just its card, like Messages
+  const onlyLink = previews.length === 1 && !quote && m.body.trim() === previews[0].url;
+  const showBubble = !m.deletedAt && (!!html || !!quote) && !hasChange && !onlyLink;
   const showAvatar = !mine && !home;
 
   return (
@@ -942,7 +978,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           <div className="bubble them text-body text-muted italic">This message was deleted.</div>
         ) : (
           showBubble && (
-            <div ref={bubbleRef} className={cx("bubble relative text-[15px] md:text-[16px]", mine ? "me" : "them", arrived && (mine ? "m-bubble-me" : "m-bubble-them"))} title={time}>
+            <div ref={bubbleRef} className={cx("bubble relative text-[15px] md:text-[16px]", mine ? "me" : "them", last && !previews.length && "tail", arrived && (mine ? "m-bubble-me" : "m-bubble-them"))} title={time}>
               {!!m.reactions?.length && <ReactionBadges reactions={m.reactions} meId={meId} mine={mine} onToggle={react} />}
               {quote && (
                 <button
@@ -984,6 +1020,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
               </span>
             </a>
           ))}
+        {!m.deletedAt && previews.map((p) => <LinkCard key={p.url} preview={p} mine={mine} />)}
         {!m.deletedAt && (
           <CardAuthor.Provider value={m.author.kind === "agent" ? { agentId: m.author.id, channelId: m.channelId, threadId: m.threadId } : null}>
             <Parts parts={m.parts} body={m.body} agentName={agent?.name} agentId={agent?.id} />
@@ -1038,6 +1075,26 @@ function withEditedMark(html: string, at: string) {
 }
 
 /** GitHub PR and issue links get a small card, like Buzz. Parsed locally; nothing is fetched. */
+/** A large link card: the picture on top when the link is one, then the title and the domain. */
+function LinkCard({ preview, mine }: { preview: LinkPreview; mine: boolean }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <a href={preview.url} target="_blank" rel="noreferrer" className={cx("link-card mt-1 flex w-[320px] max-w-full flex-col overflow-hidden rounded-[18px] bg-[var(--bubble-them)] outline-none transition-[filter] duration-150 hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring dark:hover:brightness-110", mine && "self-end")}>
+      {preview.image && !broken ? (
+        <img src={preview.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} className="aspect-[16/10] w-full bg-chip object-cover" />
+      ) : (
+        <span aria-hidden className="grid aspect-[16/7] w-full place-items-center bg-chip text-muted">
+          <Globe size={30} strokeWidth={1.4} />
+        </span>
+      )}
+      <span className="flex flex-col gap-0.5 px-3.5 pb-2.5 pt-2">
+        <span className="line-clamp-2 text-[15px] font-semibold leading-5 text-ink">{preview.title}</span>
+        <span className="truncate text-[13px] text-muted">{preview.domain}</span>
+      </span>
+    </a>
+  );
+}
+
 function linkCards(body: string) {
   const out: { url: string; repo: string; num: string; kind: "PR" | "Issue" }[] = [];
   for (const m of body.matchAll(/https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/(pull|issues)\/(\d+)/g)) {
@@ -1889,12 +1946,13 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
           </div>
         )}
         {/* one line: plus, the text, the round button. Past one line it grows upward into two rows: the text on top, plus and the button underneath */}
-        <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2 rounded-[20px] md:rounded-[26px] border border-transparent bg-[var(--bubble-them)] px-[7px] py-[5px] md:py-[7px] focus-within:border-line2", tall && "gap-y-1 pt-2")}>
+        {/* a round plus, the pill field (with dictation inside, on the right), and the round button outside it */}
+        <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2", tall && "gap-y-1.5")}>
           <span className={cx("col-start-1 shrink-0", tall ? "row-start-2" : "row-start-1")}>
             <Popover
               className="w-60 p-1.5 !rounded-[14px]"
               trigger={(open, toggle) => (
-                <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-10 rounded-full grid place-items-center text-ink hover:bg-hover", open && "bg-hover")}>
+                <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-[42px] rounded-full grid place-items-center bg-[var(--bubble-them)] text-ink hover:bg-hover", open && "bg-hover")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
                 </button>
               )}
@@ -1910,6 +1968,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
               )}
             </Popover>
           </span>
+          <div className={cx("flex min-h-[42px] min-w-0 items-end rounded-[21px] border border-transparent bg-[var(--bubble-them)] pl-4 pr-1.5 focus-within:border-line2 row-start-1", tall ? "col-span-3 col-start-1" : "col-start-2")}>
           <textarea
             ref={ta}
             rows={1}
@@ -1947,8 +2006,14 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 send();
               }
             }}
-            className={cx("block min-w-0 resize-none bg-transparent py-[9px] text-[15px] md:text-[16px] leading-[22px] md:leading-6 outline-none placeholder:text-muted placeholder:truncate row-start-1", tall ? "col-span-3 col-start-1 px-2" : "col-start-2")}
+            className="block min-w-0 flex-1 resize-none bg-transparent py-[9px] text-[16px] leading-[22px] outline-none placeholder:text-muted placeholder:truncate"
           />
+          {dictation.supported && action !== "dictate" && action !== "listening" && (
+            <button type="button" onClick={() => dictation.toggle()} aria-label="Dictate" title="Dictate" className="mb-[3px] grid size-[34px] shrink-0 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+              <Mic size={18} strokeWidth={1.8} />
+            </button>
+          )}
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -1966,7 +2031,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             aria-pressed={action === "listening" ? true : undefined}
             title={round.title}
             className={cx(
-              "m-press col-start-3 size-10 shrink-0 select-none rounded-full grid place-items-center disabled:bg-chip disabled:text-faint",
+              "m-press col-start-3 size-[42px] shrink-0 select-none rounded-full grid place-items-center disabled:bg-chip disabled:text-faint",
               tall ? "row-start-2" : "row-start-1",
               action === "listening" ? "bg-bad text-white" : "bg-[var(--bubble-me)] text-[var(--bubble-me-ink)]",
             )}

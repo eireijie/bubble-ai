@@ -61,18 +61,23 @@ describe("docked sidebar", () => {
     return renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
   }
 
-  it("opens at the remembered width with names, the two round buttons and a resize edge", () => {
+  it("opens at the remembered width: search and New on top, the list, you and Computers + Memory vault at the foot, a resize edge", () => {
     const html = render({ width: 360, collapsed: false });
     expect(html).toContain("width:360px");
     expect(html).toContain('role="separator"');
     expect(html).toContain(">Iris<");
-    expect(html).toContain(">Computers<");
-    for (const control of ["Search", "New agent or team", "You and settings", "Computers"]) expect(html).toContain(`aria-label="${control}"`);
+    expect(html).toContain(">Sam<");
+    expect(html).toMatch(/aria-label="Computers, \d+ on"/);
+    expect(html).toContain('href="#/vault"');
+    for (const control of ["Search", "New agent or team", "You and settings"]) expect(html).toContain(`aria-label="${control}"`);
+    // the All / Your turn filter
+    expect(html).toContain(">All<");
+    expect(html).toContain(">Your turn<");
   });
 
-  it("holds only agents and teams: what left the sidebar isn't drawn in it", () => {
+  it("holds only agents and teams: no workspace header, nothing else drawn in it", () => {
     const html = render({ width: 360, collapsed: false });
-    for (const gone of ["Collapse sidebar", "All chats and search", "Inbox", "Needs you", ">Agents<", ">Teams<", "Finish setup", "Apps, skills and mods", "Settings, memory, usage", ">Home<", "No chats yet"]) expect(html).not.toContain(gone);
+    for (const gone of ["Collapse sidebar", "All chats and search", "Inbox", ">Agents<", ">Teams<", "Finish setup", "Apps, skills and mods", "Settings, memory, usage", ">Home<", "switch workspace", "No chats yet"]) expect(html).not.toContain(gone);
   });
 
   it("gives a row its name, the newest message under it and one dot when unread, with no count", () => {
@@ -88,24 +93,19 @@ describe("docked sidebar", () => {
     expect(rail).not.toContain(">My pick is Immich.<");
   });
 
-  it("shows Needs you with its count only while something waits", () => {
-    initial.approvals = { ok: { id: "ok", status: "pending", channelId: "c1", summary: "Send it?" } as (typeof initial.approvals)[string] };
+  it("counts what waits on you on Your turn, and keeps Needs you in the New menu", () => {
+    initial.channels = [{ id: "c1", kind: "dm", name: "dm:person:a1", unread: 0, notify: "default", starred: false, sectionId: null } as unknown as (typeof initial.channels)[number]];
+    initial.approvals = { ok: { id: "ok", status: "pending", channelId: "c1", agentId: "a1", summary: "Send it?" } as (typeof initial.approvals)[string] };
     const html = render({ width: 360, collapsed: false });
-    expect(html).toContain('aria-label="Needs you, 1 waiting"');
-    expect(html).toContain(">Needs you<");
-    expect(html).toContain('href="#/dashboard"');
-    // it's the open page here, so it reads as selected
-    expect(html).toMatch(/aria-label="Needs you, 1 waiting"[^>]*aria-current="page"/);
+    expect(html).toMatch(/Your turn<span[^>]*>\d+</);
   });
 
   it("collapsed is an 82px rail of tiles, and every place is still reachable", () => {
-    initial.approvals = { ok: { id: "ok", status: "pending", channelId: "c1", summary: "Send it?" } as (typeof initial.approvals)[string] };
     const html = render({ width: 360, collapsed: true });
     expect(html).toContain("width:82px");
     expect(html).not.toContain(">Iris<");
-    expect(html).not.toContain(">Computers<");
-    for (const place of ["Search", "Needs you, 1 waiting", "Iris", "New agent or team", "Computers", "You and settings"]) expect(html).toContain(`aria-label="${place}`);
+    for (const place of ["Search", "Iris", "New agent or team", "Computers", "Memory vault", "You and settings"]) expect(html).toContain(`aria-label="${place}`);
   });
 
-  it("starts at 320 with nothing saved", () => expect(render(null)).toContain("width:320px"));
+  it("starts at 325 with nothing saved", () => expect(render(null)).toContain("width:325px"));
 });

@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { AuthorizeView } from "./AuthorizeView.tsx";
 
 vi.mock("react", async (original) => ({ ...(await original<typeof import("react")>()), useState: vi.fn(), useEffect: vi.fn() }));
-vi.mock("../theme.ts", () => ({ motionReduced: () => false }));
+vi.mock("../theme.ts", () => ({ motionReduced: () => false, useMotionReduced: () => false }));
 
 beforeEach(() => vi.mocked(useState).mockReset());
 

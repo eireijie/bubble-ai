@@ -60,15 +60,15 @@ describe("the first run is three screens", () => {
     expect(devicesLine(null)).not.toMatch(/Say hi/);
     expect(devicesLine("Juno")).toBe("Say hi to Juno from your phone too.");
   });
-  it("Your agent: the ghost to click, a name and a job already filled in, one button", () => {
-    const html = renderToStaticMarkup(createElement(AgentStep, { workspaceId: "w1", person: "Sam Rivera", device, onContinue: () => {} }));
-    expect(html).toContain("Step 2 of 3: Your agent");
-    expect(html).toContain('aria-label="Change its look"');
+  it("Your agent: the bubble to click, a name already filled in, Advanced or Simple, one button", () => {
+    const html = renderToStaticMarkup(createElement(AgentStep, { workspaceId: "w1", person: "Sam Rivera", device, onContinue: () => {}, path: "advanced", onPath: () => {} }));
+    expect(html).toContain('aria-label="Change its colour"');
     expect(html).toContain('value="Juno"');
-    expect(html).toContain('value="Keep my days on track"');
-    expect(html).toContain("What should Juno do?");
-    expect(html.match(/<button/g)).toHaveLength(2);
+    expect(html).toContain("How should Juno start?");
+    expect(html).toMatch(/role="radio" aria-checked="true"[^>]*>.*Advanced/);
+    expect(html).toContain(">Simple<");
     expect(html).toContain("Continue");
+    expect(html).toContain('class="bub ');
   });
   it("Its AI: Claude, ChatGPT and Grok, and one quiet way to everything else", () => {
     useStore.setState({ agents: [juno] });
