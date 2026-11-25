@@ -38,14 +38,57 @@ export function registerLoginsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   app.put("/api/logins/source", async (req, reply) => {
     const c = need(req, reply, { owner: true });
     if (!c) return;
-    const body = parse(z.object({ kind: z.literal("1password"), token: z.string().trim().min(1).max(4000) }), req.body, reply);
+    const body = parse(
+      z.discriminatedUnion("kind", [z.object({ kind: z.literal("1password"), token: z.string().trim().min(1).max(4000) }), z.object({ kind: z.literal("wisp-vault") })]),
+      req.body,
+      reply,
+    );
     if (!body) return;
     try {
-      return await hub.logins.connect(c.workspaceId, c.actor.id, body.kind, body.token);
+      return await hub.logins.connect(c.workspaceId, c.actor.id, body.kind, body.kind === "1password" ? body.token : "");
     } catch (err) {
       if (err instanceof LoginError) return fail(reply, err);
-      return reply.code(400).send({ error: `Couldn't open 1Password: ${(err as Error).message}` });
+      return reply.code(400).send({ error: `Couldn't open ${body.kind === "1password" ? "1Password" : "the Wisp vault"}: ${(err as Error).message}` });
     }
+  });
+
+  /**
+   * Settings → Memory vault: the Wisp vault on this server, if it runs one. The person makes their
+   * own vault account on the vault's own page, and signs the agents' account in on the bridge's
+   * page: neither the hub nor this API ever sees a master password.
+   */
+  app.get("/api/logins/vault", async (req, reply) => {
+    const c = need(req, reply, { member: true });
+    if (!c) return;
+    const bridge = hub.logins.vault;
+    if (!bridge) return { available: false, vaultUrl: null, bridge: null, inUse: false };
+    return { available: true, vaultUrl: bridge.config.vaultUrl, bridge: await bridge.status(), inUse: hub.logins.status(c.workspaceId)?.kind === "wisp-vault" };
+  });
+
+  /** A single-use link to the bridge's page where the person signs the agents' account in. */
+  app.post("/api/logins/vault/connect-link", async (req, reply) => {
+    const c = need(req, reply, { owner: true });
+    if (!c) return;
+    if (!hub.logins.vault) return reply.code(412).send({ error: "This Wisp doesn't run a vault" });
+    try {
+      return await hub.logins.vault.connectLink();
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  /** Sign the agents' account out of the bridge (and stop agents using the Wisp vault). */
+  app.delete("/api/logins/vault/account", async (req, reply) => {
+    const c = need(req, reply, { owner: true });
+    if (!c) return;
+    if (!hub.logins.vault) return reply.code(412).send({ error: "This Wisp doesn't run a vault" });
+    try {
+      await hub.logins.vault.forget();
+    } catch (err) {
+      return fail(reply, err);
+    }
+    if (hub.logins.status(c.workspaceId)?.kind === "wisp-vault") hub.logins.disconnect(c.workspaceId);
+    return { ok: true };
   });
 
   app.delete("/api/logins/source", async (req, reply) => {

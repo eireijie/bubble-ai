@@ -1,11 +1,16 @@
-import { LOGIN_SOURCE_LABEL, siteMatches, siteOf, type Agent, type Approval, type LoginFillResult, type LoginRequest, type LoginSourceKind, type LoginSummary } from "@wisp/core";
+import { LOGIN_SOURCE_LABEL, siteMatches, siteOf, type Agent, type Approval, type ComputerAction, type LoginFillResult, type LoginRequest, type LoginSourceKind, type LoginSummary } from "@wisp/core";
 import type { Hub } from "./hub.ts";
+import { openWispVault, VaultBridge, vaultBridgeConfig } from "./vault-bridge.ts";
 
 /**
  * Agents signing in to websites with logins from the person's password manager (Settings →
  * Logins). Wisp keeps only the manager's access token: each password is read at the moment it's
  * filled, goes straight to the agent's computer, and is put into the page there only if the page
  * is on the login's site. The agent hears "filled", never the password.
+ *
+ * The Wisp vault (Vaultwarden on the person's server) goes one step further: the hub never holds
+ * its passwords even for a moment. It gets a single-use ticket from the vault bridge and the device
+ * redeems that ticket itself (see vault-bridge.ts).
  */
 
 /** A login as the password manager has it, without its secrets. */
@@ -14,6 +19,7 @@ export interface SourceLogin {
   title: string;
   site: string;
   username: string;
+  hasOtp?: boolean;
 }
 
 /** One password manager, opened with its token. */
@@ -21,7 +27,10 @@ export interface LoginSource {
   /** the vault Wisp reads from */
   vaultName: string;
   list(): Promise<SourceLogin[]>;
-  secret(itemId: string): Promise<{ username: string; password: string; otp?: string }>;
+  /** the login itself, read now (1Password): it passes through the hub on its way to the device */
+  secret?(itemId: string): Promise<{ username: string; password: string; otp?: string }>;
+  /** a single-use ticket the device redeems for the login itself (Wisp vault): the hub never sees it */
+  ticket?(itemId: string, site: string, computerId: string): Promise<string>;
 }
 
 /** Opens a password manager; throws a LoginError people can read when the token is wrong. */
@@ -92,8 +101,13 @@ export const openOnePassword: LoginSourceOpener = async (_kind, token) => {
 };
 
 export class Logins {
+  /** the Wisp vault's bridge, when this server runs one (WISP_VAULT_BRIDGE_URL); tests swap it */
+  vault: VaultBridge | null = (() => {
+    const c = vaultBridgeConfig();
+    return c ? new VaultBridge(c) : null;
+  })();
   /** tests swap this for a fake password manager */
-  open: LoginSourceOpener = openOnePassword;
+  open: LoginSourceOpener = (kind, token) => (kind === "wisp-vault" ? openWispVault(this.vault) : openOnePassword(kind, token));
   private sources = new Map<string, { token: string; source: Promise<LoginSource> }>();
   private lists = new Map<string, { at: number; logins: Promise<SourceLogin[]> }>();
   private passes = new Map<string, number>();
@@ -193,8 +207,14 @@ export class Logins {
   /** Read the secret now and put it in the page on the agent's computer. */
   async fill(agent: Agent, login: LoginSummary): Promise<LoginFillResult> {
     const comp = this.computerOf(agent);
-    const secret = await (await this.source(agent.workspaceId)).secret(login.id);
-    const result = (await this.hub.computers.act(comp, { action: "fill_login", site: login.site, username: secret.username, password: secret.password, ...(secret.otp ? { otp: secret.otp } : {}) }, { kind: "agent", id: agent.id })) as LoginFillResult;
+    const source = await this.source(agent.workspaceId);
+    let action: Extract<ComputerAction, { action: "fill_login" }>;
+    if (source.ticket) action = { action: "fill_login", site: login.site, username: "", password: "", ticket: await source.ticket(login.id, login.site, comp.id) };
+    else if (source.secret) {
+      const secret = await source.secret(login.id);
+      action = { action: "fill_login", site: login.site, username: secret.username, password: secret.password, ...(secret.otp ? { otp: secret.otp } : {}) };
+    } else throw new LoginError("This password manager can't fill logins.", 409);
+    const result = (await this.hub.computers.act(comp, action, { kind: "agent", id: agent.id })) as LoginFillResult;
     if (result.filled.length) this.hub.computers.log(comp, { kind: "agent", id: agent.id }, `Used the ${login.title} login`);
     return result;
   }
@@ -204,7 +224,10 @@ export class Logins {
    * mod signs in to a file server with it.
    */
   async credentials(workspaceId: string, itemId: string): Promise<{ username: string; password: string }> {
-    const { username, password } = await (await this.source(workspaceId)).secret(itemId);
+    const source = await this.source(workspaceId);
+    // the Wisp vault never hands a password to the hub, so it can't sign Storage in
+    if (!source.secret) throw new LoginError("Logins in the Wisp vault are only filled on agents' computers. Type this one in for Storage instead.", 409);
+    const { username, password } = await source.secret(itemId);
     return { username, password };
   }
 

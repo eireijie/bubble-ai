@@ -146,7 +146,18 @@ export const ComputerAction = z.discriminatedUnion("action", [
    * Sign in on the page open in the VM's browser, only if it's on `site`: the hub sends this with
    * a login from the password manager, never an agent. → LoginFillResult
    */
-  z.object({ action: z.literal("fill_login"), site: z.string().min(1).max(253), username: z.string().max(1000), password: z.string().max(1000), otp: z.string().max(20).optional() }),
+  z.object({
+    action: z.literal("fill_login"),
+    site: z.string().min(1).max(253),
+    username: z.string().max(1000).default(""),
+    password: z.string().max(1000).default(""),
+    otp: z.string().max(20).optional(),
+    /**
+     * Wisp vault: instead of the login, a single-use ticket the device redeems with the vault
+     * bridge itself, so the password never passes through the hub
+     */
+    ticket: z.string().min(32).max(200).optional(),
+  }),
   /** the web page element at a point on the screen (VMs' browser), for recordings → { element: PageElement | null } */
   z.object({ action: z.literal("inspect"), x: coord, y: coord, space: Space.optional() }),
   // --- keeping a computer in step with yours: its clipboard and files ---

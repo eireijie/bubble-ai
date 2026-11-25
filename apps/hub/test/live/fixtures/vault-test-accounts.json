@@ -1,0 +1,27 @@
+{
+  "_note": "Throwaway accounts and fake logins for vault-fill.live.ts, used only against a local, disposable Vaultwarden container. Not real credentials.",
+  "person": {
+    "email": "person@wisp-vault.test",
+    "password": "Person-ts9JRIu-DHZhvw5H"
+  },
+  "agents": {
+    "email": "agents@wisp-vault.test",
+    "password": "Agents-1z8wqPk8mznVCBFT"
+  },
+  "logins": [
+    {
+      "name": "Test site",
+      "folder": "Agents",
+      "uri": "http://localhost:8123/login",
+      "username": "agent-tester",
+      "password": "site-sPCnErl4T7_X3wMp"
+    },
+    {
+      "name": "Personal bank",
+      "folder": "Personal",
+      "uri": "https://bank.wisp-vault.test",
+      "username": "me",
+      "password": "bank-mzYMSbLg_7XsFO8C"
+    }
+  ]
+}

@@ -295,7 +295,7 @@ describe("plain words", () => {
   });
 
   it("puts a name that matches ahead of other words that match", () => {
-    expect(find("memory").slice(0, 2)).toEqual(["Memory", "Memory access"]);
+    expect(find("memory").slice(0, 2)).toEqual(["Memory", "Memory vault"]);
     expect(find("comp").slice(0, 2)).toEqual(["Computers", "Computers"]);
     expect(wordMatch("away", "Away from home")).toBe(3);
     expect(wordMatch("home", "Away from home")).toBe(2);
