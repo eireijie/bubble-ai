@@ -27,6 +27,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { brandLogo, isDarkMark, type BrandLogo } from "../brandLogos.ts";
 import { entryLogos, logoUrl, type AppCategory, type MarketplaceEntry, type TrustLabel } from "@wisp/core";
 import { Modal, cx } from "./ui.tsx";
 
@@ -84,6 +85,24 @@ export function Tile({ children, size = 40, className }: { children: ReactNode; 
  * (a lazy image on a page the window isn't drawing) must not leave an empty white square.
  */
 export function AppTile({ name, category, icon, size = 40, entry }: { name: string; category?: AppCategory | null; icon?: ReactNode; size?: number; entry?: Pick<MarketplaceEntry, "icon" | "name" | "brand" | "id"> | null }) {
+  const bundled = icon ? null : brandLogo(name, entry?.brand, entry?.id.split("/").pop(), entry?.name);
+  if (bundled) return <BrandTile logo={bundled} size={size} />;
+  return <FetchedTile name={name} category={category} icon={icon} size={size} entry={entry} />;
+}
+
+/** A logo Wisp carries itself (brandLogos.ts): drawn at once, near-black marks in the ink colour. */
+export function BrandTile({ logo, size = 40 }: { logo: BrandLogo; size?: number }) {
+  const side = Math.round(size * 0.56);
+  return (
+    <Tile size={size} className="bg-white ring-1 ring-black/10 dark:bg-[#2c2c2e] dark:ring-white/10">
+      <svg viewBox="0 0 24 24" width={side} height={side} aria-hidden role="img">
+        <path d={logo.path} fill={isDarkMark(logo.hex) ? "var(--ink)" : `#${logo.hex}`} />
+      </svg>
+    </Tile>
+  );
+}
+
+function FetchedTile({ name, category, icon, size = 40, entry }: { name: string; category?: AppCategory | null; icon?: ReactNode; size?: number; entry?: Pick<MarketplaceEntry, "icon" | "name" | "brand" | "id"> | null }) {
   const I = appIcon(name, category);
   const sources = icon ? [] : entry ? entryLogos(entry) : [logoUrl([name])].filter((x): x is string => !!x);
   const [failed, setFailed] = useState(0);
