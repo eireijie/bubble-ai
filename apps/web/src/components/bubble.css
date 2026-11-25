@@ -5,15 +5,17 @@
  * eyes. Moods: idle wobbles and glances around, working bobs and sends up tiny bubbles, needs you
  * hops with an orange dot. Everything stops with reduced motion (the .bub-still class or the OS).
  */
-.bub { position: relative; display: inline-block; flex: none; vertical-align: middle; --bub-core: 8%; --bub-edge: 36%; --bub-eye: #1c1c1c; --bub-rim: 2px; --bub-glass: rgb(255 255 255 / 0.35); }
+.bub { position: relative; display: inline-block; flex: none; vertical-align: middle; --bub-lift: 0%; --bub-mid: 16%; --bub-core: 8%; --bub-edge: 36%; --bub-eye: #1c1c1c; --bub-rim: 2px; --bub-glass: rgb(255 255 255 / 0.35); }
 /* dark: still clear, a little less so (the edge reaches 62%) */
-[data-mode="dark"] .bub { --bub-core: 22%; --bub-edge: 62%; --bub-eye: #121212; --bub-glass: rgb(255 255 255 / 0.22); }
+[data-mode="dark"] .bub { --bub-core: 5%; --bub-mid: 16%; --bub-edge: 62%; --bub-lift: 35%; --bub-eye: #ececec; --bub-glass: rgb(255 255 255 / 0.22); }
 .bub-w { position: absolute; inset: 0; transform-origin: 50% 90%; }
 .bub-p { position: absolute; border-radius: 50%; }
 /* glass: thin in the middle so what's behind shows through, tinted towards the edge, a pale inner lip */
+/* on dark the tint is lifted towards white, so the glass adds light instead of muddying to brown */
 .bub-f {
+  --bub-t: color-mix(in srgb, var(--bub-c), white var(--bub-lift));
   position: absolute; inset: 0; border-radius: inherit;
-  background: radial-gradient(ellipse 72% 72% at 50% 54%, color-mix(in srgb, var(--bub-c) var(--bub-core), transparent) 0%, color-mix(in srgb, var(--bub-c) calc((var(--bub-core) + var(--bub-edge)) / 2), transparent) 62%, color-mix(in srgb, var(--bub-c) var(--bub-edge), transparent) 100%);
+  background: radial-gradient(ellipse 72% 72% at 50% 54%, color-mix(in srgb, var(--bub-t) var(--bub-core), transparent) 0%, color-mix(in srgb, var(--bub-t) var(--bub-mid), transparent) 72%, color-mix(in srgb, var(--bub-t) var(--bub-edge), transparent) 100%);
   box-shadow: inset 0 0 0 1px var(--bub-glass), inset 0 -0.12em 0.4em color-mix(in srgb, var(--bub-c) 30%, transparent);
 }
 /* the rim: a conic rainbow cut to a ring (any shape) */
@@ -24,7 +26,7 @@
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 /* round bubbles get the soft, wide rim of the hero bubble instead */
-.bub-round .bub-r { padding: 0; -webkit-mask: radial-gradient(closest-side, transparent 70%, #000 90%); mask: radial-gradient(closest-side, transparent 70%, #000 90%); }
+.bub-round .bub-r { padding: 0; -webkit-mask: radial-gradient(closest-side, transparent 84%, #000 96%); mask: radial-gradient(closest-side, transparent 84%, #000 96%); }
 /* small bubbles: a wider rim so the rainbow still reads at sidebar sizes */
 .bub-small { --bub-rim: 2.4px; }
 .bub-small.bub-round .bub-r { -webkit-mask: radial-gradient(closest-side, transparent 62%, #000 86%); mask: radial-gradient(closest-side, transparent 62%, #000 86%); }
@@ -48,7 +50,7 @@
 /* asleep (its computer is off): drowsy, not shut. Half-closed eyes that still glance and follow */
 .bub-sleep .bub-f { filter: saturate(0.7); }
 .bub-sleep .bub-r { opacity: 0.8; }
-.bub-sleep .bub-e { height: 9%; top: 43%; }
+.bub-sleep .bub-e { height: 12%; top: 41%; }
 
 /* motion (off for .bub-still and reduced motion) */
 .bub-move.bub-round .bub-p, .bub-move.bub-blob .bub-p { animation: bub-morph 6s ease-in-out infinite; }
