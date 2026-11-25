@@ -197,8 +197,6 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
     <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         <BannerSlot.Provider value={bannerSlot}>
-        {/* one suggested step floats here, under the header (SuggestionBanner) */}
-        <div ref={setBannerSlot} className="pointer-events-none absolute inset-x-0 top-[calc(80px+env(safe-area-inset-top))] z-20 flex flex-col items-center gap-2 px-4 empty:hidden" />
         {/* only the name pill, centred: it opens the panel that holds everything else */}
         <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
@@ -234,6 +232,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             )}
           </div>
         </header>
+        {/* one suggested step sits here, under the header, in its own space (SuggestionBanner) */}
+        <div ref={setBannerSlot} className="relative z-20 flex shrink-0 flex-col items-center gap-2 px-4 pb-2 empty:hidden" />
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
           <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!dmAgent} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
@@ -460,9 +460,25 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
 
   // where each message sits among its neighbours (a new chat, a time above it, grouped with the one before,
   // last of its group): worked out when the messages change, not again for every word of a reply
+  // a system notice repeated over a run of messages ("isn't connected to a device yet") shows once,
+  // the latest one, at the bottom of the run; an answer from anyone but you ends the run
+  const repeats = useMemo(() => {
+    const hide = new Set<string>();
+    const seen = new Set<string>();
+    const all = messages ?? [];
+    for (let i = all.length - 1; i >= 0; i--) {
+      const m = all[i];
+      if (m.author.id === "system") {
+        if (seen.has(m.body)) hide.add(m.id);
+        else seen.add(m.body);
+      } else if (m.author.kind !== "user") seen.clear();
+    }
+    return hide;
+  }, [messages]);
+  const shown = useMemo(() => (messages ?? []).filter((m) => !repeats.has(m.id)), [messages, repeats]);
   const places = useMemo(
     () =>
-      (messages ?? []).map((m, i, all) => {
+      shown.map((m, i, all) => {
         const chat = startsChat(all[i - 1], m);
         const stamp = chat || needsStamp(all[i - 1], m);
         const grouped = !stamp && isGrouped(all[i - 1], m) && m.id !== firstNew;
@@ -470,7 +486,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
         const last = !next || startsChat(m, next) || needsStamp(m, next) || !isGrouped(m, next) || next.id === firstNew;
         return { chat, stamp, grouped, last };
       }),
-    [messages, firstNew],
+    [shown, firstNew],
   );
 
   // on open: jump to the NEW divider (or the bottom); afterwards stick to the bottom if you're there
@@ -516,7 +532,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
-        {messages.map((m, i) => (
+        {shown.map((m, i) => (
           <ChatRow
             key={m.id}
             m={m}

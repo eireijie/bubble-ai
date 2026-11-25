@@ -125,7 +125,7 @@ export function AgentStep({ workspaceId, person, device, existing, onContinue, o
           onClick={() => setLook((l) => nextLook(l))}
         >
           <span ref={morph} className="block">
-            <Ghost look={look} size={150} label="" ambient />
+            <Ghost look={look} size={190} label="" ambient />
           </span>
         </button>
         <input

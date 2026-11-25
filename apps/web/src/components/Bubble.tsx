@@ -104,7 +104,7 @@ export function BubbleBody({ shape, color }: { shape: BubbleShape; color: string
     <>
       {def.parts.map((p, i) => (
         <span key={i} className="bub-p" style={{ left: `${p.l}%`, top: `${p.t}%`, width: `${p.w}%`, height: `${p.h}%`, borderRadius: p.r, transform: p.rot ? `rotate(${p.rot}deg)` : undefined }}>
-          <span className="bub-f" style={{ background: color }} />
+          <span className="bub-f" style={{ ["--bub-c" as string]: color }} />
           <span className="bub-r" />
           <span className="bub-h" style={p.rot ? { transform: `rotate(${-p.rot}deg)` } : undefined} />
         </span>
@@ -181,6 +181,7 @@ export function Bubble({
   const cls = [
     "bub",
     `bub-${shape}`,
+    size <= 80 && "bub-small",
     moodClass,
     moving && "bub-move",
     moving && activity === "idle" && "bub-rest",

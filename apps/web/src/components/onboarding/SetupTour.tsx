@@ -95,17 +95,21 @@ export function SetupTour({ agent, channelId }: { agent: Agent; channelId: strin
       </div>
     );
 
-  const said = (state.on.length ? `${andList(state.on)} ${state.on.length > 1 ? "are" : "is"} connected.` : "No apps connected yet.") + "";
+  // only true things: "Great!" when something was connected, a plain line when nothing was
+  const opening = state.on.length ? ["Great! I can see all that you've done.", `${andList(state.on)} ${state.on.length > 1 ? "are" : "is"} connected.`] : ["No apps yet. That's fine, add them anytime."];
   const missing = state.off.length ? `${andList(state.off)} ${state.off.length > 1 ? "are" : "is"} still off. Say the word and I'll connect ${state.off.length > 1 ? "them" : "it"}.` : null;
   const end = () => (set({ ...state, stage: "done" }), setStep(0));
 
   return (
-    <div className="mx-auto flex w-full max-w-[720px] flex-col items-start gap-0.5 px-3 pb-3 sm:px-5" aria-live="polite">
+    // the same column and side as the agent's own messages, each group ending in a tail
+    <div className="mx-auto flex w-full max-w-3xl flex-col items-start gap-[3px] px-3 pb-3 md:max-w-[840px] md:px-5" aria-live="polite">
       {!(touring && stop?.target === "approval") && (
         <>
-          <div className="bubble them m-pop">Great! I can see all that you've done.</div>
-          <div className="bubble them m-pop">{said}</div>
-          {missing && state.bannerGone && <div className="bubble them m-pop">{missing}</div>}
+          {[...opening, ...(missing && state.bannerGone ? [missing] : [])].map((line, i, all) => (
+            <div key={line} className={cx("bubble them m-pop text-[15px] md:text-[16px]", i === all.length - 1 && "tail")}>
+              {line}
+            </div>
+          ))}
           {state.off.length > 0 && !state.bannerGone && (
             <SuggestionBanner
               label="Connect apps"
@@ -124,7 +128,7 @@ export function SetupTour({ agent, channelId }: { agent: Agent; channelId: strin
       )}
       {state.stage === "ask" && (
         <>
-          <div className="bubble them m-pop">Want a quick tour? About a minute.</div>
+          <div className="bubble them tail m-pop mt-1.5 text-[15px] md:text-[16px]">Want a quick tour? About a minute.</div>
           <div className="mt-2.5 flex gap-2">
             <button type="button" onClick={() => (set({ ...state, stage: "tour" }), setStep(0))} className="h-[34px] rounded-full bg-ink px-3.5 text-[14px] font-semibold text-panel outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
               Show me
@@ -146,7 +150,7 @@ export function SetupTour({ agent, channelId }: { agent: Agent; channelId: strin
           <span className="text-[12px] text-faint">An example. Nothing was sent.</span>
         </div>
       )}
-      {state.stage === "done" && <div className="bubble them m-pop mt-3">That's the tour. What should I start on?</div>}
+      {state.stage === "done" && <div className="bubble them tail m-pop mt-1.5 text-[15px] md:text-[16px]">That's the tour. What should I start on?</div>}
       {touring && stop && (
         <Spotlight
           key={stop.target}

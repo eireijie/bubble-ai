@@ -5,20 +5,29 @@
  * eyes. Moods: idle wobbles and glances around, working bobs and sends up tiny bubbles, needs you
  * hops with an orange dot. Everything stops with reduced motion (the .bub-still class or the OS).
  */
-.bub { position: relative; display: inline-block; flex: none; vertical-align: middle; --bub-body: 0.3; --bub-eye: #1c1c1c; --bub-rim: 2px; }
-[data-mode="dark"] .bub { --bub-body: 0.62; --bub-eye: #161616; }
+.bub { position: relative; display: inline-block; flex: none; vertical-align: middle; --bub-core: 8%; --bub-edge: 36%; --bub-eye: #1c1c1c; --bub-rim: 2px; --bub-glass: rgb(255 255 255 / 0.35); }
+/* dark: still clear, a little less so (the edge reaches 62%) */
+[data-mode="dark"] .bub { --bub-core: 22%; --bub-edge: 62%; --bub-eye: #121212; --bub-glass: rgb(255 255 255 / 0.22); }
 .bub-w { position: absolute; inset: 0; transform-origin: 50% 90%; }
 .bub-p { position: absolute; border-radius: 50%; }
-.bub-f { position: absolute; inset: 0; border-radius: inherit; background: var(--bub-c); opacity: var(--bub-body); }
+/* glass: thin in the middle so what's behind shows through, tinted towards the edge, a pale inner lip */
+.bub-f {
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse 72% 72% at 50% 54%, color-mix(in srgb, var(--bub-c) var(--bub-core), transparent) 0%, color-mix(in srgb, var(--bub-c) calc((var(--bub-core) + var(--bub-edge)) / 2), transparent) 62%, color-mix(in srgb, var(--bub-c) var(--bub-edge), transparent) 100%);
+  box-shadow: inset 0 0 0 1px var(--bub-glass), inset 0 -0.12em 0.4em color-mix(in srgb, var(--bub-c) 30%, transparent);
+}
 /* the rim: a conic rainbow cut to a ring (any shape) */
 .bub-r {
   position: absolute; inset: 0; border-radius: inherit; padding: var(--bub-rim);
-  background: conic-gradient(from 20deg, #ff9bd2, #9fc3ff, #93f0cf, #fff0a0, #ffb39e, #cfa2ff, #ff9bd2);
+  background: conic-gradient(from 20deg, #ff7cc4, #7fb0ff, #6fe8c0, #ffe27a, #ff9c80, #bf86ff, #ff7cc4);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 /* round bubbles get the soft, wide rim of the hero bubble instead */
-.bub-round .bub-r { padding: 0; -webkit-mask: radial-gradient(closest-side, transparent 78%, #000 93%); mask: radial-gradient(closest-side, transparent 78%, #000 93%); }
+.bub-round .bub-r { padding: 0; -webkit-mask: radial-gradient(closest-side, transparent 70%, #000 90%); mask: radial-gradient(closest-side, transparent 70%, #000 90%); }
+/* small bubbles: a wider rim so the rainbow still reads at sidebar sizes */
+.bub-small { --bub-rim: 2.4px; }
+.bub-small.bub-round .bub-r { -webkit-mask: radial-gradient(closest-side, transparent 62%, #000 86%); mask: radial-gradient(closest-side, transparent 62%, #000 86%); }
 .bub-h { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(ellipse 21% 12% at 34% 23%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0)), radial-gradient(ellipse 7% 5% at 72% 78%, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0)); }
 .bub-face { position: absolute; inset: 0; }
 .bub-e { position: absolute; top: 38%; width: 11%; height: 17%; border-radius: 50%; background: var(--bub-eye); translate: var(--ex, 0px) var(--ey, 0px); transition: translate 0.3s cubic-bezier(0.2, 0.8, 0.3, 1), height 0.2s, top 0.2s; }
@@ -36,9 +45,10 @@
 .bub-need .bub-e { height: 21%; top: 35%; }
 .bub-listen .bub-e { height: 20%; top: 36%; }
 .bub-work .bub-ring { display: block; }
-.bub-sleep .bub-f { filter: grayscale(0.55); }
-.bub-sleep .bub-r { opacity: 0.45; }
-.bub-sleep .bub-e { height: 3%; top: 46%; }
+/* asleep (its computer is off): drowsy, not shut. Half-closed eyes that still glance and follow */
+.bub-sleep .bub-f { filter: saturate(0.7); }
+.bub-sleep .bub-r { opacity: 0.8; }
+.bub-sleep .bub-e { height: 9%; top: 43%; }
 
 /* motion (off for .bub-still and reduced motion) */
 .bub-move.bub-round .bub-p, .bub-move.bub-blob .bub-p { animation: bub-morph 6s ease-in-out infinite; }
@@ -51,7 +61,8 @@
 .bub-move.bub-need .bub-w, .bub-move.bub-error .bub-w { animation: bub-hop 2.4s ease-out infinite; }
 .bub-move .bub-e { animation: bub-blink 5.2s infinite; animation-delay: var(--bub-delay, 0s); }
 .bub-move.bub-idle:not([data-hov]) .bub-e, .bub-move.bub-done:not([data-hov]) .bub-e { animation: bub-blink 5.2s infinite, bub-look 12s ease-in-out infinite; animation-delay: var(--bub-delay, 0s); }
-.bub-move.bub-sleep .bub-e, .bub-move.bub-sleep .bub-w { animation: none; }
+.bub-move.bub-sleep:not([data-hov]) .bub-e { animation: bub-blink 7s infinite, bub-look 16s ease-in-out infinite; animation-delay: var(--bub-delay, 0s); }
+.bub-move.bub-sleep .bub-w { animation: bub-wob 7s ease-in-out infinite; }
 .bub-move.bub-hop-once .bub-w { animation: bub-hop1 0.6s ease-out; }
 .bub-move.bub-spin { animation: bub-spin 0.9s cubic-bezier(0.65, 0, 0.35, 1); }
 /* the page has been left alone a while: everything rests, nothing redraws */
