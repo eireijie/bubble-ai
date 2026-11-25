@@ -88,7 +88,7 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
 }
 
 /** A round sidebar button, 40px with a soft fill: search, the plus, Computers on the rail. */
-const ROUND = "relative grid size-[40px] shrink-0 place-items-center rounded-full text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
+const ROUND = "relative grid size-[36px] shrink-0 place-items-center rounded-full text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
 const SOFT = "bg-side-active";
 /** A row of the wide sidebar (60px, a big wisp, a rounded tile when it's the open one), and its square on the rail. Hover eases in; a press gives a little. */
 const ITEM = "relative flex h-[60px] w-full items-center gap-3 rounded-[12px] px-2 text-left text-[16px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
@@ -454,8 +454,8 @@ export function Rail({ route }: { route: Route }) {
   const firstName = me.user.name.trim().split(/\s+/)[0] || me.user.name;
   const settingsOn = route.view === "settings";
   const you = (
-    <a data-tour="you" href={href({ view: "settings", page: null })} aria-label="You and settings" title={wide ? undefined : "You and settings"} aria-current={settingsOn ? "page" : undefined} className={cx("relative flex h-[42px] min-w-0 shrink-0 items-center gap-2 rounded-full text-[15px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "max-w-[46%] pl-[5px] pr-3.5" : "w-[42px] justify-center", settingsOn ? "bg-line2" : SOFT)}>
-      <span className={cx("grid size-[32px] shrink-0 place-items-center rounded-full text-[14px] font-semibold", wide ? "bg-panel shadow-[0_0_0_1px_var(--line)]" : "")}>{(firstName[0] ?? "?").toUpperCase()}</span>
+    <a data-tour="you" href={href({ view: "settings", page: null })} aria-label="You and settings" title={wide ? undefined : "You and settings"} aria-current={settingsOn ? "page" : undefined} className={cx("relative flex h-[34px] min-w-0 shrink-0 items-center gap-2 rounded-full text-[15px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "max-w-[46%] pl-[3px] pr-3" : "w-[36px] justify-center", settingsOn ? "bg-line2" : SOFT)}>
+      <span className={cx("grid size-[28px] shrink-0 place-items-center rounded-full text-[13px] font-semibold", wide ? "bg-panel shadow-[0_0_0_1px_var(--line)]" : "")}>{(firstName[0] ?? "?").toUpperCase()}</span>
       {wide && <span className="truncate font-medium">{firstName}</span>}
       {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
     </a>
@@ -471,9 +471,9 @@ export function Rail({ route }: { route: Route }) {
     <div className="relative z-30 flex shrink-0">
       <nav ref={navRef} aria-label="Wisp" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(11px,env(safe-area-inset-top))] pb-[11px]" style={{ width, transition }}>
         {/* search and New; nothing else up here */}
-        <div className={cx("side-top mb-2.5 flex shrink-0 items-center gap-2", wide ? "h-[40px] px-[11px]" : "flex-col gap-2.5")}>
+        <div className={cx("side-top mb-2.5 flex shrink-0 items-center gap-2", wide ? "h-[36px] px-[11px]" : "flex-col gap-2.5")}>
           {wide ? (
-            <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[40px] min-w-0 flex-1 items-center gap-2 rounded-full pl-3.5 pr-3 text-[15px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
+            <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[36px] min-w-0 flex-1 items-center gap-2 rounded-full pl-3 pr-3 text-[15px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
               <Search size={17} strokeWidth={1.9} aria-hidden />
               <span className="flex-1 truncate text-left">Search</span>
               <kbd className="font-sans text-[12px] text-faint">⌘K</kbd>
@@ -498,7 +498,7 @@ export function Rail({ route }: { route: Route }) {
           <div ref={footRef} className="flex shrink-0 items-center gap-2 px-[11px] pt-2.5">
             {you}
             {!isGuest && (
-              <div className={cx("flex h-[42px] min-w-0 flex-1 items-center rounded-full p-0", SOFT)}>
+              <div className={cx("flex h-[34px] min-w-0 flex-1 items-center rounded-full p-0", SOFT)}>
                 <a data-tour="computers" href={computersTo} aria-label={computersLabel} aria-current={computersOn ? "page" : undefined} className={cx(half, computersOn && "bg-line2")}>
                   <span aria-hidden className={cx("size-2 shrink-0 rounded-full", onCount > 0 ? "bg-[#30d158]" : "bg-muted opacity-50")} />
                   <span className="truncate text-[14px]">{onCount} on</span>

@@ -107,5 +107,5 @@ describe("docked sidebar", () => {
     for (const place of ["Search", "Iris", "New agent or team", "Computers", "Memory vault", "You and settings"]) expect(html).toContain(`aria-label="${place}`);
   });
 
-  it("starts at 320 with nothing saved", () => expect(render(null)).toContain("width:320px"));
+  it("starts at 325 with nothing saved", () => expect(render(null)).toContain("width:325px"));
 });

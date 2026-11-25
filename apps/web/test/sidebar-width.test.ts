@@ -35,8 +35,8 @@ describe("docked sidebar width", () => {
     expect(stepWidth({ width: 300, collapsed: true }, -1)).toEqual({ width: 300, collapsed: true });
   });
 
-  it("is 320 wide by default with an 82px rail, and the range sits around that", () => {
-    expect(SIDEBAR.default).toBe(320);
+  it("is 325 wide by default with an 82px rail, and the range sits around that", () => {
+    expect(SIDEBAR.default).toBe(325);
     expect(SIDEBAR.rail).toBe(82);
     expect(SIDEBAR.min).toBeLessThan(SIDEBAR.default);
     expect(SIDEBAR.max).toBeGreaterThan(SIDEBAR.default);
@@ -53,7 +53,7 @@ describe("docked sidebar width", () => {
     beforeEach(() => vi.stubGlobal("localStorage", fakeStorage()));
     afterEach(() => vi.unstubAllGlobals());
 
-    it("defaults to 320 and open", () => expect(loadSidebar()).toEqual({ width: SIDEBAR.default, collapsed: false }));
+    it("defaults to 325 and open", () => expect(loadSidebar()).toEqual({ width: SIDEBAR.default, collapsed: false }));
 
     it("survives a reload", () => {
       saveSidebar({ width: 333, collapsed: true });

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import type { Agent } from "@wisp/core";
 import { defaultAppearance } from "@wisp/core/src/appearance.ts";
 import { useStore } from "../store.ts";
@@ -34,22 +35,23 @@ export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boole
     <button
       onClick={onClick}
       aria-expanded={open}
-      className={cx(
-        "agent-pill inline-flex max-w-full items-center gap-2.5 h-12 pl-2 pr-5 rounded-full text-[17px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
-        open ? "bg-side-active" : "hover:bg-hover",
-      )}
+      className="agent-pill group inline-flex max-w-full flex-col items-center gap-1 rounded-[14px] px-2 pt-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`${agent.name}${note ? `, ${note}` : ""}. About ${agent.name}`}
     >
-      {/* poking the ghost plays with it instead of opening the panel */}
+      {/* poking the bubble plays with it instead of opening the panel */}
       <span onClick={(e) => e.stopPropagation()} className="grid place-items-center">
-        <Ghost look={look} size={40} mood={mood} interactive label={agent.name} seed={agent.handle} />
+        <Ghost look={look} size={44} mood={mood} interactive label={agent.name} seed={agent.handle} />
       </span>
-      <span className="truncate font-semibold">{agent.name}</span>
-      {note && mood !== "awake" && (
-        <span key={mood} className={cx("m-fade-in shrink-0 text-[14px]", mood === "waiting" ? "text-st-needs" : mood === "error" ? "text-st-problem" : mood === "working" || mood === "thinking" ? "shimmer-text text-wisp-strong" : "text-muted")} aria-hidden>
-          {note}
-        </span>
-      )}
+      {/* the name in a small pill under it, with a chevron: it opens the details */}
+      <span className={cx("inline-flex h-[24px] max-w-full items-center gap-1 rounded-full pl-2.5 pr-1.5 text-[13px] transition-colors duration-150", open ? "bg-side-active" : "bg-[var(--bubble-them)] group-hover:bg-hover")}>
+        <span className="truncate font-semibold">{agent.name}</span>
+        {note && mood !== "awake" && (
+          <span key={mood} className={cx("m-fade-in shrink-0", mood === "waiting" ? "text-st-needs" : mood === "error" ? "text-st-problem" : mood === "working" || mood === "thinking" ? "shimmer-text text-wisp-strong" : "text-muted")} aria-hidden>
+            · {note}
+          </span>
+        )}
+        <ChevronRight size={13} strokeWidth={2.2} className={cx("shrink-0 text-muted transition-transform duration-200", open && "rotate-90")} aria-hidden />
+      </span>
     </button>
   );
 }

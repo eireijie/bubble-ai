@@ -1,7 +1,7 @@
 import { Suspense, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Phone } from "lucide-react";
 import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -194,7 +194,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
     <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         {/* only the name pill, centred: it opens the panel that holds everything else */}
-        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
+        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
             {onBack && (
               <span className="md:hidden">
@@ -214,7 +214,15 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
           ) : (
             <TeamPill channel={channel} open={infoOpen} onClick={toggleInfo} />
           )}
-          <div className="flex items-center justify-end">{dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}</div>
+          <div className="flex items-center justify-end gap-2">
+            {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
+            {/* round floating call button in the top corner */}
+            {dmAgent && !calling && (
+              <button type="button" onClick={() => setCalling(true)} aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`} className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
+                <Phone size={17} strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
         </header>
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
           <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!dmAgent} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
@@ -1891,12 +1899,13 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
           </div>
         )}
         {/* one line: plus, the text, the round button. Past one line it grows upward into two rows: the text on top, plus and the button underneath */}
-        <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2 rounded-[20px] md:rounded-[26px] border border-transparent bg-[var(--bubble-them)] px-[7px] py-[5px] md:py-[7px] focus-within:border-line2", tall && "gap-y-1 pt-2")}>
+        {/* a round plus, the pill field (with dictation inside, on the right), and the round button outside it */}
+        <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2", tall && "gap-y-1.5")}>
           <span className={cx("col-start-1 shrink-0", tall ? "row-start-2" : "row-start-1")}>
             <Popover
               className="w-60 p-1.5 !rounded-[14px]"
               trigger={(open, toggle) => (
-                <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-10 rounded-full grid place-items-center text-ink hover:bg-hover", open && "bg-hover")}>
+                <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-[42px] rounded-full grid place-items-center bg-[var(--bubble-them)] text-ink hover:bg-hover", open && "bg-hover")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
                 </button>
               )}
@@ -1912,6 +1921,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
               )}
             </Popover>
           </span>
+          <div className={cx("flex min-h-[42px] min-w-0 items-end rounded-[21px] border border-transparent bg-[var(--bubble-them)] pl-4 pr-1.5 focus-within:border-line2 row-start-1", tall ? "col-span-3 col-start-1" : "col-start-2")}>
           <textarea
             ref={ta}
             rows={1}
@@ -1949,8 +1959,14 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 send();
               }
             }}
-            className={cx("block min-w-0 resize-none bg-transparent py-[9px] text-[15px] md:text-[16px] leading-[22px] md:leading-6 outline-none placeholder:text-muted placeholder:truncate row-start-1", tall ? "col-span-3 col-start-1 px-2" : "col-start-2")}
+            className="block min-w-0 flex-1 resize-none bg-transparent py-[9px] text-[16px] leading-[22px] outline-none placeholder:text-muted placeholder:truncate"
           />
+          {dictation.supported && action !== "dictate" && action !== "listening" && (
+            <button type="button" onClick={() => dictation.toggle()} aria-label="Dictate" title="Dictate" className="mb-[3px] grid size-[34px] shrink-0 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+              <Mic size={18} strokeWidth={1.8} />
+            </button>
+          )}
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -1968,7 +1984,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             aria-pressed={action === "listening" ? true : undefined}
             title={round.title}
             className={cx(
-              "m-press col-start-3 size-10 shrink-0 select-none rounded-full grid place-items-center disabled:bg-chip disabled:text-faint",
+              "m-press col-start-3 size-[42px] shrink-0 select-none rounded-full grid place-items-center disabled:bg-chip disabled:text-faint",
               tall ? "row-start-2" : "row-start-1",
               action === "listening" ? "bg-bad text-white" : "bg-[var(--bubble-me)] text-[var(--bubble-me-ink)]",
             )}

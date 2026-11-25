@@ -203,13 +203,13 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const press = useLongPress((key, x, y) => setMenu({ key, x, y }));
 
   // --- pins ---------------------------------------------------------------------------------------
-  const pinSize = phone ? 54 : 46;
+  const pinSize = 70;
   const pins = placed.pins.map((k) => byKey.get(k)!).filter(Boolean);
   const pinGrid = pins.length > 0 && (
     <div
       aria-label="Pinned"
       role="list"
-      className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-0.5 rounded-[14px] px-1 pb-2 pt-0.5", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
+      className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-1 rounded-[14px] px-0.5 pb-3 pt-1", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
       {...dropProps("pins", (key) => {
         const c = byKey.get(key);
         if (!c) return;
@@ -238,16 +238,16 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               {...dropProps(`pin:${c.key}`, (key) => layout.pins.includes(key) && save(movePin(layout, key, i)))}
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
-              className={cx("flex flex-col items-center gap-[5px] rounded-[12px] pb-[3px] pt-[5px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "bg-side-active" : "hover:bg-side-hover")}
+              className={cx("flex h-[100px] flex-col items-center justify-center gap-[6px] rounded-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "bg-side-active" : "hover:bg-side-hover")}
             >
               <span className="relative grid place-items-center" style={{ width: pinSize, height: pinSize }}>
                 <ChatAvatar chat={c} size={pinSize} />
                 {line?.needs && c.kind === "team" ? <NeedsDot size={pinSize} /> : !line?.needs && unread ? <UnreadDot size={pinSize} /> : null}
               </span>
               {renaming === c.key ? (
-                <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className="w-[88px] text-center text-[12px]" />
+                <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className="w-[92px] text-center text-[14px]" />
               ) : (
-                <span className={cx("max-w-[88px] truncate text-ink", phone ? "text-[12px]" : "text-[12px]", unread && "font-semibold")}>{c.name}</span>
+                <span className={cx("max-w-[92px] truncate text-[14px]", unread ? "font-semibold text-ink" : "text-muted")}>{c.name}</span>
               )}
             </a>
           </div>
@@ -257,8 +257,8 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   );
 
   // --- rows ---------------------------------------------------------------------------------------
-  const rowH = phone ? 72 : 64;
-  const avatar = phone ? 54 : 52;
+  const rowH = 80;
+  const avatar = phone ? 48 : 40;
   const row = (c: Chat) => {
     const line = lines.get(c.key);
     const unread = isUnread(c);
@@ -279,26 +279,26 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           {...dragProps(c)}
           aria-label={label}
           aria-current={isActive ? "page" : undefined}
-          className={cx("flex w-full items-center gap-3 rounded-[14px] pl-1 pr-2.5 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive || menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
+          className={cx("group/row flex w-full items-center gap-3 rounded-[14px] pl-2.5 pr-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on bg-[#7a5bdc] text-white" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
           style={{ height: rowH }}
         >
           <span className="relative grid shrink-0 place-items-center" style={{ width: avatar, height: avatar }}>
             <ChatAvatar chat={c} size={avatar} />
             {line?.needs && c.kind === "team" ? <NeedsDot size={avatar} /> : !line?.needs && unread ? <UnreadDot size={avatar} /> : null}
           </span>
-          <span className={cx("flex min-w-0 flex-1 flex-col gap-px", c.muted && "opacity-60", phone && "h-full justify-center shadow-[inset_0_-1px_0_var(--line)]")}>
+          <span className={cx("flex h-full min-w-0 flex-1 flex-col justify-center gap-px", c.muted && "opacity-60", !isActive && "shadow-[inset_0_-1px_0_var(--line)]")}>
             <span className="flex items-baseline gap-2">
               {renaming === c.key ? (
-                <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className="min-w-0 flex-1 text-[16px] font-semibold" />
+                <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className="min-w-0 flex-1 text-[15px] font-semibold" />
               ) : (
-                <span className={cx("min-w-0 flex-1 truncate font-semibold text-ink", phone ? "text-[17px]" : "text-[16px]")}>{c.name}</span>
+                <span className={cx("min-w-0 flex-1 truncate font-semibold", phone ? "text-[17px]" : "text-[15px]", isActive ? "text-white" : "text-ink")}>{c.name}</span>
               )}
-              {c.at > 0 && <span className={cx("shrink-0 text-muted", phone ? "text-[14px]" : "text-[13px]")}>{shortTime(c.at, clock)}</span>}
+              {c.at > 0 && <span className={cx("shrink-0", phone ? "text-[14px]" : "text-[13px]", isActive ? "text-white/80" : "text-muted")}>{shortTime(c.at, clock)}</span>}
             </span>
             {line?.text && (
-              <span className={cx("flex min-w-0 items-center gap-1.5", phone ? "text-[15px] leading-5" : "text-[14px] leading-[19px]", line.working ? "text-wisp-strong" : "text-muted")}>
-                {line.icon && <span className="inline-flex shrink-0">{line.icon}</span>}
-                <span className={cx("truncate", line.working && "shimmer-text")}>{line.text}</span>
+              <span className={cx("flex min-w-0 items-start gap-1.5 text-[15px] leading-5", isActive ? "text-white/85" : line.working ? "text-wisp-strong" : "text-muted")}>
+                {line.icon && <span className="inline-flex h-5 shrink-0 items-center">{line.icon}</span>}
+                <span className={cx("line-clamp-2 break-words", line.working && "shimmer-text")}>{line.text}</span>
               </span>
             )}
           </span>
@@ -499,7 +499,7 @@ function SectionHeader({ name, count, folded, phone, canEdit, onToggle, onRename
         onDoubleClick={canEdit ? (e) => (e.preventDefault(), onRename()) : undefined}
         onContextMenu={canEdit ? (e) => (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY })) : undefined}
         aria-expanded={!folded}
-        className={cx("flex items-center gap-1.5 rounded-[10px] pl-2.5 pr-2 text-left font-semibold text-muted outline-none hover:bg-side-hover focus-visible:ring-2 focus-visible:ring-ring/40", phone ? "h-9 text-[14px]" : "h-[34px] text-[13px]")}
+        className={cx("flex items-center gap-1.5 rounded-[10px] pl-2.5 pr-2 text-left font-medium text-muted outline-none hover:bg-side-hover focus-visible:ring-2 focus-visible:ring-ring/40", phone ? "h-9 text-[15px]" : "h-[34px] text-[15px]")}
       >
         <ChevronDown size={14} strokeWidth={2.2} aria-hidden className={cx("shrink-0 transition-transform duration-200", folded && "-rotate-90")} />
         <span className="truncate">{name}</span>
