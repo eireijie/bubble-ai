@@ -616,7 +616,8 @@ describe("logins from the Wisp vault", () => {
   it("is connected by the person on the bridge's own page, never through the hub", async () => {
     expect(await owner.request("GET", "/api/logins/vault")).toMatchObject({ available: true, vaultUrl: "https://wisp.test/vault", bridge: { state: "not_connected" }, inUse: false });
     await expect(owner.request("PUT", "/api/logins/source", { kind: "wisp-vault" })).rejects.toThrow(/Connect the agents' vault account first/);
-    await expect(member.request("POST", "/api/logins/vault/connect-link")).rejects.toThrow(/owner only/);
+    await expect(member.request("POST", "/api/logins/vault/connect-link")).rejects.toThrow(/hub.s owner/);
+    await expect(member.request("GET", "/api/logins/vault")).rejects.toThrow(/hub.s owner/);
     const link = await owner.request<{ url: string }>("POST", "/api/logins/vault/connect-link");
     const [page, code] = link.url.split("#");
     expect(page).toBe(`${bridgeUrl}/vault-bridge/connect`);
@@ -640,6 +641,8 @@ describe("logins from the Wisp vault", () => {
     await waitFor(() => fills().length === before + 1);
     expect(fills().at(-1)!.args[0]).toEqual({ site: "zendesk.com", username: "support@shop.test", password: SECRET, otp: "123456" });
     await waitFor(() => calls.slice(runs).some((c) => c.prompt.includes("Wisp filled the Zendesk login")));
+    // the device took its redeem token out of the environment its harnesses and terminals inherit
+    expect(process.env.WISP_VAULT_REDEEM_TOKEN).toBeUndefined();
     // the hub only ever handed out a ticket
     const fillsSent = sentToDevices.filter((a) => a.includes("fill_login"));
     expect(fillsSent.length).toBeGreaterThan(0);
@@ -664,15 +667,15 @@ describe("logins from the Wisp vault", () => {
     const ticket = JSON.parse(sentToDevices.filter((a) => a.includes("fill_login")).at(-1)!).ticket;
     const again = await fetch(`${bridgeUrl}/v1/redeem`, { method: "POST", headers: { authorization: `Bearer ${redeemToken}`, "content-type": "application/json" }, body: JSON.stringify({ ticket, site: "zendesk.com", computerId: "x" }) });
     expect(again.status).toBe(410);
-    const fresh = await hub.logins.vault!.ticket("z", "zendesk.com", "anything");
+    const fresh = await hub.logins.vault!.ticket("11111111-1111-4111-8111-111111111111", "zendesk.com", "anything");
     const byHub = await fetch(`${bridgeUrl}/v1/redeem`, { method: "POST", headers: { authorization: `Bearer ${hubToken}`, "content-type": "application/json" }, body: JSON.stringify({ ticket: fresh, site: "zendesk.com", computerId: "anything" }) });
     expect(byHub.status).toBe(401);
-    await expect(hub.logins.vault!.ticket("bank", "bank.test", "c")).rejects.toThrow(/isn't in the Agents/);
+    await expect(hub.logins.vault!.ticket("33333333-3333-4333-8333-333333333333", "bank.test", "c")).rejects.toThrow(/isn't in the Agents/);
     await expect(agentApi.fillLogin("bank.test")).rejects.toThrow(/no saved login for bank.test/);
   });
 
   it("can't sign Storage in, and switching back to 1Password still works", async () => {
-    await expect(hub.logins.credentials(hub.store.agent(agentId)!.workspaceId, "z")).rejects.toThrow(/only filled on agents' computers/);
+    await expect(hub.logins.credentials(hub.store.agent(agentId)!.workspaceId, "11111111-1111-4111-8111-111111111111")).rejects.toThrow(/only filled on agents' computers/);
     hub.logins.open = async (kind, token) => {
       if (kind === "wisp-vault") throw new LoginError("unexpected");
       if (token !== "ops_good") throw new LoginError("1Password didn't accept that token");

@@ -30,6 +30,8 @@ const CODE_TRIES = 3;
 const LIST_TTL_MS = 30_000;
 const MAX_BODY = 16 * 1024;
 export const AGENTS = "agents";
+/** vault item ids are GUIDs: anything else would reach `bw get item` as a search or a flag */
+const ITEM_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** "https://www.zendesk.com/login" → "zendesk.com" (the same rule as @wisp/core's siteOf). */
 export function siteOf(url) {
@@ -226,6 +228,8 @@ export class Bridge {
     } catch (err) {
       this.session = null;
       await this.bw.logout();
+      // a mistyped reconnect doesn't leave agents without the account that was working
+      await this.start().catch(() => {});
       throw new BridgeError(`Bitwarden didn't accept that: ${err.message}`, 400);
     }
     this.codes.delete(String(body.code));
@@ -304,7 +308,7 @@ export class Bridge {
     const itemId = String(body?.itemId ?? "");
     const site = siteOf(body?.site ?? "");
     const computerId = String(body?.computerId ?? "");
-    if (!itemId || !site || !computerId) throw new BridgeError("itemId, site and computerId are needed");
+    if (!ITEM_ID.test(itemId) || !site || !computerId || computerId.length > 200) throw new BridgeError("itemId, site and computerId are needed");
     await this.checked(itemId, site);
     for (const [k, v] of this.tickets) if (v.until < this.now()) this.tickets.delete(k);
     const ticket = random();

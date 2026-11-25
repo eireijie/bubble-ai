@@ -13,9 +13,9 @@ export class FakeBw implements BwLike {
   unlocked = false;
   logins = 0;
   items_: BwItem[] = [
-    { id: "z", name: "Zendesk", type: 1, folderId: "f-agents", login: { username: "support@shop.test", password: SECRET, totp: "JBSWY3DPEHPK3PXP", uris: [{ uri: "https://www.zendesk.com/login" }] } },
-    { id: "g", name: "GitHub", type: 1, collectionIds: ["c-agents"], login: { username: "bot", password: "gh-fake-secret", uris: [{ uri: "github.com" }] } },
-    { id: "bank", name: "Bank", type: 1, folderId: "f-personal", login: { username: "me", password: "bank-fake-secret", uris: [{ uri: "https://bank.test" }] } },
+    { id: "11111111-1111-4111-8111-111111111111", name: "Zendesk", type: 1, folderId: "f-agents", login: { username: "support@shop.test", password: SECRET, totp: "JBSWY3DPEHPK3PXP", uris: [{ uri: "https://www.zendesk.com/login" }] } },
+    { id: "22222222-2222-4222-8222-222222222222", name: "GitHub", type: 1, collectionIds: ["c-agents"], login: { username: "bot", password: "gh-fake-secret", uris: [{ uri: "github.com" }] } },
+    { id: "33333333-3333-4333-8333-333333333333", name: "Bank", type: 1, folderId: "f-personal", login: { username: "me", password: "bank-fake-secret", uris: [{ uri: "https://bank.test" }] } },
     { id: "note", name: "Note", type: 2, folderId: "f-agents" },
   ];
   async unlock(c: { email?: string; password: string }) {
@@ -91,33 +91,35 @@ describe("vault bridge", () => {
     await connected();
     const list = await bridge.list();
     expect(list).toEqual([
-      { id: "z", title: "Zendesk", site: "zendesk.com", username: "support@shop.test", hasOtp: true },
-      { id: "g", title: "GitHub", site: "github.com", username: "bot", hasOtp: false },
+      { id: "11111111-1111-4111-8111-111111111111", title: "Zendesk", site: "zendesk.com", username: "support@shop.test", hasOtp: true },
+      { id: "22222222-2222-4222-8222-222222222222", title: "GitHub", site: "github.com", username: "bot", hasOtp: false },
     ]);
     expect(JSON.stringify(list)).not.toMatch(/secret|JBSWY/);
   });
 
   it("hands out single-use tickets for one site and computer, checked again on redeem", async () => {
     await connected();
-    await expect(bridge.ticket({ itemId: "bank", site: "bank.test", computerId: "c1" })).rejects.toThrow(/isn't in the Agents/);
-    await expect(bridge.ticket({ itemId: "z", site: "zendesk-login.evil.test", computerId: "c1" })).rejects.toThrow(/isn't saved for/);
-    const { ticket } = await bridge.ticket({ itemId: "z", site: "zendesk.com", computerId: "c1" });
+    await expect(bridge.ticket({ itemId: "33333333-3333-4333-8333-333333333333", site: "bank.test", computerId: "c1" })).rejects.toThrow(/isn't in the Agents/);
+    // ids go to `bw get item`: only a GUID gets that far
+    await expect(bridge.ticket({ itemId: "--help", site: "zendesk.com", computerId: "c1" })).rejects.toThrow(/are needed/);
+    await expect(bridge.ticket({ itemId: "11111111-1111-4111-8111-111111111111", site: "zendesk-login.evil.test", computerId: "c1" })).rejects.toThrow(/isn't saved for/);
+    const { ticket } = await bridge.ticket({ itemId: "11111111-1111-4111-8111-111111111111", site: "zendesk.com", computerId: "c1" });
     await expect(bridge.redeem({ ticket, site: "evil.test", computerId: "c1" })).rejects.toThrow(/for zendesk.com/);
     // a refused redeem used it up
     await expect(bridge.redeem({ ticket, site: "zendesk.com", computerId: "c1" })).rejects.toThrow(/already used/);
 
-    const t2 = (await bridge.ticket({ itemId: "z", site: "www.zendesk.com", computerId: "c1" })).ticket;
+    const t2 = (await bridge.ticket({ itemId: "11111111-1111-4111-8111-111111111111", site: "www.zendesk.com", computerId: "c1" })).ticket;
     await expect(bridge.redeem({ ticket: t2, site: "zendesk.com", computerId: "c2" })).rejects.toThrow(/another computer/);
-    const t3 = (await bridge.ticket({ itemId: "z", site: "zendesk.com", computerId: "c1" })).ticket;
+    const t3 = (await bridge.ticket({ itemId: "11111111-1111-4111-8111-111111111111", site: "zendesk.com", computerId: "c1" })).ticket;
     expect(await bridge.redeem({ ticket: t3, site: "zendesk.com", computerId: "c1" })).toEqual({ username: "support@shop.test", password: SECRET, otp: "123456" });
     await expect(bridge.redeem({ ticket: t3, site: "zendesk.com", computerId: "c1" })).rejects.toThrow(/already used/);
 
-    const t4 = (await bridge.ticket({ itemId: "z", site: "zendesk.com", computerId: "c1" })).ticket;
+    const t4 = (await bridge.ticket({ itemId: "11111111-1111-4111-8111-111111111111", site: "zendesk.com", computerId: "c1" })).ticket;
     clock += 61_000;
     await expect(bridge.redeem({ ticket: t4, site: "zendesk.com", computerId: "c1" })).rejects.toThrow(/expired/);
 
     // the person moved it out of Agents after the ticket was made
-    const t5 = (await bridge.ticket({ itemId: "g", site: "github.com", computerId: "c1" })).ticket;
+    const t5 = (await bridge.ticket({ itemId: "22222222-2222-4222-8222-222222222222", site: "github.com", computerId: "c1" })).ticket;
     bw.items_[1].collectionIds = [];
     await expect(bridge.redeem({ ticket: t5, site: "github.com", computerId: "c1" })).rejects.toThrow(/isn't in the Agents/);
   });
@@ -174,12 +176,12 @@ describe("vault bridge over HTTP", () => {
       const { code } = (await call("POST", "/v1/connect-codes", hubToken)).body;
       expect((await call("POST", "/vault-bridge/connect", undefined, { code, email: "agents@wisp.test", password: PASSWORD })).body).toMatchObject({ count: 2 });
 
-      const { ticket } = (await call("POST", "/v1/tickets", hubToken, { itemId: "z", site: "zendesk.com", computerId: "c1" })).body;
+      const { ticket } = (await call("POST", "/v1/tickets", hubToken, { itemId: "11111111-1111-4111-8111-111111111111", site: "zendesk.com", computerId: "c1" })).body;
       // the hub's token can't redeem what it was given
       expect((await call("POST", "/v1/redeem", hubToken, { ticket, site: "zendesk.com", computerId: "c1" })).status).toBe(401);
       expect((await call("GET", "/v1/items", redeemToken)).status).toBe(401);
       expect((await call("POST", "/v1/redeem", redeemToken, { ticket, site: "zendesk.com", computerId: "c1" })).body).toMatchObject({ password: SECRET });
-      for (const [m, p] of [["PUT", "/v1/items/z"], ["DELETE", "/v1/items/z"], ["POST", "/v1/items"], ["POST", "/v1/unlock"], ["GET", "/v1/items/z"]])
+      for (const [m, p] of [["PUT", "/v1/items/x"], ["DELETE", "/v1/items/x"], ["POST", "/v1/items"], ["POST", "/v1/unlock"], ["GET", "/v1/items/x"]])
         expect((await call(m, p, hubToken, m === "GET" ? undefined : {})).status).toBe(404);
       expect((await call("POST", "/vault-bridge/connect", undefined, { code: "x", email: "a@b.c", password: "leaky-pass" })).status).toBe(403);
       expect(lines.join("\n")).not.toMatch(new RegExp(`${SECRET}|${PASSWORD}|leaky-pass|${ticket}`));

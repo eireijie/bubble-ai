@@ -17,6 +17,7 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import crypto from "node:crypto";
+import { rmSync } from "node:fs";
 import fs from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
@@ -159,6 +160,8 @@ http.server.HTTPServer(("127.0.0.1", ${SITE_PORT}), H).serve_forever()
 
 async function main() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wisp-vault-live-"));
+  // gone however the run ends, unless asked to keep it
+  if (!process.env.LIVE_KEEP) process.on("exit", () => rmSync(dir, { recursive: true, force: true }));
   const results: [string, boolean, string][] = [];
   const check = (name: string, ok: boolean, detail = "") => (results.push([name, ok, detail]), say(`${ok ? "PASS" : "FAIL"} ${name}${detail ? `: ${detail}` : ""}`));
 

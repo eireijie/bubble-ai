@@ -6,7 +6,7 @@ import type { Hub } from "./hub.ts";
 import { LoginError } from "./logins.ts";
 
 interface Helpers {
-  need(req: FastifyRequest, reply: FastifyReply, opts?: { user?: boolean; owner?: boolean; member?: boolean }): Caller | null;
+  need(req: FastifyRequest, reply: FastifyReply, opts?: { user?: boolean; owner?: boolean; member?: boolean; hubOwner?: boolean }): Caller | null;
   parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null;
   requesterOf(c: Caller): string | null;
 }
@@ -38,6 +38,8 @@ export function registerLoginsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   app.put("/api/logins/source", async (req, reply) => {
     const c = need(req, reply, { owner: true });
     if (!c) return;
+    // the Wisp vault is the server's, not one workspace's: only the hub's owner may point agents at it
+    if ((req.body as { kind?: unknown } | null)?.kind === "wisp-vault" && !need(req, reply, { hubOwner: true })) return;
     const body = parse(
       z.discriminatedUnion("kind", [z.object({ kind: z.literal("1password"), token: z.string().trim().min(1).max(4000) }), z.object({ kind: z.literal("wisp-vault") })]),
       req.body,
@@ -58,7 +60,7 @@ export function registerLoginsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
    * page: neither the hub nor this API ever sees a master password.
    */
   app.get("/api/logins/vault", async (req, reply) => {
-    const c = need(req, reply, { member: true });
+    const c = need(req, reply, { hubOwner: true });
     if (!c) return;
     const bridge = hub.logins.vault;
     if (!bridge) return { available: false, vaultUrl: null, bridge: null, inUse: false };
@@ -67,7 +69,7 @@ export function registerLoginsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
 
   /** A single-use link to the bridge's page where the person signs the agents' account in. */
   app.post("/api/logins/vault/connect-link", async (req, reply) => {
-    const c = need(req, reply, { owner: true });
+    const c = need(req, reply, { hubOwner: true });
     if (!c) return;
     if (!hub.logins.vault) return reply.code(412).send({ error: "This Wisp doesn't run a vault" });
     try {
@@ -79,7 +81,7 @@ export function registerLoginsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
 
   /** Sign the agents' account out of the bridge (and stop agents using the Wisp vault). */
   app.delete("/api/logins/vault/account", async (req, reply) => {
-    const c = need(req, reply, { owner: true });
+    const c = need(req, reply, { hubOwner: true });
     if (!c) return;
     if (!hub.logins.vault) return reply.code(412).send({ error: "This Wisp doesn't run a vault" });
     try {
@@ -87,6 +89,7 @@ export function registerLoginsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     } catch (err) {
       return fail(reply, err);
     }
+    for (const { id } of hub.store.db.prepare("SELECT id FROM workspaces").all() as { id: string }[]) if (hub.logins.status(id)?.kind === "wisp-vault") hub.logins.disconnect(id);
     if (hub.logins.status(c.workspaceId)?.kind === "wisp-vault") hub.logins.disconnect(c.workspaceId);
     return { ok: true };
   });
