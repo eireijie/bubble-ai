@@ -15,6 +15,7 @@ import { workingLine } from "./agentActivity.ts";
 import { cleanPreview } from "./CommandPalette.tsx";
 import { loopLine } from "./Loops.tsx";
 import { UserAvatarButton } from "./Rail.tsx";
+import { SideList, newSideSection } from "./SideList.tsx";
 import { useTeamImage } from "./teamImage.ts";
 
 const COLLAPSE_KEY = "wisp.chats.collapsed";
@@ -70,14 +71,16 @@ export function ChatAvatar({ chat, size, ghostsOnly = false }: { chat: Pick<Chat
   // nobody on the team yet: a plain team icon, never somebody's ghost
   if (!members.length) return <span className="grid shrink-0 place-items-center rounded-full bg-chip text-muted" style={{ width: size, height: size }} aria-hidden><Users size={size * 0.5} strokeWidth={1.8} /></span>;
   if (members.length === 1) return <AgentAvatar agent={members[0]} size={size} live />;
-  const small = Math.round(size * 0.72);
+  // two of its agents' bubbles, overlapped (board 7): the first up and left, the second down and right
+  const a = Math.round(size * 0.66);
+  const b = Math.round(size * 0.7);
   return (
-    <span className="relative inline-block shrink-0" style={{ width: size * 1.1, height: size }} aria-hidden>
-      <span className="absolute left-0 top-0">
-        <AgentAvatar agent={members[0]} size={small} live />
+    <span className="relative inline-block shrink-0" style={{ width: size, height: size }} aria-hidden>
+      <span className="absolute left-0 top-[4%]">
+        <AgentAvatar agent={members[0]} size={a} live />
       </span>
-      <span className="absolute right-0 bottom-0 rounded-full" style={{ filter: "drop-shadow(1.5px 0 0 var(--panel)) drop-shadow(-1.5px 0 0 var(--panel)) drop-shadow(0 1.5px 0 var(--panel)) drop-shadow(0 -1.5px 0 var(--panel))" }}>
-        <AgentAvatar agent={members[1]} size={small} live />
+      <span className="absolute right-0 bottom-0">
+        <AgentAvatar agent={members[1]} size={b} live />
       </span>
     </span>
   );
@@ -223,7 +226,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
         ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon size={18} strokeWidth={1.8} />, onSelect: startNewAgent }] : []),
         ...(!isGuest ? [{ label: "New team", icon: <Users size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
         { label: "Browse teams", icon: <Search size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
-        ...(!isGuest ? [{ label: "New section", icon: <FolderPlus size={18} strokeWidth={1.8} />, onSelect: () => setEditing("new") }] : []),
+        ...(!isGuest ? [{ label: "New section", icon: <FolderPlus size={18} strokeWidth={1.8} />, onSelect: newSideSection }] : []),
       ]}
     />
   );
@@ -250,8 +253,9 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
 
       <div data-stagger className={cx("flex-1 min-h-0 overflow-y-auto", page ? "px-2 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]" : "pb-4 -mx-1 px-1")}>
         {page && <NeedsYouCard />}
-        {rows(plain)}
-        {sections.map((s) => {
+        {!needle && chats.length > 0 && <SideList chats={chats} lines={new Map(chats.map((c) => [c.key, preview(c)]))} active={active} phone={page} />}
+        {needle && rows(plain)}
+        {needle && sections.map((s) => {
           const list = shown.filter((c) => c.sectionId === s.id);
           if (needle && !list.length) return null;
           return (

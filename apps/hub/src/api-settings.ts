@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { harnessInfo, type UserPrefs } from "@wisp/core";
+import { MAX_PINS, harnessInfo, type UserPrefs } from "@wisp/core";
 import type { Caller } from "./api.ts";
 import { bearer, hashPassword, issueToken, revokeSubjectTokens, verifyPassword } from "./auth.ts";
 import { ComputerError } from "./computers.ts";
@@ -72,7 +72,15 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
   app.put("/api/me/prefs", async (req, reply) => {
     const c = need(req, reply, { user: true });
     if (!c) return;
-    const body = parse(z.object({ sendWith: z.enum(["enter", "mod-enter"]), clock: z.enum(["auto", "12h", "24h"]), toolCalls: z.enum(["collapsed", "expanded", "hidden"]), experience: z.enum(["simple", "advanced"]) }).partial(), req.body, reply);
+    const key = z.string().regex(/^[ac]:[A-Za-z0-9_-]{1,80}$/);
+    const sidebar = z.object({
+      pins: z.array(key).max(MAX_PINS),
+      sections: z.array(z.object({ id: z.string().min(1).max(40), name: z.string().trim().min(1).max(40), folded: z.boolean().optional(), items: z.array(key).max(2000) })).max(100),
+      noneFolded: z.boolean().optional(),
+      hidden: z.array(key).max(2000).optional(),
+      unread: z.array(key).max(2000).optional(),
+    });
+    const body = parse(z.object({ sendWith: z.enum(["enter", "mod-enter"]), clock: z.enum(["auto", "12h", "24h"]), toolCalls: z.enum(["collapsed", "expanded", "hidden"]), experience: z.enum(["simple", "advanced"]), sidebar }).partial(), req.body, reply);
     if (!body) return;
     return store.setPrefs(c.actor.id, { ...store.prefs(c.actor.id), ...body } as UserPrefs);
   });

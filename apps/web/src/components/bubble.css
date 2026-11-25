@@ -36,7 +36,7 @@
 .bub-need .bub-e { height: 21%; top: 35%; }
 .bub-listen .bub-e { height: 20%; top: 36%; }
 .bub-work .bub-ring { display: block; }
-.bub-sleep .bub-f { filter: grayscale(0.85); }
+.bub-sleep .bub-f { filter: grayscale(0.55); }
 .bub-sleep .bub-r { opacity: 0.45; }
 .bub-sleep .bub-e { height: 3%; top: 46%; }
 

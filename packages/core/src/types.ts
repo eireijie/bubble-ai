@@ -33,7 +33,26 @@ export interface UserPrefs {
    * Chosen during onboarding; unset means advanced, so existing accounts see no change.
    */
   experience?: "simple" | "advanced";
+  /** the desktop sidebar and phone list: pins and named sections, the same on every device */
+  sidebar?: SidebarLayout;
 }
+
+/**
+ * One person's sidebar (2026-11-25 "Wisp, bubbles"): up to 9 pinned agents or teams, their own
+ * named sections (folded or not), what they hid and what they marked unread. Items are chat keys:
+ * "a:<agentId>" for an agent, "c:<channelId>" for a team. Anything in no section is under "No section".
+ */
+export interface SidebarLayout {
+  pins: string[];
+  sections: { id: string; name: string; folded?: boolean; items: string[] }[];
+  /** "No section" is folded */
+  noneFolded?: boolean;
+  hidden?: string[];
+  unread?: string[];
+}
+
+/** The most pins a sidebar holds. */
+export const MAX_PINS = 9;
 
 /**
  * What a device does for agents, picked by its owner: run their computers (VMs), let agents that
