@@ -167,7 +167,8 @@ function Spotlight({ target, title, body, count, last, look, seed, onNext, onSki
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (e.key === "Escape") onSkip();
-      else if (e.key === "Enter" || e.key === "ArrowRight") onNext();
+      // Enter on a focused button already clicks it; handling it here too would skip a stop
+      else if (e.key === "ArrowRight" || (e.key === "Enter" && !(e.target instanceof HTMLButtonElement))) onNext();
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
