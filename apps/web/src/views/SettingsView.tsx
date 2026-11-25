@@ -18,6 +18,7 @@ import { SkillsPage } from "./settings/skills.tsx";
 import { OutsideApps } from "./settings/devices.tsx";
 import { PhonePairing } from "./settings/mobile.tsx";
 import { LoginsPage } from "./settings/logins.tsx";
+import { VaultPage } from "./settings/vault.tsx";
 import { StoragePage } from "./settings/storage.tsx";
 import { ApplePage } from "./settings/apple.tsx";
 import { UsagePage } from "./settings/usage.tsx";
@@ -82,6 +83,7 @@ const SHEETS: Record<string, () => ReactNode> = {
   password: () => <PasswordForm />,
   sessions: () => <SessionsPage />,
   people: () => <PeoplePage />,
+  vault: () => <VaultPage />,
   "memory-access": () => <MemoryRules />,
   "memory-folder": () => <MemoryFolderPage />,
   backup: () => <DataPage />,

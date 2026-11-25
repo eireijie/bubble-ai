@@ -85,6 +85,7 @@ export const ROWS: SettingRow[] = [
   row("privacy", "password", "Password", "security", "change password security", { sheet: true }),
   row("privacy", "sessions", "Signed in", "security", "sessions devices sign out everywhere", { sheet: true }),
   row("privacy", "people", "People", "people", "invite members guests roles temporary password", { ...A, sheet: true, feature: "invite" }),
+  row("privacy", "vault", "Memory vault", "vault", "passwords password manager vaultwarden bitwarden logins agents account memory", { ...A, sheet: true }),
   row("privacy", "memory-access", "Memory access", "memory", "rules who can see edit notes folders load at startup", { ...A, sheet: true }),
   row("privacy", "memory-folder", "Memory folder", "memory", "where memory is kept vault path location", { ...A, sheet: true }),
   row("privacy", "backup", "Back up", "data", "backup export download restore notes conversations data", { ...A, sheet: true }),
@@ -128,6 +129,7 @@ export const ROUTE_ROW: Record<SettingsPage, string> = {
   connections: "outside",
   data: "backup",
   updates: "version",
+  vault: "vault",
 };
 
 const BY_ID = new Map(ROWS.map((r) => [r.id, r]));

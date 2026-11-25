@@ -4,9 +4,9 @@
  */
 
 /** The password managers Wisp can read logins from. */
-export type LoginSourceKind = "1password";
+export type LoginSourceKind = "1password" | "wisp-vault";
 
-export const LOGIN_SOURCE_LABEL: Record<LoginSourceKind, string> = { "1password": "1Password" };
+export const LOGIN_SOURCE_LABEL: Record<LoginSourceKind, string> = { "1password": "1Password", "wisp-vault": "Wisp vault" };
 
 /** A login as people and agents see it: never the password. */
 export interface LoginSummary {
@@ -17,6 +17,8 @@ export interface LoginSummary {
   username: string;
   /** agents allowed to use it without asking each time */
   always: string[];
+  /** it also fills a one-time (2FA) code */
+  hasOtp?: boolean;
 }
 
 /** What an agent asks for when it wants to use a login (an approval's `login`). */

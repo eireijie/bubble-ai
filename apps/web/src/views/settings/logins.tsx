@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Globe, KeyRound, X } from "lucide-react";
+import { ChevronRight, ExternalLink, Globe, KeyRound, ShieldCheck, X } from "lucide-react";
 import type { LoginSummary } from "@wisp/core";
 import { api } from "../../api.ts";
+import { href } from "../../router.ts";
 import { useStore } from "../../store.ts";
 import { Add, Badge, Dlg, Item, Label, Panel, Prim, Sec, TextBox, Tile } from "../../components/MarketParts.tsx";
 
 interface LoginsView {
-  source: { kind: "1password"; label: string; vaultName: string; connectedBy: string; connectedAt: string } | null;
+  source: { kind: "1password" | "wisp-vault"; label: string; vaultName: string; connectedBy: string; connectedAt: string } | null;
   logins: LoginSummary[];
   /** the password manager stopped answering (a revoked token, say) */
   problem: string | null;
@@ -31,7 +32,7 @@ export function LoginsPage() {
   }, []);
 
   const disconnect = async () => {
-    if (!confirm("Disconnect 1Password? Agents stop being able to fill logins until you connect it again.")) return;
+    if (!confirm(`Disconnect ${source?.label ?? "1Password"}? Agents stop being able to fill logins until you connect it again.`)) return;
     await api("DELETE", "/api/logins/source").catch((e) => setError((e as Error).message));
     void load();
   };
@@ -51,7 +52,7 @@ export function LoginsPage() {
           <Panel>
             <Item
               icon={<Tile size={50}><KeyRound size={22} strokeWidth={1.7} /></Tile>}
-              title="1Password"
+              title={source?.label ?? "1Password"}
               sub={source ? `Connected${connectedBy ? ` by ${connectedBy}` : ""}` : "Paste one token"}
               right={
                 source ? (
@@ -66,6 +67,9 @@ export function LoginsPage() {
                 ) : undefined
               }
             />
+            {source?.kind !== "wisp-vault" && (
+              <Item icon={<Tile size={50}><ShieldCheck size={22} strokeWidth={1.7} /></Tile>} title="Wisp vault" sub="Passwords kept on your own server" href={href({ view: "settings", page: "vault" })} right={<ChevronRight size={15} className="text-faint" aria-hidden />} />
+            )}
           </Panel>
 
           {source && (
@@ -74,7 +78,7 @@ export function LoginsPage() {
               {view.problem && (
                 <p className="px-1 text-sm text-bad">
                   {view.problem}{" "}
-                  {isOwner && (
+                  {isOwner && source.kind === "1password" && (
                     <button className="underline" onClick={() => setConnecting(true)}>
                       Paste a new token
                     </button>

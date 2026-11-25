@@ -10,6 +10,7 @@ import { DockerVm, ENGINE_LABEL, detectEngine, ensureImage, imageExists, recipeT
 import { MacDesktop } from "./macos.ts";
 import { WindowsDesktop } from "./windows.ts";
 import { X11Driver } from "./x11.ts";
+import { redeemFillTicket } from "./vault.ts";
 import { localClipboard, localFiles } from "./transfer.ts";
 import { signedInVnc, type RemoteDesktopConfig } from "./remote-desktop.ts";
 
@@ -174,6 +175,12 @@ export class ComputerHost {
 
   async act(spec: ComputerSpec, action: ComputerAction): Promise<unknown> {
     const d = await this.driver(spec);
+    // a Wisp vault login: redeemed here, for this computer only, so it never passes through the hub
+    if (action.action === "fill_login" && action.ticket) {
+      if (spec.kind !== "vm") throw new ActionError(`${spec.name} can't fill logins: only VMs can`);
+      const { ticket: _ticket, ...rest } = action;
+      action = { ...rest, ...(await redeemFillTicket(action.ticket, action.site, spec.id)) };
+    }
     const result = await perform(d, action);
     if (action.action === "destroy") {
       this.unwatch(spec.id);

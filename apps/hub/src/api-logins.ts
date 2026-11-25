@@ -6,7 +6,7 @@ import type { Hub } from "./hub.ts";
 import { LoginError } from "./logins.ts";
 
 interface Helpers {
-  need(req: FastifyRequest, reply: FastifyReply, opts?: { user?: boolean; owner?: boolean; member?: boolean }): Caller | null;
+  need(req: FastifyRequest, reply: FastifyReply, opts?: { user?: boolean; owner?: boolean; member?: boolean; hubOwner?: boolean }): Caller | null;
   parse<S extends z.ZodTypeAny>(schema: S, data: unknown, reply: FastifyReply): z.output<S> | null;
   requesterOf(c: Caller): string | null;
 }
@@ -38,14 +38,60 @@ export function registerLoginsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   app.put("/api/logins/source", async (req, reply) => {
     const c = need(req, reply, { owner: true });
     if (!c) return;
-    const body = parse(z.object({ kind: z.literal("1password"), token: z.string().trim().min(1).max(4000) }), req.body, reply);
+    // the Wisp vault is the server's, not one workspace's: only the hub's owner may point agents at it
+    if ((req.body as { kind?: unknown } | null)?.kind === "wisp-vault" && !need(req, reply, { hubOwner: true })) return;
+    const body = parse(
+      z.discriminatedUnion("kind", [z.object({ kind: z.literal("1password"), token: z.string().trim().min(1).max(4000) }), z.object({ kind: z.literal("wisp-vault") })]),
+      req.body,
+      reply,
+    );
     if (!body) return;
     try {
-      return await hub.logins.connect(c.workspaceId, c.actor.id, body.kind, body.token);
+      return await hub.logins.connect(c.workspaceId, c.actor.id, body.kind, body.kind === "1password" ? body.token : "");
     } catch (err) {
       if (err instanceof LoginError) return fail(reply, err);
-      return reply.code(400).send({ error: `Couldn't open 1Password: ${(err as Error).message}` });
+      return reply.code(400).send({ error: `Couldn't open ${body.kind === "1password" ? "1Password" : "the Wisp vault"}: ${(err as Error).message}` });
     }
+  });
+
+  /**
+   * Settings → Memory vault: the Wisp vault on this server, if it runs one. The person makes their
+   * own vault account on the vault's own page, and signs the agents' account in on the bridge's
+   * page: neither the hub nor this API ever sees a master password.
+   */
+  app.get("/api/logins/vault", async (req, reply) => {
+    const c = need(req, reply, { hubOwner: true });
+    if (!c) return;
+    const bridge = hub.logins.vault;
+    if (!bridge) return { available: false, vaultUrl: null, bridge: null, inUse: false };
+    return { available: true, vaultUrl: bridge.config.vaultUrl, bridge: await bridge.status(), inUse: hub.logins.status(c.workspaceId)?.kind === "wisp-vault" };
+  });
+
+  /** A single-use link to the bridge's page where the person signs the agents' account in. */
+  app.post("/api/logins/vault/connect-link", async (req, reply) => {
+    const c = need(req, reply, { hubOwner: true });
+    if (!c) return;
+    if (!hub.logins.vault) return reply.code(412).send({ error: "This Wisp doesn't run a vault" });
+    try {
+      return await hub.logins.vault.connectLink();
+    } catch (err) {
+      return fail(reply, err);
+    }
+  });
+
+  /** Sign the agents' account out of the bridge (and stop agents using the Wisp vault). */
+  app.delete("/api/logins/vault/account", async (req, reply) => {
+    const c = need(req, reply, { hubOwner: true });
+    if (!c) return;
+    if (!hub.logins.vault) return reply.code(412).send({ error: "This Wisp doesn't run a vault" });
+    try {
+      await hub.logins.vault.forget();
+    } catch (err) {
+      return fail(reply, err);
+    }
+    for (const { id } of hub.store.db.prepare("SELECT id FROM workspaces").all() as { id: string }[]) if (hub.logins.status(id)?.kind === "wisp-vault") hub.logins.disconnect(id);
+    if (hub.logins.status(c.workspaceId)?.kind === "wisp-vault") hub.logins.disconnect(c.workspaceId);
+    return { ok: true };
   });
 
   app.delete("/api/logins/source", async (req, reply) => {

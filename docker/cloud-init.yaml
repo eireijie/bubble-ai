@@ -16,6 +16,9 @@
 # Data lives in /opt/wisp/data, and what agents use (their AI tools, sign-ins and files) in
 # /opt/wisp/device; back both up. The device sees only the second one, and the hub token it gets
 # through /opt/wisp/link. The image is pulled again every night.
+#
+# Passwords (the Wisp vault: Vaultwarden plus a bridge for agents) are off until the owner runs
+# docker/vault.sh from the hub image, the same way on new and older servers (see docs/deploy.md).
 
 package_update: true
 packages:

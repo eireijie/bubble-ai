@@ -32,6 +32,7 @@ describe("where the 24 settings routes land", () => {
     ["data", "privacy", "backup", true, false],
     ["general", "privacy", "workspace", true, true],
     ["updates", "about", null, false, false],
+    ["vault", "privacy", "vault", true, false],
   ];
 
   it("covers every route, each on the page that holds its content now", () => {

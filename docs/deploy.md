@@ -46,7 +46,21 @@ The app creates an Ubuntu 24.04 server named `wisp-xxxxxx` with [`docker/cloud-i
 
 **Where the token goes:** only to the provider's API (`api.digitalocean.com`, `api.hetzner.cloud` or `api.vultr.com`). It's held in the setup window's memory while the server is created and is never written to disk. A DigitalOcean sign-in only allows creating, reading and deleting servers, lasts an hour, and is revoked as soon as the server is ready. The app keeps only which server it made (provider, id, name, IP) in its `desktop.json`.
 
-**To stop paying,** delete the server in your provider's console. Back up `/opt/wisp/data` and `/opt/wisp/device` first if you want to keep anything.
+**To stop paying,** delete the server in your provider's console. Back up `/opt/wisp/data`, `/opt/wisp/device` and (if it's on) `/opt/wisp/vault` first if you want to keep anything.
+
+### Passwords on your server (Wisp vault)
+
+A Wisp server can also keep your passwords in [Vaultwarden](https://github.com/dani-garcia/vaultwarden) (AGPL-3.0), an open-source server for the official Bitwarden apps. It's off until you turn it on. On the server:
+
+```bash
+sudo sh -c 'cd /opt/wisp && docker compose exec -T wisp cat docker/vault.sh > vault.sh && sh vault.sh on'
+```
+
+That adds the vault at its own address, `https://vault.<your-ip-with-dashes>.sslip.io` (separate from Wisp's, so nothing shown in Wisp can reach into it), and prints a one-hour link where you make your own vault account: Wisp never sees your master password. Sign-ups close by themselves once your account exists, and a copy goes to `/opt/wisp/backups/vault` every night (14 days; it's encrypted with your master password). Use the Bitwarden app and browser extension with "self-hosted" and that address.
+
+For agents, make a second vault account just for them (invite it to an organization from your vault, then `sudo sh /opt/wisp/vault.sh link` for a sign-up link), and put the logins they may use in its **Agents** folder or collection. Then in Wisp, **Settings → Memory vault → Connect** opens the vault bridge's own page, where you sign that account in, and **Use for agents**. Agents ask for a login by site with `login_fill`; you approve it; the server's own device gets that one login from the bridge with a single-use ticket and fills it in the agent's VM browser. The password never passes through the hub, its database, its logs or the agent's model, and agents can't add, change or delete logins. Only VMs on the server's own device can fill from the Wisp vault. `sh vault.sh off` turns it off and keeps your vault.
+
+Two limits to know. An agent controls its own VM's browser, so once a login is filled there it could read it back from the page: give agents only logins you'd hand an assistant. And anything running directly on the server's device (an agent or terminal outside a VM) has the server's Docker, so it can reach the bridge's saved unlock: on such servers tick **Lock when the server restarts** when you connect, or don't run agents outside VMs there.
 
 **Adding a provider** (a future Wisp Cloud included) is one module in [`apps/desktop/src/cloud-providers/`](../apps/desktop/src/cloud-providers/) with the same calls: list sizes with prices, create a server with the start script, check on it, delete it. Waiting for HTTPS, the first account and resuming a server that didn't finish are shared.
 
