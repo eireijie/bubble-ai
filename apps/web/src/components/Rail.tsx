@@ -444,7 +444,7 @@ export function Rail({ route }: { route: Route }) {
       align={up ? "left" : "right"}
       items={addItems}
       trigger={(open, t) => (
-        <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New" title="New" className={cx(ROUND, open ? "bg-line2" : SOFT)}>
+        <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New agent or team" title="New" className={cx(ROUND, open ? "bg-line2" : SOFT)}>
           <Plus size={20} strokeWidth={1.8} />
           {inbox > 0 && !wide && <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-[#ff9f0a]" />}
         </button>
@@ -473,7 +473,7 @@ export function Rail({ route }: { route: Route }) {
         {/* search and New; nothing else up here */}
         <div className={cx("side-top mb-2.5 flex shrink-0 items-center gap-2", wide ? "h-[40px] px-[11px]" : "flex-col gap-2.5")}>
           {wide ? (
-            <button type="button" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[40px] min-w-0 flex-1 items-center gap-2 rounded-full pl-3.5 pr-3 text-[15px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
+            <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[40px] min-w-0 flex-1 items-center gap-2 rounded-full pl-3.5 pr-3 text-[15px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
               <Search size={17} strokeWidth={1.9} aria-hidden />
               <span className="flex-1 truncate text-left">Search</span>
               <kbd className="font-sans text-[12px] text-faint">⌘K</kbd>

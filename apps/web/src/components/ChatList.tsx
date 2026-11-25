@@ -253,7 +253,10 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
 
       <div data-stagger className={cx("flex-1 min-h-0 overflow-y-auto", page ? "px-2 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]" : "pb-4 -mx-1 px-1")}>
         {page && <NeedsYouCard />}
-        {!needle && chats.length > 0 && <SideList chats={chats} lines={new Map(chats.map((c) => [c.key, preview(c)]))} active={active} phone={page} />}
+        {/* phones: pins, All / Your turn and your sections, as in the desktop sidebar; the desktop's
+            own Chats column (nothing open yet) is a plain newest-first list, since the sidebar beside it has the rest */}
+        {!needle && page && chats.length > 0 && <SideList chats={chats} lines={new Map(chats.map((c) => [c.key, preview(c)]))} active={active} phone />}
+        {!needle && !page && rows([...chats].sort((x, y) => y.at - x.at || x.name.localeCompare(y.name)))}
         {needle && rows(plain)}
         {needle && sections.map((s) => {
           const list = shown.filter((c) => c.sectionId === s.id);

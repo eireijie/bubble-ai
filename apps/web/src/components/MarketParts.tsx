@@ -85,7 +85,9 @@ export function Tile({ children, size = 40, className }: { children: ReactNode; 
  * (a lazy image on a page the window isn't drawing) must not leave an empty white square.
  */
 export function AppTile({ name, category, icon, size = 40, entry }: { name: string; category?: AppCategory | null; icon?: ReactNode; size?: number; entry?: Pick<MarketplaceEntry, "icon" | "name" | "brand" | "id"> | null }) {
-  const bundled = icon ? null : brandLogo(name, entry?.brand, entry?.id.split("/").pop(), entry?.name);
+  // a registry server's own icon comes first; then the logo Wisp carries; then the hub's lookup
+  const ownIcon = !!entry?.icon && !/favicon/i.test(entry.icon);
+  const bundled = icon || ownIcon ? null : brandLogo(name, entry?.brand, entry?.id.split("/").pop(), entry?.name);
   if (bundled) return <BrandTile logo={bundled} size={size} />;
   return <FetchedTile name={name} category={category} icon={icon} size={size} entry={entry} />;
 }

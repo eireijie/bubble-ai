@@ -220,12 +220,12 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
       {pins.map((c, i) => {
         const line = lines.get(c.key);
         const unread = isUnread(c);
-        const label = `${c.name}, pinned${unread ? ", unread" : ""}${line?.working ? ", working" : ""}${line?.needs ? ", needs you" : ""}`;
+        const label = `${c.name}, pinned${c.unread > 0 ? `, ${c.unread} unread` : unread ? ", unread" : ""}${line?.working ? ", working" : ""}${line?.needs ? ", needs you" : ""}`;
         const isActive = !!c.channel && c.channel.id === active;
         return (
           <div key={c.key} role="listitem" className={cx("relative", dragging === c.key && "opacity-40")}>
             <a
-              href={urlOf(c)}
+              href={urlOf(c) ?? "#"}
               onClick={(e) => {
                 if (!c.channel) {
                   e.preventDefault();
@@ -263,11 +263,11 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
     const line = lines.get(c.key);
     const unread = isUnread(c);
     const isActive = !!c.channel && c.channel.id === active;
-    const label = `${c.name}${unread ? ", unread" : ""}${line?.working ? ", working" : ""}${line?.needs ? ", needs you" : ""}`;
+    const label = `${c.name}${c.unread > 0 ? `, ${c.unread} unread` : unread ? ", unread" : ""}${line?.working ? ", working" : ""}${line?.needs ? ", needs you" : ""}`;
     return (
       <div key={c.key} className={cx("relative", dragging === c.key && "opacity-35")}>
         <a
-          href={urlOf(c)}
+          href={urlOf(c) ?? "#"}
           onClick={(e) => {
             if (!c.channel) {
               e.preventDefault();

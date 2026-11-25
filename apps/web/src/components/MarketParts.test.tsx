@@ -13,13 +13,13 @@ vi.mock("./ui.tsx", () => ({ Modal: () => null, cx: (...parts: unknown[]) => par
  */
 describe("AppTile", () => {
   it("shows the line icon, not an empty white square, until a logo has loaded", () => {
-    const html = renderToStaticMarkup(<AppTile name="GitHub" />);
+    const html = renderToStaticMarkup(<AppTile name="Acme Notes" />);
     // the line icon is there
     expect(html).toContain("<svg");
     // and the white logo square isn't, yet
     expect(html).not.toContain("bg-white");
     // the logo is being fetched, out of sight
-    expect(html).toMatch(/<img[^>]*src="\/api\/logo\?for=GitHub"/);
+    expect(html).toMatch(/<img[^>]*src="\/api\/logo\?for=Acme%20Notes"/);
     expect(html).toMatch(/<img[^>]*display:\s*none/);
   });
 
@@ -33,6 +33,15 @@ describe("AppTile", () => {
     expect(html).not.toContain("bg-white");
   });
 
+  it("draws a logo Wisp carries at once, near-black marks in the ink colour so they turn light in dark mode", () => {
+    const gmail = renderToStaticMarkup(<AppTile name="Gmail" />);
+    expect(gmail).not.toContain("<img");
+    expect(gmail).toContain('fill="#EA4335"');
+    expect(renderToStaticMarkup(<AppTile name="GitHub" />)).toContain('fill="var(--ink)"');
+    // by connector id too
+    expect(renderToStaticMarkup(<AppTile name="gcal" />)).toContain('fill="#4285F4"');
+  });
+
   it("draws only the icon it was given when there is one", () => {
     const html = renderToStaticMarkup(<AppTile name="Files" icon={<i data-own-icon />} />);
     expect(html).toContain("data-own-icon");
@@ -41,7 +50,7 @@ describe("AppTile", () => {
 
   it("follows the same rule at a row's 36 px and a page's 56 px", () => {
     for (const size of [36, 56]) {
-      const html = renderToStaticMarkup(<AppTile name="Gmail" size={size} />);
+      const html = renderToStaticMarkup(<AppTile name="Acme Notes" size={size} />);
       expect(html).toContain("<svg");
       expect(html).not.toContain("bg-white");
       expect(html).toContain(`width:${size}px`);

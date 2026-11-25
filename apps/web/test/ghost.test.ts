@@ -67,69 +67,50 @@ describe("shared page activity", () => {
   });
 });
 
-describe("still ghosts", () => {
-  const look = { ...defaultAppearance("ghost"), glow: true, hat: "propeller" as const };
-  it.each([false, true])("disables SVG and CSS motion with reduced motion=%s", (reduced) => {
+describe("still bubbles", () => {
+  const look = { ...defaultAppearance("ghost"), bubble: "egg" as const };
+  it.each([false, true])("has no motion with reduced motion=%s (or animate off)", (reduced) => {
     motion.reduced = reduced;
-    const html = renderToStaticMarkup(createElement(Ghost, { look, size: 80, mood: "working", interactive: true, animate: reduced }));
-    expect(html).toContain('data-animate="false"');
-    expect(html).not.toContain("<animate");
-    expect(html).not.toMatch(/ghost-(float|bounce|spin|type|key|interactive)\b/);
-  });
-  it("doesn't glow, even for a look saved with glow on (the feature was removed)", () => {
-    expect(renderToStaticMarkup(createElement(Ghost, { look, size: 80 }))).not.toContain("glow");
+    const html = renderToStaticMarkup(createElement(Ghost, { look, size: 80, mood: "working", interactive: true, animate: !reduced && false }));
+    expect(html).not.toContain("bub-move");
+    expect(renderToStaticMarkup(createElement(Ghost, { look, size: 80, mood: "working", animate: true })).includes("bub-move")).toBe(!reduced);
   });
 });
 
-describe("soft ghost details", () => {
-  const look = { ...defaultAppearance("ghost"), eyes: "dots" as const, cheeks: false, hat: "none" as const };
-  const render = (size: number, mood: Parameters<typeof Ghost>[0]["mood"] = "awake") => renderToStaticMarkup(createElement(Ghost, { look, size, mood }));
-  it("gives dots glossy round eyes without cluttering tiny avatars", () => {
-    expect(render(40)).toContain('rx="3.9" ry="4.9"');
-    expect(render(40).match(/data-ghost-shine/g)).toHaveLength(2);
-    expect(render(22)).not.toContain("data-ghost-shine");
-    expect(render(40)).toContain('opacity="0.18"');
-    expect(render(22)).not.toContain('opacity="0.18"');
-    expect(render(40, "asleep")).not.toContain('opacity="0.18"');
-  });
-  it("grows one-piece arms that pose with its mood, and none at tiny sizes", () => {
-    expect(render(40)).toContain("ga-arm ga-awake ga-r");
-    expect(render(40, "working")).toContain("ga-arm ga-working ga-l");
-    expect(render(40, "working")).toContain("ga-key");
-    expect(render(40, "waiting")).toContain("ga-arm ga-waiting ga-r");
-    const done = render(40, "done");
-    expect(done).toContain("ga-arm ga-done ga-l");
-    expect(done).toContain("ga-arm ga-done ga-r");
-    expect(render(22)).not.toContain("ga-arm");
-  });
-});
-
-describe("the old ghost, everything but the glow (2026-11-21)", () => {
-  const look = { ...defaultAppearance("ghost"), hat: "crown" as const, accessory: "bowtie" as const };
-  const render = (props: Partial<Parameters<typeof Ghost>[0]> = {}) => renderToStaticMarkup(createElement(Ghost, { look, size: 80, ...props }));
-  it("keeps the gradient, rim, hat and neckwear but has no lit face plate", () => {
+describe("bubbles (2026-11-25)", () => {
+  const render = (props: Partial<Parameters<typeof Ghost>[0]> = {}) => renderToStaticMarkup(createElement(Ghost, { look: { ...defaultAppearance("pip"), color: "#6cc4ff", color2: undefined }, size: 40, ...props }));
+  it("draws an old saved look as a Round bubble in its own colour", () => {
     const html = render();
-    expect(html).toContain("<linearGradient");
-    expect(html).toContain('stroke-width="7"');
-    expect(html).toContain('fill="#ffcf3f"'); // the crown
-    expect(html).toContain('fill="#e5484d"'); // the bow tie
-    expect(html).not.toContain('cy="0.42"');
-    expect(renderToStaticMarkup(createElement(Ghost, { look, size: 22 }))).not.toContain("radialGradient");
+    expect(html).toContain("bub-round");
+    expect(html).toContain("--bub-c:#6cc4ff");
+    expect(html).not.toContain("<svg");
   });
-  it("opens its mouth when happy or talking, and hops once when asked", () => {
-    expect(render()).not.toContain("ghost-talk");
-    expect(render({ talking: true })).toContain("ghost-talk");
-    expect(render({ happy: true })).toContain('fill="#ff7a93"');
+  it("draws each of the eight shapes", () => {
+    for (const shape of ["round", "squircle", "egg", "drop", "blob", "capsule", "double", "cluster"] as const) expect(render({ look: { ...defaultAppearance("pip"), bubble: shape } })).toContain(`bub-${shape}`);
+  });
+  it("shows its mood: working bobs, needs you gets the orange dot, asleep is greyed", () => {
+    expect(render({ mood: "working" })).toContain("bub-work");
+    expect(render({ mood: "waiting" })).toContain("bub-need");
+    expect(render({ mood: "asleep" })).toContain("bub-sleep");
+    expect(render({ mood: "error" })).toContain("bub-error");
+  });
+  it("has two eyes and no mouth", () => {
+    const html = render();
+    expect(html.match(/bub-e bub-e[12]/g)).toHaveLength(2);
+    expect(html).not.toMatch(/mouth/);
+  });
+  it("is hidden from screen readers with an empty label", () => {
     expect(render({ label: "" })).toContain('aria-hidden="true"');
+    expect(render({ label: "Pip" })).toContain('aria-label="Pip"');
   });
 });
 
-describe("onboarding shares the app's ghost", async () => {
+describe("onboarding shares the app's bubble", async () => {
   const { OnboardingGhost } = await import("../src/components/onboarding/OnboardingGhost.tsx");
-  it("draws the same ghost, violet, and works at its laptop", () => {
+  it("draws the same bubble, violet, and bobs while it works", () => {
     const html = renderToStaticMarkup(createElement(OnboardingGhost, { size: 140 }));
-    expect(html).toContain('class="ghost ');
-    expect(html).toContain('stop-color="#a98bf5"');
-    expect(renderToStaticMarkup(createElement(OnboardingGhost, { size: 140, working: true }))).toContain("ga-working");
+    expect(html).toContain('class="bub ');
+    expect(html).toContain("--bub-c:#a59bff");
+    expect(renderToStaticMarkup(createElement(OnboardingGhost, { size: 140, working: true }))).toContain("bub-work");
   });
 });

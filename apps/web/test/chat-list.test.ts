@@ -21,7 +21,7 @@ function render(variant?: "page") {
 }
 
 describe("chats list", () => {
-  it("is one flat list of agents and teams, newest first, with pinned chats on top and sections below", () => {
+  it("on desktops (nothing open yet) is one plain list of agents and teams, newest first: pins and sections live in the sidebar", () => {
     Object.assign(initial, {
       me,
       agents: [agent("a1", "Ghosty"), agent("a2", "Nova")],
@@ -35,14 +35,12 @@ describe("chats list", () => {
     });
     const html = render();
     const at = (s: string) => html.indexOf(s);
-    // pinned first, then by recency
-    expect(at("general")).toBeLessThan(at("release-crew"));
+    // by recency, whatever is pinned or filed
     expect(at("release-crew")).toBeLessThan(at("Ghosty"));
+    expect(at("Ghosty")).toBeLessThan(at("launch-crew"));
+    expect(at("launch-crew")).toBeLessThan(at("general"));
     // an agent with no chat yet still has a row, after the ones with messages
-    expect(at("Ghosty")).toBeLessThan(at("Nova"));
-    // sections follow the main list
-    expect(at("Nova")).toBeLessThan(at("Launch"));
-    expect(at("Launch")).toBeLessThan(at("launch-crew"));
+    expect(at("general")).toBeLessThan(at("Nova"));
     // previews say who spoke in a team, and "You" for you
     expect(html).toContain("You: newer");
     expect(html).toContain("older");
@@ -71,7 +69,9 @@ describe("chats list", () => {
     expect(at("release-crew")).toBeLessThan(at("Ghosty"));
     expect(html).toContain("You: newer");
     expect(html).toContain("My pick is Immich.");
-    expect(html).toContain('aria-label="2 unread"');
+    expect(html).toContain('aria-label="Ghosty, 2 unread"');
+    // All / Your turn, as in the desktop sidebar
+    expect(html).toContain(">Your turn<");
     expect(html).toContain("Oct 24");
     expect(html).not.toContain("No messages yet");
     // nothing waits on you: no Needs you card
