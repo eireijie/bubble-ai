@@ -9,7 +9,7 @@ import { useFeatures } from "../features.ts";
 import { logout } from "../logout.ts";
 import { useStore, useInboxCount, usePrefs } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
-import { go, href, type Route } from "../router.ts";
+import { go, href, SETTINGS_PAGES, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { ComputersIcon, WispGhost } from "./icons.tsx";
 import { NewOrgDialog, OrgList, OrgSwitcher, useOrgs } from "./OrgSwitcher.tsx";
@@ -452,7 +452,7 @@ export function Rail({ route }: { route: Route }) {
     />
   );
   const firstName = me.user.name.trim().split(/\s+/)[0] || me.user.name;
-  const settingsOn = route.view === "settings";
+  const settingsOn = route.view === "settings" && (route.page as string | null) !== "vault";
   const you = (
     <a data-tour="you" href={href({ view: "settings", page: null })} aria-label="You and settings" title={wide ? undefined : "You and settings"} aria-current={settingsOn ? "page" : undefined} className={cx("relative flex h-[34px] min-w-0 shrink-0 items-center gap-2 rounded-full text-[15px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "max-w-[46%] pl-[3px] pr-3" : "w-[36px] justify-center", settingsOn ? "bg-line2" : SOFT)}>
       <span className={cx("grid size-[28px] shrink-0 place-items-center rounded-full text-[13px] font-semibold", wide ? "bg-panel shadow-[0_0_0_1px_var(--line)]" : "")}>{(firstName[0] ?? "?").toUpperCase()}</span>
@@ -462,7 +462,10 @@ export function Rail({ route }: { route: Route }) {
   );
   const computersTo = href({ view: "computers", computerId: null });
   const computersOn = route.view === "computers";
-  const vaultOn = route.view === "vault";
+  // the vault's own settings page (PR 113) when this build has it; the memory notes otherwise
+  const vaultPage = (SETTINGS_PAGES as readonly string[]).includes("vault");
+  const vaultTo = vaultPage ? "#/settings/vault" : href({ view: "vault", path: null });
+  const vaultOn = vaultPage ? route.view === "settings" && (route.page as string | null) === "vault" : route.view === "vault";
   const onCount = computers.filter((c) => c.status !== "offline").length;
   const computersLabel = `Computers, ${onCount} on${working ? ", one is working" : ""}`;
   const half = "flex h-full min-w-0 flex-1 items-center gap-2 rounded-full px-3 outline-none transition-colors duration-150 hover:bg-line2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
@@ -504,7 +507,7 @@ export function Rail({ route }: { route: Route }) {
                   <span className="truncate text-[14px]">{onCount} on</span>
                 </a>
                 <span aria-hidden className="h-5 w-px shrink-0 bg-line" />
-                <a data-tour="vault" href={href({ view: "vault", path: null })} aria-label={`Memory vault${notes != null ? `, ${notes} notes` : ""}`} aria-current={vaultOn ? "page" : undefined} className={cx(half, vaultOn && "bg-line2")}>
+                <a data-tour="vault" href={vaultTo} aria-label={`Memory vault${notes != null ? `, ${notes} notes` : ""}`} aria-current={vaultOn ? "page" : undefined} className={cx(half, vaultOn && "bg-line2")}>
                   <BookOpen size={15} strokeWidth={1.9} className="shrink-0 text-muted" aria-hidden />
                   <span className="truncate text-[14px]">{notes ?? "Vault"}</span>
                 </a>
@@ -519,7 +522,7 @@ export function Rail({ route }: { route: Route }) {
                 {onCount > 0 && <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-[#30d158]" />}
               </a>
             )}
-            <a href={href({ view: "vault", path: null })} aria-label="Memory vault" title="Memory vault" aria-current={vaultOn ? "page" : undefined} className={cx(ROUND, vaultOn ? "bg-line2" : SOFT)}>
+            <a href={vaultTo} aria-label="Memory vault" title="Memory vault" aria-current={vaultOn ? "page" : undefined} className={cx(ROUND, vaultOn ? "bg-line2" : SOFT)}>
               <BookOpen size={19} strokeWidth={1.8} />
             </a>
             {you}

@@ -567,6 +567,11 @@ export function NewChatPicker({ onClose }: { onClose: () => void }) {
       void openDm(agents[0].id);
     }
   }, [agents, onClose]);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
   useSheetBackdrop();
   return createPortal(
     <div className="m-scrim fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

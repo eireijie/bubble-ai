@@ -1,4 +1,6 @@
 import { useState, type ComponentType, type ReactNode } from "react";
+import { KeyRound } from "lucide-react";
+import { SuggestionBanner } from "./SuggestionBanner.tsx";
 import { Loader2, LogIn } from "lucide-react";
 import { harnessLabel, type AgentSignIn, type HarnessSettings } from "@wisp/core";
 import { api } from "../api.ts";
@@ -58,14 +60,12 @@ export function SignInNeededBar({ agent }: { agent: { id: string; name: string; 
   const [open, setOpen] = useState(false);
   const [last, setLast] = useState<AgentSignIn | null>(agent.signIn ?? null);
   if (agent.signIn && agent.signIn !== last) setLast(agent.signIn);
+  const [hidden, setHidden] = useState<AgentSignIn | null>(null);
   const signIn = agent.signIn ?? (open ? last : null);
-  if (!signIn) return null;
+  if (!signIn || (hidden === signIn && !open)) return null;
   return (
-    <div role="status" className="mx-auto mb-2 flex w-full max-w-3xl flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-warn/40 bg-warn/10 px-3.5 py-2.5 text-[13px]">
-      <span className="min-w-0 flex-1">
-        {harnessLabel(signIn.harness)} isn't signed in on {signIn.where}, so {agent.name} can't answer yet.
-      </span>
+    <SuggestionBanner label="Sign-in needed" icon={<KeyRound size={17} strokeWidth={1.8} className="text-st-needs" />} text={`${harnessLabel(signIn.harness)} isn't signed in on ${signIn.where}, so ${agent.name} can't answer yet.`} onClose={() => setHidden(signIn)}>
       <HarnessSignInButton signIn={signIn} agentId={agent.id} onOpenChange={setOpen} />
-    </div>
+    </SuggestionBanner>
   );
 }

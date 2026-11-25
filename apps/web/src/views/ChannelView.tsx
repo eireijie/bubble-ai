@@ -1,7 +1,7 @@
 import { Suspense, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Phone } from "lucide-react";
+import { SquarePen, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Phone } from "lucide-react";
 import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -20,6 +20,8 @@ import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, agentColor, clockTime, cx } from "../components/ui.tsx";
 import { AgentPill } from "../components/AgentPill.tsx";
+import { BannerSlot } from "../components/SuggestionBanner.tsx";
+import { linkPreviews, type LinkPreview } from "../linkPreview.ts";
 import type { CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
 import { chatTint, didThings, roundAction } from "../chatTint.ts";
@@ -115,6 +117,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const loadChannel = useStore((s) => s.loadChannel);
   const names = useNames();
   const [calling, setCalling] = useState(!!route.call);
+  const [bannerSlot, setBannerSlot] = useState<HTMLDivElement | null>(null);
   // the record a finished call leaves in the chat
   const [callRecord, setCallRecord] = useState<(CallRecord & { channelId: string }) | null>(null);
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
@@ -193,6 +196,9 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
     // the open agent's colour tints its chat: your bubbles and the round button (a team keeps the Wisp violet)
     <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
+        <BannerSlot.Provider value={bannerSlot}>
+        {/* one suggested step floats here, under the header (SuggestionBanner) */}
+        <div ref={setBannerSlot} className="pointer-events-none absolute inset-x-0 top-[calc(80px+env(safe-area-inset-top))] z-20 flex flex-col items-center gap-2 px-4 empty:hidden" />
         {/* only the name pill, centred: it opens the panel that holds everything else */}
         <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
           <div className="flex items-center">
@@ -203,6 +209,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
                 </button>
               </span>
             )}
+            {/* round new-chat button in the top-left corner (desktop; phones keep Back there) */}
+            <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
+              <SquarePen size={16} strokeWidth={1.8} />
+            </button>
           </div>
           {dmAgent ? (
             // the agent lives here, in the middle, and nowhere else in its DM
@@ -227,12 +237,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
           <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!dmAgent} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
-        {!channel.archivedAt && dmFull?.signIn && (
-          <div className="px-3 sm:px-5">
-            <SignInNeededBar agent={dmFull} />
-          </div>
-        )}
-        {!channel.archivedAt && dmFull && <SetupTour agent={dmFull} channelId={channel.id} />}
+        {!channel.archivedAt && dmFull?.signIn && <SignInNeededBar agent={dmFull} />}
+        {!channel.archivedAt && dmFull && <SetupTour key={channel.id} agent={dmFull} channelId={channel.id} />}
         {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
         {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onHide={() => setCallRecord(null)} />}
         {calling && dmAgent && (
@@ -241,6 +247,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
           </Suspense>
         )}
         {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} /></div>}
+        </BannerSlot.Provider>
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
       {sideAgent && side?.kind === "agent" && <AgentPanel key={sideAgent.id} agent={sideAgent} channelId={channel.id} tab={side.tab} inDm={sideAgent.id === dmAgent?.id} onClose={() => setSide(null)} />}
@@ -608,7 +615,7 @@ const ThreadRow = memo(function ThreadRow({ m, channelId, rootId, stamp, grouped
 
 function TimeDivider({ at }: { at: string }) {
   const { clock } = usePrefs();
-  return <div className="px-5 py-3 text-center text-[14px] text-faint">{stampLabel(at, (d) => clockTime(d, clock))}</div>;
+  return <div className="px-5 py-3 text-center text-[12px] font-medium text-muted">{stampLabel(at, (d) => clockTime(d, clock))}</div>;
 }
 
 /** The chat that's going on now in this list: a reply into an earlier one says when that was. */
@@ -834,6 +841,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
   // a first chat's hello types in once and underlines what it already knows
   const html = useFirstHelloHtml(m, rendered);
   const cards = useMemo(() => linkCards(m.body), [m.body]);
+  const previews = useMemo(() => linkPreviews(m.body), [m.body]);
   const isSummary = m.parts.some((p) => p.type === "summary");
   const [menu, setMenu] = useState<{ at: { x: number; y: number } | null } | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -873,7 +881,9 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
   const openMenu = (at: { x: number; y: number } | null) => !m.deletedAt && actions.length > 0 && setMenu({ at });
   const hasChange = m.parts.some((p) => p.type === "change");
   const quote = m.replyTo;
-  const showBubble = !m.deletedAt && (!!html || !!quote) && !hasChange;
+  // a message that is only a link shows just its card, like Messages
+  const onlyLink = previews.length === 1 && !quote && m.body.trim() === previews[0].url;
+  const showBubble = !m.deletedAt && (!!html || !!quote) && !hasChange && !onlyLink;
   const showAvatar = !mine && !home;
 
   return (
@@ -952,7 +962,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           <div className="bubble them text-body text-muted italic">This message was deleted.</div>
         ) : (
           showBubble && (
-            <div ref={bubbleRef} className={cx("bubble relative text-[15px] md:text-[16px]", mine ? "me" : "them", arrived && (mine ? "m-bubble-me" : "m-bubble-them"))} title={time}>
+            <div ref={bubbleRef} className={cx("bubble relative text-[15px] md:text-[16px]", mine ? "me" : "them", last && !previews.length && "tail", arrived && (mine ? "m-bubble-me" : "m-bubble-them"))} title={time}>
               {!!m.reactions?.length && <ReactionBadges reactions={m.reactions} meId={meId} mine={mine} onToggle={react} />}
               {quote && (
                 <button
@@ -994,6 +1004,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
               </span>
             </a>
           ))}
+        {!m.deletedAt && previews.map((p) => <LinkCard key={p.url} preview={p} mine={mine} />)}
         {!m.deletedAt && (
           <CardAuthor.Provider value={m.author.kind === "agent" ? { agentId: m.author.id, channelId: m.channelId, threadId: m.threadId } : null}>
             <Parts parts={m.parts} body={m.body} agentName={agent?.name} agentId={agent?.id} />
@@ -1048,6 +1059,26 @@ function withEditedMark(html: string, at: string) {
 }
 
 /** GitHub PR and issue links get a small card, like Buzz. Parsed locally; nothing is fetched. */
+/** A large link card: the picture on top when the link is one, then the title and the domain. */
+function LinkCard({ preview, mine }: { preview: LinkPreview; mine: boolean }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <a href={preview.url} target="_blank" rel="noreferrer" className={cx("link-card mt-1 flex w-[320px] max-w-full flex-col overflow-hidden rounded-[18px] bg-[var(--bubble-them)] outline-none transition-[filter] duration-150 hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring dark:hover:brightness-110", mine && "self-end")}>
+      {preview.image && !broken ? (
+        <img src={preview.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(true)} className="aspect-[16/10] w-full bg-chip object-cover" />
+      ) : (
+        <span aria-hidden className="grid aspect-[16/7] w-full place-items-center bg-chip text-muted">
+          <Globe size={30} strokeWidth={1.4} />
+        </span>
+      )}
+      <span className="flex flex-col gap-0.5 px-3.5 pb-2.5 pt-2">
+        <span className="line-clamp-2 text-[15px] font-semibold leading-5 text-ink">{preview.title}</span>
+        <span className="truncate text-[13px] text-muted">{preview.domain}</span>
+      </span>
+    </a>
+  );
+}
+
 function linkCards(body: string) {
   const out: { url: string; repo: string; num: string; kind: "PR" | "Issue" }[] = [];
   for (const m of body.matchAll(/https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/(pull|issues)\/(\d+)/g)) {

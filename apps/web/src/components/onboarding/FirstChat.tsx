@@ -1,4 +1,5 @@
 import { Suspense, lazy, useState } from "react";
+import { SuggestionBanner } from "../SuggestionBanner.tsx";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { Bell } from "lucide-react";
@@ -148,25 +149,14 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
     else go(to);
   };
   const sheets = sheet && <Suspense fallback={null}>{sheet === "phone" ? <PhoneSheet onClose={() => setSheet(null)} /> : <KnowSheet agent={agent} workspaceId={workspaceId} onClose={() => setSheet(null)} />}</Suspense>;
-  const nothing = ping === "hidden" && !ask && !quick.length;
-  if (nothing && !sheet) return null;
+  const nothing = ping === "hidden" && !quick.length;
+  if (nothing && !sheet && !ask) return null;
   return (
-    // an open sheet keeps its place here even once there is nothing else to show
+    <>
+    {ask && <SuggestionBanner key={ask.id} label={ask.label} text={ask.ask} action={ask.action} onAction={() => yes(ask.id)} onClose={() => setReadyItem(workspaceId, ask.id, "later")} closeLabel="Later" />}
+    {/* an open sheet keeps its place here even once there is nothing else to show */}
     <div className={nothing ? "hidden" : "shrink-0 w-full max-w-3xl mx-auto px-3 md:px-5 flex flex-col gap-2 pb-2"}>
       {sheets}
-      {ask && (
-        <div key={ask.id} className="first-chat-pop flex flex-col items-start gap-1.5" role="group" aria-label={ask.label}>
-          <div className="bubble them text-[14px]">{ask.ask}</div>
-          <div className="flex flex-wrap gap-2 pl-0.5">
-            <button type="button" onClick={() => yes(ask.id)} className="h-8 rounded-full bg-ink px-3.5 text-[13px] text-panel transition-transform active:scale-[.97]">
-              {ask.action}
-            </button>
-            <button type="button" onClick={() => setReadyItem(workspaceId, ask.id, "later")} className="h-8 rounded-full border border-line2 bg-panel px-3.5 text-[13px] text-ink hover:bg-hover transition-transform active:scale-[.97]">
-              Later
-            </button>
-          </div>
-        </div>
-      )}
       {!!quick.length && (
         <div className="flex flex-wrap gap-1.5 justify-end" role="group" aria-label="Quick replies">
           {quick.map((q, i) => (
@@ -227,5 +217,6 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
       )}
       <style>{`@keyframes first-chat-pop{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:none}}.first-chat-pop{animation:first-chat-pop .45s cubic-bezier(.22,1,.36,1) both}@media (prefers-reduced-motion: reduce){.first-chat-pop{animation:none}}`}</style>
     </div>
+    </>
   );
 }

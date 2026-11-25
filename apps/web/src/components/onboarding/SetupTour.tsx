@@ -5,6 +5,9 @@ import { useStore } from "../../store.ts";
 import { andList } from "../../views/onboarding/BubbleSetup.tsx";
 import { Ghost } from "../Ghost.tsx";
 import { cx } from "../ui.tsx";
+import { Plug } from "lucide-react";
+import { api } from "../../api.ts";
+import { SuggestionBanner } from "../SuggestionBanner.tsx";
 
 /**
  * Right after the first run (2026-11-25 "Wisp, bubbles", board 6), in the new agent's chat.
@@ -23,6 +26,8 @@ export interface SetupTourState {
   off: string[];
   stage?: "ask" | "tour" | "done";
   at?: number;
+  /** the Connect banner was closed or used */
+  bannerGone?: boolean;
 }
 
 const KEY = "wisp.setupTour";
@@ -100,7 +105,21 @@ export function SetupTour({ agent, channelId }: { agent: Agent; channelId: strin
         <>
           <div className="bubble them m-pop">Great! I can see all that you've done.</div>
           <div className="bubble them m-pop">{said}</div>
-          {missing && <div className="bubble them m-pop">{missing}</div>}
+          {missing && state.bannerGone && <div className="bubble them m-pop">{missing}</div>}
+          {state.off.length > 0 && !state.bannerGone && (
+            <SuggestionBanner
+              label="Connect apps"
+              icon={<Plug size={17} strokeWidth={1.8} />}
+              text={`${andList(state.off)} ${state.off.length > 1 ? "are" : "is"} still off.`}
+              action={state.off.length > 1 ? "Connect them" : `Connect ${state.off[0]}`}
+              onAction={() => {
+                set({ ...state, bannerGone: true });
+                // the agent does the connecting: it asks for what it needs and sends the sign-ins
+                void api("POST", `/api/channels/${channelId}/messages`, { body: `Please connect ${andList(state.off)}.` });
+              }}
+              onClose={() => set({ ...state, bannerGone: true })}
+            />
+          )}
         </>
       )}
       {state.stage === "ask" && (
