@@ -6,8 +6,9 @@
  * hops with an orange dot. Everything stops with reduced motion (the .bub-still class or the OS).
  */
 .bub { position: relative; display: inline-block; flex: none; vertical-align: middle; --bub-lift: 0%; --bub-mid: 16%; --bub-core: 8%; --bub-edge: 36%; --bub-eye: #1c1c1c; --bub-rim: 2px; --bub-glass: rgb(255 255 255 / 0.35); }
-/* dark: still clear, a little less so (the edge reaches 62%) */
-[data-mode="dark"] .bub { --bub-core: 5%; --bub-mid: 16%; --bub-edge: 62%; --bub-lift: 35%; --bub-eye: #ececec; --bub-glass: rgb(255 255 255 / 0.22); }
+/* dark (owner's call, 2026-11-25): dark eyes on a frosted body in the agent's own colour, lighter than
+   the page so the eyes stand out (about 3:1 or more), still see-through at ~62%, rainbow edge kept */
+[data-mode="dark"] .bub { --bub-core: 56%; --bub-mid: 60%; --bub-edge: 68%; --bub-lift: 42%; --bub-eye: #141414; --bub-glass: rgb(255 255 255 / 0.28); }
 .bub-w { position: absolute; inset: 0; transform-origin: 50% 90%; }
 .bub-p { position: absolute; border-radius: 50%; }
 /* glass: thin in the middle so what's behind shows through, tinted towards the edge, a pale inner lip */
