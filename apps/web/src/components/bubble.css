@@ -1,0 +1,85 @@
+/*
+ * Bubbles (2026-11-25 canvas "Wisp, bubbles", v20): every agent is a clear bubble with a thin
+ * rainbow rim that shimmers, a highlight, a soft edge that never sits still, tinted with its own
+ * colour, and two eyes (no mouth). Light mode keeps the body 30% filled; dark mode 62% with dark
+ * eyes. Moods: idle wobbles and glances around, working bobs and sends up tiny bubbles, needs you
+ * hops with an orange dot. Everything stops with reduced motion (the .bub-still class or the OS).
+ */
+.bub { position: relative; display: inline-block; flex: none; vertical-align: middle; --bub-body: 0.3; --bub-eye: #1c1c1c; --bub-rim: 2px; }
+[data-mode="dark"] .bub { --bub-body: 0.62; --bub-eye: #161616; }
+.bub-w { position: absolute; inset: 0; transform-origin: 50% 90%; }
+.bub-p { position: absolute; border-radius: 50%; }
+.bub-f { position: absolute; inset: 0; border-radius: inherit; background: var(--bub-c); opacity: var(--bub-body); }
+/* the rim: a conic rainbow cut to a ring (any shape) */
+.bub-r {
+  position: absolute; inset: 0; border-radius: inherit; padding: var(--bub-rim);
+  background: conic-gradient(from 20deg, #ff9bd2, #9fc3ff, #93f0cf, #fff0a0, #ffb39e, #cfa2ff, #ff9bd2);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+/* round bubbles get the soft, wide rim of the hero bubble instead */
+.bub-round .bub-r { padding: 0; -webkit-mask: radial-gradient(closest-side, transparent 78%, #000 93%); mask: radial-gradient(closest-side, transparent 78%, #000 93%); }
+.bub-h { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(ellipse 21% 12% at 34% 23%, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0)), radial-gradient(ellipse 7% 5% at 72% 78%, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0)); }
+.bub-face { position: absolute; inset: 0; }
+.bub-e { position: absolute; top: 38%; width: 11%; height: 17%; border-radius: 50%; background: var(--bub-eye); translate: var(--ex, 0px) var(--ey, 0px); transition: translate 0.3s cubic-bezier(0.2, 0.8, 0.3, 1), height 0.2s, top 0.2s; }
+.bub-e1 { left: 31%; }
+.bub-e2 { left: 58%; }
+.bub-flag { position: absolute; right: -3%; top: -3%; width: 26%; height: 26%; min-width: 7px; min-height: 7px; border-radius: 50%; background: var(--bub-flag, #ff9f0a); box-shadow: 0 0 0 2px var(--bub-ring-bg, var(--app)); display: none; }
+.bub-ring { position: absolute; display: none; right: -6%; bottom: 22%; width: 16%; height: 16%; min-width: 4px; min-height: 4px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(28 28 28 / 0.32); pointer-events: none; }
+[data-mode="dark"] .bub-ring { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.85); }
+.bub-ring::after { content: ""; position: absolute; left: -160%; top: 140%; width: 65%; height: 65%; border-radius: 50%; box-shadow: inherit; }
+.bub-tile { position: absolute; inset: -12%; border-radius: 28%; }
+
+/* moods */
+.bub-need .bub-flag, .bub-error .bub-flag { display: block; }
+.bub-error { --bub-flag: var(--st-problem, #ff453a); }
+.bub-need .bub-e { height: 21%; top: 35%; }
+.bub-listen .bub-e { height: 20%; top: 36%; }
+.bub-work .bub-ring { display: block; }
+.bub-sleep .bub-f { filter: grayscale(0.85); }
+.bub-sleep .bub-r { opacity: 0.45; }
+.bub-sleep .bub-e { height: 3%; top: 46%; }
+
+/* motion (off for .bub-still and reduced motion) */
+.bub-move.bub-round .bub-p, .bub-move.bub-blob .bub-p { animation: bub-morph 6s ease-in-out infinite; }
+.bub-move .bub-r { animation: bub-hue 9s linear infinite; }
+.bub-move.bub-idle .bub-w, .bub-move.bub-listen .bub-w, .bub-move.bub-done .bub-w { animation: bub-wob 4.2s ease-in-out infinite; }
+.bub-move.bub-speak .bub-w { animation: bub-wob 1.6s ease-in-out infinite; }
+.bub-move.bub-work .bub-w { animation: bub-bob 1.3s ease-in-out infinite; }
+.bub-move.bub-work .bub-e { animation: bub-scan 1.8s ease-in-out infinite; }
+.bub-move.bub-work .bub-ring { animation: bub-rise 1.7s ease-out infinite; }
+.bub-move.bub-need .bub-w, .bub-move.bub-error .bub-w { animation: bub-hop 2.4s ease-out infinite; }
+.bub-move .bub-e { animation: bub-blink 5.2s infinite; animation-delay: var(--bub-delay, 0s); }
+.bub-move.bub-idle:not([data-hov]) .bub-e, .bub-move.bub-done:not([data-hov]) .bub-e { animation: bub-blink 5.2s infinite, bub-look 12s ease-in-out infinite; animation-delay: var(--bub-delay, 0s); }
+.bub-move.bub-sleep .bub-e, .bub-move.bub-sleep .bub-w { animation: none; }
+.bub-move.bub-hop-once .bub-w { animation: bub-hop1 0.6s ease-out; }
+.bub-move.bub-spin { animation: bub-spin 0.9s cubic-bezier(0.65, 0, 0.35, 1); }
+/* the page has been left alone a while: everything rests, nothing redraws */
+.bub-rest, .bub-rest * { animation-play-state: paused !important; }
+
+@keyframes bub-morph { 0%, 100% { border-radius: 50%; } 33% { border-radius: 54% 46% 52% 48% / 47% 54% 46% 53%; } 66% { border-radius: 47% 53% 46% 54% / 53% 47% 54% 46%; } }
+@keyframes bub-hue { to { filter: hue-rotate(360deg); } }
+@keyframes bub-rise { 0% { transform: translate(0, 0) scale(0.4); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(70%, -280%) scale(1.1); opacity: 0; } }
+@keyframes bub-wob { 0%, 100% { transform: scale(1, 1); } 25% { transform: scale(1.03, 0.97); } 50% { transform: scale(0.98, 1.025) translateY(-2%); } 75% { transform: scale(1.015, 0.985); } }
+@keyframes bub-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5%); } }
+@keyframes bub-hop { 0%, 58%, 100% { transform: translateY(0) scale(1, 1); } 68% { transform: translateY(-10%) scale(0.97, 1.04); } 80% { transform: translateY(0) scale(1.04, 0.96); } }
+@keyframes bub-hop1 { 0%, 100% { transform: translateY(0) scale(1, 1); } 40% { transform: translateY(-14%) scale(0.96, 1.05); } 75% { transform: translateY(0) scale(1.05, 0.95); } }
+@keyframes bub-blink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.12); } }
+@keyframes bub-scan { 0%, 100% { transform: translateX(-45%); } 50% { transform: translateX(45%); } }
+@keyframes bub-look { 0%, 38%, 100% { translate: 0 0; } 44%, 56% { translate: -40% -15%; } 62%, 74% { translate: 40% 10%; } }
+@keyframes bub-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* small bubbles drifting up behind the onboarding bubble */
+.bub-field { position: absolute; inset: 0; overflow: hidden; pointer-events: none; transition: opacity 0.6s; }
+.bub-fb { position: absolute; bottom: -30px; animation: bub-float linear infinite; }
+.bub-fbi { position: absolute; inset: 0; border-radius: 50%; animation: bub-sway ease-in-out infinite alternate; background: radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.95) 0, rgb(255 255 255 / 0.95) 12%, rgb(255 255 255 / 0) 32%); box-shadow: inset 0 0 0 1px rgb(28 28 28 / 0.16), inset 0 0 5px rgb(120 140 255 / 0.22); }
+[data-mode="dark"] .bub-fbi { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.55), inset 0 0 5px rgb(170 190 255 / 0.3); }
+.bub-tb { position: absolute; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.95) 0, rgb(255 255 255 / 0.95) 12%, rgb(255 255 255 / 0) 32%); box-shadow: inset 0 0 0 1px rgb(28 28 28 / 0.22), inset 0 0 4px rgb(120 140 255 / 0.25); }
+[data-mode="dark"] .bub-tb { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.7), inset 0 0 4px rgb(170 190 255 / 0.35); }
+@keyframes bub-float { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 82% { opacity: 1; } 100% { transform: translateY(var(--bub-rise, -640px)); opacity: 0; } }
+@keyframes bub-sway { from { transform: translateX(-12px); } to { transform: translateX(12px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .bub *, .bub { animation: none !important; transition: none !important; }
+  .bub-field { display: none; }
+}

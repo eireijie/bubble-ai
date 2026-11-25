@@ -1,7 +1,7 @@
 import type { GhostAppearance } from "@wisp/core";
 
 /** The colours offered when a ghost is made (onboarding's Make me yours); each ghost shades its own into a gradient. */
-export const FAMILY_COLORS = ["#a98bf5", "#3cc0a6", "#f2a04a", "#6aa2f5", "#ef7fa8", "#cfd36a"] as const;
+export const FAMILY_COLORS = ["#a59bff", "#6cc4ff", "#ff7d8f", "#ffc04d", "#74dba6", "#ff9d6b"] as const;
 
 function hash(s: string) {
   let h = 7;

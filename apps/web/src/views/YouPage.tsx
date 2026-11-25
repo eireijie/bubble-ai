@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, Bot, Building2, ChevronLeft, Cpu, Ghost, LayoutGrid, LifeBuoy, ListTodo, Palette, Bell, Settings, SquareTerminal, ChevronRight, X } from "lucide-react";
+import { BookOpen, Bot, Building2, ChevronLeft, Cpu, LayoutGrid, LifeBuoy, ListTodo, Palette, Bell, Settings, SquareTerminal, ChevronRight, X } from "lucide-react";
+import { BubbleIcon } from "../components/icons.tsx";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go, href, type Route } from "../router.ts";
@@ -68,7 +69,7 @@ export function YouPage() {
     [
       ...(!isGuest ? [{ label: "Computers", icon: <ComputersIcon size={ICON.size} />, to: { view: "computers", computerId: null } as Route }, { label: "Add apps and skills", icon: <LayoutGrid {...ICON} />, to: { view: "marketplace" } as Route }] : []),
       { label: "Memory", icon: <BookOpen {...ICON} />, to: { view: "vault", path: null } },
-      { label: "All agents", icon: <Ghost {...ICON} />, to: { view: "agents", agentId: null } },
+      { label: "All agents", icon: <BubbleIcon {...ICON} />, to: { view: "agents", agentId: null } },
       ...(!isGuest && features.tasks ? [{ label: "Tasks", icon: <ListTodo {...ICON} />, to: { view: "tasks" } as Route }] : []),
       ...(!isGuest && features.code ? [{ label: "Code", icon: <SquareTerminal {...ICON} />, to: { view: "code" } as Route }] : []),
     ],

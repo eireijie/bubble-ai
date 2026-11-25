@@ -1,136 +1,103 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, ChevronDown, Loader2, RotateCcw, Shuffle } from "lucide-react";
+import { ArrowLeft, ChevronDown, Loader2, RotateCcw } from "lucide-react";
 import type { Agent } from "@wisp/core";
-import { GHOST_ACCESSORIES, GHOST_EYES, GHOST_HATS, GHOST_MOTIONS, GHOST_MOUTHS, GHOST_SHAPES, defaultAppearance, randomAppearance, type GhostAppearance } from "@wisp/core/src/appearance.ts";
+import { BUBBLE_COLORS, BUBBLE_SHAPES, defaultAppearance, type BubbleShape, type GhostAppearance } from "@wisp/core/src/appearance.ts";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
-import { GhostColors } from "../components/GhostColors.tsx";
+import { BUBBLE_DEFS, BubbleBody, bubbleColor, bubbleShape } from "../components/Bubble.tsx";
+import { BubbleField } from "../components/BubbleField.tsx";
 import { Ghost } from "../components/Ghost.tsx";
 import { Button, cx } from "../components/ui.tsx";
 import { VoicePicker } from "../voice/VoicePicker.tsx";
 import { SaveBar } from "./SettingsParts.tsx";
 
-/** What each option is called on screen. The option lists themselves come from core, so they always match the hub. */
-export const LOOK_LABELS: Record<string, string> = {
-  classic: "Classic",
-  round: "Round",
-  tall: "Tall",
-  sheet: "Sheet",
-  wisp: "Wisp",
-  dots: "Dots",
-  big: "Big",
-  happy: "Happy",
-  sparkle: "Sparkle",
-  wink: "Wink",
-  smile: "Smile",
-  open: "Open",
-  cat: "Cat",
-  fangs: "Fangs",
-  tongue: "Tongue",
-  none: "None",
-  tophat: "Top hat",
-  party: "Party",
-  beanie: "Beanie",
-  crown: "Crown",
-  witch: "Witch",
-  headphones: "Headphones",
-  bow: "Bow",
-  halo: "Halo",
-  flower: "Flower",
-  propeller: "Propeller",
-  glasses: "Glasses",
-  sunglasses: "Sunglasses",
-  monocle: "Monocle",
-  bowtie: "Bow tie",
-  scarf: "Scarf",
-  tie: "Tie",
-  mustache: "Mustache",
-  float: "Float",
-  bounce: "Bounce",
-  sway: "Sway",
-  still: "Still",
-};
-
 /** The moods you can preview a look in. */
-type PreviewMood = "awake" | "working" | "asleep";
+type PreviewMood = "awake" | "working" | "waiting" | "asleep";
 const MOODS: [PreviewMood, string][] = [
-  ["awake", "Awake"],
+  ["awake", "Idle"],
   ["working", "Working"],
-  ["asleep", "Asleep"],
+  ["waiting", "Needs you"],
+  ["asleep", "Offline"],
 ];
 
-/** The long lists, one at a time. */
-const CUSTOMIZE = ["Colors", "Shape", "Face", "Hat", "Accessory", "Motion"] as const;
+const lower = (c: string | undefined) => c?.toLowerCase();
 
 /**
- * The look editor: the ghost, big and watching your pointer, with Shuffle and a few colors. Every
- * other option (all colors, shape, eyes, mouth, rosy cheeks, hat, accessory, motion, the mood to
- * preview it in, and Reset when the caller has one) is behind "Show all", one list at a time.
- * Controlled: the caller keeps the look and decides when to save.
+ * An agent's Look (board 6, "Bubble shapes"): its bubble, big, with small bubbles drifting up
+ * behind it; then its shape (eight) and colour (six and your own). Every shape keeps the clear
+ * body, rainbow rim and face. Controlled: the caller keeps the look and decides when to save.
  */
 export function LookEditor({ value: look, onChange, name, below, extra, speakingLevel, onReset }: { value: GhostAppearance; onChange: (look: GhostAppearance) => void; name: string; below?: ReactNode; extra?: ReactNode; speakingLevel?: number; onReset?: () => void }) {
   const [mood, setMood] = useState<PreviewMood>("awake");
-  const [all, setAll] = useState(false);
-  const [tab, setTab] = useState<(typeof CUSTOMIZE)[number]>("Colors");
-  const set = <K extends keyof GhostAppearance>(k: K, v: GhostAppearance[K]) => onChange({ ...look, [k]: v });
+  const shape = bubbleShape(look);
+  const color = bubbleColor(look, name);
+  const known = BUBBLE_COLORS.some((c) => c.hex === lower(color));
+  const setColor = (hex: string) => onChange({ ...look, color: hex, color2: undefined });
   return (
     <div className="w-full max-w-[560px] space-y-4">
-      <div className="grid h-72 place-items-center overflow-hidden rounded-[14px] bg-card sm:h-80">
-        <Ghost look={look} size={240} mood={mood} speakingLevel={speakingLevel} trackPointer interactive label={`${name}'s ghost, looking toward your pointer`} />
+      <div className="relative grid h-[200px] place-items-center overflow-hidden rounded-[16px] bg-card">
+        <BubbleField count={14} maxSize={10} rise={300} />
+        <Ghost look={look} seed={name} size={132} mood={mood} speakingLevel={speakingLevel} interactive label={`${name}'s bubble`} />
       </div>
-      <div className="flex flex-col items-center gap-3">
-        <Button type="button" onClick={() => onChange(randomAppearance())}>
-          <Shuffle size={15} /> Shuffle
-        </Button>
-        {!all && <GhostColors look={look} onChange={(c) => onChange({ ...look, ...c })} limit={5} />}
-        {below}
-      </div>
-      {extra}
-      <div className="overflow-hidden rounded-[14px] bg-card">
-        {all && (
-          <div className="space-y-4 border-b border-line p-3.5">
-            <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Look options">
-              {CUSTOMIZE.map((t) => (
-                <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cx("h-8 shrink-0 rounded-lg px-3 text-[13px] font-medium", tab === t ? "bg-side-active text-ink" : "text-muted hover:text-ink")}>
-                  {t}
-                </button>
-              ))}
-            </div>
-            {tab === "Colors" && <GhostColors look={look} onChange={(c) => onChange({ ...look, ...c })} labels />}
-            {tab === "Shape" && <Chips bare title="Shape" options={GHOST_SHAPES} value={look.shape} onPick={(v) => set("shape", v)} />}
-            {tab === "Face" && (
-              <>
-                <Chips title="Eyes" options={GHOST_EYES} value={look.eyes} onPick={(v) => set("eyes", v)} />
-                <Chips title="Mouth" options={GHOST_MOUTHS} value={look.mouth} onPick={(v) => set("mouth", v)} />
-                <button type="button" aria-pressed={look.cheeks} onClick={() => set("cheeks", !look.cheeks)} className={cx(CHIP, look.cheeks ? CHIP_ON : CHIP_OFF)}>
-                  Rosy cheeks
-                </button>
-              </>
-            )}
-            {tab === "Hat" && <Chips bare title="Hat" options={GHOST_HATS} value={look.hat} onPick={(v) => set("hat", v)} />}
-            {tab === "Accessory" && <Chips bare title="Accessory" options={GHOST_ACCESSORIES} value={look.accessory} onPick={(v) => set("accessory", v)} />}
-            {tab === "Motion" && <Chips bare title="Motion" options={GHOST_MOTIONS} value={look.motion} onPick={(v) => set("motion", v)} />}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <div className="flex rounded-lg bg-chip p-0.5" role="radiogroup" aria-label="Preview a mood">
-                {MOODS.map(([m, label]) => (
-                  <button key={m} type="button" role="radio" aria-checked={mood === m} onClick={() => setMood(m)} className={cx("h-7 rounded-md px-2.5 text-xs", mood === m ? "bg-panel font-semibold text-ink shadow-sm" : "text-muted hover:text-ink")}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {onReset && (
-                <button type="button" onClick={onReset} title="Back to its original ghost" className="ml-auto inline-flex h-8 items-center gap-1.5 text-[13px] text-muted hover:text-ink">
-                  <RotateCcw size={14} /> Reset
-                </button>
-              )}
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex rounded-lg bg-chip p-0.5" role="radiogroup" aria-label="Preview a mood">
+          {MOODS.map(([m, label]) => (
+            <button key={m} type="button" role="radio" aria-checked={mood === m} onClick={() => setMood(m)} className={cx("h-7 rounded-md px-2.5 text-xs", mood === m ? "bg-panel font-semibold text-ink shadow-sm" : "text-muted hover:text-ink")}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {onReset && (
+          <button type="button" onClick={onReset} title="Back to its original look" className="ml-auto inline-flex h-8 items-center gap-1.5 text-[13px] text-muted hover:text-ink">
+            <RotateCcw size={14} /> Reset
+          </button>
         )}
-        <button type="button" aria-expanded={all} onClick={() => setAll(!all)} className="flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] text-muted hover:bg-hover hover:text-ink">
-          <span className="flex-1">{all ? "Show less" : "Show all"}</span>
-          <ChevronDown size={15} className={cx("shrink-0 text-faint", all && "rotate-180")} aria-hidden />
-        </button>
       </div>
+      <section className="space-y-2">
+        <h2 className="text-[13px] font-semibold text-muted">Shape</h2>
+        <div role="radiogroup" aria-label="Shape" className="grid grid-cols-4 gap-2 sm:grid-cols-[repeat(4,76px)]">
+          {BUBBLE_SHAPES.map((id) => {
+            const on = id === shape;
+            const def = BUBBLE_DEFS[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => onChange({ ...look, bubble: id as BubbleShape })}
+                className={cx("flex h-[84px] flex-col items-center justify-center gap-1.5 rounded-[16px] text-[12px] outline-none transition-[box-shadow,background-color] duration-200 focus-visible:ring-2 focus-visible:ring-ring/40", on ? "bg-side-active text-ink shadow-[inset_0_0_0_2px_var(--wisp)]" : "text-muted hover:bg-hover")}
+              >
+                <span className="bub" style={{ width: 40, height: 40, ["--bub-c" as string]: color, ["--bub-rim" as string]: "1.4px" }} aria-hidden>
+                  <span className="bub-w">
+                    <BubbleBody shape={id as BubbleShape} color={color} />
+                    <span className="bub-face" style={{ transform: `translate(${def.face[0]}%, ${def.face[1]}%)` }}>
+                      <i className="bub-e bub-e1" />
+                      <i className="bub-e bub-e2" />
+                    </span>
+                  </span>
+                </span>
+                {def.name}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-[13px] font-semibold text-muted">Colour</h2>
+        <div role="radiogroup" aria-label="Colour" className="flex flex-wrap items-center gap-2.5">
+          {BUBBLE_COLORS.map((c) => {
+            const on = lower(color) === c.hex;
+            return <button key={c.hex} type="button" role="radio" aria-checked={on} aria-label={c.name} title={c.name} onClick={() => setColor(c.hex)} className="size-[26px] rounded-full outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring/40" style={{ background: c.hex, boxShadow: on ? "0 0 0 2px var(--panel), 0 0 0 4px var(--ink)" : undefined }} />;
+          })}
+          {/* your own colour */}
+          <label title="Pick your own colour" className="relative size-[26px] cursor-pointer overflow-hidden rounded-full" style={{ background: known ? "conic-gradient(#ff5f5f, #ffd84d, #5fe08a, #4dabf7, #b07cff, #ff5f5f)" : color, boxShadow: known ? undefined : "0 0 0 2px var(--panel), 0 0 0 4px var(--ink)" }}>
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Your own colour" />
+          </label>
+        </div>
+      </section>
+      {below}
+      {extra}
     </div>
   );
 }
@@ -221,31 +188,4 @@ export function LookPanel({ agent, onDirty, active }: { agent: Agent; onDirty: (
       <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => { setLook(saved); setVoice(agent.settings.voice ?? {}); }} active={active} />
     </div>
   );
-}
-
-const CHIP = "h-9 px-3.5 rounded-full border text-[13px] font-medium transition-colors";
-const CHIP_ON = "bg-ink text-bg border-ink";
-const CHIP_OFF = "bg-panel text-ink border-line hover:bg-hover";
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <h2 className="text-[13px] font-medium text-muted">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-/** One option list as chips. `bare` leaves out the heading (the tab already names it). */
-function Chips<T extends string>({ title, options, value, onPick, bare }: { title: string; options: readonly T[]; value: T; onPick: (v: T) => void; bare?: boolean }) {
-  const chips = (
-    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={title}>
-      {options.map((v) => (
-        <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onPick(v)} className={cx(CHIP, value === v ? CHIP_ON : CHIP_OFF)}>
-          {LOOK_LABELS[v] ?? v}
-        </button>
-      ))}
-    </div>
-  );
-  return bare ? chips : <Section title={title}>{chips}</Section>;
 }

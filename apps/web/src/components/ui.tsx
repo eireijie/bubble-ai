@@ -175,7 +175,7 @@ export function AgentAvatar({
   const mood: GhostMood = done && baseMood === "awake" ? "done" : baseMood;
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
-      <Ghost key={agent?.id} look={look} size={size} mood={mood} animate={animate ?? (live || interactive)} ambient={live} interactive={interactive} label={agent?.name ?? "agent"} seed={agent?.handle ?? agent?.name} />
+      <Ghost key={agent?.id} look={look} size={size} mood={mood} animate={animate ?? (live || interactive)} ambient={live || interactive} interactive={interactive} label={agent?.name ?? "agent"} seed={agent?.handle ?? agent?.name} />
       {badge && agent?.status && <StatusDot status={agent.status} needsSignIn={!!(agent as { signIn?: unknown }).signIn} className="absolute bottom-0 right-0 ring-2 ring-panel" />}
     </span>
   );
@@ -228,26 +228,26 @@ export function StatusChip({ status, needsSignIn }: { status: Agent["status"]; n
   );
 }
 
-/** Wisp's mark: a ghost outline. `draw` animates it drawing itself (the loading state). */
+/** Wisp's mark: a bubble outline with two eyes. `draw` animates it drawing itself (the loading state). */
 export function GhostMark({ size = 20, draw, className }: { size?: number; draw?: boolean; className?: string }) {
   return (
-    <svg viewBox="22 10 76 104" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={draw ? 4.5 : 9} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path className={draw ? "loader-draw" : undefined} pathLength={100} d="M30 60 C30 32 44 18 60 18 C76 18 90 32 90 60 L90 96 Q85 104 80 96 Q75 88 70 96 Q65 104 60 96 Q55 88 50 96 Q45 104 40 96 Q35 88 30 96 Z" />
+    <svg viewBox="0 0 120 120" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={draw ? 4.5 : 9} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path className={draw ? "loader-draw" : undefined} pathLength={100} d="M60 14 a46 46 0 1 1 -0.01 0 Z" />
       {!draw && (
         <g fill="currentColor" stroke="none">
-          <circle cx="50" cy="56" r="6" />
-          <circle cx="70" cy="56" r="6" />
+          <ellipse cx="50" cy="56" rx="5.5" ry="8" />
+          <ellipse cx="72" cy="56" rx="5.5" ry="8" />
         </g>
       )}
     </svg>
   );
 }
 
-/** Full-page loading: a large, centered, gray ghost drawing itself. */
+/** Full-page loading: a large, centered, gray bubble drawing itself. */
 export function Loader({ label = "Loading…" }: { label?: string }) {
   return (
     <div role="status" className="h-full w-full grid place-items-center bg-panel" style={{ color: "var(--loader)" }}>
-      {/* a faint outline stays put so the screen is never empty while the ghost redraws */}
+      {/* a faint outline stays put so the screen is never empty while the bubble redraws */}
       <span className="relative grid place-items-center">
         <GhostMark size={88} className="opacity-20" />
         <GhostMark size={88} draw className="absolute inset-0" />

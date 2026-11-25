@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, Ghost, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
+import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
+import { BubbleIcon } from "./icons.tsx";
 import { harnessLabel, teamIconAgentIds, type Agent, type Approval, type Section } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore, usePrefs, useWaitingOnYou, type ChannelInfo, type ComputerInfo, type LiveRun } from "../store.ts";
@@ -219,7 +220,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
       )}
       items={[
         ...(!page ? [{ label: "New chat", icon: <MessageSquarePlus size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ newChatOpen: true }) }] : []),
-        ...(!isGuest ? [{ label: "New agent", icon: <Ghost size={18} strokeWidth={1.8} />, onSelect: startNewAgent }] : []),
+        ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon size={18} strokeWidth={1.8} />, onSelect: startNewAgent }] : []),
         ...(!isGuest ? [{ label: "New team", icon: <Users size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
         { label: "Browse teams", icon: <Search size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
         ...(!isGuest ? [{ label: "New section", icon: <FolderPlus size={18} strokeWidth={1.8} />, onSelect: () => setEditing("new") }] : []),

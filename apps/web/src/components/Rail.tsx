@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Apple, Bell, BookOpen, Building2, ChevronDown, FolderPlus, Ghost as GhostIcon, HardDrive, LayoutGrid, LifeBuoy, ListChecks, ListTodo, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
+import { Apple, Bell, BookOpen, Building2, ChevronDown, FolderPlus, HardDrive, LayoutGrid, LifeBuoy, ListChecks, ListTodo, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
+import { BubbleIcon } from "./icons.tsx";
 import { useReadyChecklist } from "../onboarding.ts";
 import type { FeatureKey, Section } from "@wisp/core";
 import { api } from "../api.ts";
@@ -76,7 +77,7 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
   const features = useFeatures();
   const icon = { size, strokeWidth: 1.8 };
   return [
-    ...(withAgents ? [{ label: "All agents", icon: <GhostIcon {...icon} />, to: { view: "agents", agentId: null } as Route }] : []),
+    ...(withAgents ? [{ label: "All agents", icon: <BubbleIcon {...icon} />, to: { view: "agents", agentId: null } as Route }] : []),
     { label: "Memory", icon: <BookOpen {...icon} />, to: { view: "vault", path: null } },
     ...(!guest && features.tasks ? [{ label: "Tasks", icon: <ListTodo {...icon} />, to: { view: "tasks" } as Route }] : []),
     ...(!guest ? [...(withRail ? modNav(features, "rail") : []), ...modNav(features, "more")].map((m) => ({ label: m.label, icon: m.icon(size), to: m.to })) : []),
@@ -433,7 +434,7 @@ export function Rail({ route }: { route: Route }) {
 
   const icon = { size: 18, strokeWidth: 1.8 };
   const addItems = [
-    ...(!isGuest ? [{ label: "New agent", icon: <GhostIcon {...icon} />, onSelect: startNewAgent }] : []),
+    ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon {...icon} />, onSelect: startNewAgent }] : []),
     ...(!isGuest ? [{ label: "New team", icon: <Users {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
     { label: "Browse teams", icon: <Search {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
     ...(!isGuest ? [{ label: "New section", icon: <FolderPlus {...icon} />, onSelect: () => setEditing("new") }] : []),
@@ -451,7 +452,7 @@ export function Rail({ route }: { route: Route }) {
     ...(!isGuest ? MOD_NAV.filter((m) => features[m.feature]).map((m) => place(m.label, m.icon(18), m.to)) : []),
     place("Help", <LifeBuoy {...icon} />, { view: "help" }),
     ...(ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <ListChecks {...icon} />, { view: "here" })] : []),
-    place("All agents", <GhostIcon {...icon} />, { view: "agents", agentId: null }),
+    place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
     place("Settings", <Settings {...icon} />, { view: "settings", page: null }),
     "divider" as const,
     {

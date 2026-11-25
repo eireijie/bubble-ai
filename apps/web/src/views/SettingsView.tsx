@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Ghost as GhostIcon, Info, Monitor, Search, ShieldCheck, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, Monitor, Search, ShieldCheck, UserRound } from "lucide-react";
+import { BubbleIcon } from "../components/icons.tsx";
 import { useStore } from "../store.ts";
 import { go, href, useRoute, type SettingsPage } from "../router.ts";
 import { cx } from "../components/ui.tsx";
@@ -97,7 +98,7 @@ export const SHEET_IDS = Object.keys(SHEETS);
 /** Each page's line icon in the list down the left. */
 const FIVE_ICON: Record<Five, ReactNode> = {
   you: <UserRound size={20} strokeWidth={1.8} />,
-  agents: <GhostIcon size={20} strokeWidth={1.8} />,
+  agents: <BubbleIcon size={20} strokeWidth={1.8} />,
   computers: <Monitor size={20} strokeWidth={1.8} />,
   privacy: <ShieldCheck size={20} strokeWidth={1.8} />,
   about: <Info size={20} strokeWidth={1.8} />,
