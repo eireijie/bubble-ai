@@ -36,6 +36,7 @@ import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
 import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
+import { SetupTour } from "../components/onboarding/SetupTour.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
 import { GhostLanding, useFirstHelloHtml } from "../components/onboarding/FirstHello.tsx";
 
@@ -223,6 +224,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <SignInNeededBar agent={dmFull} />
           </div>
         )}
+        {!channel.archivedAt && dmFull && <SetupTour agent={dmFull} channelId={channel.id} />}
         {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
         {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onHide={() => setCallRecord(null)} />}
         {calling && dmAgent && (
@@ -230,7 +232,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
           </Suspense>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} />}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} /></div>}
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
       {sideAgent && side?.kind === "agent" && <AgentPanel key={sideAgent.id} agent={sideAgent} channelId={channel.id} tab={side.tab} inDm={sideAgent.id === dmAgent?.id} onClose={() => setSide(null)} />}

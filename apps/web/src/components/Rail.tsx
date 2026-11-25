@@ -444,7 +444,7 @@ export function Rail({ route }: { route: Route }) {
       align={up ? "left" : "right"}
       items={addItems}
       trigger={(open, t) => (
-        <button type="button" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New" title="New" className={cx(ROUND, open ? "bg-line2" : SOFT)}>
+        <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New" title="New" className={cx(ROUND, open ? "bg-line2" : SOFT)}>
           <Plus size={20} strokeWidth={1.8} />
           {inbox > 0 && !wide && <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-[#ff9f0a]" />}
         </button>
@@ -454,7 +454,7 @@ export function Rail({ route }: { route: Route }) {
   const firstName = me.user.name.trim().split(/\s+/)[0] || me.user.name;
   const settingsOn = route.view === "settings";
   const you = (
-    <a href={href({ view: "settings", page: null })} aria-label="You and settings" title={wide ? undefined : "You and settings"} aria-current={settingsOn ? "page" : undefined} className={cx("relative flex h-[42px] min-w-0 shrink-0 items-center gap-2 rounded-full text-[15px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "max-w-[46%] pl-[5px] pr-3.5" : "w-[42px] justify-center", settingsOn ? "bg-line2" : SOFT)}>
+    <a data-tour="you" href={href({ view: "settings", page: null })} aria-label="You and settings" title={wide ? undefined : "You and settings"} aria-current={settingsOn ? "page" : undefined} className={cx("relative flex h-[42px] min-w-0 shrink-0 items-center gap-2 rounded-full text-[15px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "max-w-[46%] pl-[5px] pr-3.5" : "w-[42px] justify-center", settingsOn ? "bg-line2" : SOFT)}>
       <span className={cx("grid size-[32px] shrink-0 place-items-center rounded-full text-[14px] font-semibold", wide ? "bg-panel shadow-[0_0_0_1px_var(--line)]" : "")}>{(firstName[0] ?? "?").toUpperCase()}</span>
       {wide && <span className="truncate font-medium">{firstName}</span>}
       {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
@@ -499,12 +499,12 @@ export function Rail({ route }: { route: Route }) {
             {you}
             {!isGuest && (
               <div className={cx("flex h-[42px] min-w-0 flex-1 items-center rounded-full p-0", SOFT)}>
-                <a href={computersTo} aria-label={computersLabel} aria-current={computersOn ? "page" : undefined} className={cx(half, computersOn && "bg-line2")}>
+                <a data-tour="computers" href={computersTo} aria-label={computersLabel} aria-current={computersOn ? "page" : undefined} className={cx(half, computersOn && "bg-line2")}>
                   <span aria-hidden className={cx("size-2 shrink-0 rounded-full", onCount > 0 ? "bg-[#30d158]" : "bg-muted opacity-50")} />
                   <span className="truncate text-[14px]">{onCount} on</span>
                 </a>
                 <span aria-hidden className="h-5 w-px shrink-0 bg-line" />
-                <a href={href({ view: "vault", path: null })} aria-label={`Memory vault${notes != null ? `, ${notes} notes` : ""}`} aria-current={vaultOn ? "page" : undefined} className={cx(half, vaultOn && "bg-line2")}>
+                <a data-tour="vault" href={href({ view: "vault", path: null })} aria-label={`Memory vault${notes != null ? `, ${notes} notes` : ""}`} aria-current={vaultOn ? "page" : undefined} className={cx(half, vaultOn && "bg-line2")}>
                   <BookOpen size={15} strokeWidth={1.9} className="shrink-0 text-muted" aria-hidden />
                   <span className="truncate text-[14px]">{notes ?? "Vault"}</span>
                 </a>
