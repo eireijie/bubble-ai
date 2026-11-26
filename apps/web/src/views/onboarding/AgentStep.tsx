@@ -121,6 +121,7 @@ export function AgentStep({ workspaceId, person, device, existing, onContinue, o
         <button
           type="button"
           aria-label="Change its colour"
+          data-bub-main=""
           className="mt-[max(0px,calc(18vh-60px))] rounded-full p-2 outline-none transition-transform active:scale-[.96] focus-visible:ring-3 focus-visible:ring-ring/40 motion-reduce:transition-none"
           onClick={() => setLook((l) => nextLook(l))}
         >

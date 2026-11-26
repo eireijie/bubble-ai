@@ -1,4 +1,5 @@
 import { Suspense, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
 import { SquarePen, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Phone } from "lucide-react";
@@ -184,7 +185,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             </button>
           </header>
         )}
-        <div className="flex-1 grid place-items-center text-sm text-muted">{route.channelId ? "This chat isn't here any more" : "No chats yet"}</div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-sm text-muted">
+          <MotionMark size={56} mood="drift" />
+          {route.channelId ? "This chat isn't here any more" : "No chats yet"}
+        </div>
       </div>
     );
 

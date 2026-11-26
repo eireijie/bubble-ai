@@ -68,15 +68,19 @@ describe("resuming cloud setup after relaunch", () => {
 });
 
 describe("Bubble AI first launch", () => {
-  it("draws six bubbles from its own shapes, five crew each on their own clock", () => {
+  it("draws the app's round mark with the app's own motion, built from the web source and up to date", async () => {
     const html = readFileSync(new URL("../src/setup.html", import.meta.url), "utf8");
-    const stage = html.match(/<script>[\s\S]*?<\/script>\s*<script>([\s\S]*?)<\/script>/)![1];
-    const crew = stage.match(/const CREW = \[([\s\S]*?)\n\s*\];/)![1];
-    const clocks = [...crew.matchAll(/T\("(animation-duration:[^"]+)"/g)].map((m) => m[1]);
-    expect(clocks).toHaveLength(5);
-    expect(new Set(clocks).size).toBe(5);
-    // the page carries its own wisp shapes now (Ghost.tsx's flat family no longer has them)
-    expect(stage).toMatch(/classic: \{ d: "M[^"]+"/);
+    expect(html).toContain('<link rel="stylesheet" href="mark.css" />');
+    expect(html).toContain('<script src="mark-motion.js"></script>');
+    const stage = html.match(/<script src="mark-motion.js"><\/script>\s*<script>([\s\S]*?)<\/script>/)![1];
+    expect(stage).toMatch(/M\.makeMark\(/);
+    expect(stage).toMatch(/M\.startBubbles\(/);
+    // the old ghost crew and its always-on loops are gone
+    expect(html).not.toMatch(/const CREW|repeatCount="indefinite"/);
+    // @ts-expect-error a plain .mjs script
+    const { markFiles } = await import("../scripts/build-mark-motion.mjs");
+    const files = await markFiles();
+    for (const [name, text] of Object.entries(files)) expect(readFileSync(new URL(`../src/${name}`, import.meta.url), "utf8"), `${name} is out of date: run node apps/desktop/scripts/build-mark-motion.mjs`).toBe(text);
   });
 
   it("goes from Self-Host through installing to Continue, which opens the server", async () => {

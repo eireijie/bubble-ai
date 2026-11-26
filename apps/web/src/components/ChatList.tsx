@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { MotionMark } from "./MotionMark.tsx";
 import { createPortal } from "react-dom";
 import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
@@ -273,7 +274,12 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
             <Search size={18} strokeWidth={1.8} /> Search messages and memory for “{q.trim()}”
           </button>
         )}
-        {!needle && chats.length === 0 && <p className="px-3 py-6 text-sm text-muted text-center">{page ? "No agents yet" : "No chats yet. Tap + to start one."}</p>}
+        {!needle && chats.length === 0 && (
+          <div className="flex flex-col items-center gap-3 px-3 py-6">
+            <MotionMark size={40} mood="drift" />
+            <p className="text-sm text-muted text-center">{page ? "No agents yet" : "No chats yet. Tap + to start one."}</p>
+          </div>
+        )}
         {needle && shown.length === 0 && <p className="px-3 py-2 text-sm text-faint">No chats match.</p>}
       </div>
 

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { type Agent } from "@bubble-ai/core";
 import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { Ghost, type GhostMood } from "./Ghost.tsx";
+import { MotionMark } from "./MotionMark.tsx";
 import { familyColor } from "../ghostFamily.ts";
 import { useStore } from "../store.ts";
 import { agentMood } from "../ghostMood.ts";
@@ -279,15 +280,14 @@ export function AppMark({ size = 32, className }: { size?: number; className?: s
   );
 }
 
-/** Full-page loading: a large, centered, gray bubble drawing itself. */
-export function Loader({ label = "Loading…" }: { label?: string }) {
+/**
+ * Full-page loading: the Bubble AI mark drifting, bobbing and spinning until the page is ready. On
+ * launch (`launch`) it whooshes in first. Reduced motion: it just sits there.
+ */
+export function Loader({ label = "Loading…", launch = false }: { label?: string; launch?: boolean }) {
   return (
-    <div role="status" className="h-full w-full grid place-items-center bg-panel" style={{ color: "var(--loader)" }}>
-      {/* a faint outline stays put so the screen is never empty while the bubble redraws */}
-      <span className="relative grid place-items-center">
-        <BubbleMark size={88} className="opacity-20" />
-        <BubbleMark size={88} draw className="absolute inset-0" />
-      </span>
+    <div role="status" className="h-full w-full grid place-items-center bg-panel">
+      <MotionMark size={72} entrance={launch ? "whoosh" : undefined} mood="working" />
       <span className="sr-only">{label}</span>
     </div>
   );

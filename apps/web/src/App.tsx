@@ -246,7 +246,7 @@ function Workspace() {
         </div>
       </div>
     );
-  if (!me) return <Loader />;
+  if (!me) return <Loader launch />;
 
   const toChats = () => go({ view: "chats" });
   const toYou = () => go({ view: "you" });
