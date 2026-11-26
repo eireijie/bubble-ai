@@ -116,7 +116,7 @@ curl -fsSL https://raw.githubusercontent.com/eireijie/bubble-ai/main/uninstall.s
 
 Add `-s -- --dry-run` after `bash` to see what it would remove. It asks before each step. Chats, memory and files are in the data folder (`~/bubble-ai/data` for the installer, `~/.bubble-ai/data` for the desktop app, `~/wisp/data` from before the rename), so back it up if you want to keep them.
 
-On Windows: uninstall Bubble AI in **Settings → Apps**, run `bubble-ai service uninstall hub` and `bubble-ai service uninstall node`, then delete `%USERPROFILE%\bubble-ai`, `%USERPROFILE%\.bubble-ai` and `%APPDATA%\Bubble AI`.
+On Windows: uninstall Bubble AI in **Settings → Apps**, run `bubble-ai service uninstall hub` and `bubble-ai service uninstall node` (or delete the **Wisp hub** and **Wisp node** tasks in Task Scheduler), then delete `%USERPROFILE%\bubble-ai`, `%USERPROFILE%\.bubble-ai` and `%APPDATA%\Bubble AI` (and `%USERPROFILE%\wisp`, `%USERPROFILE%\.wisp` and `%APPDATA%\Wisp` from before the rename).
 
 </details>
 
