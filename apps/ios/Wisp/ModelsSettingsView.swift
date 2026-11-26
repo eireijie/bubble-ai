@@ -64,7 +64,7 @@ struct ModelsSettingsView: View {
       ConnectProviderView(provider: p) { _ in connecting = nil; Task { await load() } }
     }
     .task(id: store.modelsVersion) { await load() }
-    .refreshable { await load() }
+    .bubbleRefresh { await load() }
   }
 
   private func load() async {

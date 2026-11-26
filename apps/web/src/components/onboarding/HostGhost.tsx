@@ -1,3 +1,4 @@
+import { burst } from "../markMotion.ts";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { GHOST_WHITE, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { setGazeFocus } from "../../ghostGaze.ts";
@@ -83,7 +84,20 @@ export function travelFrom(el: HTMLElement, from: DOMRect | null, ms = 700) {
 }
 
 const MOVES: Record<HostReaction, { frames: Keyframe[]; ms: number }> = {
-  hop: { frames: [{ transform: "none" }, { transform: "translateY(-14%) scale(0.95, 1.06)", offset: 0.35 }, { transform: "translateY(0) scale(1.07, 0.93)", offset: 0.7 }, { transform: "none" }], ms: 520 },
+  // "Great!" (canvas "Bubble AI mark motion", 2026-11-25): crouch, hop with a full spin, squash on landing
+  hop: {
+    frames: [
+      { transform: "translateY(0) scale(1, 1) rotate(0deg)", transformOrigin: "50% 70%" },
+      { transform: "translateY(0) scale(1.16, 0.84) rotate(0deg)", transformOrigin: "50% 70%", offset: 0.18, easing: "cubic-bezier(.3,0,.2,1)" },
+      { transform: "translateY(-22%) scale(0.86, 1.16) rotate(30deg)", transformOrigin: "50% 70%", offset: 0.3, easing: "ease-out" },
+      { transform: "translateY(-95%) scale(1, 1) rotate(220deg)", transformOrigin: "50% 70%", offset: 0.46, easing: "cubic-bezier(.6,0,.8,.4)" },
+      { transform: "translateY(0) scale(1.2, 0.8) rotate(360deg)", transformOrigin: "50% 70%", offset: 0.7, easing: "ease-out" },
+      { transform: "translateY(0) scale(0.94, 1.06) rotate(360deg)", transformOrigin: "50% 70%", offset: 0.82, easing: "ease-in-out" },
+      { transform: "translateY(0) scale(1.03, 0.98) rotate(360deg)", transformOrigin: "50% 70%", offset: 0.92 },
+      { transform: "translateY(0) scale(1, 1) rotate(360deg)", transformOrigin: "50% 70%" },
+    ],
+    ms: 1100,
+  },
   nod: { frames: [{ transform: "none" }, { transform: "rotate(-7deg)", offset: 0.35 }, { transform: "rotate(4deg)", offset: 0.7 }, { transform: "none" }], ms: 460 },
   catch: { frames: [{ transform: "none" }, { transform: "translateY(-5%) scale(1.04, 0.97)", offset: 0.4 }, { transform: "none" }], ms: 320 },
   // "it sleeps": head tipped, eyes shut a moment
@@ -162,7 +176,15 @@ export function HostGhost({
       }
       if (motionReduced() || !inner.current?.animate) return;
       const m = MOVES[kind];
-      inner.current.animate(m.frames, { duration: m.ms, easing: OB_EASE });
+      inner.current.animate(m.frames, { duration: m.ms, easing: kind === "hop" ? "linear" : OB_EASE });
+      // the landing pops a few tiny bubbles
+      if (kind === "hop") {
+        const el = outer.current;
+        setTimeout(() => {
+          const r = el?.getBoundingClientRect();
+          if (r?.width) burst(r.left + r.width / 2, r.bottom - r.height * 0.08, 7);
+        }, m.ms * 0.7);
+      }
     };
     // the pause before a reaction: eyes up, flat mouth
     const onThink = (v: boolean) => {
@@ -180,7 +202,7 @@ export function HostGhost({
     };
   }, []);
   return (
-    <div ref={outer} className={className} style={{ width: size, height: size, ...style }} data-testid="host-ghost">
+    <div ref={outer} className={className} style={{ width: size, height: size, ...style }} data-testid="host-ghost" data-bub-main="">
       <div ref={inner} style={{ transformOrigin: "50% 92%" }}>
         <Ghost look={look} size={size} mood={doze ? "asleep" : think ? "thinking" : mood} happy={!think && !doze && (happy || cheer)} talking={!think && !doze && talking} trackPointer={follow || think} label="" />
       </div>

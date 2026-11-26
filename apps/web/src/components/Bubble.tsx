@@ -3,7 +3,7 @@ import { BUBBLE_SHAPES, type BubbleShape, type GhostAppearance } from "@bubble-a
 import { useMotionReduced, motionReduced } from "../theme.ts";
 import { useGhostActivity } from "../ghostActivity.ts";
 import { familyColor } from "../ghostFamily.ts";
-import { liteEyes, watchBubble } from "./bubbleMotion.ts";
+import { liteEyes, restingGaze, watchBubble } from "./bubbleMotion.ts";
 import "./bubble.css";
 
 /** How the bubble feels right now; follows the agent's status where it matters. */
@@ -166,6 +166,8 @@ export function Bubble({
   const def = BUBBLE_DEFS[shape];
   // bubbles in one list don't blink or glance all at once
   const delay = useMemo(() => `${-(Math.random() * 12).toFixed(2)}s`, []);
+  // idle eyes rest to one side, steadily per agent
+  const [rx, ry] = restingGaze(seed || look?.color || "agent");
   useEffect(() => {
     if (moving && follow) followPointer();
   }, [moving, follow]);
@@ -225,7 +227,7 @@ export function Bubble({
       aria-hidden={label === "" ? true : undefined}
       onClick={interactive && moving ? () => setSpin((n) => n + 1) : undefined}
       onAnimationEnd={(e) => e.animationName === "bub-spin" && e.currentTarget === e.target && setSpin(0)}
-      style={{ width: size, height: size, ["--bub-c" as string]: color, ["--bub-rim" as string]: `${rim}px`, ["--bub-delay" as string]: delay, ...style }}
+      style={{ width: size, height: size, ["--bub-c" as string]: color, ["--bub-rim" as string]: `${rim}px`, ["--bub-delay" as string]: delay, ["--rx" as string]: `${Math.round(rx * 100)}%`, ["--ry" as string]: `${Math.round(ry * 100)}%`, ...style }}
     >
       {tile && <span className="bub-tile" style={{ background: `color-mix(in srgb, ${color} 22%, transparent)` }} />}
       <span className="bub-ring" />

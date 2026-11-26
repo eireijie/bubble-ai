@@ -71,7 +71,7 @@ struct TasksView: View {
         .padding(.horizontal, 18).padding(.top, 4).padding(.bottom, 24)
       }
       .scrollIndicators(.hidden)
-      .refreshable { await load() }
+      .bubbleRefresh { await load() }
     }
     .background(Palette.ground.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)

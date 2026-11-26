@@ -36,6 +36,7 @@ struct SettingsPage<Content: View, Trailing: View>: View {
           .padding(.horizontal, 18).padding(.top, 16).padding(.bottom, 40)
       }
       .scrollDismissesKeyboard(.interactively)
+      .bubbleRefreshSlot()
     }
     .background(Palette.sheet.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)

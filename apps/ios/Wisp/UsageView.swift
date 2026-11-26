@@ -38,7 +38,7 @@ struct UsageView: View {
         ProgressView().padding(.top, 30)
       }
     }
-    .refreshable { await load() }
+    .bubbleRefresh { await load() }
     .task(id: range) { await load() }
     .onChange(of: store.backgroundVersion) { _, _ in Task { try? await Task.sleep(for: .milliseconds(800)); await load() } }
     .onChange(of: store.allowance?.todayTokens) { _, _ in Task { await load() } }

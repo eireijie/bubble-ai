@@ -50,7 +50,7 @@ struct InboxView: View {
     .toolbar(.hidden, for: .navigationBar)
     .task { await load() }
     .onChange(of: TourRun.shared.nav, initial: true) { if TourRun.shared.active && TourRun.shared.place == .inbox { mode = .needs } }
-    .refreshable {
+    .bubbleRefresh {
       await store.refreshApprovals()
       await store.refreshComputers()
       await load()

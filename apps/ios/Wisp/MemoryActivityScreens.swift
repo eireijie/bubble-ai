@@ -57,7 +57,7 @@ struct MemoryActivityView: View {
       }
     }
     .navigationDestination(item: $opened) { NoteView(path: $0.path) }
-    .refreshable { await load() }
+    .bubbleRefresh { await load() }
     .task(id: author + String(store.memoryVersion)) { await load() }
   }
 

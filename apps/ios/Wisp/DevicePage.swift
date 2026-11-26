@@ -91,7 +91,7 @@ struct DeviceDetail: View {
     .listStyle(.insetGrouped)
     .groundBackground(Palette.sheet)
     .accessibilityIdentifier("device-list")
-    .refreshable { do { try await store.refreshNodes() } catch { action.error = error.localizedDescription }; await store.refreshComputers() }
+    .bubbleRefresh { do { try await store.refreshNodes() } catch { action.error = error.localizedDescription }; await store.refreshComputers() }
   }
 
   // MARK: sections

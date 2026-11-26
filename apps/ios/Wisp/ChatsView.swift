@@ -214,7 +214,7 @@ struct ChatsView: View {
     .scrollContentBackground(.hidden)
     .listRowSpacing(0)
     .environment(\.defaultMinListRowHeight, 1)
-    .refreshable {
+    .bubbleRefresh {
       await store.refreshChannels()
       await store.refreshApprovals()
       await store.refreshComputers()

@@ -1,5 +1,5 @@
 import XCTest
-@testable import Bubble AI
+@testable import Wisp
 
 @MainActor
 final class MemoryParityTests: XCTestCase {

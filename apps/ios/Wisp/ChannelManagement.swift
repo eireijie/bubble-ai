@@ -122,7 +122,7 @@ struct BrowseChannels: View {
       .navigationTitle("Browse teams")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
-      .refreshable { await store.refreshChannels() }
+      .bubbleRefresh { await store.refreshChannels() }
     }
   }
 }

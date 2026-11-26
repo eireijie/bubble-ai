@@ -1,6 +1,6 @@
 import SwiftUI
 import XCTest
-@testable import Bubble AI
+@testable import Wisp
 
 /** The phone's first run follows the web's rules (apps/web/test/agent-picker.test.ts): the same kinds, apps, rows and wording. */
 @MainActor

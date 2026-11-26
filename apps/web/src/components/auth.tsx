@@ -1,7 +1,7 @@
 import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { Moon, Sun } from "lucide-react";
 import { useAppearance } from "../theme.ts";
-import { WispGhost } from "./icons.tsx";
+import { MotionMark } from "./MotionMark.tsx";
 import { cx } from "./ui.tsx";
 
 /**
@@ -32,9 +32,8 @@ export function AuthHero({ title, children, ghost = true }: { title: ReactNode; 
   return (
     <div className="flex flex-col items-center text-center gap-3.5">
       {ghost && (
-        <span className="auth-bob text-ink">
-          <WispGhost size={84} />
-        </span>
+        // a gentle drift after you move, eyes on your pointer (canvas "Bubble AI mark motion")
+        <MotionMark size={72} mood="drift" />
       )}
       <h1 className="t-title mt-2.5">{title}</h1>
       {children && <p className="text-base text-muted leading-[1.45] max-w-[320px]">{children}</p>}

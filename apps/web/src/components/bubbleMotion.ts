@@ -29,11 +29,29 @@ let timer: ReturnType<typeof setInterval> | undefined;
 let watchingPage = false;
 
 const BLINK = [{ transform: "scaleY(1)" }, { transform: "scaleY(0.12)", offset: 0.45 }, { transform: "scaleY(1)" }];
-/** where the eyes go on a glance, as the old bub-look keyframes: up-left, then down-right */
+/**
+ * Where idle eyes rest: never dead centre, but to one side or to the side and a little up (owner,
+ * 2026-11-25). Picked steadily from the agent's id so a list of agents doesn't all look the same way;
+ * fractions of an eye's own size, set as --rx/--ry. iOS (BubbleView) uses the same hash and table.
+ */
+export const RESTING_GAZE: readonly [number, number][] = [
+  [0.6, 0],
+  [0.55, -0.3],
+  [-0.6, 0],
+  [-0.55, -0.3],
+];
+export function restingGaze(seed: string): [number, number] {
+  // FNV-1a, 32-bit
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 0x01000193) >>> 0;
+  return RESTING_GAZE[h % RESTING_GAZE.length];
+}
+
+/** where the eyes go on a glance, from where they rest: across to the other side, then a little down */
 const LOOK: [string, string][] = [
   ["0%", "0%"],
-  ["-40%", "-15%"],
-  ["40%", "10%"],
+  ["calc(var(--rx, 0%) * -1.8)", "8%"],
+  ["0%", "14%"],
 ];
 
 function watchPage() {

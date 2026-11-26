@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { harnessLabel, type Actor, type Agent, type Approval, type FlowLane, type Followup, type TeamFlow } from "@bubble-ai/core";
-import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api } from "../api.ts";
 import { useStore, useTeams, useWaitingOnYou, usePrefs, type ComputerInfo } from "../store.ts";
 import { waitingOnYou } from "../team/Runs.tsx";
@@ -9,7 +8,7 @@ import { useFeatures } from "../features.ts";
 import { go, href } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { AgentAvatar, cx, timeAgo } from "../components/ui.tsx";
-import { Ghost } from "../components/Ghost.tsx";
+import { MotionMark } from "../components/MotionMark.tsx";
 import { ChatAvatar, shortTime } from "../components/ChatList.tsx";
 import { ApprovalNeed, CardButton, HelpNeed, NeedRow, ReminderNeed, stoppedLine, useHelpSeen, helpKey } from "../components/InboxParts.tsx";
 import { dueReminders, laterReminders, usePutOff } from "../components/Loops.tsx";
@@ -154,7 +153,6 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
   const count = asks.length + helpNow.length + stopped.length + due.length + unready.length;
   const laterCount = helpLater.length + later.length;
   const earlier = useEarlier(Object.values(approvals).filter((a) => !held.includes(a.id)), tasks);
-  const sleeper = agents[0]?.settings.appearance ?? defaultAppearance(agents[0]?.handle ?? "wisp");
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -193,7 +191,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
           ) : (
             <div className="flex-1 grid place-items-center py-16">
               <div data-tour="needs-you" className="flex flex-col items-center gap-3 text-center">
-                <Ghost look={sleeper} size={96} mood="asleep" label="" />
+                <MotionMark size={88} mood="drift" />
                 <div>
                   <p className="text-[17px] font-semibold leading-6">All caught up</p>
                   <p className="text-[15px] leading-6 text-muted">Nothing needs you.</p>

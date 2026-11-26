@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { href } from "../../router.ts";
-import { AppMark, Button, Modal } from "../../components/ui.tsx";
+import { Button, Modal } from "../../components/ui.tsx";
+import { MotionMark } from "../../components/MotionMark.tsx";
 import { DesktopUpdates } from "./DesktopUpdates.tsx";
 import { RemoveWispRow } from "./RemoveWisp.tsx";
 import { HubAddress } from "./workspace.tsx";
@@ -28,6 +29,7 @@ export function AboutPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [spin, setSpin] = useState(0);
   const check = async () => {
     setChecking(true);
     try {
@@ -110,9 +112,12 @@ export function AboutPage() {
   const version = `Bubble AI${v?.commit ? ` ${v.commit}` : ""}${v?.date ? ` · ${new Date(v.date).toLocaleDateString()}` : ""}`;
   return (
     <>
+      {/* hover the name and the bubble spins and jiggles; click the bubble and it pops and a new one spins up */}
       <div className="flex flex-col items-center gap-3 pt-2 pb-6">
-        <AppMark size={80} />
-        <span className="text-[22px] font-semibold tracking-[-0.03em] text-ink">Bubble AI</span>
+        <MotionMark size={80} spin={spin} popOnClick label="Bubble AI" />
+        <span className="text-[22px] font-semibold tracking-[-0.03em] text-ink" onPointerEnter={() => setSpin((n) => n + 1)}>
+          Bubble AI
+        </span>
       </div>
       {desktop && <DesktopUpdates />}
       <Group>

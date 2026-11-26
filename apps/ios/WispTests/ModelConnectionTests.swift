@@ -1,5 +1,5 @@
 import XCTest
-@testable import Bubble AI
+@testable import Wisp
 
 /** Models are the brain, harnesses the body: the words and rules behind the run line, the pickers and Settings → Models. */
 @MainActor

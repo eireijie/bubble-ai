@@ -240,7 +240,7 @@ struct AgentActivityPage: View {
       CardCaption("Nothing yet? Message the agent and its work will show up here.")
     }
     .task(id: agent.status) { await load() }
-    .refreshable { await load() }
+    .bubbleRefresh { await load() }
   }
 
   private func runRow(_ run: AgentRun) -> some View {

@@ -54,7 +54,7 @@ struct HarnessesView: View {
     .sheet(item: Binding(get: { installOn.map(HarnessOpen.device) }, set: { installOn = $0?.nodeId })) { InstallHarnessSheet(nodeId: $0.nodeId) }
     .task { try? await store.refreshNodes() }
     .task { await load() }
-    .refreshable { await load() }
+    .bubbleRefresh { await load() }
   }
 
   private func row(_ computer: HarnessComputer, _ h: HarnessComputer.Harness) -> some View {

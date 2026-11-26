@@ -74,7 +74,7 @@ struct AgentPage: View {
         }
         .padding(.horizontal, 18).padding(.bottom, 120)
       }
-      .refreshable { await reload() }
+      .bubbleRefresh { await reload() }
     }
     .background(Palette.sheet.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)

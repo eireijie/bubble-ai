@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import Bubble AI
+@testable import Wisp
 
 @MainActor
 final class DeviceTests: XCTestCase {

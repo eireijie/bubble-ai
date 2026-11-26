@@ -4,7 +4,7 @@ import type { SignInOption } from "@bubble-ai/core";
 import { connectApps, signInOptions } from "../../appSignIn.ts";
 import { brandLogo } from "../../brandLogos.ts";
 import { BrandTile } from "../../components/MarketParts.tsx";
-import { BubbleField } from "../../components/BubbleField.tsx";
+import { BackgroundBubbles } from "../../components/BackgroundBubbles.tsx";
 import { cx } from "../../components/ui.tsx";
 
 /**
@@ -70,14 +70,19 @@ export function BubbleStage({ children, onBack, field = true, top }: { children:
   }, [onBack]);
   return (
     <div className="fixed inset-0 z-40 overflow-y-auto bg-panel text-ink" data-testid="setup">
-      {field && <BubbleField count={26} maxSize={16} rise={1100} />}
+      {field && <BackgroundBubbles />}
       {onBack && (
         <button type="button" onClick={onBack} aria-label="Back" className="safe-top absolute left-4 top-4 z-10 grid size-[34px] place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40">
           <ChevronLeft size={18} />
         </button>
       )}
       <div className="relative flex min-h-full flex-col items-center px-6 pb-10 pt-[max(40px,4vh)]">
-        {top && <div className="mb-5">{top}</div>}
+        {/* the main bubble: background bubbles move out of its way, and a click pops it and spins it back up */}
+        {top && (
+          <div className="mb-5" data-bub-main="" data-bub-pop="">
+            {top}
+          </div>
+        )}
         {children}
       </div>
     </div>

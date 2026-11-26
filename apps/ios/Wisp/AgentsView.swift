@@ -49,7 +49,7 @@ struct AgentsView: View {
           }
           .padding(.horizontal, 18).padding(.bottom, 24)
         }
-        .refreshable { await store.load() }
+        .bubbleRefresh { await store.load() }
       }
       .background(Palette.ground.ignoresSafeArea())
       .toolbar(.hidden, for: .navigationBar)
