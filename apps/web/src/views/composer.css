@@ -1,0 +1,74 @@
+/* The message box: one rounded box holding + · the text · dictate · the round button.
+   Past one line the text takes the top row and the buttons move to a row underneath, inside the same box. */
+
+.composer-box {
+  --composer-line: var(--line2);
+  --composer-focus: color-mix(in srgb, var(--ink) 28%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 5px;
+  border-radius: 24px;
+  border: 1px solid var(--composer-line);
+  background: var(--control);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  transition: border-color 160ms var(--ease-out, ease-out), border-radius 160ms var(--ease-out, ease-out);
+}
+:root[data-mode="dark"] .composer-box { box-shadow: none; }
+.composer-box:focus-within { border-color: var(--composer-focus); }
+.composer-box.is-tall { border-radius: 20px; }
+
+.composer-plus-slot { flex: none; display: flex; }
+
+.composer-text {
+  display: block;
+  flex: 1 1 0%;
+  min-width: 0;
+  resize: none;
+  background: transparent;
+  outline: none;
+  padding: 7px 6px;
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--ink);
+}
+.composer-text::placeholder { color: var(--muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+
+/* past one line: the text fills the top row, the buttons wrap underneath (+ on the left, the rest on the right) */
+.composer-box.is-tall .composer-text { order: -1; flex: 1 0 100%; padding: 6px 8px 2px; }
+.composer-gap { display: none; }
+.composer-box.is-tall .composer-gap { display: block; flex: 1; }
+
+.composer-btn {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  outline: none;
+}
+.composer-btn:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--wisp-strong) 45%, transparent); }
+.composer-plus { color: var(--ink); }
+.composer-plus:hover, .composer-plus.is-open, .composer-mic:hover { background: var(--hover); color: var(--ink); }
+
+/* the round button: violet to call or send, ink to stop an agent, red while dictating */
+.composer-round.is-go { background: var(--bubble-me); color: var(--bubble-me-ink); }
+.composer-round.is-stop { background: var(--ink); color: var(--panel); }
+.composer-round.is-listening { background: var(--bad); color: #fff; }
+.composer-round:disabled { background: var(--chip); color: var(--faint); }
+
+/* listening: level bars beside the text */
+.composer-levels { flex: none; display: flex; align-items: center; gap: 2px; height: 36px; padding: 0 2px 0 6px; }
+.composer-levels i { display: block; width: 3px; height: 16px; border-radius: 2px; background: var(--bad); transform-origin: center; animation: composer-level 900ms ease-in-out infinite; }
+.composer-levels i:nth-child(2) { animation-delay: -150ms; }
+.composer-levels i:nth-child(3) { animation-delay: -420ms; }
+.composer-levels i:nth-child(4) { animation-delay: -270ms; }
+.composer-levels i:nth-child(5) { animation-delay: -600ms; }
+@keyframes composer-level { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .composer-levels i { animation: none; transform: scaleY(0.6); } }
+:root[data-motion="reduce"] .composer-levels i { animation: none; transform: scaleY(0.6); }

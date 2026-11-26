@@ -1,4 +1,5 @@
 import { Suspense, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import "./composer.css";
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
@@ -1998,14 +1999,14 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             })}
           </div>
         )}
-        {/* one line: plus, the text, the round button. Past one line it grows upward into two rows: the text on top, plus and the button underneath */}
-        {/* a round plus, the pill field (with dictation inside, on the right), and the round button outside it */}
-        <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2", tall && "gap-y-1.5")}>
-          <span className={cx("col-start-1 shrink-0", tall ? "row-start-2" : "row-start-1")}>
+        {/* one box: plus, the text, dictate and the round button. Past one line the text takes the top row
+            and the buttons sit in a row underneath it, still inside the same box */}
+        <div data-tour="input" className={cx("composer-box", tall && "is-tall")}>
+          <span className="composer-plus-slot">
             <Popover
               className="w-60 p-1.5 !rounded-[12px]"
               trigger={(open, toggle) => (
-                <button type="button" data-tour="attach" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-[42px] rounded-full grid place-items-center bg-[var(--bubble-them)] text-ink hover:bg-hover", open && "bg-hover")}>
+                <button type="button" data-tour="attach" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("composer-btn composer-plus m-press", open && "is-open")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
                 </button>
               )}
@@ -2019,12 +2020,21 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
               )}
             </Popover>
           </span>
-          <div data-tour="input" className={cx("flex min-h-[42px] min-w-0 items-end rounded-[21px] border border-transparent bg-[var(--bubble-them)] pl-4 pr-1.5 focus-within:border-line2 row-start-1", tall ? "col-span-3 col-start-1" : "col-start-2")}>
+          {/* listening: a few moving bars say the microphone is on */}
+          {dictation.on && (
+            <span className="composer-levels" aria-hidden>
+              <i />
+              <i />
+              <i />
+              <i />
+              <i />
+            </span>
+          )}
           <textarea
             ref={ta}
             rows={1}
             value={text}
-            placeholder={replyTo ? `Reply to ${replyTo.name.split(" · ")[0]}` : placeholder}
+            placeholder={dictation.on && !text ? "Listening…" : replyTo ? `Reply to ${replyTo.name.split(" · ")[0]}` : placeholder}
             aria-label={placeholder}
             onChange={(e) => {
               setText(e.target.value);
@@ -2057,14 +2067,14 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                 send();
               }
             }}
-            className="block min-w-0 flex-1 resize-none bg-transparent py-[9px] text-[16px] leading-[22px] outline-none placeholder:text-muted placeholder:truncate"
+            className="composer-text"
           />
+          <span className="composer-gap" aria-hidden />
           {dictation.supported && action !== "dictate" && action !== "listening" && (
-            <button type="button" onClick={() => dictation.toggle()} aria-label="Dictate" title="Dictate" className="mb-[3px] grid size-[34px] shrink-0 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+            <button type="button" onClick={() => dictation.toggle()} aria-label="Dictate" title="Dictate" className="composer-btn composer-mic">
               <Mic size={18} strokeWidth={1.8} />
             </button>
           )}
-          </div>
           <button
             type="button"
             onClick={() => {
@@ -2082,11 +2092,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             aria-label={round.label}
             aria-pressed={action === "listening" ? true : undefined}
             title={round.title}
-            className={cx(
-              "m-press col-start-3 size-[42px] shrink-0 select-none rounded-full grid place-items-center disabled:bg-chip disabled:text-faint",
-              tall ? "row-start-2" : "row-start-1",
-              action === "listening" ? "bg-bad text-white" : "bg-[var(--bubble-me)] text-[var(--bubble-me-ink)]",
-            )}
+            className={cx("composer-btn composer-round m-press select-none", action === "listening" ? "is-listening" : action === "stop" ? "is-stop" : "is-go")}
           >
             <span key={action} className={cx("grid place-items-center", swapped && "m-swap")}>
               {round.icon}
