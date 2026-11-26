@@ -1,1 +1,7 @@
-{ "images" : [ { "filename" : "mark.png", "idiom" : "universal" } ], "info" : { "author" : "xcode", "version" : 1 } }
+{
+  "images" : [
+    { "filename" : "mark.png", "idiom" : "universal" },
+    { "appearances" : [ { "appearance" : "luminosity", "value" : "dark" } ], "filename" : "mark-dark.png", "idiom" : "universal" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}

@@ -121,7 +121,9 @@ let ios = "\(root)/ios/Wisp/Assets.xcassets"
 for (look, name) in [(Look.light, "icon-1024.png"), (.dark, "icon-1024-dark.png"), (.tinted, "icon-1024-tinted.png")] {
   png(1024, "\(ios)/AppIcon.appiconset/\(name)", opaque: true) { ctx, s in bubble(ctx, full(s), radius: s * appleRound, look: look, bleed: full(s)) }
 }
+// the mark inside the app (loading screen, About, Settings footer), light and dark
 png(1024, "\(ios)/Mark.imageset/mark.png") { ctx, s in bubble(ctx, full(s), radius: s * 0.225) }
+png(1024, "\(ios)/Mark.imageset/mark-dark.png") { ctx, s in bubble(ctx, full(s), radius: s * 0.225, look: .dark) }
 // Android launcher icons (legacy, used as both icon and roundIcon): a rounded tile with a small margin
 for (size, dir) in [(48, "mdpi"), (72, "hdpi"), (96, "xhdpi"), (144, "xxhdpi"), (192, "xxxhdpi")] {
   png(size, "\(root)/android/app/src/main/res/mipmap-\(dir)/ic_launcher.png") { ctx, s in
