@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { BUBBLE_SHAPES, type BubbleShape, type GhostAppearance } from "@wisp/core/src/appearance.ts";
 import { useMotionReduced, motionReduced } from "../theme.ts";
 import { useGhostActivity } from "../ghostActivity.ts";
 import { familyColor } from "../ghostFamily.ts";
+import { liteEyes, watchBubble } from "./bubbleMotion.ts";
 import "./bubble.css";
 
 /** How the bubble feels right now; follows the agent's status where it matters. */
@@ -84,6 +85,9 @@ function followPointer() {
       if (!b) return;
       cur = b;
       b.dataset.hov = "1";
+      // a glance from the shared timer gives way to the pointer
+      b.style.removeProperty("--gx");
+      b.style.removeProperty("--gy");
       const r = b.getBoundingClientRect();
       const dx = (ev.clientX - (r.left + r.width / 2)) / (r.width / 2);
       const dy = (ev.clientY - (r.top + r.height * 0.45)) / (r.height / 2);
@@ -177,6 +181,24 @@ export function Bubble({
   }, [hop, moving]);
   const speaking = talking || (speakingLevel !== undefined && speakingLevel > 0.05);
   const moodClass = speaking && mood !== "asleep" ? "bub-speak" : MOOD_CLASS[mood];
+  // Small bubbles (lists, pins, chat headers) hold their body still and blink and glance from one
+  // shared timer (bubbleMotion.ts); big ones keep every CSS loop. Working eyes still scan in CSS.
+  const lite = moving && size <= 80;
+  const scans = moodClass === "bub-work";
+  const glances = moodClass === "bub-idle" || moodClass === "bub-done" || moodClass === "bub-sleep";
+  const sleepy = moodClass === "bub-sleep";
+  const motionRef = useCallback(
+    (el: HTMLSpanElement | null) => {
+      if (!el || !moving) return;
+      const unwatch = watchBubble(el);
+      const unlite = lite && !scans ? liteEyes(el, { sleepy, glances }) : undefined;
+      return () => {
+        unwatch();
+        unlite?.();
+      };
+    },
+    [moving, lite, scans, sleepy, glances],
+  );
   const rim = Math.max(1.2, Math.min(2.4, size * 0.03));
   const cls = [
     "bub",
@@ -184,6 +206,7 @@ export function Bubble({
     size <= 80 && "bub-small",
     moodClass,
     moving && "bub-move",
+    lite && "bub-lite",
     moving && activity === "idle" && "bub-rest",
     hopping && "bub-hop-once",
     spin > 0 && "bub-spin",
@@ -194,6 +217,7 @@ export function Bubble({
   return (
     <span
       key={spin}
+      ref={motionRef}
       className={cls}
       data-nofollow={follow ? undefined : ""}
       role={label === "" ? undefined : "img"}
