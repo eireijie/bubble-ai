@@ -365,7 +365,8 @@ private struct HarnessesSection: View {
     let have = node.harnesses ?? []
     Section {
       ForEach(have, id: \.id) { h in
-        HStack {
+        HStack(spacing: 10) {
+          BrandLogo(id: h.id, size: 20)
           Text(HarnessChoice.label(h.id)).foregroundStyle(Palette.text)
           Spacer()
           Text(h.version.map { "Installed · \($0)" } ?? "Installed").font(.system(size: 13)).foregroundStyle(Palette.faint)
@@ -374,12 +375,16 @@ private struct HarnessesSection: View {
       if have.isEmpty { Text("Nothing found yet. Refresh once the device is online.").foregroundStyle(Palette.muted) }
       if store.canManage && node.mine == true {
         ForEach(installable.filter { id in !have.contains { $0.id == id } }, id: \.self) { id in
-          HStack {
+          HStack(spacing: 10) {
+            BrandLogo(id: id, size: 20)
             Text(HarnessChoice.label(id)).foregroundStyle(Palette.muted)
             Spacer()
             Text("Not installed").font(.system(size: 13)).foregroundStyle(Palette.faint)
             Button("Install") { installing = id }.buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
               .disabled(!node.online || action.busy).accessibilityIdentifier("install-\(id)")
+              .confirmationDialog("Install \(HarnessChoice.label(id)) on \(node.name)?", isPresented: Binding(get: { installing == id }, set: { if !$0 { installing = nil } }), titleVisibility: .visible) {
+                Button("Install \(HarnessChoice.label(id))") { output = nil; action.run { _ = try await store.installHarness(id, node: node.id); output = "\(HarnessChoice.label(id)) is installed." } }
+              }
           }
         }
       }
@@ -389,9 +394,6 @@ private struct HarnessesSection: View {
       InlineError(error: action.error)
     } header: { Text("Agent harnesses") }
     .listRowBackground(Palette.card)
-    .confirmationDialog("Install this harness on \(node.name)?", isPresented: Binding(get: { installing != nil }, set: { if !$0 { installing = nil } }), titleVisibility: .visible) {
-      Button("Install") { if let harness = installing { action.run { output = try await store.installHarness(harness, node: node.id) } } }
-    }
   }
 }
 

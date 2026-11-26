@@ -661,20 +661,26 @@ struct InstallHarnessSheet: View {
       CardGroup {
         ForEach(HarnessChoice.all.filter { $0.protocolName != "mcp" }) { h in
           let have = node?.harnesses?.first { $0.id == h.id }
-          MarketRow(symbol: "terminal", title: h.label, subtitle: have == nil ? "Not on this device" : (have?.version).map { "Version \($0)" } ?? "Installed") {
+          HStack(spacing: 12) {
+            BrandLogo(id: h.id, size: 28)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(h.label).font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.text)
+              Text(have == nil ? "Not installed" : (have?.version).map { "Version \($0)" } ?? "Installed").font(.system(size: 13)).foregroundStyle(Palette.faint)
+            }
+            Spacer(minLength: 8)
             if have != nil { MarketPill(text: "Installed", tone: .green) }
             else if installable.contains(h.id) { AddButton(title: "Install") { installing = h.id }.disabled(node?.online != true || action.busy) }
           }
+          .padding(.horizontal, 14).frame(minHeight: 58)
         }
       }
-      Text("Bubble AI installs it on that computer and asks you before it runs anything. Others use their own installer there.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
       if action.busy { HStack { ProgressView(); Text("Working on the device…").font(.footnote).foregroundStyle(Palette.muted) } }
       if let output { Text(output).font(.caption).textSelection(.enabled).padding(.horizontal, 4) }
       InlineError(error: action.error)
       Button { action.run { try await store.refreshDevice(nodeId) } } label: { Label("Refresh", systemImage: "arrow.clockwise").font(.system(size: 13)).foregroundStyle(Palette.muted) }.buttonStyle(.plain).padding(.horizontal, 4).disabled(node?.online != true || action.busy)
     }
-    .confirmationDialog("Install this harness on \(node?.name ?? "the device")?", isPresented: Binding(get: { installing != nil }, set: { if !$0 { installing = nil } }), titleVisibility: .visible) {
-      Button("Install") { if let harness = installing { action.run { output = try await store.installHarness(harness, node: nodeId) } } }
+    .confirmationDialog(installing.map { "Install \(HarnessChoice.label($0)) on \(node?.name ?? "the device")?" } ?? "", isPresented: Binding(get: { installing != nil }, set: { if !$0 { installing = nil } }), titleVisibility: .visible, presenting: installing) { harness in
+      Button("Install \(HarnessChoice.label(harness))") { output = nil; action.run { _ = try await store.installHarness(harness, node: nodeId); output = "\(HarnessChoice.label(harness)) is installed." } }
     }
   }
 }

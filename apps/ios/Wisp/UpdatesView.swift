@@ -167,15 +167,22 @@ struct AgentRuntimesView: View {
   @State private var action = FormAction()
   var body: some View {
     SettingsPage("Harness setup", id: "runtimes") {
-      CardLabel("On this device")
+      CardLabel("Your devices")
       CardGroup {
-        ForEach(store.nodes.filter(\.usable)) { node in NavigationLink { DeviceDetail(node: node) } label: { RowLabel(title: node.name) } }
+        ForEach(store.nodes.filter(\.usable)) { node in NavigationLink { DeviceDetail(node: node) } label: { RowLabel(title: node.name) { Image(systemName: "desktopcomputer").foregroundStyle(Palette.muted).frame(width: 22) } }.buttonStyle(.plain) }
         if !store.nodes.contains(where: \.usable) { RowLabel(title: "Connect a device first.", chevron: false) }
       }
-      CardLabel("Inside your agents' VMs")
-      CardGroup { ForEach(["claude-code", "codex", "hermes", "kimi"], id: \.self) { RowLabel(title: HarnessChoice.label($0), chevron: false) } }
-      CardLabel("Connect from anywhere")
-      CardGroup { ForEach(HarnessChoice.all.filter { $0.protocolName == "mcp" }) { RowLabel(title: $0.label, chevron: false) } }
+      CardLabel("Ready on Bubble AI computers")
+      CardGroup {
+        ForEach(["claude-code", "codex", "hermes", "kimi"], id: \.self) { id in
+          RowLabel(title: HarnessChoice.label(id), value: "Ready", chevron: false) { BrandLogo(id: id, size: 22) }.allowsHitTesting(false)
+        }
+      }
+      if store.canManage {
+        CardGroup {
+          NavigationLink { AgentBring { _ in } } label: { RowLabel(title: "Bring in an agent you have") { Image(systemName: "square.and.arrow.down").foregroundStyle(Palette.muted).frame(width: 22) } }.buttonStyle(.plain)
+        }
+      }
       StatusLine(error: action.error)
     }
     .task { do { try await store.refreshNodes() } catch { action.error = error.localizedDescription } }
