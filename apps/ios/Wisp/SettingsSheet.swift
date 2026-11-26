@@ -107,7 +107,7 @@ struct SettingsSheet: View {
     .presentationCornerRadius(Corner.sheet)
     .presentationDragIndicator(.hidden)
     .sheet(isPresented: $orgs) { OrgSwitcherSheet().environment(store) }
-    .confirmCard($confirmSignOut, title: "Sign out of Bubble AI on this iPhone?", message: "Your agents keep working. To come back, scan your Bubble AI's QR code or sign in again.", confirm: "Sign out") {
+    .confirmCard($confirmSignOut, title: "Sign out of Bubble AI on this iPhone?", message: "Your agents keep working. To come back, scan the QR code in Bubble AI on your computer.", confirm: "Sign out") {
       dismiss(); store.signOut()
     }
     .managementAlert(policyAction)

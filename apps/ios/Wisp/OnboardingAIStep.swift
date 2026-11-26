@@ -138,7 +138,7 @@ struct OnboardingAIStep: View {
         .accessibilityIdentifier("ob-ai-next")
       // nothing working yet: no one is stuck here; it can be set up later in Settings
       if phase != .ready, phase != .checking, cur != .found {
-        Button("Set up later") { onDone(agentId, nil) }.buttonStyle(ObQuiet()).disabled(leaving).accessibilityIdentifier("ob-ai-later")
+        Button("Set up later") { Task { await later() } }.buttonStyle(ObQuiet()).disabled(leaving).accessibilityIdentifier("ob-ai-later")
       }
     }
     .sheet(item: $connect, onDismiss: { path = [] }) { which in
@@ -378,6 +378,45 @@ struct OnboardingAIStep: View {
     return try await store.createAgent(fields)
   }
 
+  /**
+   * "Set up later": the agent named and styled on page 2 is kept. Made now if it isn't yet (on the
+   * AI that's found, else the best guess, with nothing installed), it says hello anyway, saying what
+   * it still needs, and its chat opens.
+   */
+  private func later() async {
+    run += 1
+    leaving = true
+    var id = agentId.flatMap { store.agent($0) != nil ? $0 : nil }
+    if id == nil, draft != nil {
+      let h = found?.harness ?? device.flatMap { AddAgent.preferredHarness(store, node: $0.id) } ?? "claude-code"
+      var settings: Fields = ["appearance": AnyEncodable(look)]
+      if let role = draft?.role, !role.isEmpty { settings["role"] = AnyEncodable(role) }
+      var fields: Fields = ["name": AnyEncodable(name), "handle": AnyEncodable(OnboardingText.freeHandle(name, taken: store.agents.map(\.handle))),
+                            "harness": AnyEncodable(h), "greet": AnyEncodable("later"), "useDefaults": AnyEncodable(true),
+                            "instructions": AnyEncodable(draft?.instructions ?? ""), "settings": AnyEncodable(settings)]
+      if let device { fields["nodeId"] = AnyEncodable(device.id) }
+      if let agent = try? await store.createAgent(fields) {
+        id = agent.id
+        agentId = agent.id
+        OnboardingAnswers.save(workspaceId) { $0.agentId = agent.id }
+        try? await store.refreshConnectors()
+        await AddAgent.giveAppsAndSkills(to: agent, apps: Set(OnboardingAnswers.load(workspaceId).apps), skills: [], store: store)
+      }
+    }
+    var channelId: String?
+    if let id {
+      _ = await store.greet(id)
+      for _ in 0..<8 {
+        await store.refreshChannels()
+        channelId = store.dmChannel(of: id)?.id
+        if channelId != nil { break }
+        try? await Task.sleep(for: .seconds(1))
+      }
+    }
+    leaving = false
+    onDone(id, channelId)
+  }
+
   /** The hello it just said, from its chat (nil if it can't be read yet). */
   private func readHello(_ id: String) async -> String? {
     try? await store.refreshAgents()
@@ -390,7 +429,7 @@ struct OnboardingAIStep: View {
   private func proceed() async {
     if phase == .idle {
       // no computer yet: go on without an agent (it can be made later)
-      if device == nil { return onDone(agentId, nil) }
+      if device == nil { return await later() }
       if cur == .found { await takeFound() }
       return
     }

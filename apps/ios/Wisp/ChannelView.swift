@@ -23,6 +23,9 @@ struct ChannelView: View {
   @State private var flashed: String?
   @State private var attachTrigger = 0
   @State private var tool: ChatTool?
+  @State private var searching = false
+  @State private var jumpTo: String?
+  @State private var screen: String?
   /** what the agent in a DM runs on: the line over the message box and the ring in the header */
   @State private var run = RunInfo()
   @State private var showRun = false
@@ -94,6 +97,13 @@ struct ChannelView: View {
       flashed = id
       Task { try? await Task.sleep(for: .milliseconds(1400)); if flashed == id { flashed = nil } }
     }
+    .onChange(of: jumpTo) { _, id in
+      guard let id else { return }
+      withAnimation(.snappy) { proxy.scrollTo(id, anchor: .center) }
+      flashed = id
+      jumpTo = nil
+      Task { try? await Task.sleep(for: .milliseconds(1400)); if flashed == id { flashed = nil } }
+    }
     .environment(\.flashedMessage, flashed)
     }
     .scrollDismissesKeyboard(.interactively)
@@ -141,6 +151,8 @@ struct ChannelView: View {
       if let call { CallScreen(call: call) }
     }
     .sheet(item: $tool) { ChatToolSheet(tool: $0, channelId: channel.id) }
+    .sheet(isPresented: $searching) { ChatSearchSheet(messages: list) { jumpTo = $0 } }
+    .navigationDestination(item: $screen) { ComputerDetail(computerId: $0) }
     .sheet(isPresented: $showRun) {
       if let agent = store.dmAgent(current) { RunSheet(agentId: agent.id, channelId: channel.id, info: run) }
     }
@@ -257,9 +269,13 @@ struct ChannelView: View {
         if let agent = store.dmAgent(current) {
           if canCall, call == nil { Button("Call \(agent.name)", systemImage: "phone") { startCall() }.tint(Palette.call) }
           Button("About \(agent.name)", systemImage: "person.crop.circle") { showDetails = true }
-          if store.role != "guest" { Button("Harness, model and effort", systemImage: "cpu") { showRun = true } }
           Button("What it can do", systemImage: "shield") { tool = .access(agent) }
           Button("Context window", systemImage: "gauge.with.dots.needle.33percent") { tool = .context(agent) }
+          if let computer = agent.computerId, store.canViewComputers { Button("See its screen", systemImage: "display") { screen = computer } }
+          Button("Search in chat", systemImage: "magnifyingglass") { searching = true }
+          Button(current.isMuted ? "Unmute" : "Mute", systemImage: current.isMuted ? "bell" : "bell.slash") {
+            Task { try? await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(current.isMuted ? "default" : "mute")]) }
+          }
         } else {
           Button("Team info", systemImage: "person.2") { showDetails = true }
           Menu("Notify me", systemImage: "bell") {
@@ -270,6 +286,7 @@ struct ChannelView: View {
             }
           }
           Button("How the team works", systemImage: "point.3.connected.trianglepath.dotted") { showTeam = true }
+          Button("Search in chat", systemImage: "magnifyingglass") { searching = true }
           Button((current.starred ?? false) ? "Unpin from the top" : "Pin to the top", systemImage: "pin") {
             Task { try? await store.setChannelPrefs(channel.id, ["starred": AnyEncodable(!(current.starred ?? false))]) }
           }
@@ -279,10 +296,7 @@ struct ChannelView: View {
         .tourTarget("chat-more")
       }
     }
-    .background(alignment: .top) {
-      LinearGradient(colors: [Palette.ground, Palette.ground.opacity(0)], startPoint: .top, endPoint: .bottom)
-        .padding(.bottom, -10).ignoresSafeArea(edges: .top).allowsHitTesting(false)
-    }
+    .background(alignment: .top) { HeaderBackdrop() }
     .background { hangUpWhenLeaving }
   }
 }
@@ -434,7 +448,7 @@ struct ThreadView: View {
     .toolbar(.hidden, for: .tabBar)
     .toolbar(.hidden, for: .navigationBar)
     .background(Palette.ground.ignoresSafeArea())
-    .safeAreaInset(edge: .top, spacing: 0) { chrome }
+    .safeAreaInset(edge: .top, spacing: 0) { chrome.background(alignment: .top) { HeaderBackdrop() } }
     .task(id: ref) {
       settled = false
       await load()
@@ -489,8 +503,6 @@ struct ThreadView: View {
     } trailing: {
       if handoffTask != nil, let agent = handoffAgent, agent.status == .busy, store.role != "guest" {
         CircleButton(symbol: "stop.fill", label: "Stop \(agent.name)") { Task { try? await store.stopAgent(agent.id) } }
-      } else {
-        CircleButton(symbol: "xmark", label: "Close thread") { dismiss() }
       }
     }
   }
