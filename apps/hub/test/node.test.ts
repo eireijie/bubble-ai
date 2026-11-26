@@ -244,7 +244,8 @@ describe("node daemon", () => {
     const ch = await room({ name: "stopping" });
     const n = calls.length + 1;
     await owner.send(ch.id, "@bolt slow four");
-    await waitFor(async () => (calls.length >= n ? true : undefined));
+    // this run itself has started (another run, a background check say, may land first)
+    await waitFor(async () => (calls.slice(n - 1).some((c) => c.prompt.includes("slow four")) ? true : undefined));
     await daemon.stop();
     // the device's report reaches the hub a moment after it stops: on a busy machine, wait for it
     const status = await waitFor(async () => (await owner.messages(ch.id)).messages.flatMap((m) => m.parts).find((p) => p.type === "status" && p.text.startsWith("Run failed")));
