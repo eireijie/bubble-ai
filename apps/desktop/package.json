@@ -51,7 +51,8 @@
           "_wisp._tcp"
         ]
       },
-      "artifactName": "Bubble-AI-mac-${arch}.${ext}"
+      "artifactName": "Bubble-AI-mac-${arch}.${ext}",
+      "executableName": "Bubble AI"
     },
     "win": {
       "icon": "build/icon.png",

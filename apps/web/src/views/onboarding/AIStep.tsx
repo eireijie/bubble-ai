@@ -24,12 +24,15 @@ export function harnessFor(provider: ModelProvider, kind: "oauth" | "key", suppo
 }
 
 /** What's already set to go on the person's computer, best first: a connection Bubble AI keeps, then a harness signed in there. */
-export function foundOn(device: DeviceInfo | undefined, connections: ModelConnection[]): { harness: string; connectionId: string | null; share?: boolean } | null {
+export type Found = { harness: string; connectionId: string | null; share?: boolean };
+/** With `only`, just that harness: each AI row says "Signed in" for its own sign-in, not only the best one. */
+export function foundOn(device: DeviceInfo | undefined, connections: ModelConnection[], only?: string): Found | null {
+  const wanted = (h: string) => !only || only === h;
   for (const h of ["claude-code", "codex"]) {
-    const c = readyConnection(h, connections);
+    const c = wanted(h) ? readyConnection(h, connections) : undefined;
     if (c) return { harness: h, connectionId: c.id };
   }
-  const signedIn = (id: string) => device?.harnesses?.find((x) => x.id === id)?.accounts?.default === true;
+  const signedIn = (id: string) => wanted(id) && device?.harnesses?.find((x) => x.id === id)?.accounts?.default === true;
   if (signedIn("claude-code")) return { harness: "claude-code", connectionId: null };
   // Codex's own sign-in is shared with Bubble AI ("Use this sign-in"), so it works on every computer
   if (signedIn("codex")) return { harness: "codex", connectionId: null, share: true };
@@ -168,7 +171,7 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
     }
   };
 
-  const takeFound = async () => {
+  const takeFound = async (found: Found | null) => {
     if (!found || !device) return;
     if (!found.share) return void tryIt(found.harness, found.connectionId);
     setPhase("checking");
@@ -291,14 +294,14 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
         <Card>
           {/* another AI already signed in on the person's computer goes first */}
           {found && !ROWS.some((r) => r.harness === found.harness) && (
-            <Line onClick={() => void takeFound()} logo={found.harness} word="Signed in">
+            <Line onClick={() => void takeFound(found)} logo={found.harness} word="Signed in">
               {harnessLabel(found.harness)}
             </Line>
           )}
           {ROWS.map((r) => {
-            const here = found && found.harness === r.harness;
+            const here = foundOn(device, connections ?? [], r.harness);
             return (
-              <Line key={r.id} onClick={() => (here ? void takeFound() : pick(r.id))} word={here ? "Signed in" : undefined}>
+              <Line key={r.id} onClick={() => (here ? void takeFound(here) : pick(r.id))} word={here ? "Signed in" : undefined}>
                 {MODEL_PROVIDER_INFO[r.provider].label}
               </Line>
             );

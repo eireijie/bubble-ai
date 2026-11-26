@@ -72,12 +72,12 @@ export function LearnHeader() {
   if (done && !running) return null;
   if (experience === "simple" && !learn?.started)
     return (
-      <button type="button" onClick={() => startTour()} className="m-press hidden h-[36px] items-center rounded-full bg-ink px-3.5 text-[14px] font-semibold text-panel outline-none focus-visible:ring-2 focus-visible:ring-ring/40 md:flex">
+      <button type="button" onClick={() => startTour()} className="m-press hidden h-[36px] shrink-0 items-center whitespace-nowrap rounded-full bg-ink px-3.5 text-[14px] font-semibold text-panel outline-none focus-visible:ring-2 focus-visible:ring-ring/40 md:flex">
         Show me around
       </button>
     );
   return (
-    <span className="hidden md:block">
+    <span className="hidden shrink-0 md:block">
       <Popover
         up={false}
         align="right"
@@ -90,7 +90,7 @@ export function LearnHeader() {
             aria-expanded={open}
             aria-haspopup="dialog"
             aria-label={`Learn Bubble AI, ${seen} of ${total} seen`}
-            className={cx("m-press flex h-[36px] items-center gap-2 rounded-full bg-[var(--bubble-them)] pl-1.5 pr-3.5 text-[14px] font-semibold text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40", !running && seen > 0 && "learn-pulse")}
+            className={cx("m-press flex h-[36px] shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[var(--bubble-them)] pl-1.5 pr-3.5 text-[14px] font-semibold text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40", !running && seen > 0 && "learn-pulse")}
           >
             <LearnRing seen={seen} total={total} />
             Learn Bubble AI <span className="font-normal text-muted">{seen}/{total}</span>

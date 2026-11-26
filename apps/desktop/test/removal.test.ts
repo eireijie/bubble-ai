@@ -185,6 +185,10 @@ describe("the allow-list", () => {
     const lower = r.make({ packaged: true, execPath: path.join(r.root, "Applications/wisp.app/Contents/MacOS/Bubble AI") });
     expect(lower.guard(path.join(r.root, "Applications/wisp.app"))).toBeTruthy();
     expect((await lower.scan({})).items.find((i: any) => i.id === "app").detail.match(/wisp\.app/gi)).toHaveLength(1);
+    // builds named bubble-ai.app (before the Mac executable name was set) are still found
+    r.write(path.join(r.home, "Applications/bubble-ai.app/Contents/Info.plist"), "ai.bubbleai.desktop");
+    const dashed = r.make({ packaged: true, execPath: path.join(r.home, "Applications/bubble-ai.app/Contents/MacOS/bubble-ai") });
+    expect(dashed.guard(path.join(r.home, "Applications/bubble-ai.app"))).toBeTruthy();
     const onDisk = r.make({ packaged: true, execPath: "/Volumes/Bubble AI/Bubble AI.app/Contents/MacOS/Bubble AI" });
     expect((await onDisk.scan({})).manual.map((m: any) => m.label)).toContain("This copy of the app");
     expect(() => onDisk.guard("/Volumes/Bubble AI/Bubble AI.app")).toThrow(/Refused/);

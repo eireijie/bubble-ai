@@ -1746,6 +1746,11 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
     }
   }, [channelId, threadId]);
 
+  // a thread opened with a mouse or trackpad ("Reply in thread") is ready to type in; phones keep their keyboard down
+  useEffect(() => {
+    if (threadId && window.matchMedia?.("(pointer: fine)").matches) ta.current?.focus({ preventScroll: true });
+  }, [channelId, threadId]);
+
   // "Add files" on the channel intro opens this composer's file picker; Reply on a message focuses its box
   useEffect(() => {
     const open = (e: Event) => {
