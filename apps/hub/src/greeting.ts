@@ -428,7 +428,8 @@ async function saveSetupNote(hub: Hub, agentId: string) {
   const steps = SETUP_STEPS.filter((k) => s.steps[k]).map((k) => `- **${STEP_TITLE[k]}:** ${s.steps[k]!.replace(/\s+/g, " ")}`);
   const said = s.replies.map((r) => `- ${r.replace(/\s+/g, " ")}`);
   const note = [`# Getting to know ${name}`, "", `What ${name} and @${agent.handle} worked out in their first chat.`, "", ...(steps.length ? [...steps, ""] : []), `## In ${name}'s words`, "", ...said, ""].join("\n");
-  await hub.vault(agent.workspaceId).write(setupNotePath(agent.id), note, { name: "Bubble AI", email: "wisp@localhost" }, `Setup notes for @${agent.handle}`);
+  // the agent wrote these notes with the person, so Memory credits the agent
+  await hub.vault(agent.workspaceId).write(setupNotePath(agent.id), note, { name: `@${agent.handle}`, email: `${agent.handle}@agents.wisp` }, `Setup notes for @${agent.handle}`);
 }
 
 /**

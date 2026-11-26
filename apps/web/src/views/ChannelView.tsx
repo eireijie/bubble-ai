@@ -2,7 +2,7 @@ import { Suspense, createContext, memo, useCallback, useContext, useEffect, useL
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { SquarePen, Monitor, MoreHorizontal, Info, Shield, Zap, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { SquarePen, Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { SCHEDULE_MARK, teamOf, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -11,7 +11,8 @@ import { go, href, type Route } from "../router.ts";
 import type { TaskRow } from "./TasksView.tsx";
 import { renderMarkdown, renderMessage } from "../markdown.ts";
 import { lazyView } from "../lazy.tsx";
-import { ChannelSettings, landingChannel, setArchived, type ChannelSettingsTab } from "../components/Channels.tsx";
+import { ChannelSettings, landingChannel, setArchived, setChannelPrefs, type ChannelSettingsTab } from "../components/Channels.tsx";
+import { ChatSearch } from "../components/ChatSearch.tsx";
 import { ChatAvatar } from "../components/ChatList.tsx";
 import { prettyModel, runLine, tokens, useAgentContext } from "../models.ts";
 import { DiscussionCard } from "../components/Discussion.tsx";
@@ -19,13 +20,13 @@ import { ApprovalCard, ChangeCard, ChatCard, ComputerPart, RoutineChip } from ".
 import { AppleReadLines } from "../components/AppleParts.tsx";
 import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
-import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, agentColor, clockTime, cx } from "../components/ui.tsx";
+import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, clockTime, cx } from "../components/ui.tsx";
 import { AgentPill } from "../components/AgentPill.tsx";
 import { BannerSlot } from "../components/SuggestionBanner.tsx";
 import { linkPreviews, type LinkPreview } from "../linkPreview.ts";
 import type { CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
-import { chatTint, didThings, roundAction } from "../chatTint.ts";
+import { didThings, roundAction } from "../chatTint.ts";
 import { AgentPanel, panelSheet, type AgentPanelTab } from "../components/AgentPanel.tsx";
 import { slashEnterAction } from "../slashCommand.ts";
 import { slashQuery, useAgentCommands, useSlashMenu, type SlashItem } from "../components/SlashMenu.tsx";
@@ -69,6 +70,14 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const names = useNames();
   const [calling, setCalling] = useState(!!route.call);
   const [bannerSlot, setBannerSlot] = useState<HTMLDivElement | null>(null);
+  // how tall the suggestion floating under the header is, so the first message (or date) starts below it
+  const [bannerH, setBannerH] = useState(0);
+  useEffect(() => {
+    if (!bannerSlot || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setBannerH(bannerSlot.childElementCount ? Math.ceil(bannerSlot.getBoundingClientRect().height) : 0));
+    ro.observe(bannerSlot);
+    return () => ro.disconnect();
+  }, [bannerSlot]);
   // the record a finished call leaves in the chat
   const [callRecord, setCallRecord] = useState<(CallRecord & { channelId: string }) | null>(null);
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
@@ -156,8 +165,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const infoOpen = side?.kind === "info" && !route.threadId && channel.kind === "channel";
 
   return (
-    // the open agent's colour tints its chat: your bubbles and the round button (a team keeps the Bubble AI violet)
-    <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
+    // your bubbles are the Bubble AI violet in every chat, the same as on the iPhone and Android
+    <div className="flex-1 min-h-0 flex">
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         <BannerSlot.Provider value={bannerSlot}>
         {/* only the name pill, centred: it opens the panel that holds everything else */}
@@ -195,7 +204,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
                 <Monitor size={18} strokeWidth={1.8} />
               </button>
             )}
-            {dmAgent && <DmMore agent={dmAgent} onOpen={(tab) => openAgent(dmAgent.id, tab)} />}
+            {dmAgent && <DmMore agent={dmAgent} channel={channel} onOpen={(tab) => openAgent(dmAgent.id, tab)} />}
             {/* --- end DM header tools --- */}
           </div>
         </header>
@@ -204,7 +213,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
           <div ref={setBannerSlot} className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 px-4 empty:hidden" />
         </div>
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
-          <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!callee} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
+          <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!callee} topRoom={bannerH} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
         {!channel.archivedAt && dmFull?.signIn && <SignInNeededBar agent={dmFull} />}
         {!channel.archivedAt && dmFull && <SetupTour key={channel.id} agent={dmFull} channelId={channel.id} />}
@@ -280,25 +289,33 @@ function DmModelLine({ agentId, channelId, onOpen }: { agentId: string; channelI
   );
 }
 
-/** The DM's "…": the agent, its computer, how it runs, what it may do. Calls are in the composer, help in the account menu. */
-function DmMore({ agent, onOpen }: { agent: Agent; onOpen: (tab: AgentPanelTab) => void }) {
-  const canEdit = useStore((s) => s.me?.role !== "guest");
+/**
+ * The DM's "…", the same five on every app: About, Asks first, its computer (when it has one), Search
+ * in chat, Mute. Each says the name of the page it opens. Calls are in the composer, help in the account menu.
+ */
+function DmMore({ agent, channel, onOpen }: { agent: Agent; channel: ChannelInfo; onOpen: (tab: AgentPanelTab) => void }) {
   const icon = { size: 17, strokeWidth: 1.8 };
+  const [searching, setSearching] = useState(false);
+  const muted = channel.notify === "mute";
   return (
-    <Menu
-      align="right"
-      trigger={(open, toggle) => (
-        <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="menu" className="circle" aria-label="More" title="More">
-          <MoreHorizontal size={19} strokeWidth={1.8} />
-        </button>
-      )}
-      items={[
-        { label: `About ${agent.name}`, icon: <Info {...icon} />, onSelect: () => onOpen("details") },
-        ...(agent.computerId ? [{ label: `${agent.name}'s computer`, icon: <Monitor {...icon} />, onSelect: () => onOpen("computer") }] : []),
-        { label: canEdit ? "Model and context" : "Model", icon: <Zap {...icon} />, onSelect: () => onOpen("thinks") },
-        { label: "What it can do", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
-      ]}
-    />
+    <>
+      <Menu
+        align="right"
+        trigger={(open, toggle) => (
+          <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="menu" className="circle" aria-label="More" title="More">
+            <MoreHorizontal size={19} strokeWidth={1.8} />
+          </button>
+        )}
+        items={[
+          { label: `About ${agent.name}`, icon: <Info {...icon} />, onSelect: () => onOpen("details") },
+          { label: "Asks first", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
+          ...(agent.computerId ? [{ label: `${agent.name}'s computer`, icon: <Monitor {...icon} />, onSelect: () => onOpen("computer") }] : []),
+          { label: "Search in chat", icon: <Search {...icon} />, onSelect: () => setSearching(true) },
+          { label: muted ? "Unmute" : "Mute", icon: muted ? <Bell {...icon} /> : <BellOff {...icon} />, onSelect: () => void setChannelPrefs(channel, { notify: muted ? "default" : "mute" }) },
+        ]}
+      />
+      {searching && <ChatSearch channelId={channel.id} onClose={() => setSearching(false)} />}
+    </>
   );
 }
 // --- end DM header tools --------------------------------------------------------------------------
@@ -441,7 +458,7 @@ function useMessageHistory(channelId: string, threadId: string | undefined, mess
   return { controls, error, prepended };
 }
 
-function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, calling }: { messageId?: string; channel: ChannelInfo; readMark: string | null; onAddAgent: () => void; onMembers: () => void; /** a call is on: leave room at the top for its bar, so it never covers the first message */ calling?: boolean }) {
+function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, calling, topRoom = 0 }: { messageId?: string; channel: ChannelInfo; readMark: string | null; onAddAgent: () => void; onMembers: () => void; /** a call is on: leave room at the top for its bar, so it never covers the first message */ calling?: boolean; /** px a suggestion floating under the header covers: the top of the list starts below it */ topRoom?: number }) {
   const messages = useStore((s) => s.messages[channel.id]);
   const replyCounts = useStore((s) => s.replyCounts);
   const me = useStore((s) => s.me);
@@ -545,6 +562,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
       <div
         ref={ref}
         className={cx("h-full overflow-y-auto overscroll-x-none pb-2", calling ? "pt-[84px]" : "pt-2")}
+        style={!calling && topRoom ? { paddingTop: topRoom + 8 } : undefined}
         onScroll={(e) => {
           const el = e.currentTarget;
           const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;

@@ -63,7 +63,7 @@ export function AgentWatches({ agent }: { agent: Pick<Agent, "id" | "name"> }) {
   };
 
   return (
-    <section aria-label="What it watches" className="space-y-2">
+    <section aria-label="What it watches" data-watches className="scroll-mt-3 space-y-2">
       <h3 className="px-1 text-[13px] font-medium text-muted">What it watches</h3>
       <div className={CARD}>
         {watches === null && <div className="flex min-h-[46px] items-center px-3.5 text-[13px] text-muted">Loading…</div>}

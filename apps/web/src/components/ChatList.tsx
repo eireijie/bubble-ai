@@ -349,7 +349,7 @@ function SectionHeader({ section, count, collapsed, onToggle, onRename, page, ca
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const press = useLongPress((x, y) => canEdit && setMenu({ x, y }));
   return (
-    <div className={cx("flex items-center justify-between text-xs", page ? "mt-2 h-7 px-2 text-muted" : "text-faint font-medium uppercase tracking-wide pt-3.5 pb-1.5 px-3")} onContextMenu={(e) => canEdit && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
+    <div className={cx("press-row flex items-center justify-between text-xs", page ? "mt-2 h-7 px-2 text-muted" : "text-faint font-medium uppercase tracking-wide pt-3.5 pb-1.5 px-3")} onContextMenu={(e) => canEdit && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
       <button onClick={onToggle} aria-expanded={!collapsed} className="flex items-center gap-1.5 min-w-0 h-7 hover:text-ink">
         <ChevronDown size={13} strokeWidth={2.4} className={cx("shrink-0 transition-transform", collapsed && "-rotate-90")} />
         <span className="truncate">{section.name}</span>
@@ -448,7 +448,7 @@ function ChatRow({ chat, page, active, preview, time, onOpen, sections, onNewSec
   );
   const cls = cx("w-full flex items-center text-left transition-colors", page ? "gap-3 px-2 h-[76px] rounded-[12px] active:scale-[0.99] transition-[background-color,transform] duration-150" : "gap-3 px-2.5 py-2.5 rounded-xl min-h-[88px]", active ? "bg-side-active" : "hover:bg-hover");
   return (
-    <div onContextMenu={(e) => chat.channel && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
+    <div className="press-row" onContextMenu={(e) => chat.channel && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
       {url ? (
         <a href={url} aria-current={active ? "page" : undefined} className={cls}>
           {inner}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, Columns2, ListTodo, Maximize2, MessageSquare, Plus, Square, SquareTerminal } from "lucide-react";
+import { Check, ChevronLeft, Columns2, ListTodo, Maximize2, MessageSquare, Plus, Square, SquareTerminal } from "lucide-react";
 import { api } from "../api.ts";
 import { go, href } from "../router.ts";
 import { agentColor } from "../components/ui.tsx";
@@ -63,7 +63,8 @@ function newSession(stem: string, computerId: string, all: Shell[]) {
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 const MOD = isMac ? "⌘" : "Ctrl ";
 
-export function CodeView() {
+/** `back`: on phones, where Back goes (it sits in the bar, before the pill). */
+export function CodeView({ back }: { back?: string }) {
   const on = useFeatures().code;
   const agents = useStore((s) => s.agents);
   const computers = useStore((s) => s.computers);
@@ -320,7 +321,17 @@ export function CodeView() {
 
   const focusedShell = myShells.find((s) => s.key === focused);
   const computerName = focusedShell?.target.name ?? (talkAgent?.computerId ? (targets?.find((t) => t.id === talkAgent.computerId)?.name ?? computers.find((c) => c.id === talkAgent.computerId)?.name) : null);
-  const pill = <Switcher agent={task ? talkAgent : undefined} label={task ? (talkAgent?.name ?? task.root.title) : "Shells"} items={switchItems} open={switcher} />;
+  const switcherPill = <Switcher agent={task ? talkAgent : undefined} label={task ? (talkAgent?.name ?? task.root.title) : "Shells"} items={switchItems} open={switcher} />;
+  const pill = back ? (
+    <>
+      <a href={back} className="circle shrink-0" aria-label="Back">
+        <ChevronLeft size={22} aria-hidden />
+      </a>
+      {switcherPill}
+    </>
+  ) : (
+    switcherPill
+  );
   const layoutItem = (id: Layout, label: string, icon: React.ReactNode) => ({ label, icon: layout === id ? <Check size={16} strokeWidth={2} /> : icon, onSelect: () => setLayout(id) });
 
   return (

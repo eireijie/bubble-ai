@@ -179,7 +179,7 @@ export function FinishSetupList({ agent: given }: { agent?: Agent }) {
     if (typeof to === "string") setSheet(to);
     else go(to);
   };
-  // away from home: once it is on, the row is the address your devices connect to, with Copy
+  // away from home: once it is on, the row says so plainly; its address is behind Copy
   const away = !!access && awayEnabled(access);
   const address = serverAddress(access)?.url ?? null;
   const copy = () => {
@@ -201,7 +201,7 @@ export function FinishSetupList({ agent: given }: { agent?: Agent }) {
                   <span className="truncate text-[14px] font-medium text-ink">{t.label}</span>
                   {(t.done || on) && <Check size={14} strokeWidth={2.4} className="shrink-0 text-ok" aria-label="Done" />}
                 </div>
-                {t.id === "away" && address && <div className="truncate font-mono text-[12px] leading-5 text-muted">{address}</div>}
+                {on && <div className="truncate text-[12px] leading-5 text-muted">On. Your devices reach it from anywhere.</div>}
               </div>
               {on ? (
                 <button type="button" className={pill} onClick={copy}>

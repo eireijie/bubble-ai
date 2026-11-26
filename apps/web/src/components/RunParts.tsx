@@ -16,7 +16,8 @@ export function SegBar<T extends string>({ label, value, options, onChange, big,
           aria-checked={value === v}
           disabled={disabled}
           onClick={() => onChange(v)}
-          className={cx("relative z-[1] min-w-0 flex-1 truncate rounded-md px-1.5 font-medium disabled:opacity-50", big ? "h-9 text-[14px]" : "h-[26px] text-[12px]", value === v ? "text-ink" : "text-muted hover:text-ink")}
+          // five or more levels (Low … Extra high) share the row: tighter type so "X-High" fits whole
+          className={cx("relative z-[1] min-w-0 flex-1 whitespace-nowrap rounded-md font-medium disabled:opacity-50", options.length > 4 ? "px-0.5" : "truncate px-1.5", big ? (options.length > 4 ? "h-9 text-[12.5px]" : "h-9 text-[14px]") : options.length > 4 ? "h-[26px] text-[11px]" : "h-[26px] text-[12px]", value === v ? "text-ink" : "text-muted hover:text-ink")}
         >
           {text}
         </button>

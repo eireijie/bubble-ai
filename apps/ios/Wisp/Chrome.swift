@@ -95,8 +95,8 @@ struct TopBar<Leading: View, Center: View, Trailing: View>: View {
 
   var body: some View {
     ZStack {
-      // centred between the buttons; when the right side holds several buttons the left keeps just its one, so the name still gets room
-      center.padding(.leading, inset <= 64 ? inset : 52).padding(.trailing, inset).frame(maxWidth: .infinity)
+      // centred on the screen: the same room kept clear on both sides, however many buttons the right side holds
+      center.padding(.horizontal, inset).frame(maxWidth: .infinity)
       HStack { leading; Spacer(minLength: 0); trailing }
     }
     .padding(.horizontal, 18)

@@ -295,7 +295,8 @@ function Workspace() {
       case "tasks":
         return <TasksView onBack={phone ? toYou : undefined} />;
       case "code":
-        return backBar(<CodeView />, false);
+        // its Back sits in Code's own bar, beside the pill, so there is no empty row above it
+        return <CodeView back={phone ? href({ view: "you" }) : undefined} />;
       case "computers": {
         const computers = (
           <div data-tour="computers-page" className="contents">

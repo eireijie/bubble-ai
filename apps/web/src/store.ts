@@ -170,6 +170,17 @@ interface State {
 }
 
 const readTimers = new Map<string, ReturnType<typeof setTimeout>>();
+// a phone that puts the app away right after showing a reply still tells the hub it was read, so your
+// other devices (and this one, opened fresh) don't show it as new
+if (typeof document !== "undefined")
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "hidden") return;
+    for (const [channelId, timer] of readTimers) {
+      clearTimeout(timer);
+      readTimers.delete(channelId);
+      api("POST", `/api/channels/${channelId}/read`, {}).catch(() => {});
+    }
+  });
 
 /** Your preferences (Settings → Preferences), with defaults. */
 export function usePrefs(): Required<Omit<UserPrefs, "sidebar" | "learn">> {
@@ -316,7 +327,11 @@ export const useStore = create<State>((set, get) => ({
 
   /** Clear the unread badge now; tell the hub shortly after (debounced), so it follows you to other devices. */
   markRead(channelId) {
-    const at = new Date().toISOString();
+    // read up to now or the newest message here, whichever is later: a phone whose clock runs behind
+    // the hub's would otherwise mark a reply it just showed as still new (the "NEW" divider next time)
+    const newest = get().messages[channelId]?.at(-1)?.createdAt;
+    const now = new Date().toISOString();
+    const at = newest && newest > now ? newest : now;
     set((s) => ({ channels: s.channels.map((c) => (c.id === channelId ? { ...c, unread: 0, lastReadAt: at } : c)) }));
     clearTimeout(readTimers.get(channelId));
     readTimers.set(

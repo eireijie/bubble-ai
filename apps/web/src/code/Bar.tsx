@@ -13,7 +13,7 @@ export type BarItems = ({ label: string; icon?: ReactNode; onSelect: () => void;
 
 export function CodeBar({ lead, computer, note, children }: { lead: ReactNode; computer?: string | null; note?: string | null; children?: ReactNode }) {
   return (
-    <header className="flex h-14 shrink-0 items-center gap-1 px-2 md:px-4">
+    <header className="box-content flex h-14 shrink-0 items-center gap-1 px-2 pt-[env(safe-area-inset-top)] md:px-4">
       {lead}
       {computer && <span className="min-w-0 truncate pl-1 text-[13px] text-muted">{computer}</span>}
       {note && <span className="min-w-0 truncate pl-2 text-[13px] text-bad">{note}</span>}

@@ -109,9 +109,10 @@ export function LookOptions({ value: look, onChange, name, dense = false }: { va
 
   return (
     <div className="space-y-3">
-      <div role="tablist" aria-label="Look" className={cx("flex gap-0.5", dense ? "flex-wrap" : "-mx-1 overflow-x-auto px-1 [scrollbar-width:none]")}>
+      {/* all seven on one line, sharing the width: none drops to a second row or scrolls out of sight */}
+      <div role="tablist" aria-label="Look" className="flex gap-0.5">
         {TABS.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cx("shrink-0 rounded-full font-medium transition-colors duration-200", dense ? "h-7 px-2.5 text-[12.5px]" : "h-8 px-3 text-[13px]", tab === t ? "bg-ink text-bg" : "text-muted hover:bg-hover hover:text-ink")}>
+          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cx("min-w-0 flex-1 whitespace-nowrap rounded-full font-medium transition-colors duration-200", dense ? "h-7 px-1 text-[12px]" : "h-8 px-1.5 text-[13px]", tab === t ? "bg-ink text-bg" : "text-muted hover:bg-hover hover:text-ink")}>
             {t}
           </button>
         ))}
