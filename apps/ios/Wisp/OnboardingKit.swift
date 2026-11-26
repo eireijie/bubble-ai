@@ -92,7 +92,13 @@ enum OnboardingLook {
     var look = host
     look.color = color
     look.shape = shape
+    look.bubble = bubble(shape)
     return look
+  }
+
+  /** The bubble each of onboarding's five shape choices draws, so they stay five different bubbles. */
+  static func bubble(_ shape: String) -> String {
+    ["classic": "round", "round": "squircle", "tall": "egg", "sheet": "blob", "wisp": "drop"][shape] ?? "round"
   }
 
   static func of(_ draft: FirstAgentDraft?) -> GhostLook { draft.map { agent(color: $0.color, shape: $0.shape) } ?? host }

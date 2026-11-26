@@ -13,12 +13,13 @@ struct WispApp: App {
         .environment(store)
         .preferredColorScheme(mode == "dark" ? .dark : mode == "light" ? .light : nil)
         .appearance()
+        .onAppear { BubbleTouch.install() }
         .onOpenURL { url in
           if let link = PairLink(url.absoluteString) { store.pendingPair = link }
         }
     }
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active { store.resume(); AppleLocation.shared.appBecameActive() }
+      if phase == .active { store.resume(); AppleLocation.shared.appBecameActive(); BubbleTouch.install() }
       if phase == .background { store.updateBadge() }
     }
   }

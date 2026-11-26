@@ -32,26 +32,43 @@ extension Store {
 
 enum BubbleSide { case mine, theirs }
 
-/** A bubble: 16pt corners with a 4pt tail corner (bottom right when it is yours, bottom left otherwise). */
+/**
+ * A message bubble: 18pt corners, and on the last bubble of a group a small curled tail at the
+ * bottom corner, like Messages (bottom right when it is yours, bottom left otherwise).
+ */
 struct BubbleShape: Shape {
   var mine: Bool
+  var tail = false
   func path(in rect: CGRect) -> Path {
-    UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: mine ? 16 : 4, bottomTrailingRadius: mine ? 4 : 16, topTrailingRadius: 16, style: .continuous).path(in: rect)
+    var p = RoundedRectangle(cornerRadius: min(18, rect.height / 2), style: .continuous).path(in: rect)
+    guard tail else { return p }
+    var t = Path()
+    let x = rect.maxX, y = rect.maxY
+    t.move(to: CGPoint(x: x - 14, y: y - 18))
+    t.addLine(to: CGPoint(x: x - 2, y: y - 18))
+    t.addQuadCurve(to: CGPoint(x: x + 6, y: y), control: CGPoint(x: x - 1, y: y - 4))
+    t.addQuadCurve(to: CGPoint(x: x - 16, y: y - 3), control: CGPoint(x: x - 5, y: y + 1))
+    t.closeSubpath()
+    if !mine { t = t.applying(CGAffineTransform(translationX: rect.minX + rect.maxX, y: 0).scaledBy(x: -1, y: 1)) }
+    p.addPath(t)
+    return p
   }
 }
 
-/** A message's rounded bubble: Wisp blue with white words when it's yours, grey otherwise. */
+/** A message's rounded bubble: Wisp violet with dark words when it's yours, grey otherwise. */
 struct Bubble<Content: View>: View {
   var side: BubbleSide
+  /** the last bubble of its group: it gets a tail */
+  var tail = false
   @ViewBuilder var content: Content
 
   var body: some View {
     content
       .padding(.horizontal, 13)
-      .padding(.vertical, 9)
-      .foregroundStyle(side == .mine ? Color.white : Palette.text)
-      .tint(side == .mine ? Color.white : Palette.blue)
-      .background(BubbleShape(mine: side == .mine).fill(side == .mine ? Palette.blue : Palette.bubble))
+      .padding(.vertical, 8)
+      .foregroundStyle(side == .mine ? Palette.mineInk : Palette.text)
+      .tint(side == .mine ? Palette.mineInk : Palette.blue)
+      .background(BubbleShape(mine: side == .mine, tail: tail).fill(side == .mine ? Palette.mine : Palette.bubble))
   }
 }
 
@@ -75,7 +92,7 @@ struct QuoteBlock: View {
   var body: some View {
     Button { scrollTo?(quote.id) } label: {
       HStack(spacing: 8) {
-        Rectangle().fill(side == .mine ? Color.white.opacity(0.6) : Palette.faint).frame(width: 2)
+        Rectangle().fill(side == .mine ? Palette.mineInk.opacity(0.45) : Palette.faint).frame(width: 2)
         VStack(alignment: .leading, spacing: 1) {
           (Text(author).font(.system(size: 13, weight: .semibold)) + Text(when.map { " · \($0)" } ?? "").font(.system(size: 13)).foregroundStyle(.secondary))
             .lineLimit(1)
@@ -198,7 +215,7 @@ struct StreamingRow: View {
         if !home { AgentAvatar(agent: store.agent(run.agentId), size: 24, showStatus: false).frame(width: 24) }
         VStack(alignment: .leading, spacing: 3) {
           if !home { Text(store.agent(run.agentId)?.name ?? "Agent").font(.system(size: 12)).foregroundStyle(Palette.faint).padding(.leading, 14) }
-          Bubble(side: .theirs) { MarkdownText(run.text) }
+          Bubble(side: .theirs, tail: true) { MarkdownText(run.text) }
         }
         Spacer(minLength: 40)
       }
@@ -303,5 +320,78 @@ struct CardButtonStyle: ButtonStyle {
       .background(Capsule().fill(danger ? Palette.red : prominent ? Palette.text : Palette.control))
       .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: prominent ? 0 : 1))
       .pressFeedback(configuration.isPressed)
+  }
+}
+
+/**
+ * A large link card under a message (web: linkPreview.ts): the picture on top when the link is
+ * one, then a title and the domain. The hub keeps no link-preview data and nothing is fetched for
+ * it, so the title comes from the link's own path. GitHub pull requests and issues keep their own card.
+ */
+struct LinkPreview: Identifiable, Hashable {
+  var url: String
+  var domain: String
+  var title: String
+  var image: URL?
+  var id: String { url }
+
+  nonisolated(unsafe) private static let picture = /\.(png|jpe?g|gif|webp|avif)$/.ignoresCase()
+  nonisolated(unsafe) private static let github = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(pull|issues)\/\d+/
+
+  /** A readable title from the link: the last part of its path, words split out, or the site's name. */
+  static func title(_ u: URL) -> String {
+    let parts = u.path().split(separator: "/").map(String.init)
+    var last = (parts.last?.removingPercentEncoding ?? parts.last ?? "")
+    if let dot = last.range(of: #"\.[A-Za-z0-9]{2,5}$"#, options: .regularExpression) { last.removeSubrange(dot) }
+    let words = last.replacingOccurrences(of: #"[-_+]+"#, with: " ", options: .regularExpression)
+      .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+    if words.count > 2, !words.allSatisfy(\.isNumber) { return words.prefix(1).uppercased() + words.dropFirst() }
+    let host = (u.host() ?? "").replacingOccurrences(of: #"^www\."#, with: "", options: .regularExpression)
+    return host.prefix(1).uppercased() + host.dropFirst()
+  }
+
+  /** The first two http(s) links in a message, as cards. */
+  static func find(_ body: String) -> [LinkPreview] {
+    var out: [LinkPreview] = []
+    for m in body.matches(of: /https?:\/\/[^\s<>()"'`\]]+/) {
+      var raw = String(m.output)
+      while let c = raw.last, ".,;:!?".contains(c) { raw.removeLast() }
+      if raw.wholeMatch(of: github) != nil || raw.prefixMatch(of: github) != nil || out.contains(where: { $0.url == raw }) { continue }
+      guard let u = URL(string: raw), let host = u.host() else { continue }
+      if host == "localhost" || host == "127.0.0.1" || (u.fragment()?.hasPrefix("/") ?? false) { continue }
+      let isPicture = u.path().firstMatch(of: picture) != nil
+      out.append(LinkPreview(url: raw, domain: host.replacingOccurrences(of: #"^www\."#, with: "", options: .regularExpression), title: title(u), image: isPicture ? u : nil))
+      if out.count == 2 { break }
+    }
+    return out
+  }
+}
+
+struct LinkCard: View {
+  @Environment(\.openURL) private var openURL
+  var link: LinkPreview
+
+  var body: some View {
+    Button { if let u = URL(string: link.url) { openURL(u) } } label: {
+      VStack(alignment: .leading, spacing: 0) {
+        if let image = link.image {
+          AsyncImage(url: image) { phase in
+            if let picture = phase.image { picture.resizable().scaledToFill() } else { Palette.hairline }
+          }
+          .frame(width: 260, height: 160).clipped()
+        }
+        VStack(alignment: .leading, spacing: 2) {
+          Text(link.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(2).multilineTextAlignment(.leading)
+          Text(link.domain).font(.system(size: 13)).foregroundStyle(Palette.muted).lineLimit(1)
+        }
+        .padding(.horizontal, 13).padding(.vertical, 10)
+        .frame(width: 260, alignment: .leading)
+      }
+      .background(Palette.bubble)
+      .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+    .buttonStyle(.press)
+    .accessibilityLabel("\(link.title), \(link.domain)")
+    .accessibilityHint("Opens the link")
   }
 }

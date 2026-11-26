@@ -71,56 +71,67 @@ final class GhostTests: XCTestCase {
     XCTAssertEqual(store.mood(for: store.agents[0]), .awake)
   }
 
-  func testEveryPathAndBodyMorphIsFinite() {
-    for path in GhostArt.paths.values {
-      XCTAssertFalse(path.isEmpty)
-      XCTAssertTrue(path.boundingRect.width.isFinite)
-    }
-    for g in GhostGeometry.shapes.values {
-      XCTAssertEqual(g.a.commands.map(\.letter), g.b.commands.map(\.letter))
-      XCTAssertEqual(g.a.commands.map { $0.values.count }, g.b.commands.map { $0.values.count })
-      for fraction in [0.0, 0.25, 0.5, 0.75, 1] {
-        let box = g.a.path(toward: g.b, fraction: fraction).boundingRect
-        XCTAssertTrue(box.width > 0 && box.width < 121)
-        XCTAssertEqual(box.minY, g.top, accuracy: 0.001)
+  func testEveryBubbleShapeHasFiniteParts() {
+    for shape in BubbleForm.allCases {
+      XCTAssertFalse(shape.parts.isEmpty)
+      for part in shape.parts {
+        let box = BubblePainter.path(CGRect(x: 0, y: 0, width: 100 * part.rect.width, height: 100 * part.rect.height), part.radii).boundingRect
+        XCTAssertTrue(box.width > 0 && box.width <= 100.5 && box.height <= 100.5, "\(shape)")
       }
     }
   }
 
-  func testRenderEveryMoodAndOutfit() throws {
-    let groups: [(String, [GhostLook])] = [
-      ("Shapes", GhostLook.shapes.map { var l = GhostLook.defaultAppearance("warren"); l.shape = $0; l.hat = "none"; l.accessory = "none"; return l }),
-      ("Hats", GhostLook.hats.map { var l = GhostLook.defaultAppearance("warren"); l.hat = $0; return l }),
-      ("Accessories", GhostLook.accessories.map { var l = GhostLook.defaultAppearance("warren"); l.hat = "none"; l.accessory = $0; return l }),
-      ("Eyes", GhostLook.eyeStyles.map { var l = GhostLook.defaultAppearance("warren"); l.eyes = $0; return l }),
-      ("Mouths", GhostLook.mouths.map { var l = GhostLook.defaultAppearance("warren"); l.mouth = $0; return l }),
-    ]
-    let gallery = VStack(spacing: 10) {
-      HStack {
-        ForEach(GhostMood.allCases, id: \.self) { mood in
-          VStack {
-            self.sample(GhostLook.defaultAppearance("warren"), mood: mood)
-            Text(mood.rawValue).font(.caption)
+  func testOldLooksAreRoundInTheirOwnColour() {
+    // a look saved before bubbles has no shape: round, tinted with its more vivid colour
+    let old = GhostLook(color: "#7516cf", color2: "#00e8d1", shape: "classic", hat: "tophat")
+    XCTAssertEqual(BubbleForm(old), .round)
+    XCTAssertEqual(BubbleColors.color(old, seed: "x"), "#00e8d1", "the more vivid of its two colours, as on the web")
+    var shaped = old
+    shaped.bubble = "cluster"
+    XCTAssertEqual(BubbleForm(shaped), .cluster)
+    shaped.bubble = "nonsense"
+    XCTAssertEqual(BubbleForm(shaped), .round)
+    // white and grey looks get a colour from their seed, never white
+    let white = GhostLook(color: "#ffffff", color2: "#ffffff")
+    XCTAssertTrue(BubbleColors.all.map(\.hex).contains(BubbleColors.color(white, seed: "warren")))
+    XCTAssertEqual(BubbleColors.color(white, seed: "warren"), BubbleColors.color(white, seed: "warren"))
+  }
+
+  func testBubbleLookSavesItsShape() throws {
+    var look = GhostLook(color: "#6cc4ff")
+    look.bubble = "egg"
+    let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(look)) as? [String: Any]
+    XCTAssertEqual(json?["bubble"] as? String, "egg")
+    let back = try JSONDecoder().decode(GhostLook.self, from: Data(##"{"color":"#6cc4ff","bubble":"drop"}"##.utf8))
+    XCTAssertEqual(back.bubble, "drop")
+  }
+
+  func testRenderEveryShapeAndMood() throws {
+    for dark in [false, true] {
+      let gallery = VStack(spacing: 10) {
+        HStack {
+          ForEach(GhostMood.allCases, id: \.self) { mood in
+            VStack {
+              self.sample(GhostLook(color: "#6cc4ff"), mood: mood, dark: dark)
+              Text(mood.rawValue).font(.caption)
+            }
           }
         }
-      }
-      ForEach(groups.indices, id: \.self) { i in
-        Text(groups[i].0).font(.headline)
         HStack(spacing: 0) {
-          ForEach(groups[i].1.indices, id: \.self) { j in
-            self.sample(groups[i].1[j], mood: .awake)
+          ForEach(BubbleForm.allCases) { shape in
+            self.sample(GhostLook(color: BubbleColors.all[shape.hashValue & 3].hex, bubble: shape.rawValue), mood: .awake, dark: dark)
           }
         }
-      }
-    }.padding(20).background(.white).foregroundStyle(.black)
-    let renderer = ImageRenderer(content: gallery)
-    renderer.scale = 2
-    let image = try XCTUnwrap(renderer.uiImage)
-    let attachment = XCTAttachment(image: image)
-    attachment.name = "Ghost moods and wardrobe"
-    attachment.lifetime = .keepAlways
-    add(attachment)
-    XCTAssertGreaterThan(image.size.width, 500)
+      }.padding(20).background(dark ? Color.black : .white).foregroundStyle(dark ? .white : .black)
+      let renderer = ImageRenderer(content: gallery)
+      renderer.scale = 2
+      let image = try XCTUnwrap(renderer.uiImage)
+      let attachment = XCTAttachment(image: image)
+      attachment.name = "Bubble shapes and moods (\(dark ? "dark" : "light"))"
+      attachment.lifetime = .keepAlways
+      add(attachment)
+      XCTAssertGreaterThan(image.size.width, 500)
+    }
   }
 
   func testSavePatchesOnlyAppearanceAndKeepsServerSettings() async throws {
@@ -164,11 +175,10 @@ final class GhostTests: XCTestCase {
       let view = HStack {
         ForEach(GhostMood.allCases, id: \.self) { mood in
           Canvas { context, _ in
-            var look = GhostLook.defaultAppearance("warren").resolved
-            look.glow = true
-            GhostRenderer(look: look, mood: mood, size: 50, time: time, animated: animated,
-              poke: nil, pokeCount: 0, darkMode: true).draw(context)
-          }.frame(width: 50, height: 60)
+            var c = context
+            c.translateBy(x: 6, y: 6)
+            BubblePainter(shape: .round, color: "#a59bff", mood: mood, size: 50, dark: true, time: time, animated: animated, gaze: nil, spin: nil, ground: .black).draw(c)
+          }.frame(width: 62, height: 62)
         }
       }.background(.black)
       return try XCTUnwrap(ImageRenderer(content: view).uiImage?.pngData())
@@ -176,11 +186,12 @@ final class GhostTests: XCTestCase {
     XCTAssertEqual(try render(time: 0, animated: false), try render(time: 1.6, animated: false))
     XCTAssertNotEqual(try render(time: 0, animated: true), try render(time: 1.6, animated: true))
     for size in [16.0, 24, 26, 28, 44] {
-      let view = Canvas { context, _ in
-        GhostRenderer(look: GhostLook.defaultAppearance("agt_1").resolved, mood: .working,
-          size: size, time: 1, animated: true, poke: nil, pokeCount: 0, darkMode: false).draw(context)
-      }.frame(width: size, height: size)
-      XCTAssertNotNil(ImageRenderer(content: view).uiImage)
+      for shape in BubbleForm.allCases {
+        let view = Canvas { context, _ in
+          BubblePainter(shape: shape, color: "#ff7d8f", mood: .working, size: size, dark: false, time: 1, animated: true, gaze: CGPoint(x: 1, y: 1), spin: nil, ground: .white).draw(context)
+        }.frame(width: size, height: size)
+        XCTAssertNotNil(ImageRenderer(content: view).uiImage)
+      }
     }
   }
 
@@ -213,7 +224,7 @@ final class GhostTests: XCTestCase {
     let second = snapshot()
     XCTAssertNotEqual(first.pngData(), second.pngData(), "The live TimelineViews must update, not just the static renderer")
     let attachment = XCTAttachment(image: second)
-    attachment.name = "36 live ghosts"
+    attachment.name = "36 live bubbles"
     attachment.lifetime = .keepAlways
     add(attachment)
     let report = XCTAttachment(string: "36 ghosts: \(probe.frames) display callbacks over 1.2 seconds; longest gap \(probe.longestGap) seconds")
@@ -222,11 +233,12 @@ final class GhostTests: XCTestCase {
     add(report)
   }
 
-  private func sample(_ look: GhostLook, mood: GhostMood) -> some View {
+  private func sample(_ look: GhostLook, mood: GhostMood, dark: Bool) -> some View {
     Canvas { context, _ in
-      GhostRenderer(look: look.resolved, mood: mood, size: 90, time: 0.5, animated: true,
-        poke: nil, pokeCount: 0, darkMode: false).draw(context)
-    }.frame(width: 90, height: 100)
+      var c = context
+      c.translateBy(x: 14, y: 14)
+      BubblePainter(shape: BubbleForm(look), color: BubbleColors.color(look, seed: "warren"), mood: mood, size: 70, dark: dark, time: 0.5, animated: true, gaze: nil, spin: nil, ground: dark ? .black : .white).draw(c)
+    }.frame(width: 98, height: 98)
   }
 }
 

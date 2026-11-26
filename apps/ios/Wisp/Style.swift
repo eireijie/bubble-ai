@@ -49,6 +49,9 @@ enum Palette {
   /** the 1px edge on cards and panels */
   static let cardBorder = Color(light: 0x000000, lightAlpha: 0.08, dark: 0xFFFFFF, darkAlpha: 0.08)
   static let blue = Color(hex: 0x0A84FF)
+  /** your own message bubbles: Wisp violet with dark words (web --bubble-me) */
+  static let mine = Color(hex: 0xA98BF5)
+  static let mineInk = Color(hex: 0x161616)
   static let red = Color(light: 0xD92D3A, dark: 0xFF6B6B)
 
   // MARK: small pops of color (pop-Palette). A pop is a solid icon or dot, usually on a 16% tint of itself; never a fill behind text.

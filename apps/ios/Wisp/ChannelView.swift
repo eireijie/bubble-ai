@@ -105,8 +105,6 @@ struct ChannelView: View {
           // a new agent's first chat: one-tap answers, pings after its first answer, and what it set up
           FirstChatExtras(channel: current)
           ActivityPill(channel: current)
-          // it can't answer until its harness is signed in where it runs: say so before anyone writes
-          if let agent = store.dmAgent(current), agent.signIn != nil { AgentSignInBar(agent: agent) }
           VStack(alignment: .leading, spacing: 0) {
             if let agent = store.dmAgent(current), run.context != nil {
               RunSummaryLine(agent: agent, info: run) { showRun = true }
@@ -123,8 +121,10 @@ struct ChannelView: View {
     .toolbar(.hidden, for: .navigationBar)
     .background(Palette.ground.ignoresSafeArea())
     .safeAreaInset(edge: .top, spacing: 0) {
-      VStack(spacing: 0) {
+      VStack(spacing: 6) {
         chrome
+        // it can't answer until its harness is signed in where it runs: say so before anyone writes
+        if current.archivedAt == nil, let agent = store.dmAgent(current), agent.signIn != nil { AgentSignInBar(agent: agent).padding(.bottom, 4) }
         // a call shrunk from full screen sits under the top bar
         if let call, !call.expanded { CallBar(call: call).transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .top).combined(with: .move(edge: .top)).combined(with: .opacity)) }
       }.animation(Motion.pick(Motion.pop, reduceMotion), value: call?.expanded)
@@ -213,30 +213,36 @@ struct ChannelView: View {
     current.iconAgents(store.agents)
   }
 
-  /** the top of a chat: a glass back circle, the name on a pill with the ghost, and a ... circle */
+  /** the top of a chat, with no bar: back on the left, the bubble centred with its name in a small pill under it, call and ... on the right */
   private var chrome: some View {
-    TopBar(inset: store.dmAgent(current) != nil && (canCall || run.context != nil) ? 112 : 64) {
-      HStack(spacing: 6) {
-        CircleButton(symbol: "chevron.left", label: "Back", id: "chat-back") { dismiss() }
-        if let agent = store.dmAgent(current), canCall, call == nil {
-          CircleButton(symbol: "phone", label: "Call \(agent.name)", id: "chat-call", tint: Palette.call) { startCall() }
-        }
-      }
+    let dm = store.dmAgent(current) != nil
+    let right = 1 + (dm && canCall && call == nil ? 1 : 0) + (dm && run.context != nil ? 1 : 0)
+    return TopBar(inset: CGFloat(right) * 50 + 8) {
+      CircleButton(symbol: "chevron.left", label: "Back", id: "chat-back") { dismiss() }
     } center: {
       Button { showDetails = true } label: {
-        NamePill(title: store.title(of: current)) {
-          if let agent = store.dmAgent(current) { AgentAvatar(agent: agent, size: 36, showStatus: false) }
-          else { TeamGhosts(agents: teamAgents, seed: current.name, size: 34, iconFileId: current.settings?.iconFileId) }
+        VStack(spacing: 4) {
+          if let agent = store.dmAgent(current) { AgentAvatar(agent: agent, size: 44, showStatus: false) }
+          else { TeamGhosts(agents: teamAgents, seed: current.name, size: 40, iconFileId: current.settings?.iconFileId) }
+          HStack(spacing: 3) {
+            Text(store.title(of: current)).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+            Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(Palette.faint)
+          }
+          .padding(.horizontal, 10).frame(height: 24)
+          .fixedSize()
+          .glassPill()
+          if current.archivedAt != nil { Text("Archived").font(.system(size: 11)).foregroundStyle(Palette.muted) }
         }
-        .overlay(alignment: .bottom) {
-          if current.archivedAt != nil { Text("Archived").font(.system(size: 11)).foregroundStyle(Palette.muted).offset(y: 14) }
-        }
+        .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
       .accessibilityLabel(store.dmAgent(current) != nil ? "\(store.title(of: current)), open profile" : "\(current.name), team info")
       .accessibilityIdentifier("chat-title")
     } trailing: {
       HStack(spacing: 6) {
+      if let agent = store.dmAgent(current), canCall, call == nil {
+        CircleButton(symbol: "phone", label: "Call \(agent.name)", id: "chat-call", tint: Palette.call) { startCall() }
+      }
       if store.dmAgent(current) != nil, let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { showRun = true } }
       Menu {
         if let agent = store.dmAgent(current) {
@@ -723,20 +729,22 @@ struct Composer: View {
       if let error = error ?? dictation.error { Text(error).font(.caption).foregroundStyle(Palette.red).padding(.horizontal, 6) }
       if let target = replyTarget { replyBar(target) }
       if !files.isEmpty || !uploading.isEmpty { attachments }
-      HStack(alignment: .center, spacing: 12) {
+      // a round +, a pill-shaped field with dictation inside, and a round send button outside it
+      HStack(alignment: .bottom, spacing: 8) {
         Menu {
           Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
           Button("Files", systemImage: "folder") { pickingFiles = true }
           if chatAgent == nil { Button("Mention an agent", systemImage: "at") { text += (text.isEmpty || text.hasSuffix(" ") ? "@" : " @"); focused = true } }
-        } label: { CircleLabel(symbol: "plus", size: 44, weight: .regular) }
+        } label: { CircleLabel(symbol: "plus", size: 42, weight: .regular) }
           .accessibilityLabel("Attach").accessibilityIdentifier("composer-attach")
-        HStack(alignment: .bottom, spacing: 6) {
+        HStack(alignment: .bottom, spacing: 2) {
           TextField(replyTarget.map { "Reply to \($0.name)" } ?? placeholder, text: $text, selection: $selection, axis: .vertical)
-            .font(.system(size: 15))
+            .font(.system(size: 16))
             .lineLimit(1...8)
             .focused($focused)
-            .padding(.vertical, 15)
-            .padding(.leading, 12)
+            .padding(.vertical, 10)
+            .padding(.leading, 16)
+            .padding(.trailing, (empty || dictation.active) && !callLive ? 0 : 14)
             .accessibilityIdentifier("composer-field")
           if (empty || dictation.active) && !callLive {
             Button {
@@ -747,42 +755,36 @@ struct Composer: View {
             } label: {
               Image(systemName: dictation.active ? "mic.fill" : "mic")
                 .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(dictation.active ? Palette.blue : Palette.muted)
-                .frame(width: 40, height: 40)
+                .foregroundStyle(dictation.active ? Palette.mine : Palette.muted)
+                .frame(width: 40, height: 42)
             }
             .buttonStyle(.press)
-            .padding(.bottom, 8)
             .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
             .accessibilityLabel(dictation.active ? "Stop dictating" : "Dictate")
           }
-          do {
-            Button { submit() } label: {
-              Image(systemName: sending ? "ellipsis" : "arrow.up")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 44)
-                .background(Capsule().fill(Palette.tabChats))
-            }
-            .buttonStyle(.press)
-            .disabled(blocked)
-            .opacity(blocked ? 0.3 : 1)
-            .animation(.snappy, value: blocked)
-            .padding(.bottom, 6).padding(.trailing, 6)
-            .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
-            .accessibilityLabel("Send").accessibilityIdentifier("composer-send")
-          }
         }
-        .frame(minHeight: 44)
-        .animation(Motion.pick(Motion.pop, reduceMotion), value: showsSend)
+        .frame(minHeight: 42)
         .animation(Motion.pick(Motion.pop, reduceMotion), value: dictation.active)
         .background {
           if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: 24, style: .continuous).fill(.clear).glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24, style: .continuous))
+            RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.clear).glassEffect(.regular.interactive(), in: .rect(cornerRadius: 21, style: .continuous))
           } else {
-            RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Palette.control)
-              .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Palette.hairline))
+            RoundedRectangle(cornerRadius: 21, style: .continuous).fill(Palette.control)
+              .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).strokeBorder(Palette.hairline))
           }
         }
+        Button { submit() } label: {
+          Image(systemName: sending ? "ellipsis" : "arrow.up")
+            .font(.system(size: 16, weight: .bold))
+            .foregroundStyle(Palette.mineInk)
+            .frame(width: 42, height: 42)
+            .background(Circle().fill(Palette.mine))
+        }
+        .buttonStyle(.press)
+        .disabled(blocked)
+        .opacity(blocked ? 0.35 : 1)
+        .animation(.snappy, value: blocked)
+        .accessibilityLabel("Send").accessibilityIdentifier("composer-send")
       }
     }
     .padding(.horizontal, 18)

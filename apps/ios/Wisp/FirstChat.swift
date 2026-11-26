@@ -81,33 +81,20 @@ struct FirstChatExtras: View {
   private var rise: AnyTransition { reduceMotion ? .opacity : .offset(y: 16).combined(with: .opacity) }
 
   private var pingCard: some View {
-    HStack(alignment: .top, spacing: 12) {
-      Image(systemName: "bell").font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.top, 1)
-      VStack(alignment: .leading, spacing: 2) {
-        Text(ping == .on ? "Pings are on." : ping == .off ? "Pings are off for Wisp." : "Want a ping when this is done?")
-          .font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.text)
-        Text(ping == .on ? "I'll only ping you when something's finished or I need a yes." : ping == .off ? "Only the system switch can turn them back on." : "I'll only message you when something's finished or I need a yes.")
-          .font(.system(size: 13)).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-        HStack(spacing: 8) {
-          if ping == .ask || ping == .asking {
-            Button("Turn on") { Task { await turnOn() } }.buttonStyle(ObPrimary(height: 32)).disabled(busy).accessibilityIdentifier("first-chat-ping-on")
-            Button("Not now", action: close).buttonStyle(ObOutline(height: 32)).disabled(busy)
-          }
-          if ping == .off {
-            Button("Open the switch") { if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) } }.buttonStyle(ObPrimary(height: 32))
-          }
-          if ping == .off || ping == .on {
-            Button(ping == .on ? "OK" : "Not now") { justOn = false; close() }.buttonStyle(ObOutline(height: 32))
-          }
-        }
-        .padding(.top, 8)
-      }
-      Spacer(minLength: 0)
-    }
-    .padding(.horizontal, 14).padding(.vertical, 12)
-    .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Palette.card))
-    .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
-    .accessibilityElement(children: .contain).accessibilityLabel("Notifications")
+    let ask = ping == .ask || ping == .asking
+    return SuggestionBanner(
+      symbol: "bell",
+      text: ping == .on ? "Pings are on." : ping == .off ? "Pings are off for Wisp." : "Want a ping when this is done?",
+      detail: ping == .on ? "Only when something's finished or I need a yes." : ping == .off ? "Only the system switch can turn them back on." : "Only when something's finished or I need a yes.",
+      action: ask ? "Turn on" : ping == .off ? "Open the switch" : nil,
+      onAction: ask ? { Task { await turnOn() } } : ping == .off ? { if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) } } : nil,
+      onClose: { justOn = false; close() },
+      closeLabel: ping == .on ? "OK" : "Later",
+      busy: busy
+    )
+    .padding(.horizontal, -12)
+    .accessibilityLabel("Notifications")
+    .accessibilityIdentifier("first-chat-ping")
   }
 
   private func reply(_ text: String) {

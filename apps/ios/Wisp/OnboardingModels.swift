@@ -255,7 +255,7 @@ enum OnboardingText {
   static let colors = ["#a98bf5", "#3cc0a6", "#f2a04a", "#6aa2f5", "#ef7fa8", "#cfd36a"]
   static let colorNames = ["Violet", "Teal", "Orange", "Blue", "Pink", "Lime"]
   static let shapes = ["classic", "round", "tall", "sheet", "wisp"]
-  static let shapeLabels = ["classic": "Classic", "round": "Round", "tall": "Tall", "sheet": "Sheet", "wisp": "Wisp"]
+  static let shapeLabels = ["classic": "Round", "round": "Squircle", "tall": "Egg", "sheet": "Blob", "wisp": "Drop"]
   /** "What I do" when nothing was picked */
   static let noGoalRole = "Helps with whatever you need, so you have more time."
 

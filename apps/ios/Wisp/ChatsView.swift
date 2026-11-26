@@ -23,6 +23,13 @@ struct ChatEntry: Identifiable, Hashable {
     }
   }
   var isTeam: Bool { if case .team = kind { true } else { false } }
+  /** the key the hub's chat layout (UserPrefs.sidebar) uses: "a:<agentId>" or "c:<channelId>" */
+  var key: String {
+    switch kind {
+    case .agent(let a): "a:\(a.id)"
+    case .team(let c): "c:\(c.id)"
+    }
+  }
   var pinned: Bool { channel?.starred == true }
   var sectionId: String? { isTeam ? channel?.sectionId : nil }
   var badge: Int { channel?.badge ?? 0 }
@@ -56,7 +63,11 @@ enum ChatList {
   }
 }
 
-/** Your agents and teams in one list, with search, a + menu and your sections. */
+/**
+ * Your agents and teams in one list (2026-11-25 "Wisp, bubbles", phone list): search and +, up to
+ * 9 pins in a 3×3 grid, All / Your turn, then your sections and No section. Pins and sections are
+ * kept in the hub (UserPrefs.sidebar), the same as on the desktop. Press and hold a chat for its menu.
+ */
 struct ChatsView: View {
   @Environment(Store.self) private var store
   @Environment(\.openSettings) private var openSettings
@@ -65,16 +76,22 @@ struct ChatsView: View {
   @State private var search = ""
   @FocusState private var searchFocused: Bool
   @State private var sheet: String?
-  @State private var editingSection: ChannelSection?
-  @State private var deletingSection: ChannelSection?
-  @State private var collapsed: Set<String> = []
   @State private var action = FormAction()
   /** what the hub found for the search box, with the text it was found for */
   @State private var found: (query: String, results: SearchResults)?
   @State private var searching = false
+  @AppStorage("wisp.chats.filter", store: WispPreferences.standard) private var filter = "all"
+  /** "9 pinned is the most…" */
+  @State private var notice: String?
+  @State private var renaming: ChatEntry?
+  @State private var renamingSection: SideLayout.Placed?
+  @State private var newName = ""
+  @State private var deleting: ChatEntry?
+  @State private var leaving: ChatEntry?
 
   private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
   private var searchMode: Bool { searchFocused || !query.isEmpty }
+  private var guest: Bool { store.role == "guest" }
 
   private var entries: [ChatEntry] {
     ChatList.entries(agents: store.agents, channels: store.channels, messages: store.messages, dmAgent: store.dmAgent)
@@ -84,12 +101,15 @@ struct ChatsView: View {
       query.isEmpty || e.name.localizedCaseInsensitiveContains(query) || { if case .agent(let a) = e.kind { a.handle.localizedCaseInsensitiveContains(query) } else { false } }()
     }
   }
+  private var layoutChats: [SideLayout.Chat] {
+    entries.map { SideLayout.Chat(key: $0.key, pinned: $0.pinned, sectionId: $0.sectionId, unread: $0.badge) }
+  }
+  private var layout: SidebarLayout { SideLayout.base(store.prefs?.sidebar, chats: layoutChats, sections: store.sections) }
 
   var body: some View {
     NavigationStack(path: $path) {
       VStack(spacing: 0) {
-        if !searchMode { header }
-        searchField
+        searchRow
         list
       }
       .background(Palette.ground.ignoresSafeArea())
@@ -101,19 +121,31 @@ struct ChatsView: View {
         switch sheet {
         case "team": NewChannel(onBrowse: { sheet = "browse" }) { path.append($0) }
         case "browse": BrowseChannels { path.append($0) }
-        case "section": SectionEditor()
         // a new agent has already said hello in its DM, so that's where you land
         case "agent": AddAgent { agent in Task { if let ch = try? await store.dm(with: agent) { path.append(ch) } else { path.append(agent) } } }
         case "chat": NewChatSheet(onNewAgent: store.canManage ? { sheet = "agent" } : nil) { path.append($0) }
         default: EmptyView()
         }
       }
-      .sheet(item: $editingSection) { SectionEditor(section: $0) }
-      .confirmationDialog("Delete \(deletingSection?.name ?? "section")?", isPresented: Binding(get: { deletingSection != nil }, set: { if !$0 { deletingSection = nil } }), titleVisibility: .visible) {
-        Button("Delete section", role: .destructive) {
-          if let section = deletingSection { action.run { try await store.deleteSection(section.id) } }
-        }
-      } message: { Text("Deleting a section keeps its chats. They move back to the main list.") }
+      .alert("Rename \(renaming?.name ?? "")", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+        TextField("Name", text: $newName).textInputAutocapitalization(.words)
+        Button("Cancel", role: .cancel) {}
+        Button("Save") { if let e = renaming { rename(e, newName) } }
+      }
+      .alert("Rename section", isPresented: Binding(get: { renamingSection != nil }, set: { if !$0 { renamingSection = nil } })) {
+        TextField("Name", text: $newName)
+        Button("Cancel", role: .cancel) {}
+        Button("Save") { if let s = renamingSection { save(SideLayout.renameSection(layout, s.id, newName)) } }
+      }
+      .confirmationDialog("Delete \(deleting?.name ?? "")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+        Button("Delete", role: .destructive) { if let e = deleting { delete(e) } }
+        Button("Keep it", role: .cancel) {}
+      } message: {
+        Text(deleting?.isTeam == true ? "Its messages and threads are deleted for everyone. This can't be undone." : "Its notes and personality stay in memory. Its schedules and chats stop.")
+      }
+      .confirmationDialog("Leave \(leaving?.name ?? "")?", isPresented: Binding(get: { leaving != nil }, set: { if !$0 { leaving = nil } }), titleVisibility: .visible) {
+        Button("Leave team", role: .destructive) { if let id = leaving?.channel?.id { action.run { try await store.leaveChannel(id) } } }
+      }
       .managementAlert(action)
     }
     .task(id: store.route) { await open(store.route) }
@@ -122,37 +154,19 @@ struct ChatsView: View {
 
   // MARK: top of the page
 
-  private var header: some View {
-    TopBar {
-      Button { openSettings() } label: { ProfileCircle() }
-        .buttonStyle(.press)
-        .accessibilityIdentifier("profile-button")
-        .contextMenu {
-          Button("Switch workspace", systemImage: "building.2") { openOrganizations() }
-        }
-    } center: {
-      EmptyView()
-    } trailing: {
-      Menu {
-        Button("New chat", systemImage: "square.and.pencil") { sheet = "chat" }
-        if store.canManage {
-          Button("New agent", systemImage: "sparkles") { sheet = "agent" }
-          Button("New team", systemImage: "person.2") { sheet = "team" }
-          Button("New section", systemImage: "folder.badge.plus") { sheet = "section" }
-        } else {
-          Button("Browse teams", systemImage: "magnifyingglass") { sheet = "browse" }
-        }
-      } label: { CircleLabel(symbol: "plus", weight: .regular) }
-        .accessibilityLabel("New chat, agent or team").accessibilityIdentifier("new-menu")
-    }
-  }
-
-  private var searchField: some View {
-    HStack(spacing: 12) {
-      HStack(spacing: 10) {
-        Image(systemName: "magnifyingglass").font(.system(size: 17, weight: .medium)).foregroundStyle(Palette.faint)
-        TextField("Search chats", text: $search)
-          .font(.system(size: 15)).foregroundStyle(Palette.text)
+  /** Search and + on one line (and your profile, for Settings and other workspaces). */
+  private var searchRow: some View {
+    HStack(spacing: 8) {
+      if !searchMode {
+        Button { openSettings() } label: { ProfileCircle(size: 38) }
+          .buttonStyle(.press)
+          .accessibilityIdentifier("profile-button")
+          .contextMenu { Button("Switch workspace", systemImage: "building.2") { openOrganizations() } }
+      }
+      HStack(spacing: 8) {
+        Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .medium)).foregroundStyle(Palette.faint)
+        TextField("Search", text: $search)
+          .font(.system(size: 16)).foregroundStyle(Palette.text)
           .focused($searchFocused)
           .submitLabel(.search)
           .textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -162,14 +176,26 @@ struct ChatsView: View {
             .buttonStyle(.plain).accessibilityLabel("Clear")
         }
       }
-      .padding(.horizontal, 16).frame(height: 46)
+      .padding(.horizontal, 14).frame(height: 38)
       .background(Capsule().fill(Palette.field))
       if searchMode {
         Button("Cancel") { search = ""; searchFocused = false }
           .font(.system(size: 15)).foregroundStyle(Palette.text).buttonStyle(.plain)
+      } else {
+        Menu {
+          Button("New chat", systemImage: "square.and.pencil") { sheet = "chat" }
+          if store.canManage {
+            Button("New agent", systemImage: "sparkles") { sheet = "agent" }
+            Button("New team", systemImage: "person.2") { sheet = "team" }
+          } else {
+            Button("Browse teams", systemImage: "magnifyingglass") { sheet = "browse" }
+          }
+          if !guest { Button("New section", systemImage: "folder.badge.plus") { newSection() } }
+        } label: { CircleLabel(symbol: "plus", size: 38, weight: .regular) }
+          .accessibilityLabel("New chat, agent or team").accessibilityIdentifier("new-menu")
       }
     }
-    .padding(.horizontal, 18).padding(.top, searchMode ? 12 : 0).padding(.bottom, 4)
+    .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 8)
   }
 
   // MARK: the list
@@ -206,52 +232,279 @@ struct ChatsView: View {
     }
   }
 
-  @ViewBuilder private var chatRows: some View {
-    let all = entries
-    let loose = all.filter { e in e.sectionId == nil || !store.sections.contains { $0.id == e.sectionId } }
-    ForEach(Array(loose.enumerated()), id: \.element.id) { i, e in rowView(e, i) }
-    ForEach(store.sections) { section in
-      let rows = all.filter { $0.sectionId == section.id }
-      Section {
-        if !collapsed.contains(section.id) { ForEach(Array(rows.enumerated()), id: \.element.id) { i, e in rowView(e, i) } }
-      } header: {
-        sectionHeader(section, count: rows.count)
-      }
-    }
-  }
-
-  private func rowView(_ entry: ChatEntry, _ index: Int = 0) -> some View {
-    ChatRow(entry: entry, open: { openEntry(entry) }, path: $path)
-      .rowEntrance(index)
-      .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
+  private func plain<V: View>(_ v: V) -> some View {
+    v.listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
       .listRowSeparator(.hidden)
       .listRowBackground(Color.clear)
   }
 
-  private func sectionHeader(_ section: ChannelSection, count: Int) -> some View {
-    let open = !collapsed.contains(section.id)
-    return Button {
-      withAnimation(Motion.settle) { if open { collapsed.insert(section.id) } else { collapsed.remove(section.id) } }
+  @ViewBuilder private var chatRows: some View {
+    let all = entries
+    let byKey = Dictionary(all.map { ($0.key, $0) }, uniquingKeysWith: { a, _ in a })
+    let l = layout
+    let placed = SideLayout.place(l, chats: layoutChats)
+    if let notice {
+      plain(SuggestionBanner(symbol: "pin", text: notice, onClose: { self.notice = nil }, closeLabel: "OK").padding(.horizontal, -12).padding(.bottom, 8))
+    }
+    let pins = placed.pins.compactMap { byKey[$0] }
+    if !pins.isEmpty { plain(pinGrid(pins, layout: l)) }
+    plain(filterTabs(all))
+    if filter == "turn" {
+      let waiting = all.filter(needsYou)
+      ForEach(Array(waiting.enumerated()), id: \.element.id) { i, e in rowView(e, i, layout: l) }
+      plain(Text(waiting.isEmpty ? "Nobody is waiting on you." : "Everyone else is under All.")
+        .font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 6).padding(.top, 10).padding(.bottom, 6))
+    } else {
+      let shown = placed.sections.filter { !$0.isNone || !$0.keys.isEmpty || placed.sections.count == 1 }
+      ForEach(shown) { section in
+        let rows = section.keys.compactMap { byKey[$0] }
+        if !(section.isNone && l.sections.isEmpty) { plain(sectionHeader(section, count: rows.count, layout: l)) }
+        if !section.folded {
+          ForEach(Array(rows.enumerated()), id: \.element.id) { i, e in rowView(e, i, layout: l) }
+          if !section.isNone && rows.isEmpty {
+            plain(Text("Hold an agent or team, then choose Move to section")
+              .font(.system(size: 13)).foregroundStyle(Palette.muted)
+              .frame(maxWidth: .infinity).frame(height: 52)
+              .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Palette.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+              .padding(.horizontal, 4).padding(.bottom, 6))
+          }
+        }
+      }
+      if !guest {
+        plain(Button { newSection() } label: {
+          Label("New section", systemImage: "plus").font(.system(size: 14)).foregroundStyle(Palette.muted)
+            .frame(maxWidth: .infinity, alignment: .leading).frame(height: 40).padding(.horizontal, 6).contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityIdentifier("new-section"))
+      }
+    }
+  }
+
+  // MARK: pins
+
+  private func pinCell(_ e: ChatEntry, layout l: SidebarLayout) -> some View {
+    VStack(spacing: 6) {
+      ChatAvatar(entry: e, size: 70)
+        .overlay(alignment: .topTrailing) { dot(e, size: 70, layout: l) }
+      Text(e.name).font(.system(size: 14, weight: isUnread(e, l) ? .semibold : .regular))
+        .foregroundStyle(isUnread(e, l) ? Palette.text : Palette.muted).lineLimit(1).frame(maxWidth: 96)
+    }
+  }
+
+  private func pinGrid(_ pins: [ChatEntry], layout l: SidebarLayout) -> some View {
+    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 3), spacing: 4) {
+      ForEach(pins) { e in
+        // A menu whose tap opens the chat: inside one List row, .contextMenu on several pins
+        // would all show the first pin's menu, so each pin holds its own.
+        Menu { menu(e, layout: l) } label: {
+          pinCell(e, layout: l)
+            .frame(maxWidth: .infinity).frame(height: 100)
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        } primaryAction: { openEntry(e) }
+        .menuStyle(.button)
+        .buttonStyle(.press)
+        .accessibilityLabel("\(e.name), pinned\(isUnread(e, l) ? ", unread" : "")\(needsYou(e) ? ", needs you" : "")")
+        .accessibilityIdentifier("pin")
+      }
+    }
+    .padding(.bottom, 6)
+    .accessibilityElement(children: .contain).accessibilityLabel("Pinned")
+  }
+
+  /** a blue dot when unread, orange when a team waits on you (an agent's own bubble shows that) */
+  @ViewBuilder private func dot(_ e: ChatEntry, size: CGFloat, layout l: SidebarLayout) -> some View {
+    let d = max(8, size * 0.22)
+    if needsYou(e) && e.isTeam {
+      Circle().fill(Color(hex: 0xFF9F0A)).frame(width: d, height: d).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
+    } else if !needsYou(e) && isUnread(e, l) {
+      Circle().fill(Color(hex: 0x0A84FF)).frame(width: d, height: d).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
+    }
+  }
+
+  // MARK: All / Your turn
+
+  private func filterTabs(_ all: [ChatEntry]) -> some View {
+    let waiting = all.filter(needsYou).count
+    return HStack(spacing: 0) {
+      ForEach(["all", "turn"], id: \.self) { f in
+        Button { withAnimation(Motion.settle) { filter = f } } label: {
+          HStack(spacing: 4) {
+            Text(f == "all" ? "All" : "Your turn")
+            if f == "turn" && waiting > 0 { Text("\(waiting)").fontWeight(.bold).foregroundStyle(Color(light: 0xB25E00, dark: 0xFF9F0A)) }
+          }
+          .font(.system(size: 15, weight: filter == f ? .semibold : .regular))
+          .foregroundStyle(filter == f ? Palette.text : Palette.muted)
+          .frame(maxWidth: .infinity).frame(height: 32)
+          .background { if filter == f { RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Palette.control).shadow(color: .black.opacity(0.12), radius: 1.5, y: 1) } }
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(filter == f ? [.isSelected] : [])
+        .accessibilityIdentifier(f == "all" ? "filter-all" : "filter-turn")
+      }
+    }
+    .padding(3)
+    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.field))
+    .padding(.horizontal, 4).padding(.bottom, 6)
+  }
+
+  // MARK: rows and sections
+
+  private func rowView(_ entry: ChatEntry, _ index: Int = 0, layout l: SidebarLayout? = nil) -> some View {
+    ChatRow(entry: entry, unread: l.map { isUnread(entry, $0) } ?? (entry.badge > 0), open: { openEntry(entry) }, path: $path) {
+      if let l { menu(entry, layout: l) }
+    }
+    .rowEntrance(index)
+    .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
+    .listRowSeparator(.hidden)
+    .listRowBackground(Color.clear)
+  }
+
+  private func sectionHeader(_ s: SideLayout.Placed, count: Int, layout l: SidebarLayout) -> some View {
+    Button {
+      withAnimation(Motion.settle) { save(SideLayout.fold(l, s.id, !s.folded)) }
     } label: {
-      HStack(spacing: 8) {
-        Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold)).rotationEffect(.degrees(open ? 0 : -90))
-        Text(section.title).font(.system(size: 13, weight: .semibold)).tracking(0.5).textCase(.uppercase)
+      HStack(spacing: 6) {
+        Image(systemName: "chevron.down").font(.system(size: 12, weight: .bold)).rotationEffect(.degrees(s.folded ? -90 : 0))
+        Text(s.name).font(.system(size: 15, weight: .medium)).lineLimit(1)
+        if count > 0 { Text("\(count)").font(.system(size: 15)) }
         Spacer()
       }
-      .foregroundStyle(Palette.faint)
-      .padding(.horizontal, 4).padding(.top, 14).padding(.bottom, 4)
+      .foregroundStyle(Palette.muted)
+      .padding(.horizontal, 6).frame(height: 36)
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
-    .textCase(nil)
-    .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
-    .accessibilityLabel("\(section.name), \(count) \(count == 1 ? "chat" : "chats"), \(open ? "expanded" : "collapsed")")
+    .accessibilityLabel("\(s.name), \(count) \(count == 1 ? "chat" : "chats"), \(s.folded ? "collapsed" : "expanded")")
     .contextMenu {
-      if store.canManage {
-        Button("Rename section", systemImage: "pencil") { editingSection = section }
-        Button("Delete section", systemImage: "trash", role: .destructive) { deletingSection = section }
+      if !guest && !s.isNone {
+        Button("Rename section", systemImage: "pencil") { newName = s.name; renamingSection = s }
+        Button("Delete section", systemImage: "trash", role: .destructive) { save(SideLayout.deleteSection(l, s.id)) }
       }
     }
+  }
+
+  /** Press and hold (board 7): Pin, Move to section, Mark as unread, Rename, Hide, and the rest of what a chat can do. */
+  @ViewBuilder private func menu(_ e: ChatEntry, layout l: SidebarLayout) -> some View {
+    let pinned = l.pins.contains(e.key)
+    let channel = e.channel.flatMap { c in store.channels.first { $0.id == c.id } } ?? e.channel
+    let muted = channel?.isMuted == true
+    if pinned { Button("Unpin", systemImage: "pin.slash") { unpin(e, l) } }
+    else { Button("Pin", systemImage: "pin") { pin(e, l) } }
+    if !guest {
+      let here = l.sections.first { $0.items.contains(e.key) }?.id ?? SideLayout.none
+      Menu("Move to section", systemImage: "folder") {
+        Button { move(e, to: SideLayout.none, l) } label: { Label("No section", systemImage: here == SideLayout.none && !pinned ? "checkmark" : "tray") }
+        ForEach(l.sections, id: \.id) { s in
+          Button { move(e, to: s.id, l) } label: { Label(s.name, systemImage: here == s.id && !pinned ? "checkmark" : "folder") }
+        }
+        Button("New section", systemImage: "plus") { newSection(with: e) }
+      }
+    }
+    if isUnread(e, l) {
+      Button("Mark as read", systemImage: "checkmark.message") {
+        save(SideLayout.clearUnread(l, e.key))
+        if let id = channel?.id, e.badge > 0 { action.run { try await store.readChannel(id) } }
+      }
+    } else {
+      Button("Mark as unread", systemImage: "message.badge") { save(SideLayout.markUnread(l, e.key)) }
+    }
+    if canRename(e) { Button("Rename", systemImage: "pencil") { newName = e.name; renaming = e } }
+    Button("Hide", systemImage: "eye.slash") { save(SideLayout.hide(l, e.key)) }
+    Button(muted ? "Unmute" : "Mute", systemImage: muted ? "bell" : "bell.slash") {
+      action.run { let c = try await ensureChannel(e); try await store.setChannelPrefs(c.id, ["notify": AnyEncodable(muted ? "default" : "mute")]) }
+    }
+    if case .agent(let a) = e.kind { Button("Agent profile", systemImage: "person.crop.circle") { path.append(store.agent(a.id) ?? a) } }
+    if e.isTeam, channel?.name != "general" { Button("Leave team", systemImage: "rectangle.portrait.and.arrow.right") { leaving = e } }
+    if store.canManage, !(e.isTeam && channel?.name == "general") {
+      Button("Delete", systemImage: "trash", role: .destructive) { deleting = e }
+    }
+  }
+
+  // MARK: what the menu does
+
+  private func isUnread(_ e: ChatEntry, _ l: SidebarLayout) -> Bool { e.badge > 0 || (l.unread ?? []).contains(e.key) }
+
+  /** Waiting on you: an agent that needs signing in, an approval, or a chat that waits for your answer (web: preview line "needs"). */
+  private func needsYou(_ e: ChatEntry) -> Bool {
+    if case .agent(let a) = e.kind, (store.agent(a.id) ?? a).needsSignIn { return true }
+    let channel = e.channel.flatMap { c in store.channels.first { $0.id == c.id } } ?? e.channel
+    if store.role != "guest", let id = channel?.id, store.pendingApprovals.contains(where: { $0.channelId == id }) { return true }
+    if let c = channel, case .waiting = Loops.listLine(c) { return true }
+    return false
+  }
+
+  private func canRename(_ e: ChatEntry) -> Bool {
+    guard store.canManage else { return false }
+    if e.isTeam { return e.channel?.name != "general" }
+    return true
+  }
+
+  private func save(_ next: SidebarLayout) {
+    guard next != store.prefs?.sidebar else { return }
+    action.run { try await store.saveSidebar(next) }
+  }
+
+  private func pin(_ e: ChatEntry, _ l: SidebarLayout) {
+    guard let next = SideLayout.pin(l, e.key) else {
+      withAnimation(Motion.settle) { notice = SideLayout.pinsFullNotice(e.name) }
+      return
+    }
+    notice = nil
+    save(next)
+    if let id = e.channel?.id, e.channel?.starred != true { Task { try? await store.setChannelPrefs(id, ["starred": AnyEncodable(true)]) } }
+  }
+
+  private func unpin(_ e: ChatEntry, _ l: SidebarLayout) {
+    save(SideLayout.unpin(l, e.key))
+    if let id = e.channel?.id, e.channel?.starred == true { Task { try? await store.setChannelPrefs(id, ["starred": AnyEncodable(false)]) } }
+  }
+
+  private func move(_ e: ChatEntry, to id: String, _ l: SidebarLayout) {
+    let wasPinned = l.pins.contains(e.key)
+    save(SideLayout.move(l, e.key, to: id))
+    if wasPinned, let cid = e.channel?.id, e.channel?.starred == true { Task { try? await store.setChannelPrefs(cid, ["starred": AnyEncodable(false)]) } }
+  }
+
+  private func newSection(with e: ChatEntry? = nil) {
+    let l = layout
+    let id = "s\(String(Int(Date().timeIntervalSince1970 * 1000), radix: 36))"
+    let name = SideLayout.newSectionName(l)
+    filter = "all"
+    save(SideLayout.addSection(l, name: name, id: id, key: e?.key))
+    newName = name
+    renamingSection = SideLayout.Placed(id: id, name: name, folded: false, keys: [])
+  }
+
+  private func rename(_ e: ChatEntry, _ name: String) {
+    let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !clean.isEmpty, clean != e.name else { return }
+    action.run {
+      switch e.kind {
+      case .agent(let a): _ = try await store.updateAgent(a.id, ["name": AnyEncodable(String(clean.prefix(80)))])
+      case .team(let c):
+        let slug = ManagementText.channelName(clean)
+        guard !slug.isEmpty else { return }
+        try await store.updateChannel(c.id, ["name": AnyEncodable(slug)])
+      }
+    }
+  }
+
+  private func delete(_ e: ChatEntry) {
+    let l = layout
+    action.run {
+      switch e.kind {
+      case .agent(let a): try await store.deleteAgent(a.id)
+      case .team(let c): try await store.deleteChannel(c.id)
+      }
+      try? await store.saveSidebar(SideLayout.forget(l, e.key))
+    }
+  }
+
+  /** the chat to change a setting on; an agent's chat is made the first time you do */
+  private func ensureChannel(_ e: ChatEntry) async throws -> Channel {
+    if let c = e.channel { return c }
+    guard case .agent(let a) = e.kind else { throw API.Failure(status: 0, message: "That chat isn't available.") }
+    return try await store.dm(with: a)
   }
 
   // MARK: search
@@ -259,15 +512,15 @@ struct ChatsView: View {
   @ViewBuilder private var searchRows: some View {
     let chats = matches.filter { !$0.isTeam }
     let teams = matches.filter { $0.isTeam }
-    if !chats.isEmpty { Section { ForEach(chats) { rowView($0) } } header: { searchHeader("Chats") } }
-    if !teams.isEmpty { Section { ForEach(teams) { rowView($0) } } header: { searchHeader("Teams") } }
+    if !chats.isEmpty { Section { ForEach(chats) { rowView($0, layout: layout) } } header: { searchHeader("Chats") } }
+    if !teams.isEmpty { Section { ForEach(teams) { rowView($0, layout: layout) } } header: { searchHeader("Teams") } }
     if !query.isEmpty { searchResults(shown: matches) }
   }
 
   private func searchHeader(_ title: String) -> some View {
-    Text(title).font(.system(size: 13, weight: .semibold)).tracking(0.5).textCase(.uppercase).foregroundStyle(Palette.faint)
-      .padding(.horizontal, 4).padding(.top, 14)
-      .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
+    Text(title).font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.muted)
+      .padding(.horizontal, 6).padding(.top, 10)
+      .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
   }
 
   @ViewBuilder private func searchResults(shown: [ChatEntry]) -> some View {
@@ -310,6 +563,9 @@ struct ChatsView: View {
   }
 
   private func openEntry(_ entry: ChatEntry) {
+    // opening a chat you marked unread clears the mark
+    let l = layout
+    if (l.unread ?? []).contains(entry.key) { save(SideLayout.clearUnread(l, entry.key)) }
     if let channel = entry.channel { path.append(channel); return }
     if case .agent(let agent) = entry.kind {
       action.run { path.append(try await store.dm(with: agent)) }
@@ -351,41 +607,63 @@ struct ChatsView: View {
   }
 }
 
-/** A row: the agent's ghost (or a team's two), its name and time, and what was said or what it's doing. */
-struct ChatRow: View {
+/** A chat's bubble: an agent's own, or a team's image or its first two agents' bubbles overlapped. */
+struct ChatAvatar: View {
   @Environment(Store.self) private var store
   var entry: ChatEntry
+  var size: CGFloat
+
+  var body: some View {
+    switch entry.kind {
+    case .agent(let a): AgentAvatar(agent: store.agent(a.id) ?? a, size: size, showStatus: false)
+    case .team(let c): TeamGhosts(agents: c.iconAgents(store.agents), seed: c.name, size: size, iconFileId: c.settings?.iconFileId).frame(width: size, height: size)
+    }
+  }
+}
+
+/** A row (80pt): the bubble, its name and time, and up to two lines of what was said or what it's doing. */
+struct ChatRow<Menu: View>: View {
+  @Environment(Store.self) private var store
+  var entry: ChatEntry
+  var unread: Bool
   var open: () -> Void
   @Binding var path: NavigationPath
+  @ViewBuilder var menu: Menu
   @State private var action = FormAction()
-  @State private var moving = false
-  @State private var leaving = false
 
   private var channel: Channel? { entry.channel.flatMap { c in store.channels.first { $0.id == c.id } } ?? entry.channel }
   private var muted: Bool { channel?.isMuted == true }
 
   var body: some View {
     Button(action: open) {
-      HStack(spacing: 14) {
-        avatar
-        VStack(alignment: .leading, spacing: 4) {
-          HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(entry.name).font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
-            Spacer(minLength: 8)
-            if entry.pinned { Image(systemName: "pin.fill").font(.system(size: 11)).foregroundStyle(Palette.faint).accessibilityLabel("Pinned") }
-            if entry.badge > 0 { Circle().fill(Palette.tabChats).frame(width: 8, height: 8).accessibilityHidden(true) }
-            if let at = entry.lastAt { Text(ChatList.timeText(at)).font(.system(size: 13)).foregroundStyle(entry.badge > 0 ? Palette.tabChats : Palette.faint) }
+      HStack(spacing: 12) {
+        ChatAvatar(entry: entry, size: 48)
+          .overlay(alignment: .topTrailing) {
+            if unread && !needsTeam {
+              Circle().fill(Color(hex: 0x0A84FF)).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
+            } else if needsTeam {
+              Circle().fill(Color(hex: 0xFF9F0A)).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
+            }
           }
-          HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 2) {
+          HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(entry.name).font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+            Spacer(minLength: 8)
+            if muted { Image(systemName: "bell.slash").font(.system(size: 12)).foregroundStyle(Palette.faint).accessibilityLabel("Muted") }
+            if let at = entry.lastAt { Text(ChatList.timeText(at)).font(.system(size: 14)).foregroundStyle(Palette.muted) }
+          }
+          HStack(alignment: .top, spacing: 8) {
             subtitle
             Spacer(minLength: 0)
-            if muted { Image(systemName: "bell.slash").font(.system(size: 13)).foregroundStyle(Palette.faint) }
             if entry.badge > 0 { UnreadBadge(count: entry.badge) }
           }
         }
+        .frame(maxHeight: .infinity)
+        .overlay(alignment: .bottom) { Rectangle().fill(Palette.separator).frame(height: 0.5) }
+        .opacity(muted ? 0.6 : 1)
       }
-      .padding(.vertical, 8).frame(minHeight: 96)
-      .opacity(muted ? 0.6 : 1)
+      .padding(.leading, 4)
+      .frame(height: 80)
       .contentShape(Rectangle())
     }
     .buttonStyle(.pressRow)
@@ -393,32 +671,18 @@ struct ChatRow: View {
     .accessibilityIdentifier(entry.isTeam ? "team-row" : "chat-row")
     .contextMenu { menu }
     .swipeActions(edge: .leading, allowsFullSwipe: false) {
-      pinButton.tint(.orange)
       if channel != nil { Button("Mark as read", systemImage: "checkmark") { action.run { try await store.readChannel(channel!.id) } }.tint(.blue) }
     }
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-      if entry.isTeam, channel?.name != "general" { Button("Leave", role: .destructive) { leaving = true } }
       muteButton.tint(.gray)
-      if entry.isTeam, store.canManage { Button("Move", systemImage: "folder") { moving = true }.tint(.indigo) }
-    }
-    .sheet(isPresented: $moving) { if let channel { MoveToSectionSheet(channel: channel) } }
-    .confirmationDialog("Leave \(entry.name)?", isPresented: $leaving, titleVisibility: .visible) {
-      Button("Leave team", role: .destructive) { if let channel { action.run { try await store.leaveChannel(channel.id) } } }
     }
     .managementAlert(action)
   }
 
-  // MARK: pieces
-
-  @ViewBuilder private var avatar: some View {
-    switch entry.kind {
-    case .agent(let a): SoloGhost(agent: store.agent(a.id) ?? a, size: 76)
-    case .team(let c): TeamGhosts(agents: teamAgents(c), seed: c.name, size: 76, iconFileId: c.settings?.iconFileId)
-    }
-  }
-
-  private func teamAgents(_ c: Channel) -> [Agent] {
-    c.iconAgents(store.agents)
+  /** a team that waits on you gets the orange dot (an agent's bubble hops with its own) */
+  private var needsTeam: Bool {
+    guard entry.isTeam, store.role != "guest", let id = channel?.id else { return false }
+    return store.pendingApprovals.contains { $0.channelId == id }
   }
 
   /** an agent is replying in this team right now */
@@ -427,40 +691,42 @@ struct ChatRow: View {
     return store.activityChannel.compactMap { agentId, ch in ch == id ? store.agent(agentId) : nil }.first { $0.status == .busy }
   }
 
+  private static var line: Font { .system(size: 15) }
+
   @ViewBuilder private var subtitle: some View {
     if case .agent(let a) = entry.kind, (store.agent(a.id) ?? a).status == .busy {
       let doing = store.activity[a.id].flatMap { $0 == "started" ? nil : $0 }
       HStack(spacing: 6) {
         WorkingDots(color: Palette.statusWorking)
-        Text(ActivityText.line(doing)).font(.system(size: 13)).foregroundStyle(Palette.statusWorkingText).lineLimit(1)
+        Text(ActivityText.line(doing)).font(Self.line).foregroundStyle(Palette.statusWorkingText).lineLimit(1)
       }
     } else if let agent = workingHere {
       HStack(spacing: 6) {
         WorkingDots(color: Palette.statusWorking)
-        Text("\(agent.name) is working").font(.system(size: 13)).foregroundStyle(Palette.statusWorkingText).lineLimit(1)
+        Text("\(agent.name) is working").font(Self.line).foregroundStyle(Palette.statusWorkingText).lineLimit(1)
       }
     } else if case .agent(let a) = entry.kind, let live = store.agent(a.id) ?? Optional(a), live.needsSignIn, let signIn = live.signIn {
-      Text("Needs sign-in · \(HarnessChoice.label(signIn.harness)) on \(signIn.where_)").font(.system(size: 13)).foregroundStyle(Palette.statusNeedsText).lineLimit(1)
+      Text("Needs sign-in · \(HarnessChoice.label(signIn.harness)) on \(signIn.where_)").font(Self.line).foregroundStyle(Palette.statusNeedsText).lineLimit(2)
     } else if let waiting = needsApproval {
-      Text("Needs approval" + (waiting.isEmpty ? "" : " · \(waiting)")).font(.system(size: 13)).foregroundStyle(Palette.statusNeedsText).lineLimit(1)
+      Text("Needs approval" + (waiting.isEmpty ? "" : " · \(waiting)")).font(Self.line).foregroundStyle(Palette.statusNeedsText).lineLimit(2)
     } else if let line = channel.flatMap({ Loops.listLine($0) }) {
       // where a chat with an agent stands: waiting on you, when it comes back, or done
       switch line {
       case .waiting(let text):
-        Text(text).font(.system(size: 13)).foregroundStyle(Palette.statusNeedsText).lineLimit(1)
+        Text(text).font(Self.line).foregroundStyle(Palette.statusNeedsText).lineLimit(2)
       case .back(let text):
         HStack(spacing: 5) {
-          Image(systemName: "clock").font(.system(size: 12)).foregroundStyle(Palette.faint)
-          Text(text).font(.system(size: 13)).foregroundStyle(Palette.muted).lineLimit(1)
+          Image(systemName: "clock").font(.system(size: 13)).foregroundStyle(Palette.faint)
+          Text(text).font(Self.line).foregroundStyle(Palette.muted).lineLimit(2)
         }
       case .done:
-        HStack(spacing: 5) {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
           Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.statusOnline).accessibilityLabel("Done")
-          Text(Self.mentioned(preview)).font(.system(size: 13)).foregroundStyle(Palette.muted).lineLimit(1)
+          Text(Self.mentioned(preview)).font(Self.line).foregroundStyle(Palette.muted).lineLimit(2)
         }
       }
     } else {
-      Text(Self.mentioned(preview)).font(.system(size: 13)).foregroundStyle(Palette.muted).lineLimit(1)
+      Text(Self.mentioned(preview)).font(Self.line).foregroundStyle(Palette.muted).lineLimit(2)
     }
   }
 
@@ -486,7 +752,7 @@ struct ChatRow: View {
 
   private var preview: String {
     if let m = entry.last, m.deletedAt == nil {
-      var text = SearchText.clean(m.body, max: 90)
+      var text = SearchText.clean(m.body, max: 120)
       if text.isEmpty, !m.files.isEmpty { text = "Sent \(m.files.count == 1 ? "a file" : "\(m.files.count) files")" }
       if !text.isEmpty {
         if m.author.kind == .user && m.author.id == store.me?.id { return "You: \(text)" }
@@ -502,15 +768,6 @@ struct ChatRow: View {
     }
   }
 
-  @ViewBuilder private var menu: some View {
-    pinButton
-    if entry.isTeam, store.canManage { Button("Move to section", systemImage: "folder") { moving = true } }
-    if channel != nil || !entry.isTeam { muteButton }
-    if channel != nil { Button("Mark as read", systemImage: "checkmark") { action.run { try await store.readChannel(channel!.id) } } }
-    if case .agent(let a) = entry.kind { Button("Agent profile", systemImage: "person.crop.circle") { path.append(store.agent(a.id) ?? a) } }
-    if entry.isTeam, channel?.name != "general" { Button("Leave team", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { leaving = true } }
-  }
-
   /** the chat to change a setting on; an agent's chat is made the first time you do */
   private func ensureChannel() async throws -> Channel {
     if let channel { return channel }
@@ -518,70 +775,10 @@ struct ChatRow: View {
     return try await store.dm(with: a)
   }
 
-  private var pinButton: some View {
-    Button(entry.pinned ? "Unpin" : "Pin to top", systemImage: entry.pinned ? "pin.slash" : "pin") {
-      action.run { let c = try await ensureChannel(); try await store.setChannelPrefs(c.id, ["starred": AnyEncodable(!entry.pinned)]) }
-    }
-  }
-
   private var muteButton: some View {
     Button(muted ? "Unmute" : "Mute", systemImage: muted ? "bell" : "bell.slash") {
       action.run { let c = try await ensureChannel(); try await store.setChannelPrefs(c.id, ["notify": AnyEncodable(muted ? "default" : "mute")]) }
     }
-  }
-}
-
-/** "Move to section": No section, each section (a check on the current one), and a new one. */
-struct MoveToSectionSheet: View {
-  @Environment(Store.self) private var store
-  @Environment(\.dismiss) private var dismiss
-  var channel: Channel
-  @State private var action = FormAction()
-  @State private var newSection = false
-
-  private var currentId: String? { (store.channels.first { $0.id == channel.id } ?? channel).sectionId }
-
-  var body: some View {
-    VStack(spacing: 0) {
-      SheetHeader(title: "Move to section") { dismiss() }
-      ScrollView {
-        VStack(alignment: .leading, spacing: 14) {
-          Text(channel.name).font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.text).padding(.horizontal, 6)
-          CardGroup {
-            choice("No section", id: nil, symbol: "tray")
-            ForEach(store.sections) { choice($0.title, id: $0.id, symbol: "folder") }
-            Button { newSection = true } label: {
-              RowLabel(title: "New section…", chevron: false) { Image(systemName: "plus").foregroundStyle(Palette.muted).frame(width: 26) }
-            }.buttonStyle(.plain)
-          }
-          InlineError(error: action.error)
-        }
-        .padding(.horizontal, 18).padding(.top, 8)
-      }
-    }
-    .background(Palette.sheet.ignoresSafeArea())
-    .presentationDetents([.medium, .large])
-    .presentationBackground(Palette.sheet)
-    .presentationCornerRadius(Corner.sheet)
-    .sheet(isPresented: $newSection) { SectionEditor() }
-    .managementAlert(action)
-  }
-
-  private func choice(_ title: String, id: String?, symbol: String) -> some View {
-    Button {
-      guard id != currentId else { dismiss(); return }
-      action.run {
-        try await store.updateChannel(channel.id, ["sectionId": id.map { AnyEncodable($0) } ?? .null])
-        dismiss()
-      }
-    } label: {
-      RowLabel(title: title, chevron: false) { Image(systemName: symbol).foregroundStyle(Palette.muted).frame(width: 26) }
-        .overlay(alignment: .trailing) {
-          if id == currentId { Image(systemName: "checkmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.blue).padding(.trailing, 18) }
-        }
-    }
-    .buttonStyle(.plain)
-    .disabled(action.busy)
   }
 }
 

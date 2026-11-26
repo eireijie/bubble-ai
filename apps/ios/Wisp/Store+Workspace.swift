@@ -74,6 +74,20 @@ extension Store {
     let data = try await fetch { try await $0.put("/api/me/prefs", fields) }
     prefs = try Wire.decoder.decode(Me.Prefs.self, from: data)
   }
+  /** Saves the chat list's pins and sections (UserPrefs.sidebar), shown at once and shared with the desktop. */
+  func saveSidebar(_ layout: SidebarLayout) async throws {
+    let before = prefs
+    var next = prefs ?? Me.Prefs()
+    next.sidebar = layout
+    prefs = next
+    do {
+      let data = try await fetch { try await $0.put("/api/me/prefs", ["sidebar": AnyEncodable(layout)]) }
+      prefs = try Wire.decoder.decode(Me.Prefs.self, from: data)
+    } catch {
+      prefs = before
+      throw error
+    }
+  }
   func refreshSessions() async throws { sessions = try await fetch { try await $0.get("/api/me/sessions") } }
   func signOutOthers() async throws {
     try await fetch { try await $0.post("/api/me/sessions/sign-out-others", Empty()) }
