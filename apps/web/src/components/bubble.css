@@ -93,8 +93,9 @@
 @keyframes bub-hop1 { 0%, 100% { transform: translateY(0) scale(1, 1); } 40% { transform: translateY(-14%) scale(0.96, 1.05); } 75% { transform: translateY(0) scale(1.05, 0.95); } }
 @keyframes bub-blink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.12); } }
 @keyframes bub-scan { 0%, 100% { transform: translateX(-45%); } 50% { transform: translateX(45%); } }
-/* idle eyes rest to one side (--rx/--ry, from the agent's id) and glance across and back */
-@keyframes bub-look { 0%, 38%, 100% { translate: var(--rx, 0%) var(--ry, 0%); } 44%, 56% { translate: calc(var(--rx, 0%) * -0.8) -12%; } 62%, 74% { translate: var(--rx, 0%) 12%; } }
+/* idle eyes rest to one side (--rx/--ry, from the agent's id) and glance across and back; never
+   straight ahead and never down: to the side, or to the side and a little up (owner, 2026-11-26) */
+@keyframes bub-look { 0%, 38%, 100% { translate: var(--rx, 0%) var(--ry, 0%); } 44%, 56% { translate: calc(var(--rx, 0%) * -0.8) -12%; } 62%, 74% { translate: var(--rx, 0%) calc(var(--ry, 0%) - 10%); } }
 @keyframes bub-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 
 /* small bubbles drifting up behind the onboarding bubble */
@@ -107,7 +108,39 @@
 @keyframes bub-float { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 82% { opacity: 1; } 100% { transform: translateY(var(--bub-rise, -640px)); opacity: 0; } }
 @keyframes bub-sway { from { transform: translateX(-12px); } to { transform: translateX(12px); } }
 
+/*
+ * What a bubble wears (2026-11-26): eye styles, a mouth, face wear, neckwear and hats (BubbleParts.tsx)
+ * and how it moves while idle. Worn SVGs fill the body's box; hats spill over its top.
+ */
+.bub-wear { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.bub-ink-line { fill: none; stroke: var(--bub-eye); stroke-width: 2.6; stroke-linecap: round; }
+.bub-ink-fill { fill: var(--bub-eye); }
+/* with a hat on, the body steps down and in so the hat fits inside the same square */
+.bub-hatted .bub-w { inset: 21% 10.5% 0 10.5%; }
+.bub-prop { transform-box: fill-box; transform-origin: center; animation: bub-prop 1.2s linear infinite; }
+@keyframes bub-prop { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(-1); } }
+
+/* eye styles; the plain round eye is .bub-e as it is */
+.bub.bub-eyes-big .bub-e { width: 14%; height: 20%; top: 36.5%; background: radial-gradient(circle at 64% 30%, #fff 0 15%, transparent 17%), var(--bub-eye); }
+.bub.bub-eyes-big .bub-e1 { left: 29.5%; }
+.bub.bub-eyes-big .bub-e2 { left: 56.5%; }
+.bub.bub-eyes-sparkle .bub-e { background: radial-gradient(circle at 66% 27%, #fff 0 17%, transparent 19%), radial-gradient(circle at 34% 72%, rgb(255 255 255 / 0.8) 0 9%, transparent 11%), var(--bub-eye); }
+.bub .bub-e.bub-arc { background: none; color: var(--bub-eye); height: 9%; top: 42%; width: 13%; margin-left: -1%; border-radius: 0; }
+.bub .bub-e.bub-arc svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* idle motion picked in Look: float (the wobble above), bounce, sway or still */
+.bub-move.bub-idle.bub-m-bounce .bub-w, .bub-move.bub-done.bub-m-bounce .bub-w { animation: bub-bounce 2.2s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+.bub-move.bub-idle.bub-m-sway .bub-w, .bub-move.bub-done.bub-m-sway .bub-w { animation: bub-sway-body 3.6s ease-in-out infinite; }
+.bub-move.bub-idle.bub-m-still .bub-w, .bub-move.bub-done.bub-m-still .bub-w, .bub-move.bub-m-still .bub-p { animation: none; }
+@keyframes bub-bounce { 0%, 100% { transform: translateY(0) scale(1, 1); } 45% { transform: translateY(-7%) scale(0.98, 1.02); } 60% { transform: translateY(0) scale(1.03, 0.97); } 70% { transform: translateY(0) scale(1, 1); } }
+@keyframes bub-sway-body { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+
+/* the Look editor's option grid slides in when its tab changes */
+.look-pane { animation: look-in 0.24s cubic-bezier(0.2, 0.8, 0.3, 1); }
+@keyframes look-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
 @media (prefers-reduced-motion: reduce) {
   .bub *, .bub { animation: none !important; transition: none !important; }
+  .look-pane { animation: none; }
   .bub-field { display: none; }
 }

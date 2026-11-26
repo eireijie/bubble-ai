@@ -107,9 +107,14 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
           {agents.length > 0 && shown.length === 0 && <p className="px-2 py-3 text-[13px] text-muted">No matches</p>}
           {agents.length === 0 && <p className="px-2 py-3 text-[13px] text-muted">No agents yet</p>}
           {canEdit && (
-            <button type="button" onClick={() => setBringing(true)} className="mt-3 inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">
-              Bring in an agent
-            </button>
+            <div className="mt-3 flex flex-wrap gap-x-1">
+              <a href={href({ view: "templates" })} className="inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">
+                Start from a template
+              </a>
+              <button type="button" onClick={() => setBringing(true)} className="inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">
+                Bring in an agent
+              </button>
+            </div>
           )}
         </div>
       </div>

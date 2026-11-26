@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Brain, ChevronLeft, GitCommitHorizontal, Monitor, MessageSquare, MoreHorizontal, Plug, ShieldAlert, ShieldCheck } from "lucide-react";
-import type { AccessLevel, Agent, HarnessCatalog } from "@bubble-ai/core";
+import { HARNESSES, VM_HARNESSES, runsInVm, type AccessLevel, type Agent, type HarnessCatalog } from "@bubble-ai/core";
+import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { soulPath, soulTemplate } from "@bubble-ai/core/src/soul.ts";
 import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx";
 import { useAccess } from "../access.ts";
@@ -17,6 +18,7 @@ import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, Pill, Statu
 import { PopNav } from "../components/SettingsDialog.tsx";
 import { RoutinesPanel, WorksOn, runsOnDevice } from "./AgentComputer.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
+import { AgentWatches } from "./AgentWatches.tsx";
 import { agentReadiness, isSharedComputer, useDevices, type DeviceInfo } from "../devices.ts";
 import { useComputerMode } from "../computerMode.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
@@ -183,7 +185,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
   const body = (g: AgentGroup): ReactNode => {
     switch (g) {
       case "thinks":
-        return <ThinksWith agent={agent} />;
+        return <ThinksWith agent={agent} nodes={nodes} />;
       case "works":
         return <WorksOn agent={agent} nodes={nodes} problem={readiness.ready ? null : (readiness.problem ?? "Setup incomplete")} fix={fixHere ? null : next} all={fixHere && next?.action === "Sign in"} />;
       case "can":
@@ -193,7 +195,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
       case "knows":
         return <Knows agent={agent} />;
       case "more":
-        return <More agent={agent} nodes={nodes} />;
+        return <More agent={agent} nodes={nodes} extra={<div className="pt-3"><AgentWatches agent={agent} /></div>} />;
     }
   };
   const unsaved = (g: AgentGroup) => (Object.keys(dirty) as AgentTab[]).some((t) => dirty[t] && TAB_GROUP[t] === g);
@@ -511,12 +513,28 @@ function InstructionsPanel({ agent, onDirty, active }: { agent: FullAgent; onDir
 // --- Thinks with --------------------------------------------------------------
 
 /**
- * What it thinks with, as rows: its AI, the model, the effort, and Fast when the model has it. Each
- * saves as it changes. A model that isn't on the list is typed in ("Other model…"); its handle is
- * behind "Show all".
+ * The AIs an agent can switch to: the ones installed where it runs (its device, or the computer it
+ * runs inside), and the one it has now. Agents that join from outside keep theirs.
  */
-function ThinksWith({ agent }: { agent: FullAgent }) {
+export function harnessChoices(agent: Pick<Agent, "harness" | "computerId" | "settings">, device: Pick<DeviceInfo, "harnesses" | "vmSignIns"> | undefined): string[] {
+  const inVm = runsInVm(agent.harness) && agent.settings.runIn === "computer" && !!agent.computerId;
+  const vm = inVm ? Object.keys(device?.vmSignIns?.[agent.computerId!] ?? {}) : [];
+  const here = inVm ? (vm.length ? vm : VM_HARNESSES) : (device?.harnesses ?? []).map((h) => h.id);
+  const list = [...new Set([agent.harness, ...here])].filter((id) => id === agent.harness || runsOnDevice(id));
+  // the order Bubble AI lists them in everywhere, then any a device declared itself
+  const order = HARNESSES.map((h) => h.id);
+  return list.sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+}
+
+/**
+ * What it thinks with, as rows: its AI (switch it here, as /harness does in chat), the model, the
+ * effort, and Fast when the model has it. Each saves as it changes. A model that isn't on the list is
+ * typed in ("Other model…"); its handle is behind "Show all".
+ */
+function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
+  const device = nodes.find((n) => n.id === agent.nodeId);
+  const choices = harnessChoices(agent, device);
   const [info, setInfo] = useState<{ device: { name: string; online: boolean } | null; catalog: HarnessCatalog | null } | null>(null);
   const [custom, setCustom] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -567,6 +585,12 @@ function ThinksWith({ agent }: { agent: FullAgent }) {
       throw e;
     }
   };
+  // a new AI starts on its own default model and effort; its memory, skills and chats stay
+  const setHarness = (id: string) => {
+    if (id === agent.harness) return;
+    setCustom(false);
+    void patch({ harness: id, model: null, settings: { effort: null, fast: false } }).catch(() => {});
+  };
   // an effort the new model doesn't offer goes back to the default with it
   const setModel = (id: string) => patch({ model: id.trim() || null, ...(effort && !offered(id.trim()).efforts.includes(effort) ? { settings: { effort: null } } : {}) });
 
@@ -584,7 +608,16 @@ function ThinksWith({ agent }: { agent: FullAgent }) {
   return (
     <>
       <div className={CARD}>
-        <Line label="AI" value={hLabel} />
+        <Line label="AI">
+          <HarnessLogo harness={agent.harness} size={16} />
+          <select aria-label="AI" value={agent.harness} onChange={(e) => setHarness(e.target.value)} disabled={choices.length < 2} title={choices.length < 2 ? "Nothing else is installed where it runs" : undefined} className={SELECT}>
+            {choices.map((id) => (
+              <option key={id} value={id}>
+                {harnessLabel(id)}
+              </option>
+            ))}
+          </select>
+        </Line>
         <Line label="Model">
           <select
             aria-label="Model"

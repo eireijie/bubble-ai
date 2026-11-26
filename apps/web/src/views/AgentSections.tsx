@@ -331,7 +331,7 @@ function NotesAccess({ agent }: { agent: Agent }) {
 // --- More ---------------------------------------------------------------------------
 
 /** The rest of the agent: its look and voice, who it answers, what it does by itself, its activity; connecting another app and removing it last. */
-export function More({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
+export function More({ agent, nodes, extra }: { agent: Agent; nodes: DeviceInfo[]; /** shown under the rows, above Remove (what it watches) */ extra?: ReactNode }) {
   const channels = useStore((s) => s.channels);
   const routinesVersion = useStore((s) => s.routinesVersion);
   const features = useFeatures();
@@ -358,6 +358,7 @@ export function More({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
           <Line label="Connect" to={to("connect")} />
         </ShowAll>
       </div>
+      {extra}
       <a href={to("remove")} className="inline-flex h-9 items-center px-1 text-[13px] font-medium text-bad hover:underline">
         Remove {agent.name}
       </a>

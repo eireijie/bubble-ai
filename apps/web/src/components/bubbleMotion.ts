@@ -47,11 +47,14 @@ export function restingGaze(seed: string): [number, number] {
   return RESTING_GAZE[h % RESTING_GAZE.length];
 }
 
-/** where the eyes go on a glance, from where they rest: across to the other side, then a little down */
-const LOOK: [string, string][] = [
+/**
+ * Where the eyes go on a glance, from where they rest: across to the other side and a little up,
+ * then back to their own side and a little up. Never straight ahead, never down (owner, 2026-11-26).
+ */
+export const LOOK: [string, string][] = [
   ["0%", "0%"],
-  ["calc(var(--rx, 0%) * -1.8)", "8%"],
-  ["0%", "14%"],
+  ["calc(var(--rx, 0%) * -1.8)", "-8%"],
+  ["0%", "-10%"],
 ];
 
 function watchPage() {
@@ -103,7 +106,7 @@ function tick() {
       for (const eye of el.querySelectorAll<HTMLElement>(".bub-e")) eye.animate(BLINK, { duration: s.sleepy ? 260 : 180, easing: "ease-in-out" });
     }
     if (s.glances && now >= s.nextLook) {
-      // rest a while, then up-left, hold, down-right, hold, back to rest
+      // rest a while, then across and up, hold, back to its side and up, hold, back to rest
       s.step = (s.step + 1) % 3;
       s.nextLook = now + (s.step === 0 ? jitter(s.sleepy ? 11000 : 7500) : s.sleepy ? 1900 : 1500);
       if (el.dataset.hov !== undefined) continue;

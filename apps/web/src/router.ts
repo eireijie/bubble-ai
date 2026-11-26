@@ -46,7 +46,8 @@ export type Route =
   | { view: "code" }
   | { view: "chats" }
   | { view: "you" }
-  | { view: "more" };
+  | { view: "more" }
+  | { view: "templates" };
 
 export const AGENT_TABS = ["overview", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "remove"] as const;
 export type AgentTab = (typeof AGENT_TABS)[number];
@@ -126,6 +127,8 @@ export function parseRoute(hash: string): Route {
       return { view: "you" };
     case "more":
       return { view: "more" };
+    case "templates":
+      return { view: "templates" };
     case "c": {
       const messageIndex = parts[2] === "t" ? 4 : parts[2] === "call" ? 3 : 2;
       const messageId = parts[messageIndex] === "m" ? parts[messageIndex + 1] : undefined;
@@ -178,6 +181,8 @@ export function href(r: Route): string {
       return "#/you";
     case "more":
       return "#/more";
+    case "templates":
+      return "#/templates";
     case "chat":
       return r.channelId ? `#/c/${r.channelId}${r.call ? "/call" : r.threadId ? `/t/${r.threadId}` : ""}${r.messageId ? `/m/${encodeURIComponent(r.messageId)}` : ""}` : "#/";
   }
