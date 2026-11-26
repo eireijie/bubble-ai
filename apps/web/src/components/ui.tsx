@@ -228,12 +228,12 @@ export function StatusChip({ status, needsSignIn }: { status: Agent["status"]; n
   );
 }
 
-/** Bubble AI's mark in one colour: the rounded-square bubble as a ring, two eyes glancing right (the menu bar and
+/** Bubble AI's mark in one colour: the round bubble as a ring, two eyes glancing right (the menu bar and
  * status-bar glyph). `draw` animates the ring drawing itself (the loading state). */
 export function BubbleMark({ size = 20, draw, className }: { size?: number; draw?: boolean; className?: string }) {
   return (
     <svg viewBox="0 0 120 120" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={draw ? 6 : 10.7} strokeLinecap="round" className={className} aria-hidden>
-      <rect className={draw ? "loader-draw" : undefined} pathLength={100} x="15.3" y="15.3" width="89.4" height="89.4" rx="25" />
+      <circle className={draw ? "loader-draw" : undefined} pathLength={100} cx="60" cy="60" r="44.7" />
       {!draw && (
         <g fill="currentColor" stroke="none">
           <ellipse cx="52" cy="56" rx="7.3" ry="13.5" />
@@ -244,8 +244,8 @@ export function BubbleMark({ size = 20, draw, className }: { size?: number; draw
   );
 }
 
-/** Bubble AI's full-colour mark, the app icon: a frosted, blue-tinted tile with a rainbow rim and two eyes glancing
- * right. Light and dark follow the app's mode (`.app-mark` in index.css). */
+/** Bubble AI's full-colour mark, the app icon: a frosted, blue-tinted round bubble with a rainbow rim and two eyes
+ * glancing right. Light and dark follow the app's mode (`.app-mark` in index.css). */
 export function AppMark({ size = 32, className }: { size?: number; className?: string }) {
   const id = useId().replace(/:/g, "");
   return (
@@ -269,10 +269,10 @@ export function AppMark({ size = 32, className }: { size?: number; className?: s
           <stop offset="1" stopColor="#fff" stopOpacity="0" />
         </radialGradient>
       </defs>
-      <rect className="am-base" width="64" height="64" rx="14.4" />
-      <rect fill={`url(#${id}g)`} width="64" height="64" rx="14.4" />
-      {size > 32 && <ellipse fill={`url(#${id}h)`} cx="16.64" cy="9.6" rx="8.96" ry="4.48" />}
-      <rect x="2.56" y="2.56" width="58.88" height="58.88" rx="11.84" fill="none" stroke={`url(#${id}r)`} strokeWidth="5.12" />
+      <circle className="am-base" cx="32" cy="32" r="32" />
+      <circle fill={`url(#${id}g)`} cx="32" cy="32" r="32" />
+      {size > 32 && <ellipse fill={`url(#${id}h)`} cx="19.84" cy="12.8" rx="8.96" ry="4.48" />}
+      <circle cx="32" cy="32" r={size > 32 ? 31.04 : 29.44} fill="none" stroke={`url(#${id}r)`} strokeWidth={size > 32 ? 1.92 : 5.12} />
       <ellipse className="am-eye" cx="24.64" cy="29.28" rx="5.44" ry="10.72" />
       <ellipse className="am-eye" cx="44.48" cy="29.28" rx="5.44" ry="10.72" />
     </svg>

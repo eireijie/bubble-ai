@@ -3,9 +3,9 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- the Bubble AI mark in one colour: the rounded-square bubble as a ring, two eyes glancing right -->
+    <!-- the Bubble AI mark in one colour: the round bubble as a ring, two eyes glancing right -->
     <path
         android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M8,2h8a6,6 0,0 1,6 6v8a6,6 0,0 1,-6 6h-8a6,6 0,0 1,-6 -6v-8a6,6 0,0 1,6 -6zM8.13,4.13h7.73a4,4 0,0 1,4 4v7.73a4,4 0,0 1,-4 4h-7.73a4,4 0,0 1,-4 -4v-7.73a4,4 0,0 1,4 -4zM8.93,11.2a1.47,2.69 0,1 0,2.94 0a1.47,2.69 0,1 0,-2.94 0zM14.26,11.2a1.47,2.69 0,1 0,2.94 0a1.47,2.69 0,1 0,-2.94 0z" />
+        android:pathData="M2,12a10,10 0,1 0,20 0a10,10 0,1 0,-20 0zM4.13,12a7.87,7.87 0,1 0,15.74 0a7.87,7.87 0,1 0,-15.74 0zM8.93,11.2a1.47,2.69 0,1 0,2.94 0a1.47,2.69 0,1 0,-2.94 0zM14.26,11.2a1.47,2.69 0,1 0,2.94 0a1.47,2.69 0,1 0,-2.94 0z" />
 </vector>

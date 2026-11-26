@@ -1,10 +1,11 @@
-// Draws the Bubble AI icons ("Full glass", direction D on the 2026-11-25 "Bubble AI icons" canvas) as PNGs:
+// Draws the Bubble AI icons ("D round" on the 2026-11-25 "Bubble AI icons" canvas) as PNGs:
 //   swift apps/ios/scripts/icons.swift
-// The tile itself is the bubble: frosted glass tinted soft blue, a rainbow rim round the tile's own edge, a
-// small highlight, and two eyes glancing to the right. Light by default; dark where the platform has a dark
-// icon. Writes the desktop app icon and menu bar template, the iOS app icons (light, dark, tinted) and Mark,
-// the Android launcher icons, and the web and site PNGs. The SVGs (apps/web/public/icon.svg,
-// site/public/favicon.svg) and the Android status-bar vector are hand-written to match.
+// The mark is a round glass bubble: frosted glass tinted soft blue, a rainbow rim round the circle, a small
+// highlight, and two eyes glancing to the right. The iPhone app icon alone keeps the square "Full glass" tile
+// (the tile itself is the bubble). Light by default; dark where the platform has a dark icon. Writes the
+// desktop app icon and menu bar template, the iOS app icons (light, dark, tinted) and Mark, the Android
+// launcher icons, and the web and site PNGs. The SVGs (apps/web/public/icon.svg, site/public/favicon.svg) and
+// the Android status-bar vector are hand-written to match.
 import AppKit
 
 let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
@@ -91,13 +92,60 @@ func bubble(_ ctx: CGContext, _ r: CGRect, radius: CGFloat, look: Look = .light,
   ctx.restoreGState()
 }
 
-/// The one-colour mark (menu bar template): a rounded-square ring with the two eyes, on an 18-unit grid.
+/// The round bubble in the square `r`: the same glass, rim, highlight and eyes as `bubble`, cut to a circle.
+/// `shadow` lifts it off whatever is behind (the macOS icon, the frosted tile).
+func roundBubble(_ ctx: CGContext, _ r: CGRect, look: Look = .light, small: Bool = false, shadow: Bool = false) {
+  let w = r.width, h = r.height
+  let base = look == .light ? rgb(0xf7f7f5) : rgb(0x161616)
+  if shadow {
+    ctx.saveGState()
+    ctx.setShadow(offset: CGSize(width: 0, height: 0.02 * w), blur: 0.05 * w, color: CGColor(srgbRed: 0.1, green: 0.14, blue: 0.28, alpha: 0.28))
+    ctx.setFillColor(base); ctx.fillEllipse(in: r)
+    ctx.restoreGState()
+  }
+  ctx.saveGState()
+  ctx.addEllipse(in: r); ctx.clip()
+  ctx.setFillColor(base); ctx.fill(r)
+  let a: [CGFloat] = look == .dark ? [0.18, 0.34, 0.56] : [0.14, 0.30, 0.52]
+  let glass = CGGradient(colorsSpace: srgb, colors: a.map { rgb(tint, $0) } as CFArray, locations: [0, 0.7, 1])!
+  let c = CGPoint(x: r.minX + 0.5 * w, y: r.minY + 0.45 * h)
+  ctx.drawRadialGradient(glass, startCenter: c, startRadius: 0, endCenter: c, endRadius: 0.8 * w, options: [.drawsAfterEndLocation])
+  if !small {
+    ctx.saveGState()
+    ctx.translateBy(x: r.minX + 0.31 * w, y: r.minY + 0.20 * h); ctx.scaleBy(x: 0.14 * w, y: 0.07 * h)
+    let hi = CGGradient(colorsSpace: srgb, colors: [CGColor(gray: 1, alpha: 0.8), CGColor(gray: 1, alpha: 0)] as CFArray, locations: [0, 1])!
+    ctx.drawRadialGradient(hi, startCenter: .zero, startRadius: 0, endCenter: .zero, endRadius: 1, options: [])
+    ctx.restoreGState()
+  }
+  // the rainbow rim round the circle
+  let t = (small ? 0.08 : 0.03) * w
+  let ring = CGMutablePath()
+  ring.addEllipse(in: r); ring.addEllipse(in: r.insetBy(dx: t, dy: t))
+  ctx.saveGState()
+  ctx.addPath(ring); ctx.clip(using: .evenOdd)
+  conic(ctx, center: CGPoint(x: r.midX, y: r.midY), radius: w)
+  ctx.restoreGState()
+  let (l1, l2, top, ew, eh): (CGFloat, CGFloat, CGFloat, CGFloat, CGFloat) = small ? (0.30, 0.61, 0.29, 0.17, 0.335) : (0.35, 0.62, 0.34, 0.13, 0.235)
+  ctx.setFillColor(look == .light ? rgb(0x141414) : rgb(0xf4f4f2))
+  for l in [l1, l2] { ctx.fillEllipse(in: CGRect(x: r.minX + l * w, y: r.minY + top * h, width: ew * w, height: eh * h)) }
+  ctx.restoreGState()
+}
+
+/// A soft frosted tile filling `r`, for places that must be square and opaque (the apple-touch-icon).
+func frostedTile(_ ctx: CGContext, _ r: CGRect) {
+  let g = CGGradient(colorsSpace: srgb, colors: [rgb(0xffffff), rgb(0xedf1f9), rgb(0xdde4f2)] as CFArray, locations: [0, 0.55, 1])!
+  ctx.setFillColor(rgb(0xdde4f2)); ctx.fill(r)
+  let c = CGPoint(x: r.minX + 0.3 * r.width, y: r.minY + 0.12 * r.height)
+  ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: 1.2 * r.width, options: [.drawsAfterEndLocation])
+}
+
+/// The one-colour mark (menu bar template): a round ring with the two eyes, on an 18-unit grid.
 func glyph(_ ctx: CGContext, _ s: CGFloat) {
   let k = s / 18
   ctx.scaleBy(x: k, y: k)
   let p = CGMutablePath()
-  p.addRoundedRect(in: CGRect(x: 1.5, y: 1.5, width: 15, height: 15), cornerWidth: 4.5, cornerHeight: 4.5)
-  p.addRoundedRect(in: CGRect(x: 3.1, y: 3.1, width: 11.8, height: 11.8), cornerWidth: 3, cornerHeight: 3)
+  p.addEllipse(in: CGRect(x: 1.5, y: 1.5, width: 15, height: 15))
+  p.addEllipse(in: CGRect(x: 3.1, y: 3.1, width: 11.8, height: 11.8))
   p.addEllipse(in: CGRect(x: 6.7, y: 6.38, width: 2.2, height: 4.04))
   p.addEllipse(in: CGRect(x: 10.7, y: 6.38, width: 2.2, height: 4.04))
   ctx.addPath(p)
@@ -110,32 +158,34 @@ let full = { (s: CGFloat) in CGRect(x: 0, y: 0, width: s, height: s) }
 // Apple's icon mask is about 22.4% round: the rim follows it so the system's rounding doesn't cut it off
 let appleRound: CGFloat = 0.2237
 
-// macOS/Windows/Linux app icon: a rounded tile with the usual macOS margin (824 of 1024)
-png(1024, "\(root)/desktop/build/icon.png") { ctx, s in bubble(ctx, CGRect(x: 100, y: 100, width: 824, height: 824), radius: 185) }
+// macOS/Windows/Linux app icon: the round bubble at the usual macOS size (824 of 1024), with a soft shadow
+png(1024, "\(root)/desktop/build/icon.png") { ctx, s in roundBubble(ctx, CGRect(x: 100, y: 92, width: 824, height: 824), shadow: true) }
 // menu bar: a black template image macOS tints for light and dark menu bars
 for (size, name) in [(18, "trayTemplate.png"), (36, "trayTemplate@2x.png")] {
   png(size, "\(root)/desktop/build/\(name)") { ctx, s in glyph(ctx, s) }
 }
-// iOS app icon: full bleed, the system rounds it; no alpha channel, or App Store Connect rejects the upload
+// iOS app icon: the square Full glass, full bleed, the system rounds it; no alpha channel, or App Store Connect rejects the upload
 let ios = "\(root)/ios/Wisp/Assets.xcassets"
 for (look, name) in [(Look.light, "icon-1024.png"), (.dark, "icon-1024-dark.png"), (.tinted, "icon-1024-tinted.png")] {
   png(1024, "\(ios)/AppIcon.appiconset/\(name)", opaque: true) { ctx, s in bubble(ctx, full(s), radius: s * appleRound, look: look, bleed: full(s)) }
 }
-// the mark inside the app (loading screen, About, Settings footer), light and dark
-png(1024, "\(ios)/Mark.imageset/mark.png") { ctx, s in bubble(ctx, full(s), radius: s * 0.225) }
-png(1024, "\(ios)/Mark.imageset/mark-dark.png") { ctx, s in bubble(ctx, full(s), radius: s * 0.225, look: .dark) }
-// Android launcher icons (legacy, used as both icon and roundIcon): a rounded tile with a small margin
+// the mark inside the app (loading screen, About, Settings footer): the round bubble, light and dark
+png(1024, "\(ios)/Mark.imageset/mark.png") { ctx, s in roundBubble(ctx, full(s)) }
+png(1024, "\(ios)/Mark.imageset/mark-dark.png") { ctx, s in roundBubble(ctx, full(s), look: .dark) }
+// Android launcher icons (legacy, used as both icon and roundIcon): the round bubble with a small margin
 for (size, dir) in [(48, "mdpi"), (72, "hdpi"), (96, "xhdpi"), (144, "xxhdpi"), (192, "xxxhdpi")] {
   png(size, "\(root)/android/app/src/main/res/mipmap-\(dir)/ic_launcher.png") { ctx, s in
     let m = (s * 0.04).rounded()
-    bubble(ctx, full(s).insetBy(dx: m, dy: m), radius: (s - 2 * m) * 0.2)
+    roundBubble(ctx, full(s).insetBy(dx: m, dy: m))
   }
 }
 // web app PWA icons
 for size in [192, 512] {
-  png(size, "\(root)/web/public/icon-\(size).png") { ctx, s in bubble(ctx, full(s), radius: s * 0.225) }
+  png(size, "\(root)/web/public/icon-\(size).png") { ctx, s in roundBubble(ctx, full(s)) }
 }
-// site: favicon, apple-touch-icon (opaque, iOS rounds it) and the share image
-png(32, "\(repo)/site/public/favicon-32.png") { ctx, s in bubble(ctx, full(s), radius: s * 0.225, small: true) }
-png(180, "\(repo)/site/public/apple-touch-icon.png", opaque: true) { ctx, s in bubble(ctx, full(s), radius: s * appleRound, bleed: full(s)) }
-png(512, "\(repo)/site/public/icon-512.png") { ctx, s in bubble(ctx, full(s), radius: s * 0.225) }
+// site: favicon, apple-touch-icon (opaque and square, so the bubble sits on a frosted tile) and the share image
+png(32, "\(repo)/site/public/favicon-32.png") { ctx, s in roundBubble(ctx, full(s), small: true) }
+png(180, "\(repo)/site/public/apple-touch-icon.png", opaque: true) { ctx, s in
+  frostedTile(ctx, full(s)); roundBubble(ctx, full(s).insetBy(dx: s * 0.1, dy: s * 0.1), shadow: true)
+}
+png(512, "\(repo)/site/public/icon-512.png") { ctx, s in roundBubble(ctx, full(s)) }
