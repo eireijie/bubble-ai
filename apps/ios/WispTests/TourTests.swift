@@ -116,8 +116,8 @@ final class TourTests: XCTestCase {
   }
 
   func testEyebrow() {
-    XCTAssertEqual(Tour.eyebrow(5), "Chapter 2 of 5 · Hands-off · 1 of 4")
-    XCTAssertEqual(Tour.eyebrow(2), "Chapter 1 of 5 · Talk · 3 of 5")
+    XCTAssertEqual(Tour.eyebrow(5), "Chapter 2 · Hands-off")
+    XCTAssertEqual(Tour.eyebrow(2), "Chapter 1 · Talk")
   }
 
   func testChapterProgress() {
