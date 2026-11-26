@@ -12,6 +12,21 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
     console.error("Bubble AI crashed:", error);
   }
 
+  // a crash on one screen shouldn't follow you to the next: going somewhere else tries again
+  private reset = () => {
+    if (this.state.error) this.setState({ error: null });
+  };
+
+  componentDidMount() {
+    window.addEventListener("hashchange", this.reset);
+    window.addEventListener("popstate", this.reset);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("hashchange", this.reset);
+    window.removeEventListener("popstate", this.reset);
+  }
+
   render() {
     const { error } = this.state;
     if (!error) return this.props.children;

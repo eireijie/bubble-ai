@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.BubbleAI" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/bg</item>
-        <item name="android:colorAccent">@color/ink</item>
-        <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:navigationBarColor">@color/bg</item>
-        <item name="android:windowLightStatusBar">false</item>
-    </style>
+    <!-- the dark parents; everything else is shared in values/themes.xml -->
+    <style name="Base.App" parent="android:Theme.Material.NoActionBar" />
+    <style name="Base.Dialog" parent="android:Theme.Material.Dialog.Alert" />
+    <bool name="light_bars">false</bool>
 </resources>

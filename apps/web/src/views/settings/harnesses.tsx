@@ -14,6 +14,7 @@ import { Badge, Circle, Dlg, Item, Label, Panel, Pick, Prim, Sec, Seg, Switch, T
 import { AgentPicker } from "../../components/ShopParts.tsx";
 import { InstallHarness } from "./runtimes.tsx";
 import { canReadClipboard, readClipboard, replyAfter } from "../../harness-signin.ts";
+import { copyText } from "../../clipboard.ts";
 
 export interface HarnessesResponse {
   device: { id: string; name: string };
@@ -745,7 +746,7 @@ export function HarnessSignIn({ device, settings, account, onClose, onDone }: { 
                 2,
                 "Enter this code there",
                 <div className="font-mono text-2xl font-medium tracking-wider">{running.code}</div>,
-                <Circle label="Copy code" onClick={() => void navigator.clipboard?.writeText(running.code!)}>
+                <Circle label="Copy code" onClick={() => void copyText(running.code!)}>
                   <Copy size={17} />
                 </Circle>,
               )}

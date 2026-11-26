@@ -8,6 +8,7 @@ import { CopyBlock, Menu } from "../../components/ui.tsx";
 import { Add, Badge, Dlg, Item, Label, Panel, Pick, Prim, Sec, Tile } from "../../components/MarketParts.tsx";
 import { PageHeader } from "./parts.tsx";
 import { HarnessLogo } from "../../components/HarnessLogo.tsx";
+import { copyText } from "../../clipboard.ts";
 
 /** A harness on a neutral tile with its brand mark (a plain line icon when Bubble AI has none). */
 function Mark({ id }: { id: string }) {
@@ -197,7 +198,7 @@ export function RuntimesPage() {
                       </button>
                     )}
                     items={[
-                      ...(h.login ? [{ label: `Copy sign-in command: ${h.login}`, icon: <Copy size={14} />, onSelect: () => void navigator.clipboard?.writeText(h.login!.replace(/ \(.*\)$/, "")) }] : []),
+                      ...(h.login ? [{ label: `Copy sign-in command: ${h.login}`, icon: <Copy size={14} />, onSelect: () => void copyText(h.login!.replace(/ \(.*\)$/, "")) }] : []),
                       { label: "How to install", onSelect: () => setHowTo(h) },
                     ]}
                   />

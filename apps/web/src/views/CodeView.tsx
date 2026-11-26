@@ -4,6 +4,7 @@ import { api } from "../api.ts";
 import { go, href } from "../router.ts";
 import { agentColor } from "../components/ui.tsx";
 import { TerminalPane, type ShellTarget } from "../components/TerminalPane.tsx";
+import { uuid } from "../uuid.ts";
 import { ShellWorkspace } from "../code/ShellWorkspace.tsx";
 import { useFeatures } from "../features.ts";
 import { useStore } from "../store.ts";
@@ -138,7 +139,7 @@ export function CodeView() {
     (target: ShellTarget, stem?: string) => {
       const list = shells[selected] ?? [];
       if (list.length >= MAX_SHELLS) return;
-      const s: Shell = { key: crypto.randomUUID(), computerId: target.id, session: newSession(stem ?? target.name, target.id, allShells) };
+      const s: Shell = { key: uuid(), computerId: target.id, session: newSession(stem ?? target.name, target.id, allShells) };
       setShells((all) => ({ ...all, [selected]: [...(all[selected] ?? []), s] }));
       setFocused(s.key);
     },

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bubble AI's own page fills this; the loader and the offline screen sit over it -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/frame"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg">
+
+    <FrameLayout
+        android:id="@+id/loader"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg"
+        android:clickable="true"
+        android:focusable="false">
+
+        <ProgressBar
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center"
+            android:indeterminateTint="@color/muted" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/offline"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg"
+        android:clickable="true"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_offline" />
+
+        <TextView
+            style="@style/Title"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:text="Can't reach your computer"
+            android:textSize="22sp" />
+
+        <TextView
+            style="@style/Body"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="Check that it's on and on the same Wi-Fi." />
+
+        <Button
+            android:id="@+id/retry"
+            style="@style/Primary"
+            android:layout_width="200dp"
+            android:layout_marginTop="28dp"
+            android:text="Retry" />
+
+        <Button
+            android:id="@+id/repair"
+            style="@style/Quiet"
+            android:layout_width="200dp"
+            android:layout_marginTop="4dp"
+            android:text="Pair again" />
+    </LinearLayout>
+</FrameLayout>
