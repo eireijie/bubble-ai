@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarClock, Cloud, FileText, KeyRound, Laptop, Loader2, Lock, Monitor, MoreHorizontal, Play, Plus, Power, Trash2, Video } from "lucide-react";
+import { CalendarClock, Cloud, FileText, KeyRound, Laptop, Loader2, Lock, Monitor, MoreHorizontal, Play, Plus, Power, Trash2 } from "lucide-react";
 import { describeCron, harnessInfo, harnessLabel, nextRun, runsInVm, type Agent, type Routine } from "@wisp/core";
 import { api } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
@@ -468,11 +468,10 @@ export function routinesWaitingFor(agent: Pick<Agent, "id" | "nodeId" | "harness
   return device && (!device.online || device.paused) ? device.name : null;
 }
 
-/** Tasks the agent knows how to do again, learned by watching or written down, some on a schedule. */
+/** Tasks the agent does again, written down, some on a schedule. (Teaching a task makes a skill, under Can use.) */
 export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean }) {
   const version = useStore((s) => s.routinesVersion);
   const [routines, setRoutines] = useState<Routine[] | null>(null);
-  const teachOn = useFeature("teach");
   const waitingFor = routinesWaitingFor(agent, useDevices());
   const [writing, setWriting] = useState(false);
   const [scheduling, setScheduling] = useState<Routine | null>(null);
@@ -481,7 +480,6 @@ export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean
     if (active) api<Routine[]>("GET", `/api/routines?agent=${agent.id}`).then(setRoutines, () => setRoutines([]));
   }, [active, agent.id, version]);
 
-  const teach = () => (agent.computerId ? go({ view: "computers", computerId: agent.computerId, teach: agent.id }) : go({ view: "agents", agentId: agent.id, tab: "computer" }));
   const run = async (r: Routine) => {
     setError(null);
     try {
@@ -496,11 +494,6 @@ export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {teachOn && (
-          <Button onClick={teach} title={agent.computerId ? undefined : "Give it a computer first"}>
-            <Video size={15} /> Teach a task
-          </Button>
-        )}
         <Button onClick={() => setWriting(true)}>
           <Plus size={15} /> New
         </Button>
@@ -516,7 +509,7 @@ export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean
             const next = r.schedule && r.enabled && r.status === "ready" ? nextRun(r.schedule, r.timezone) : null;
             // one line: its state when it isn't simply on, when it runs, and what it is waiting for
             const when = r.schedule ? `${describeCron(r.schedule)}${r.timezone !== TZ ? ` (${r.timezone})` : ""}` : "When asked";
-            const line = [r.status === "learning" ? "Learning" : null, !r.enabled ? "Paused" : null, when, next && waitingFor ? `waits for ${waitingFor}` : null].filter(Boolean).join(" · ");
+            const line = [!r.enabled ? "Paused" : null, when, next && waitingFor ? `waits for ${waitingFor}` : null].filter(Boolean).join(" · ");
             const details = [next ? `Next ${next.toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}` : null, r.lastRunAt ? `last asked ${timeAgo(r.lastRunAt)}` : null, r.lastCompletedAt ? `last done ${timeAgo(r.lastCompletedAt)}` : null].filter(Boolean).join(" · ");
             return (
               <div key={r.id} className="flex min-h-[54px] items-center gap-2 px-3.5 py-1.5 text-[14px]">

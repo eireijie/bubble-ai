@@ -89,6 +89,7 @@ export async function buildHub(opts: HubOptions) {
   await hub.foldTeams();
   store.migrateTeamSteps();
   await hub.ensureBuiltinSkills(undefined, true);
+  await hub.routines.migrateLearning();
   hub.routines.start();
   hub.schedules.start();
   hub.background.start();

@@ -103,13 +103,14 @@ struct TeachBar: View {
   }
 }
 
-/** Name the lesson and send it: the agent studies the steps and writes them up as a routine. */
+/** Name the lesson and send it: the agent studies the steps and saves them as a skill. */
 struct TeachSaveSheet: View {
   @Environment(Store.self) private var store
   @Environment(\.dismiss) private var dismiss
   var session: TeachSession
   var computer: Computer
-  var onSaved: () -> Void
+  /** the chat with the agent, where it saves the skill */
+  var onSaved: (Channel?) -> Void
 
   @State private var name = ""
   @State private var saving = false
@@ -130,7 +131,7 @@ struct TeachSaveSheet: View {
         if let error { Section { Text(error).font(.footnote).foregroundStyle(.red) } }
       }
       .groundBackground()
-      .navigationTitle("Save what you showed")
+      .navigationTitle("Save as a skill")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) { Button("Keep recording") { dismiss() }.disabled(saving) }
@@ -149,9 +150,9 @@ struct TeachSaveSheet: View {
     Task {
       defer { saving = false }
       do {
-        try await store.saveLesson(agent: session.agent, computer: computer, name: name, recording: session.recording, narration: session.narration)
+        let chat = try await store.saveLesson(agent: session.agent, computer: computer, name: name, recording: session.recording, narration: session.narration)
         dismiss()
-        onSaved()
+        onSaved(chat)
       } catch is Store.Stale {} catch { self.error = error.localizedDescription }
     }
   }

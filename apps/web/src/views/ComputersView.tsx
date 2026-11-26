@@ -520,7 +520,11 @@ interface Step extends ScreenInput {
 
 const MAX_SNAPSHOTS = 40;
 
-/** "Nova is watching and learning ● 0:04": records what you do, then hands it to the agent. It takes the live view's top row while it records. */
+/**
+ * "Nova is watching and learning ● 0:04": records what you do, then hands it to the agent, which
+ * saves it as a skill; you land in your chat with it to see that. It takes the live view's top row
+ * while it records. While saving skills is off (Settings → Skills) it says so instead of recording.
+ */
 function TeachBar({ agent, computer, screen }: { agent: Agent; computer: ComputerInfo; screen: React.RefObject<LiveScreenHandle | null> }) {
   const [start] = useState(() => Date.now());
   const [now, setNow] = useState(Date.now());
@@ -529,13 +533,23 @@ function TeachBar({ agent, computer, screen }: { agent: Agent; computer: Compute
   const [saving, setSaving] = useState<null | "naming" | "uploading">(null);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // null until known; teaching ends in a skill, so it waits for skills to be allowed
+  const [skillsOff, setSkillsOff] = useState<boolean | null>(null);
   const shots = useRef(0);
+
+  useEffect(() => {
+    api<{ learnSkills?: boolean }>("GET", "/api/settings/agents").then(
+      (p) => setSkillsOff(p.learnSkills === false),
+      () => setSkillsOff(false),
+    );
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
+    if (skillsOff !== false) return;
     teachSink.current = (i) => {
       const wantShot = ["click", "double_click", "right_click", "drag"].includes(i.kind) || (i.kind === "key" && i.keys === "Enter");
       const snapshot = wantShot && shots.current < MAX_SNAPSHOTS ? (screen.current?.snapshot() ?? undefined) : undefined;
@@ -553,7 +567,7 @@ function TeachBar({ agent, computer, screen }: { agent: Agent; computer: Compute
     return () => {
       teachSink.current = null;
     };
-  }, [start, screen, computer.id, computer.kind]);
+  }, [start, screen, computer.id, computer.kind, skillsOff]);
 
   const elapsed = Math.floor((now - start) / 1000);
   const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
@@ -572,10 +586,11 @@ function TeachBar({ agent, computer, screen }: { agent: Agent; computer: Compute
         const { snapshot: _s, ...rest } = s;
         out.push({ ...rest, imageFileId });
       }
-      const r = await api<{ id: string }>("POST", "/api/routines/teach", { agentId: agent.id, name: name.trim(), computerId: computer.id, steps: out, durationMs: Date.now() - start, narration: narration.trim() || undefined });
+      const r = await api<{ channelId: string }>("POST", "/api/routines/teach", { agentId: agent.id, name: name.trim(), computerId: computer.id, steps: out, durationMs: Date.now() - start, narration: narration.trim() || undefined });
       await api("POST", `/api/computers/${computer.id}/control`, { take: false }).catch(() => {});
-      void r;
-      go({ view: "agents", agentId: agent.id, tab: "routines" });
+      // the agent saves it as a skill in your chat with it ("Learned: …" under its reply)
+      await useStore.getState().refreshChannels();
+      go({ view: "chat", channelId: r.channelId, threadId: null });
     } catch (e) {
       setError((e as Error).message);
       setSaving("naming");
@@ -585,14 +600,23 @@ function TeachBar({ agent, computer, screen }: { agent: Agent; computer: Compute
   return (
     <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 px-3 py-1.5" data-testid="teach-bar">
       <AgentAvatar agent={agent} size={24} badge={false} live />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] leading-5">
-          <span className="font-semibold">{agent.name}</span> is watching and learning
+      {skillsOff ? (
+        <div className="min-w-0 flex-1 text-[14px] leading-5" data-testid="teach-skills-off">
+          <div className="truncate">Saving skills is off</div>
+          <a href={href({ view: "settings", page: "skills", item: null })} className="text-[13px] text-muted underline underline-offset-2">
+            Turn it on in Settings → Skills to teach {agent.name}
+          </a>
         </div>
-        <div className="text-[13px] leading-5 text-muted tabular-nums">
-          <span className="mr-1.5 inline-block size-2 rounded-full bg-bad animate-pulse" aria-hidden /> {clock} · {steps.length} step{steps.length === 1 ? "" : "s"}
+      ) : (
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[14px] leading-5">
+            <span className="font-semibold">{agent.name}</span> is watching and learning
+          </div>
+          <div className="text-[13px] leading-5 text-muted tabular-nums">
+            <span className="mr-1.5 inline-block size-2 rounded-full bg-bad animate-pulse" aria-hidden /> {clock} · {steps.length} step{steps.length === 1 ? "" : "s"}
+          </div>
         </div>
-      </div>
+      )}
       <Button
         variant="ghost"
         className="h-8!"
@@ -603,11 +627,11 @@ function TeachBar({ agent, computer, screen }: { agent: Agent; computer: Compute
       >
         <X size={15} /> Cancel
       </Button>
-      <Button variant="primary" className="h-8!" disabled={!steps.length} onClick={() => setSaving("naming")}>
+      <Button variant="primary" className="h-8!" disabled={!steps.length || !!skillsOff} onClick={() => setSaving("naming")}>
         Done
       </Button>
       {saving && (
-        <Modal title="Save what you showed" onClose={() => saving !== "uploading" && setSaving(null)}>
+        <Modal title="Save as a skill" onClose={() => saving !== "uploading" && setSaving(null)}>
           <div className="space-y-3">
             <Field label="What's the task called?">
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Weekly reporting" autoFocus />

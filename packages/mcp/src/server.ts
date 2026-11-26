@@ -575,7 +575,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "routine_save",
     {
       description:
-        "Save the steps of a routine so you (or a teammate) can do it again on your own: after studying a recording someone made, or when asked to make something a habit. Write numbered steps that name buttons and fields by their labels, say what changes each time, and how to tell it worked. Give routine_id to update one; name to make a new one. schedule is five-field cron, e.g. '0 9 * * 1-5' for weekdays at 9.",
+        "Save the steps of a routine so you (or a teammate) do it again on your own, often on a schedule: when asked to make something a habit, or to do one of your skills regularly (then the steps can just say to follow that skill, e.g. 'Follow the skill /log-a-timesheet'). How to do a task someone showed you goes in a skill (skill_save), not here. Write numbered steps that name buttons and fields by their labels, say what changes each time, and how to tell it worked. Give routine_id to update one; name to make a new one. schedule is five-field cron, e.g. '0 9 * * 1-5' for weekdays at 9.",
       inputSchema: { routine_id: z.string().optional(), name: z.string().optional(), steps: z.string(), schedule: z.string().nullable().optional(), timezone: z.string().optional().describe("IANA name, e.g. America/New_York") },
     },
     safe(async ({ routine_id, name, steps, schedule, timezone }) => {

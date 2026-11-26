@@ -89,7 +89,7 @@ struct TaskChip: View {
   }
 }
 
-/** A routine that was taught, changed or run. */
+/** A routine that was changed or run. */
 struct RoutineChip: View {
   @Environment(Store.self) private var store
   var routineId: String
@@ -97,13 +97,7 @@ struct RoutineChip: View {
   var body: some View {
     if let routine = store.routines.first(where: { $0.id == routineId }) {
       let card = ChatCardShell(symbol: "list.bullet.clipboard", label: "Routine") {
-        HStack(spacing: 8) {
-          Text(routine.name).font(.system(size: 15, weight: .semibold)).lineLimit(2)
-          if routine.status == "learning" {
-            Text("Learning").font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.blue)
-              .padding(.horizontal, 9).padding(.vertical, 3).background(Capsule().fill(Palette.control))
-          }
-        }
+        Text(routine.name).font(.system(size: 15, weight: .semibold)).lineLimit(2)
         if let schedule = routine.schedule {
           Label(describeCron(schedule), systemImage: "calendar.badge.clock").font(.system(size: 13)).foregroundStyle(Palette.muted).lineLimit(1)
         }

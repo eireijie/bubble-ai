@@ -23,7 +23,7 @@ struct RoutinesView: View {
       if routines.isEmpty {
         AgentCard {
           Text("No routines yet.").font(.system(size: 15)).foregroundStyle(Palette.text)
-          Text("A routine is something \(agent.name) does on a schedule, like dinner ideas every Monday. Write the steps, or teach it by doing the task once on its computer.")
+          Text("A routine is something \(agent.name) does on a schedule, like dinner ideas every Monday. Write the steps, or ask \(agent.name) to make one from a skill it knows.")
             .font(.system(size: 13)).foregroundStyle(Palette.faint)
         }
       } else {
@@ -98,7 +98,6 @@ struct RoutineEditor: View {
   @State private var channel = ""
   @State private var enabled = true
   @State private var loaded = false
-  @State private var teachRoute: String?
   @State private var action = FormAction()
 
   private var schedule: String { draft.cron }
@@ -106,7 +105,6 @@ struct RoutineEditor: View {
     loaded && (routine != nil ? !name.trimmed.isEmpty : !(result.trimmed.isEmpty && name.trimmed.isEmpty)) && name.count <= 80 && steps.count <= 50_000 &&
     (schedule.isEmpty || schedule.split(separator: " ").count == 5)
   }
-  private var computer: Computer? { store.computers.first { $0.id == agent.computerId } }
 
   var body: some View {
     NavigationStack {
@@ -138,11 +136,6 @@ struct RoutineEditor: View {
             Button("Direct message") { channel = "" }
             ForEach(store.channels.filter { !$0.isDM && $0.archivedAt == nil }) { ch in Button(store.title(of: ch)) { channel = ch.id } }
           }
-          if routine == nil, store.features.teach, store.canViewComputers, let computer {
-            Button { teachRoute = computer.id } label: {
-              RowLabel(title: "Teach it instead", leading: { rowIcon("hand.point.up.left") })
-            }.buttonStyle(.plain).accessibilityIdentifier("routine-teach")
-          }
         }
         CardCaption(schedule.isEmpty ? "Run it from here, or ask \(agent.name) in chat." : "\(describeCron(schedule)), in \(timezone).")
         DisclosureGroup("More options") {
@@ -161,7 +154,6 @@ struct RoutineEditor: View {
         AgentError(text: action.error)
         PillButton(title: "Save routine", busy: action.busy, id: "routine-save") { save() }.disabled(!valid || action.busy)
       }
-      .navigationDestination(item: $teachRoute) { ComputerDetail(computerId: $0) }
     }
     .agentSheet()
     .interactiveDismissDisabled(action.busy)
@@ -274,7 +266,6 @@ enum RoutineWords {
     if routine.enabled == false { return "Paused" }
     switch routine.status {
     case nil, "ready": return nil
-    case "learning": return "Learning"
     case let other?: return other.prefix(1).uppercased() + other.dropFirst()
     }
   }

@@ -85,7 +85,8 @@ struct ComputerDetail: View {
   @State private var pickingTeacher = false
   @State private var teach: TeachSession?
   @State private var savingLesson = false
-  @State private var lessonAgent: Agent?
+  /** after teaching: the chat with the agent, where it saves the skill */
+  @State private var lessonChat: Channel?
   /** the tool bar folds down to one small button so nothing sits on the screen */
   @State private var toolsOpen = true
   @ReduceMotion private var reduceMotion
@@ -145,9 +146,9 @@ struct ComputerDetail: View {
         HandBackSheet(agentName: store.agent(c.help?.agentId ?? c.agentIds.first ?? "")?.name ?? "the agent") { handBack(c, note: $0) }
       }
       .sheet(isPresented: $savingLesson) {
-        if let teach { TeachSaveSheet(session: teach, computer: c) { lessonSaved(c, teach.agent) } }
+        if let teach { TeachSaveSheet(session: teach, computer: c) { lessonSaved(c, teach.agent, chat: $0) } }
       }
-      .sheet(item: $lessonAgent) { a in NavigationStack { RoutinesView(agent: a).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { lessonAgent = nil } } } } }
+      .sheet(item: $lessonChat) { ch in NavigationStack { ChannelView(channel: ch).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { lessonChat = nil } } } } }
       .alert("Rename", isPresented: $renaming) {
         TextField("Name", text: $newName)
         Button("Cancel", role: .cancel) {}
@@ -447,12 +448,12 @@ struct ComputerDetail: View {
     Task { try? await store.handBack(c, note: nil) }
   }
 
-  private func lessonSaved(_ c: Computer, _ agent: Agent) {
+  private func lessonSaved(_ c: Computer, _ agent: Agent, chat: Channel?) {
     teach = nil
     keyboard = false
     Task {
       try? await store.handBack(c, note: nil)
-      if store.features.routines { lessonAgent = agent } else { flash("Saved. \(agent.name) is learning it") }
+      if let chat { lessonChat = chat } else { flash("Sent. \(agent.name) will save it as a skill") }
     }
   }
 

@@ -9,7 +9,7 @@ import { href } from "../router.ts";
 import { ComputerMini } from "../views/ComputerMini.tsx";
 import { StorageLogo } from "../views/settings/StorageLogo.tsx";
 import { AppleApprovalCard } from "./AppleParts.tsx";
-import { Pill, cx, clockTime } from "./ui.tsx";
+import { cx, clockTime } from "./ui.tsx";
 
 /** An agent's request on its computer ("Sign in to Zendesk…"): a card that takes you there; with no request, the screen live. */
 export function ComputerPart({ computerId, request, agentName }: { computerId: string; request?: string; agentName?: string }) {
@@ -271,7 +271,6 @@ export function RoutineChip({ id }: { id: string }) {
       <ChatCard icon={<ListChecks size={13} />} label="Routine" className="hover:bg-hover">
         <div className="mt-2 flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-body font-medium">{routine.name}</span>
-          {routine.status === "learning" && <Pill tone="info">Learning</Pill>}
         </div>
         {routine.schedule && (
           <div className="mt-1 flex items-center gap-1.5 text-[13px] text-muted">

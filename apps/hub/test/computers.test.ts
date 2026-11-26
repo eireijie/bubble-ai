@@ -697,8 +697,9 @@ describe("routines", () => {
     expect(calls.at(-1)!.prompt).toContain("Export the CSV");
   });
 
-  it("learns a routine from a person's recording", async () => {
+  it("turns what a person showed into a skill, not a routine", async () => {
     const vm = (await owner.request<any[]>("GET", "/api/computers")).find((c) => c.kind === "vm");
+    const routinesBefore = (await owner.request<any[]>("GET", "/api/routines")).length;
     const before = calls.length;
     const r = await owner.request("POST", "/api/routines/teach", {
       agentId,
@@ -712,22 +713,62 @@ describe("routines", () => {
         { at: 5000, kind: "key", keys: "Enter" },
       ],
     });
-    expect(r).toMatchObject({ status: "learning", notePath: `agents/${agentId}/routines/file-expenses.md` });
-    const rec = await owner.readNote(`agents/${agentId}/routines/file-expenses.recording.md`);
+    expect(r).toMatchObject({ name: "File expenses", recordingPath: `agents/${agentId}/lessons/file-expenses.md`, channelId: expect.any(String), messageId: expect.any(String) });
+    // no routine: a skill has no schedule
+    expect((await owner.request<any[]>("GET", "/api/routines")).length).toBe(routinesBefore);
+    const rec = await owner.readNote(r.recordingPath);
     expect(rec.content).toContain('2. [0:04] typed "receipts"');
     // what was clicked on a web page, not only where
     expect(rec.content).toContain('1. [0:01] clicked at (40, 80) on the button "New expense" (#new) at https://expenses.example.com/');
     expect(rec.content).toContain("Receipts are in the shared inbox.");
     await waitFor(() => calls.length > before);
-    expect(calls.at(-1)!.prompt).toContain("## Learning a routine: File expenses");
-    // a routine that's still being learned can't run
-    await expect(owner.request("POST", `/api/routines/${r.id}/run`)).rejects.toThrow(/still learning/);
+    const prompt = calls.at(-1)!.prompt;
+    expect(prompt).toContain("## Learning a skill: File expenses");
+    expect(prompt).toContain('skill_save (name "File expenses")');
+    expect(prompt).toContain("Receipts are in the shared inbox.");
 
-    const saved = await agentApi.saveRoutine({ routineId: r.id, steps: "1. Open the shared inbox\n2. Search for receipts" });
-    expect(saved.status).toBe("ready");
-    expect((await owner.readNote(r.notePath)).content).toContain("Search for receipts");
-    const ran = await owner.request("POST", `/api/routines/${r.id}/run`);
-    expect(ran.ok).toBe(true);
+    const { skill } = await agentApi.saveSkill({ name: "File expenses", content: "1. Open the shared inbox\n2. Search for receipts" });
+    expect(skill).toMatchObject({ source: "learned", learnedBy: agentId, slug: "file-expenses" });
+    expect((await owner.request<any[]>("GET", "/api/skills")).some((s) => s.id === skill.id)).toBe(true);
+  });
+
+  it("won't start teaching while saving skills is off", async () => {
+    await owner.request("PUT", "/api/settings/agents", { learnSkills: false });
+    try {
+      await expect(owner.request("POST", "/api/routines/teach", { agentId, name: "Water plants", steps: [{ at: 0, kind: "click", x: 1, y: 1 }], durationMs: 1 })).rejects.toThrow(/Saving skills is off/);
+    } finally {
+      await owner.request("PUT", "/api/settings/agents", { learnSkills: true });
+    }
+  });
+
+  it("turns routines older hubs left learning into skills", async () => {
+    const ws = hub.store.agent(agentId)!.workspaceId;
+    const userId = hub.store.members(ws).find((m) => m.role === "owner")!.id;
+    const vault = hub.vault(ws);
+    const author = { name: "test", email: "t@x" };
+    const make = async (name: string, schedule: string | null) => {
+      const slug = name.toLowerCase().replace(/\W+/g, "-");
+      const notePath = `agents/${agentId}/routines/${slug}.md`;
+      await vault.write(notePath.replace(/\.md$/, ".recording.md"), `# Recording: ${name}\n\n## Steps\n1. [0:01] clicked at (4, 8)\n`, author, "rec");
+      await vault.write(notePath, `# ${name}\n\nlearning\n`, author, "note");
+      return hub.store.createRoutine({ workspaceId: ws, agentId, name, notePath, schedule, timezone: "UTC", channelId: null, status: "learning", createdBy: { kind: "user", id: userId } });
+    };
+    const plain = await make("Old lesson", null);
+    const timed = await make("Old timed lesson", "0 9 * * 1");
+    await hub.routines.migrateLearning();
+
+    expect(hub.store.routine(plain.id)).toBeUndefined();
+    expect(hub.store.learningRoutines()).toEqual([]);
+    const learned = hub.skills.learnedBy(ws, agentId);
+    const old = learned.find((s) => s.name === "Old lesson")!;
+    expect(old.content).toContain("clicked at (4, 8)");
+    expect(old.agentIds).toContain(agentId);
+    expect((await vault.read(`agents/${agentId}/skills/${old.slug}/SKILL.md`)).content).toContain("clicked at (4, 8)");
+    // the one with a schedule keeps it, as a routine that follows the skill
+    const kept = hub.store.routine(timed.id)!;
+    const timedSkill = learned.find((s) => s.name === "Old timed lesson")!;
+    expect(kept).toMatchObject({ status: "ready", schedule: "0 9 * * 1" });
+    expect((await vault.read(kept.notePath)).content).toContain(`Follow the skill /${timedSkill.slug}.`);
   });
 });
 
