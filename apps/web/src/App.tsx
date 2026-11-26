@@ -157,7 +157,8 @@ function Workspace() {
   const newTaskOpen = useStore((s) => s.newTaskOpen);
   const newChatOpen = useStore((s) => s.newChatOpen);
   const channelBrowser = useStore((s) => s.channelBrowser);
-  const loaded = useStore((s) => s.channels.length > 0);
+  // the first load is in (me, chats and agents arrive together)
+  const loaded = useStore((s) => !!s.me);
   const waiting = useInboxCount();
   const asked = routeForRole(useRoute(), me?.role);
   const phone = useIsPhone();
@@ -225,8 +226,9 @@ function Workspace() {
   // the phone-only pages have desktop equivalents, and the bare root is the chats list on phones
   useEffect(() => {
     // the bare root on desktops: what needs you when something does, else the chat you were last in
-    // (replace, so Back doesn't bounce here again)
-    if (!phone && route.view === "chat" && !route.channelId) {
+    // (replace, so Back doesn't bounce here again). Only once the chats are in: deciding before that
+    // always landed on Needs you (the desktop app opens on the bare root, so it always did)
+    if (!phone && loaded && route.view === "chat" && !route.channelId) {
       const newest = waiting > 0 ? null : newestChat();
       location.replace(newest ? href({ view: "chat", channelId: newest, threadId: null }) : href({ view: "dashboard" }));
     }

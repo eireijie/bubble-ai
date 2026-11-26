@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Database from "better-sqlite3";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -264,6 +264,24 @@ describe("edits made outside Bubble AI", () => {
     } finally {
       stop();
     }
+  });
+
+  it("tell the watcher about Bubble AI's own saves, moves and deletes too, so open apps refresh", async () => {
+    const onChange = vi.fn();
+    const stop = vault.watch({ debounceMs: 30, intervalMs: 600_000, onChange });
+    try {
+      await vault.write("shared/told.md", "# Told\n", me);
+      await until(() => onChange.mock.calls.length > 0);
+      onChange.mockClear();
+      await vault.remove("shared/told.md", me);
+      await until(() => onChange.mock.calls.length > 0);
+    } finally {
+      stop();
+    }
+    onChange.mockClear();
+    await vault.write("shared/after.md", "# After\n", me);
+    await sleep(200);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("are left alone while Bubble AI is saving that very note", async () => {

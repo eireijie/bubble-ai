@@ -72,6 +72,11 @@ export function AboutPage() {
     }
   };
   const desktop = typeof window !== "undefined" && !!window.wispDesktop?.updates;
+  // the app's own version number (the hub's commit only exists in a git checkout)
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  useEffect(() => {
+    window.wispDesktop?.updates.status().then((s) => s?.current && setAppVersion(s.current), () => {});
+  }, []);
   const v = info?.version;
   const c = info?.check;
   const u = info?.update;
@@ -109,7 +114,7 @@ export function AboutPage() {
   // in the desktop app its own copy of Bubble AI updates with the app, so the hub's git check only shows when it can act
   const hubShown = !desktop || !!c?.canUpdate;
   const status = !c ? (checking ? "Checking…" : "Not checked") : c.canUpdate ? "Update available" : c.behind === 0 ? "Up to date" : "Can't update here";
-  const version = `Bubble AI${v?.commit ? ` ${v.commit}` : ""}${v?.date ? ` · ${new Date(v.date).toLocaleDateString()}` : ""}`;
+  const version = `Bubble AI${appVersion ? ` ${appVersion}` : ""}${v?.commit ? ` ${v.commit}` : ""}${v?.date ? ` · ${new Date(v.date).toLocaleDateString()}` : ""}`;
   return (
     <>
       {/* hover the name and the bubble spins and jiggles; click the bubble and it pops and a new one spins up */}
