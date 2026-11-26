@@ -89,6 +89,11 @@ struct DeviceDetail: View {
       InlineError(error: action.error).listRowBackground(Color.clear)
     }
     .listStyle(.insetGrouped)
+    // the app's own cards, not the stock list: its type, row height, spacing and accent
+    .font(.system(size: 15))
+    .tint(Palette.accent)
+    .listSectionSpacing(14)
+    .environment(\.defaultMinListRowHeight, 52)
     .groundBackground(Palette.sheet)
     .accessibilityIdentifier("device-list")
     .bubbleRefresh { do { try await store.refreshNodes() } catch { action.error = error.localizedDescription }; await store.refreshComputers() }
@@ -127,7 +132,7 @@ struct DeviceDetail: View {
       if n.lastSeen != nil { step(3, "Open Bubble AI on it if it is not running") }
       Button { action.run { try await store.refreshNodes() } } label: { Label("Check again", systemImage: "arrow.clockwise").frame(maxWidth: .infinity) }
         .secondaryButton().controlSize(.large).disabled(action.busy).accessibilityIdentifier("device-check-again")
-    } header: { Text("To bring it back") }.listRowBackground(Palette.card)
+    } header: { ListCaption("To bring it back") }.listRowBackground(Palette.card)
   }
 
   private func lastSeen(_ n: AgentNode) -> String {
@@ -182,7 +187,7 @@ struct DeviceDetail: View {
           Text("Let others in \(store.workspace?.name ?? "the workspace") add agents and VMs here").font(.system(size: 13)).foregroundStyle(Palette.faint)
         }
       }.tint(Palette.accent).disabled(!editable || action.busy).accessibilityIdentifier("device-shared")
-    } header: { Text("What this device does for agents") }
+    } header: { ListCaption("What this device does for agents") }
       .listRowBackground(Palette.card)
   }
 
@@ -217,11 +222,18 @@ struct DeviceDetail: View {
   }
 }
 
+/** A section's small grey caption, as the app's cards have, not the list's capitals. */
+private struct ListCaption: View {
+  var text: String
+  init(_ text: String) { self.text = text }
+  var body: some View { Text(text).font(.system(size: 13)).foregroundStyle(Palette.faint).textCase(nil) }
+}
+
 private struct AgentLabel: View {
   var agent: Agent
   var body: some View {
     HStack(spacing: 10) {
-      AgentAvatar(agent: agent, size: 28, showStatus: false)
+      AgentAvatar(agent: agent, size: 30, showStatus: false).frame(width: 34)
       VStack(alignment: .leading, spacing: 1) {
         Text(agent.name).font(.system(size: 15)).foregroundStyle(Palette.text)
         if agent.status == .busy { Text("Working").font(.system(size: 12)).foregroundStyle(Palette.statusWorkingText) }
@@ -255,10 +267,16 @@ private struct AgentsHere: View {
         }
       }
       if store.canManage && (node.mine == true || node.shared == true) {
-        Button(action: onAdd) { Label("Add an agent here", systemImage: "plus").foregroundStyle(Palette.text) }.accessibilityIdentifier("device-add-agent")
+        Button(action: onAdd) {
+          // the plus sits where the bubbles do, so the rows line up
+          HStack(spacing: 10) {
+            Image(systemName: "plus").font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.muted).frame(width: 34)
+            Text("Add an agent here").foregroundStyle(Palette.text)
+          }
+        }.accessibilityIdentifier("device-add-agent")
       }
       InlineError(error: action.error)
-    } header: { Text("Agents on this computer") }
+    } header: { ListCaption("Agents on this computer") }
     .listRowBackground(Palette.card)
     .confirmationDialog("Run \(headless?.name ?? "it") without a screen? It won't be able to use apps or websites.", isPresented: Binding(get: { headless != nil }, set: { if !$0 { headless = nil } }), titleVisibility: .visible, presenting: headless) { agent in
       Button("No screen") { set(.none, agent) }
@@ -390,7 +408,7 @@ private struct HarnessesSection: View {
       if let output { Text(output).font(.caption).foregroundStyle(Palette.muted).textSelection(.enabled) }
       if action.busy { ProgressView("Working on the device…") }
       InlineError(error: action.error)
-    } header: { Text("Agent harnesses") }
+    } header: { ListCaption("Agent harnesses") }
     .listRowBackground(Palette.card)
   }
 }
@@ -434,7 +452,7 @@ private struct RemoteDesktopSection: View {
         Button("Add another app you use") { editing = true }
       }
       InlineError(error: action.error)
-    } header: { Text("Remote desktop") }
+    } header: { ListCaption("Remote desktop") }
     .listRowBackground(Palette.card)
     .confirmationDialog("Stop showing \(node.remoteDesktop?.label ?? "this app") here? The app itself isn't changed.", isPresented: $forgetting, titleVisibility: .visible) {
       Button("Remove", role: .destructive) { action.run { try await store.setRemoteDesktop(node.id, nil) } }
