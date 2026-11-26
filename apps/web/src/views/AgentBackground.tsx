@@ -147,7 +147,7 @@ export function BackgroundPanel({ agent, active, onDirty }: { agent: Agent; acti
             </Line>
             {b && (on || b.lastAt) && (
               <Line label={b.checking ? (offline ? "Waiting for its device" : "Checking now") : b.lastAt ? `Checked ${timeAgo(b.lastAt)}` : "Hasn't checked yet"} warn={failed || (b.checking && offline)}>
-                {on && !b.checking && b.nextAt && <span className="truncate">{b.nextReason === "nothing to watch yet" ? "Nothing to watch yet" : `Next ${at(b.nextAt)}${b.nextReason === "quiet lately" ? ", quiet lately" : ""}`}</span>}
+                {on && !b.checking && b.nextAt && <span className="truncate">{b.nextReason === "nothing to watch yet" ? "Nothing to watch yet" : b.nextReason === "trying again later" ? `Trying again ${at(b.nextAt)}` : `Next ${at(b.nextAt)}${b.nextReason === "quiet lately" ? ", quiet lately" : ""}`}</span>}
                 <Button className="h-8! shrink-0" onClick={() => void checkNow()} disabled={b.checking}>
                   <RefreshCw size={14} /> Check now
                 </Button>
@@ -228,7 +228,8 @@ export function BackgroundPanel({ agent, active, onDirty }: { agent: Agent; acti
               <Line label="Check back when a chat stops">
                 <Toggle label="Check back when a chat stops" on={state.checkback ?? true} onChange={(v) => void setCheckback(v)} />
               </Line>
-              <Line label="Model for checks">
+              {/* the agent's own model and effort, unless one was picked for checks: then it shows, to change or put back */}
+              {b?.model && <Line label="Model for checks">
                 <select aria-label="Model for background checks" className={SELECT} value={b?.model ?? ""} onChange={(e) => void save({ model: e.target.value || null, effort: null })}>
                   <option value="">{agent.model ? `${agent.name}'s own (${prettyModel(models.find((m) => m.id === agent.model)?.label ?? agent.model)})` : `${agent.name}'s own model`}</option>
                   {models.map((m) => (
@@ -238,8 +239,8 @@ export function BackgroundPanel({ agent, active, onDirty }: { agent: Agent; acti
                   ))}
                   {b?.model && !models.some((m) => m.id === b.model) && <option value={b.model}>{b.model}</option>}
                 </select>
-              </Line>
-              <Line label="Effort for checks">
+              </Line>}
+              {b?.effort && <Line label="Effort for checks">
                 <select aria-label="Reasoning effort for background checks" className={SELECT} value={b?.effort ?? ""} onChange={(e) => void save({ effort: e.target.value || null })}>
                   <option value="">Default</option>
                   {efforts.map((x) => (
@@ -248,7 +249,7 @@ export function BackgroundPanel({ agent, active, onDirty }: { agent: Agent; acti
                     </option>
                   ))}
                 </select>
-              </Line>
+              </Line>}
               <Line label="Most checks a day">
                 <select aria-label="Most checks a day" className={SELECT} value={b ? (b.dailyCap ?? "") : state.defaultDailyCap} onChange={(e) => void save({ dailyCap: e.target.value ? Number(e.target.value) : null })}>
                   {[...new Set<number>([...CAPS, ...(b?.dailyCap ? [b.dailyCap] : [])])]
@@ -269,9 +270,7 @@ export function BackgroundPanel({ agent, active, onDirty }: { agent: Agent; acti
                   </span>
                 </Line>
               )}
-              <div className="px-3.5 py-2.5">
-                <UsageLine usage={state.usage} cap={b?.dailyCap ?? null} simple={false} />
-              </div>
+              {usageText(state.usage, b?.dailyCap ?? null) && <div className="px-3.5 py-2.5 text-xs text-muted">{usageText(state.usage, b?.dailyCap ?? null)}</div>}
               {on && !pushOnHere() && <Line label="Get its messages on my phone" to={href({ view: "settings", page: "notifications" })} />}
             </ShowAll>
           </div>
@@ -343,18 +342,12 @@ function TrackRow({ f, agentName, onCancel, onChanged }: { f: Followup; agentNam
   );
 }
 
-/** What the checks used, as far as the harness says: "Last check: 38k tokens · Today: 410k · This week: 2.1M". */
-function UsageLine({ usage, cap, simple }: { usage: BackgroundUsage; cap: number | null; simple: boolean }) {
-  const known = usage.lastTokens !== null || usage.todayTokens !== null || usage.weekTokens !== null;
+/** What the checks used, in plain words, as far as the harness says: "3 checks today · 410k tokens today". Empty when there's nothing to say. */
+export function usageText(usage: BackgroundUsage, cap: number | null): string {
   const parts = [
-    usage.lastTokens !== null && `Last check: ${tokens(usage.lastTokens)} tokens`,
-    usage.todayTokens !== null && `Today: ${tokens(usage.todayTokens)}`,
-    usage.weekTokens !== null && `This week: ${tokens(usage.weekTokens)}`,
+    usage.checksToday > 0 && `${usage.checksToday}${cap ? ` of ${cap}` : ""} ${usage.checksToday === 1 && !cap ? "check" : "checks"} today`,
+    usage.todayTokens !== null && `${tokens(usage.todayTokens)} tokens today`,
+    usage.weekTokens !== null && `${tokens(usage.weekTokens)} this week`,
   ].filter(Boolean);
-  return (
-    <div className="text-xs text-muted">
-      {known ? parts.join(" · ") : simple ? "Cost per check isn't reported." : "Token use: not reported by this harness."}
-      {usage.checksToday > 0 && `${known ? " · " : " "}${usage.checksToday}${cap ? ` of ${cap}` : ""} ${usage.checksToday === 1 && !cap ? "check" : "checks"} today`}
-    </div>
-  );
+  return parts.join(" · ");
 }

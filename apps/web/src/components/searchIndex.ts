@@ -34,7 +34,7 @@ export interface Place {
 /** A place in Settings: one of its five pages (by the route that opens it), or one row. */
 const settings = (to: { page: SettingsPage; item?: string }, label: string, words: string, more: Pick<Place, "noGuests" | "feature"> = {}): Place => ({ key: `settings:${to.page}${to.item ? `/${to.item}` : ""}`, label, words, icon: SlidersHorizontal, to: { view: "settings", ...to }, where: "Settings", ...more });
 
-const PAGE_WORDS: Record<Five, string> = { you: "profile account me", agents: "agent settings permissions defaults", computers: "devices settings", privacy: "security data", about: "version", learn: "tour show me around guide getting started finish setup" };
+const PAGE_WORDS: Record<Five, string> = { you: "profile account me", agents: "agent settings permissions defaults", mods: "features optional extras addons add-ons switches", computers: "devices settings", privacy: "security data", about: "version", learn: "tour show me around guide getting started finish setup" };
 
 /** Settings' five pages, then every row on them by its name (settings/map.ts), so search reaches a setting wherever it sits. */
 const SETTINGS_PLACES: Place[] = [
@@ -47,7 +47,7 @@ export const PLACES: Place[] = [
   { key: "computers", label: "Computers", words: "screens screen vm devices machines desktop watch take over", icon: Monitor, to: { view: "computers", computerId: null }, noGuests: true },
   { key: "add", label: "Add apps and skills", words: "marketplace store shop connect connectors connected integrations install gmail slack mcp", icon: Store, to: { view: "marketplace" } },
   { key: "memory", label: "Memory", words: "notes vault knows remember knowledge", icon: BookOpen, to: { view: "vault", path: null } },
-  { key: "tasks", label: "Tasks", words: "work board todo to do", icon: ListTodo, to: { view: "tasks" }, feature: "tasks" },
+  { key: "tasks", label: "Tasks", words: "work board todo to do", icon: ListTodo, to: { view: "tasks" }, noGuests: true },
   { key: "code", label: "Code", words: "terminal terminals shell coding", icon: SquareTerminal, to: { view: "code" }, feature: "code", noGuests: true },
   { key: "mods", label: "Mods", words: "features optional extras addons add-ons", icon: Blocks, to: { view: "mods" } },
   { key: "help", label: "Help", words: "support guide stuck not answering", icon: LifeBuoy, to: { view: "help" } },

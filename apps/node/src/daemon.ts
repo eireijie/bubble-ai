@@ -26,6 +26,7 @@ import { mcpBundle } from "./vm-tools.ts";
 import { NO_NODE, findNpmDir, withDir } from "./npm.ts";
 import { discoverAgents, readDiscovered } from "./discover.ts";
 import { agentFolder } from "./agent-dir.ts";
+import { runFailed, withReason } from "./run-failure.ts";
 import { bringBack, mergeBranch, prepareCheckout, prepareClone } from "./git.ts";
 import { AppleBridge } from "./apple/index.ts";
 
@@ -501,6 +502,8 @@ export class NodeDaemon {
   }
 
   private send(m: NodeToHub) {
+    // every failed run says why, as a code the chat turns into a fix (Install, Sign in, …)
+    if (m.type === "run_failed") m = withReason(m);
     if (this.ws?.readyState === WebSocket.OPEN) return this.ws.send(JSON.stringify(m));
     // a run's outcome must reach the hub, or the agent stays "busy" there; so must a renewed sign-in (the old one
     // is dead once a harness renews it) and a finished model sign-in; everything else is a snapshot the hub asks for again
@@ -955,7 +958,13 @@ export class NodeDaemon {
       await reportRenewal();
       // turned away for its own sign-in (not a Models connection's): show it as signed out from now on
       if (!credential && !abort.signal.aborted && signInProblem(agent.harness, message)) this.signInFailed(agent, inside ? run.computer!.id : null);
-      this.send({ type: "run_failed", runId: run.runId, error: message });
+      const failed = runFailed(run.runId, message, agent.harness);
+      this.send(failed);
+      // its program is gone (uninstalled since the list was made): look again, so the hub stops saying it's installed
+      if (failed.reason === "not_installed" && !inside) {
+        this.catalog = null;
+        void this.sendCatalog().catch(() => {});
+      }
       this.log(`@${agent.handle} failed ${run.runId}: ${message}`);
     } finally {
       this.aborts.delete(run.runId);

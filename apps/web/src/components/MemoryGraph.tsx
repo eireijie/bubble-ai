@@ -46,6 +46,9 @@ export function neighbourhood(graph: GraphData, id: string, depth = 1): GraphDat
   return { nodes: graph.nodes.filter((n) => keep.has(n.id)), edges: graph.edges.filter((e) => keep.has(e.source) && keep.has(e.target)) };
 }
 
+/** Up to this many notes, the full map names every one, linked or not, so none goes unseen. */
+const SMALL_GRAPH = 40;
+
 type SimNode = SimulationNodeDatum & { id: string; n: GraphNode; r: number };
 type SimLink = { source: SimNode; target: SimNode };
 type Colors = Record<GraphKind | "ink" | "muted" | "faint" | "accent" | "panel", string>;
@@ -190,7 +193,7 @@ export function MemoryGraph({
       ctx.lineJoin = "round";
       for (const sn of st.nodes) {
         // the small map names the open note and its best-linked neighbours; hover names the rest
-        const show = props.current.variant === "local" ? (lit ? lit.has(sn.id) : sn.id === st.active || st.hubs.has(sn.id)) : lit ? lit.has(sn.id) : k > 1.5 || (st.hubs.has(sn.id) && k > 0.45);
+        const show = props.current.variant === "local" ? (lit ? lit.has(sn.id) : sn.id === st.active || st.hubs.has(sn.id)) : lit ? lit.has(sn.id) : k > 1.5 || (st.nodes.length <= SMALL_GRAPH && k > 0.45) || (st.hubs.has(sn.id) && k > 0.45);
         if (!show) continue;
         const text = sn.n.title.length > 28 ? sn.n.title.slice(0, 27) + "…" : sn.n.title;
         const ly = sn.y! + sn.r + 3 / k;

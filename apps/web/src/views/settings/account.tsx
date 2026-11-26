@@ -358,7 +358,7 @@ export function ModeSeg() {
 export function ThemeSwatches() {
   const { resolvedMode, theme, setTheme } = useAppearance();
   return (
-    <div className="flex shrink-0 items-center gap-1.5" role="radiogroup" aria-label="Theme">
+    <div className="flex shrink-0 items-center gap-1.5" role="radiogroup" aria-label="Color">
       {THEMES.map((t) => (
         <button
           key={t.id}

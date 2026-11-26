@@ -15,6 +15,7 @@ import { dueReminders, laterReminders, usePutOff } from "../components/Loops.tsx
 import { agentReadiness, agentSignedIn, useDevices, type DeviceInfo } from "../devices.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
 import { cleanPreview } from "../components/CommandPalette.tsx";
+import { FailedNeed, useStandingFailures } from "../components/FailedNeed.tsx";
 
 /** The fields of a task this page reads (GET /api/tasks). */
 interface TaskLite {
@@ -106,6 +107,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
   }, [version, features.tasks]);
 
   const isGuest = me.role === "guest";
+  const [failures, reloadFailures] = useStandingFailures(!isGuest);
   // every agent's open reminders, read again each minute: one that came due and nobody brought waits on you
   const [reminders, setReminders] = useState<Followup[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -145,12 +147,16 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
   const stopped = teams.flatMap((t) => waitingOnYou(teamFlows[t.channelId] ?? []));
   const due = isGuest ? [] : dueReminders(reminders, me.user.id, now);
   const later = isGuest ? [] : laterReminders(reminders, me.user.id, putOff, now);
+  // a failed reply that says why (not installed, signed out…) is what really happened: it stands in for the agent's guessed setup step
+  const failedWhy = new Set(failures.filter((f) => f.part.reason && f.part.reason !== "error").map((f) => f.agentId));
   const unready = isGuest ? [] : agents.flatMap((agent) => {
-    const need = agentNeed(agent, devices);
+    const need = failedWhy.has(agent.id) ? null : agentNeed(agent, devices);
     return need ? [{ agent, need }] : [];
   });
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? "An agent";
-  const count = asks.length + helpNow.length + stopped.length + due.length + unready.length;
+  // a reply that failed waits on you until it's tried again or a later one works; each agent shows once
+  const failed = failures.filter((f, i) => !unready.some((u) => u.agent.id === f.agentId) && failures.findIndex((g) => g.agentId === f.agentId) === i);
+  const count = asks.length + helpNow.length + stopped.length + due.length + unready.length + failed.length;
   const laterCount = helpLater.length + later.length;
   const earlier = useEarlier(Object.values(approvals).filter((a) => !held.includes(a.id)), tasks);
 
@@ -186,6 +192,9 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
               ))}
               {unready.map(({ agent, need }) => (
                 <AgentNeed key={agent.id} agent={agent} need={need} />
+              ))}
+              {failed.map((f) => (
+                <FailedNeed key={f.runId} failure={f} onDone={reloadFailures} />
               ))}
             </ul>
           ) : (

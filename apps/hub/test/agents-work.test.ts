@@ -656,8 +656,10 @@ describe("work isn't lost when a run fails", () => {
     expect(waiting()).toBe(1);
     const told = () => statusLines().filter((t) => t.includes("couldn't finish a background check"));
     expect(told()).toHaveLength(1);
-    expect(told()[0]).toMatch(/^Dot couldn't finish a background check: .+ It will try again in 15 minutes; nothing it was looking at is lost\.$/);
-    expect(bg().lastNote).toContain("The check failed");
+    // plain words, not the raw error, and the try's time said against the usual pace
+    expect(told()[0]).toMatch(/^Dot couldn't finish a background check: \w+ isn't installed on .+\. It will try again in 15 minutes, sooner than its usual check every hour; nothing it was looking at is lost\.$/);
+    expect(told()[0]).not.toContain("ENOENT");
+    expect(bg().lastNote).toMatch(/^The check failed: \w+ isn't installed on .+\.$/);
     // not before the wait is over
     hub.background.tick(later(10));
     hub.watches.deliver(later(10));

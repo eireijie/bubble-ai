@@ -43,6 +43,7 @@ import { HelpMenu, LearnHeader } from "../components/tour/Learn.tsx";
 import { SetupTour } from "../components/onboarding/SetupTour.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
 import { GhostLanding, useFirstHelloHtml } from "../components/onboarding/FirstHello.tsx";
+import { RunFailed } from "../components/RunFailed.tsx";
 
 /** What's open in the pane beside the chat (a thread comes from the route instead). */
 type Side = { kind: "agent"; agentId: string; tab: AgentPanelTab } | { kind: "info"; tab: InfoTab };
@@ -720,7 +721,7 @@ function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo
       <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={64} />
       <h2 className="mt-3 t-title">{channel.name}</h2>
       {channel.topic && <p className="mt-1 max-w-sm text-body text-muted">{channel.topic}</p>}
-      {cards.length > 0 && (
+      {cards.length > 0 && !channel.agentIds?.length && (
         <div className="mt-5 w-full max-w-xs overflow-hidden rounded-[14px] bg-card divide-y divide-line text-left">
           {cards.map((c) => (
             <button key={c.title} type="button" onClick={c.onClick} className="flex h-[46px] w-full items-center gap-3 px-3.5 text-left hover:bg-hover">
@@ -1158,7 +1159,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
             <div key={i} className={cx("mt-1 px-1", s.text === "Voice message" ? "text-[11px] text-faint inline-flex items-center gap-1" : "text-sm text-bad")}>{s.text === "Voice message" && <Mic size={11} />}{s.text.replace(/`/g, "")}</div>
           )),
       )}
-      {parts.map((p) => p.type === "run_failed" && <RunFailedActions key={p.runId} part={p} agentId={agentId} detail={why} />)}
+      {parts.map((p) => p.type === "run_failed" && <RunFailed key={p.runId} part={p} agentId={agentId} detail={why} />)}
       {did > 0 && (
         <div className="mt-1 w-full max-w-md">
           <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex items-center gap-1 rounded-md px-1 text-xs leading-5 text-muted hover:text-ink">

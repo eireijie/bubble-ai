@@ -4,7 +4,7 @@ import { APPLE_DEFAULTS, type AppleMacStatus, type AppleView } from "@bubble-ai/
 import { api, observeEvents } from "../../api.ts";
 import { AppleSeg } from "../../components/AppleParts.tsx";
 import { OwnersOnly } from "./parts.tsx";
-import { ApplePage, MacSheet, agentsPatch, needsPermission, speakValue } from "./apple.tsx";
+import { ApplePage, MacSheet, agentsPatch, macAllows, needsPermission, panesToAsk, permissionState, speakValue } from "./apple.tsx";
 
 const state = vi.hoisted(() => ({ role: "owner", apple: false }));
 vi.mock("react", async (original) => ({ ...(await original<typeof import("react")>()), useState: vi.fn(), useEffect: vi.fn(), useLayoutEffect: vi.fn() }));
@@ -133,6 +133,25 @@ describe("Apple helpers", () => {
     expect(needsPermission("messages", 0, status)).toBe(false);
     expect(needsPermission("contacts", 1, status)).toBe(false);
     expect(needsPermission("reminders", 1, null)).toBe(false);
+  });
+
+  it("says how the Mac stands on each app, and what turning one on must ask for", () => {
+    const status = { ...allowed, messagesControl: "not_asked" as const, contacts: "unknown" as const, reminders: "denied" as const };
+    expect(permissionState("messages", 1, status)).toBe("allowed");
+    expect(permissionState("messages", 2, status)).toBe("needed");
+    expect(permissionState("contacts", 1, status)).toBe("unknown");
+    expect(permissionState("calendar", 1, null)).toBe("unknown");
+    expect(panesToAsk("messages", 2, status)).toEqual(["automation"]);
+    expect(panesToAsk("messages", 1, null)).toEqual(["fullDiskAccess"]);
+    expect(panesToAsk("calendar", 1, status)).toEqual([]);
+    expect(macAllows(null)).toBe("Permissions not checked yet");
+    expect(macAllows(allowed)).toBe("All Apple apps allowed");
+    expect(macAllows(status)).toBe("Allowed: Full Disk Access, Calendars");
+  });
+
+  it("starts with every app off and no agent allowed", () => {
+    expect(Object.values(APPLE_DEFAULTS.levels).every((l) => l === 0)).toBe(true);
+    expect(APPLE_DEFAULTS.allAgents).toBe(false);
   });
 
   it("treats every agent ticked as every agent", () => {

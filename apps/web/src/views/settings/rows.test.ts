@@ -6,9 +6,9 @@ import type { FiveState } from "./rows.tsx";
 
 // the shared UI parts read browser state when their module loads; a row doesn't need it
 vi.mock("../../theme.ts", () => ({ motionReduced: () => false }));
-const { FiveContext, Group, SRow, ShowAll } = await import("./rows.tsx");
+const { FiveContext, Group, SRow } = await import("./rows.tsx");
 
-const base: FiveState = { page: "you", guest: false, features: FEATURE_PRESETS.everything, showAll: false, landed: null, target: null };
+const base: FiveState = { page: "you", guest: false, features: FEATURE_PRESETS.everything, landed: null, target: null };
 const draw = (state: Partial<FiveState>, ...children: ReactNode[]) => renderToStaticMarkup(h(FiveContext.Provider, { value: { ...base, ...state } }, ...children));
 
 describe("a settings row", () => {
@@ -19,9 +19,9 @@ describe("a settings row", () => {
     expect(html).toContain("<b>control</b>");
   });
 
-  it("stays out of sight under Show all until that is opened", () => {
-    expect(draw({}, h(SRow, { id: "clock" }))).toBe("");
-    expect(draw({ showAll: true }, h(SRow, { id: "clock" }))).toContain("Clock");
+  it("is always shown: nothing is folded behind Show all", () => {
+    expect(draw({}, h(SRow, { id: "clock" }))).toContain("Clock");
+    expect(draw({ page: "agents" }, h(SRow, { id: "hops" }))).toContain("Hand-offs in a row");
   });
 
   it("is a link to its own address when it opens a sheet, with its value on it", () => {
@@ -32,12 +32,12 @@ describe("a settings row", () => {
   });
 
   it("isn't there for a guest, or while its mod is off", () => {
-    expect(draw({ guest: true, showAll: true }, h(SRow, { id: "voice" }))).toBe("");
+    expect(draw({ guest: true }, h(SRow, { id: "voice" }))).toBe("");
     expect(draw({ page: "privacy", features: { ...FEATURE_PRESETS.everything, invite: false } }, h(SRow, { id: "people" }))).toBe("");
   });
 
   it("leaves its card empty (and so hidden) when every row in it is out", () => {
-    expect(draw({}, h(Group, null, h(SRow, { id: "clock" })))).toMatch(/^<div class="[^"]*empty:hidden[^"]*"><\/div>$/);
+    expect(draw({ guest: true }, h(Group, null, h(SRow, { id: "voice" })))).toMatch(/^<div class="[^"]*empty:hidden[^"]*"><\/div>$/);
   });
 
   it("is marked when an address points at it", () => {
@@ -45,14 +45,10 @@ describe("a settings row", () => {
   });
 });
 
-describe("Show all", () => {
-  it("offers the rest when a page has more, and says Show less once open", () => {
-    expect(draw({}, h(ShowAll))).toContain("Show all");
-    expect(draw({ showAll: true }, h(ShowAll))).toContain("Show less");
-  });
-
-  it("isn't there when this person has nothing more on the page", () => {
-    // a guest's Privacy and data is two rows, both shown
-    expect(draw({ page: "privacy", guest: true }, h(ShowAll))).toBe("");
+describe("a group", () => {
+  it("puts a small title over its card", () => {
+    const html = draw({}, h(Group, { title: "Chat" }, h(SRow, { id: "clock" })));
+    expect(html).toContain(">Chat</h2>");
+    expect(html).toContain("Clock");
   });
 });

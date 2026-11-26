@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Compass, Info, Monitor, Search, ShieldCheck, UserRound } from "lucide-react";
+import { Blocks, ChevronLeft, ChevronRight, Compass, Info, Monitor, Search, ShieldCheck, UserRound } from "lucide-react";
 import { LearnPage } from "../components/tour/Learn.tsx";
 import { BubbleIcon } from "../components/icons.tsx";
 import { useStore } from "../store.ts";
@@ -26,20 +26,23 @@ import { UsagePage } from "./settings/usage.tsx";
 import { AskAndChanges } from "./settings/changes.tsx";
 import { AgentDefaultsPage } from "./settings/defaults.tsx";
 import { AboutPage, WhatsNewPage } from "./settings/about.tsx";
-import { AgentsFive, ComputersFive, PrivacyFive, YouFive } from "./settings/five.tsx";
+import { AgentsFive, ComputersFive, ModsFive, PrivacyFive, YouFive } from "./settings/five.tsx";
 import { MarketplaceView } from "./MarketplaceView.tsx";
 import { MergedPageContext } from "./settings/parts.tsx";
-import { FiveContext, rowDomId, setShowAll, useShowAll } from "./settings/rows.tsx";
+import { FiveContext, rowDomId } from "./settings/rows.tsx";
+import { setFeatures } from "../features.ts";
+import { FEATURE_INFO, type FeatureKey } from "@bubble-ai/core";
 import { FIVE_LABEL, FIVE_ROUTE, fivePages, rowAvailable, rowById, rowTarget, searchableRows, settingsLanding, type Five, type SettingRow } from "./settings/map.ts";
 
 /**
- * Settings: five pages (You, Agents, Computers, Privacy and data, About), a search over every
- * setting, and "Show all" on a page for the rest. The map of rows, and where each of the 24 old
+ * Settings: six pages (You, Agents, Mods, Computers, Privacy and data, About), and a search over
+ * every setting; every row is on its page, in small titled groups. The map of rows, and where each of the 24 old
  * routes lands, is in settings/map.ts. A row with more inside opens as a sheet in the same place.
  */
 const FIVE_PAGE: Record<Five, () => ReactNode> = {
   you: () => <YouFive />,
   agents: () => <AgentsFive />,
+  mods: () => <ModsFive />,
   computers: () => <ComputersFive />,
   privacy: () => <PrivacyFive />,
   about: () => <AboutPage />,
@@ -105,7 +108,34 @@ const FIVE_ICON: Record<Five, ReactNode> = {
   privacy: <ShieldCheck size={20} strokeWidth={1.8} />,
   about: <Info size={20} strokeWidth={1.8} />,
   learn: <Compass size={20} strokeWidth={1.8} />,
+  mods: <Blocks size={20} strokeWidth={1.8} />,
 };
+
+/** A mod's settings while it's off: one line and the switch that turns it on (owners only). */
+function ModOff({ mod, owner }: { mod: FeatureKey; owner: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const turnOn = () => {
+    setBusy(true);
+    setFeatures({ [mod]: true }).then(
+      () => setError(null),
+      (e) => (setError((e as Error).message), setBusy(false)),
+    );
+  };
+  return (
+    <div className="px-1 flex flex-wrap items-center gap-3 text-sm text-muted">
+      <span>{FEATURE_INFO[mod].description}</span>
+      {owner ? (
+        <button type="button" disabled={busy} onClick={turnOn} className="font-medium text-ink hover:underline disabled:opacity-50">
+          Turn on
+        </button>
+      ) : (
+        <span>Only owners can turn it on.</span>
+      )}
+      {error && <span className="text-xs text-bad">{error}</span>}
+    </div>
+  );
+}
 
 /** The top of You: your picture, your name, your role and workspace. */
 function YouHeader() {
@@ -169,12 +199,10 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   const sheet = row && landing?.sheet ? row : null;
   // its mod is switched off: say so instead of opening it
   const modOff = !!row && !rowAvailable(row, guest, features);
-  const showAll = useShowAll(current ?? "you");
 
-  // arriving at a row: open Show all if it's under it, bring it into view and mark it for a moment
+  // arriving at a row: bring it into view and mark it for a moment
   useEffect(() => {
     if (!current || !row || modOff) return;
-    if (row.all) setShowAll(current, true);
     if (sheet) return;
     setTarget(row.id);
     const look = setTimeout(() => document.getElementById(rowDomId(row.id))?.scrollIntoView({ block: "center" }), 60);
@@ -209,18 +237,22 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   );
 
   const pageBody = (p: Five) => (
-    <FiveContext.Provider value={{ page: p, guest, features, showAll, landed: row && !sheet ? row.id : null, target }}>
+    <FiveContext.Provider value={{ page: p, guest, features, landed: row && !sheet ? row.id : null, target }}>
       <div data-tour="settings-page" className="space-y-4">{FIVE_PAGE[p]()}</div>
     </FiveContext.Provider>
   );
+  // a mod's own settings (Storage, Apple) while the mod is off: turn it on right here
+  const offMod = row?.mod && !features[row.mod] ? row.mod : null;
   const sheetBody = (r: SettingRow) =>
     modOff ? (
       <p className="px-1 text-sm text-muted">
         {r.label} is off.{" "}
-        <a className="text-accent-text hover:underline" href={href({ view: "mods" })}>
-          Add it
+        <a className="text-accent-text hover:underline" href={href({ view: "settings", page: "mods" })}>
+          Turn it on
         </a>
       </p>
+    ) : offMod ? (
+      <ModOff mod={offMod} owner={me.role === "owner"} />
     ) : (
       SHEETS[r.id]()
     );

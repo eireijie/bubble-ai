@@ -236,9 +236,10 @@ describe("typing", () => {
   });
 
   it("leaves out what a guest or a switched-off mod can't open", () => {
-    expect(draw("task").labels).toEqual(["Tasks", "New task"]);
+    expect(draw("task").labels).toEqual(["Tasks", "Tasks board", "Teach a task", "New task"]);
+    // the board and its switch stay findable with the mod off; making a task doesn't
     world.features = {};
-    expect(draw("task").labels).toEqual([]);
+    expect(draw("task").labels).toEqual(["Tasks", "Tasks board", "Teach a task"]);
     world.store.me.role = "guest";
     expect(draw("computers").labels).toEqual([]);
     expect(draw("new").labels).not.toContain("New agent");

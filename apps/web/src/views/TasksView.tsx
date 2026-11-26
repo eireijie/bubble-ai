@@ -652,7 +652,12 @@ export function NewTask({ onClose, defaultTo }: { onClose: () => void; defaultTo
           </div>
         )}
         <div className="flex items-center gap-2">
-          {!solo && (
+          {solo ? (
+            <span aria-label={`Goes to ${who}`} className="inline-flex items-center gap-2 h-9 max-w-[220px] rounded-full border border-line2 pl-1.5 pr-3 text-sm font-medium">
+              <AgentAvatar agent={lead} size={24} interactive={false} />
+              <span className="truncate">{who}</span>
+            </span>
+          ) : (
             <Menu
               up
               trigger={(isOpen, toggle) => (

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { LAYER } from "./layers.ts";
 import { MotionMark } from "./MotionMark.tsx";
 import { createPortal } from "react-dom";
 import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
@@ -580,7 +581,7 @@ export function NewChatPicker({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   useSheetBackdrop();
   return createPortal(
-    <div className="m-scrim fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={`m-scrim fixed inset-0 ${LAYER.modal} flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label="New chat" className="m-dialog w-full sm:max-w-sm bg-panel border border-line rounded-t-[16px] sm:rounded-xl shadow-panel max-h-[80vh] overflow-y-auto safe-bottom p-2">
         <div className="flex items-center justify-between px-3.5 pt-3 pb-2">
           <h2 className="t-title">New chat</h2>

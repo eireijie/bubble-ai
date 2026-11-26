@@ -36,6 +36,8 @@ const fake: HarnessAdapter = {
     onEvent({ type: "session", id: input.sessionId ?? "sess-1" });
     onEvent({ type: "tool_call", name: "memory_search", input: {} });
     if (last.includes("explode")) throw new Error("harness crashed");
+    // its program isn't on the device: what spawn says
+    if (last.includes("missing")) throw new Error("spawn claude ENOENT");
     // a run that takes as long as the test wants, and stops when cancelled
     if (last.includes("slow"))
       await new Promise<void>((resolve, reject) => {
@@ -208,13 +210,44 @@ describe("node daemon", () => {
     await waitFor(async () => ((await owner.request("GET", "/api/nodes")).find((x: any) => x.name === "box")?.paused === false ? true : undefined), 8000);
   });
 
+  it("says why a run failed, with its fix, and lists it for Needs you until a later reply works", async () => {
+    const ch = await room({ name: "missing" });
+    await owner.send(ch.id, "@bolt missing tool");
+    const failed = await waitFor(async () => (await owner.messages(ch.id)).messages.flatMap((m) => m.parts).find((p) => p.type === "run_failed"), 8000);
+    // Custom has no installer Bubble AI can run, so no Install button: Try again stays
+    expect(failed).toMatchObject({ type: "run_failed", reason: "not_installed", why: "Custom isn't installed on box.", retry: true });
+    expect(failed).not.toHaveProperty("fix");
+    const standing = await owner.request("GET", "/api/runs/failed");
+    expect(standing.find((f: any) => f.channelId === ch.id)).toMatchObject({ part: { reason: "not_installed" } });
+    // a later reply in the same chat that works clears it
+    await owner.send(ch.id, "@bolt hello again");
+    await waitFor(async () => ((await owner.request("GET", "/api/runs/failed")).some((f: any) => f.channelId === ch.id) ? undefined : true), 8000);
+  });
+
+  it("offers the one fix that fits: Install, Sign in, Choose device, or Try again", async () => {
+    const nodeId = (await owner.request("GET", "/api/nodes")).find((x: any) => x.name === "box").id;
+    const agent = { harness: "claude-code", computerId: null, settings: {} as any, nodeId };
+    const run = { id: "r1", triggerMessageId: "m1", discussionId: null };
+    expect(hub.failurePart(agent, run, { error: "spawn claude ENOENT" })).toEqual({ type: "run_failed", runId: "r1", retry: true, reason: "not_installed", why: "Claude Code isn't installed on box.", fix: "install", harness: "claude-code", nodeId });
+    expect(hub.failurePart(agent, run, { error: "API Error: 401 OAuth token has expired" })).toMatchObject({ reason: "signed_out", fix: "signin", why: "Claude Code isn't signed in on box." });
+    expect(hub.failurePart(agent, run, { error: "box is paused; ask again once someone resumes it there" })).toMatchObject({ reason: "no_device", fix: "device" });
+    // the device's own reason wins over the text
+    expect(hub.failurePart(agent, run, { error: "exit 1", reason: "not_installed" })).toMatchObject({ fix: "install" });
+    const other = hub.failurePart(agent, run, { error: "something odd" });
+    // anything else keeps the harness's own words, one short line, and only Try again
+    expect(other).toEqual({ type: "run_failed", runId: "r1", retry: true, reason: "error", why: "something odd." });
+    expect(hub.failurePart(agent, run, { error: "x".repeat(400) }).why).toHaveLength(140);
+    expect(hub.failurePart(agent, run, { error: "cancelled" }).why).toBeUndefined();
+  });
+
   it("waits for runs in flight to report before stopping", async () => {
     const ch = await room({ name: "stopping" });
     const n = calls.length + 1;
     await owner.send(ch.id, "@bolt slow four");
     await waitFor(async () => (calls.length >= n ? true : undefined));
     await daemon.stop();
-    const status = (await owner.messages(ch.id)).messages.flatMap((m) => m.parts).find((p) => p.type === "status" && p.text.startsWith("Run failed"));
+    // the device's report reaches the hub a moment after it stops: on a busy machine, wait for it
+    const status = await waitFor(async () => (await owner.messages(ch.id)).messages.flatMap((m) => m.parts).find((p) => p.type === "status" && p.text.startsWith("Run failed")));
     expect(status).toEqual({ type: "status", text: "Run failed: cancelled" });
     await waitFor(async () => ((await owner.agents()).find((a) => a.handle === "bolt")?.status === "offline" ? true : undefined));
   });
