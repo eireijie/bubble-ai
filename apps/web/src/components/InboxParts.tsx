@@ -315,7 +315,7 @@ export function ConfirmDialog({ title, body, confirm, keep = "Keep reviewing", d
       <div role="alertdialog" aria-modal="true" aria-label={title} className="m-dialog w-full max-w-[420px] rounded-xl bg-card border border-line shadow-panel px-5 pt-[22px] pb-3.5 flex flex-col gap-3">
         <h2 className="t-title">{title}</h2>
         <p className="text-body leading-snug text-muted">{body}</p>
-        <CardButton tone="primary" disabled={busy} onClick={onConfirm} className={cx("h-[50px] md:h-11", danger && "bg-bad text-white hover:bg-bad/90")} autoFocus>
+        <CardButton tone={danger ? "danger" : "primary"} disabled={busy} onClick={onConfirm} className="h-[50px] md:h-11" autoFocus>
           {confirm}
         </CardButton>
         <CardButton tone="ghost" onClick={onClose} className="h-[50px] md:h-11">

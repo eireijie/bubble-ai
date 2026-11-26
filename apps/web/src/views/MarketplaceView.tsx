@@ -221,9 +221,12 @@ const added = (label = "Added") => (
  * It replaces the Marketplace, the Mods page, Connected apps and Skills, whose addresses open it
  * at the matching section.
  */
-export function MarketplaceView({ section, onBack }: { section: MarketSection | "mods"; onBack?: () => void; embedded?: boolean }) {
+export function MarketplaceView({ section, onBack, forAgent }: { section: MarketSection | "mods"; onBack?: () => void; embedded?: boolean; /** opened from an agent's Can use: what is added goes to that agent alone */ forAgent?: string | null }) {
   const me = useStore((s) => s.me);
   const agents = useStore((s) => s.agents);
+  const forA = forAgent ? agents.find((a) => a.id === forAgent) : undefined;
+  /** who gets what is added here: the agent this was opened for, or every agent */
+  const who = forA ? { agentIds: [forA.id], allAgents: false } : { agentIds: [] as string[], allAgents: true };
   const features = useFeatures();
   const canEdit = !!me && me.role !== "guest";
   const isOwner = me?.role === "owner";
@@ -400,12 +403,12 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
     else if ("library" in s) setDetail({ kind: "skill", open: { entry: s.library }, icon: s.bigIcon });
     else setDetail({ kind: "store", skill: s.store, icon: s.bigIcon });
   };
-  /** Add a skill for every agent (who can use it is on its page). `open` lands on its page. */
+  /** Add a skill for every agent, or for the one agent this was opened for (who can use it is on its page). `open` lands on its page. */
   async function addSkill(body: Record<string, string>, key: string, open = false) {
     setError(null);
     setAdding(key);
     try {
-      const made = await api<Skill>("POST", "/api/skills", { ...body, agentIds: [], allAgents: true });
+      const made = await api<Skill>("POST", "/api/skills", { ...body, ...who });
       const list = await loadSkills();
       const got = list.find((x) => x.id === made.id);
       if (open && got) setDetail({ kind: "skill", open: { skill: got } });
@@ -487,7 +490,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
   async function connectBySignIn(e: CatalogConnector) {
     setError(null);
     try {
-      const r = await api<{ url?: string; connectors: Connector[] }>("POST", "/api/connectors/connect", { catalogIds: [e.id], origin: location.origin, allAgents: true });
+      const r = await api<{ url?: string; connectors: Connector[] }>("POST", "/api/connectors/connect", { catalogIds: [e.id], origin: location.origin, ...who });
       const id = r.connectors[0]?.id ?? "";
       try {
         sessionStorage.setItem(CONNECTING, id);
@@ -727,7 +730,8 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
         </p>
       )),
     },
-    { id: "mods", rows: modRows },
+    // mods change the whole app, not one agent
+    ...(forA ? [] : [{ id: "mods" as const, rows: modRows }]),
   ];
   const shownSections = sections.filter((s) => (!whole || whole === s.id) && (s.rows.length > 0 || s.keep || (s.loading && !searching && s.id !== "added")));
   const stillLoading = sections.some((s) => s.loading && (!whole || whole === s.id));
@@ -746,6 +750,19 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
         )}
         <SearchBox value={q} onChange={(v) => ((auto.current = false), setQ(v))} placeholder="Add an app, a skill or a mod" />
       </div>
+      {forA && (
+        <div className="flex items-center gap-2 px-0.5 pt-2 text-[13px] text-muted">
+          <span className="min-w-0 flex-1 truncate">
+            Adding to <span className="font-medium text-ink">{forA.name}</span>
+          </span>
+          <a href={href({ view: "agents", agentId: forA.id, tab: "apps" })} className="shrink-0 font-medium text-ink hover:underline">
+            Done
+          </a>
+          <a href={href({ view: "marketplace", section: section === "mods" ? null : section })} className="shrink-0 hover:text-ink hover:underline">
+            For every agent
+          </a>
+        </div>
+      )}
       {error && <p className="px-0.5 pt-2 text-[13px] text-bad">{error}</p>}
       {signedIn && signedIn !== "ok" && <p className="px-0.5 pt-2 text-[13px] text-bad">Sign-in didn't finish: {signedIn}</p>}
       {shownSections.map((s) => {
@@ -861,6 +878,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
           entry={form.entry}
           existing={form.existing}
           presetEnv={form.presetEnv}
+          presetAgents={forA && !form.existing ? [forA.id] : undefined}
           title={form.title}
           agents={agents}
           taken={(connectors ?? []).filter((c) => c.id !== form.existing?.id).map((c) => c.name.toLowerCase())}

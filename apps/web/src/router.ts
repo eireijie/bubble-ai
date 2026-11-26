@@ -11,7 +11,7 @@ import { useMemo, useSyncExternalStore } from "react";
  *   #/tasks                          work handed to agents, by status
  *   #/computers[/<id>[/teach/<agentId>]]  devices and their agents' computers, live view, teaching a task
  *   #/computers/d/<nodeId>           one device's page (#/nodes[/<nodeId>] still lands here)
- *   #/marketplace[/<section>]        apps and skills to get, and what devices already have (MARKET_SECTIONS)
+ *   #/marketplace[/<section>][/for/<agentId>]  apps and skills to get, and what devices already have (MARKET_SECTIONS); "for" adds to one agent
  *   #/connectors, #/skills           older addresses of the marketplace (installed apps, skills)
  *   #/settings[/<page>[/<item>]]     your settings and the organization's (see SETTINGS_PAGES); full window on desktops; <item> opens one thing in a page (a skill)
  *   #/join/<code>                    accept an invite (signed out)
@@ -35,7 +35,7 @@ export type Route =
   | { view: "about" }
   | { view: "tasks" }
   | { view: "computers"; computerId: string | null; teach?: string | null; deviceId?: string | null }
-  | { view: "marketplace"; section?: MarketSection | null }
+  | { view: "marketplace"; section?: MarketSection | null; /** adding for one agent: what is added goes to it alone */ forAgent?: string | null }
   | { view: "connectors" }
   | { view: "skills" }
   | { view: "settings"; page?: SettingsPage | null; item?: string | null }
@@ -84,7 +84,11 @@ export function parseRoute(hash: string): Route {
     case "marketplace":
       // mods have one home now: their own page
       if (parts[1] === "mods") return { view: "mods" };
-      return { view: "marketplace", section: MARKET_SECTIONS.find((x) => x === parts[1]) ?? null };
+    {
+      const at = parts.indexOf("for");
+      const forAgent = at > 0 ? (parts[at + 1] ?? null) : null;
+      return { view: "marketplace", section: MARKET_SECTIONS.find((x) => x === parts[1]) ?? null, ...(forAgent ? { forAgent } : {}) };
+    }
     case "connectors":
       return { view: "connectors" };
     case "skills":
@@ -148,7 +152,7 @@ export function href(r: Route): string {
     case "dashboard":
       return "#/dashboard";
     case "marketplace":
-      return "#/marketplace" + (r.section && r.section !== "all" ? `/${r.section}` : "");
+      return "#/marketplace" + (r.section && r.section !== "all" ? `/${r.section}` : "") + (r.forAgent ? `/for/${encodeURIComponent(r.forAgent)}` : "");
     case "connectors":
       return "#/connectors";
     case "skills":
