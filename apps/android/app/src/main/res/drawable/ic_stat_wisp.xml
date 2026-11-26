@@ -3,9 +3,9 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- a bubble with two eyes: the status-bar icon is a single-colour shape -->
+    <!-- the Bubble AI mark in one colour: the rounded-square bubble as a ring, two eyes glancing right -->
     <path
         android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M3,12a9,9 0,1 0,18 0a9,9 0,1 0,-18 0zM8.4,11.4a1.35,2.05 0,1 0,2.7 0a1.35,2.05 0,1 0,-2.7 0zM13.1,11.4a1.35,2.05 0,1 0,2.7 0a1.35,2.05 0,1 0,-2.7 0z" />
+        android:pathData="M8,2h8a6,6 0,0 1,6 6v8a6,6 0,0 1,-6 6h-8a6,6 0,0 1,-6 -6v-8a6,6 0,0 1,6 -6zM8.13,4.13h7.73a4,4 0,0 1,4 4v7.73a4,4 0,0 1,-4 4h-7.73a4,4 0,0 1,-4 -4v-7.73a4,4 0,0 1,4 -4zM8.93,11.2a1.47,2.69 0,1 0,2.94 0a1.47,2.69 0,1 0,-2.94 0zM14.26,11.2a1.47,2.69 0,1 0,2.94 0a1.47,2.69 0,1 0,-2.94 0z" />
 </vector>
