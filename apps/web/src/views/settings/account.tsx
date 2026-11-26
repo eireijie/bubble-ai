@@ -419,6 +419,15 @@ export function SessionsValue() {
   return <>{n === null ? "" : `${n} device${n === 1 ? "" : "s"}`}</>;
 }
 
+/**
+ * A sign-in from a phone: a phone browser ("Chrome on Android"), or the phone app, which pairs as
+ * "Bubble AI on <the phone's name>" (a Pixel, a Galaxy, "Sam's iPhone").
+ */
+export function sessionOnPhone(label: string): boolean {
+  if (/iPhone|iPad|Android|Pixel|Galaxy|phone/i.test(label)) return true;
+  return /^Bubble AI on /.test(label) && !/Mac|Windows|Linux|PC\b|laptop|desktop/i.test(label);
+}
+
 /** Where you're signed in, with Sign out for each and for everywhere else. */
 export function SessionsPage() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
@@ -432,7 +441,7 @@ export function SessionsPage() {
     load();
   };
   const others = (sessions ?? []).filter((s) => !s.current);
-  const icon = (label: string) => (/iPhone|Android|iPad/.test(label) ? <Smartphone size={16} /> : <Laptop size={16} />);
+  const icon = (label: string) => (sessionOnPhone(label) ? <Smartphone size={16} /> : <Laptop size={16} />);
   return (
     <div className="space-y-4">
       {error && <p className="px-1 text-sm text-bad">{error}</p>}

@@ -81,6 +81,15 @@ export function setDismissed(v: boolean) {
   useDismissStore.setState({ dismissed: v });
 }
 
+/** The last page of the app shown before the first run opened, so it can go back there. None when the first run is where the app started (a new sign-up). */
+let beforeWelcome: string | null = null;
+export function noteAppPage(hash: string) {
+  beforeWelcome = hash || "#/";
+}
+export function welcomeReturn(): string | null {
+  return beforeWelcome;
+}
+
 /** How far along setup is. A skipped but unfinished setup stays visible in the sidebar as "Finish setup". */
 export function setupProgress(done: Record<StepId, boolean>) {
   const steps = STEPS.length;

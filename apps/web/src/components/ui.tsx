@@ -67,6 +67,9 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
   );
 }
 
+/** A phone or tablet: no mouse to hover with. Fields don't take focus on their own there, since that opens the keyboard over the page. */
+export const touchFirst = () => typeof window !== "undefined" && !!window.matchMedia?.("(hover: none), (pointer: coarse)").matches;
+
 export function Modal({ title, onClose, children, wide, drawer = false, headerless = false, className, contentClassName, label }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; drawer?: boolean; headerless?: boolean; className?: string; contentClassName?: string; label?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
@@ -87,7 +90,7 @@ export function Modal({ title, onClose, children, wide, drawer = false, headerle
       else if (!e.shiftKey && (document.activeElement === last || !ref.current.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
     };
     window.addEventListener("keydown", k);
-    ref.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+    if (!touchFirst()) ref.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
     if (headerless) ref.current?.focus();
     return () => { window.removeEventListener("keydown", k); previous?.focus(); };
   }, []);

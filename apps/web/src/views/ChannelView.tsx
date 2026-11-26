@@ -1410,9 +1410,11 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
         {history.controls}
         {removed && <p role="status" className="px-5 py-2 text-xs text-muted">This message was deleted.</p>}
         {gone && <p role="status" className="px-5 py-6 text-sm text-muted text-center">This thread isn't here any more.</p>}
-        {!removed && root && (handoff && handoff.type === "task" ? <HandoffBrief m={root} taskId={handoff.taskId} /> : <ThreadRoot m={root} composerThread={rootId} />)}
-        {!gone && (
-          <div className="flex items-center gap-3 px-5 py-2 text-[14px] text-muted">
+        {/* the message it started from, as a bubble like the chat's own */}
+        {!removed && root && (handoff && handoff.type === "task" ? <HandoffBrief m={root} taskId={handoff.taskId} /> : <ThreadRow m={root} channelId={channelId} rootId={rootId} stamp grouped={false} last working={NO_RUNS} />)}
+        {!gone && !(replies && replies.length === 0 && !history.error) && (
+          <div className="flex items-center gap-3 px-5 py-2 text-[13px] text-muted">
+            <span className="h-px flex-1 bg-line" />
             {history.error ? "" : replies ? `${replies.length} ${replies.length === 1 ? "reply" : "replies"}` : "Loading…"}
             <span className="h-px flex-1 bg-line" />
           </div>
@@ -1433,19 +1435,22 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
 
 function ThreadHeader({ channelId, parent, onBack, onClose }: { channelId: string; parent: string | null; onBack: () => void; onClose: () => void }) {
   const channel = useStore((s) => s.channels.find((c) => c.id === channelId));
-  const dmName = useStore((s) => (channel?.kind === "dm" ? s.agents.find((a) => channel.name.endsWith(`:${a.id}`))?.name : undefined));
+  const dmAgent = useStore((s) => (channel?.kind === "dm" ? s.agents.find((a) => channel.name.endsWith(`:${a.id}`)) : undefined));
+  const who = channel ? (channel.kind === "dm" ? `with ${dmAgent?.name ?? "your agent"}` : `in ${channel.name}`) : null;
+  // centred, as the chat's own header is: who it's with, and that it's a thread
   return (
-    <header className="h-[4.5rem] shrink-0 px-3 flex items-center gap-2 border-b border-line safe-top box-content">
-      <span className={cx(!parent && "lg:hidden")}>
+    <header className="h-[4.5rem] shrink-0 px-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-line safe-top box-content">
+      <span className={cx("justify-self-start", !parent && "lg:invisible")}>
         <button onClick={onBack} className="circle circle-sm" aria-label={parent ? "Back to the thread it came from" : "Back"} title={parent ? "Back to the thread it came from" : undefined}>
           <ChevronLeft size={20} />
         </button>
       </span>
-      <div className="min-w-0 flex-1 px-1">
-        <div className="truncate text-body font-medium leading-tight">{parent ? "Sub-thread" : "Thread"}</div>
-        {channel && <div className="truncate text-[14px] text-muted">{channel.kind === "dm" ? `with ${dmName ?? "your agent"}` : `in ${channel.name}`}</div>}
+      <div className="flex min-w-0 flex-col items-center text-center">
+        {dmAgent && <AgentAvatar agent={dmAgent} size={28} interactive={false} />}
+        <div className="mt-0.5 max-w-[60vw] truncate text-[13px] font-semibold leading-tight">{who ?? (parent ? "Sub-thread" : "Thread")}</div>
+        {who && <div className="text-[12px] leading-tight text-muted">{parent ? "Sub-thread" : "Thread"}</div>}
       </div>
-      <span className="max-lg:hidden">
+      <span className="justify-self-end max-lg:invisible">
         <button onClick={onClose} className="circle circle-sm" aria-label="Close thread">
           <X size={18} />
         </button>
@@ -1511,44 +1516,6 @@ function HandoffBrief({ m, taskId }: { m: Message; taskId: string }) {
 }
 
 /** The first message of a thread, on a card at the top of it. */
-function ThreadRoot({ m }: { m: Message; composerThread?: string }) {
-  const { clock } = usePrefs();
-  const names = useNames();
-  const handles = useHandleNames();
-  const colors = useHandleColors();
-  const html = useMemo(() => (m.body ? renderMessage(m.body, { handles, colors }) : ""), [m.body, handles, colors]);
-  const meId = useStore((s) => s.me?.user.id);
-  const agent = m.author.kind === "agent" ? names.agent(m.author.id) : undefined;
-  const mine = m.author.kind === "user" && m.author.id === meId;
-  const name = mine ? "You" : agent ? agent.name : (names.member(m.author.id)?.name ?? "Someone");
-  return (
-    <div className="px-3 pb-1" data-message-id={m.id}>
-      <div className="rounded-3xl bg-card px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          {agent ? <AgentAvatar agent={agent} size={24} interactive={false} /> : <UserAvatar name={names.member(m.author.id)?.name ?? name} size={24} />}
-          <span className="text-[14px] font-medium">{name}</span>
-          <span className="text-[14px] text-faint">{clockTime(m.createdAt, clock)}</span>
-        </div>
-        {m.deletedAt ? (
-          <div className="mt-2 text-body italic text-muted">This message was deleted.</div>
-        ) : (
-          <>
-            {m.parts.some((p) => p.type === "apple_read") && (
-              <div className="mt-2">
-                <AppleReadLines parts={m.parts} />
-              </div>
-            )}
-            {html && <div className="prose-w mt-2 text-body" dangerouslySetInnerHTML={{ __html: html }} />}
-            <CardAuthor.Provider value={m.author.kind === "agent" ? { agentId: m.author.id, channelId: m.channelId, threadId: m.threadId } : null}>
-              <Parts parts={m.parts} body={m.body} agentName={agent?.name} agentId={agent?.id} />
-            </CardAuthor.Provider>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /** Who's working in a thread (or a sub-thread of it), on the thread's row: their ghosts and "Ada is working". */
 function ThreadWork({ runs, threadId, onClick }: { runs: LiveRun[]; threadId: string; onClick: () => void }) {
   const names = useNames();
@@ -1620,6 +1587,24 @@ interface ReplyTarget {
   id: string;
   name: string;
   snippet: string;
+}
+
+/** Pictures attached in this window, shown small on their chips without fetching them back. */
+const chipThumbs = new Map<string, string>();
+
+/** An attached file's chip icon: the picture itself for an image, else a file. */
+function ChipThumb({ id, name }: { id: string; name: string }) {
+  const image = fileKind(name) === "image";
+  const [url, setUrl] = useState(() => chipThumbs.get(id) ?? null);
+  useEffect(() => {
+    if (!image || url) return;
+    let live = true;
+    fileUrl(id).then((u) => (live ? (chipThumbs.set(id, u), setUrl(u)) : URL.revokeObjectURL(u)), () => {});
+    return () => void (live = false);
+  }, [id, image, url]);
+  if (image && url) return <img src={url} alt="" className="size-7 shrink-0 rounded-[7px] object-cover" />;
+  if (image) return <span className="size-7 shrink-0 rounded-[7px] bg-chip" aria-hidden />;
+  return <FileText size={15} className="shrink-0 text-muted" />;
 }
 
 interface ComposerDraft {
@@ -1882,6 +1867,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
     try {
       for (const f of selected) {
         const up = await uploadFile(f, channelId);
+        if (f.type?.startsWith("image/") && typeof URL.createObjectURL === "function") chipThumbs.set(up.id, URL.createObjectURL(f));
         const mine = added[done++];
         updateDraft((d) => ({ ...d, pending: d.pending.filter((p) => p.key !== mine.key), files: [...d.files, { id: up.id, name: up.name, size: up.size ?? f.size }] }));
       }
@@ -1950,8 +1936,8 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
       {(files.length > 0 || uploading > 0) && (
         <div className="mb-2 flex flex-wrap gap-2">
           {files.map((f) => (
-            <span key={f.id} className="flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card pl-3 pr-1" title={fileSize(f.size) || undefined}>
-              <FileText size={15} className="shrink-0 text-muted" />
+            <span key={f.id} className={cx("flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card pr-1", fileKind(f.name) === "image" ? "pl-1" : "pl-3")} title={fileSize(f.size) || undefined}>
+              <ChipThumb id={f.id} name={f.name} />
               <span className="min-w-0 truncate text-[14px] font-medium">{f.name}</span>
               <button onClick={() => setFiles(files.filter((x) => x.id !== f.id))} aria-label={`Remove ${f.name}`} className="size-7 shrink-0 rounded-[8px] grid place-items-center text-muted hover:bg-hover">
                 <X size={14} />

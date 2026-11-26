@@ -384,7 +384,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
       ) : (
         <div data-tour="sections" className="flex flex-col gap-0.5">
           {shownSections.map(sectionBlock)}
-          {!guest && (
+          {!guest && !phone && (
             <button type="button" onClick={() => doNewSection()} className="flex h-[34px] items-center gap-2 rounded-[10px] px-2.5 text-[13px] text-muted outline-none hover:bg-side-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
               <Plus size={14} strokeWidth={2} aria-hidden />
               New section

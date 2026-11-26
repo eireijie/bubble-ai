@@ -25,7 +25,7 @@ import { unavailable } from "../join.ts";
 import { useStore } from "../store.ts";
 import { canApproveJoin } from "../join.ts";
 import { PhonePairing } from "../views/settings/mobile.tsx";
-import { Button, CopyBlock, Modal } from "./ui.tsx";
+import { Button, CopyBlock, Modal, touchFirst } from "./ui.tsx";
 
 /** Today's steps for a phone and for another computer. `only` shows one of the two. */
 export function AddDeviceContent({ phone = true, only }: { phone?: boolean; only?: "phone" | "computer" }) {
@@ -197,7 +197,8 @@ export function AddDeviceDialog({ onClose, start = "list" }: { onClose: () => vo
     return (
       <Modal title="Add" onClose={onClose}>
         <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
-          {ADD_ROWS.map((r) => (
+          {/* a phone can't run agents itself: no "This computer" there, the rest add one that can */}
+          {ADD_ROWS.filter((r) => r.step !== "here" || !touchFirst()).map((r) => (
             <button key={r.step} type="button" onClick={() => setStep(r.step)} className="flex h-[51px] w-full items-center gap-3 px-3.5 text-left text-[14px] font-medium hover:bg-hover">
               <span className="shrink-0 text-muted">{r.icon}</span>
               {r.label}

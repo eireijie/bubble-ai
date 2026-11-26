@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { BookOpen, Bot, Building2, ChevronLeft, Cpu, LayoutGrid, LifeBuoy, ListTodo, Palette, Bell, Settings, SquareTerminal, ChevronRight, X } from "lucide-react";
+import { BookOpen, Bot, Building2, ChevronLeft, Cpu, Inbox, LayoutGrid, LifeBuoy, ListTodo, Palette, Bell, Settings, SquareTerminal, ChevronRight, X } from "lucide-react";
 import { BubbleIcon } from "../components/icons.tsx";
 import { api } from "../api.ts";
-import { useStore } from "../store.ts";
+import { useInboxCount, useStore } from "../store.ts";
 import { go, href, type Route } from "../router.ts";
-import { THEMES, useAppearance } from "../theme.ts";
+import { useAppearance } from "../theme.ts";
 import { useFeatures } from "../features.ts";
 import { initialsOf, useMoreItems } from "../components/Rail.tsx";
 import { ComputersIcon } from "../components/icons.tsx";
@@ -20,6 +20,8 @@ export interface YouRow {
   label: string;
   icon: ReactNode;
   to: Route;
+  /** on the right, before the chevron: a count, say */
+  hint?: ReactNode;
 }
 
 /**
@@ -46,7 +48,8 @@ export function accountRows(head: YouRow[], more: YouRow[], tail: YouRow[]): You
 export function YouPage() {
   const me = useStore((s) => s.me)!;
   const { current, orgs: allOrgs } = useOrgs();
-  const { theme } = useAppearance();
+  const { mode } = useAppearance();
+  const waiting = useInboxCount();
   const features = useFeatures();
   const [orgs, setOrgs] = useState(false);
   const isGuest = me.role === "guest";
@@ -62,16 +65,19 @@ export function YouPage() {
     setPolicy(await api<AgentPolicy>("PUT", "/api/settings/agents", { askBefore: on ? ASK.map(([k]) => k) : [] }).catch(() => policy));
   };
   const orgName = current?.name ?? me.workspace.name;
-  const themeName = THEMES.find((t) => t.id === theme)?.name;
+  // the row opens System / Light / Dark, so it names which of those is on
+  const modeName = { system: "System", light: "Light", dark: "Dark" }[mode];
   const elsewhere = allOrgs.some((o) => o.unread && !o.current && o.id !== me.workspace.id);
 
   const places = accountRows(
     [
+      // what waits on you (the Inbox): approvals, agents that need something, computers asking for help
+      { label: "Needs you", icon: <Inbox {...ICON} />, to: { view: "dashboard" }, hint: waiting > 0 ? (waiting > 99 ? "99+" : String(waiting)) : undefined },
       ...(!isGuest ? [{ label: "Computers", icon: <ComputersIcon size={ICON.size} />, to: { view: "computers", computerId: null } as Route }, { label: "Add apps and skills", icon: <LayoutGrid {...ICON} />, to: { view: "marketplace" } as Route }] : []),
       { label: "Memory", icon: <BookOpen {...ICON} />, to: { view: "vault", path: null } },
       { label: "All agents", icon: <BubbleIcon {...ICON} />, to: { view: "agents", agentId: null } },
-      // the board is always one tap away (agents hand each other tasks with or without the mod)
-      ...(!isGuest ? [{ label: "Tasks", icon: <ListTodo {...ICON} />, to: { view: "tasks" } as Route }] : []),
+      // the Tasks mod's board, whichever mode (Simple or Advanced) is on
+      ...(!isGuest && features.tasks ? [{ label: "Tasks", icon: <ListTodo {...ICON} />, to: { view: "tasks" } as Route }] : []),
       ...(!isGuest && features.code ? [{ label: "Code", icon: <SquareTerminal {...ICON} />, to: { view: "code" } as Route }] : []),
     ],
     more,
@@ -121,7 +127,7 @@ export function YouPage() {
             </span>
           </a>
         </header>
-        {card(places.map((p) => row(p.icon, p.label, href(p.to))), "Your Bubble AI")}
+        {card(places.map((p) => row(p.icon, p.label, href(p.to), p.hint)), "Your Bubble AI")}
         {card(
           <>
             {!isGuest && (
@@ -135,7 +141,7 @@ export function YouPage() {
             )}
             {!isGuest && row(<Cpu {...ICON} />, "Agent defaults", href({ view: "settings", page: "agent-defaults" }))}
             {row(<Bell {...ICON} />, "Notifications", href({ view: "settings", page: "notifications" }))}
-            {row(<Palette {...ICON} />, "Appearance", href({ view: "settings", page: "appearance" }), themeName)}
+            {row(<Palette {...ICON} />, "Appearance", href({ view: "settings", page: "appearance" }), modeName)}
             {row(<Settings {...ICON} />, "Settings", href({ view: "settings" }))}
             {row(
               <Building2 {...ICON} />,
