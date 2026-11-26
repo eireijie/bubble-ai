@@ -10,8 +10,8 @@ import { CreateAgent } from "./CreateAgent.tsx";
 import { HowToInstall } from "./settings/runtimes.tsx";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { Toggle } from "./settings/parts.tsx";
-import { SheetHead, TilePicture, toneText, useAddFlow, usePhones, useTileStatus } from "./ComputersParts.tsx";
-import { ASK_LEVELS, activityDot, askLevel, screenSwitch, sizeLine, updateExists, watchHref, type HubVersion, type SheetTarget } from "./computerState.ts";
+import { SheetHead, StartProblem, TilePicture, startComputer, toneText, useAddFlow, usePhones, useTileStatus } from "./ComputersParts.tsx";
+import { ASK_LEVELS, activityDot, askLevel, screenOffText, screenSwitch, sizeLine, updateExists, watchBlock, watchHref, type HubVersion, type SheetTarget } from "./computerState.ts";
 import { connectionLine, type NodeInfo } from "./deviceBits.tsx";
 import { AgentAvatar, Button, CopyBlock, Field, Input, Menu, Modal, cx, timeAgo } from "../components/ui.tsx";
 
@@ -106,8 +106,10 @@ function Sheet({ node: n, computer: c, host, refresh }: { node?: NodeInfo; compu
     }
   };
 
+  // why Watch can't show the screen right now: a device's screen turned off there, or a VM that's off
+  const block = c ? watchBlock(c, n) : n?.mine && n.online && !n.paused && n.capabilities?.screen.off ? { text: screenOffText(n.name), start: false, starting: false } : null;
   // a device's screen becomes a computer the first time someone watches it
-  const screenReady = c ? c.online && !c.paused : !!n?.mine && n.online && !n.paused && !!n.capabilities?.screen.ok;
+  const screenReady = (c ? c.online && !c.paused : !!n?.mine && n.online && !n.paused && !!n.capabilities?.screen.ok) && !(block && !block.start && !block.starting);
   const open = async (take: boolean) => {
     const comp = c ?? (await api<ComputerInfo>("POST", "/api/computers", { kind: "device", nodeId: n!.id }));
     if (!c) await useStore.getState().refreshComputers();
@@ -168,7 +170,7 @@ function Sheet({ node: n, computer: c, host, refresh }: { node?: NodeInfo; compu
               )}
             </div>
             {n?.update?.message && n.update.state !== "idle" && <p className={cx("px-0.5 text-[13px] whitespace-pre-wrap", n.update.state === "failed" ? "text-bad" : "text-muted")}>{n.update.message}</p>}
-            {c?.status === "error" && c.statusText && <p className="px-0.5 text-[13px] text-bad">{c.statusText}</p>}
+            {c && c.kind !== "device" ? <StartProblem computer={c} className="px-0.5" /> : c?.status === "error" && c.statusText && <p className="px-0.5 text-[13px] text-bad">{c.statusText}</p>}
             <div className="flex gap-2">
               <Button variant="primary" className="flex-1" disabled={busy || !screenReady} onClick={() => void run(() => open(false))}>
                 Watch
@@ -184,6 +186,16 @@ function Sheet({ node: n, computer: c, host, refresh }: { node?: NodeInfo; compu
               {n && <Row label="Ask me" value={ask?.level ? ASK_LEVELS.find((l) => l.id === ask.level)!.label : "Not used yet"} onClick={() => setSub("ask")} />}
               <Row label="More" onClick={() => setSub("more")} />
             </div>
+            {block && !block.starting && (
+              <p className="px-1 text-[13px] text-muted" data-testid="watch-block">
+                {block.text}{" "}
+                {block.start && canEdit && (
+                  <button type="button" disabled={busy} onClick={() => void run(() => startComputer(c!.id))} className="font-medium text-ink underline underline-offset-2 disabled:opacity-50">
+                    Start
+                  </button>
+                )}
+              </p>
+            )}
             {sw.there && <p className="px-1 text-[13px] text-muted">Set on this computer.</p>}
             {error && (
               <p role="alert" className="px-1 text-[13px] text-bad">
@@ -366,7 +378,8 @@ function ComputerMore({ computer: c, host, open }: { computer: ComputerInfo; hos
   const [error, setError] = useState<string | null>(null);
   const canEdit = me.role !== "guest";
   const canRemove = c.kind === "device" ? c.ownerId === me.user.id : c.kind === "vm" ? me.role === "owner" || !!host?.mine : true;
-  const stopped = c.status === "stopped";
+  // off, or it couldn't start: Start (Try again); otherwise Stop
+  const startable = c.status === "stopped" || c.status === "error";
   const size = sizeLine(c);
   const forget = async () => {
     const what = c.kind === "vm" ? "Its VM and everything on it are deleted." : c.kind === "orgo" ? "The Orgo computer is deleted too." : "Agents won't be able to use this device's screen.";
@@ -385,7 +398,7 @@ function ComputerMore({ computer: c, host, open }: { computer: ComputerInfo; hos
         {host && <Row label="Runs on" value={host.name} href={href({ view: "computers", computerId: null, deviceId: host.id })} />}
         {size && <Fact label="Size" value={size} />}
         {agents.length > 0 && <Fact label="Used by" value={agents.map((a) => a.name).join(", ")} />}
-        {c.kind !== "device" && canEdit && <Row act label={stopped ? "Start" : "Stop"} onClick={() => void api("POST", `/api/computers/${c.id}/${stopped ? "start" : "stop"}`).catch((e) => setError((e as Error).message))} />}
+        {c.kind !== "device" && canEdit && <Row act label={c.status === "error" ? "Try again" : startable ? "Start" : "Stop"} onClick={() => void api("POST", `/api/computers/${c.id}/${startable ? "start" : "stop"}`).catch((e) => setError((e as Error).message))} />}
         <Row label="Activity" onClick={() => open("activity")} />
         {canEdit && <Row label="Rename" onClick={() => setRenaming(true)} />}
       </div>

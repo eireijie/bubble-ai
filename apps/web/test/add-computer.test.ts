@@ -23,6 +23,8 @@ describe("add computer choices", () => {
     expect(startKind("here", [])).toBeNull();
     expect(startKind("here", [{ ...mac, capabilities: null }])).toBeNull();
     expect(startKind("cloud", [])).toBe("orgo");
+    expect(startKind("linux", [mac])).toBe("vm");
+    expect(startKind("linux", [])).toBe("vm");
   });
 
   it("makes new computers medium unless a size is picked", () => {
@@ -35,7 +37,7 @@ describe("add computer choices", () => {
     expect(orgoStatus({ configured: true })).toBe("ready");
   });
 
-  const render = (devices: DeviceInfo[], only?: "here" | "cloud") => renderToStaticMarkup(createElement(AddComputer, { devices, only, onClose: () => {}, onCreated: () => {} }));
+  const render = (devices: DeviceInfo[], only?: "here" | "linux" | "cloud") => renderToStaticMarkup(createElement(AddComputer, { devices, only, onClose: () => {}, onCreated: () => {} }));
 
   it("offers its own desktop, your screen and a cloud computer, with no question to answer first", () => {
     const html = render([mac]);
@@ -62,6 +64,17 @@ describe("add computer choices", () => {
     expect(cloud).toContain("A cloud computer");
   });
 
+  it("makes a Linux computer on a device that can run one, without an agent", () => {
+    const html = render([mac], "linux");
+    expect(html).toContain("A Linux computer");
+    expect(html).toContain("Linux computer · Medium · On This Mac");
+    expect(html).not.toContain("My screen");
+    expect(html).not.toContain("A cloud computer");
+    expect(render([], "linux")).toContain("Add a computer that can run it first.");
+    const refused = render([{ ...mac, capabilities: { ...mac.capabilities!, vm: { ok: false, detail: "Docker is installed but not running." } } }], "linux");
+    expect(refused).toContain("Docker is installed but not running.");
+  });
+
   it("says why when no device can run a desktop", () => {
     expect(render([])).toContain("Connect a device first.");
   });
@@ -70,7 +83,7 @@ describe("add computer choices", () => {
 describe("the Add list", () => {
   it("is one list of what can be added", () => {
     const html = renderToStaticMarkup(createElement(AddDeviceDialog, { onClose: () => {} }));
-    const rows = ["This computer", "Another computer", "A phone", "A cloud computer"];
+    const rows = ["This computer", "A Linux computer", "Another computer", "A phone", "A cloud computer"];
     for (const row of rows) expect(html).toContain(row);
     expect(rows.map((r) => html.indexOf(r))).toEqual([...rows.map((r) => html.indexOf(r))].sort((a, b) => a - b));
   });

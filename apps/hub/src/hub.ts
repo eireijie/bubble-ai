@@ -683,8 +683,7 @@ export class Hub {
       case "computer_status": {
         const c = store.computer(msg.computerId);
         if (!c || c.nodeId !== conn.nodeId) return;
-        store.updateComputer(c.id, { status: msg.status, statusText: msg.text || (msg.status === "stopped" ? "Off. It starts when it's needed." : "") });
-        this.computers.changed(c.id);
+        this.computers.onStatus(c.id, msg.status, msg.text);
         return;
       }
       case "screen_frame": {

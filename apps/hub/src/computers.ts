@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import WebSocket from "ws";
-import { ComputerAction, TRANSFER_ACTIONS, envVar, tunnelFrame, type Actor, type Computer, type ComputerController, type ComputerSpec, type NodeToHub, type OrgoConfig, type Screenshot } from "@bubble-ai/core";
+import { ComputerAction, TRANSFER_ACTIONS, envVar, isTransientError, tunnelFrame, type Actor, type Computer, type ComputerController, type ComputerSpec, type NodeToHub, type OrgoConfig, type Screenshot } from "@bubble-ai/core";
 import { id, now } from "./auth.ts";
 import { OrgoClient } from "./orgo.ts";
 import { relayVnc } from "./vnc-relay.ts";
@@ -24,6 +24,12 @@ const LOG_COALESCE_MS = 60_000;
 export const IDLE_STOP_MS = Number(envVar("COMPUTER_IDLE_MS")) || 15 * 60_000;
 /** An agent waiting longer than this for its computer to come up hears "Starting the computer…" in chat. */
 const STARTING_NOTE_MS = 2000;
+/**
+ * How long to wait before starting a computer again after a network hiccup stopped it (a DNS blip
+ * while its image builds, say): once per entry, then its error shows. The device already tries a
+ * few times itself; these are for a hiccup that lasts longer. A person's Try again starts at once.
+ */
+export const START_RETRY_MS = [30_000, 2 * 60_000, 5 * 60_000];
 /** What takes a shared computer's mouse and keyboard: one agent at a time. */
 const SCREEN_ACTIONS = new Set(["click", "move", "mouse", "drag", "scroll", "type", "key", "open"]);
 /** An agent that hasn't touched the screen for this long, or whose work ended, lets the next one have it. */
@@ -102,6 +108,11 @@ export class Computers {
   private inFlight = new Map<string, number>();
   /** which agent has a computer's mouse and keyboard, and when it last used them */
   private screenHolder = new Map<string, { agentId: string; touched: number }>();
+  /** start failures in a row, and the next try after a network hiccup */
+  private startFailures = new Map<string, number>();
+  private startRetries = new Map<string, ReturnType<typeof setTimeout>>();
+  /** the waits between tries after a network hiccup (START_RETRY_MS; shorter in tests) */
+  startRetryMs: readonly number[] = START_RETRY_MS;
   private sweeper: ReturnType<typeof setInterval>;
 
   constructor(private hub: Hub) {
@@ -111,6 +122,8 @@ export class Computers {
 
   shutdown() {
     clearInterval(this.sweeper);
+    for (const t of this.startRetries.values()) clearTimeout(t);
+    this.startRetries.clear();
     for (const p of this.pending.values()) clearTimeout(p.timer);
     this.pending.clear();
   }
@@ -239,22 +252,85 @@ export class Computers {
     for (const v of this.viewers.get(computerId) ?? []) send(v.socket, { type: "computer", computer: this.view(c) });
   }
 
-  /** Start a new VM or cloud computer, with its status kept up to date while it comes up. */
+  /**
+   * Start a VM or cloud computer, with its status kept up to date while it comes up. Asked for by a
+   * person (Start, Try again) or a new computer: a fresh round of tries, starting now.
+   */
   startInBackground(comp: Computer) {
     if (comp.kind === "device") return;
+    this.startFailures.delete(comp.id);
+    this.cancelRetry(comp.id);
+    this.begin(comp);
+  }
+
+  private begin(comp: Computer) {
     const { store } = this.hub;
     store.updateComputer(comp.id, { status: "starting", statusText: comp.kind === "vm" ? "Setting up the VM…" : "Starting…" });
     this.changed(comp.id);
     this.act(comp, { action: "start" }, { kind: "user", id: "system" }).then(
-      () => {
-        store.updateComputer(comp.id, { status: "ready", statusText: "" });
-        this.changed(comp.id);
-      },
-      (err) => {
-        store.updateComputer(comp.id, { status: "error", statusText: (err as Error).message.slice(0, 500) });
-        this.changed(comp.id);
-      },
+      () => this.started(comp.id),
+      (err) => this.startFailed(comp.id, (err as Error).message),
     );
+  }
+
+  /** It came up: whatever went wrong before is over. */
+  started(computerId: string) {
+    this.startFailures.delete(computerId);
+    this.cancelRetry(computerId);
+    const c = this.hub.store.computer(computerId);
+    if (!c) return;
+    this.hub.store.updateComputer(c.id, { status: "ready", statusText: "" });
+    this.changed(c.id);
+  }
+
+  /**
+   * Starting it failed, however it was asked for (a person, or an agent that needed it). A network
+   * hiccup is tried again on its own after a while, a few times, while it shows as starting; any
+   * other error, or a hiccup that won't pass, shows as its error. The next use tries again anyway.
+   */
+  startFailed(computerId: string, message: string) {
+    const c = this.hub.store.computer(computerId);
+    if (!c || c.kind === "device") return;
+    // the device says so more than once (the step that failed, then the request): one failure
+    if (this.startRetries.has(c.id)) return;
+    const n = (this.startFailures.get(c.id) ?? 0) + 1;
+    this.startFailures.set(c.id, n);
+    const wait = isTransientError(message) ? this.startRetryMs[n - 1] : undefined;
+    if (wait === undefined) {
+      this.hub.store.updateComputer(c.id, { status: "error", statusText: message.slice(0, 500) });
+      this.changed(c.id);
+      return;
+    }
+    this.hub.store.updateComputer(c.id, { status: "starting", statusText: "Network hiccup. Trying again soon…" });
+    this.changed(c.id);
+    const timer = setTimeout(() => {
+      this.startRetries.delete(c.id);
+      const cur = this.hub.store.computer(c.id);
+      if (cur && cur.status !== "ready") this.begin(cur);
+    }, wait);
+    timer.unref?.();
+    this.startRetries.set(c.id, timer);
+  }
+
+  private cancelRetry(computerId: string) {
+    const t = this.startRetries.get(computerId);
+    if (t) clearTimeout(t);
+    this.startRetries.delete(computerId);
+  }
+
+  /** What a device says about a VM it runs. Errors go through startFailed, so a hiccup is tried again. */
+  onStatus(computerId: string, status: Computer["status"], text: string) {
+    const c = this.hub.store.computer(computerId);
+    if (!c) return;
+    if (status === "error" && c.kind === "vm") return this.startFailed(c.id, text || "it couldn't start");
+    if (status === "ready") {
+      this.startFailures.delete(c.id);
+      this.cancelRetry(c.id);
+    }
+    // a retry waits: the device's own "stopped" after the failure doesn't hide that
+    if (this.startRetries.has(c.id) && status !== "ready") return;
+    this.hub.store.updateComputer(c.id, { status, statusText: text || (status === "stopped" ? "Off. It starts when it's needed." : "") });
+    this.changed(c.id);
   }
 
   spec(c: Computer): ComputerSpec {
@@ -790,6 +866,8 @@ export class Computers {
   async remove(c: Computer) {
     if (c.kind !== "device") await this.act(c, { action: "destroy" }, { kind: "user", id: "system" }).catch(() => {});
     this.control.delete(c.id);
+    this.cancelRetry(c.id);
+    this.startFailures.delete(c.id);
     this.frames.delete(c.id);
     for (const v of this.viewers.get(c.id) ?? []) v.socket.close(4404, "removed");
     this.viewers.delete(c.id);

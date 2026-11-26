@@ -5,7 +5,7 @@ import net from "node:net";
 import { Duplex } from "node:stream";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ComputerSpec, LoginFillResult, PageElement, RunOutput, VmConfig } from "@bubble-ai/core";
+import { GITHUB_REPO, isTransientError, withRetry, type ComputerSpec, type LoginFillResult, type PageElement, type RunOutput, type VmConfig } from "@bubble-ai/core";
 import { FILL_LOGIN_SCRIPT } from "./fill-login.ts";
 import { ActionError, exec, has, must, type Driver } from "./driver.ts";
 import { X11Driver } from "./x11.ts";
@@ -141,16 +141,22 @@ export function recipeTag(dir = IMAGE_DIR): string {
 
 export const LOCAL_IMAGE = "wisp-computer";
 
-/** Where this copy of Bubble AI's VM images are published: ghcr.io/<owner>/wisp-computer for a GitHub checkout. */
+/**
+ * Where this copy of Bubble AI's VM images are published: ghcr.io/<owner>/wisp-computer for a
+ * GitHub checkout, and Bubble AI's own (vm-image.yml) for an installed copy, which has no .git.
+ * Only an image built from the very same recipe is used (recipeTag).
+ */
 export function publishedImage(repoDir = path.resolve(IMAGE_DIR, "../..")): string | null {
+  const official = `ghcr.io/${GITHUB_REPO.split("/")[0].toLowerCase()}/wisp-computer`;
+  let head: string;
   try {
-    const head = fs.readFileSync(path.join(repoDir, ".git", "config"), "utf8");
-    const url = head.match(/\[remote "origin"\][^[]*?url\s*=\s*(\S+)/)?.[1] ?? "";
-    const owner = url.match(/github\.com[:/]([A-Za-z0-9-]+)\//)?.[1];
-    return owner ? `ghcr.io/${owner.toLowerCase()}/wisp-computer` : null;
+    head = fs.readFileSync(path.join(repoDir, ".git", "config"), "utf8");
   } catch {
-    return null;
+    return official;
   }
+  const url = head.match(/\[remote "origin"\][^[]*?url\s*=\s*(\S+)/)?.[1] ?? "";
+  const owner = url.match(/github\.com[:/]([A-Za-z0-9-]+)\//)?.[1];
+  return owner ? `ghcr.io/${owner.toLowerCase()}/wisp-computer` : null;
 }
 
 const relays = new Map<string, Promise<number>>();
@@ -259,8 +265,37 @@ export async function ensureImage(engine: Engine, onStatus: (text: string) => vo
   }
   if (!fs.existsSync(path.join(IMAGE_DIR, "Dockerfile"))) throw new ActionError(`can't find the VM image recipe at ${IMAGE_DIR}`);
   onStatus("Building the VM image (first time only, a few minutes)…");
-  await must(engine.bin, ["build", "-t", local, IMAGE_DIR], { timeoutMs: 60 * 60_000 });
+  await buildImage(engine, local, IMAGE_DIR, { onStatus });
   return local;
+}
+
+/** Waits between tries when building the VM image hits a network hiccup (the engine keeps the steps that worked). */
+export const BUILD_RETRY_MS = [10_000, 30_000, 90_000];
+
+/**
+ * The line of a failed build that says why: a network error if there is one (it may be well above
+ * the last line, which only says a step failed), else the last line that reads as an error.
+ */
+export function buildFailure(output: string): string {
+  const lines = output.split("\n").map((l) => l.trim()).filter(Boolean).reverse();
+  const pick = lines.find((l) => isTransientError(l)) ?? lines.find((l) => /error|failed|denied|not found/i.test(l)) ?? lines[0];
+  return (pick ?? "the VM image didn't build").slice(0, 500);
+}
+
+/** Build the VM image, trying again after a network hiccup. Exported for tests. */
+export async function buildImage(engine: Engine, tag: string, dir: string, o: { onStatus?: (text: string) => void; run?: typeof exec; delaysMs?: readonly number[]; sleep?: (ms: number) => Promise<void> } = {}): Promise<void> {
+  const run = o.run ?? exec;
+  await withRetry(
+    async () => {
+      const r = await run(engine.bin, ["build", "-t", tag, dir], { timeoutMs: 60 * 60_000 });
+      if (r.code !== 0) throw new ActionError(buildFailure(`${r.stdout.toString().slice(-4000)}\n${r.stderr}`));
+    },
+    {
+      delaysMs: o.delaysMs ?? BUILD_RETRY_MS,
+      sleep: o.sleep,
+      onRetry: (_err, attempt) => o.onStatus?.(`Network hiccup while building the VM image. Trying again (${attempt + 1} of ${(o.delaysMs ?? BUILD_RETRY_MS).length + 1})…`),
+    },
+  );
 }
 
 export async function imageExists(engine: Engine, image: string): Promise<boolean> {
@@ -394,7 +429,7 @@ export class DockerVm implements Driver {
         image = custom;
         if (!(await imageExists(this.engine, image))) {
           this.onStatus(`Pulling ${image}…`);
-          await must(this.bin, this.engine.kind === "apple" ? ["image", "pull", image] : ["pull", image], { timeoutMs: 30 * 60_000 });
+          await withRetry(() => must(this.bin, this.engine.kind === "apple" ? ["image", "pull", image] : ["pull", image], { timeoutMs: 30 * 60_000 }), { delaysMs: BUILD_RETRY_MS });
         }
       } else image = await ensureImage(this.engine, (text) => this.onStatus(text));
       fs.mkdirSync(this.filesDir, { recursive: true });

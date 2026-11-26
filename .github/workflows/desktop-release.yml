@@ -122,6 +122,16 @@ jobs:
           path: apps/desktop/dist/Bubble-AI-*
           retention-days: 7
 
+  # the agents' VM image for this release's recipe, from vm-image.yml, so installed apps pull it
+  # instead of building it themselves (skipped when it's published already; built, not pushed, on a dry run)
+  vm-image:
+    uses: ./.github/workflows/vm-image.yml
+    with:
+      publish: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: read
+      packages: write
+
   # the APK (Bubble-AI-android.apk plus a Wisp-android.apk copy), from android-release.yml: attached to the
   # release on a tag push, kept as an artifact on a dry run
   android:

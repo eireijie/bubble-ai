@@ -15,10 +15,11 @@ export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { 
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const asleep = !hasScreen(computer);
   useEffect(() => {
     setUrl(null);
     setFailed(false);
-    if (!computer.online) return;
+    if (!computer.online || asleep) return;
     let alive = true;
     let current: string | null = null;
     let visible = true;
@@ -52,7 +53,7 @@ export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { 
       io.disconnect();
       if (current) URL.revokeObjectURL(current);
     };
-  }, [computer.id, computer.online, refreshMs]);
+  }, [computer.id, computer.online, asleep, refreshMs]);
 
   return (
     <div ref={box} className={cx("relative aspect-[16/10] overflow-hidden rounded-xl bg-black grid place-items-center", className)}>
@@ -70,7 +71,15 @@ export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { 
             <>
               <MonitorOff size={14} /> Paused at the device
             </>
-          ) : failed && computer.kind === "vm" && computer.status === "stopped" ? (
+          ) : computer.status === "error" && asleep ? (
+            <>
+              <MonitorOff size={14} /> Couldn't start
+            </>
+          ) : computer.kind === "vm" && computer.status === "starting" ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Starting
+            </>
+          ) : (failed || asleep) && computer.kind === "vm" && computer.status === "stopped" ? (
             <>
               <Power size={14} /> Off · starts when it's needed
             </>
@@ -89,6 +98,16 @@ export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { 
       )}
     </div>
   );
+}
+
+/**
+ * Is there a screen to show? Not for a VM that isn't up (off, starting, or it couldn't start), nor
+ * a cloud computer that couldn't start: the hub only answers those with an error, so thumbnails
+ * don't ask until it changes. A device's own screen is asked anyway: its status clears on its own.
+ */
+export function hasScreen(c: Pick<ComputerInfo, "kind" | "status">): boolean {
+  if (c.kind === "vm") return c.status === "ready";
+  return !(c.kind === "orgo" && c.status === "error");
 }
 
 /** What a person did on the screen, in screen pixels, while teaching. */

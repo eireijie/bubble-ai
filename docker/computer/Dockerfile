@@ -6,7 +6,12 @@
 FROM node:22-trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Downloads ride out network hiccups (a DNS blip inside the VM engine is common): apt, curl and npm
+# retry on their own, and `retry` runs a whole step again.
+ENV NPM_CONFIG_FETCH_RETRIES=5 NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=10000 NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000
+COPY retry.sh /usr/local/bin/retry
+RUN chmod +x /usr/local/bin/retry && printf 'Acquire::Retries "5";\n' > /etc/apt/apt.conf.d/80-retries
+RUN retry apt-get update && retry apt-get install -y --no-install-recommends \
       xvfb x11vnc socat xdotool imagemagick xclip xdg-utils dbus-x11 x11-utils tmux \
       xfce4 xfce4-terminal thunar mousepad ristretto greybird-gtk-theme papirus-icon-theme librsvg2-common \
       fonts-noto fonts-noto-color-emoji fonts-noto-cjk fonts-liberation \
@@ -15,20 +20,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Google Chrome from Google's own repository (it publishes Intel and ARM builds)
-RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
+RUN curl -fsSL --retry 5 --retry-all-errors https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
- && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
+ && retry apt-get update && retry apt-get install -y --no-install-recommends google-chrome-stable \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # harnesses that can run inside the VM, and Playwright MCP for the browser (it drives the Chrome
 # people watch, over its debugging port; it never downloads a browser of its own)
-RUN npm install -g --no-audit --no-fund @anthropic-ai/claude-code && npm cache clean --force
-RUN npm install -g --no-audit --no-fund @openai/codex && npm cache clean --force
-RUN npm install -g --no-audit --no-fund @playwright/mcp@0.0.83 && npm cache clean --force
+RUN retry npm install -g --no-audit --no-fund @anthropic-ai/claude-code && npm cache clean --force
+RUN retry npm install -g --no-audit --no-fund @openai/codex && npm cache clean --force
+RUN retry npm install -g --no-audit --no-fund @playwright/mcp@0.0.83 && npm cache clean --force
 
 # Kimi CLI (Moonshot's "Kimi Code", the successor of the archived Python kimi-cli): npm package with
 # prebuilt binaries for linux x64 and arm64. `kimi acp` is how Bubble AI drives it; `kimi login` signs it in.
-RUN npm install -g --no-audit --no-fund @moonshot-ai/kimi-code@2.2.0 && npm cache clean --force
+RUN retry npm install -g --no-audit --no-fund @moonshot-ai/kimi-code@2.2.0 && npm cache clean --force
 
 # Hermes Agent (Nous Research), from its own installer pinned to a release tag and commit. The
 # installer's stages are the supported way to skip its browser tools (Chrome and Playwright MCP are
@@ -37,7 +42,7 @@ RUN npm install -g --no-audit --no-fund @moonshot-ai/kimi-code@2.2.0 && npm cach
 # Python packages on demand, so that user owns the install.
 ARG HERMES_TAG=v2026.9.24
 ARG HERMES_COMMIT=f97608f178d1ffeca59860195ab7da295f7c8e5f
-RUN curl -fsSL "https://raw.githubusercontent.com/NousResearch/hermes-agent/${HERMES_TAG}/scripts/install.sh" -o /tmp/hermes-install.sh \
+RUN curl -fsSL --retry 5 --retry-all-errors "https://raw.githubusercontent.com/NousResearch/hermes-agent/${HERMES_TAG}/scripts/install.sh" -o /tmp/hermes-install.sh \
  && export HERMES_HOME=/opt/hermes \
  && for stage in prerequisites repository venv python-deps; do \
       bash /tmp/hermes-install.sh --stage "$stage" --commit "$HERMES_COMMIT" --dir /opt/hermes/hermes-agent --skip-browser --skip-computer-use </dev/null || exit 1; \
