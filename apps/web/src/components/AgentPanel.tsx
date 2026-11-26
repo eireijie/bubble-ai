@@ -19,15 +19,17 @@ import { RunPanel } from "./RunPanel.tsx";
 import { stopRuns, workDetail } from "./ActivityPill.tsx";
 import { minutesSince, runStartedAt } from "./agentActivity.ts";
 import { lazyView } from "../lazy.tsx";
+import { setChannelPrefs } from "./Channels.tsx";
+import { Toggle } from "../views/settings/parts.tsx";
 
 // How calls sound sits in More, and lives with the call screen: a file of its own, fetched in the
 // background after the app is up (lazy.tsx), so a chat doesn't bring the voice engine with it.
 const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallOptions));
 
 /** What the panel shows: the agent itself ("details"), or the sheet one of its rows opens. */
-export type AgentPanelTab = "details" | "computer" | "thinks" | "works" | "can" | "asks" | "knows" | "more";
+export type AgentPanelTab = "details" | "computer" | "thinks" | "can" | "asks" | "knows" | "more";
 
-const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { computer: "Computer", thinks: "Thinks with", works: "Runs on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
+const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { computer: "Computer", thinks: "Thinks with", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
 /** A sheet by name; anything else (an old remembered tab) is the agent itself. */
 export const panelSheet = (tab: string | null | undefined): AgentPanelTab => (tab && tab in SHEETS ? (tab as AgentPanelTab) : "details");
 
@@ -127,7 +129,7 @@ export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = fal
                   label="Runs on"
                   value={!readiness.ready ? (readiness.problem ?? "Setup incomplete") : (computer?.name ?? device?.name ?? "None yet")}
                   warn={!readiness.ready}
-                  onClick={() => setSheet("works")}
+                  href={page("device")}
                 />
                 <PanelRow label="Can use" onClick={() => setSheet("can")} />
                 <PanelRow label="Asks first" value={ACCESS_LABEL[access]} onClick={() => setSheet("asks")} />
@@ -146,20 +148,11 @@ export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = fal
             </div>
           )}
           {sheet === "thinks" && ctx && <RunPanel big agent={agent} ctx={ctx} models={models} channelId={channelId} canEdit={canEdit} close={back} />}
-          {sheet === "works" && (
-            <div className="space-y-3">
-              {computer && <ComputerCard agent={agent} computer={computer} />}
-              {/* one line for where it runs (its computer, else its device); the page has the choices */}
-              <div className={CARD}>
-                <PanelRow label="Change where it runs" value={computer?.name ?? device?.name ?? "Not set up"} href={page(computer ? "computer" : "device")} />
-              </div>
-              {!readiness.ready && <WhatsMissing agent={agent} devices={devices} problem={readiness.problem} />}
-            </div>
-          )}
           {sheet === "can" && (
             <div className={CARD}>
               <PanelRow label="Apps" href={page("apps")} />
               <PanelRow label="Skills" href={page("skills")} />
+              <PanelRow label="Add" href={`#/marketplace/for/${encodeURIComponent(agent.id)}`} />
             </div>
           )}
           {sheet === "asks" && (
@@ -266,29 +259,14 @@ function AccessList({ agent, access, canEdit }: { agent: Agent; access: AccessLe
   );
 }
 
-/** Setup that is not finished: what is missing, and the one thing to do about it. */
-function WhatsMissing({ agent, devices, problem }: { agent: Agent; devices: DeviceInfo[] | null; problem: string | null }) {
-  const next = setupNextStep(agent, devices);
-  return (
-    <div className="flex flex-wrap items-center gap-2 px-1 text-[13px]">
-      <SetupIncomplete problem={problem} />
-      {next && (
-        <a href={next.href} className="font-medium text-ink underline underline-offset-2">
-          {next.action}
-        </a>
-      )}
-    </div>
-  );
-}
-
 /** The rest of the agent: its look and voice, who it answers, schedules, activity, connecting an app to it, removing it; and how calls with it sound. */
 function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => string }) {
-  const invite = useFeature("invite");
   const routines = useFeature("routines");
   const background = useFeature("background");
   const me = useStore((s) => s.me);
   const members = useStore((s) => s.members);
   const teams = useTeams();
+  const dm = useStore((s) => s.channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agent.id}`)));
   const onTeams = teams.filter((t) => t.members.some((m) => m.agentId === agent.id)).map((t) => t.name);
   // "Only you", "Anyone", or the people picked: whose messages wake it
   const to = agent.settings.respondTo ?? "anyone";
@@ -299,9 +277,14 @@ function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => strin
     <div className="space-y-3">
       <div className={CARD}>
         <PanelRow label="Look and voice" href={page("look")} />
-        {invite && <PanelRow label="Who can ask it" value={answers} href={page("access")} />}
+        <PanelRow label="Who can ask it" value={answers} href={page("access")} />
+        <div className="flex h-[46px] w-full items-center gap-3 px-3.5 text-[14px]">
+          <span className="min-w-0 flex-1 truncate font-medium">Notifications</span>
+          <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
+        </div>
         {routines && <PanelRow label="Schedules" href={page("routines")} />}
         {background && <PanelRow label="Background checks" href={page("background")} />}
+        <PanelRow label="What it watches" href={page("overview")} />
         <PanelRow label="Activity" href={page("runs")} />
         <PanelRow label="Connect" href={page("connect")} />
         <PanelRow label="Remove" href={page("remove")} />
