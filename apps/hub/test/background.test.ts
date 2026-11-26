@@ -164,6 +164,22 @@ describe("background work", () => {
     await idle();
   });
 
+  it("doesn't post into a team or chat it isn't in during a check", async () => {
+    const other = await room({ name: "someone-elses-team" });
+    let refused = "";
+    onCheck = async (agent) => {
+      await agent.send(other.id, "here's your haiku").catch((e: Error) => (refused = e.message));
+      return "looked around";
+    };
+    await owner.request("POST", `/api/agents/${agentId}/background/check`);
+    await waitFor(() => refused || undefined);
+    expect(refused).toMatch(/message_person/);
+    expect(hub.store.messages(other.id).some((m) => m.author.kind === "agent")).toBe(false);
+    expect(hub.store.isMember(other.id, { kind: "agent", id: agentId })).toBe(false);
+    expect(calls.at(-1)!.prompt).toContain("Requests in teams and chats are for the agents in them");
+    await idle();
+  });
+
   it("doesn't count, list or date a check until its device starts it, and drops one that's turned off while waiting", async () => {
     // a started check shows in Runs under a readable name
     const runs = await owner.request("GET", `/api/agents/${agentId}/runs?limit=50`);

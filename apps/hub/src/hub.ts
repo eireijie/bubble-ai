@@ -1079,7 +1079,8 @@ export class Hub {
   }
 
   /**
-   * Decide which agents should respond to a message: anyone @mentioned; in a DM, its agent; for a
+   * Decide which agents should respond to a message: anyone @mentioned; in a DM, its agent unless the
+   * person @mentioned another agent (asking someone else, as in a channel, goes to them only); for a
    * person's plain reply in a thread, the agent already talking there; otherwise the channel's
    * default agent, if it has one. Agents only wake each other by @mention, so they can't loop.
    */
@@ -1092,7 +1093,7 @@ export class Hub {
       const a = store.agentByHandle(workspaceId, handle);
       if (a) out.add(a.id);
     }
-    if (channel?.kind === "dm" && msg.author.kind === "user") {
+    if (channel?.kind === "dm" && msg.author.kind === "user" && !out.size) {
       for (const m of store.channelMembers(channel.id)) if (m.kind === "agent") out.add(m.id);
     }
     if (!out.size && msg.author.kind === "user" && msg.author.id !== "system") {

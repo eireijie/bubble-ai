@@ -70,7 +70,7 @@ export function NewTeamFlow({ onClose, sectionId = null, initialName = "", initi
   }
 
   if (page === "builder")
-    return <TeamBuilder team={team} onChange={setTeam} name={id} allowEmpty blocked={newTeamProblem(team, picked)} leadId={picked[0] ?? null} saving={busy} error={error} onBack={() => setPage("name")} onDone={() => void create()} />;
+    return <TeamBuilder team={team} onChange={setTeam} name={id} allowEmpty blocked={newTeamProblem(team, picked)} leadId={picked[0] ?? null} pool={picked} saving={busy} error={error} onBack={() => setPage("name")} onDone={() => void create()} />;
 
   const toggle = (agentId: string) => setPicked((cur) => (cur.includes(agentId) ? cur.filter((x) => x !== agentId) : [...cur, agentId]));
   return (
