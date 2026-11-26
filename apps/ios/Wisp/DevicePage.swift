@@ -107,7 +107,7 @@ struct DeviceDetail: View {
         Spacer(minLength: 6)
         NodePill(node: n)
       }
-      if n.paused == true { Text("Paused at the device. Resume it there with: bubble-ai node resume").font(.footnote).foregroundStyle(Palette.muted) }
+      if n.paused == true { Text("Paused. Resume it on \(n.name).").font(.footnote).foregroundStyle(Palette.muted) }
     }.listRowBackground(Palette.card)
   }
 
@@ -212,8 +212,6 @@ struct DeviceDetail: View {
             }.padding(.horizontal, -18)
           }.buttonStyle(.plain).disabled(action.busy).accessibilityIdentifier("device-remove")
         }
-      } footer: {
-        if mine(n) { Text("At \(n.name): bubble-ai node screen code picks a new screen code, and bubble-ai node pause stops everything there until bubble-ai node resume.") }
       }.listRowBackground(Palette.card)
     }
   }
@@ -317,13 +315,13 @@ private struct YourScreen: View {
         VStack(alignment: .leading, spacing: 2) {
           Text(status).foregroundStyle(Palette.text)
           if let detail { Text(detail).font(.footnote).foregroundStyle(Palette.muted) }
-          if caps?.off == true && node.online { Text("Turn it on at \(node.name): bubble-ai node screen on").font(.footnote).foregroundStyle(Palette.muted).textSelection(.enabled) }
+          if caps?.off == true && node.online { Text("Screen sharing is off on \(node.name). Turn it on there.").font(.footnote).foregroundStyle(Palette.muted).textSelection(.enabled) }
         }
       }
       if let code = caps?.code {
         VStack(alignment: .leading, spacing: 2) {
           Text("Screen code").foregroundStyle(Palette.text)
-          Text("Checked on the device (\(code == "pin" ? "PIN" : "password")). To change it, run bubble-ai node screen code at \(node.name).").font(.footnote).foregroundStyle(Palette.muted)
+          Text("Asks for its \(code == "pin" ? "PIN" : "password"), checked on \(node.name).").font(.footnote).foregroundStyle(Palette.muted)
         }
       }
       if caps?.ok == true && node.online {

@@ -238,7 +238,7 @@ private struct ConnectNextcloud: View {
       MarketField(label: "Address", placeholder: "https://cloud.example.com", text: $server, keyboard: .URL, plain: true)
       MarketPrimaryButton(title: "Sign in with Nextcloud", busy: waiting, disabled: server.trimmed.isEmpty) { start() }
         .accessibilityIdentifier("storage-nextcloud-signin")
-      Text("Your Nextcloud opens in the browser to approve Bubble AI. Bubble AI gets its own app password, which you can revoke there under Security. It never sees your password.")
+      Text("Approve Bubble AI in your Nextcloud. It gets its own app password and never sees yours.")
         .font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
       if waiting {
         HStack(spacing: 10) { ProgressView(); Text("Waiting for you to approve in the browser…") }.font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
@@ -340,7 +340,7 @@ private struct ConnectCloud: View {
       ConnectHead(service: service, back: back)
       VStack(alignment: .leading, spacing: 4) {
         Text("Your \(google ? "Google" : "Dropbox") app").font(.system(size: 15, weight: .semibold))
-        Text("Bubble AI runs on your own server, so it signs in to \(service.name) through an app you make \(google ? "in Google Cloud" : "in the Dropbox App Console"). Once per workspace.")
+        Text("Make an app \(google ? "in Google Cloud" : "in the Dropbox App Console") once, then paste its keys here.")
           .font(.system(size: 13)).foregroundStyle(Palette.muted)
         Button("How") { if let help { openURL(help) } }.font(.system(size: 13, weight: .medium))
         Text("Redirect address: \((store.api?.base.absoluteString ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "/")))/api/storage/oauth/callback")
