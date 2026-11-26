@@ -282,7 +282,7 @@ function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => strin
           <span className="min-w-0 flex-1 truncate font-medium">Notifications</span>
           <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
         </div>
-        {routines && <PanelRow label="Schedules" href={page("routines")} />}
+        {routines && <PanelRow label="Routines" href={page("routines")} />}
         {background && <PanelRow label="Background checks" href={page("background")} />}
         <PanelRow label="What it watches" href={page("overview")} />
         <PanelRow label="Activity" href={page("runs")} />

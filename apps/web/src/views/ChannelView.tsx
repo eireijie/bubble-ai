@@ -1216,7 +1216,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
       {parts.map((p, i) => p.type === "computer" && <ComputerPart key={`c${i}`} computerId={p.computerId} request={p.request} agentName={agentName} />)}
       {parts.map((p) => p.type === "approval" && <ApprovalCard key={p.approvalId} id={p.approvalId} />)}
       {parts.map((p) => p.type === "routine" && <RoutineChip key={p.routineId} id={p.routineId} />)}
-      {parts.map((p) => p.type === "task" && <TaskChip key={p.taskId} id={p.taskId} />)}
+      {parts.map((p) => p.type === "task" && <TaskChip key={p.taskId} id={p.taskId} body={body} />)}
       {parts.map((p, i) => p.type === "context" && <ContextCard key={`x${i}`} usage={p.usage} />)}
       {parts.map((p) => p.type === "change" && <ChangeCard key={p.changeId} id={p.changeId} fallback={body} />)}
       {parts.map((p, i) => p.type === "notice" && <div key={`n${i}`} className="mt-1 px-1 text-xs text-muted whitespace-pre-wrap">{p.text}</div>)}
@@ -1639,8 +1639,8 @@ function taskState(t: TaskRow): { label: string; tone: "neutral" | "info" | "ok"
   return { label: "To do", tone: "neutral" };
 }
 
-/** A task an agent mentions: title, who has it, where it stands, and a way into Tasks. */
-function TaskChip({ id }: { id: string }) {
+/** A task an agent mentions: title, who has it, where it stands, and a way into Tasks. The title is left off when the message already says it ("New task **Title**"). */
+function TaskChip({ id, body }: { id: string; body?: string }) {
   const agents = useStore((s) => s.agents);
   const task = useTask(id);
   if (!task) return null;
@@ -1649,7 +1649,7 @@ function TaskChip({ id }: { id: string }) {
   return (
     <a href={href({ view: "tasks" })} className="block">
       <ChatCard icon={<ListChecks size={13} />} label="Task" className="hover:bg-hover">
-        <div className="mt-2 text-body font-medium leading-snug">{task.title}</div>
+        {!body?.includes(task.title) && <div className="mt-2 text-body font-medium leading-snug">{task.title}</div>}
         <div className="mt-2 flex items-center gap-2">
           <Pill tone={st.tone}>{st.label}</Pill>
           {agent && (
