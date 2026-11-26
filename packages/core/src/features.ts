@@ -20,8 +20,29 @@ export const FEATURE_INFO: Record<FeatureKey, { name: string; description: strin
   code: { name: "Code", description: "A terminal view where agents code side by side and you can jump in.", group: "extras" },
 };
 
+/**
+ * What makes agents work on their own: checks, schedules and taught skills. On by default, in
+ * Simple too; an agent with nothing to watch still costs nothing (the hub skips its checks).
+ */
+export const CORE_MODS: readonly FeatureKey[] = ["background", "routines", "teach"];
+
 /** Mods that are on unless someone turns them off, even in Simple and for organizations from before they existed. */
-const ON_UNLESS_REMOVED: readonly FeatureKey[] = ["code"];
+const ON_UNLESS_REMOVED: readonly FeatureKey[] = ["code", ...CORE_MODS];
+
+/** Version of the stored defaults; a stored set without it is from before CORE_MODS were on by default. */
+export const FEATURES_VERSION = 2;
+
+/**
+ * A stored set from before CORE_MODS were on by default: Simple stored them all off, so an
+ * organization that has all three off never chose that and gets them on. One that has any of them
+ * on chose for itself and is kept as it is. Returns the set to store (with its version), or null
+ * when nothing needs changing.
+ */
+export function upgradeStoredFeatures(stored: (Partial<Features> & { v?: number }) | null | undefined): (Partial<Features> & { v: number }) | null {
+  if (!stored || (stored.v ?? 0) >= FEATURES_VERSION) return null;
+  const untouched = CORE_MODS.every((k) => stored[k] !== true);
+  return { ...stored, ...(untouched ? on(CORE_MODS) : {}), v: FEATURES_VERSION };
+}
 
 /** Mods kept out of the Mods page (and agents' list) until their screens are built. */
 export const UNLISTED_FEATURES: readonly FeatureKey[] = ["code"];
@@ -39,7 +60,7 @@ const OFF_UNTIL_ADDED: readonly FeatureKey[] = ["storage", "apple"];
 const all = (on: boolean) => Object.fromEntries(FEATURE_KEYS.map((k) => [k, on])) as Features;
 const on = (keys: readonly FeatureKey[]) => Object.fromEntries(keys.map((k) => [k, true])) as Partial<Features>;
 
-/** Simple turns everything off but the mods that are on unless removed; Everything turns it all on, apart from mods that need setting up first. */
+/** Simple turns everything off but the mods that are on unless removed (agents working on their own, and Code); Everything turns it all on, apart from mods that need setting up first. */
 export const FEATURE_PRESETS = { simple: { ...all(false), ...on(ON_UNLESS_REMOVED) } as Features, everything: { ...all(true), ...Object.fromEntries(OFF_UNTIL_ADDED.map((k) => [k, false])) } as Features } as const;
 
 /**

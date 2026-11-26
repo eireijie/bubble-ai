@@ -70,7 +70,8 @@ export function YouPage() {
       ...(!isGuest ? [{ label: "Computers", icon: <ComputersIcon size={ICON.size} />, to: { view: "computers", computerId: null } as Route }, { label: "Add apps and skills", icon: <LayoutGrid {...ICON} />, to: { view: "marketplace" } as Route }] : []),
       { label: "Memory", icon: <BookOpen {...ICON} />, to: { view: "vault", path: null } },
       { label: "All agents", icon: <BubbleIcon {...ICON} />, to: { view: "agents", agentId: null } },
-      ...(!isGuest && features.tasks ? [{ label: "Tasks", icon: <ListTodo {...ICON} />, to: { view: "tasks" } as Route }] : []),
+      // the board is always one tap away (agents hand each other tasks with or without the mod)
+      ...(!isGuest ? [{ label: "Tasks", icon: <ListTodo {...ICON} />, to: { view: "tasks" } as Route }] : []),
       ...(!isGuest && features.code ? [{ label: "Code", icon: <SquareTerminal {...ICON} />, to: { view: "code" } as Route }] : []),
     ],
     more,

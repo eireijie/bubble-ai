@@ -8,8 +8,8 @@ const { SETTINGS_PAGES } = await import("../src/router.ts");
 const { FIVE, FIVE_LABEL, ROWS, fivePages, settingsLanding } = await import("../src/views/settings/map.ts");
 
 describe("settings navigation", () => {
-  it("is six pages: You, Agents, Computers, Privacy and data, About, Learn Bubble AI", () => {
-    expect(fivePages(false, FEATURE_PRESETS.everything).map((p) => FIVE_LABEL[p])).toEqual(["You", "Agents", "Computers", "Privacy and data", "About", "Learn Bubble AI"]);
+  it("is seven pages: You, Agents, Mods, Computers, Privacy and data, About, Learn Bubble AI", () => {
+    expect(fivePages(false, FEATURE_PRESETS.everything).map((p) => FIVE_LABEL[p])).toEqual(["You", "Agents", "Mods", "Computers", "Privacy and data", "About", "Learn Bubble AI"]);
   });
 
   it("has a sheet to open for every row that says it opens one, and no others", () => {

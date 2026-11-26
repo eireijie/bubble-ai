@@ -432,7 +432,18 @@ export type MessagePart =
   /** a line from Bubble AI; `link` is one place in the app it points to, an address inside the app ("#/settings/usage") */
   | { type: "status"; text: string; link?: { label: string; href: string } }
   /** the run this message reports failed: what the person can do next. retry when asking again makes sense; fix when something must be signed in first */
-  | { type: "run_failed"; runId: string; retry: boolean; fix?: "signin" | "computer" | "connection" }
+  | {
+      type: "run_failed";
+      runId: string;
+      retry: boolean;
+      fix?: "signin" | "computer" | "connection" | "install" | "device";
+      /** why, as a code (runFailureReason in harnesses.ts), and as one short plain line */
+      reason?: import("./harnesses.ts").RunFailureReason;
+      why?: string;
+      /** for fix "install": the harness to install and the device it goes on */
+      harness?: string;
+      nodeId?: string;
+    }
   /** a quiet line from Bubble AI, e.g. "Round 2 of 3" */
   | { type: "notice"; text: string }
   /** this message is the summary a /compact asked for: it seeds the next conversation, and clients show it collapsed, not as a normal message */

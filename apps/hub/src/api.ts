@@ -1129,6 +1129,18 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   });
 
   /** Ask again after a failed run. Goes through the same "who can ask it" rules as a new message. */
+  /** Replies that failed in the last two days and still stand, each with why and its one fix (for Needs you). */
+  app.get("/api/runs/failed", async (req, reply) => {
+    const c = need(req, reply, { notGuest: true });
+    if (!c || c.actor.kind !== "user") return [];
+    const since = new Date(Date.now() - 48 * 3_600_000).toISOString();
+    return store.standingFailures(c.workspaceId, c.actor.id, since).flatMap((r) => {
+      const agent = store.agent(r.agentId);
+      if (!agent || !channelVisible(c, r.channelId)) return [];
+      return [{ runId: r.id, agentId: r.agentId, channelId: r.channelId, threadId: r.threadId, at: r.createdAt, part: hub.failurePart(agent, r, { error: r.error }) }];
+    });
+  });
+
   app.post("/api/runs/:id/retry", async (req, reply) => {
     const c = need(req, reply, { notGuest: true });
     if (!c) return;

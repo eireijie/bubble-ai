@@ -749,7 +749,8 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
       {error && <p className="px-0.5 pt-2 text-[13px] text-bad">{error}</p>}
       {signedIn && signedIn !== "ok" && <p className="px-0.5 pt-2 text-[13px] text-bad">Sign-in didn't finish: {signedIn}</p>}
       {shownSections.map((s) => {
-        const open = expanded.includes(s.id) || whole === s.id;
+        // mods are few and some are core behaviour: always all of them, no "Show all" to find them behind
+        const open = expanded.includes(s.id) || whole === s.id || s.id === "mods";
         const n = rowsShown(s.rows.length, open, searching);
         return (
           <section key={s.id} id={`add-${s.id}`} aria-label={SECTION_TITLE[s.id]} className="scroll-mt-2">

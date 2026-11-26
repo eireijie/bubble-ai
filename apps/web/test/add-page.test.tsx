@@ -54,12 +54,12 @@ describe("Add: apps, skills and mods on one page", () => {
     expect(html).not.toContain("Made by Bubble AI");
   });
 
-  it("shows a few rows of each section and a Show all row", () => {
+  it("shows a few rows of apps and skills with a Show all row, and every mod", () => {
     const html = add();
-    expect(html.match(/Show all/g)?.length).toBeGreaterThanOrEqual(3);
-    // nine mods are listed; five show
+    expect(html.match(/Show all/g)?.length).toBeGreaterThanOrEqual(2);
+    // mods are few and switch core behaviour, so they're never folded away
     expect(html).toContain(FEATURE_INFO.buddy.name);
-    expect(html).not.toContain(FEATURE_INFO.remoteDesktop.name);
+    expect(html).toContain(FEATURE_INFO.remoteDesktop.name);
   });
 
   it("lists every mod, the ones that are on with a check and the rest with Add; Code stays out while it is on", () => {

@@ -9,7 +9,7 @@ import { DesktopUpdates } from "./DesktopUpdates.tsx";
 import { RemoveWispRow } from "./RemoveWisp.tsx";
 import { HubAddress } from "./workspace.tsx";
 import { Card, Row } from "./parts.tsx";
-import { Group, Note, SRow, ShowAll } from "./rows.tsx";
+import { Group, Note, SRow } from "./rows.tsx";
 
 interface UpdateInfo {
   version: { commit: string | null; date: string | null };
@@ -152,8 +152,7 @@ export function AboutPage() {
         <SRow id="help" to={href({ view: "help" })} />
         <SRow id="source" to={GITHUB_URL} external value="GitHub" />
       </Group>
-      <ShowAll />
-      <Group>
+      <Group title="More">
         <SRow id="hub" value={<HubAddress />} />
         <SRow id="welcome" to={href({ view: "welcome", intro: true })} />
         <RemoveWispRow />

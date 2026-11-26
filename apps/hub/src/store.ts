@@ -1099,6 +1099,24 @@ export class Store {
       .all(nodeId) as { id: string }[];
   }
 
+  /**
+   * Replies that failed and still stand (for Needs you): a person's request (or one nobody made)
+   * since `since`, not stopped on purpose, and the newest run of that agent in that chat, so a
+   * retry or a later reply that worked clears it.
+   */
+  standingFailures(workspaceId: string, userId: string, since: string, limit = 20) {
+    return this.db
+      .prepare(
+        `SELECT r.id, r.agent_id AS agentId, r.channel_id AS channelId, r.thread_id AS threadId, r.trigger_message_id AS triggerMessageId, r.discussion_id AS discussionId, r.error, r.created_at AS createdAt
+         FROM runs r JOIN agents a ON a.id = r.agent_id
+         WHERE a.workspace_id = ? AND r.status = 'failed' AND r.kind IS NULL AND r.created_at > ? AND (r.requested_by = ? OR r.requested_by IS NULL)
+           AND COALESCE(r.error, '') NOT IN ('cancelled', '') AND r.error NOT LIKE 'stopped:%'
+           AND NOT EXISTS (SELECT 1 FROM runs n WHERE n.agent_id = r.agent_id AND n.channel_id = r.channel_id AND COALESCE(n.thread_id, '') = COALESCE(r.thread_id, '') AND n.kind IS NULL AND n.created_at > r.created_at)
+         ORDER BY r.created_at DESC LIMIT ?`,
+      )
+      .all(workspaceId, since, userId, limit) as { id: string; agentId: string; channelId: string; threadId: string | null; triggerMessageId: string; discussionId: string | null; error: string; createdAt: string }[];
+  }
+
   agentRuns(agentId: string, limit = 20) {
     return this.db
       .prepare(

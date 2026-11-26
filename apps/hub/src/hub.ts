@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@bubble-ai/core";
+import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, runFailureReason, runFailureLine, type RunFailureReason, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@bubble-ai/core";
 import { id } from "./auth.ts";
 import { Computers } from "./computers.ts";
 import { Terminals } from "./terminals.ts";
@@ -795,7 +795,7 @@ export class Hub {
         // but a cancelled run's harness has stopped now, so its connection is free
         if (!run) return;
         if (run.status !== "running") return this.releaseConnection(run.id);
-        this.finishRun(conn.workspaceId, run, msg.type === "run_done" ? { finalText: msg.finalText } : { error: msg.error });
+        this.finishRun(conn.workspaceId, run, msg.type === "run_done" ? { finalText: msg.finalText } : { error: msg.error, ...(msg.reason ? { reason: msg.reason } : {}) });
         return;
       }
       case "git_done": {
@@ -813,7 +813,7 @@ export class Hub {
    * A run ended: post its reply (or a "Run failed" line), free the agent, and move on whatever
    * waited on it (a discussion, a task). Used for the device's report and for failures on the hub.
    */
-  private finishRun(workspaceId: string, run: NonNullable<ReturnType<Store["run"]>>, result: { finalText: string } | { error: string }) {
+  private finishRun(workspaceId: string, run: NonNullable<ReturnType<Store["run"]>>, result: { finalText: string } | { error: string; reason?: RunFailureReason }) {
     const { store } = this;
     // a connection that failed to sign in says so on Settings → Models; one that worked clears that
     const cid = this.connectionRuns.get(run.id);
@@ -915,8 +915,8 @@ export class Hub {
       store.setRunStatus(run.id, "failed", result.error);
       const text = agent ? this.explainFailure(agent, result.error, run.requestedBy) : result.error;
       if (!gone) {
-        const fix = agent ? this.failureFix(agent, result.error) : undefined;
-        this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body: "", parts: [...live.parts, { type: "status", text: `Run failed: ${text}` }, ...(result.error === "cancelled" ? [] : [{ type: "run_failed" as const, runId: run.id, retry: !!run.triggerMessageId && !run.discussionId, ...(fix ? { fix } : {}) }])], hop: run.hop + 1, route: false, conversationId: this.chatOfRun(run) });
+        const failed = agent ? this.failurePart(agent, run, result) : { type: "run_failed" as const, runId: run.id, retry: !!run.triggerMessageId && !run.discussionId };
+        this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body: "", parts: [...live.parts, { type: "status", text: `Run failed: ${text}` }, ...(result.error === "cancelled" ? [] : [failed])], hop: run.hop + 1, route: false, conversationId: this.chatOfRun(run) });
         failTaskOfRun(this, run, text);
         // setup's scripted questions wait: the person sees the failure and its Try again first
       }
@@ -971,6 +971,29 @@ export class Hub {
     if (conn && credentialSupport(agent.harness, conn.provider, conn.kind)) return `The ${providerLabel(conn.provider)} ${conn.kind === "oauth" ? "sign-in" : "key"} "${conn.label}" stopped working (${error.slice(0, 200)}). Connect it again in Settings → Models.`;
     const device = agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
     return problem.explain(device ?? "its device");
+  }
+
+  /**
+   * The run_failed part under a failed reply: why in one short line (the device's reason code, or
+   * worked out here for devices that send none) and the one fix: Install, Sign in, Choose device,
+   * or Try again.
+   */
+  failurePart(agent: Pick<Agent, "harness" | "computerId" | "settings" | "nodeId">, run: { id: string; triggerMessageId: string | null; discussionId?: string | null }, result: { error: string; reason?: RunFailureReason }): Extract<MessagePart, { type: "run_failed" }> {
+    const reason = result.reason ?? runFailureReason(agent.harness, result.error);
+    const retry = !!run.triggerMessageId && !run.discussionId;
+    const inVm = agent.settings.runIn === "computer" && !!agent.computerId;
+    const device = inVm ? this.store.computer(agent.computerId!)?.name : agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
+    const base = { type: "run_failed" as const, runId: run.id, retry, reason };
+    if (reason === "error") return base;
+    const why = runFailureLine(reason, agent.harness, device);
+    if (reason === "not_installed") {
+      // Bubble AI installs it with the device's own recipe when it can (npm); a computer's image is set up differently
+      const canInstall = !inVm && !!agent.nodeId && !!harnessInfo(agent.harness)?.install?.npm;
+      return { ...base, why, ...(canInstall ? { fix: "install" as const, harness: agent.harness, nodeId: agent.nodeId! } : {}) };
+    }
+    if (reason === "signed_out") return { ...base, why, fix: this.failureFix(agent, result.error) ?? (inVm ? "computer" : "signin") };
+    if (reason === "no_device") return { ...base, why, fix: "device" };
+    return { ...base, why };
   }
 
   /** What fixes a failed run, when a person has to sign something in first. */

@@ -88,6 +88,16 @@ describe("features", () => {
     hub.store.setSetting(firstOrg, "features", saved);
   });
 
+  it("turns agents working on their own on, once, for a set stored before it was the default", async () => {
+    const saved = hub.store.setting(firstOrg, "features");
+    hub.store.setSetting(firstOrg, "features", JSON.stringify({ ...FEATURE_PRESETS.simple, background: false, routines: false, teach: false }));
+    expect((await api("GET", "/api/features")).data.features).toMatchObject({ background: true, routines: true, teach: true });
+    // turned off afterwards: stays off
+    await api("PUT", "/api/features", { background: false });
+    expect((await api("GET", "/api/features")).data.features.background).toBe(false);
+    hub.store.setSetting(firstOrg, "features", saved);
+  });
+
   it("refuses invites while Invite people is off", async () => {
     const off = await api("POST", "/api/invites", { role: "member" });
     expect(off.status).toBe(403);
@@ -111,6 +121,8 @@ describe("features", () => {
     for (const x of hub.store.activeRuns(agent.id)) hub.cancelRun(x.id);
     // a task waiting on it, so a check has something to look at
     hub.store.db.prepare("INSERT INTO tasks (id, workspace_id, from_kind, from_id, to_agent_id, title, brief, status, created_at, updated_at) VALUES ('t_sched', ?, 'user', ?, ?, 'Watch it', '', 'open', ?, ?)").run(agent.workspaceId, me, agent.id, new Date().toISOString(), new Date().toISOString());
+    // background checks are on by default now; switched off, they hold
+    await api("PUT", "/api/features", { background: false });
     hub.store.setBackground(agent.id, me, { enabled: true });
     hub.background.tick(new Date("2026-10-14T12:00:00Z"));
     expect(hub.store.activeRuns(agent.id)).toHaveLength(0);

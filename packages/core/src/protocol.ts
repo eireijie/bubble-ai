@@ -3,6 +3,7 @@ import { AppleOp } from "./apple.ts";
 import { ComputerAction, DeviceCapabilities } from "./computers.ts";
 import { ConnectorSpec } from "./connectors.ts";
 import { HarnessAccountOp, HarnessSettingsChange } from "./harness-settings.ts";
+import { RUN_FAILURE_REASONS } from "./harnesses.ts";
 import { ConnectionSecret, ModelProviderId, PlanUsage, RunCredential } from "./models.ts";
 import { ShelfItem } from "./shop.ts";
 
@@ -205,7 +206,8 @@ export const NodeToHub = z.discriminatedUnion("type", [
   z.object({ type: z.literal("shared_signin_renewed"), connectionId: z.string().max(64), secret: ConnectionSecret }),
   z.object({ type: z.literal("run_event"), runId: z.string(), event: AgentEvent }),
   z.object({ type: z.literal("run_done"), runId: z.string(), finalText: z.string() }),
-  z.object({ type: z.literal("run_failed"), runId: z.string(), error: z.string() }),
+  /** `reason` is why, as a code (see runFailureReason); devices from before it send none and the hub works it out */
+  z.object({ type: z.literal("run_failed"), runId: z.string(), error: z.string(), reason: z.enum(RUN_FAILURE_REASONS).optional() }),
   z.object({ type: z.literal("git_done"), requestId: z.string(), ok: z.boolean(), output: z.string() }),
   /** what this device can offer as computers */
   z.object({ type: z.literal("capabilities"), capabilities: DeviceCapabilities }),
