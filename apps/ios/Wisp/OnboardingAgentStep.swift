@@ -1,208 +1,113 @@
 import SwiftUI
 
 /**
- * First-run page 2: make the agent theirs. Everything starts filled in from the kind picked on
- * page 1. Continue only saves a draft; the next page creates the agent once its AI is chosen.
+ * First-run page 1, "Your agent" (canvas iPhone board): its bubble big at the top (tap it for
+ * another shape), its name right under it in big type to type over, and its colour. Continue makes
+ * the agent there and then (or renames one made before), so whatever happens next it exists.
  */
 struct OnboardingAgentStep: View {
   @Environment(Store.self) private var store
   @Environment(HostStage.self) private var stage
   var workspaceId: String
-  var onContinue: () -> Void
-  var onBack: () -> Void
-  @State private var name = "Juno"
-  @State private var role = ""
-  @State private var suggestedRole = OnboardingText.noGoalRole
-  @State private var color = OnboardingText.colors[0]
-  @State private var shape = "classic"
-  /** the white host puts on the agent's colour a beat after the page opens (already dressed when coming back) */
-  @State private var dressed = false
-  @State private var smile = false
-  @State private var smileTask: Task<Void, Never>?
-  /** bumps when the shape changes, so the new one morphs in instead of cutting */
-  @State private var morph = 0
+  @Binding var look: GhostLook
+  var onBusy: (Bool) -> Void
+  var onContinue: (_ agentId: String) -> Void
+  @State private var name = ""
+  @State private var busy = false
+  @State private var error: String?
   @State private var loaded = false
+  @FocusState private var naming: Bool
   @ReduceMotion private var reduceMotion
 
   private var person: String { store.me?.preferredName ?? store.me?.name ?? "" }
-  private var agent: String { name.trimmed.isEmpty ? "your agent" : name.trimmed }
-  private var look: GhostLook { dressed ? OnboardingLook.agent(color: color, shape: shape) : { var l = OnboardingLook.host; l.shape = shape; return l }() }
+  private var existing: Agent? { OnboardingAnswers.load(workspaceId).agentId.flatMap { store.agent($0) } }
 
   var body: some View {
-    OnboardingPage(step: 2, onBack: onBack) {
-      VStack(alignment: .leading, spacing: 22) {
-        card
-        preview
-        OnboardingHead(title: "Make me yours.", sub: "I picked these from what you told me. Change anything.")
-        field("Name") {
-          ObField(placeholder: "Name", text: $name, id: "ob-agent-name", limit: 40).autocorrectionDisabled()
-          HStack(spacing: 6) {
-            ForEach(OnboardingText.names(for: person), id: \.self) { n in
-              Button(n) { pickName(n) }.buttonStyle(Chip(on: name.trimmed == n)).accessibilityAddTraits(name.trimmed == n ? .isSelected : [])
+    ObScreen(top: 96) {
+      VStack(spacing: 0) {
+        ObSlot(size: 180)
+        TextField("Name", text: $name)
+          .font(.system(size: 34, weight: .bold)).tracking(-0.6).foregroundStyle(Palette.text)
+          .multilineTextAlignment(.center)
+          .autocorrectionDisabled().textInputAutocapitalization(.words).submitLabel(.done)
+          .focused($naming)
+          .onChange(of: name) { _, new in if new.count > 40 { name = String(new.prefix(40)) } }
+          .onSubmit { Task { await save() } }
+          .padding(.top, 26)
+          .accessibilityLabel("Its name")
+          .accessibilityIdentifier("ob-agent-name")
+        HStack(spacing: 12) {
+          ForEach(Array(OnboardingText.colors.enumerated()), id: \.element) { i, c in
+            let on = look.color == c
+            Button { pick(c) } label: {
+              Circle().fill(Color(hex: c)).frame(width: 26, height: 26)
+                .padding(4)
+                .overlay(Circle().strokeBorder(on ? Color(hex: c) : .clear, lineWidth: 2))
+                .contentShape(Circle())
             }
+            .buttonStyle(.press)
+            .accessibilityLabel(OnboardingText.colorNames[i]).accessibilityAddTraits(on ? .isSelected : [])
+            .accessibilityIdentifier("ob-color-\(i)")
           }
         }
-        field("What I do") { ObField(placeholder: suggestedRole, text: $role, id: "ob-agent-role") }
-        field("Colour") {
-          HStack(spacing: 10) {
-            ForEach(Array(OnboardingText.colors.enumerated()), id: \.element) { i, c in
-              Button { pickColor(c) } label: {
-                Circle().fill(Color(hex: c)).padding(3)
-                  .overlay(Circle().strokeBorder(color == c ? Color(hex: c) : .clear, lineWidth: 2))
-                  .frame(width: 36, height: 36).contentShape(Circle())
-              }
-              .buttonStyle(.press)
-              .accessibilityLabel(OnboardingText.colorNames[i]).accessibilityAddTraits(color == c ? .isSelected : [])
-              .accessibilityIdentifier("ob-color-\(i)")
-            }
-          }
-          .animation(Motion.pick(Motion.pop, reduceMotion), value: color)
-        }
-        field("Shape") {
-          HStack(spacing: 8) {
-            ForEach(OnboardingText.shapes, id: \.self) { s in
-              Button { pickShape(s) } label: {
-                GhostView(look: OnboardingLook.agent(color: color, shape: s), seed: "host", size: 38, animate: false)
-                  .frame(width: 56, height: 56)
-                  .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(shape == s ? Color(hex: color).opacity(0.12) : Palette.card))
-                  .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(shape == s ? Color(hex: color) : Palette.cardBorder, lineWidth: shape == s ? 2 : 1))
-                  .contentShape(RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
-              }
-              .buttonStyle(.press)
-              .accessibilityLabel(OnboardingText.shapeLabels[s] ?? s).accessibilityAddTraits(shape == s ? .isSelected : [])
-              .accessibilityIdentifier("ob-shape-\(s)")
-            }
-          }
-          .animation(Motion.pick(Motion.pop, reduceMotion), value: shape)
+        .padding(.top, 14)
+        .animation(Motion.pick(Motion.pop, reduceMotion), value: look.color)
+        .accessibilityElement(children: .contain).accessibilityLabel("Colour")
+        if let error {
+          Text(error).font(.system(size: 14)).foregroundStyle(Palette.red).multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true).padding(.top, 16).obPop()
         }
       }
     } bottom: {
-      Button("Continue", action: save).buttonStyle(ObPrimary()).disabled(name.trimmed.isEmpty).accessibilityIdentifier("ob-agent-next")
-      Button("Surprise me", action: surprise).buttonStyle(ObOutline()).padding(.leading, 4).accessibilityIdentifier("ob-agent-surprise")
+      Button(busy ? "Making \(name.trimmed)…" : "Continue") { Task { await save() } }
+        .buttonStyle(ObWide()).disabled(name.trimmed.isEmpty || busy)
+        .accessibilityIdentifier("ob-agent-next")
     }
     .task {
       guard !loaded else { return }
       loaded = true
-      let answers = OnboardingAnswers.load(workspaceId)
-      suggestedRole = OnboardingText.role(for: answers)
-      if let draft = answers.agentDraft {
-        name = draft.name; role = draft.role; color = OnboardingText.colors.contains(draft.color) ? draft.color : color
-        shape = OnboardingText.shapes.contains(draft.shape) ? draft.shape : shape
-        dressed = true
-        return
-      }
-      role = suggestedRole
-      if !reduceMotion { try? await Task.sleep(for: .milliseconds(650)) }
-      guard !dressed else { return }
-      withAnimation(Motion.pick(Motion.soft, reduceMotion)) { dressed = true }
-      stage.react(.hop)
-    }
-    .onDisappear { smileTask?.cancel() }
-  }
-
-  // MARK: the parts
-
-  /** The agent as it will look: its ghost, name and what it does, edged in its colour. */
-  private var card: some View {
-    VStack(spacing: 10) {
-      HostGhost(look: look, size: 120, happy: smile)
-        .scaleEffect(morphing ? 0.86 : 1).rotationEffect(.degrees(morphing ? -6 : 0)).opacity(morphing ? 0.55 : 1)
-      VStack(spacing: 2) {
-        Text(agent).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
-        Text(role.trimmed.isEmpty ? suggestedRole : role.trimmed).font(.system(size: 13)).foregroundStyle(Palette.muted).multilineTextAlignment(.center).lineLimit(2)
-      }
-      .padding(.horizontal, 24)
-    }
-    .frame(maxWidth: .infinity).frame(height: 216)
-    .background(RoundedRectangle(cornerRadius: Corner.sheet, style: .continuous).fill(Palette.card))
-    .overlay(RoundedRectangle(cornerRadius: Corner.sheet, style: .continuous).strokeBorder(dressed ? Color(hex: color) : Palette.cardBorder, lineWidth: 1.5))
-    .animation(Motion.pick(.easeOut(duration: 0.3), reduceMotion), value: color)
-  }
-
-  @State private var morphing = false
-
-  /** Its first line, as it would say it in a chat. */
-  private var preview: some View {
-    let line = OnboardingText.preview(person: person, agent: agent)
-    return HStack(alignment: .top, spacing: 10) {
-      GhostView(look: OnboardingLook.agent(color: color, shape: shape), seed: "host", size: 28)
-      VStack(alignment: .leading, spacing: 4) {
-        Text(agent).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
-        Text(line).font(.system(size: 15)).foregroundStyle(Palette.text).fixedSize(horizontal: false, vertical: true)
-          .padding(.horizontal, 14).padding(.vertical, 9)
-          .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Palette.bubble))
-          .id(line).obPop()
-      }
-      Spacer(minLength: 0)
-    }
-    .animation(Motion.pick(Motion.soft, reduceMotion), value: line)
-    .accessibilityElement(children: .combine)
-  }
-
-  private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text(label).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.muted)
-      content()
+      let draft = OnboardingAnswers.load(workspaceId).agentDraft
+      let me = OnboardingText.first(person).lowercased()
+      name = existing?.name ?? draft?.name ?? OnboardingText.namePool.first { $0.lowercased() != me } ?? "Juno"
+      try? await store.refreshNodes()
     }
   }
 
-  // MARK: picks
-
-  private func bump(_ kind: HostReaction = .hop) {
-    dressed = true
-    stage.answer(kind, reduceMotion: reduceMotion)
-    guard !reduceMotion else { return }
-    smile = true
-    smileTask?.cancel()
-    smileTask = Task { try? await Task.sleep(for: .milliseconds(1100)); if !Task.isCancelled { smile = false } }
+  private func pick(_ c: String) {
+    look = OnboardingLook.agent(color: c, shape: look.shape ?? "classic")
+    stage.answer(.hop, reduceMotion: reduceMotion)
   }
 
-  private func pickName(_ n: String) { name = n; bump(.nod) }
-  private func pickColor(_ c: String) { color = c; bump() }
-
-  private func pickShape(_ s: String) {
-    guard s != shape else { return bump() }
-    shape = s
-    bump()
-    guard !reduceMotion else { return }
-    // a new shape morphs in (a quick shrink and twist back to rest), never a cut
-    var instant = Transaction(animation: nil)
-    instant.disablesAnimations = true
-    withTransaction(instant) { morphing = true }
-    DispatchQueue.main.async { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { morphing = false } }
-  }
-
-  private func surprise() {
-    func any<T: Equatable>(_ list: [T], not: T) -> T { list.filter { $0 != not }.randomElement() ?? not }
-    name = any(OnboardingText.namePool, not: name)
-    color = any(OnboardingText.colors, not: color)
-    let next = any(OnboardingText.shapes, not: shape)
-    pickShape(next)
-  }
-
-  private func save() {
+  /** Make the agent (or rename the one made before): on this phone's best computer and the AI found there, its hello held until its AI is chosen. */
+  private func save() async {
     let n = name.trimmed
-    guard !n.isEmpty else { return }
-    let r = role.trimmed.isEmpty ? suggestedRole : role.trimmed
-    let handle = OnboardingText.handle(n)
-    OnboardingAnswers.save(workspaceId) {
-      $0.agentDraft = FirstAgentDraft(name: n, handle: handle.isEmpty ? nil : handle, role: r, color: color, shape: shape, instructions: OnboardingText.instructions(agent: n, person: person, role: r))
+    guard !n.isEmpty, !busy else { return }
+    naming = false
+    busy = true; onBusy(true); error = nil
+    defer { busy = false; onBusy(false) }
+    let draft = FirstAgentDraft(name: n, handle: nil, role: "", color: look.color, shape: look.shape ?? "classic",
+                                instructions: OnboardingText.instructions(agent: n, person: person, role: ""))
+    OnboardingAnswers.save(workspaceId) { $0.agentDraft = draft }
+    do {
+      let agent: Agent
+      if let existing {
+        agent = try await store.updateAgent(existing.id, ["name": AnyEncodable(n), "settings": AnyEncodable(["appearance": AnyEncodable(look)] as Fields)])
+      } else {
+        let device = OnboardingAI.device(store.nodes)
+        let harness = device.flatMap { AddAgent.preferredHarness(store, node: $0.id) } ?? "claude-code"
+        var fields: Fields = ["name": AnyEncodable(n), "handle": AnyEncodable(OnboardingText.freeHandle(n, taken: store.agents.map(\.handle))),
+                              "harness": AnyEncodable(harness), "greet": AnyEncodable("later"), "useDefaults": AnyEncodable(true),
+                              "instructions": AnyEncodable(draft.instructions),
+                              "settings": AnyEncodable(["appearance": AnyEncodable(look)] as Fields)]
+        if let device { fields["nodeId"] = AnyEncodable(device.id) }
+        agent = try await store.createAgent(fields)
+      }
+      OnboardingAnswers.save(workspaceId) { $0.agentId = agent.id }
+      try? await store.refreshAgents()
+      stage.react(.hop)
+      onContinue(agent.id)
+    } catch {
+      self.error = error.localizedDescription
     }
-    onContinue()
-  }
-}
-
-/** A small pill to tap: a suggested name. */
-private struct Chip: ButtonStyle {
-  var on: Bool
-
-  func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .font(.system(size: 13)).foregroundStyle(Palette.text)
-      .padding(.horizontal, 12).frame(height: 30)
-      .background(Capsule().fill(Palette.card))
-      .overlay(Capsule().strokeBorder(on ? Palette.text : Palette.hairline))
-      .contentShape(Capsule())
-      .pressFeedback(configuration.isPressed, scale: 0.96)
   }
 }
