@@ -2,8 +2,8 @@ import { Suspense, createContext, memo, useCallback, useContext, useEffect, useL
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { SquarePen, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
-import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
+import { SquarePen, Monitor, MoreHorizontal, Info, Shield, Zap, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { SCHEDULE_MARK, teamOf, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
@@ -13,7 +13,7 @@ import { renderMarkdown, renderMessage } from "../markdown.ts";
 import { lazyView } from "../lazy.tsx";
 import { ChannelSettings, landingChannel, setArchived, type ChannelSettingsTab } from "../components/Channels.tsx";
 import { ChatAvatar } from "../components/ChatList.tsx";
-import { prettyModel, tokens, useAgentContext } from "../models.ts";
+import { prettyModel, runLine, tokens, useAgentContext } from "../models.ts";
 import { DiscussionCard } from "../components/Discussion.tsx";
 import { ApprovalCard, ChangeCard, ChatCard, ComputerPart, RoutineChip } from "../components/AgentCards.tsx";
 import { AppleReadLines } from "../components/AppleParts.tsx";
@@ -26,7 +26,7 @@ import { linkPreviews, type LinkPreview } from "../linkPreview.ts";
 import type { CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
 import { chatTint, didThings, roundAction } from "../chatTint.ts";
-import { AgentPanel, type AgentPanelTab } from "../components/AgentPanel.tsx";
+import { AgentPanel, panelSheet, type AgentPanelTab } from "../components/AgentPanel.tsx";
 import { slashEnterAction } from "../slashCommand.ts";
 import { slashQuery, useAgentCommands, useSlashMenu, type SlashItem } from "../components/SlashMenu.tsx";
 import { ActivityPill, stopRuns } from "../components/ActivityPill.tsx";
@@ -133,7 +133,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
     // remembered only where the panel sits beside the chat: on a phone it would cover the chat it belongs to
     const beside = typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches;
     const tab = dmAgentId && beside ? storedDmPanel() : null;
-    setSideState(dmAgentId && tab ? { kind: "agent", agentId: dmAgentId, tab: "details" } : null);
+    // the remembered sheet comes back (its computer, say); an agent without a computer opens on itself
+    const hasComputer = !!useStore.getState().agents.find((a) => a.id === dmAgentId)?.computerId;
+    const sheet = panelSheet(tab);
+    setSideState(dmAgentId && tab ? { kind: "agent", agentId: dmAgentId, tab: sheet === "computer" && !hasComputer ? "details" : sheet } : null);
   }, [channel?.id, dmAgentId]);
   const setSide = (next: Side | null) => {
     setSideState(next);
@@ -193,6 +196,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
 
   const dmAgent = dmAgentId ? names.agent(dmAgentId) : undefined;
   const sideAgent = !route.threadId && side?.kind === "agent" ? names.agent(side.agentId) : undefined;
+  // who a call reaches: the DM's agent, or in a team its lead (the first agent when none leads)
+  const callee = dmAgent ?? (channel.kind === "channel" ? names.agent(teamOf(channel)?.leadId ?? channel.agentIds?.[0] ?? "") : undefined);
   const dmPanel = sideAgent && dmAgent && sideAgent.id === dmAgent.id ? (side as Extract<Side, { kind: "agent" }>).tab : null;
   const infoOpen = side?.kind === "info" && !route.threadId && channel.kind === "channel";
 
@@ -229,27 +234,36 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
           <div className="flex items-center justify-end gap-2">
             {/* calls start from the composer's round button; Help and the tour live in the account menu */}
             {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
+            {/* --- DM header tools: model line, computer, ⋯ (app-look) --- */}
+            {dmAgent && <DmModelLine agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
+            {dmAgent?.computerId && (
+              <button type="button" onClick={() => (dmPanel === "computer" ? setSide(null) : openAgent(dmAgent.id, "computer"))} aria-pressed={dmPanel === "computer"} className={cx("circle max-md:hidden", dmPanel === "computer" && "bg-hover text-ink")} aria-label={`${dmAgent.name}'s computer`} title={`${dmAgent.name}'s computer`}>
+                <Monitor size={18} strokeWidth={1.8} />
+              </button>
+            )}
+            {dmAgent && <DmMore agent={dmAgent} onOpen={(tab) => openAgent(dmAgent.id, tab)} />}
+            {/* --- end DM header tools --- */}
           </div>
         </header>
         {/* one suggested step sits here, under the header, in its own space (SuggestionBanner) */}
         <div ref={setBannerSlot} className="relative z-20 flex shrink-0 flex-col items-center gap-2 px-4 pb-2 empty:hidden" />
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
-          <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!dmAgent} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
+          <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!callee} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
         {!channel.archivedAt && dmFull?.signIn && <SignInNeededBar agent={dmFull} />}
         {!channel.archivedAt && dmFull && <SetupTour key={channel.id} agent={dmFull} channelId={channel.id} />}
         {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
-        {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onHide={() => setCallRecord(null)} />}
-        {calling && dmAgent && (
+        {callRecord && callRecord.channelId === channel.id && callee && !calling && <CallRecordCard agent={callee} record={callRecord} onHide={() => setCallRecord(null)} />}
+        {calling && callee && (
           <Suspense fallback={null}>
-            <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
+            <CallScreen key={`${channel.id}:${callee.id}`} agent={callee} channelId={channel.id} mention={!dmAgent} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
           </Suspense>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} /></div>}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={callee && !calling ? () => setCalling(true) : undefined} callName={callee?.name} /></div>}
         </BannerSlot.Provider>
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
-      {sideAgent && side?.kind === "agent" && <AgentPanel key={sideAgent.id} agent={sideAgent} channelId={channel.id} tab={side.tab} inDm={sideAgent.id === dmAgent?.id} onClose={() => setSide(null)} />}
+      {sideAgent && side?.kind === "agent" && <AgentPanel key={sideAgent.id} agent={sideAgent} channelId={channel.id} tab={side.tab} inDm={sideAgent.id === dmAgent?.id} onClose={() => setSide(null)} onSheet={(tab) => setSide({ kind: "agent", agentId: sideAgent.id, tab })} />}
       {infoOpen && side?.kind === "info" && (
         // the team's info keeps its place and content, at the panel's 310 px
         <div className="contents lg:[&>aside]:w-[310px]! [&>aside>[role=separator]]:hidden!">
@@ -295,6 +309,43 @@ function TeamPill({ channel, open, onClick }: { channel: ChannelInfo; open: bool
     </button>
   );
 }
+
+// --- DM header tools (app-look) ----------------------------------------------------------------
+
+/** How the DM's agent runs, in one faint line beside the ⋯ ("Codex · GPT-6.1 · High"); opens Thinks with. Wide windows only. */
+function DmModelLine({ agentId, channelId, onOpen }: { agentId: string; channelId: string; onOpen: () => void }) {
+  const { ctx, models } = useAgentContext(agentId, channelId);
+  if (!ctx) return null;
+  const line = runLine(ctx, models);
+  return (
+    <button type="button" onClick={onOpen} title="Harness, model and effort" className="hidden h-8 max-w-[220px] items-center truncate rounded-[8px] px-2 text-[13px] text-faint outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40 lg:inline-flex">
+      <span className="truncate">{line}</span>
+    </button>
+  );
+}
+
+/** The DM's "…": the agent, its computer, how it runs, what it may do. Calls are in the composer, help in the account menu. */
+function DmMore({ agent, onOpen }: { agent: Agent; onOpen: (tab: AgentPanelTab) => void }) {
+  const canEdit = useStore((s) => s.me?.role !== "guest");
+  const icon = { size: 17, strokeWidth: 1.8 };
+  return (
+    <Menu
+      align="right"
+      trigger={(open, toggle) => (
+        <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="menu" className="circle" aria-label="More" title="More">
+          <MoreHorizontal size={19} strokeWidth={1.8} />
+        </button>
+      )}
+      items={[
+        { label: `About ${agent.name}`, icon: <Info {...icon} />, onSelect: () => onOpen("details") },
+        ...(agent.computerId ? [{ label: `${agent.name}'s computer`, icon: <Monitor {...icon} />, onSelect: () => onOpen("computer") }] : []),
+        { label: canEdit ? "Model and context" : "Model", icon: <Zap {...icon} />, onSelect: () => onOpen("thinks") },
+        { label: "What it can do", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
+      ]}
+    />
+  );
+}
+// --- end DM header tools --------------------------------------------------------------------------
 
 /** Past this share of its context window a conversation is nearly full (where the context ring used to turn red). */
 const NEARLY_FULL = 85;
@@ -1691,7 +1742,7 @@ function useDictation(onText: (text: string) => void, resetKey = "") {
   return { supported: !!Ctor, on, toggle };
 }
 
-export function Composer({ channelId, threadId, agentId, placeholder, onDetails, onCall }: { channelId: string; threadId?: string; agentId?: string; placeholder: string; onDetails?: (agentId: string) => void; onCall?: () => void }) {
+export function Composer({ channelId, threadId, agentId, placeholder, onDetails, onCall, callName }: { channelId: string; threadId?: string; agentId?: string; placeholder: string; onDetails?: (agentId: string) => void; onCall?: () => void; callName?: string }) {
   const { sendWith } = usePrefs();
   const agents = useStore((s) => s.agents);
   const canEdit = useStore((s) => s.me?.role !== "guest");
@@ -1878,7 +1929,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
     clearTimeout(hold.current.timer);
     if (hold.current.held && dictation.on) dictation.toggle();
   };
-  const name = dmAgent?.name ?? "agent";
+  const name = callName ?? dmAgent?.name ?? "agent";
   const round = {
     send: { label: "Send", title: undefined, icon: <ArrowUp size={19} strokeWidth={2.5} /> },
     stop: { label: "Stop", title: "Stop", icon: <Square size={13} fill="currentColor" /> },

@@ -12,6 +12,7 @@ import { useFeatures } from "../features.ts";
 import { logout } from "../logout.ts";
 import { useStore, useInboxCount, usePrefs } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
+import { machinesOn, useDevices } from "../devices.ts";
 import { go, href, SETTINGS_PAGES, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { ComputersIcon, WispGhost } from "./icons.tsx";
@@ -280,6 +281,7 @@ export function Rail({ route }: { route: Route }) {
   const learnSeen = useStore((s) => seenCount(s.me?.prefs.learn, STOPS));
   const toLearn = !isGuest && learnSeen < TOTAL;
   const notes = useNoteCount(isGuest);
+  const devices = useDevices(15_000);
   const [orgAt, setOrgAt] = useState<CSSProperties | null>(null);
   const [newOrg, setNewOrg] = useState(false);
   const footRef = useRef<HTMLDivElement>(null);
@@ -418,13 +420,13 @@ export function Rail({ route }: { route: Route }) {
     ...(!isGuest ? [{ label: "New section", icon: <FolderPlus {...icon} />, onSelect: () => (wide ? newSideSection() : (setWide(), setTimeout(newSideSection, SIDEBAR_OPEN_MS))) }] : []),
     { label: "Browse teams", icon: <Search {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
     "divider" as const,
-    ...(inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
-    ...(!isGuest ? [place("Add apps and skills", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
+    // the wide sidebar lists the places under search; as a rail they live here
+    ...(!wide && inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
+    ...(!wide && !isGuest ? [place("Apps and skills", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
-    ...(!isGuest && features.tasks ? [place("Tasks", <ListTodo {...icon} />, { view: "tasks" })] : []),
-    ...(!isGuest ? MOD_NAV.filter((m) => features[m.feature]).map((m) => place(m.label, m.icon(18), m.to)) : []),
-    // what setup left to do and the tour are one list now: Settings › Learn Bubble AI (Help and the tour are in the account menu)
-    ...(ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
+    ...(!wide && !isGuest && features.tasks ? [place("Tasks", <ListTodo {...icon} />, { view: "tasks" })] : []),
+    ...(!isGuest ? MOD_NAV.filter((m) => features[m.feature] && (!wide || m.place === "more")).map((m) => place(m.label, m.icon(18), m.to)) : []),
+    ...(!wide && ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
     ...(orgs.length > 1
       ? [
           {
@@ -487,9 +489,16 @@ export function Rail({ route }: { route: Route }) {
   const vaultPage = (SETTINGS_PAGES as readonly string[]).includes("vault");
   const vaultTo = vaultPage ? "#/settings/vault" : href({ view: "vault", path: null });
   const vaultOn = vaultPage ? route.view === "settings" && (route.page as string | null) === "vault" : route.view === "vault";
-  const onCount = computers.filter((c) => c.status !== "offline").length;
+  const onCount = machinesOn(isGuest ? [] : devices, computers);
   const computersLabel = `Computers, ${onCount} on${working ? ", one is working" : ""}`;
-  const half = "flex h-full min-w-0 flex-1 items-center gap-2 rounded-[10px] px-3 outline-none transition-colors duration-150 hover:bg-line2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
+  const placeIcon = { size: 17, strokeWidth: 1.8 };
+  const placeRow = (p: { label: string; icon: ReactNode; to: string; on: boolean; aria?: string; tour?: string; count?: ReactNode; strong?: boolean }) => (
+    <a key={p.label} href={p.to} data-tour={p.tour} aria-label={p.aria} aria-current={p.on ? "page" : undefined} className={cx("flex h-[34px] min-w-0 items-center gap-2.5 rounded-[8px] px-2.5 text-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", p.on ? "bg-line2 text-ink" : "text-ink/85 hover:bg-line2")}>
+      <span className="grid size-[18px] shrink-0 place-items-center text-muted">{p.icon}</span>
+      <span className="min-w-0 flex-1 truncate">{p.label}</span>
+      {p.count != null && <span className={cx("shrink-0 text-[12.5px] tabular-nums", p.strong ? "font-semibold text-[#d97706] dark:text-[#ff9f0a]" : "text-faint")}>{p.count}</span>}
+    </a>
+  );
 
   return (
     <div className="relative z-30 flex shrink-0">
@@ -510,6 +519,19 @@ export function Rail({ route }: { route: Route }) {
           {plus(false)}
         </div>
 
+        {/* the places that aren't chats, labelled (the phone's You page lists the same) */}
+        {wide && (
+          <nav aria-label="Places" className="mb-3 flex shrink-0 flex-col gap-px px-3">
+            {!isGuest && placeRow({ label: "Needs you", icon: <Bell {...placeIcon} />, to: href({ view: "dashboard" }), on: route.view === "dashboard", count: inbox > 0 ? (inbox > 99 ? "99+" : String(inbox)) : null, strong: inbox > 0 })}
+            {!isGuest && placeRow({ label: "Computers", icon: <ComputersIcon size={17} />, to: computersTo, on: computersOn, aria: computersLabel, tour: "computers", count: <><span aria-hidden className={cx("mr-1.5 inline-block size-1.5 rounded-full align-middle", onCount > 0 ? "bg-[#30d158]" : "bg-muted opacity-50")} />{onCount} on</> })}
+            {placeRow({ label: "Memory", icon: <BookOpen {...placeIcon} />, to: vaultTo, on: vaultOn, aria: `Memory vault${notes != null ? `, ${notes} notes` : ""}`, tour: "vault", count: notes != null ? String(notes) : null })}
+            {!isGuest && placeRow({ label: "Apps and skills", icon: <LayoutGrid {...placeIcon} />, to: href({ view: "marketplace" }), on: route.view === "marketplace" || route.view === "skills" || route.view === "connectors" || route.view === "mods" })}
+            {!isGuest && features.tasks && placeRow({ label: "Tasks", icon: <ListTodo {...placeIcon} />, to: href({ view: "tasks" }), on: route.view === "tasks" })}
+            {!isGuest && MOD_NAV.filter((m) => m.place === "rail" && features[m.feature]).map((m) => placeRow({ label: m.label, icon: m.icon(17), to: href(m.to), on: m.views.includes(route.view) }))}
+            {!isGuest && ready.started && ready.left > 0 && placeRow({ label: "Finish setup", icon: <Compass {...placeIcon} />, to: href({ view: "settings", page: "learn" }), on: route.view === "settings" && (route.page as string | null) === "learn", count: `${ready.left} left` })}
+          </nav>
+        )}
+
         <div className={cx("side-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden", wide ? "px-3" : "px-3")}>
           {wide ? (
             <SideList chats={chats} lines={lines} active={active} />
@@ -521,22 +543,15 @@ export function Rail({ route }: { route: Route }) {
         {wide ? (
           <div ref={footRef} className="flex shrink-0 items-center gap-2 px-4 pt-3">
             {you}
-            {!isGuest && (
-              <div className={cx("flex h-[36px] min-w-0 flex-1 items-center rounded-[10px] p-0", SOFT)}>
-                <a data-tour="computers" href={computersTo} aria-label={computersLabel} aria-current={computersOn ? "page" : undefined} className={cx(half, computersOn && "bg-line2")}>
-                  <span aria-hidden className={cx("size-2 shrink-0 rounded-full", onCount > 0 ? "bg-[#30d158]" : "bg-muted opacity-50")} />
-                  <span className="truncate text-[14px]">{onCount} on</span>
-                </a>
-                <span aria-hidden className="h-5 w-px shrink-0 bg-line" />
-                <a data-tour="vault" href={vaultTo} aria-label={`Memory vault${notes != null ? `, ${notes} notes` : ""}`} aria-current={vaultOn ? "page" : undefined} className={cx(half, vaultOn && "bg-line2")}>
-                  <BookOpen size={15} strokeWidth={1.9} className="shrink-0 text-muted" aria-hidden />
-                  <span className="truncate text-[14px]">{notes ?? "Vault"}</span>
-                </a>
-              </div>
-            )}
           </div>
         ) : (
           <div ref={footRef} className="flex shrink-0 flex-col items-center gap-2 pt-2">
+            {!isGuest && inbox > 0 && (
+              <a href={href({ view: "dashboard" })} aria-label={`Needs you, ${inbox}`} title="Needs you" aria-current={route.view === "dashboard" ? "page" : undefined} className={cx(ROUND, route.view === "dashboard" ? "bg-line2" : SOFT)}>
+                <Bell size={19} strokeWidth={1.8} />
+                <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-[#ff9f0a]" />
+              </a>
+            )}
             {!isGuest && (
               <a href={computersTo} aria-label={computersLabel} title="Computers" aria-current={computersOn ? "page" : undefined} className={cx(ROUND, computersOn ? "bg-line2" : SOFT)}>
                 <ComputersIcon size={20} />

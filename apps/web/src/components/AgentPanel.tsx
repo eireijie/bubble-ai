@@ -25,9 +25,9 @@ import { lazyView } from "../lazy.tsx";
 const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallOptions));
 
 /** What the panel shows: the agent itself ("details"), or the sheet one of its rows opens. */
-export type AgentPanelTab = "details" | "thinks" | "works" | "can" | "asks" | "knows" | "more";
+export type AgentPanelTab = "details" | "computer" | "thinks" | "works" | "can" | "asks" | "knows" | "more";
 
-const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
+const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { computer: "Computer", thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
 /** A sheet by name; anything else (an old remembered tab) is the agent itself. */
 export const panelSheet = (tab: string | null | undefined): AgentPanelTab => (tab && tab in SHEETS ? (tab as AgentPanelTab) : "details");
 
@@ -42,10 +42,12 @@ const ROW = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px
  * Stop, while it works; then one card of rows (Thinks with, Works on, Can use, Asks first, Knows,
  * More), each showing its value and opening a sheet in place or the matching tab of its page.
  */
-export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { agent: Agent; channelId: string; tab?: AgentPanelTab; onClose: () => void; inDm?: boolean }) {
-  const [sheet, setSheet] = useState<AgentPanelTab>(() => panelSheet(tab));
+export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = false }: { agent: Agent; channelId: string; tab?: AgentPanelTab; onClose: () => void; onSheet?: (tab: AgentPanelTab) => void; inDm?: boolean }) {
+  const [sheet, setSheetState] = useState<AgentPanelTab>(() => panelSheet(tab));
+  // the chat remembers which sheet is open, so the next DM opens on it too (its computer, say)
+  const setSheet = (t: AgentPanelTab) => (setSheetState(t), onSheet?.(t));
   // the chat can ask for a sheet while the panel is open (the header's "nearly full" ring)
-  useEffect(() => setSheet(panelSheet(tab)), [tab]);
+  useEffect(() => setSheetState(panelSheet(tab)), [tab]);
   // who is working, not the words: streamed text must not re-render the panel (liveShape.ts)
   const live = useStore(liveShape);
   const agents = useStore((s) => s.agents);
@@ -69,9 +71,9 @@ export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { a
   const page = (t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
 
   return (
-    <aside aria-label={`${agent.name}'s details`} className="m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:w-[310px] lg:shrink-0 lg:border-l lg:border-line">
+    <aside aria-label={`${agent.name}'s details`} className={cx("m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:shrink-0 lg:border-l lg:border-line", sheet === "computer" ? "lg:w-[460px]" : "lg:w-[310px]")}>
       {/* its own 310 px, so nothing reflows while the pane opens */}
-      <div className="flex min-h-0 flex-1 flex-col lg:w-[310px]">
+      <div className={cx("flex min-h-0 flex-1 flex-col", sheet === "computer" ? "lg:w-[460px]" : "lg:w-[310px]")}>
         <div className="relative flex h-14 shrink-0 items-center justify-between px-3">
           {sheet === "details" ? (
             <span />
@@ -80,7 +82,7 @@ export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { a
               <ChevronLeft size={18} />
             </button>
           )}
-          {sheet !== "details" && <h2 className="pointer-events-none absolute inset-x-12 truncate text-center text-[14px] font-semibold">{SHEETS[sheet]}</h2>}
+          {sheet !== "details" && <h2 className="pointer-events-none absolute inset-x-12 truncate text-center text-[14px] font-semibold">{sheet === "computer" ? `${agent.name}'s computer` : SHEETS[sheet]}</h2>}
           <button type="button" onClick={onClose} className="circle circle-sm" aria-label="Close panel">
             <X size={16} />
           </button>
@@ -129,6 +131,14 @@ export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { a
               </div>
               <p className="m-details-cards px-1 pt-3 text-[13px] leading-5 text-muted">Or ask {agent.name} to change any of it.</p>
             </>
+          )}
+          {sheet === "computer" && (
+            <div className="space-y-3">
+              {computer ? <ComputerCard agent={agent} computer={computer} /> : <p className="px-1 py-6 text-center text-[14px] text-muted">{agent.name} has no computer yet.</p>}
+              <div className={CARD}>
+                <PanelRow label="Computer" value={computer ? computer.name : "None yet"} href={computer ? href({ view: "computers", computerId: computer.id }) : page("computer")} />
+              </div>
+            </div>
           )}
           {sheet === "thinks" && ctx && <RunPanel big agent={agent} ctx={ctx} models={models} channelId={channelId} canEdit={canEdit} close={back} />}
           {sheet === "works" && (
@@ -457,7 +467,7 @@ export function ComputerFullscreen({ agent, computer: c, onClose }: { agent: Age
           </div>
         )}
         {teach && canControl && !someoneElse && (
-          <button onClick={() => go({ view: "computers", computerId: c.id, teach: agent.id })} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-[8px] border border-white/20 text-sm font-medium hover:bg-white/10" title={`Do a task once while ${agent.name} watches; it saves it as a routine`}>
+          <button onClick={() => go({ view: "computers", computerId: c.id, teach: agent.id })} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-[8px] border border-white/20 text-sm font-medium hover:bg-white/10" title={`Do a task once while ${agent.name} watches; it saves it as a skill`}>
             <Video size={15} /> Teach a task
           </button>
         )}

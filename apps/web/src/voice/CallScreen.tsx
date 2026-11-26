@@ -41,7 +41,8 @@ async function askForMicrophone() {
   } catch { /* the call tries the microphone again either way */ }
 }
 
-export function CallScreen({ agent, channelId, onClose }: { agent: Agent; channelId: string; onClose(record?: CallRecord): void }) {
+/** `mention`: a team call, where each thing said is addressed to the agent by its handle so it answers. */
+export function CallScreen({ agent, channelId, mention = false, onClose }: { agent: Agent; channelId: string; mention?: boolean; onClose(record?: CallRecord): void }) {
   const [state, setState] = useState(INITIAL_CALL);
   const [seconds, setSeconds] = useState(0);
   const [attempt, setAttempt] = useState(0);
@@ -70,7 +71,7 @@ export function CallScreen({ agent, channelId, onClose }: { agent: Agent; channe
         agentId: agent.id, channelId, cloudListening: effectiveListen(settings) === "openai",
         listener: (cb) => createListener(settings, cb, () => callPrefs().language),
         speaker,
-        send: (body) => api("POST", `/api/channels/${channelId}/messages`, { body, voice: true }),
+        send: (body) => api("POST", `/api/channels/${channelId}/messages`, { body: mention ? `@${agent.handle} ${body}` : body, voice: true }),
         update: setState,
         messages: () => useStore.getState().messages[channelId] ?? [],
         refresh: () => useStore.getState().loadChannel(channelId),
@@ -79,7 +80,7 @@ export function CallScreen({ agent, channelId, onClose }: { agent: Agent; channe
       if (useStore.getState().connected) await session.start(); else session.disconnect();
     }).catch((e) => { if (!disposed) setState((s) => ({ ...s, error: e.message })); });
     return () => { disposed = true; unsubscribe(); call.current?.stop(); call.current = null; };
-  }, [agent.id, channelId, offline, attempt]);
+  }, [agent.id, channelId, offline, attempt, mention]);
   useEffect(() => {
     const startedAt = state.startedAt;
     if (startedAt === null || offline) return;
