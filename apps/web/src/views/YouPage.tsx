@@ -118,7 +118,7 @@ export function YouPage() {
             <ChevronLeft size={22} aria-hidden />
           </button>
           <a href={href({ view: "settings", page: "profile" })} aria-label={`${me.user.name}, your profile`} className="flex min-w-0 flex-1 items-center gap-3 rounded-[12px] py-1 pr-2">
-            <span className="circle shrink-0 font-semibold" style={{ width: 48, height: 48, fontSize: 15 }} aria-hidden>
+            <span className="grid shrink-0 place-items-center rounded-full bg-wisp-soft font-semibold text-wisp-strong" style={{ width: 48, height: 48, fontSize: 15 }} aria-hidden>
               {initialsOf(me.user.name)}
             </span>
             <span className="min-w-0 flex-1">

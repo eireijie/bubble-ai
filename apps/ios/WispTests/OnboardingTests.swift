@@ -165,8 +165,51 @@ final class OnboardingTests: XCTestCase {
     XCTAssertEqual(OnboardingAI.harness(for: "anthropic", kind: "key", providers: providers, support: support), "codex")
     XCTAssertEqual(OnboardingAI.harness(for: "openrouter", kind: "key", providers: providers, support: support), "hermes")
     XCTAssertEqual(OnboardingAI.harness(for: "xai", kind: "key", providers: providers, support: []), "hermes")
-    XCTAssertEqual(OnboardingAI.provider(of: .chatgpt), "openai")
-    XCTAssertNil(OnboardingAI.provider(of: .key))
+  }
+
+  func testTheAIPageOneButton() {
+    XCTAssertEqual(OnboardingAI.next(nil, signedIn: false, installed: false, hasDevice: true), .none)
+    XCTAssertEqual(OnboardingAI.next("claude-code", signedIn: true, installed: true, hasDevice: true), .use)
+    // Claude Code missing on the computer is offered as Install, not a dead end
+    XCTAssertEqual(OnboardingAI.next("claude-code", signedIn: false, installed: false, hasDevice: true), .install)
+    XCTAssertEqual(OnboardingAI.next("claude-code", signedIn: false, installed: true, hasDevice: true), .signIn)
+    XCTAssertEqual(OnboardingAI.next("hermes", signedIn: false, installed: false, hasDevice: true), .model)
+    XCTAssertEqual(OnboardingAI.next("gemini", signedIn: false, installed: false, hasDevice: false), .signIn)
+    XCTAssertEqual(OnboardingAI.featured.map(\.harness), ["claude-code", "codex", "hermes"])
+    XCTAssertFalse(OnboardingAI.more.contains { $0.protocolName == "mcp" || $0.id == "codex" })
+  }
+
+  func testEachRowSaysItsOwnSignIn() throws {
+    let mac = try Wire.decoder.decode(AgentNode.self, from: Data(##"{"id":"n1","name":"Studio","online":true,"mine":true,"harnesses":[{"id":"codex","accounts":{"default":true}},{"id":"gemini","accounts":{"default":true}}]}"##.utf8))
+    XCTAssertNil(OnboardingAI.found(on: mac, connections: [], support: [], only: "claude-code"))
+    XCTAssertEqual(OnboardingAI.found(on: mac, connections: [], support: [], only: "gemini")?.harness, "gemini")
+  }
+
+  // MARK: Make it yours and Connect (BubbleSetup.tsx)
+
+  func testTheMessageItWouldSend() {
+    XCTAssertEqual(SetupGoals.sample(["inbox", "cal"], talk: .balanced, when: .morning), "Morning. 3 emails need a reply and your 2pm moved to 3. Want me to handle it?")
+    XCTAssertEqual(SetupGoals.sample(["cal"], talk: .brief, when: .morning), "Morning. Your 2pm moved to 3.")
+    XCTAssertEqual(SetupGoals.sample(["cal"], talk: .brief, when: .needed), "Heads up: your 2pm moved to 3.")
+    XCTAssertEqual(SetupGoals.sample([], talk: .detailed, when: .evening), "Today's wrap-up: Nothing needs you yet.")
+    XCTAssertTrue(SetupGoals.sample(["code", "research", "orders"], talk: .detailed, when: .morning).hasSuffix("Say go and I'll send it."))
+  }
+
+  func testInstructionsAndRoleFromWhatWasPicked() {
+    XCTAssertEqual(SetupGoals.role(["inbox", "code"]), "Helps with email and code.")
+    XCTAssertEqual(SetupGoals.role([]), OnboardingText.noGoalRole)
+    let text = SetupGoals.instructions(agent: "Juno", person: "Sam Lee", goals: ["inbox"], talk: .brief, when: .needed)
+    XCTAssertTrue(text.hasPrefix("You are Juno, Sam's agent in Bubble AI. Your job: help with email."))
+    XCTAssertTrue(text.hasSuffix("Keep messages short: one or two lines. Only message Sam when something needs them."))
+  }
+
+  func testConnectListsOnlyAppsThatConnectFromHere() {
+    let opts = ["notion": SignInOption(signIn: true), "linear": SignInOption(signIn: true), "vercel": SignInOption(signIn: true), "github": SignInOption(signIn: false), "gmail": SignInOption(signIn: false)]
+    XCTAssertEqual(SetupGoals.connectable(["code", "research"], options: opts, onMac: false).map(\.id), ["notion", "linear", "vercel"])
+    // Gmail can't sign in yet: nothing to connect for email off a Mac; Messages on one
+    XCTAssertEqual(SetupGoals.connectable(["inbox"], options: opts, onMac: false).map(\.id), [])
+    XCTAssertEqual(SetupGoals.connectable(["inbox", "cal"], options: opts, onMac: true).map(\.id), ["messages", "calendar", "reminders"])
+    XCTAssertEqual(SetupPath.simple.features, .simple)
   }
 
   func testFindsWhatIsAlreadySignedIn() throws {

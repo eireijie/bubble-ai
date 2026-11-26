@@ -164,6 +164,8 @@
   .seg { position: relative; isolation: isolate; }
   .seg::before { content: ""; position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 5px); border-radius: 7px; background: var(--control); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 0 0 0.5px var(--control-line); transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1); }
   .seg[data-on="yes"]::before { transform: translateX(calc(100% + 4px)); }
+  /* not answered yet: neither answer looks picked */
+  .seg[data-on=""]::before { opacity: 0; }
   #welcome { position: relative; }
   #pick-mark { position: absolute; left: 0; right: 0; border: 1px solid var(--ink); border-radius: 8px; pointer-events: none; transition: top 450ms cubic-bezier(0.22, 1, 0.36, 1), height 450ms cubic-bezier(0.22, 1, 0.36, 1); }
   #welcome .choice[aria-pressed="true"] { border-color: var(--line); }
@@ -478,16 +480,17 @@
   const err = (id, msg) => { $(id).hidden = !msg; $(id).textContent = msg || ""; };
 
   // ------------------------------------------------ the question, and the recommended start
-  // On all day: Self-Host is free there and recommended. Otherwise (a laptop, or not sure) Cloud,
-  // because a server never sleeps. Either way this computer joins as a device, its screen off until
-  // someone turns it on there; whether an agent may use it is a switch on that agent, later.
-  const answers = { on: "no" };
+  // Nothing is recommended until "On all day?" is answered. Yes: Self-Host, free there. No: Cloud,
+  // because a server never sleeps. Until then Self-Host (free) is the one picked, with no tag. Either
+  // way this computer joins as a device, its screen off until someone turns it on there; whether an
+  // agent may use it is a switch on that agent, later.
+  const answers = { on: null };
   let picked = null;
-  const recommended = () => (answers.on === "yes" ? "self" : "cloud");
+  const recommended = () => (answers.on === "yes" ? "self" : answers.on === "no" ? "cloud" : null);
   function renderWelcome() {
     document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-checked", String(answers[b.dataset.q] === b.dataset.v)));
     const rec = recommended();
-    const choice = picked || rec;
+    const choice = picked || rec || "self";
     for (const [id, which] of [["cloud", "cloud"], ["self", "self"]]) {
       const tag = $(`rec-${id}`);
       if (tag.hidden !== (rec !== which)) { tag.hidden = rec !== which; tag.style.animation = "none"; void tag.offsetWidth; tag.style.animation = ""; }
@@ -497,7 +500,7 @@
     $("pick-cloud").setAttribute("aria-pressed", String(choice === "cloud"));
     $("pick-create").setAttribute("aria-pressed", String(choice === "self"));
     const seg = document.querySelector(".seg");
-    if (seg) seg.dataset.on = answers.on;
+    if (seg) seg.dataset.on = answers.on ?? "";
     const on = $(choice === "cloud" ? "pick-cloud" : "pick-create");
     // next frame, once the screen is shown and laid out (straight away where there are no frames)
     (window.requestAnimationFrame?.bind(window) ?? ((fn) => fn()))(() => Object.assign($("pick-mark").style, { top: `${on.offsetTop}px`, height: `${on.offsetHeight}px` }));

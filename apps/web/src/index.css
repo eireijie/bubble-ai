@@ -452,14 +452,14 @@ body {
 .work-dots i:nth-child(2) { animation-delay: 0.2s; }
 .work-dots i:nth-child(3) { animation-delay: 0.4s; }
 @media (prefers-reduced-motion: reduce) { .work-dots i { animation: none; opacity: 0.7; } }
-/* touch: no text selection or callout while a long-press opens a message's actions */
-@media (hover: none), (pointer: coarse) { .msg-press { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }
+/* touch: no text selection or callout while a long-press opens a message's or a chat's actions, nor on the menu that opens */
+@media (hover: none), (pointer: coarse) { :is(.msg-press, .press-row, .m-msgmenu, .m-lift-scrim, [role="menu"]) { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }
 /* the Android app marks its page (some phones and emulators report a mouse, so the media query alone misses them) */
-:root[data-shell="android"] .msg-press { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+:root[data-shell="android"] :is(.msg-press, .press-row, .m-msgmenu, .m-lift-scrim, [role="menu"]) { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 /* the Android web view rings a tapped dropdown in orange after its picker closes */
 :root[data-shell="android"] select:focus { outline: none; }
 /* editing a message in place still selects normally */
-.msg-press :is(input, textarea, [contenteditable="true"]) { -webkit-user-select: text; user-select: text; }
+.msg-press :is(input, textarea, [contenteditable="true"]), .m-msgmenu :is(input, textarea) { -webkit-user-select: text; user-select: text; }
 
 /* inline links are underlined (Paperclip's "Create one") in the readable mint */
 :is(p, li) a.text-accent {

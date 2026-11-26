@@ -209,6 +209,12 @@ struct OnboardingAnswers: Codable, Equatable {
   var setupDone = false
   /** the flow is over on this phone: its agent is made, or the person closed it for later */
   var closed = false
+  /** How it starts: "simple" or "advanced" (nil: not picked yet) */
+  var path: String?
+  /** Make it yours: what it helps with, how it talks, when it checks in */
+  var goals: [String]?
+  var talk: String?
+  var checkIn: String?
 
   init() {}
   init(from decoder: Decoder) throws {
@@ -223,6 +229,10 @@ struct OnboardingAnswers: Codable, Equatable {
     agentId = try? c.decode(String.self, forKey: .agentId)
     setupDone = (try? c.decode(Bool.self, forKey: .setupDone)) ?? false
     closed = (try? c.decode(Bool.self, forKey: .closed)) ?? false
+    path = try? c.decode(String.self, forKey: .path)
+    goals = try? c.decode([String].self, forKey: .goals)
+    talk = try? c.decode(String.self, forKey: .talk)
+    checkIn = try? c.decode(String.self, forKey: .checkIn)
   }
 
   static func key(_ workspaceId: String) -> String { "wisp.onboardingV3.\(workspaceId)" }
@@ -455,5 +465,126 @@ enum FirstHello {
   /** "Finish setup" shows from the first look at Here's your Bubble AI until the list is done. */
   static func showsFinishSetup(_ workspaceId: String, agentCount: Int, in defaults: UserDefaults = WispPreferences.standard) -> Bool {
     ticks(workspaceId, in: defaults)["started"] == true && list(workspaceId, agentCount: agentCount, in: defaults).contains { !$0.done }
+  }
+}
+
+// MARK: - The first run of 2026-11-26 (canvas "Bubble AI onboarding flow", iPhone board)
+
+/** How the first agent starts: Simple opens its chat right away; Advanced asks what it helps with and connects apps first. */
+enum SetupPath: String, Codable, Equatable {
+  case simple, advanced
+
+  /** What each start switches on for the organization (the web's featuresForExperience). */
+  var features: Features { self == .simple ? .simple : .everything }
+}
+
+/** How it talks, on Make it yours. */
+enum SetupTalk: String, Codable, CaseIterable, Identifiable {
+  case brief, balanced, detailed
+  var id: String { rawValue }
+  var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
+}
+
+/** When it checks in, on Make it yours. */
+enum SetupCheckIn: String, Codable, CaseIterable, Identifiable {
+  case morning, evening, needed
+  var id: String { rawValue }
+  var label: String {
+    switch self {
+    case .morning: "Mornings"
+    case .evening: "Evenings"
+    case .needed: "When needed"
+    }
+  }
+  /** when the preview message would arrive */
+  var when: String {
+    switch self {
+    case .morning: "Tomorrow 8:00"
+    case .evening: "Today 18:00"
+    case .needed: "When it matters"
+    }
+  }
+}
+
+/** One thing the agent can help with: the apps it calls for and what it would tell you (SETUP_GOALS in BubbleSetup.tsx). */
+struct SetupGoal: Identifiable, Equatable {
+  var id: String
+  var label: String
+  var symbol: String
+  /** StartApp ids, best first; Apple apps only count where Bubble AI lives on a Mac */
+  var apps: [String]
+  var news: String
+}
+
+/** Make it yours and Connect, as on the web (apps/web/src/views/onboarding/BubbleSetup.tsx). */
+enum SetupGoals {
+  static let all: [SetupGoal] = [
+    SetupGoal(id: "inbox", label: "Email", symbol: "envelope", apps: ["gmail", "messages"], news: "3 emails need a reply"),
+    SetupGoal(id: "cal", label: "Calendar", symbol: "calendar", apps: ["gcal", "calendar", "reminders"], news: "your 2pm moved to 3"),
+    SetupGoal(id: "support", label: "Customers", symbol: "bubble.left.and.bubble.right", apps: ["slack", "gmail"], news: "2 customers are waiting"),
+    SetupGoal(id: "orders", label: "Orders", symbol: "shippingbox", apps: ["stripe"], news: "4 orders are ready to ship"),
+    SetupGoal(id: "research", label: "Research", symbol: "magnifyingglass", apps: ["notion", "brave"], news: "I found 5 sources on your question"),
+    SetupGoal(id: "code", label: "Code", symbol: "chevron.left.forwardslash.chevron.right", apps: ["github", "linear", "vercel"], news: "the build on main failed"),
+  ]
+  /** what's picked before anyone picks */
+  static let start = ["inbox", "cal"]
+
+  /** The apps the picked goals call for, each once, in goal order. */
+  static func apps(for goals: [String]) -> [StartApp] {
+    var seen = Set<String>(), out: [StartApp] = []
+    for g in all where goals.contains(g.id) {
+      for id in g.apps where seen.insert(id).inserted { if let a = OnboardingCatalog.startApps[id] { out.append(a) } }
+    }
+    return out
+  }
+
+  /**
+   * The apps to recommend: only ones that connect from here right now. A catalog app when the hub
+   * says it can sign in (Google, GitHub and Slack join by themselves once their sign-in exists), an
+   * Apple app when Bubble AI lives on one of your Macs. Never one that would sit there saying "Soon".
+   */
+  static func connectable(_ goals: [String], options: [String: SignInOption], onMac: Bool) -> [StartApp] {
+    apps(for: goals).filter { a in
+      if a.how == .mac { return onMac && a.apple != nil }
+      return a.catalogId.flatMap { options[$0]?.signIn } ?? false
+    }
+  }
+
+  /** The message it would send you, from what's picked: the preview on Make it yours. */
+  static func sample(_ goals: [String], talk: SetupTalk, when: SetupCheckIn) -> String {
+    let news = all.filter { goals.contains($0.id) }.map(\.news)
+    let open = when == .morning ? "Morning." : when == .evening ? "Today's wrap-up:" : "Heads up:"
+    if news.isEmpty { return "\(open) Nothing needs you yet." }
+    // a sentence starts after "Morning." but not after a colon
+    func say(_ body: String) -> String { "\(open) \(open.hasSuffix(".") ? body.prefix(1).uppercased() + body.dropFirst() : body)" }
+    switch talk {
+    case .brief: return say("\(news[0]).")
+    case .balanced: return say("\(OnboardingText.list(Array(news.prefix(2)))). Want me to handle it?")
+    case .detailed: return say("\(OnboardingText.list(Array(news.prefix(3)))). I've drafted what I can and put it in Your turn. Say go and I'll send it.")
+    }
+  }
+
+  /** "What I do" from the goals: "Helps with email and calendar.", or the plain default. */
+  static func role(_ goals: [String]) -> String {
+    let want = all.filter { goals.contains($0.id) }.map { $0.label.lowercased() }
+    return want.isEmpty ? OnboardingText.noGoalRole : "Helps with \(OnboardingText.list(want))."
+  }
+
+  /** Its instructions from Make it yours: the usual start, what it helps with, how it talks, when it checks in. */
+  static func instructions(agent: String, person: String, goals: [String], talk: SetupTalk, when: SetupCheckIn) -> String {
+    let who = OnboardingText.first(person).isEmpty ? "them" : OnboardingText.first(person)
+    let want = all.filter { goals.contains($0.id) }.map { $0.label.lowercased() }
+    let base = OnboardingText.instructions(agent: agent, person: person, role: want.isEmpty ? "" : "help with \(OnboardingText.list(want))")
+    let style = switch talk {
+    case .brief: "Keep messages short: one or two lines."
+    case .balanced: "Keep messages short, with enough detail to act on."
+    case .detailed: "Give full detail, and say what you've already done."
+    }
+    let check = switch when {
+    case .morning: "Each morning, message \(who) with what needs them."
+    case .evening: "Each evening, message \(who) with what happened and what needs them."
+    case .needed: "Only message \(who) when something needs them."
+    }
+    return "\(base) \(style) \(check)"
   }
 }

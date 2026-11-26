@@ -301,7 +301,8 @@ export function ComputersFive() {
         <SRow id="pick">
           <PickSwitch />
         </SRow>
-        <SRow id="cloud" value={!s ? "" : s.orgo.configured ? "Connected" : "Not connected"} />
+        {/* Orgo shows once it is set up, or when something sends you here to set it up (a cloud computer asks for its key) */}
+        {(s?.orgo.configured || five.landed === "cloud") && <SRow id="cloud" value={s?.orgo.configured ? "Connected" : "Not connected"} />}
       </Group>
       {noneCanRun && (five.landed === "works-on" || five.landed === "works-device") && <Note>None of your devices can run a computer for an agent yet.</Note>}
       {d.error && <Note bad>{d.error}</Note>}

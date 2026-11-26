@@ -278,7 +278,8 @@ describe("the daily tidy", () => {
     await hub.autoMemory.tidy(wsId);
     expect((await vault().read("shared/coffee.md")).content).toMatch(/Related: \[\[espresso\]\]/);
     const [change] = await vault().changes(1);
-    expect(change.author).toBe("Bubble AI");
+    // a "Related:" line keeps the note credited to the agent that wrote it
+    expect(change.author).toBe("@ghosty");
 
     // the agent's next pass is asked to merge them
     await say("I prefer standups short");

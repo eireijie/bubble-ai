@@ -240,9 +240,9 @@ struct ChannelView: View {
 
   /** the top of a chat, with no bar: back on the left, the bubble centred with its name in a small pill under it, call and ... on the right */
   private var chrome: some View {
-    let dm = store.dmAgent(current) != nil
-    let right = 1 + (dm && canCall && call == nil ? 1 : 0) + (dm && run.context != nil ? 1 : 0)
-    return TopBar(inset: CGFloat(right) * 50 + 8) {
+    // the right side is the ... (44) and, in a DM, the context ring (30 + 6 between)
+    let ring = store.dmAgent(current) != nil && run.context != nil
+    return TopBar(inset: 58 + (ring ? 36 : 0)) {
       CircleButton(symbol: "chevron.left", label: "Back", id: "chat-back") { dismiss() }
     } center: {
       Button { showDetails = true } label: {
@@ -270,9 +270,11 @@ struct ChannelView: View {
       // and the harness and model open only from the chip over the message bar
       if let agent = store.dmAgent(current), let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { tool = .context(agent) } }
       Menu {
+        // the same five on every app (About, what it may do, its screen, Search in chat, Mute), each named for the page it opens
         if let agent = store.dmAgent(current) {
+          Button("About \(agent.name)", systemImage: "info.circle") { showDetails = true }
           Button("What it can do", systemImage: "shield") { tool = .access(agent) }
-          if let computer = agent.computerId, store.canViewComputers { Button("See its screen", systemImage: "display") { screen = computer } }
+          if let computer = agent.computerId, store.canViewComputers { Button("\(agent.name)'s computer", systemImage: "display") { screen = computer } }
           Button("Search in chat", systemImage: "magnifyingglass") { searching = true }
           Button(current.isMuted ? "Unmute" : "Mute", systemImage: current.isMuted ? "bell" : "bell.slash") {
             Task { try? await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(current.isMuted ? "default" : "mute")]) }

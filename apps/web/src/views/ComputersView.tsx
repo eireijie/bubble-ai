@@ -165,7 +165,7 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
         {(only === "cloud" || !only) && orgoState === "needs-key" && (
           <p className="text-sm text-warn">
             Add your Orgo API key first.{" "}
-            <a href={href({ view: "settings", page: "devices" })} onClick={onClose} className="underline text-accent-text">
+            <a href={href({ view: "settings", page: "devices", item: "cloud" })} onClick={onClose} className="underline text-accent-text">
               Open settings
             </a>
           </p>

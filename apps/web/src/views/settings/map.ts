@@ -110,8 +110,8 @@ export const ROWS: SettingRow[] = [
   row("about", "welcome", "See the welcome again", "updates", "intro replay what is bubble ai wisp"),
   row("about", "remove", "Remove Bubble AI from this computer", "updates", "uninstall delete app", A),
 
-  // Show me around, and what setup left to do (it used to be its own "Finish setup" page)
-  row("learn", "tour", "Show me around", "learn", "tour learn bubble ai wisp guide how does it work finish setup getting started"),
+  // what setup left to do; Show me around itself starts from the account menu and Help
+  row("learn", "tour", "Finish setup", "learn", "tour learn bubble ai wisp guide how does it work finish setup getting started show me around"),
 ];
 
 /** Where each route lands: the row that holds what its page used to show. */

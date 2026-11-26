@@ -187,6 +187,10 @@ const ADD_ROWS: { step: Exclude<AddStep, "list">; label: string; icon: ReactNode
 export function AddDeviceDialog({ onClose, start = "list" }: { onClose: () => void; start?: AddStep }) {
   const [step, setStep] = useState<AddStep>(start);
   const devices = useDevices();
+  const computers = useStore((s) => s.computers);
+  // "This computer" is your own screen: once each of your devices has its screen added, there is nothing left to add there
+  const mine = (devices ?? []).filter((d) => d.mine);
+  const screenAdded = mine.length > 0 && mine.every((d) => computers.some((c) => c.kind === "device" && c.nodeId === d.id));
   if (step === "here" || step === "linux" || step === "cloud")
     return (
       <Suspense fallback={null}>
@@ -197,8 +201,8 @@ export function AddDeviceDialog({ onClose, start = "list" }: { onClose: () => vo
     return (
       <Modal title="Add" onClose={onClose}>
         <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
-          {/* a phone can't run agents itself: no "This computer" there, the rest add one that can */}
-          {ADD_ROWS.filter((r) => r.step !== "here" || !touchFirst()).map((r) => (
+          {/* a phone can't run agents itself: no "This computer" there, nor once it is added; the rest add one that can */}
+          {ADD_ROWS.filter((r) => r.step !== "here" || (!touchFirst() && !screenAdded)).map((r) => (
             <button key={r.step} type="button" onClick={() => setStep(r.step)} className="flex h-[51px] w-full items-center gap-3 px-3.5 text-left text-[14px] font-medium hover:bg-hover">
               <span className="shrink-0 text-muted">{r.icon}</span>
               {r.label}

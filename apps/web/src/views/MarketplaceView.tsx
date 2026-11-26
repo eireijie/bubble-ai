@@ -425,7 +425,9 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
     const e = [...(market.entries ?? []), ...featured, ...(linked ? [linked] : [])].find((x) => x.id === id);
     return e ? registryItem(e) : null;
   };
-  const routeDetail: Detail | null = !routed || !appKey ? null : appKey.startsWith("c:") ? { kind: "connector", id: appKey.slice(2) } : (() => {
+  // m:<mod> is a mod's own page (Tasks while it's off lands there, not at the top of everything)
+  const routeMod = appKey?.startsWith("m:") ? FEATURE_KEYS.find((k) => k === appKey.slice(2)) : undefined;
+  const routeDetail: Detail | null = !routed || !appKey ? null : routeMod ? { kind: "mod", mod: routeMod } : appKey.startsWith("c:") ? { kind: "connector", id: appKey.slice(2) } : (() => {
     const a = appByKey(appKey);
     return a ? { kind: "app", app: a } : null;
   })();

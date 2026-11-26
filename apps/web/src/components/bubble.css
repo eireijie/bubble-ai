@@ -5,7 +5,7 @@
  * eyes. Moods: idle wobbles and glances around, working bobs and sends up tiny bubbles, needs you
  * hops with an orange dot. Everything stops with reduced motion (the .bub-still class or the OS).
  */
-.bub { position: relative; display: inline-block; flex: none; vertical-align: middle; --bub-lift: 0%; --bub-mid: 16%; --bub-core: 8%; --bub-edge: 36%; --bub-eye: #1c1c1c; --bub-rim: 2px; --bub-glass: rgb(255 255 255 / 0.35); }
+.bub { position: relative; display: inline-block; flex: none; vertical-align: middle; --bub-lift: 0%; --bub-mid: 30%; --bub-core: 18%; --bub-edge: 56%; --bub-eye: #1c1c1c; --bub-rim: 2px; --bub-glass: rgb(255 255 255 / 0.35); }
 /* dark (owner's call, 2026-11-25): dark eyes on a frosted body in the agent's own colour, lighter than
    the page so the eyes stand out (about 3:1 or more), still see-through at ~62%, rainbow edge kept */
 [data-mode="dark"] .bub { --bub-core: 56%; --bub-mid: 60%; --bub-edge: 68%; --bub-lift: 42%; --bub-eye: #141414; --bub-glass: rgb(255 255 255 / 0.28); }

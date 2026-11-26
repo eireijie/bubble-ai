@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { isTopOverlay, toBody, useOverlay } from "../overlays.ts";
+import { isTopOverlay, toBody, topOverlay, useOverlay } from "../overlays.ts";
 import { Check, ChevronLeft, ChevronRight, Eye, Hand, Loader2, Maximize2, MessageSquare, Minimize2, Shield, ShieldAlert, Video, X } from "lucide-react";
 import { harnessLabel, type AccessLevel, type Agent } from "@bubble-ai/core";
 import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
@@ -41,7 +41,7 @@ const ROW = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px
 /**
  * An agent in the pane beside a chat (its own, or a team it works in): 310 px, pushing the chat.
  * Its live ghost, name and one editable line of what it does; what it is doing right now, with
- * Stop, while it works; then one card of rows (Thinks with, Runs on, Can use, Asks first, Knows,
+ * Stop, while it works; then one card of rows (Thinks with, Works on, Can use, Asks first, Knows,
  * More), each showing its value and opening a sheet in place or the matching tab of its page.
  */
 export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = false }: { agent: Agent; channelId: string; tab?: AgentPanelTab; onClose: () => void; onSheet?: (tab: AgentPanelTab) => void; inDm?: boolean }) {
@@ -50,6 +50,17 @@ export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = fal
   const setSheet = (t: AgentPanelTab) => (setSheetState(t), onSheet?.(t));
   // the chat can ask for a sheet while the panel is open (the header's "nearly full" ring)
   useEffect(() => setSheetState(panelSheet(tab)), [tab]);
+  // Escape closes the panel, unless a dialog or a menu over it takes Escape first
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || topOverlay() !== null || document.querySelector('[role="menu"]')) return;
+      closeRef.current();
+    };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, []);
   // who is working, not the words: streamed text must not re-render the panel (liveShape.ts)
   const live = useStore(liveShape);
   const agents = useStore((s) => s.agents);
@@ -126,7 +137,7 @@ export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = fal
               <div className={cx(CARD, "m-details-cards")}>
                 <PanelRow label="Thinks with" value={ctx ? runLine(ctx, models) : [harnessLabel(agent.harness), agent.model ? prettyModel(agent.model) : null].filter(Boolean).join(" · ")} onClick={() => setSheet("thinks")} />
                 <PanelRow
-                  label="Runs on"
+                  label="Works on"
                   value={!readiness.ready ? (readiness.problem ?? "Setup incomplete") : (computer?.name ?? device?.name ?? "None yet")}
                   warn={!readiness.ready}
                   href={page("device")}
@@ -284,7 +295,7 @@ function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => strin
         </div>
         {routines && <PanelRow label="Routines" href={page("routines")} />}
         {background && <PanelRow label="Background checks" href={page("background")} />}
-        <PanelRow label="What it watches" href={page("overview")} />
+        <PanelRow label="What it watches" href={page("watches")} />
         <PanelRow label="Activity" href={page("runs")} />
         <PanelRow label="Connect" href={page("connect")} />
         <PanelRow label="Remove" href={page("remove")} />

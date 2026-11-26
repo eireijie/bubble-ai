@@ -52,7 +52,7 @@ export function UserAvatarButton({ size, desktop }: { size?: number; desktop?: b
   const { orgs } = useOrgs();
   const elsewhere = orgs.some((o) => o.unread && !o.current && o.id !== me.workspace.id);
   return (
-    <a href={desktop ? href({ view: "settings", page: null }) : href({ view: "you" })} aria-label="You and settings" title="You and settings" className="circle relative font-semibold text-ink" style={{ width: size, height: size, fontSize: 13 }}>
+    <a href={desktop ? href({ view: "settings", page: null }) : href({ view: "you" })} aria-label="You and settings" title="You and settings" className="relative grid shrink-0 place-items-center rounded-full bg-wisp-soft font-semibold text-wisp-strong" style={{ width: size, height: size, fontSize: 13 }}>
       {initialsOf(me.user.name)}
       {elsewhere && <span className="absolute right-0 bottom-0 size-3 rounded-full bg-badge border-2 border-app" aria-label="New messages in another workspace" />}
     </a>
@@ -424,7 +424,7 @@ export function Rail({ route }: { route: Route }) {
     ...(!wide && inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
     ...(!wide && !isGuest ? [place("Apps and skills", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
-    ...(!wide && !isGuest ? [place(features.tasks ? "Tasks" : "Tasks (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "mods" })] : []),
+    ...(!wide && !isGuest ? [place(features.tasks ? "Tasks" : "Tasks (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" })] : []),
     // mods' own pages (Storage, Apple) live in Settings; Code shows here only while the sidebar is a rail
     ...(!wide && !isGuest ? MOD_NAV.filter((m) => features[m.feature] && m.place === "rail").map((m) => place(m.label, m.icon(18), m.to)) : []),
     ...(!wide && ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
@@ -528,7 +528,7 @@ export function Rail({ route }: { route: Route }) {
             {placeRow({ label: "Memory", icon: <BookOpen {...placeIcon} />, to: vaultTo, on: vaultOn, aria: `Memory vault${notes != null ? `, ${notes} ${notes === 1 ? "note" : "notes"}` : ""}`, tour: "vault", count: notes != null ? String(notes) : null })}
             {!isGuest && placeRow({ label: "Apps and skills", icon: <LayoutGrid {...placeIcon} />, to: href({ view: "marketplace" }), on: route.view === "marketplace" || route.view === "skills" || route.view === "connectors" || route.view === "mods" })}
             {/* Tasks is a mod: while it's off the row opens Mods, where it's switched on */}
-            {!isGuest && placeRow({ label: "Tasks", icon: <ListTodo {...placeIcon} />, to: href(features.tasks ? { view: "tasks" } : { view: "mods" }), on: route.view === "tasks", aria: features.tasks ? undefined : "Tasks, off. Turn it on in Mods", count: features.tasks ? null : "Off" })}
+            {!isGuest && placeRow({ label: "Tasks", icon: <ListTodo {...placeIcon} />, to: href(features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" }), on: route.view === "tasks", aria: features.tasks ? undefined : "Tasks, off. Turn it on in Mods", count: features.tasks ? null : "Off" })}
             {!isGuest && MOD_NAV.filter((m) => m.place === "rail" && features[m.feature]).map((m) => placeRow({ label: m.label, icon: m.icon(17), to: href(m.to), on: m.views.includes(route.view) }))}
             {!isGuest && ready.started && ready.left > 0 && placeRow({ label: "Finish setup", icon: <Compass {...placeIcon} />, to: href({ view: "settings", page: "learn" }), on: route.view === "settings" && (route.page as string | null) === "learn", count: `${ready.left} left` })}
           </nav>

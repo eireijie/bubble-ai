@@ -28,6 +28,7 @@ export const TAB_TITLES: Record<AgentTab, string> = {
   permissions: "Asks first",
   connect: "Connect",
   runs: "Activity",
+  watches: "What it watches",
   look: "Look and voice",
   soul: "Personality",
   instructions: "Instructions",

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AppWindow, BellOff, Check, ChevronDown, ChevronRight, CircleDot, EyeOff, FolderInput, LogOut, PenLine, Pin, PinOff, Plus, Settings2, Trash2, X } from "lucide-react";
+import { AppWindow, BellOff, Check, ChevronDown, ChevronRight, CircleDot, EyeOff, FolderInput, LogOut, PenLine, Pin, PinOff, Settings2, Trash2, X } from "lucide-react";
 import { MAX_PINS, type SidebarLayout } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
@@ -239,7 +239,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               {...dropProps(`pin:${c.key}`, (key) => layout.pins.includes(key) && save(movePin(layout, key, i)))}
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
-              className={cx("flex h-[100px] flex-col items-center justify-center gap-[6px] rounded-[12px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "bg-side-active" : "hover:bg-side-hover")}
+              className={cx("press-row flex h-[100px] flex-col items-center justify-center gap-[6px] rounded-[12px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "bg-side-active" : "hover:bg-side-hover")}
             >
               <span className="relative grid place-items-center" style={{ width: pinSize, height: pinSize }}>
                 <ChatAvatar chat={c} size={pinSize} />
@@ -282,7 +282,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           aria-current={isActive ? "page" : undefined}
           data-tour="chat-row"
           data-needs={line?.needs ? "" : undefined}
-          className={cx("group/row flex w-full items-center gap-3 rounded-[10px] px-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on bg-[#7a5bdc] text-white" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
+          className={cx("press-row group/row flex w-full items-center gap-3 rounded-[10px] px-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on bg-[#7a5bdc] text-white" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
           style={{ height: rowH }}
         >
           <span className="relative grid shrink-0 place-items-center" style={{ width: avatar, height: avatar }}>
@@ -384,12 +384,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
       ) : (
         <div data-tour="sections" className="flex flex-col gap-0.5">
           {shownSections.map(sectionBlock)}
-          {!guest && !phone && (
-            <button type="button" onClick={() => doNewSection()} className="flex h-[34px] items-center gap-2 rounded-[10px] px-2.5 text-[13px] text-muted outline-none hover:bg-side-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
-              <Plus size={14} strokeWidth={2} aria-hidden />
-              New section
-            </button>
-          )}
+          {/* New section is in the + menu, once */}
         </div>
       )}
 

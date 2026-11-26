@@ -59,6 +59,7 @@ const TAB_GROUP: Record<AgentTab, AgentGroup | null> = {
   routines: "more",
   connect: "more",
   runs: "more",
+  watches: "more",
   remove: "more",
 };
 /** Tabs that are a part of their group, opened from one of its rows; the others are the group's own rows. */
@@ -152,7 +153,8 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
     const el = content.current;
     if (!el) return;
     // phones show every group down one page: an old tab's address brings its group into view
-    const target = !part && !wide && place.group ? el.querySelector<HTMLElement>(`[data-group="${place.group}"]`) : null;
+    // "What it watches" is a list inside More: bring that list itself into view
+    const target = part ? null : active === "watches" ? el.querySelector<HTMLElement>("[data-watches]") : !wide && place.group ? el.querySelector<HTMLElement>(`[data-group="${place.group}"]`) : null;
     if (target) target.scrollIntoView({ block: "start" });
     else el.scrollTo({ top: 0 });
   }, [active, group, wide]);
@@ -572,6 +574,8 @@ function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
     return { model: m, efforts: m?.efforts ?? info?.catalog?.efforts ?? ["low", "medium", "high"] };
   };
   const { model: selected, efforts } = offered(model);
+  const fallback = info?.catalog?.defaultModel ? models.find((x) => x.id === info.catalog?.defaultModel) : undefined;
+  const defaultName = fallback ? prettyModel(fallback.label) : (info?.catalog?.defaultModel ?? null);
   const effort = agent.settings.effort ?? "";
   const effortDropped = !!effort && !efforts.includes(effort);
   // the device's configured effort wins over the model's own default, as in Codex
@@ -632,7 +636,8 @@ function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
             }}
             className={SELECT}
           >
-            <option value="">Automatic</option>
+            {/* what Automatic runs right now, so this says the same as the chat's header */}
+            <option value="">{defaultName ? `Automatic (${defaultName})` : "Automatic"}</option>
             {models.map((m) => (
               <option key={m.id} value={m.id}>
                 {prettyModel(m.label)}
