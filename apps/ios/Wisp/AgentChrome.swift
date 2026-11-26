@@ -115,7 +115,7 @@ struct Radio: View {
   var body: some View {
     ZStack {
       if on {
-        Circle().fill(Palette.blue)
+        Circle().fill(Palette.accent)
         Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
       } else {
         Circle().strokeBorder(Palette.faint.opacity(0.6), lineWidth: 1.5)
@@ -140,7 +140,7 @@ struct SwitchRow: View {
         if let subtitle { Text(subtitle).font(.system(size: 13)).foregroundStyle(Palette.faint) }
       }
     }
-    .tint(Palette.blue)
+    .tint(Palette.accent)
     .padding(.horizontal, 14).padding(.vertical, 8)
     .frame(minHeight: 56)
     .accessibilityIdentifier(id)

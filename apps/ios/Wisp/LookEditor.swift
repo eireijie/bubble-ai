@@ -14,6 +14,8 @@ struct LookEditor: View {
   private var name: String
   private var seed: String
   @State private var look: GhostLook
+  /** what it looked like when the editor opened, for "Back to its original look" */
+  private let original: GhostLook
   @State private var mood: GhostMood = .awake
   @State private var saving = false
   @State private var error: String?
@@ -23,7 +25,8 @@ struct LookEditor: View {
     self.agent = agent
     name = agent.name
     seed = agent.handle
-    _look = State(initialValue: (agent.settings?.appearance ?? GhostLook.defaultAppearance(agent.handle)).resolved)
+    original = (agent.settings?.appearance ?? GhostLook.defaultAppearance(agent.handle)).resolved
+    _look = State(initialValue: original)
   }
 
   /** Edits the look of an agent that doesn't exist yet (New agent); Done hands it back. */
@@ -31,7 +34,8 @@ struct LookEditor: View {
     draft = look
     self.name = name.isEmpty ? "New agent" : name
     self.seed = seed
-    _look = State(initialValue: look.wrappedValue.resolved)
+    original = look.wrappedValue.resolved
+    _look = State(initialValue: original)
   }
 
   static let previewMoods: [(GhostMood, String)] = [(.awake, "Idle"), (.working, "Working"), (.waiting, "Needs you"), (.asleep, "Offline")]
@@ -89,7 +93,7 @@ struct LookEditor: View {
           Spacer(minLength: 0)
         }
         CardGroup {
-          Button { look = GhostLook.defaultAppearance(seed).resolved } label: {
+          Button { look = original } label: {
             RowLabel(title: "Back to its original look", chevron: false, leading: { rowIcon("arrow.counterclockwise") })
           }.buttonStyle(.plain).accessibilityIdentifier("look-reset")
         }
@@ -138,20 +142,23 @@ enum GhostLabels {
 }
 
 extension GhostLook {
-  /** A random look from every option, like Shuffle on the web. */
+  /**
+   * Shuffle for bubbles (core shuffleBubbleLook): any shape and bubble colour, plain eyes and
+   * nothing worn. What the editor shows is exactly what's saved.
+   */
   static func shuffled(keeping motion: String? = nil) -> GhostLook {
-    let palette = palettes.randomElement()!
-    return GhostLook(color: palette.top, color2: palette.bottom, eyes: eyeStyles.randomElement(), mouth: mouths.dropLast().randomElement(),
-      cheeks: Double.random(in: 0..<1) < 0.6, shape: shapes.randomElement(), glow: false,
-      hat: Double.random(in: 0..<1) < 0.4 ? hats.dropFirst().randomElement() : "none",
-      accessory: Double.random(in: 0..<1) < 0.35 ? accessories.dropFirst().randomElement() : "none", motion: motion ?? "float")
+    var look = newAgent()
+    look.bubble = BubbleForm.allCases.randomElement()?.rawValue ?? "round"
+    look.motion = motion ?? "float"
+    return look
   }
 
-  /** A new agent's look: plain white, with a random face and outfit. */
-  static func newAgent() -> GhostLook {
-    var look = shuffled()
-    look.color = GhostColors.white
-    look.color2 = GhostColors.white
-    return look
+  /**
+   * A new agent's look (core newBubbleLook): round, one of the bubble colours, plain eyes, no mouth
+   * and nothing worn. The colour is set here, so typing its name never changes it.
+   */
+  static func newAgent(color: String? = nil) -> GhostLook {
+    GhostLook(color: color ?? BubbleColors.all.randomElement()?.hex ?? "#a59bff", color2: nil, eyes: "dots", mouth: "none", cheeks: false, shape: "round",
+              glow: false, hat: "none", accessory: "none", motion: "float", bubble: "round")
   }
 }

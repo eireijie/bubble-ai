@@ -702,7 +702,7 @@ struct ChatRow<Menu: View>: View {
     .accessibilityIdentifier(entry.isTeam ? "team-row" : "chat-row")
     .contextMenu { menu }
     .swipeActions(edge: .leading, allowsFullSwipe: false) {
-      if channel != nil { Button("Mark as read", systemImage: "checkmark") { action.run { try await store.readChannel(channel!.id) } }.tint(.blue) }
+      if channel != nil { Button("Mark as read", systemImage: "checkmark") { action.run { try await store.readChannel(channel!.id) } }.tint(Palette.accent) }
     }
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       muteButton.tint(.gray)
@@ -872,7 +872,7 @@ struct UnreadBadge: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 6)
         .frame(minWidth: 20, minHeight: 20)
-        .background(Capsule().fill(Palette.blue))
+        .background(Capsule().fill(Palette.accent))
         .badgePop(count)
         .transition(reduceMotion ? .opacity : .scale(scale: 0.4).combined(with: .opacity))
     }

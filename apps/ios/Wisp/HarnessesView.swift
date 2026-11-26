@@ -60,7 +60,7 @@ struct HarnessesView: View {
   private func row(_ computer: HarnessComputer, _ h: HarnessComputer.Harness) -> some View {
     let settable = !computer.isVM && devices.contains { $0.id == computer.nodeId }
     return HStack(spacing: 12) {
-      Image(systemName: ModelWords.harnessSymbol(h.id)).font(.system(size: 13)).foregroundStyle(Palette.muted).frame(width: 18)
+      BrandLogo(id: h.id, symbol: ModelWords.harnessSymbol(h.id), size: 26)
       Text(h.label).font(.system(size: 15)).lineLimit(1)
       if let v = h.version { Text(v).font(.system(size: 12)).foregroundStyle(Palette.faint).monospacedDigit().lineLimit(1) }
       Spacer(minLength: 8)
@@ -290,7 +290,7 @@ private struct HarnessDetailView: View {
       }
       Spacer(minLength: 8)
       if let share { Button { share() } label: { Label("Share", systemImage: "square.and.arrow.up").font(.system(size: 13)).foregroundStyle(Palette.muted) }.buttonStyle(.plain) }
-      Toggle(item.name, isOn: Binding(get: { item.enabled }, set: { on in toggle(kind, item, on) })).labelsHidden().tint(Palette.blue)
+      Toggle(item.name, isOn: Binding(get: { item.enabled }, set: { on in toggle(kind, item, on) })).labelsHidden().tint(Palette.accent)
         .disabled(busy == "\(kind):\(item.id)" || !item.canToggle)
     }.padding(.horizontal, 16).padding(.vertical, 10).frame(minHeight: 64)
   }
@@ -690,6 +690,8 @@ struct AgentSignInButton: View {
   /** the agent it's for; only needed when it runs in its own computer */
   var agent: Agent?
   var signIn: AgentSignIn
+  /** the small pill a failed reply uses, not the full-width one */
+  var compact = false
   /** told when its sign-in sheet opens or closes */
   var onOpenChange: (Bool) -> Void = { _ in }
   @State private var target: Target?
@@ -710,7 +712,7 @@ struct AgentSignInButton: View {
         Text("Sign in")
       }
     }
-    .buttonStyle(CardPill(tone: .soft))
+    .modifier(SignInStyle(compact: compact))
     .disabled(action.busy)
     .accessibilityIdentifier("agent-sign-in")
     .onChange(of: target?.id) { _, id in onOpenChange(id != nil) }
@@ -739,6 +741,29 @@ struct AgentSignInButton: View {
   enum SignInError: LocalizedError {
     case gone(String)
     var errorDescription: String? { if case .gone(let s) = self { return s }; return nil }
+  }
+}
+
+/** The line a chat shows while its agent's harness isn't installed on the device it runs on, with Install. */
+struct HarnessMissingBar: View {
+  @Environment(Store.self) private var store
+  var agent: Agent
+  var node: AgentNode
+  @State private var action = FormAction()
+
+  var body: some View {
+    SuggestionBanner(symbol: "arrow.down.circle", text: "\(HarnessChoice.label(agent.harness)) isn't installed on \(node.name), so \(agent.name) can't answer yet.",
+                     detail: action.error, action: action.busy ? "Installing…" : "Install", onAction: {
+      action.run { _ = try await store.installHarness(agent.harness, node: node.id) }
+    }, busy: action.busy)
+    .accessibilityIdentifier("agent-install-bar")
+  }
+}
+
+private struct SignInStyle: ViewModifier {
+  var compact: Bool
+  func body(content: Content) -> some View {
+    if compact { content.buttonStyle(FixPill()) } else { content.buttonStyle(CardPill(tone: .soft)) }
   }
 }
 

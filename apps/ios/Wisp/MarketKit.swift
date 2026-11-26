@@ -60,7 +60,7 @@ struct MarketPill: View {
 
   private var fill: Color {
     switch tone {
-    case .blue: Palette.blue.opacity(0.16)
+    case .blue: Palette.accent.opacity(0.16)
     case .green: Palette.statusOnline.opacity(0.14)
     case .grey: MarketColor.chip
     case .warn: MarketColor.warn.opacity(0.14)
@@ -148,7 +148,7 @@ struct MarketToggleRow<Leading: View>: View {
         if let subtitle { Text(subtitle).font(.system(size: 13)).foregroundStyle(Palette.faint).lineLimit(2) }
       }
       Spacer(minLength: 8)
-      Toggle(title, isOn: $isOn).labelsHidden().tint(Palette.blue).disabled(disabled)
+      Toggle(title, isOn: $isOn).labelsHidden().tint(Palette.accent).disabled(disabled)
     }
     .padding(.horizontal, 16).padding(.vertical, 10)
     .frame(minHeight: 64)

@@ -1,3 +1,4 @@
+import AVFAudio
 import SwiftUI
 
 /**
@@ -27,7 +28,7 @@ struct HereView: View {
     var action: (label: String, run: () -> Void)? = nil
     var ready: Bool { !warn && !pending && toggle?.off != true }
   }
-  private enum Place: Hashable { case agent(Agent), apps, logins }
+  private enum Place: Hashable { case agent(Agent), apps, logins, apple, harnesses }
 
   @State private var routines: [Routine]?
   @State private var watches: [AppWatch]?
@@ -56,7 +57,7 @@ struct HereView: View {
 
   var body: some View {
     let rows = self.rows
-    let readyTotal = rows.filter(\.ready).count
+    let readyTotal = rows.count
     let readyCount = rows.prefix(shown).filter(\.ready).count
     VStack(spacing: 0) {
       HStack { CircleButton(symbol: "chevron.left", label: "Back", id: "here-back") { dismiss() }; Spacer() }
@@ -104,6 +105,8 @@ struct HereView: View {
       case .agent(let a): AgentPage(agent: a)
       case .apps: MarketplaceView()
       case .logins: LoginsView()
+      case .apple: AppleView()
+      case .harnesses: HarnessesView()
       }
     }
     .sheet(isPresented: $addingAgent) { AddAgent { _ in } }
@@ -134,7 +137,15 @@ struct HereView: View {
     var rows: [Row] = []
     if let agent {
       let knows = (notes ?? 0) > 0 ? "Knows \(notes!) thing\(notes == 1 ? "" : "s") about you." : "Nothing in its notes yet."
-      rows.append(Row(id: "agent", symbol: "person", title: agent.name, sub: "Runs on \(HarnessChoice.label(agent.harness)). \(knows)", action: ("Change", { place = .agent(agent) })))
+      // only says it runs when it can: a harness that isn't installed or signed in where it runs says so, with the fix
+      let label = HarnessChoice.label(agent.harness)
+      if let node = store.missingHarness(agent) {
+        rows.append(Row(id: "agent", symbol: "person", title: agent.name, sub: "\(label) isn't installed on \(node.name), so it can't answer yet.", warn: true, action: ("Install", { place = .harnesses })))
+      } else if let signIn = agent.signIn {
+        rows.append(Row(id: "agent", symbol: "person", title: agent.name, sub: "\(HarnessChoice.label(signIn.harness)) isn't signed in on \(signIn.where_), so it can't answer yet.", warn: true, action: ("Sign in", { place = .agent(agent) })))
+      } else {
+        rows.append(Row(id: "agent", symbol: "person", title: agent.name, sub: "Runs on \(label). \(knows)", action: ("Change", { place = .agent(agent) })))
+      }
       if let computer = agent.computerId.flatMap({ id in store.computers.first { $0.id == id } }) {
         let shared = store.agents.filter { $0.computerId == computer.id }.count > 1
         let sub = computer.status == "ready" ? "Started. \(shared ? "Your agents take turns on it." : "\(agent.name) works on it.")" : "Starts when \(agent.name) needs it."
@@ -145,6 +156,10 @@ struct HereView: View {
         rows.append(apps.isEmpty
           ? Row(id: "apps", symbol: "square.grid.2x2", title: "Apps", sub: "None yet.", pending: true, action: ("Add", { place = .apps }))
           : Row(id: "apps", symbol: "square.grid.2x2", title: "Apps", sub: "\(OnboardingText.list(apps)). Read only until you say yes.", action: ("Add", { place = .apps })))
+      }
+      // an Apple app it was given that the Mac won't let it read yet (Full Disk Access, …)
+      for (app, problem) in appleProblems(agent) {
+        rows.append(Row(id: "apple:\(app.rawValue)", symbol: "applelogo", title: app.name, sub: problem, warn: true, action: ("Fix", { place = .apple })))
       }
       for r in routines ?? [] {
         rows.append(Row(id: "r:\(r.id)", symbol: "clock", title: r.name, sub: OnboardingText.cronLine(r.schedule), toggle: (r.enabled == false, { off in
@@ -174,8 +189,29 @@ struct HereView: View {
                     sub: on ? "On. Only when something's done or needs a yes." : !store.pushAvailable ? "Your Bubble AI isn't set up to send them yet." : status == .denied ? "Off for Bubble AI." : "I'll ask after my first finished job.",
                     pending: !on,
                     action: store.pushAvailable && status == .denied ? ("Open the switch", { if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) } }) : nil))
-    if let agent { rows.append(Row(id: "calls", symbol: "phone", title: "Calls", sub: "Ready. Call \(agent.name) from the top of its chat.")) }
+    if let agent {
+      // calls need the microphone: only ready once it's allowed
+      switch AVAudioApplication.shared.recordPermission {
+      case .granted:
+        rows.append(Row(id: "calls", symbol: "phone", title: "Calls", sub: "Ready. Call \(agent.name) from the top of its chat."))
+      case .denied:
+        rows.append(Row(id: "calls", symbol: "phone", title: "Calls", sub: "The microphone is off for Bubble AI.", warn: true,
+                        action: ("Turn on", { if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) } })))
+      default:
+        rows.append(Row(id: "calls", symbol: "phone", title: "Calls", sub: "Asks for the microphone on your first call.", pending: true))
+      }
+    }
     return rows
+  }
+
+  /** Apple apps this agent was given that its Mac can't read yet, each with what's missing. */
+  private func appleProblems(_ agent: Agent) -> [(AppleApp, String)] {
+    guard store.features.apple, let apple = store.apple, apple.settings.allAgents || apple.settings.agentIds.contains(agent.id), let mac = apple.mac else { return [] }
+    return [AppleApp.messages, .calendar, .reminders, .contacts].compactMap { app in
+      guard apple.settings.levels[app] > 0 else { return nil }
+      if !mac.online { return (app, "\(mac.name) is offline.") }
+      return mac.status?.problem(for: app, mac: mac.name).map { (app, $0) }
+    }
   }
 
   private func load() async {
@@ -204,7 +240,8 @@ struct HereView: View {
   private func appNames(_ agent: Agent) -> [String] {
     var names = store.connectors.filter { $0.enabled != false && $0.has(agent.id) }.map(\.name)
     if store.features.apple, let apple = store.apple, apple.settings.allAgents || apple.settings.agentIds.contains(agent.id), !apple.macs.isEmpty {
-      for app in [AppleApp.messages, .calendar, .reminders, .contacts] where apple.settings.levels[app] > 0 { names.append(app.name) }
+      let blocked = Set(appleProblems(agent).map(\.0))
+      for app in [AppleApp.messages, .calendar, .reminders, .contacts] where apple.settings.levels[app] > 0 && !blocked.contains(app) { names.append(app.name) }
     }
     return names
   }

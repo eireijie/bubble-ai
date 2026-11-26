@@ -77,8 +77,8 @@ struct TeamHowCard: View {
         if editable {
           Rectangle().fill(Palette.separator).frame(height: 1).padding(.leading, 18)
           Button { editing = true } label: {
-            RowLabel(title: team?.hasSteps == true ? "Edit how it works" : "Set up how it works", tint: Palette.blue) {
-              Image(systemName: "square.and.pencil").font(.system(size: 17)).foregroundStyle(Palette.blue).frame(width: 26)
+            RowLabel(title: team?.hasSteps == true ? "Edit how it works" : "Set up how it works", tint: Palette.accent) {
+              Image(systemName: "square.and.pencil").font(.system(size: 17)).foregroundStyle(Palette.accent).frame(width: 26)
             }
           }
           .buttonStyle(.plain)

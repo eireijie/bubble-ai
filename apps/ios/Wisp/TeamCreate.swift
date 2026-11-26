@@ -82,7 +82,7 @@ struct NewChannel: View {
             VStack(alignment: .leading, spacing: 6) {
               Text("A team needs at least \(ChannelTeam.minAgents) agents, and you have \(store.agents.isEmpty ? "none" : String(store.agents.count)).").font(.system(size: 15)).foregroundStyle(Palette.text)
               Button(store.agents.isEmpty ? "Make an agent" : "Make another agent") { addingAgent = true }
-                .font(.system(size: 15)).foregroundStyle(Palette.blue).accessibilityIdentifier("create-add-agent")
+                .font(.system(size: 15)).foregroundStyle(Palette.accent).accessibilityIdentifier("create-add-agent")
             }
             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))

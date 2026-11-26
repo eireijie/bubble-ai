@@ -56,6 +56,76 @@ struct GhostLook: Codable, Hashable {
   var motion: String?
   /** the bubble's shape (2026-11-25); unset on looks saved before bubbles, which show as "round" */
   var bubble: String? = nil
+  /** true once eyes, mouth, hat, wear and motion were picked for the bubble (web PR 132); unset looks show plain eyes and nothing worn */
+  var parts: Bool? = nil
+  /** fields this version doesn't know, kept as they came so saving never drops them */
+  var extra: [String: JSONAny] = [:]
+}
+
+extension GhostLook {
+  private struct Key: CodingKey {
+    var stringValue: String
+    var intValue: Int? { nil }
+    init(_ s: String) { stringValue = s }
+    init?(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { nil }
+  }
+  private static let known: Set<String> = ["color", "color2", "eyes", "mouth", "cheeks", "shape", "glow", "hat", "accessory", "motion", "bubble", "parts"]
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: Key.self)
+    func s(_ k: String) -> String? { try? c.decodeIfPresent(String.self, forKey: Key(k)) }
+    func b(_ k: String) -> Bool? { try? c.decodeIfPresent(Bool.self, forKey: Key(k)) }
+    self.init(color: s("color") ?? "#f4f1ff", color2: s("color2"), eyes: s("eyes"), mouth: s("mouth"), cheeks: b("cheeks"), shape: s("shape"),
+              glow: b("glow"), hat: s("hat"), accessory: s("accessory"), motion: s("motion"), bubble: s("bubble"), parts: b("parts"))
+    for key in c.allKeys where !Self.known.contains(key.stringValue) {
+      if let v = try? c.decode(JSONAny.self, forKey: key) { extra[key.stringValue] = v }
+    }
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.container(keyedBy: Key.self)
+    try c.encode(color, forKey: Key("color"))
+    try c.encodeIfPresent(color2, forKey: Key("color2"))
+    try c.encodeIfPresent(eyes, forKey: Key("eyes"))
+    try c.encodeIfPresent(mouth, forKey: Key("mouth"))
+    try c.encodeIfPresent(cheeks, forKey: Key("cheeks"))
+    try c.encodeIfPresent(shape, forKey: Key("shape"))
+    try c.encodeIfPresent(glow, forKey: Key("glow"))
+    try c.encodeIfPresent(hat, forKey: Key("hat"))
+    try c.encodeIfPresent(accessory, forKey: Key("accessory"))
+    try c.encodeIfPresent(motion, forKey: Key("motion"))
+    try c.encodeIfPresent(bubble, forKey: Key("bubble"))
+    try c.encodeIfPresent(parts, forKey: Key("parts"))
+    for (k, v) in extra where !Self.known.contains(k) { try c.encode(v, forKey: Key(k)) }
+  }
+}
+
+/** Any JSON value, kept as it came (for fields a newer hub sends that this version doesn't know). */
+indirect enum JSONAny: Codable, Hashable, Sendable {
+  case string(String), number(Double), bool(Bool), array([JSONAny]), object([String: JSONAny]), null
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.singleValueContainer()
+    if c.decodeNil() { self = .null }
+    else if let v = try? c.decode(Bool.self) { self = .bool(v) }
+    else if let v = try? c.decode(Double.self) { self = .number(v) }
+    else if let v = try? c.decode(String.self) { self = .string(v) }
+    else if let v = try? c.decode([JSONAny].self) { self = .array(v) }
+    else { self = .object(try c.decode([String: JSONAny].self)) }
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.singleValueContainer()
+    switch self {
+    case .string(let v): try c.encode(v)
+    case .number(let v): try c.encode(v)
+    case .bool(let v): try c.encode(v)
+    case .array(let v): try c.encode(v)
+    case .object(let v): try c.encode(v)
+    case .null: try c.encodeNil()
+    }
+  }
 }
 
 struct Agent: Codable, Identifiable, Hashable {
@@ -223,8 +293,8 @@ enum MessagePart: Codable, Hashable {
   case toolCall(name: String, line: String = "", remembered: Remembered? = nil)
   case file(fileId: String, name: String)
   case status(String)
-  /** the run this message reports failed: try again, and what to sign in to first when that's the cause */
-  case runFailed(runId: String, retry: Bool, fix: String?)
+  /** the run this message reports failed: why in one line, and the one fix (install, sign in, choose device, try again) */
+  case runFailed(RunFailure)
   case notice(String)
   /** the summary a /compact asked for: shown collapsed, not as a normal message */
   case summary
@@ -257,7 +327,7 @@ enum MessagePart: Codable, Hashable {
     var path: String?
   }
 
-  private enum K: String, CodingKey { case runId, retry, fix, type, name, fileId, text, computerId, request, approvalId, changeId, taskId, routineId, discussionId, usage, input, output, replies, did, saved, next, action, skillId, slug, app }
+  private enum K: String, CodingKey { case runId, retry, fix, reason, why, harness, nodeId, type, name, fileId, text, computerId, request, approvalId, changeId, taskId, routineId, discussionId, usage, input, output, replies, did, saved, next, action, skillId, slug, app }
 
   init(from decoder: Decoder) throws {
     let c = try decoder.container(keyedBy: K.self)
@@ -270,7 +340,9 @@ enum MessagePart: Codable, Hashable {
       self = .toolCall(name: name, line: ToolLine.of(name, input: input), remembered: ToolLine.remembered(name, input: input, output: output))
     case "file": self = .file(fileId: (try? c.decode(String.self, forKey: .fileId)) ?? "", name: (try? c.decode(String.self, forKey: .name)) ?? "file")
     case "status": self = .status((try? c.decode(String.self, forKey: .text)) ?? "")
-    case "run_failed": self = .runFailed(runId: (try? c.decode(String.self, forKey: .runId)) ?? "", retry: (try? c.decode(Bool.self, forKey: .retry)) ?? false, fix: try? c.decode(String.self, forKey: .fix))
+    case "run_failed":
+      let str = { (k: K) -> String? in (try? c.decode(String.self, forKey: k)).flatMap { $0.isEmpty ? nil : $0 } }
+      self = .runFailed(RunFailure(runId: str(.runId) ?? "", retry: (try? c.decode(Bool.self, forKey: .retry)) ?? false, fix: str(.fix), reason: str(.reason), why: str(.why), harness: str(.harness), nodeId: str(.nodeId)))
     case "summary": self = .summary
     case "notice": self = .notice((try? c.decode(String.self, forKey: .text)) ?? "")
     case "computer": self = .computer(computerId: (try? c.decode(String.self, forKey: .computerId)) ?? "", request: try? c.decode(String.self, forKey: .request))
@@ -302,6 +374,31 @@ enum MessagePart: Codable, Hashable {
   }
 
   func encode(to encoder: Encoder) throws {} // never sent back to the hub
+}
+
+/**
+ * A reply that failed (the run_failed part): why, as a code and one plain line, and the one fix.
+ * fix is "install" (with harness and nodeId), "signin" / "computer" / "connection", or "device".
+ */
+struct RunFailure: Hashable {
+  var runId: String
+  var retry: Bool
+  var fix: String?
+  var reason: String?
+  var why: String?
+  var harness: String?
+  var nodeId: String?
+
+  enum Action: Equatable { case install, signIn, device, retry, none }
+  /** The one button it offers, like the web's fixAction. */
+  var action: Action {
+    if fix == "install", nodeId != nil, harness != nil { return .install }
+    if fix == "signin" || fix == "computer" || fix == "connection" { return .signIn }
+    if fix == "device" { return .device }
+    return retry ? .retry : .none
+  }
+  /** The short reason on the line. */
+  var line: String { let t = why?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""; return t.isEmpty ? "Couldn't finish." : t }
 }
 
 /** The message a reply answers: who said it and a few of their words (ReplyQuote in packages/core/src/types.ts). */

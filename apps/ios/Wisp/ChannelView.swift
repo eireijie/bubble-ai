@@ -126,6 +126,8 @@ struct ChannelView: View {
         chrome
         // it can't answer until its harness is signed in where it runs: say so before anyone writes
         if current.archivedAt == nil, let agent = store.dmAgent(current), agent.signIn != nil { AgentSignInBar(agent: agent).padding(.bottom, 4) }
+        // its harness isn't on the device it runs on: every reply would fail, so say it and offer Install
+        if current.archivedAt == nil, let agent = store.dmAgent(current), let node = store.missingHarness(agent) { HarnessMissingBar(agent: agent, node: node).padding(.bottom, 4) }
         // a call shrunk from full screen sits under the top bar
         if let call, !call.expanded { CallBar(call: call).transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .top).combined(with: .move(edge: .top)).combined(with: .opacity)) }
       }.animation(Motion.pick(Motion.pop, reduceMotion), value: call?.expanded)

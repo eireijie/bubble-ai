@@ -471,7 +471,7 @@ struct NewTaskView: View {
         if let aside { Image(systemName: aside).font(.system(size: 13)).foregroundStyle(Palette.muted) }
         Spacer(minLength: 8)
         if let trailing { Text(trailing).font(.system(size: 13)).foregroundStyle(Palette.faint) }
-        if to == value { Image(systemName: "checkmark.circle").font(.system(size: 22)).foregroundStyle(Palette.blue) }
+        if to == value { Image(systemName: "checkmark.circle").font(.system(size: 22)).foregroundStyle(Palette.accent) }
       }
       .padding(.horizontal, 18).frame(minHeight: 54).contentShape(Rectangle())
     }

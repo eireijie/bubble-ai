@@ -142,7 +142,7 @@ struct AgentPage: View {
       })) {
         Text("Notifications").font(.system(size: 15)).foregroundStyle(Palette.text)
       }
-      .tint(Palette.blue)
+      .tint(Palette.accent)
       .padding(.horizontal, 18).frame(minHeight: 60)
       .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
     .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))

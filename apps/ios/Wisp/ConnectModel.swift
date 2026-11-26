@@ -89,7 +89,7 @@ struct ConnectProviderView: View {
     VStack(alignment: .leading, spacing: 12) {
       if let login, login.status == "failed" {
         Text(login.error ?? "The sign-in didn't finish.").font(.system(size: 15)).foregroundStyle(Palette.red)
-        Button("Try again") { self.login = nil; Task { await start() } }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+        Button("Try again") { self.login = nil; Task { await start() } }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.accent)
       } else if let login, login.status == "done" {
         Label("Connected", systemImage: "checkmark").font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.statusOnline)
       } else if let login, login.url != nil {
@@ -103,7 +103,7 @@ struct ConnectProviderView: View {
         HStack(spacing: 8) {
           Button { if let u = login.url.flatMap(URL.init(string:)) { openURL(u) } } label: {
             Text("Open \(ModelWords.host(login.url) ?? "the link")").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-              .padding(.horizontal, 12).frame(height: 30).background(Capsule().fill(Palette.blue))
+              .padding(.horizontal, 12).frame(height: 30).background(Capsule().fill(Palette.accent))
           }.buttonStyle(.press).accessibilityIdentifier("login-open")
           if let code = login.code {
             Button {
@@ -124,14 +124,14 @@ struct ConnectProviderView: View {
               .padding(.horizontal, 12).frame(height: 38)
               .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Palette.field))
               .accessibilityIdentifier("login-paste")
-            Button("Connect") { send() }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+            Button("Connect") { send() }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.accent)
               .disabled(pasted.trimmed.isEmpty || action.busy)
           }
         }
         LoginWaiting(text: "Waiting for you to finish…")
       } else if login == nil, !starting, let problem = action.error {
         Text(problem).font(.system(size: 15)).foregroundStyle(Palette.red).fixedSize(horizontal: false, vertical: true)
-        Button("Try again") { Task { await start() } }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+        Button("Try again") { Task { await start() } }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.accent)
       } else {
         HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Starting the sign-in on your computer…").font(.system(size: 13)).foregroundStyle(Palette.muted) }
       }
@@ -191,7 +191,7 @@ struct ConnectProviderView: View {
             Text(action.busy ? "Checking" : "Connect")
           }
           .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-          .padding(.horizontal, 14).frame(height: 30).background(Capsule().fill(Palette.blue))
+          .padding(.horizontal, 14).frame(height: 30).background(Capsule().fill(Palette.accent))
         }
         .buttonStyle(.press).disabled(key.trimmed.count < 8 || action.busy).opacity(key.trimmed.count < 8 ? 0.4 : 1)
         .accessibilityIdentifier("key-connect")

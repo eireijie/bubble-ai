@@ -175,7 +175,7 @@ struct AuthLinkButton: View {
   var action: () -> Void
   var body: some View {
     Button(action: action) {
-      Text(title).font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.blue).frame(minHeight: 44).padding(.horizontal, 12)
+      Text(title).font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.accent).frame(minHeight: 44).padding(.horizontal, 12)
     }
     .buttonStyle(.plain)
   }

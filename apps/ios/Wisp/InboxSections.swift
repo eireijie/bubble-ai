@@ -417,7 +417,7 @@ struct ReadinessSection: View {
       GeometryReader { g in
         ZStack(alignment: .leading) {
           Capsule().fill(Palette.field)
-          Capsule().fill(Palette.blue).frame(width: g.size.width * CGFloat(done) / CGFloat(max(total, 1)))
+          Capsule().fill(Palette.accent).frame(width: g.size.width * CGFloat(done) / CGFloat(max(total, 1)))
         }
       }
       .frame(height: 6).accessibilityHidden(true)

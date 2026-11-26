@@ -172,7 +172,7 @@ struct DeviceDetail: View {
               Text(id == "vms" && n.role != id ? n.vmProblem ?? detail : detail).font(.system(size: 13)).foregroundStyle(Palette.faint)
             }
             Spacer(minLength: 6)
-            if n.role == id { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.blue) }
+            if n.role == id { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.accent) }
           }.contentShape(Rectangle())
         }.buttonStyle(.plain).disabled(!editable || action.busy || (id == "vms" && n.role != id && n.vmProblem != nil)).accessibilityIdentifier("device-role-\(id)")
       }
@@ -181,7 +181,7 @@ struct DeviceDetail: View {
           Text("Share with the workspace").font(.system(size: 15)).foregroundStyle(Palette.text)
           Text("Let others in \(store.workspace?.name ?? "the workspace") add agents and VMs here").font(.system(size: 13)).foregroundStyle(Palette.faint)
         }
-      }.tint(Palette.blue).disabled(!editable || action.busy).accessibilityIdentifier("device-shared")
+      }.tint(Palette.accent).disabled(!editable || action.busy).accessibilityIdentifier("device-shared")
     } header: { Text("What this device does for agents") }
       .listRowBackground(Palette.card)
   }

@@ -308,6 +308,8 @@ struct GroupCaption: View {
 /** A row with a title (and a grey line), and a check on the picked one. */
 struct PickRow: View {
   var symbol: String? = nil
+  /** a harness or provider id whose brand mark leads the row, when there is one */
+  var logo: String? = nil
   var title: String
   var subtitle: String? = nil
   var selected: Bool
@@ -318,14 +320,15 @@ struct PickRow: View {
   var body: some View {
     Button(action: action) {
       HStack(spacing: 12) {
-        if let symbol { Image(systemName: symbol).font(.system(size: 13)).foregroundStyle(Palette.muted).frame(width: 18) }
+        if let logo, BrandLogo.asset(logo) != nil { BrandLogo(id: logo, size: 26) }
+        else if let symbol { Image(systemName: symbol).font(.system(size: 13)).foregroundStyle(Palette.muted).frame(width: 18) }
         VStack(alignment: .leading, spacing: 1) {
           Text(title).font(.system(size: 15)).foregroundStyle(Palette.text).lineLimit(1)
           if let subtitle { Text(subtitle).font(.system(size: 12)).foregroundStyle(Palette.faint).lineLimit(1) }
         }
         Spacer(minLength: 8)
         if selected {
-          Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.blue)
+          Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.accent)
             .transition(reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity))
         }
       }
@@ -351,7 +354,7 @@ struct AddRow: View {
           Text(title).font(.system(size: 15))
           Spacer()
         }
-        .foregroundStyle(Palette.blue)
+        .foregroundStyle(Palette.accent)
         .padding(.horizontal, 14).frame(minHeight: 46).contentShape(Rectangle())
       }
       .buttonStyle(.pressRow)
@@ -395,7 +398,7 @@ struct HarnessPicker: View {
           } else {
             CardGroup {
               ForEach(computer.harnesses) { h in
-                PickRow(symbol: ModelWords.harnessSymbol(h.id), title: h.label, selected: h.id == current.harness, id: "harness-\(h.id)") { pick(h.id) }
+                PickRow(symbol: ModelWords.harnessSymbol(h.id), logo: h.id, title: h.label, selected: h.id == current.harness, id: "harness-\(h.id)") { pick(h.id) }
               }
             }
             .disabled(action.busy)
@@ -527,7 +530,7 @@ struct ModelPicker: View {
             let all = expanded.contains(g.id) ? g.models : Array(g.models.prefix(shown))
             CardGroup {
               ForEach(all) { m in
-                PickRow(title: m.label, selected: onConnection == g.id && current.model == m.id, id: "model-\(m.id)") {
+                PickRow(logo: g.connection.provider, title: m.label, selected: onConnection == g.id && current.model == m.id, id: "model-\(m.id)") {
                   pick(m.id, connection: g.id, efforts: m.efforts ?? g.efforts)
                 }
               }
@@ -541,11 +544,11 @@ struct ModelPicker: View {
         if !own.isEmpty || groups.isEmpty {
           GroupCaption(title: "Its computer's sign-in", note: HarnessChoice.label(current.harness))
           CardGroup {
-            PickRow(title: "Default", selected: onConnection == nil && (current.model ?? "").isEmpty, id: "model-default") {
+            PickRow(logo: current.harness, title: "Default", selected: onConnection == nil && (current.model ?? "").isEmpty, id: "model-default") {
               pick("", connection: nil, efforts: device?.catalog?.efforts ?? [])
             }
             ForEach(own) { m in
-              PickRow(title: m.label, selected: onConnection == nil && current.model == m.id, id: "model-own-\(m.id)") {
+              PickRow(logo: current.harness, title: m.label, selected: onConnection == nil && current.model == m.id, id: "model-own-\(m.id)") {
                 pick(m.id, connection: nil, efforts: m.efforts ?? device?.catalog?.efforts ?? [])
               }
             }

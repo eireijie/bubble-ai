@@ -67,7 +67,7 @@ struct Bubble<Content: View>: View {
       .padding(.horizontal, 13)
       .padding(.vertical, 8)
       .foregroundStyle(side == .mine ? Palette.mineInk : Palette.text)
-      .tint(side == .mine ? Palette.mineInk : Palette.blue)
+      .tint(side == .mine ? Palette.mineInk : Palette.accent)
       .background(BubbleShape(mine: side == .mine, tail: tail).fill(side == .mine ? Palette.mine : Palette.bubble))
   }
 }

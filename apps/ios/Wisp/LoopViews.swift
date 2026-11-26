@@ -18,7 +18,7 @@ struct FollowupPillView: View {
       HStack(spacing: 7) {
         Image(systemName: pill.pending ? "clock" : pill.status == "done" ? "checkmark" : "minus")
           .font(.system(size: 12, weight: .medium))
-          .foregroundStyle(pill.pending ? Palette.blue : Palette.faint)
+          .foregroundStyle(pill.pending ? Palette.accent : Palette.faint)
         (Text(pill.label).fontWeight(.medium).foregroundStyle(pill.pending ? Palette.text : Palette.faint)
           + Text(" · " + (pill.pending ? time : pill.status == "done" ? "done" : "cancelled")))
           .lineLimit(1)
@@ -66,7 +66,7 @@ struct ReminderSheet: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 14) {
         HStack(alignment: .top, spacing: 12) {
-          Image(systemName: "clock").font(.system(size: 18)).foregroundStyle(Palette.blue).padding(.top, 2)
+          Image(systemName: "clock").font(.system(size: 18)).foregroundStyle(Palette.accent).padding(.top, 2)
           VStack(alignment: .leading, spacing: 3) {
             Text(target.label).font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.text)
             let line = Loops.sheetLine(due, condition: condition)
@@ -81,8 +81,8 @@ struct ReminderSheet: View {
               HStack(spacing: 6) {
                 Text(option.title).foregroundStyle(Palette.text)
                 Spacer(minLength: 8)
-                Text(Loops.clock(option.date)).foregroundStyle(option == current ? Palette.blue : Palette.faint)
-                if option == current { Image(systemName: "checkmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.blue) }
+                Text(Loops.clock(option.date)).foregroundStyle(option == current ? Palette.accent : Palette.faint)
+                if option == current { Image(systemName: "checkmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.accent) }
               }
               .font(.system(size: 15))
               .padding(.horizontal, 14).frame(minHeight: 48).contentShape(Rectangle())

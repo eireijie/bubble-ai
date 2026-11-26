@@ -246,7 +246,7 @@ struct NoteView: View {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 8) {
           ForEach(tags, id: \.self) { TagChip(text: $0) }
-          if let type { TagChip(text: type.capitalizedFirst, tint: graph?.nodes.first { $0.id == path }?.graphKind.color(dark: scheme == .dark) ?? Palette.blue) }
+          if let type { TagChip(text: type.capitalizedFirst, tint: graph?.nodes.first { $0.id == path }?.graphKind.color(dark: scheme == .dark) ?? Palette.accent) }
         }.padding(.horizontal, 6)
       }
     }
@@ -461,7 +461,7 @@ struct MoveNoteView: View {
   private func folderRow(_ folder: String, subtitle: String?, choose: String?) -> some View {
     Button { if let choose { target = choose; useOther = false } } label: {
       RowLabel(title: pretty(folder), subtitle: subtitle, chevron: choose != nil && target != choose) {
-        Image(systemName: target == choose && choose != nil ? "checkmark.circle.fill" : "folder").font(.system(size: 18)).foregroundStyle(target == choose && choose != nil ? Palette.blue : Palette.muted)
+        Image(systemName: target == choose && choose != nil ? "checkmark.circle.fill" : "folder").font(.system(size: 18)).foregroundStyle(target == choose && choose != nil ? Palette.accent : Palette.muted)
       }
     }.buttonStyle(.plain).disabled(choose == nil)
   }

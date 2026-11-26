@@ -136,7 +136,7 @@ struct ComputerFilesView: View {
       if f.dir { Task { await load(folder.join(f.name)) } } else { fetchFile(folder.join(f.name), then: { preview = $0 }) }
     } label: {
       HStack(spacing: 12) {
-        Image(systemName: f.dir ? "folder.fill" : Self.symbol(f.name)).foregroundStyle(f.dir ? Color.blue : .secondary).frame(width: 24)
+        Image(systemName: f.dir ? "folder.fill" : Self.symbol(f.name)).foregroundStyle(f.dir ? Palette.accent : .secondary).frame(width: 24)
         Text(f.name).foregroundStyle(f.name.hasPrefix(".") ? .secondary : .primary).lineLimit(1)
         Spacer()
         if f.dir { Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary) }
@@ -153,7 +153,7 @@ struct ComputerFilesView: View {
       }
     }
     .swipeActions(edge: .trailing) {
-      if !f.dir { Button("Share", systemImage: "square.and.arrow.up") { fetchFile(folder.join(f.name), then: { sharing = SharedFile(url: $0) }) }.tint(.blue) }
+      if !f.dir { Button("Share", systemImage: "square.and.arrow.up") { fetchFile(folder.join(f.name), then: { sharing = SharedFile(url: $0) }) }.tint(Palette.accent) }
     }
   }
 

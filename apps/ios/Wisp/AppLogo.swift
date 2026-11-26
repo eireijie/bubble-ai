@@ -35,6 +35,47 @@ struct AppLogo: View {
   }
 }
 
+/**
+ * A harness's or AI provider's brand mark, shipped with the app (the web's /harnesses marks), on a
+ * small light tile; a plain line icon when there's no mark for it.
+ */
+struct BrandLogo: View {
+  /** a harness id ("claude-code") or a provider id ("anthropic") */
+  var id: String
+  var symbol: String = "cpu"
+  var size: CGFloat = 30
+
+  static func asset(_ id: String) -> String? {
+    switch id {
+    case "claude-code", "anthropic", "claude": "logo-claude-color"
+    case "codex", "openai", "chatgpt": "logo-codex-color"
+    case "gemini", "google": "logo-gemini-color"
+    case "grok", "xai": "logo-grok"
+    case "kimi", "moonshot": "logo-kimi-color"
+    case "qwen", "alibaba": "logo-qwen-color"
+    case "cursor": "logo-cursor"
+    case "hermes", "nous": "logo-hermesagent"
+    case "opencode": "logo-opencode"
+    case "goose": "logo-goose"
+    case "openclaw": "logo-openclaw-color"
+    default: nil
+    }
+  }
+
+  var body: some View {
+    Group {
+      if let name = Self.asset(id) {
+        Image(name).resizable().scaledToFit().foregroundStyle(Color(hex: 0x111113))
+          .frame(width: size * 0.62, height: size * 0.62)
+          .logoTile(size)
+      } else {
+        Image(systemName: symbol).font(.system(size: size * 0.5)).foregroundStyle(Palette.muted).frame(width: size, height: size)
+      }
+    }
+    .accessibilityHidden(true)
+  }
+}
+
 private extension View {
   func logoTile(_ size: CGFloat) -> some View {
     frame(width: size, height: size)
