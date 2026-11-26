@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { marketplaceEntry, rankMarketplace, type RegistryServer } from "@bubble-ai/core";
 import { buildHub } from "../src/app.ts";
+import { tidyResults } from "../src/marketplace.ts";
 import type { Hub } from "../src/hub.ts";
 
 let dir: string;
@@ -188,5 +189,13 @@ describe("the marketplace", () => {
     const r = await api("GET", "/api/marketplace?q=%F0%9F%99%82");
     expect(r.status).toBe(200);
     expect(r.data.entries).toEqual([]);
+  });
+});
+
+describe("tidying search results", () => {
+  it("keeps one of each name and drops placeholder names", () => {
+    const e = (name: string) => ({ name }) as never;
+    const out = tidyResults([e("Notion"), e("notion"), e("Close"), e("Test"), e("x"), e("Linear"), e("hello world")]) as { name: string }[];
+    expect(out.map((a) => a.name)).toEqual(["Notion", "Linear"]);
   });
 });

@@ -12,6 +12,7 @@ import { useMemo, useSyncExternalStore } from "react";
  *   #/computers[/<id>[/teach/<agentId>]]  devices and their agents' computers, live view, teaching a task
  *   #/computers/d/<nodeId>           one device's page (#/nodes[/<nodeId>] still lands here)
  *   #/marketplace[/<section>]        apps and skills to get, and what devices already have (MARKET_SECTIONS)
+ *   #/marketplace/app/<key>          one app's page (b:<catalog id>, r:<registry name>, c:<added app id>)
  *   #/connectors, #/skills           older addresses of the marketplace (installed apps, skills)
  *   #/settings[/<page>[/<item>]]     your settings and the organization's (see SETTINGS_PAGES); full window on desktops; <item> opens one thing in a page (a skill)
  *   #/join/<code>                    accept an invite (signed out)
@@ -35,7 +36,7 @@ export type Route =
   | { view: "about" }
   | { view: "tasks" }
   | { view: "computers"; computerId: string | null; teach?: string | null; deviceId?: string | null }
-  | { view: "marketplace"; section?: MarketSection | null }
+  | { view: "marketplace"; section?: MarketSection | null; app?: string | null }
   | { view: "connectors" }
   | { view: "skills" }
   | { view: "settings"; page?: SettingsPage | null; item?: string | null }
@@ -83,6 +84,8 @@ export function parseRoute(hash: string): Route {
     case "marketplace":
       // mods have one home now: their own page
       if (parts[1] === "mods") return { view: "mods" };
+      // one app's page; a registry name has slashes in it, so it's encoded as one part
+      if (parts[1] === "app") return parts[2] ? { view: "marketplace", section: null, app: parts.slice(2).join("/") } : { view: "marketplace", section: null };
       return { view: "marketplace", section: MARKET_SECTIONS.find((x) => x === parts[1]) ?? null };
     case "connectors":
       return { view: "connectors" };
@@ -145,6 +148,7 @@ export function href(r: Route): string {
     case "dashboard":
       return "#/dashboard";
     case "marketplace":
+      if (r.app) return `#/marketplace/app/${encodeURIComponent(r.app)}`;
       return "#/marketplace" + (r.section && r.section !== "all" ? `/${r.section}` : "");
     case "connectors":
       return "#/connectors";

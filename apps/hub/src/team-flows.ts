@@ -372,18 +372,18 @@ export class TeamFlows {
   }
 
   /** Stop and let a person decide: a review ran out of rounds, a run failed, a role has nobody, an ask-me step. */
-  private waitLane(f: TeamFlow, lane: FlowLane, why: string, options: FlowWaiting["options"], piece?: string, post = true) {
+  private waitLane(f: TeamFlow, lane: FlowLane, why: string, options: FlowWaiting["options"], piece?: string, post: boolean | string = true) {
     lane.status = "waiting";
     lane.waitingFor = { why, options, ...(piece ? { piece } : {}) };
     f.status = "waiting";
     f.stepId = lane.stepId;
     this.save(f);
-    if (post) this.hub.postMessage({ channelId: f.channelId, threadId: f.threadId, author: SYSTEM, body: why, route: false, onBehalfOf: f.requestedBy });
+    if (post) this.hub.postMessage({ channelId: f.channelId, threadId: f.threadId, author: SYSTEM, body: typeof post === "string" ? post : why, route: false, onBehalfOf: f.requestedBy });
   }
 
-  /** A step (or the hand-over to another team) ran and failed: a person can try again or skip it. */
-  private failLane(f: TeamFlow, lane: FlowLane, why: string) {
-    this.waitLane(f, lane, why, "retry");
+  /** A step (or the hand-over to another team) ran and failed: a person can try again or skip it. `said` is the note for the thread, when it differs. */
+  private failLane(f: TeamFlow, lane: FlowLane, why: string, said?: string) {
+    this.waitLane(f, lane, why, "retry", undefined, said ?? true);
     lane.waitingFor!.failed = true;
     this.save(f);
   }
@@ -567,7 +567,10 @@ export class TeamFlows {
           const h = [...f.history].reverse().find((x) => x.taskId === task.id);
           if (task.status === "failed") {
             if (h) h.verdict = "failed";
-            this.failLane(f, lane, `${this.agentFor(team, step)?.name ?? "The agent"} couldn't finish ${this.title(team, step)}: ${failureReason(task.result)}`);
+            const who = this.agentFor(team, step)?.name ?? "The agent";
+            // a run that failed already said why in the thread, just above: the team's note doesn't say it again
+            const fromRun = /^[^:]{0,60}'s run failed:/i.test(task.result ?? "");
+            this.failLane(f, lane, `${who} couldn't finish ${this.title(team, step)}: ${failureReason(task.result)}`, fromRun ? `${who} couldn't finish ${this.title(team, step)}. Try again or skip it.` : undefined);
             return false;
           }
           if (step.kind === "review") {

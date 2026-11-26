@@ -4,7 +4,7 @@ import { SIGN_IN_PROVIDERS, connectorUnsupportedReason, trustLabel, type Agent, 
 import { api } from "../api.ts";
 import { Button, Menu } from "../components/ui.tsx";
 import { WhoCanUse, whoLine } from "../components/ShopParts.tsx";
-import { AppTile, Dlg, FactRow, ItemHead, Prim, RemoveBtn, Rows, TrustPill } from "../components/MarketParts.tsx";
+import { AppTile, Badge, Dlg, FactRow, ItemHead, Prim, RemoveBtn, Rows, TrustPill } from "../components/MarketParts.tsx";
 import { connectSummary, connectorWhere, registryCatalog } from "./ConnectorsView.tsx";
 
 export type AppItem = { key: string; name: string; description: string; category: AppCategory | null; who: string } & ({ registry: StoreApp } | { builtIn: CatalogConnector });
@@ -14,6 +14,8 @@ const HARNESS_NAMES: Record<string, string> = { "claude-code": "Claude Code", co
 /** Why signing in to an app doesn't work from where Bubble AI is open, and what to do instead (or, where it does, what happens). */
 export function howToSignIn(name: string, o: SignInOption): string {
   if (o.signIn) return `A page opens in your browser to sign in to ${name}. Bubble AI never sees your password.`;
+  // Bubble AI's own sign-in with that company isn't made yet: say so calmly, and the way that works today
+  if (o.soon) return o.key ? `Signing in to ${name} is coming soon. Add it with a key for now.` : "Coming soon";
   return `${o.reason ?? `Signing in to ${name} doesn't work from here.`}${o.key ? " You can use a key instead." : ""}`;
 }
 
@@ -89,6 +91,8 @@ export function AppPage({
   const description = app?.description ?? "";
   // signs in only (Gmail, Calendar) and that doesn't work from here: nothing to add it with
   const blocked = !!signIn && !signIn.signIn && !signIn.key && !!entry && !entry.fields.length;
+  // signs in only, with Bubble AI's own app that isn't made yet: "Coming soon" in place of Add, not an error
+  const soon = blocked && !!signIn?.soon;
   const lapsed = !!have?.auth?.required && !have.auth.signedIn;
   const kind = have?.kind ?? entry?.kind;
   const can = builtIn?.signInReads ?? signIn?.reads ?? (kind === "secret" || entry?.fields.length ? "Use your key" : "What the app allows");
@@ -121,10 +125,15 @@ export function AppPage({
   return (
     <div className="space-y-4">
       <ItemHead tile={<AppTile name={name} category={app?.category} size={56} entry={registry} />} name={name} line={`${app ? appLine(app) : have ? connectorLine(have) : ""}${have && !have.enabled ? " · Off" : ""}`}>
-        {canEdit && !have && (
-          <Button variant="primary" onClick={() => onAdd(pick)} disabled={!entry || blocked}>
-            Add
-          </Button>
+        {!have && soon ? (
+          <Badge>Coming soon</Badge>
+        ) : (
+          canEdit &&
+          !have && (
+            <Button variant="primary" onClick={() => onAdd(pick)} disabled={!entry || blocked}>
+              Add
+            </Button>
+          )
         )}
         {canEdit && have && lapsed && (
           <Button variant="primary" onClick={() => onSignIn(have)}>
@@ -149,7 +158,7 @@ export function AppPage({
       </ItemHead>
 
       {have?.auth?.error && <p className="px-1 text-[13px] text-bad">{have.auth.error}</p>}
-      {!have && signIn && !signIn.signIn && <p className="px-1 text-[13px] text-muted">{howToSignIn(name, signIn)}</p>}
+      {!have && signIn && !signIn.signIn && !soon && <p className="px-1 text-[13px] text-muted">{howToSignIn(name, signIn)}</p>}
       {!have && trust?.kind === "unverified" && registry && <p className="px-1 text-[13px] text-warn">Not verified. Add it only if you trust {registry.publisher}.</p>}
       {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
 

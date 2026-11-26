@@ -19,11 +19,11 @@ export const FEATURED: [string, AppCategory][] = [
   ["com.zapier/mcp", "Automation"],
   ["com.mintmcp/outlook-email", "Email and calendar"],
   ["com.mintmcp/outlook-calendar", "Email and calendar"],
-  ["net.todoist/mcp", "Docs and notes"],
+  ["net.todoist/mcp", "Tasks"],
   ["io.github.zoom/zoom-meetings", "Email and calendar"],
   ["com.atlassian/atlassian-mcp-server", "Developer"],
   ["com.airtable/mcp", "Data"],
-  ["com.monday/monday.com", "Docs and notes"],
+  ["com.monday/monday.com", "Tasks"],
   ["com.figma.mcp/mcp", "Design"],
   ["com.canva.mcp/mcp", "Design"],
   ["com.webflow/mcp", "Design"],
@@ -42,7 +42,6 @@ export const FEATURED: [string, AppCategory][] = [
   ["com.postman/postman-mcp-server", "Developer"],
   ["com.stripe/mcp", "Finance"],
   ["com.paypal.mcp/mcp", "Finance"],
-  ["com.close/close-mcp", "Sales"],
   ["com.pandadoc.mcp/mcp", "Sales"],
   ["com.supabase/mcp", "Data"],
   ["com.neon/mcp", "Data"],
@@ -56,8 +55,24 @@ export const FEATURED: [string, AppCategory][] = [
   ["io.github.browserbase/mcp-server-browserbase", "Research"],
   ["com.apify/apify-mcp-server", "Research"],
   ["co.huggingface/hf-mcp-server", "Research"],
-  ["io.elevenlabs/mcp", "Design"],
 ];
+
+/**
+ * Search results worth showing: one app per name (the registry lists a dozen servers called
+ * "Gmail"; the best-ranked one stands for them), and no listing whose name is a bare word that
+ * says nothing about what it is, or a test entry.
+ */
+export function tidyResults(ranked: MarketplaceEntry[]): MarketplaceEntry[] {
+  const names = new Set<string>();
+  return ranked.filter((e) => {
+    const key = e.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (key.length < 2 || JUNK_NAME.test(e.name.trim()) || names.has(key)) return false;
+    names.add(key);
+    return true;
+  });
+}
+/** Names that read as an interface word or a test, not an app ("Close", "Test", "Hello world"). */
+const JUNK_NAME = /^(close|open|test(ing)?|demo|example|sample|hello|hello world|my app|untitled|server|mcp|app|tool|tools)$/i;
 
 /** Pages of search results read per search (100 each): enough to find most apps by name. */
 const SEARCH_PAGES = 3;
@@ -110,7 +125,7 @@ export class Marketplace {
     const seen = new Set<string>();
     const found = items.map((i) => marketplaceEntry(i.server, status(i))).filter((e): e is MarketplaceEntry => !!e && !seen.has(e.id) && !!seen.add(e.id));
     const category = new Map(FEATURED);
-    const entries = rankMarketplace(found, key).map((e) => storeApp(e, category.get(e.id)));
+    const entries = tidyResults(rankMarketplace(found, key)).map((e) => storeApp(e, category.get(e.id)));
     if (this.searches.size > 200) this.searches.clear();
     this.searches.set(key, { at: Date.now(), entries });
     return entries;

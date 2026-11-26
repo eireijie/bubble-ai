@@ -964,12 +964,12 @@ export class Hub {
   /** A failure in plain words when it's a known one (a harness that needs signing in again), else as reported. */
   explainFailure(agent: Pick<Agent, "harness" | "nodeId"> & Partial<Pick<Agent, "workspaceId" | "settings">>, error: string, userId: string | null = null): string {
     const problem = signInProblem(agent.harness, error);
-    // the plan's limit, in plain words with when it's back; else the error as the harness gave it
-    if (!problem) return this.limits.explain(agent, error, userId) ?? plainFailure(error);
+    const device = agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
+    // the plan's limit, in plain words with when it's back; else the error as the harness gave it (a missing AI tool by name)
+    if (!problem) return this.limits.explain(agent, error, userId) ?? plainFailure(error, agent.harness, device);
     // on a connection, it's the connection that needs signing in again, not the device
     const conn = agent.settings?.connectionId ? this.models.row(agent.settings.connectionId) : undefined;
     if (conn && credentialSupport(agent.harness, conn.provider, conn.kind)) return `The ${providerLabel(conn.provider)} ${conn.kind === "oauth" ? "sign-in" : "key"} "${conn.label}" stopped working (${error.slice(0, 200)}). Connect it again in Settings → Models.`;
-    const device = agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
     return problem.explain(device ?? "its device");
   }
 

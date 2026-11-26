@@ -326,7 +326,7 @@ export function StepCanvas({
 
         {steps.length > 0 && (
           <div className="absolute" style={{ left: chip.x, top: chip.y }}>
-            <MessageChip />
+            <MessageChip onSchedule={() => onAdd("schedule", {})} />
           </div>
         )}
 

@@ -15,8 +15,6 @@ import { TeamPanel, type TeamSheet } from "./TeamInfo.tsx";
 const NewTeamFlow = lazyView(() => import("../team/Create.tsx").then((m) => m.NewTeamFlow));
 const NewAgentForTeam = lazyView(() => import("../team/NewAgent.tsx").then((m) => m.NewAgentForTeam));
 
-// the same rule as `teamSlug` in team/Create.tsx, kept here so a search doesn't fetch the builder
-const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
 /** A channel's icon: a lock for a private one, a hash otherwise. */
 export function ChannelIcon({ channel, size = 14, className = "text-faint" }: { channel: Pick<ChannelInfo, "private">; size?: number; className?: string }) {
@@ -73,11 +71,12 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
     const needle = q.trim().toLowerCase().replace(/^#/, "");
     return channels
       .filter((c) => (tab === "archived" ? !!c.archivedAt : !c.archivedAt && (tab === "joined" ? c.joined : true)))
-      .filter((c) => !needle || c.name.includes(needle) || c.topic.toLowerCase().includes(needle))
+      .filter((c) => !needle || c.name.toLowerCase().includes(needle) || c.topic.toLowerCase().includes(needle))
       .sort((a, b) => b.memberCount - a.memberCount || a.name.localeCompare(b.name));
   }, [channels, q, tab]);
-  const name = slug(q.replace(/^#/, ""));
-  const exists = channels.some((c) => c.name === name);
+  // the name as typed: a team keeps its capitals and spaces
+  const name = q.trim().replace(/^#\s*/, "").slice(0, 80);
+  const exists = channels.some((c) => c.name.toLowerCase() === name.toLowerCase());
 
   // a dialog opened from the sidebar belongs to the page it was opened on: going elsewhere (a link, the back button) closes it
   useEffect(() => {
@@ -126,7 +125,7 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
           <span className="size-7 rounded-lg bg-panel border border-line grid place-items-center">
             <Plus size={15} />
           </span>
-          {name && !exists ? `Create #${name}` : "Create a new team"}
+          {name && !exists ? `Create ${name}` : "Create a new team"}
         </button>
 
         <div className="rounded-xl border border-line divide-y divide-line max-h-[50vh] overflow-y-auto">

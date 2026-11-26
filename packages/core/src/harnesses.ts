@@ -83,13 +83,20 @@ export interface SignInProblem {
   explain(device: string): string;
 }
 
+/** The run failed because the harness's program isn't on the device (`spawn codex ENOENT`, "command not found"). */
+export function aiToolMissing(error: string): boolean {
+  return /\bspawn\s+\S+\s+ENOENT\b|command not found|is not recognized as an internal or external command|not found in PATH/i.test(error);
+}
+
 /**
  * A run error fit to show a person: one line, no backticks, no file paths or system error codes.
- * The original stays on the run for the logs.
+ * The original stays on the run for the logs. With the agent's harness and device, a missing AI
+ * tool is said as exactly that ("Codex isn't installed on Mac mini.").
  */
-export function plainFailure(error: string): string {
+export function plainFailure(error: string, harness?: string, device?: string): string {
   const line = error.split("\n").map((l) => l.trim()).find(Boolean) ?? "";
-  if (/\bE(NOENT|ACCES|PERM|CONNREFUSED|CONNRESET|PIPE|TIMEDOUT)\b|^\s*at\s|Traceback|TypeError|ReferenceError/.test(line)) return "Something went wrong on its device. Try again; if it keeps failing, check that device is running.";
+  if (aiToolMissing(error)) return `${harness ? harnessLabel(harness) : "Its AI tool"} isn't installed on ${device ?? "its device"}.`;
+  if (/\bE(NOENT|ACCES|PERM|CONNREFUSED|CONNRESET|PIPE|TIMEDOUT)\b|^\s*at\s|Traceback|TypeError|ReferenceError/.test(line)) return "Something went wrong on its device. Try again.";
   const plain = line.replace(/`/g, "").replace(/(^|[\s("'=:])(~|\.{0,2})?\/(?:[\w.@+-]+\/)+[\w.@+-]*/g, "$1a file").replace(/\s+/g, " ").trim();
   return plain.length > 300 ? `${plain.slice(0, 297).trimEnd()}…` : plain || "It stopped before it finished.";
 }
