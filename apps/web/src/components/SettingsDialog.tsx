@@ -32,10 +32,15 @@ export function escapeCloses(e: { key: string; defaultPrevented: boolean; target
   return !(t && t.tagName === "INPUT" && t.type === "search" && t.value);
 }
 
-/** The panel's size: large 960 x min(680, window - 96), medium 640 wide and as tall as what it holds, full the whole window less a margin. */
+/**
+ * The panel's size: large 960 wide, medium 640 wide, both as tall as what they hold up to
+ * min(680, window - 96), so a short place (no computers yet) isn't a big empty box, and at least
+ * 180 so one still loading isn't a sliver; full is the
+ * whole window less a margin.
+ */
 export const DIALOG_SIZE: Record<DialogSize, string> = {
-  large: "h-[min(680px,calc(100vh-96px))] w-[min(960px,calc(100vw-48px))]",
-  medium: "max-h-[min(680px,calc(100vh-96px))] w-[min(640px,calc(100vw-48px))]",
+  large: "min-h-[min(180px,calc(100vh-96px))] max-h-[min(680px,calc(100vh-96px))] w-[min(960px,calc(100vw-48px))]",
+  medium: "min-h-[min(180px,calc(100vh-96px))] max-h-[min(680px,calc(100vh-96px))] w-[min(640px,calc(100vw-48px))]",
   full: "h-[calc(100vh-48px)] w-[calc(100vw-48px)]",
 };
 
@@ -67,6 +72,25 @@ export function SettingsDialog({ label, closing, onClose, size = "large", swapKe
       if (before && document.contains(before)) before.focus({ preventScroll: true });
     };
   }, []);
+  // the panel is as tall as what it holds (up to its size's max), and never shrinks while one place is
+  // open: moving between its sections, or its list loading, doesn't make it jump. A swap starts over.
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!el || size === "full" || typeof ResizeObserver === "undefined") return;
+    let tallest = 0;
+    el.style.minHeight = "";
+    const ro = new ResizeObserver(() => {
+      const h = el.offsetHeight;
+      if (h <= tallest) return;
+      tallest = h;
+      el.style.minHeight = `min(${h}px, calc(100vh - 96px))`;
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      el.style.minHeight = "";
+    };
+  }, [swapKey, size]);
   // a swap moves focus into the new place too
   const firstKey = useRef(swapKey);
   useEffect(() => {

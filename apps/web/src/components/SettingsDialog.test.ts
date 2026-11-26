@@ -24,10 +24,11 @@ describe("the Settings pop-up", () => {
     expect(html).toContain("pointer-events-none");
   });
 
-  it("comes in three sizes: large 960 x 680, medium 640 and as tall as it needs, and the whole window", () => {
+  it("comes in three sizes: large 960 and medium 640, both as tall as they need up to 680, and the whole window", () => {
     expect(render(false)).toContain('data-size="large"');
     expect(DIALOG_SIZE.large).toContain("w-[min(960px,calc(100vw-48px))]");
-    expect(DIALOG_SIZE.large).toContain("h-[min(680px,calc(100vh-96px))]");
+    expect(DIALOG_SIZE.large).toContain("max-h-[min(680px,calc(100vh-96px))]");
+    expect(DIALOG_SIZE.large).not.toMatch(/(^| )h-/);
     expect(DIALOG_SIZE.medium).toContain("w-[min(640px,calc(100vw-48px))]");
     expect(DIALOG_SIZE.medium).toContain("max-h-[min(680px,calc(100vh-96px))]");
     expect(DIALOG_SIZE.medium).not.toMatch(/(^| )h-/);

@@ -256,7 +256,7 @@ export function isDialogRoute(r: Route): boolean {
 export type PopupSize = "large" | "medium" | "popover";
 
 /**
- * How big a pop-up is: large 960 x min(680, window - 96) for Settings, Computers, Apps and skills,
+ * How big a pop-up is (both as tall as what they hold, up to min(680, window - 96)): large 960 wide for Settings, Computers, Apps and skills,
  * Tasks and Memory; medium 640 for All agents, Help, Templates and What agents know; Needs you is a
  * popover beside its row. One agent's settings is large, like Settings.
  */
