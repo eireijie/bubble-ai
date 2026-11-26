@@ -1,18 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { Agent, GhostShape } from "@bubble-ai/core";
 import type { GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
-import { motionReduced } from "../../theme.ts";
 import { FAMILY_COLORS } from "../../ghostFamily.ts";
 import { useStore } from "../../store.ts";
 import { unavailable } from "../../join.ts";
 import { useConnections } from "../../models.ts";
 import type { DeviceInfo } from "../../devices.ts";
 import { agentInstructions, saveAnswers } from "../../onboardingV3.ts";
-import { OB_EASE } from "../../components/onboarding/HostGhost.tsx";
-import { Ghost } from "../../components/Ghost.tsx";
 import { SetupLink, SetupProblem } from "../../components/SetupShell.tsx";
-import { BubbleStage, PathChoice, type SetupPath } from "./BubbleSetup.tsx";
+import { BubbleSlot } from "./Stage.tsx";
 import { AGENT_TYPES } from "./agentTypes.ts";
 import { lookOf, makeNamedAgent, renameNamedAgent, type AgentShape } from "./firstAgent.ts";
 import { foundOn } from "./AIStep.tsx";
@@ -65,28 +62,17 @@ export async function saveNamedAgent(o: { workspaceId: string; existing: Pick<Ag
 }
 
 /**
- * The first run's second screen: your agent. Its ghost (click it for another look), its name and
- * the one line of what it does, each already filled in. Continue makes the agent.
+ * The first run's "Your agent": its bubble (on the stage above; a click there or a colour here
+ * gives it another colour), its name, already filled in. Continue makes the agent.
  */
-export function AgentStep({ workspaceId, person, device, existing, onContinue, onLeave, path, onPath }: { workspaceId: string; person: string; device: DeviceInfo | undefined; existing?: Pick<Agent, "id" | "name" | "handle" | "settings">; onContinue: (agentId: string) => void; onLeave?: () => void; path?: SetupPath; onPath?: (p: SetupPath) => void }) {
+export function AgentStep({ workspaceId, person, device, existing, look, onLook, onContinue, onLeave }: { workspaceId: string; person: string; device: DeviceInfo | undefined; existing?: Pick<Agent, "id" | "name" | "handle" | "settings">; look: GhostAppearance; onLook: (l: GhostAppearance) => void; onContinue: (agentId: string, name: string) => void; onLeave?: () => void }) {
   const { connections } = useConnections();
   // the agent Continue made, kept even if the list of agents hasn't caught up: pressing Continue again never makes a second one
   const made = useRef<Pick<Agent, "id" | "name" | "handle" | "settings"> | null>(null);
   const [name, setName] = useState(() => existing?.name ?? suggestedName(person, useStore.getState().agents.map((a) => a.name)));
   const [role] = useState(() => existing?.settings.role ?? "");
-  const [look, setLook] = useState<GhostAppearance>(() => existing?.settings.appearance ?? ({ ...lookOf(FAMILY_COLORS[0], "classic"), bubble: "round" }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // a new look morphs in (a quick shrink and twist back to rest), never a cut
-  const morph = useRef<HTMLSpanElement>(null);
-  const shown = useRef(look);
-  useEffect(() => {
-    if (shown.current === look) return;
-    shown.current = look;
-    const el = morph.current;
-    if (!el || motionReduced() || typeof el.animate !== "function") return;
-    el.animate([{ transform: "scale(0.86) rotate(-6deg)", opacity: 0.55 }, { transform: "none", opacity: 1 }], { duration: 300, easing: OB_EASE });
-  }, [look]);
 
   const called = name.trim() || "your agent";
   const save = async () => {
@@ -100,7 +86,7 @@ export function AgentStep({ workspaceId, person, device, existing, onContinue, o
       const id = await saveNamedAgent({ workspaceId, existing: existing ?? made.current ?? undefined, shape, harness, device, agents: st.agents });
       made.current = { id, name: shape.name, handle: (existing ?? made.current)?.handle ?? "", settings: { role: shape.role || undefined, appearance: shape.appearance } };
       await st.refreshAgents().catch(() => {});
-      onContinue(id);
+      onContinue(id, shape.name);
     } catch (e) {
       setError(unavailable(e, called));
     } finally {
@@ -109,44 +95,36 @@ export function AgentStep({ workspaceId, person, device, existing, onContinue, o
   };
 
   return (
-    <BubbleStage>
-      <form
-        className="flex w-full flex-col items-center"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <h1 className="sr-only">Your agent</h1>
-        <button
-          type="button"
-          aria-label="Change its colour"
-          data-bub-main=""
-          className="mt-[max(0px,calc(18vh-60px))] rounded-full p-2 outline-none transition-transform active:scale-[.96] focus-visible:ring-3 focus-visible:ring-ring/40 motion-reduce:transition-none"
-          onClick={() => setLook((l) => nextLook(l))}
-        >
-          <span ref={morph} className="block">
-            <Ghost look={look} size={190} label="" ambient />
-          </span>
-        </button>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={40}
-          autoComplete="off"
-          aria-label="Name"
-          placeholder="Name"
-          className="mt-4 w-full max-w-[400px] bg-transparent text-center text-[34px] font-bold leading-[42px] tracking-[-0.02em] text-ink outline-none placeholder:text-faint"
-        />
-        {onPath && <PathChoice name={name.trim()} path={path ?? "advanced"} onPath={onPath} />}
-        <button type="submit" disabled={!name.trim() || busy} className="setup-press mt-8 inline-flex h-11 w-full max-w-[320px] items-center justify-center gap-2 rounded-full bg-ink px-[22px] text-[16px] font-semibold text-panel outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-40">
-          {busy && <Loader2 size={16} className="animate-spin" aria-hidden />}
-          Continue
-        </button>
-        {/* the hub wouldn't make the agent: nobody is kept here, and the agent step stays open */}
-        {error && onLeave && <SetupLink onClick={onLeave}>Not now</SetupLink>}
-        <SetupProblem>{error}</SetupProblem>
-      </form>
-    </BubbleStage>
+    <form
+      className="flex w-full max-w-[420px] flex-col items-center"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+    >
+      <h1 className="sr-only">Your agent</h1>
+      <BubbleSlot size={176} />
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={40}
+        autoComplete="off"
+        aria-label="Name"
+        placeholder="Name"
+        className="mt-6 w-full bg-transparent text-center text-[32px] font-bold leading-10 tracking-[-0.02em] text-ink outline-none placeholder:text-faint"
+      />
+      <div role="radiogroup" aria-label="Colour" className="mt-4 flex gap-3">
+        {FAMILY_COLORS.map((c) => (
+          <button key={c} type="button" role="radio" aria-checked={look.color === c} aria-label={c} className="ob-swatch" style={{ background: c }} onClick={() => onLook({ ...look, color: c, color2: undefined })} />
+        ))}
+      </div>
+      <button type="submit" disabled={!name.trim() || busy} className="ob-primary mt-10 w-full max-w-[280px]">
+        {busy && <Loader2 size={16} className="animate-spin" aria-hidden />}
+        Continue
+      </button>
+      {/* the hub wouldn't make the agent: nobody is kept here, and the agent step stays open */}
+      {error && onLeave && <SetupLink onClick={onLeave}>Not now</SetupLink>}
+      <SetupProblem>{error}</SetupProblem>
+    </form>
   );
 }

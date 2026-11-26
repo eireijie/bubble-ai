@@ -289,6 +289,7 @@ var BubbleMark = (() => {
       const k = d > 1 ? 1 / d : 1;
       const x = Math.max(-0.15, Math.min(0.08, dx * k * 0.15)) * m.size;
       const y = Math.max(-0.1, Math.min(0.1, dy * k * 0.1)) * m.size;
+      m.eyes.style.translate = "0 0";
       m.eyes.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     };
     const move = (ev) => {
@@ -297,7 +298,7 @@ var BubbleMark = (() => {
       pending = ev;
       frame ||= requestAnimationFrame(look);
     };
-    const leave = () => m.eyes.style.transform = "";
+    const leave = () => (m.eyes.style.transform = "", m.eyes.style.translate = "");
     document.addEventListener("pointermove", move, { passive: true });
     document.documentElement.addEventListener("pointerleave", leave);
     wake();
@@ -308,6 +309,7 @@ var BubbleMark = (() => {
       clearTimeout(check);
       loop?.cancel();
       m.eyes.style.transform = "";
+      m.eyes.style.translate = "";
     };
   }
 

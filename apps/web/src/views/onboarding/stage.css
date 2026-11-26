@@ -1,0 +1,74 @@
+/* The first run's one stage (Stage.tsx). */
+.ob-stage { --ob-ease: cubic-bezier(.65, 0, .25, 1); }
+.ob-page { grid-area: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 0; padding: max(64px, 16vh) 24px 64px; }
+.ob-in-first { animation: ob-fade-up .6s var(--ob-ease) both; }
+.ob-in-r { animation: ob-in-r .52s var(--ob-ease) both; }
+.ob-in-l { animation: ob-in-l .52s var(--ob-ease) both; }
+.ob-out-l { animation: ob-out-l .42s var(--ob-ease) both; pointer-events: none; }
+.ob-out-r { animation: ob-out-r .42s var(--ob-ease) both; pointer-events: none; }
+@keyframes ob-fade-up { from { opacity: 0; transform: translateY(16px); } }
+@keyframes ob-in-r { from { opacity: 0; transform: translateX(40px); } 30% { opacity: 0; } }
+@keyframes ob-in-l { from { opacity: 0; transform: translateX(-40px); } 30% { opacity: 0; } }
+@keyframes ob-out-l { to { opacity: 0; transform: translateX(-40px); } }
+@keyframes ob-out-r { to { opacity: 0; transform: translateX(40px); } }
+
+.ob-bubble { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; pointer-events: none; transition: opacity .4s; z-index: 2; }
+.ob-bubble button { pointer-events: auto; }
+.ob-bubble-body { transition: rotate .5s cubic-bezier(.2, .8, .3, 1); }
+
+.ob-progress { position: fixed; left: 0; right: 0; top: 0; height: 2px; z-index: 11; pointer-events: none; }
+.ob-progress span { display: block; height: 100%; background: var(--wisp); transform-origin: 0 50%; transition: transform .7s var(--ob-ease); }
+
+.ob-back { opacity: 0; pointer-events: none; transition: opacity .3s; }
+.ob-back[data-on] { opacity: 1; pointer-events: auto; }
+
+/* titles and fields shared by every page */
+.ob-title { margin: 0; font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: -0.02em; text-align: center; }
+.ob-sub { margin-top: 6px; font-size: 15px; line-height: 20px; color: var(--muted); text-align: center; }
+.ob-primary { display: inline-flex; height: 40px; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; background: var(--ink); color: var(--panel); padding: 0 20px; font-size: 14px; font-weight: 600; outline: none; transition: transform 180ms cubic-bezier(.2, .9, .25, 1.3), opacity 160ms; }
+.ob-primary:active { transform: scale(.97); }
+.ob-primary:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--wisp) 45%, transparent); }
+.ob-primary:disabled { opacity: .35; pointer-events: none; }
+.ob-quiet { height: 32px; border-radius: 8px; padding: 0 12px; font-size: 13.5px; color: var(--muted); outline: none; }
+.ob-quiet:hover { color: var(--ink); }
+.ob-quiet:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--wisp) 45%, transparent); }
+.ob-tile { position: relative; border-radius: 12px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line2); text-align: left; outline: none; transition: box-shadow .2s, background-color .2s, transform .18s; }
+.ob-tile:hover { background: var(--hover); }
+.ob-tile:active { transform: scale(.985); }
+.ob-tile:focus-visible { box-shadow: inset 0 0 0 1px var(--line2), 0 0 0 3px color-mix(in srgb, var(--wisp) 45%, transparent); }
+.ob-tile[aria-checked="true"], .ob-tile[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--wisp); background: color-mix(in srgb, var(--wisp) 9%, var(--panel)); }
+.ob-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--card); }
+.ob-seg button { height: 28px; padding: 0 12px; border-radius: 6px; font-size: 13px; color: var(--muted); outline: none; transition: background-color .24s, color .24s, box-shadow .24s; }
+.ob-seg button[aria-checked="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .08), inset 0 0 0 1px var(--line); font-weight: 600; }
+.ob-seg button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--wisp) 45%, transparent); }
+.ob-panel { animation: ob-open .38s var(--ob-ease) both; }
+@keyframes ob-open { from { opacity: 0; transform: translateY(-6px); } }
+.ob-swatch { width: 26px; height: 26px; border-radius: 999px; outline: none; transition: transform .2s cubic-bezier(.2, .9, .25, 1.3), box-shadow .2s; }
+.ob-swatch:hover { transform: scale(1.12); }
+.ob-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
+.ob-swatch:focus-visible { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--wisp); }
+
+/* Simple / Advanced previews: small loops that show what each start is like */
+.ob-demo { position: relative; height: 128px; overflow: hidden; border-radius: 8px; background: var(--card); }
+.ob-demo .msg { position: absolute; left: 12px; right: 40px; height: 22px; border-radius: 11px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+.ob-demo .msg.me { left: auto; right: 12px; width: 46%; background: var(--ink); box-shadow: none; opacity: .85; }
+.ob-demo-simple .m1 { top: 14px; width: 58%; animation: ob-d-msg 6s infinite both; }
+.ob-demo-simple .m2 { top: 44px; animation: ob-d-msg 6s .9s infinite both; }
+.ob-demo-simple .m3 { top: 74px; width: 40%; animation: ob-d-msg 6s 1.8s infinite both; }
+@keyframes ob-d-msg { 0% { opacity: 0; transform: translateY(8px); } 8%, 82% { opacity: 1; transform: none; } 92%, 100% { opacity: 0; } }
+.ob-demo .chip { position: absolute; height: 22px; border-radius: 6px; padding: 0 8px; font-size: 11px; line-height: 22px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); white-space: nowrap; }
+.ob-demo-adv .c1 { left: 12px; top: 14px; animation: ob-d-pick 6s infinite both; }
+.ob-demo-adv .c2 { left: 12px; top: 44px; animation: ob-d-pick 6s 1s infinite both; }
+.ob-demo-adv .c3 { left: 12px; top: 74px; animation: ob-d-pick 6s 2s infinite both; }
+.ob-demo-adv .r1 { right: 12px; top: 14px; animation: ob-d-on 6s 3s infinite both; }
+.ob-demo-adv .r2 { right: 12px; top: 44px; animation: ob-d-on 6s 3.6s infinite both; }
+@keyframes ob-d-pick { 0% { opacity: .35; } 10%, 85% { opacity: 1; box-shadow: inset 0 0 0 1.5px var(--wisp); } 95%, 100% { opacity: .35; } }
+@keyframes ob-d-on { 0%, 2% { opacity: 0; transform: translateX(8px); } 10%, 80% { opacity: 1; transform: none; } 90%, 100% { opacity: 0; } }
+
+/* Connect: the row's state changes without the row jumping */
+.ob-conn { animation: ob-open .3s var(--ob-ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-page, .ob-panel, .ob-conn, .ob-demo * { animation: none !important; }
+  .ob-progress span, .ob-bubble-body { transition: none; }
+}

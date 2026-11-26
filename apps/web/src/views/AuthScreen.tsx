@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { SetupButton, SetupProblem, SetupShell, SetupTitle, setupField } from "../components/SetupShell.tsx";
+import { SetupProblem, setupField } from "../components/SetupShell.tsx";
+import { BubbleSlot, Stage } from "./onboarding/Stage.tsx";
 import { DrawnCheck } from "../components/onboarding/obMotion.tsx";
 import { api } from "../api.ts";
 import { setupCodeFromHash } from "../setup-link.ts";
@@ -142,9 +143,8 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
   }
   if (needsSetup === null) {
     return (
-      <AuthPage themeToggle={false}>
-        <AuthHero title="Connecting…" />
-      </AuthPage>
+      // a quick check usually answers at once: the page stays clear, and only says Connecting… if it's slow
+      <SlowConnecting />
     );
   }
   // an invite that doesn't work
@@ -200,27 +200,42 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
   // the first run's first screen: you
   if (needsSetup) {
     return (
-      <SetupShell at={1} onSubmit={() => void submit()} foot={<SetupButton disabled={busy}>Continue</SetupButton>}>
-        <SetupTitle className="pb-3">Make your Bubble AI</SetupTitle>
-        <input className={setupField} value={form.name} onChange={set("name")} autoComplete="name" placeholder="Your name" aria-label="Your name" autoFocus required />
-        {needsCode && !linkedCode && (
-          <label className="flex flex-col gap-1.5">
-            <input className={setupField} value={form.setupCode} onChange={set("setupCode")} placeholder="Setup code" autoComplete="off" autoCapitalize="none" spellCheck={false} aria-label="Setup code" required />
-            <span className="pl-1 text-[13px] leading-5 text-faint">On the computer Bubble AI runs on, run bubble-ai setup-code.</span>
-          </label>
-        )}
-        <span className="relative block">
-          <input className={`${setupField} pr-11`} type="email" value={form.email} onChange={set("email")} autoComplete="email" placeholder="Email" aria-label="Email" required />
-          {emailOk && (
-            <span className="absolute right-4 top-1/2 -translate-y-1/2" data-testid="email-ok">
-              <DrawnCheck />
+      // the same stage as the pages after it (and the desktop's start page before it): the bubble above, one column
+      <Stage page="you" look={undefined} progress={0.08}>
+        <form
+          className="flex w-full max-w-[400px] flex-col items-center"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <BubbleSlot size={120} />
+          <h1 className="ob-title mt-4">Make your Bubble AI</h1>
+          <div className="mt-7 flex w-full flex-col gap-3">
+            <input className={setupField} value={form.name} onChange={set("name")} autoComplete="name" placeholder="Your name" aria-label="Your name" autoFocus required />
+            {needsCode && !linkedCode && (
+              <label className="flex flex-col gap-1.5">
+                <input className={setupField} value={form.setupCode} onChange={set("setupCode")} placeholder="Setup code" autoComplete="off" autoCapitalize="none" spellCheck={false} aria-label="Setup code" required />
+                <span className="pl-1 text-[13px] leading-5 text-faint">On the computer Bubble AI runs on, run bubble-ai setup-code.</span>
+              </label>
+            )}
+            <span className="relative block">
+              <input className={`${setupField} pr-11`} type="email" value={form.email} onChange={set("email")} autoComplete="email" placeholder="Email" aria-label="Email" required />
+              {emailOk && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2" data-testid="email-ok">
+                  <DrawnCheck />
+                </span>
+              )}
             </span>
-          )}
-        </span>
-        <input className={setupField} type="password" value={form.password} onChange={set("password")} autoComplete="new-password" minLength={8} placeholder="Password" aria-label="Password" required />
-        {form.password && <Meter strength={passwordStrength(form.password)} short={form.password.length < 8} />}
-        <SetupProblem>{error}</SetupProblem>
-      </SetupShell>
+            <input className={setupField} type="password" value={form.password} onChange={set("password")} autoComplete="new-password" minLength={8} placeholder="Password" aria-label="Password" required />
+            {form.password && <Meter strength={passwordStrength(form.password)} short={form.password.length < 8} />}
+            <SetupProblem>{error}</SetupProblem>
+          </div>
+          <button type="submit" disabled={busy} className="ob-primary mt-8 w-full max-w-[280px]">
+            Continue
+          </button>
+        </form>
+      </Stage>
     );
   }
 
@@ -266,5 +281,21 @@ function Meter({ strength, short }: { strength: number; short: boolean }) {
       </span>
       {short && <span className="text-[12px] text-muted">Too short</span>}
     </span>
+  );
+}
+
+/** "Connecting…", only once the check has taken more than a moment, so a quick one never flashes a card. */
+function SlowConnecting() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+  return slow ? (
+    <AuthPage themeToggle={false}>
+      <AuthHero title="Connecting…" />
+    </AuthPage>
+  ) : (
+    <div className="h-full w-full bg-panel" />
   );
 }

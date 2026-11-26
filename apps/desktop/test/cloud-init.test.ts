@@ -69,8 +69,9 @@ describe("a Cloud server's first boot", () => {
 
 describe("the desktop app's Cloud setup", () => {
   const html = fs.readFileSync(path.join(root, "apps/desktop/src/setup.html"), "utf8");
-  it("always joins this computer as a device too (its screen off until turned on there); agents use it only if its owner allows", () => {
-    expect(html).toMatch(/setup\.cloudCreate\([^)]*device: true/);
+  it("joins this computer as a device too unless the person turns that off on the first page (its screen off until turned on there)", () => {
+    expect(html).toMatch(/setup\.cloudCreate\([^)]*device: useHere\(\)/);
+    expect(html).toMatch(/<input type="checkbox" id="use-here" role="switch" checked \/>/);
     expect(html).not.toContain("answers.use");
   });
   it("recommends a size that fits Bubble AI and an agent's computer", () => {
