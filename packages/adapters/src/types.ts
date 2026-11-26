@@ -1,6 +1,6 @@
-import type { AccessLevel, AgentEvent, CommandOption, ConnectionKind, ConnectorSpec, HarnessCatalog, ModelProvider } from "@wisp/core";
+import type { AccessLevel, AgentEvent, CommandOption, ConnectionKind, ConnectorSpec, HarnessCatalog, ModelProvider } from "@bubble-ai/core";
 
-/** How a harness reaches the Wisp MCP server (memory, chat, tasks tools). */
+/** How a harness reaches the Bubble AI MCP server (memory, chat, tasks tools). */
 export interface McpServerSpec {
   command: string;
   args: string[];
@@ -49,7 +49,7 @@ export interface RunInput {
   fast?: boolean;
   /**
    * Let the harness load the person's own plugins, MCP servers and computer-use helpers.
-   * Anything but `true` keeps them out: only Wisp's own tools and the run's connectors load.
+   * Anything but `true` keeps them out: only Bubble AI's own tools and the run's connectors load.
    */
   ownPlugins?: boolean;
   /**
@@ -90,7 +90,7 @@ export interface CatalogPlace extends RunPlace {
 }
 
 /**
- * What adapters report during a run besides Wisp's own events: the harness session to continue,
+ * What adapters report during a run besides Bubble AI's own events: the harness session to continue,
  * and the harness's "/" list as the session itself sees it (Claude Code's start-up line), which
  * the device merges into its catalog for where the run ran.
  */
@@ -102,13 +102,13 @@ export interface RunResult {
 }
 
 /**
- * A harness adapter turns one Wisp run into one headless harness invocation.
+ * A harness adapter turns one Bubble AI run into one headless harness invocation.
  * Adding a harness means implementing this interface.
  */
 export interface HarnessAdapter {
   id: string;
   label: string;
-  /** Binary the adapter shells out to; used for `wisp doctor`. */
+  /** Binary the adapter shells out to; used for `bubble-ai doctor`. */
   binary: string;
   run(input: RunInput, onEvent: (e: AdapterEvent) => void): Promise<RunResult>;
   /** Models and effort levels this harness offers on this device, or in `place` (shown in agent settings). */

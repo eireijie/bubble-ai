@@ -3,7 +3,7 @@ import SwiftUI
 // Small pieces of the computer page: the chips under the screen, the screen-code prompt and the
 // hand-back note (comp-Detail, comp-ScreenCode, comp-HandBack).
 
-/** The screen's code: six dots and a number pad (or a password box). The device checks it, not Wisp. */
+/** The screen's code: six dots and a number pad (or a password box). The device checks it, not Bubble AI. */
 struct ScreenCodeSheet: View {
   @Environment(\.dismiss) private var dismiss
   var computer: Computer
@@ -25,13 +25,13 @@ struct ScreenCodeSheet: View {
             Text(error.lowercased().contains("code") || error.lowercased().contains("pin") ? error : "That code is not right. Try again.")
               .font(.system(size: 15)).foregroundStyle(Palette.red).multilineTextAlignment(.center).accessibilityIdentifier("screen-code-error")
           } else {
-            Text("Type the code you set on \(deviceName) to open its screen. The device checks it, not Wisp.")
+            Text("Type the code you set on \(deviceName) to open its screen. The device checks it, not Bubble AI.")
               .font(.system(size: 15)).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
           }
           if isPin { pin } else { password }
           Button { help.toggle() } label: { Label("Where do I find my screen code?", systemImage: "questionmark.circle").font(.system(size: 15)) }
             .buttonStyle(.plain).foregroundStyle(Palette.muted)
-          if help { Text("At \(deviceName), run wisp node screen code to pick a new one.").font(.system(size: 13)).foregroundStyle(Palette.faint).multilineTextAlignment(.center) }
+          if help { Text("At \(deviceName), run bubble-ai node screen code to pick a new one.").font(.system(size: 13)).foregroundStyle(Palette.faint).multilineTextAlignment(.center) }
         }.padding(.horizontal, 24).padding(.bottom, 24)
       }
     }

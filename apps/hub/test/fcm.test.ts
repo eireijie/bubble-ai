@@ -100,7 +100,7 @@ describe("Android push notifications", () => {
     expect((await api("GET", "/api/me/push")).data).toEqual({ available: false, devices: 0, android: { available: false, firebase: null } });
     expect((await api("POST", "/api/me/push", { platform: "android", token: "short" })).status).toBe(400);
     // the token keeps its case (FCM tokens are case-sensitive)
-    expect((await api("POST", "/api/me/push", { platform: "android", token: PHONE, bundleId: "ai.wisp.android" })).data).toEqual({ ok: true, available: false });
+    expect((await api("POST", "/api/me/push", { platform: "android", token: PHONE, bundleId: "ai.bubbleai.android" })).data).toEqual({ ok: true, available: false });
     expect(hub.apns.devices((await api("GET", "/api/me")).data.user.id)[0]).toMatchObject({ token: PHONE, platform: "android" });
     expect((await api("POST", "/api/me/push/test")).status).toBe(409);
   });
@@ -119,7 +119,7 @@ describe("Android push notifications", () => {
     const last = got.at(-1)!;
     expect(last.path).toBe("/v1/projects/demo/messages:send");
     expect(last.auth).toBe("Bearer at-1");
-    expect(last.body.message).toMatchObject({ token: PHONE, data: { title: "Wisp", body: "Notifications work on this phone.", kind: "test", category: "other", badge: "0" }, android: { priority: "HIGH" } });
+    expect(last.body.message).toMatchObject({ token: PHONE, data: { title: "Bubble AI", body: "Notifications work on this phone.", kind: "test", category: "other", badge: "0" }, android: { priority: "HIGH" } });
     // the access token is reused, and refreshed when Google says it expired
     await api("POST", "/api/me/push/test");
     expect(tokenRequests).toBe(1);

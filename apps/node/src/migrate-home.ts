@@ -11,17 +11,48 @@ export interface HomeMigrationOptions {
   fs?: typeof fs;
 }
 
-/** Move once, without merging homes. The old path remains usable by existing services. */
-export function migrateHome({ home, from = ".warren", to = ".wisp", log = () => {}, fs: io = fs }: HomeMigrationOptions) {
+/** Written into a home just before it moves, and removed once the old path is an alias for the new one. */
+export const MOVED_MARKER = ".moved-from";
+
+/**
+ * Every rename so far, oldest first: ~/.warren became ~/.wisp, then ~/.wisp became ~/.bubble-ai.
+ * Each step leaves the old path as an alias, so ~/.warren → ~/.wisp → ~/.bubble-ai all still work.
+ */
+export const HOME_RENAMES: [from: string, to: string][] = [[".warren", ".wisp"], [".wisp", ".bubble-ai"]];
+
+/** Runs each rename in turn and returns where this computer's home is now. */
+export function migrateHomes({ home, log = () => {}, fs: io = fs }: Omit<HomeMigrationOptions, "from" | "to">) {
+  const newest = HOME_RENAMES.at(-1)![1];
+  let result = { moved: false, dir: path.join(home, newest) };
+  for (const [from, to] of HOME_RENAMES) {
+    // Once the newest home exists, older homes left beside it stay exactly as they are.
+    if (to !== newest && io.lstatSync(path.join(home, newest), { throwIfNoEntry: false })) continue;
+    const step = migrateHome({ home, from, to, log, fs: io });
+    result = { moved: result.moved || step.moved, dir: step.dir };
+  }
+  return result;
+}
+
+/**
+ * Move once, without merging homes: when both folders exist nothing moves and nothing is deleted.
+ * The old path remains usable by existing services, as an alias for the new one.
+ */
+export function migrateHome({ home, from = ".wisp", to = ".bubble-ai", log = () => {}, fs: io = fs }: HomeMigrationOptions) {
   const source = path.join(home, from);
   const destination = path.join(home, to);
   const stat = (p: string) => io.lstatSync(p, { throwIfNoEntry: false });
+  const alias = () => io.symlinkSync(destination, source, process.platform === "win32" ? "junction" : "dir");
+  const marker = path.join(destination, MOVED_MARKER);
   if (stat(destination)) {
-    // Recover the small rename-to-alias window after an interrupted migration.
-    if (!stat(source)) {
-      try { io.symlinkSync(destination, source, process.platform === "win32" ? "junction" : "dir"); }
-      catch (err) { log(`Wisp could not restore the old home alias ${source}: ${(err as Error).message}`); }
+    // Recover the small rename-to-alias window after an interrupted migration: the marker says this
+    // home really came from `source`, so a fresh install never grows aliases for names it never had.
+    if (!stat(source) && stat(marker)) {
+      try {
+        if (io.readFileSync(marker, "utf8").trim() === source) alias();
+        io.rmSync(marker, { force: true });
+      } catch (err) { log(`Bubble AI could not restore the old home alias ${source}: ${(err as Error).message}`); }
     }
+    // Only a later step can leave a real `source` beside `destination`: both stay as they are.
     return { moved: false, dir: destination };
   }
   if (!stat(source)?.isDirectory() || stat(source)?.isSymbolicLink())
@@ -29,6 +60,7 @@ export function migrateHome({ home, from = ".warren", to = ".wisp", log = () => 
   let moved = false;
   let sourceBackup: string | undefined;
   try {
+    io.writeFileSync(path.join(source, MOVED_MARKER), source);
     try {
       io.renameSync(source, destination);
     } catch (err) {
@@ -60,7 +92,8 @@ export function migrateHome({ home, from = ".warren", to = ".wisp", log = () => 
     }
     moved = true;
     // Leave the alias first: even an unreadable config cannot break old absolute paths.
-    io.symlinkSync(destination, source, process.platform === "win32" ? "junction" : "dir");
+    alias();
+    io.rmSync(marker, { force: true });
     const rewrite = (dir: string) => {
       for (const entry of io.readdirSync(dir, { withFileTypes: true })) {
         // User workspaces, vaults and harness histories are content, not device configuration.
@@ -72,7 +105,7 @@ export function migrateHome({ home, from = ".warren", to = ".wisp", log = () => 
             const text = io.readFileSync(file, "utf8");
             const parsed = JSON.parse(text);
             const visit = (value: any): any => typeof value === "string"
-              ? value.replaceAll(`/${from}/`, `/${to}/`).replaceAll(`\\${from}\\`, `\\${to}\\`)
+              ? value.replace(new RegExp(`([/\\\\])${from.replaceAll(".", "\\.")}(?=[/\\\\]|$)`, "g"), `$1${to}`)
               : Array.isArray(value) ? value.map(visit)
               : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, visit(v)])) : value;
             const after = JSON.stringify(visit(parsed), null, 2);
@@ -87,10 +120,11 @@ export function migrateHome({ home, from = ".warren", to = ".wisp", log = () => 
     };
     rewrite(destination);
     if (sourceBackup) io.rmSync(sourceBackup, { recursive: true });
-    log(`Wisp migrated ${source} to ${destination} (old path kept as an alias)`);
+    log(`Bubble AI migrated ${source} to ${destination} (old path kept as an alias)`);
     return { moved: true, dir: destination };
   } catch (err) {
-    log(`Wisp could not finish migrating ${source}: ${(err as Error).message}; using ${moved ? destination : source}`);
+    if (!moved) io.rmSync(path.join(source, MOVED_MARKER), { force: true });
+    log(`Bubble AI could not finish migrating ${source}: ${(err as Error).message}; using ${moved ? destination : source}`);
     return { moved, dir: moved ? destination : source };
   }
 }
@@ -103,7 +137,7 @@ export function defaultHubDataDir(homeDir: string, checkout = checkoutDir, log: 
   const hasDb = (dir: string) => ["wisp.db", "warren.db"].some((name) => io.existsSync(path.join(dir, name)));
   const fresh = path.join(homeDir, "data"), old = path.join(checkout, "data");
   if (hasDb(fresh) || !hasDb(old)) return fresh;
-  log(`Wisp is using the data folder from before the rename (${old})`);
+  log(`Bubble AI is using the data folder from before the rename (${old})`);
   return old;
 }
 

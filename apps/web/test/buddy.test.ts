@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Approval, Message } from "@wisp/core";
+import type { Approval, Message } from "@bubble-ai/core";
 import { buddyNotice, completedTasks, firstLine, unlessMuted, type BuddyTask } from "../src/buddy.ts";
 import { href, parseRoute } from "../src/router.ts";
 import { connectEvents } from "../src/api.ts";

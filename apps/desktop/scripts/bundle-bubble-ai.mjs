@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Builds the Wisp the desktop app carries inside it, so a downloaded app can run a hub and be a
+// Builds the Bubble AI the desktop app carries inside it, so a downloaded app can run a hub and be a
 // device without Node.js or a clone of the repo: the hub, the device, wisp-mcp and the web app,
 // with their production dependencies. The app runs it
-// with its own binary as Node (ELECTRON_RUN_AS_NODE), the same `bin/wisp.mjs` a terminal runs.
+// with its own binary as Node (ELECTRON_RUN_AS_NODE), the same `bin/bubble-ai.mjs` a terminal runs.
 //
-//   node apps/desktop/scripts/bundle-wisp.mjs   → apps/desktop/build/wisp-runtime
+//   node apps/desktop/scripts/bundle-bubble-ai.mjs   → apps/desktop/build/wisp-runtime
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import env from "../src/env.cjs";
@@ -16,7 +16,7 @@ const repo = path.resolve(desktop, "../..");
 const out = path.join(desktop, "build", "wisp-runtime");
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const run = (cmd, args, cwd, env = {}) => execFileSync(cmd, args, { cwd, stdio: "inherit", shell: process.platform === "win32", env: { ...process.env, ...env } });
-// WISP_BUNDLE_ARCH=x64 bundles for Intel on an Apple silicon Mac: native modules come prebuilt for that processor
+// BUBBLE_BUNDLE_ARCH=x64 bundles for Intel on an Apple silicon Mac: native modules come prebuilt for that processor
 const arch = env.envVar("BUNDLE_ARCH");
 
 console.log("building the web app");
@@ -45,4 +45,4 @@ console.log("installing production dependencies");
 run(npm, ["install", "--omit=dev", "--no-audit", "--no-fund", ...(arch ? [`--cpu=${arch}`] : [])], out, arch ? { npm_config_arch: arch, npm_config_target_arch: arch } : {});
 
 fs.rmSync(path.join(out, "package-lock.json"), { force: true });
-console.log(`Wisp runtime ready in ${path.relative(repo, out)}`);
+console.log(`Bubble AI runtime ready in ${path.relative(repo, out)}`);

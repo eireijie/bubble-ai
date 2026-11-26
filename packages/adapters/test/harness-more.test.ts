@@ -136,7 +136,7 @@ describe("JSON with comments", () => {
 describe("accounts", () => {
   let wisp: string;
   beforeEach(() => {
-    wisp = path.join(home, ".wisp");
+    wisp = path.join(home, ".bubble-ai");
     write(".codex/config.toml", 'model = "gpt-6"\n');
     write(".codex/auth.json", "{}");
     write(".gemini/settings.json", "{}");
@@ -168,7 +168,7 @@ describe("accounts", () => {
     expect(a.env("gemini", "personal")).toEqual({ GEMINI_CLI_HOME: path.join(wisp, "accounts", "gemini", "personal") });
   });
 
-  it("uses Hermes's own profiles, including ones made outside Wisp", () => {
+  it("uses Hermes's own profiles, including ones made outside Bubble AI", () => {
     const a = new HarnessAccounts(wisp, { home });
     expect(a.list("hermes").map((x) => x.id)).toEqual(["default", "coder"]);
     expect(a.dir("hermes", "coder")).toBe(path.join(home, ".hermes", "profiles", "coder"));

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { CREDENTIAL_SUPPORT, MODEL_PROVIDER_INFO, MODEL_PROVIDERS, ModelProviderId, harnessLabel, providerLabel, withArticle, type ModelLogin, type ModelProvider } from "@wisp/core";
+import { CREDENTIAL_SUPPORT, MODEL_PROVIDER_INFO, MODEL_PROVIDERS, ModelProviderId, harnessLabel, providerLabel, withArticle, type ModelLogin, type ModelProvider } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { id } from "./auth.ts";
 import { ComputerError } from "./computers.ts";
@@ -18,7 +18,7 @@ const FRESH_EVERY_MS = 30_000;
 const SIGN_IN_HARNESS = z.enum(["claude-code", "codex", "hermes"]);
 
 /**
- * Model connections: "connect once in Wisp". A person signs in to a model provider (on one of
+ * Model connections: "connect once in Bubble AI". A person signs in to a model provider (on one of
  * their devices, which runs the harness's own sign-in in a scratch folder) or pastes an API key;
  * the hub keeps it and hands it to whichever device or VM runs an agent that uses it. Connections
  * are their owner's: only they list, rename, remove or assign them, and no answer here ever
@@ -194,7 +194,7 @@ export function registerModelsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
       return { ...(l?.state ?? state), nodeId: pick.nodeId };
     } catch (err) {
       hub.modelLogins.delete(loginId);
-      if (err instanceof ComputerError) return reply.code(err.status === 504 ? 502 : err.status).send({ error: err.status === 504 ? `${store.node(pick.nodeId)?.name ?? "The device"} didn't answer; update Wisp there and try again` : err.message });
+      if (err instanceof ComputerError) return reply.code(err.status === 504 ? 502 : err.status).send({ error: err.status === 504 ? `${store.node(pick.nodeId)?.name ?? "The device"} didn't answer; update Bubble AI there and try again` : err.message });
       throw err;
     }
   });
@@ -217,7 +217,7 @@ export function registerModelsApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     try {
       got = (await hub.computers.nodeRequest(node.id, (requestId) => ({ type: "signin_import", requestId, provider: "openai" }), 20_000)) as typeof got;
     } catch (err) {
-      if (err instanceof ComputerError) return reply.code(err.status === 504 ? 502 : 409).send({ error: err.status === 504 ? `${node.name} didn't answer; update Wisp there and try again` : err.message });
+      if (err instanceof ComputerError) return reply.code(err.status === 504 ? 502 : 409).send({ error: err.status === 504 ? `${node.name} didn't answer; update Bubble AI there and try again` : err.message });
       throw err;
     }
     if (!got?.secret?.auth) return reply.code(409).send({ error: `Codex isn't signed in to ChatGPT on ${node.name}` });

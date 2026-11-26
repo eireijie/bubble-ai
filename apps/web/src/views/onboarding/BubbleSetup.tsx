@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, ChevronLeft, Loader2 } from "lucide-react";
-import type { SignInOption } from "@wisp/core";
+import type { SignInOption } from "@bubble-ai/core";
 import { connectApps, signInOptions } from "../../appSignIn.ts";
 import { brandLogo } from "../../brandLogos.ts";
 import { BrandTile } from "../../components/MarketParts.tsx";
@@ -8,7 +8,7 @@ import { BubbleField } from "../../components/BubbleField.tsx";
 import { cx } from "../../components/ui.tsx";
 
 /**
- * The first run's own screens (2026-11-25 "Wisp, bubbles", board 6): full window, the agent's
+ * The first run's own screens (2026-11-25 "Bubble AI, bubbles", board 6): full window, the agent's
  * bubble centred and mostly still with small bubbles drifting up behind it. "How should it start?"
  * (Advanced, the default, or Simple), then for Advanced the goals and the apps they call for, each
  * with a Connect that signs in and comes back to the list.

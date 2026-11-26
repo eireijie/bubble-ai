@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import type { Agent, GhostShape } from "@wisp/core";
-import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
+import type { Agent, GhostShape } from "@bubble-ai/core";
+import type { GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { motionReduced } from "../../theme.ts";
 import { FAMILY_COLORS } from "../../ghostFamily.ts";
 import { useStore } from "../../store.ts";

@@ -1,7 +1,7 @@
-# The computer Wisp's agents work on: Debian 13 ("trixie") with Xfce, Google Chrome, a terminal
+# The computer Bubble AI's agents work on: Debian 13 ("trixie") with Xfce, Google Chrome, a terminal
 # and a file manager on a dock, driven with xdotool and shown live over VNC. Agents' harnesses
 # (Claude Code, Codex, Hermes, Kimi CLI) can run inside it too, and agents work the browser by page element through
-# Playwright MCP. `wisp node` pulls this (when it's published for this exact recipe) or builds it
+# Playwright MCP. `bubble-ai node` pulls this (when it's published for this exact recipe) or builds it
 # the first time a VM is needed on a device. The kernel is the VM engine's, not Debian's.
 FROM node:22-trixie-slim
 
@@ -27,7 +27,7 @@ RUN npm install -g --no-audit --no-fund @openai/codex && npm cache clean --force
 RUN npm install -g --no-audit --no-fund @playwright/mcp@0.0.83 && npm cache clean --force
 
 # Kimi CLI (Moonshot's "Kimi Code", the successor of the archived Python kimi-cli): npm package with
-# prebuilt binaries for linux x64 and arm64. `kimi acp` is how Wisp drives it; `kimi login` signs it in.
+# prebuilt binaries for linux x64 and arm64. `kimi acp` is how Bubble AI drives it; `kimi login` signs it in.
 RUN npm install -g --no-audit --no-fund @moonshot-ai/kimi-code@2.2.0 && npm cache clean --force
 
 # Hermes Agent (Nous Research), from its own installer pinned to a release tag and commit. The
@@ -48,7 +48,7 @@ RUN curl -fsSL "https://raw.githubusercontent.com/NousResearch/hermes-agent/${HE
  && chown -R 1000:1000 /opt/hermes \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Chrome always starts the way Wisp needs it (see chrome.sh). Downloads land in ~/files, the folder
+# Chrome always starts the way Bubble AI needs it (see chrome.sh). Downloads land in ~/files, the folder
 # shared with the device (and the agents' working folder).
 COPY chrome.sh /usr/local/bin/google-chrome
 COPY desktop/ /usr/local/share/wisp/desktop/

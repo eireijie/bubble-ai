@@ -1,6 +1,6 @@
 import SwiftUI
 
-// The Computers tab: one page for everything agents and people use. Each Wisp device is a group with
+// The Computers tab: one page for everything agents and people use. Each Bubble AI device is a group with
 // its agents' computers nested under it, then the cloud computers, then your paired phones. It holds
 // what the old Devices page did (comp-List.dc.html, comp-AddChooser.dc.html).
 
@@ -228,7 +228,7 @@ struct ComputersView: View {
     ContentUnavailableView {
       Label("Give your agents a computer", systemImage: "desktopcomputer")
     } description: {
-      Text("Add a device running Wisp, then give an agent a computer on it. You can watch them work and take control anytime.")
+      Text("Add a device running Bubble AI, then give an agent a computer on it. You can watch them work and take control anytime.")
     } actions: {
       if store.canManage { Button("Add") { chooser = true }.primaryButton() }
     }
@@ -266,7 +266,7 @@ struct ComputersView: View {
   }
 
   private func subtitle(_ node: AgentNode) -> String {
-    if node.isUpdating { return "Updating Wisp…" }
+    if node.isUpdating { return "Updating Bubble AI…" }
     if !node.online { return node.lastSeen == nil ? "Waiting to connect · tap for steps" : "Not reachable · tap to bring it back" }
     let n = store.agents.filter { $0.nodeId == node.id }.count
     var parts = [node.capabilities?.osName ?? "Computer"]

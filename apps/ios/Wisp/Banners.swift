@@ -2,7 +2,7 @@ import SwiftUI
 
 /**
  * What floats over the top of every tab: "Reconnecting…" when live updates drop (core-Offline),
- * "Wisp was updated" when the hub got a new version (core-UpdatedBanner), and a sync error.
+ * "Bubble AI was updated" when the hub got a new version (core-UpdatedBanner), and a sync error.
  */
 struct AppBanners: View {
   @Environment(Store.self) private var store
@@ -78,7 +78,7 @@ struct UpdatedBanner: View {
 
   var body: some View {
     HStack(spacing: 4) {
-      Text("Wisp was updated").font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.text)
+      Text("Bubble AI was updated").font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.text)
       Spacer(minLength: 8)
       Button("Not now", action: notNow)
         .font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.muted)

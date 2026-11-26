@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import { WispClient } from "@wisp/sdk";
-import { memoryPrompt } from "@wisp/core/src/memory-import.ts";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import { WispClient } from "@bubble-ai/sdk";
+import { memoryPrompt } from "@bubble-ai/core/src/memory-import.ts";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
@@ -97,23 +97,23 @@ describe("memory import", () => {
         { heading: "About me", text: "Name is Yug, works in Toronto" },
         { heading: "About me", text: "Likes short answers" },
         { heading: "About me", text: "my api key is sk-ant-abcdefghijklmnop1234" },
-        { heading: "Projects", text: "Wisp: open-source agents app, lives in ~/kodi" },
+        { heading: "Projects", text: "Bubble AI: open-source agents app, lives in ~/kodi" },
         { heading: "Projects", text: "Garden - planting plan for spring" },
         { heading: "Preferences and rules", text: "Never push to main" },
       ],
     });
     expect(r.saved).toBe(5);
     const base = `agents/${id}/memories`;
-    expect(r.notes.sort()).toEqual([`${base}/About me.md`, `${base}/Preferences and rules.md`, `${base}/Project - Garden.md`, `${base}/Project - Wisp.md`, `${base}/What I know about you.md`].sort());
+    expect(r.notes.sort()).toEqual([`${base}/About me.md`, `${base}/Preferences and rules.md`, `${base}/Project - Garden.md`, `${base}/Project - Bubble AI.md`, `${base}/What I know about you.md`].sort());
     const vault = hub.vault(hub.store.agent(id)!.workspaceId);
     const about = (await vault.read(`${base}/About me.md`)).content;
     expect(about).toContain("# About me");
     expect(about).toContain("- Likes short answers");
     expect(about).not.toContain("sk-ant");
-    expect((await vault.read(`${base}/Project - Wisp.md`)).content).toContain("# Project: Wisp");
+    expect((await vault.read(`${base}/Project - Bubble AI.md`)).content).toContain("# Project: Bubble AI");
     // every note hangs off the hub note, which links them all
     const edges = vault.graph().edges.map((e) => `${e.source} -> ${e.target}`);
-    expect(edges).toContain(`${base}/Project - Wisp.md -> ${base}/What I know about you.md`);
+    expect(edges).toContain(`${base}/Project - Bubble AI.md -> ${base}/What I know about you.md`);
     expect(edges).toContain(`${base}/What I know about you.md -> ${base}/Project - Garden.md`);
     // committed as the person
     expect((await vault.history(`${base}/About me.md`))[0].author).toMatch(/Me/);
@@ -145,7 +145,7 @@ describe("a hello written from what it knows", () => {
     const prompt = calls[before].prompt;
     expect(prompt).toContain("Lighthouse: a boat-tracking site");
     expect(prompt).toContain("Keep it under 70 words");
-    // Wisp's prompt never shows as a message
+    // Bubble AI's prompt never shows as a message
     expect(hub.store.messages(dmOf(id).id).every((m) => m.author.kind === "agent" || m.author.id === "system")).toBe(true);
     const setup = hub.store.agent(id)!.settings.setup!;
     expect(setup.greetingId).toBe(msgs[0].id);
@@ -154,7 +154,7 @@ describe("a hello written from what it knows", () => {
     expect(said(id)).toHaveLength(1);
   });
 
-  it("falls back to Wisp's own hello when the run fails", async () => {
+  it("falls back to Bubble AI's own hello when the run fails", async () => {
     const id = await make("lu", { greet: "later" });
     onRun = async () => {
       throw new Error("boom");

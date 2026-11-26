@@ -1,6 +1,6 @@
 import SwiftUI
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 /** The phone's first run follows the web's rules (apps/web/test/agent-picker.test.ts): the same kinds, apps, rows and wording. */
 @MainActor
@@ -57,16 +57,16 @@ final class OnboardingTests: XCTestCase {
     // still asking the hub: apps that might sign in wait; key-only apps don't
     XCTAssertEqual([AppRows.mode(a["gmail"]!, options: nil), AppRows.mode(a["slack"]!, options: nil), AppRows.mode(a["jira"]!, options: nil), AppRows.mode(a["messages"]!, options: nil)], [.loading, .loading, .key, .mac])
     let here = try JSONDecoder().decode([String: SignInOption].self, from: Data(##"""
-    {"gmail":{"signIn":false,"key":false,"reason":"Signing in with Google isn't set up for Wisp yet."},
-     "slack":{"signIn":false,"key":true,"reason":"Signing in with Slack isn't set up for Wisp yet."},
+    {"gmail":{"signIn":false,"key":false,"reason":"Signing in with Google isn't set up for Bubble AI yet."},
+     "slack":{"signIn":false,"key":true,"reason":"Signing in with Slack isn't set up for Bubble AI yet."},
      "notion":{"signIn":true,"key":true},
-     "vercel":{"signIn":false,"key":true,"reason":"Vercel only signs in when Wisp is open on this computer."}}
+     "vercel":{"signIn":false,"key":true,"reason":"Vercel only signs in when Bubble AI is open on this computer."}}
     """##.utf8))
     XCTAssertEqual(AppRows.mode(a["gmail"]!, options: here), .soon)
     XCTAssertEqual(AppRows.mode(a["slack"]!, options: here), .key)
     XCTAssertEqual(AppRows.mode(a["notion"]!, options: here), .signIn)
     XCTAssertEqual(AppRows.mode(a["vercel"]!, options: here), .key)
-    XCTAssertEqual(here["gmail"]?.reason, "Signing in with Google isn't set up for Wisp yet.")
+    XCTAssertEqual(here["gmail"]?.reason, "Signing in with Google isn't set up for Bubble AI yet.")
     // the hub couldn't be asked: keys still work, sign-in apps without one say Soon
     XCTAssertEqual([AppRows.mode(a["github"]!, options: [:]), AppRows.mode(a["gcal"]!, options: [:])], [.key, .soon])
   }
@@ -119,7 +119,7 @@ final class OnboardingTests: XCTestCase {
     XCTAssertEqual(OnboardingText.preview(person: "Sam Lee", agent: "Juno"), "Hi Sam, I'm Juno. I'll start by learning how you like things done.")
     XCTAssertEqual(OnboardingText.preview(person: "", agent: "Juno"), "Hi, I'm Juno. I'll start by learning how you like things done.")
     XCTAssertEqual(OnboardingText.instructions(agent: "Juno", person: "Sam Lee", role: "Keep my days on track."),
-                   "You are Juno, Sam's agent in Wisp. Your job: Keep my days on track. What you know about them is in your notes; use it without asking again. Ask before connecting an account, spending money or sending anything as them.")
+                   "You are Juno, Sam's agent in Bubble AI. Your job: Keep my days on track. What you know about them is in your notes; use it without asking again. Ask before connecting an account, spending money or sending anything as them.")
     XCTAssertEqual(OnboardingText.handle("  Juno the 2nd! "), "juno-the-2nd")
     XCTAssertEqual(OnboardingText.freeHandle("Juno", taken: ["juno", "juno-2"]), "juno-3")
     XCTAssertEqual(OnboardingText.freeHandle("42", taken: []), "agent")
@@ -176,7 +176,7 @@ final class OnboardingTests: XCTestCase {
     let claude = try node(##"{"id":"n1","name":"Studio","online":true,"mine":true,"harnesses":[{"id":"claude-code","accounts":{"default":true}}]}"##)
     XCTAssertEqual(OnboardingAI.found(on: claude, connections: [], support: []), OnboardingAI.Found(harness: "claude-code"))
     XCTAssertNil(OnboardingAI.found(on: try node(##"{"id":"n2","name":"Empty","online":true}"##), connections: [], support: []))
-    // a connection Wisp keeps wins over the computer's own sign-in
+    // a connection Bubble AI keeps wins over the computer's own sign-in
     let kept = try Wire.decoder.decode(ModelConnection.self, from: Data(##"{"id":"mc1","provider":"anthropic","kind":"oauth","label":"Claude","mine":true,"harnesses":["claude-code"]}"##.utf8))
     XCTAssertEqual(OnboardingAI.found(on: mac, connections: [kept], support: []), OnboardingAI.Found(harness: "claude-code", connectionId: "mc1"))
     // the first agent goes on one of your own computers, connected and not paused
@@ -253,7 +253,7 @@ final class OnboardingTests: XCTestCase {
     XCTAssertFalse(FirstHello.shouldType(messageId: "m1", createdAt: now.addingTimeInterval(-60), reduceMotion: false, now: now, defaults: d))
   }
 
-  // MARK: here's your Wisp
+  // MARK: here's your Bubble AI
 
   func testWordsOnHeresYourWisp() {
     XCTAssertEqual(OnboardingText.list(["GitHub"]), "GitHub")
@@ -267,11 +267,11 @@ final class OnboardingTests: XCTestCase {
 
   func testFinishSetupStaysUntilTheListIsDone() {
     let d = defaults()
-    XCTAssertEqual(ReadyList.list("w1", agentCount: 1, in: d).map(\.label), ["Get Wisp on your phone", "Add your password manager", "Connect your email", "Make a second agent"])
-    // on the phone, "Get Wisp on your phone" already is
+    XCTAssertEqual(ReadyList.list("w1", agentCount: 1, in: d).map(\.label), ["Get Bubble AI on your phone", "Add your password manager", "Connect your email", "Make a second agent"])
+    // on the phone, "Get Bubble AI on your phone" already is
     XCTAssertEqual(ReadyList.list("w1", agentCount: 1, in: d).map(\.done), [true, false, false, false])
     XCTAssertEqual(ReadyList.list("w1", agentCount: 2, in: d).map(\.done), [true, false, false, true])
-    // not before the first look at Here's your Wisp
+    // not before the first look at Here's your Bubble AI
     XCTAssertFalse(ReadyList.showsFinishSetup("w1", agentCount: 1, in: d))
     ReadyList.set("w1", "started", true, in: d)
     XCTAssertTrue(ReadyList.showsFinishSetup("w1", agentCount: 1, in: d))
@@ -315,7 +315,7 @@ final class OnboardingTests: XCTestCase {
     let store = Store(loadSession: false)
     store.api = API(base: URL(string: "https://management.test:8443/")!, token: "test", session: URLSession(configuration: configuration))
     store.role = "owner"; store.me = User(id: "u1", email: "sam@example.test", name: "Sam")
-    store.workspace = Workspace(id: "w-\(UUID().uuidString)", name: "Sam's Wisp")
+    store.workspace = Workspace(id: "w-\(UUID().uuidString)", name: "Sam's Bubble AI")
     return store
   }
   private func sent(_ method: String, _ path: String) throws -> URLRequest {
@@ -325,7 +325,7 @@ final class OnboardingTests: XCTestCase {
   func testSignInGoesThroughTheHubNeverAPassword() async throws {
     let store = makeStore()
     XCTAssertEqual(store.hubOrigin, "https://management.test:8443")
-    reply("GET", "/api/connectors/sign-in", ##"{"notion":{"signIn":true,"key":true,"reads":"Reads and edits the pages you pick"},"gmail":{"signIn":false,"key":false,"reason":"Signing in with Google isn't set up for Wisp yet."}}"##)
+    reply("GET", "/api/connectors/sign-in", ##"{"notion":{"signIn":true,"key":true,"reads":"Reads and edits the pages you pick"},"gmail":{"signIn":false,"key":false,"reason":"Signing in with Google isn't set up for Bubble AI yet."}}"##)
     let options = try await store.signInOptions()
     XCTAssertEqual(options["notion"]?.signIn, true); XCTAssertEqual(options["gmail"]?.key, false)
     XCTAssertEqual(try sent("GET", "/api/connectors/sign-in").url?.query, "origin=https://management.test:8443")

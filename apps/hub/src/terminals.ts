@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { WebSocket } from "ws";
-import { TERM_PREFIX, tunnelFrame, type Computer, type RunCredential } from "@wisp/core";
+import { TERM_PREFIX, tunnelFrame, type Computer, type RunCredential } from "@bubble-ai/core";
 import { ComputerError } from "./computers.ts";
 import { featureOn } from "./features.ts";
 import type { Hub } from "./hub.ts";
@@ -85,7 +85,7 @@ export class Terminals {
     const no = this.refusal(c, userId);
     if (no) throw new ComputerError(no.error, no.status);
     const kind = this.hub.computers.codeKind(c);
-    if (c.kind === "device" && kind && !code) throw new ComputerError(`Enter ${c.name}'s ${kind === "pin" ? "PIN" : "password"}. It was picked at the device, and Wisp doesn't keep it.`, 403);
+    if (c.kind === "device" && kind && !code) throw new ComputerError(`Enter ${c.name}'s ${kind === "pin" ? "PIN" : "password"}. It was picked at the device, and Bubble AI doesn't keep it.`, 403);
     if (!this.hub.computers.online(c)) throw new ComputerError(`${c.name} is offline: its device isn't connected`, 503);
     this.sweep();
     const t = crypto.randomBytes(24).toString("base64url");

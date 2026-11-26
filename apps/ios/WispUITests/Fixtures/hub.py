@@ -14,7 +14,7 @@ CHANNEL = dict(id="c1", name="general", kind="channel", topic="Our workspace", c
 NODE = dict(id="n1", name="Sam's Mac", ownerId="u1", ownerName="Sam", mine=True, shared=False, online=True, paused=False, role="headless", harnesses=[dict(id="codex", version="1.0")])
 TEAM = dict(id="te1", name="research", emoji="🔎", description="Find answers with sources.", channelId="c1", leadId="a1", reportsTo=None, members=[dict(agentId="a1", role="Lead", roleNotes="Coordinate research", managerId=None)], baseBranch="main", folder="teams/research")
 DATA = {
-    "/api/me": dict(kind="user", user=USER, role="owner", workspace=dict(id="w1", name="Wisp Studio"), prefs=dict(experience="advanced", clock="auto", sendWith="enter", toolCalls="collapsed")),
+    "/api/me": dict(kind="user", user=USER, role="owner", workspace=dict(id="w1", name="Bubble AI Studio"), prefs=dict(experience="advanced", clock="auto", sendWith="enter", toolCalls="collapsed")),
     "/api/channels": [CHANNEL], "/api/agents": [AGENT], "/api/sections": [], "/api/nodes": [NODE], "/api/teams": [TEAM],
     "/api/members": [dict(**USER, role="owner")], "/api/computers": [], "/api/approvals": [], "/api/me/push": dict(available=False, devices=0),
     "/api/tasks": [TASK], "/api/settings/lead": dict(lead="a1", leadId=None), "/api/vault/notes": [NOTE], "/api/vault/note": NOTE,
@@ -25,7 +25,7 @@ DATA = {
     "/api/agents/a1/models": dict(catalog=dict(models=[], efforts=[])), "/api/agents/a1/runs": [],
     "/api/skills": [dict(id="s1", name="Meeting notes", description="Use when asked to summarize a meeting.", content="# Meeting notes\nList decisions and next steps.", agentIds=["a1"], tags=["work"], source="custom")],
     "/api/connectors": [dict(id="co1", name="Notion", kind="mcp-http", url="https://mcp.notion.com/mcp", enabled=True, agentIds=["a1"], auth=dict(required=True, signedIn=False))],
-    "/api/invites": [], "/api/me/sessions": [dict(id="se1", label="Wisp on iPhone", current=True)],
+    "/api/invites": [], "/api/me/sessions": [dict(id="se1", label="Bubble AI on iPhone", current=True)],
     "/api/channels/c1/messages": dict(messages=[dict(id="m1", channelId="c1", author=dict(kind="agent", id="a1"), body="Done. I'll check your inbox less often and stay quiet a bit later.", parts=[dict(type="change", changeId="ch1")], createdAt="2026-10-22T12:00:00Z")], replyCounts={}),
     "/api/changes": [dict(id="ch1", userId="u1", agentId="a1", lines=["Checks: every hour → every 2 hours", "Quiet hours: 10pm – 8am"], createdAt="2026-10-22T12:00:00Z", undoneAt=None)],
     "/api/background/allowance": dict(dailyTokens=1000000, todayTokens=412000, estimated=False, agents=[dict(agentId="a1", tokens=268000, checks=7), dict(agentId="a2", tokens=144000, checks=4)]),

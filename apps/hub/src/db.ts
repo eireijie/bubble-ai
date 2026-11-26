@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import Database from "better-sqlite3";
-import { splitConversations, type ChatPoint } from "@wisp/core";
+import { splitConversations, type ChatPoint } from "@bubble-ai/core";
 
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
@@ -400,7 +400,7 @@ const ADDED_COLUMNS: [table: string, column: string, definition: string][] = [
   // on for every agent in the workspace, including ones made later
   ["skills", "all_agents", "INTEGER NOT NULL DEFAULT 0"],
   ["connectors", "all_agents", "INTEGER NOT NULL DEFAULT 0"],
-  // signed in through Wisp's own app with GitHub, Slack or Google (null: the server's own MCP sign-in)
+  // signed in through Bubble AI's own app with GitHub, Slack or Google (null: the server's own MCP sign-in)
   ["connector_auth", "provider", "TEXT"],
   // where the browser goes after signing in ("#/connectors", or "close")
   ["connector_auth", "return_to", "TEXT"],

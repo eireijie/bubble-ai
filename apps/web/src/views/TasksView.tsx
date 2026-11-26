@@ -1,7 +1,7 @@
 import { TASK_GROUPS, closedLanes, groupOfState, shortAgo, takeRequestedTask, taskMatches, titleAndBrief, type TaskGroup, type TaskRequest } from "./task-lanes.ts";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronLeft, Circle, CircleCheck, CircleX, Loader2, Paperclip, Plus, Search, Users, WifiOff, X } from "lucide-react";
-import { harnessInfo, type Actor, type Agent, type Team } from "@wisp/core";
+import { harnessInfo, type Actor, type Agent, type Team } from "@bubble-ai/core";
 import { api, uploadFile } from "../api.ts";
 import { useStore, useTeams, usePrefs } from "../store.ts";
 import { go, href } from "../router.ts";

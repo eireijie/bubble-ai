@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FEATURE_PRESETS, type Agent } from "@wisp/core";
+import { FEATURE_PRESETS, type Agent } from "@bubble-ai/core";
 import { HereView, cronLine } from "./HereView.tsx";
 import { HelpView } from "./HelpView.tsx";
 import { pastedInviteCode } from "./AuthScreen.tsx";
@@ -18,7 +18,7 @@ vi.mock("../store.ts", async (original) => {
 const mem = new Map<string, string>();
 vi.stubGlobal("localStorage", { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) });
 vi.stubGlobal("location", { origin: "http://localhost:4747", protocol: "http:", hostname: "localhost", hash: "" });
-const me = { user: { id: "u1", name: "Sam Rivera" }, workspace: { id: "w1", name: "Sam's Wisp" }, role: "owner" };
+const me = { user: { id: "u1", name: "Sam Rivera" }, workspace: { id: "w1", name: "Sam's Bubble AI" }, role: "owner" };
 const juno = { id: "a1", name: "Juno", handle: "juno", harness: "claude-code", nodeId: null, computerId: null, createdAt: "2026-11-01T00:00:00Z", settings: {} } as unknown as Agent;
 beforeEach(() => {
   mem.clear();
@@ -28,7 +28,7 @@ beforeEach(() => {
 describe("Setup (#/here)", () => {
   it("lists the four things the first run no longer asks, each one line and one button", () => {
     const html = renderToStaticMarkup(createElement(HereView, {}));
-    for (const line of ["Add your phone", "Set up apps", "Use Wisp away from home", "Let me get to know you"]) expect(html).toContain(line);
+    for (const line of ["Add your phone", "Set up apps", "Use Bubble AI away from home", "Let me get to know you"]) expect(html).toContain(line);
     for (const button of ["Pair", "Add", "Set up", "Start"]) expect(html).toContain(`>${button}</button>`);
     expect(html.match(/<button/g)).toHaveLength(4);
     // nothing turned on yet: no empty section, no progress count, no thank-you card
@@ -69,7 +69,7 @@ describe("Help", () => {
     expect(html).toContain('href="#/welcome/intro"');
     expect(html).toContain("You have an agent: Juno");
     // the glossary, the examples and the setup progress are gone
-    expect(html).not.toMatch(/Words you|What can Wisp do|steps done|Harness|Continue setup/);
+    expect(html).not.toMatch(/Words you|What can Bubble AI do|steps done|Harness|Continue setup/);
   });
   it("offers to make an agent when there is none, with the fix", () => {
     useStore.setState({ agents: [] });

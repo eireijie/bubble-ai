@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { describeFlow, stepsProblem, type TeamFlow, type TeamStep } from "@wisp/core";
+import { describeFlow, stepsProblem, type TeamFlow, type TeamStep } from "@bubble-ai/core";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 

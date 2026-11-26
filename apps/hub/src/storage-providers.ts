@@ -1,8 +1,8 @@
-import { baseName, parentPath, type StorageEntry } from "@wisp/core";
+import { baseName, parentPath, type StorageEntry } from "@bubble-ai/core";
 
 /**
  * The Storage mod's three ways of reaching files: WebDAV (Nextcloud, ownCloud, TrueNAS, Synology,
- * QNAP and anything else that speaks it), Google Drive and Dropbox. Each takes paths Wisp already
+ * QNAP and anything else that speaks it), Google Drive and Dropbox. Each takes paths Bubble AI already
  * checked (see storagePath and the connection's folders) and only ever talks to its own service.
  */
 
@@ -33,13 +33,13 @@ type Fetch = typeof fetch;
 /** Read a response body, refusing more than `max` bytes. */
 async function limitedBody(res: Response, max: number): Promise<Buffer> {
   const len = Number(res.headers.get("content-length") ?? NaN);
-  if (len > max) throw new StorageError(`That file is ${mb(len)}; Wisp moves at most ${mb(max)} at a time.`, 413);
+  if (len > max) throw new StorageError(`That file is ${mb(len)}; Bubble AI moves at most ${mb(max)} at a time.`, 413);
   if (!res.body) return Buffer.alloc(0);
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
     size += chunk.length;
-    if (size > max) throw new StorageError(`That file is over ${mb(max)}; Wisp moves at most ${mb(max)} at a time.`, 413);
+    if (size > max) throw new StorageError(`That file is over ${mb(max)}; Bubble AI moves at most ${mb(max)} at a time.`, 413);
     chunks.push(Buffer.from(chunk));
   }
   return Buffer.concat(chunks);
@@ -61,7 +61,7 @@ export function mimeOf(name: string): string {
 
 /** Turn a service's error into one sentence people and agents can act on. */
 async function failure(res: Response, what: string): Promise<StorageError> {
-  if (res.status === 401) return new StorageError(`The server turned down Wisp's sign-in (401). Sign in again from Settings → Storage.`, 502);
+  if (res.status === 401) return new StorageError(`The server turned down Bubble AI's sign-in (401). Sign in again from Settings → Storage.`, 502);
   if (res.status === 403) return new StorageError(`The server says this account isn't allowed to ${what} (403).`, 403);
   if (res.status === 404) return new StorageError(`Nothing at that path.`, 404);
   if (res.status === 507) return new StorageError(`The storage is full.`, 507);
@@ -117,7 +117,7 @@ export class WebdavProvider implements StorageProvider {
     return new URL(rel, this.base).toString();
   }
 
-  /** The Wisp path of an href the server sent back, or null if it's outside the base. */
+  /** The Bubble AI path of an href the server sent back, or null if it's outside the base. */
   private pathOf(href: string): string | null {
     let p: string;
     try {
@@ -141,7 +141,7 @@ export class WebdavProvider implements StorageProvider {
       redirect: "manual",
       signal: AbortSignal.timeout(120_000),
     });
-    if (res.status >= 300 && res.status < 400) throw new StorageError(`The server sent Wisp somewhere else (${res.headers.get("location") ?? res.status}). Use that address in Settings → Storage.`, 502);
+    if (res.status >= 300 && res.status < 400) throw new StorageError(`The server sent Bubble AI somewhere else (${res.headers.get("location") ?? res.status}). Use that address in Settings → Storage.`, 502);
     return res;
   }
 

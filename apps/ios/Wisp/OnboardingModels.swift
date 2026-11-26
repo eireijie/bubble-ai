@@ -2,10 +2,10 @@ import Foundation
 
 // The first run on the phone, as the web app's (apps/web/src/views/onboarding): pick your agent and
 // the apps it starts with, make it yours, choose what it thinks with, then its first chat and
-// "Here's your Wisp". Everything here is plain data and rules, so the tests can check them against
+// "Here's your Bubble AI". Everything here is plain data and rules, so the tests can check them against
 // the web's (apps/web/test/agent-picker.test.ts).
 
-/** How a starting app is set up: an Apple app read on the Mac Wisp runs on, a catalog connector, or nothing yet. */
+/** How a starting app is set up: an Apple app read on the Mac Bubble AI runs on, a catalog connector, or nothing yet. */
 enum AppHow: Equatable { case mac, key, soon }
 
 /** An app a kind of agent starts with (START_APPS in agentTypes.ts). */
@@ -78,7 +78,7 @@ enum OnboardingCatalog {
 
   /**
    * The apps the picked kinds start with, merged, each once, in catalogue order. Apps that work now
-   * come first and "Soon" ones last; Apple apps only when Wisp lives on a Mac.
+   * come first and "Soon" ones last; Apple apps only when Bubble AI lives on a Mac.
    */
   static func apps(for types: [String], other: String, onMac: Bool) -> [StartApp] {
     var seen = Set<String>(), ids: [String] = []
@@ -90,7 +90,7 @@ enum OnboardingCatalog {
     return apps.filter { $0.how != .soon } + apps.filter { $0.how == .soon }
   }
 
-  /** Do the picked kinds want Apple apps that this Wisp can't reach (it doesn't live on a Mac)? */
+  /** Do the picked kinds want Apple apps that this Bubble AI can't reach (it doesn't live on a Mac)? */
   static func missesMac(_ types: [String], onMac: Bool) -> Bool {
     !onMac && agentTypes.contains { t in types.contains(t.id) && t.apps.contains { startApps[$0]?.how == .mac } }
   }
@@ -125,14 +125,14 @@ enum OnboardingCatalog {
   }
 }
 
-/** How a catalog app signs in with one click (`signIn` in the catalog): through Wisp's own app with that company, or the app's own server. */
+/** How a catalog app signs in with one click (`signIn` in the catalog): through Bubble AI's own app with that company, or the app's own server. */
 struct CatalogSignIn: Decodable, Hashable {
   var via: String
   var provider: String?
   var localOnly: Bool?
 }
 
-/** What `GET /api/connectors/sign-in` says about one catalog app, from where Wisp is open. */
+/** What `GET /api/connectors/sign-in` says about one catalog app, from where Bubble AI is open. */
 struct SignInOption: Decodable, Equatable {
   var signIn: Bool
   var reason: String?
@@ -293,11 +293,11 @@ enum OnboardingText {
     return base
   }
 
-  /** "You are Juno, Sam's agent in Wisp. Your job: … Ask before connecting an account, spending money or sending anything as them." */
+  /** "You are Juno, Sam's agent in Bubble AI. Your job: … Ask before connecting an account, spending money or sending anything as them." */
   static func instructions(agent: String, person: String, role: String) -> String {
     let who = first(person).isEmpty ? "the person" : first(person)
     let job = role.trimmed.replacingOccurrences(of: "[.\\s]+$", with: "", options: .regularExpression)
-    return ["You are \(agent.trimmed), \(who)'s agent in Wisp.",
+    return ["You are \(agent.trimmed), \(who)'s agent in Bubble AI.",
             job.isEmpty ? "" : "Your job: \(job).",
             "What you know about them is in your notes; use it without asking again.",
             "Ask before connecting an account, spending money or sending anything as them."]
@@ -327,7 +327,7 @@ enum OnboardingText {
     return ("Morning plan", "0 8 * * *", steps)
   }
 
-  /** "Every day at 08:00." for a routine's schedule on Here's your Wisp. */
+  /** "Every day at 08:00." for a routine's schedule on Here's your Bubble AI. */
   static func cronLine(_ schedule: String?) -> String {
     guard let schedule, !schedule.trimmed.isEmpty else { return "When you run it." }
     let m = schedule.trimmed.split(whereSeparator: \.isWhitespace).map(String.init)
@@ -345,7 +345,7 @@ struct AgentSetup: Codable, Hashable {
   var userId: String?
   var channelId: String?
   var startedAt: String?
-  /** the hello Wisp wrote for it */
+  /** the hello Bubble AI wrote for it */
   var greetingId: String?
   var done: Bool?
 }
@@ -356,7 +356,7 @@ struct HelloRead: Decodable, Equatable {
   var read: [App]?
 }
 
-/** The first chat with a new agent (FirstChat.tsx): one tap answers, pings asked for after its first answer, and a way to "Here's your Wisp". */
+/** The first chat with a new agent (FirstChat.tsx): one tap answers, pings asked for after its first answer, and a way to "Here's your Bubble AI". */
 enum FirstChat {
   /** What you can answer its hello with in one tap: the first is the one filled button. */
   static let quick = ["Yes, go ahead", "Something else first"]
@@ -427,10 +427,10 @@ enum FirstHello {
   }
 }
 
-/** "When you're ready" on Here's your Wisp: four things, ticked by the person (the second also by having two agents). */
+/** "When you're ready" on Here's your Bubble AI: four things, ticked by the person (the second also by having two agents). */
 @MainActor enum ReadyList {
   struct Item: Identifiable, Equatable { var id: String; var label: String; var done: Bool }
-  static let items: [(id: String, label: String)] = [("phone", "Get Wisp on your phone"), ("logins", "Add your password manager"), ("email", "Connect your email"), ("second", "Make a second agent")]
+  static let items: [(id: String, label: String)] = [("phone", "Get Bubble AI on your phone"), ("logins", "Add your password manager"), ("email", "Connect your email"), ("second", "Make a second agent")]
   static func key(_ workspaceId: String) -> String { "wisp.ready.v1.\(workspaceId)" }
 
   static func ticks(_ workspaceId: String, in defaults: UserDefaults = WispPreferences.standard) -> [String: Bool] {
@@ -443,7 +443,7 @@ enum FirstHello {
     defaults.set(t, forKey: key(workspaceId))
   }
 
-  /** Each item and whether it's done. On the phone, "Get Wisp on your phone" already is. */
+  /** Each item and whether it's done. On the phone, "Get Bubble AI on your phone" already is. */
   static func list(_ workspaceId: String, agentCount: Int, in defaults: UserDefaults = WispPreferences.standard) -> [Item] {
     let t = ticks(workspaceId, in: defaults)
     return items.map { i in
@@ -452,7 +452,7 @@ enum FirstHello {
     }
   }
 
-  /** "Finish setup" shows from the first look at Here's your Wisp until the list is done. */
+  /** "Finish setup" shows from the first look at Here's your Bubble AI until the list is done. */
   static func showsFinishSetup(_ workspaceId: String, agentCount: Int, in defaults: UserDefaults = WispPreferences.standard) -> Bool {
     ticks(workspaceId, in: defaults)["started"] == true && list(workspaceId, agentCount: agentCount, in: defaults).contains { !$0.done }
   }

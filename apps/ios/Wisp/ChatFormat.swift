@@ -48,7 +48,7 @@ enum ChatFormat {
     return "\(date.formatted(Date.FormatStyle().month(.abbreviated).day().locale(locale))), \(time)"
   }
 
-  /** One author's messages within five minutes sit together under one name; Wisp's own lines never do. */
+  /** One author's messages within five minutes sit together under one name; Bubble AI's own lines never do. */
   static func groups(_ prev: Message?, _ m: Message) -> Bool {
     guard let prev, prev.author == m.author, m.author.id != "system", prev.author.id != "system" else { return false }
     return m.date.timeIntervalSince(prev.date) < 5 * 60

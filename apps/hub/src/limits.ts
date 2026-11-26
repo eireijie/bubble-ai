@@ -1,4 +1,4 @@
-import { harnessLabel, LIMIT_WAIT_MAX_MINUTES, LIMIT_WAIT_MINUTES, limitProblem, PLAN_RESERVE, planState, providerLabel, type Agent, type PlanUsage } from "@wisp/core";
+import { harnessLabel, LIMIT_WAIT_MAX_MINUTES, LIMIT_WAIT_MINUTES, limitProblem, PLAN_RESERVE, planState, providerLabel, type Agent, type PlanUsage } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 import { agentPolicy } from "./policy.ts";
 
@@ -16,9 +16,9 @@ interface PlanSeen {
 }
 
 export interface Paused {
-  /** when work may go on (ISO); the plan's own reset time, or Wisp's guess when it gave none */
+  /** when work may go on (ISO); the plan's own reset time, or Bubble AI's guess when it gave none */
   until: string;
-  /** the limit is reached (nothing would run anyway), as opposed to Wisp leaving the rest of the plan to the person */
+  /** the limit is reached (nothing would run anyway), as opposed to Bubble AI leaving the rest of the plan to the person */
   full: boolean;
   /** how full the window is, 0–1, when the harness said */
   used: number | null;
@@ -85,7 +85,7 @@ export class Limits {
     return { until, full: true, used: 1 };
   }
 
-  /** A run worked on this sign-in: a limit Wisp was only guessing at (no reset time given) is over. */
+  /** A run worked on this sign-in: a limit Bubble AI was only guessing at (no reset time given) is over. */
   runWorked(agent: Agent, connectionId: string | null) {
     const key = this.key(agent, connectionId);
     const was = this.state(agent.workspaceId, key);
@@ -115,7 +115,7 @@ export class Limits {
     return row ? `${providerLabel(row.provider)} (${row.label})` : harnessLabel(agent.harness);
   }
 
-  /** The pause when the limit itself is reached (as opposed to Wisp leaving the rest of the plan to the person), or null. */
+  /** The pause when the limit itself is reached (as opposed to Bubble AI leaving the rest of the plan to the person), or null. */
   reached(agent: Agent, at = new Date()): Paused | null {
     const p = this.paused(agent, at);
     return p?.full ? p : null;

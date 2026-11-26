@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, Download, ExternalLink, FileText, Laptop, Link2, MoreHorizontal, Plus, Share2, Users, Wand2, X } from "lucide-react";
-import { catalogSkill, skillFile, type Agent, type CatalogSkill, type Skill, type StoreSkill } from "@wisp/core";
+import { catalogSkill, skillFile, type Agent, type CatalogSkill, type Skill, type StoreSkill } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { renderMarkdown } from "../markdown.ts";
 import { MoreOptions } from "../components/MoreOptions.tsx";
@@ -132,7 +132,7 @@ export function skillByline(s: Pick<Skill, "source" | "catalogId" | "learnedBy" 
   const id = s.catalogId ?? "";
   if (id.startsWith("device:")) return `Imported from ${deviceName?.(id.split(":")[1]) ?? "a device"}`;
   const store = /^([a-z]+):/.exec(id)?.[1];
-  if (s.source === "catalog") return (store && STORE_NAMES[store]) || "Wisp";
+  if (s.source === "catalog") return (store && STORE_NAMES[store]) || "Bubble AI";
   return SOURCE[s.source];
 }
 
@@ -310,7 +310,7 @@ function LibrarySkill({ entry, canEdit, onInstall }: { entry: CatalogSkill; canE
 
   return (
     <div className="space-y-4">
-      <ItemHead tile={<Tile size={56}><CatalogIcon name={entry.icon} fallback={Wand2} size={26} /></Tile>} name={name} line="Skill · by Wisp">
+      <ItemHead tile={<Tile size={56}><CatalogIcon name={entry.icon} fallback={Wand2} size={26} /></Tile>} name={name} line="Skill · by Bubble AI">
         {canEdit && (
           <Button variant="primary" onClick={() => onInstall(entry)}>
             Add
@@ -325,7 +325,7 @@ function LibrarySkill({ entry, canEdit, onInstall }: { entry: CatalogSkill; canE
       {does && <Instructions text={plain.does || description} html={html} />}
       {more && (
         <div className="space-y-1 px-1 text-[13px] leading-5 text-muted">
-          <p>Made by Wisp</p>
+          <p>Made by Bubble AI</p>
           {plain.example && <p>For example: {plain.example}</p>}
         </div>
       )}
@@ -653,7 +653,7 @@ export function SkillShare({ skill, agents, canEdit, onClose, onBrought, onDevic
     }
   }
   const read = (s: SharedSkill | null) => {
-    if (!s) return setError("That isn't a Wisp skill link or a SKILL.md file.");
+    if (!s) return setError("That isn't a Bubble AI skill link or a SKILL.md file.");
     setError(null);
     setFound(s);
     setView("found");

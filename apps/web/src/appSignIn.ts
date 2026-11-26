@@ -1,4 +1,4 @@
-import type { Connector, SignInOption } from "@wisp/core";
+import type { Connector, SignInOption } from "@bubble-ai/core";
 import { api } from "./api.ts";
 
 /**
@@ -8,7 +8,7 @@ import { api } from "./api.ts";
  * and the promise settles when the hub says it's done. Tokens never come near the browser.
  */
 
-/** Which catalog apps can sign in from where Wisp is open, and why not where they can't. */
+/** Which catalog apps can sign in from where Bubble AI is open, and why not where they can't. */
 export function signInOptions(origin = location.origin): Promise<Record<string, SignInOption>> {
   return api("GET", `/api/connectors/sign-in?origin=${encodeURIComponent(origin)}`);
 }

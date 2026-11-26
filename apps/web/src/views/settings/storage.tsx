@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ExternalLink, Folder, Plus, Server, X } from "lucide-react";
-import { STORAGE_SERVICES, type LoginSummary, type StorageAccess, type StorageConnection, type StorageEntry, type StorageFolder, type StorageService } from "@wisp/core";
+import { STORAGE_SERVICES, type LoginSummary, type StorageAccess, type StorageConnection, type StorageEntry, type StorageFolder, type StorageService } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { go, useRoute } from "../../router.ts";
 import { useStore } from "../../store.ts";
@@ -335,7 +335,7 @@ function ConnectCloud({ service, app, onBack, onClose }: { service: "gdrive" | "
         <div className="space-y-1 px-1">
           <div className="text-body font-medium">Your {google ? "Google" : "Dropbox"} app</div>
           <p className="text-sm leading-snug text-muted">
-            Wisp runs on your own server, so it signs in to {STORAGE_SERVICES[service].name} through an app you make {google ? "in Google Cloud" : "in the Dropbox App Console"}. Once per workspace.{" "}
+            Bubble AI runs on your own server, so it signs in to {STORAGE_SERVICES[service].name} through an app you make {google ? "in Google Cloud" : "in the Dropbox App Console"}. Once per workspace.{" "}
             <a className="inline-flex items-center gap-1 text-accent-text hover:underline" href={APP_HELP[service]} target="_blank" rel="noreferrer">
               How <ExternalLink size={12} />
             </a>

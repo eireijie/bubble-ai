@@ -1,6 +1,6 @@
-import { GITHUB_URL } from "@wisp/core";
+import { GITHUB_URL } from "@bubble-ai/core";
 /**
- * Where to download the Wisp app. Release file names never change between versions
+ * Where to download the Bubble AI app. Release file names never change between versions
  * (.github/workflows/desktop-release.yml), so "latest/download/<name>" is always the newest build.
  * Keep in step with site/src/lib/site.ts.
  */
@@ -9,12 +9,12 @@ const latest = (file: string) => `${GITHUB_URL}/releases/latest/download/${file}
 export const RELEASES = `${GITHUB_URL}/releases/latest`;
 
 export const DOWNLOADS = {
-  macArm: latest("Wisp-mac-arm64.dmg"),
-  macIntel: latest("Wisp-mac-x64.dmg"),
-  windows: latest("Wisp-win-x64.exe"),
-  linuxAppImage: latest("Wisp-linux-x86_64.AppImage"),
-  linuxDeb: latest("Wisp-linux-amd64.deb"),
-  android: latest("Wisp-android.apk"),
+  macArm: latest("Bubble-AI-mac-arm64.dmg"),
+  macIntel: latest("Bubble-AI-mac-x64.dmg"),
+  windows: latest("Bubble-AI-win-x64.exe"),
+  linuxAppImage: latest("Bubble-AI-linux-x86_64.AppImage"),
+  linuxDeb: latest("Bubble-AI-linux-amd64.deb"),
+  android: latest("Bubble-AI-android.apk"),
 };
 
 export type DesktopOs = "mac" | "windows" | "linux" | "other";
@@ -37,6 +37,6 @@ export function downloadsFor(os: DesktopOs): { label: string; href: string; more
     case "linux":
       return { label: "Download for Linux", href: DOWNLOADS.linuxAppImage, more: [{ label: ".deb", href: DOWNLOADS.linuxDeb }] };
     default:
-      return { label: "Download Wisp", href: RELEASES, more: [] };
+      return { label: "Download Bubble AI", href: RELEASES, more: [] };
   }
 }

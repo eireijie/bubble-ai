@@ -1,4 +1,4 @@
-// Minimal service worker: makes Wisp installable and keeps the app shell available offline.
+// Minimal service worker: makes Bubble AI installable and keeps the app shell available offline.
 const SHELL = "wisp-shell-v2";
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(["/", "/manifest.webmanifest", "/icon.svg", "/storage-migration.js"])));
@@ -34,7 +34,7 @@ self.addEventListener("push", (e) => {
   } catch {
     n = { body: e.data ? e.data.text() : "" };
   }
-  e.waitUntil(self.registration.showNotification(n.title || "Wisp", { body: n.body || "", tag: n.tag, icon: "/icon-192.png", badge: "/icon-192.png", data: { url: n.url || "/" } }));
+  e.waitUntil(self.registration.showNotification(n.title || "Bubble AI", { body: n.body || "", tag: n.tag, icon: "/icon-192.png", badge: "/icon-192.png", data: { url: n.url || "/" } }));
 });
 
 self.addEventListener("notificationclick", (e) => {

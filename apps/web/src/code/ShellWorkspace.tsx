@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Columns2, Maximize2, Minimize2, Play, Plus, Rows2, SquareTerminal, X } from "lucide-react";
 import { BarMenu, CodeBar, TERMINAL_BLOCK, type BarItems } from "./Bar.tsx";
-import { HARNESSES } from "@wisp/core";
+import { HARNESSES } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { href } from "../router.ts";
@@ -20,7 +20,7 @@ import { MAX_PANES, MAX_TABS, allLeaves, layout, leaves, neighbor, newSession, r
  * dropped connection or another tab picks up the same shells.
  */
 
-/** the layout, one per Wisp workspace (its computers are that workspace's) */
+/** the layout, one per Bubble AI workspace (its computers are that workspace's) */
 const STORE = "wisp.code.workspace";
 /** before tabs: a flat list of panes */
 const OLD_STORE = "wisp.code.panes";

@@ -19,7 +19,7 @@ export interface User {
   createdAt: string;
 }
 
-/** How Wisp behaves for one person, on every device they use. */
+/** How Bubble AI behaves for one person, on every device they use. */
 export interface UserPrefs {
   /** Enter sends (Shift+Enter for a new line), or ⌘/Ctrl+Enter sends */
   sendWith?: "enter" | "mod-enter";
@@ -28,14 +28,14 @@ export interface UserPrefs {
   /** the tools an agent used for a reply: a collapsed line, open, or not shown */
   toolCalls?: "collapsed" | "expanded" | "hidden";
   /**
-   * How much of Wisp to show. "simple" keeps advanced setup (teams, harness details, VM sizing,
+   * How much of Bubble AI to show. "simple" keeps advanced setup (teams, harness details, VM sizing,
    * tokens, raw files) behind "Advanced" disclosures or out of the way; "advanced" shows everything.
    * Chosen during onboarding; unset means advanced, so existing accounts see no change.
    */
   experience?: "simple" | "advanced";
   /** the desktop sidebar and phone list: pins and named sections, the same on every device */
   sidebar?: SidebarLayout;
-  /** Show me around (Learn Wisp): which tour stops this person has seen, the same on every device */
+  /** Show me around (Learn Bubble AI): which tour stops this person has seen, the same on every device */
   learn?: LearnProgress;
 }
 
@@ -46,7 +46,7 @@ export interface LearnProgress {
 }
 
 /**
- * One person's sidebar (2026-11-25 "Wisp, bubbles"): up to 9 pinned agents or teams, their own
+ * One person's sidebar (2026-11-25 "Bubble AI, bubbles"): up to 9 pinned agents or teams, their own
  * named sections (folded or not), what they hid and what they marked unread. Items are chat keys:
  * "a:<agentId>" for an agent, "c:<channelId>" for a team. Anything in no section is under "No section".
  */
@@ -88,7 +88,7 @@ export interface AgentSettings {
   /**
    * Let its harness load the person's own plugins, MCP servers and computer-use helpers from their
    * own install on the device. Off unless set: they can work the screen and reach apps outside
-   * Wisp's screen switch and approval cards.
+   * Bubble AI's screen switch and approval cards.
    */
   ownPlugins?: boolean;
   /** how its ghost looks; unset = a default derived from its handle */
@@ -133,7 +133,7 @@ export interface AgentSettings {
   parentAgentId?: string;
   /** how many agents up the chain it was made: 1 = by a lead, 2 = a sub-agent of that one, … */
   madeDepth?: number;
-  /** its first chat with the person it works for: the hello Wisp wrote for it, then a few questions (hub greeting.ts) */
+  /** its first chat with the person it works for: the hello Bubble AI wrote for it, then a few questions (hub greeting.ts) */
   setup?: AgentSetup;
 }
 
@@ -146,7 +146,7 @@ export interface AgentSetup {
   userId: string;
   channelId: string;
   startedAt: string;
-  /** the hello Wisp wrote for it */
+  /** the hello Bubble AI wrote for it */
   greetingId?: string;
   /** what the person wrote during setup, in order */
   replies: string[];
@@ -429,11 +429,11 @@ export interface Message {
 export type MessagePart =
   | { type: "tool_call"; name: string; input: unknown; output?: unknown }
   | { type: "file"; fileId: string; name: string }
-  /** a line from Wisp; `link` is one place in the app it points to, an address inside the app ("#/settings/usage") */
+  /** a line from Bubble AI; `link` is one place in the app it points to, an address inside the app ("#/settings/usage") */
   | { type: "status"; text: string; link?: { label: string; href: string } }
   /** the run this message reports failed: what the person can do next. retry when asking again makes sense; fix when something must be signed in first */
   | { type: "run_failed"; runId: string; retry: boolean; fix?: "signin" | "computer" | "connection" }
-  /** a quiet line from Wisp, e.g. "Round 2 of 3" */
+  /** a quiet line from Bubble AI, e.g. "Round 2 of 3" */
   | { type: "notice"; text: string }
   /** this message is the summary a /compact asked for: it seeds the next conversation, and clients show it collapsed, not as a normal message */
   | { type: "summary" }
@@ -562,9 +562,9 @@ export interface BackgroundWork {
   effort: string | null;
   /** most regular checks a day on the person's clock; null = no limit */
   dailyCap: number | null;
-  /** tokens a day its unattended work (checks, sorting changes, memory passes) may use for this person; null = Wisp's default */
+  /** tokens a day its unattended work (checks, sorting changes, memory passes) may use for this person; null = Bubble AI's default */
   dailyTokens?: number | null;
-  /** the agent picked `nextAt` itself (next_check), so that look happens even when Wisp sees nothing to look at */
+  /** the agent picked `nextAt` itself (next_check), so that look happens even when Bubble AI sees nothing to look at */
   nextPicked?: boolean;
   /** when it first looked around successfully (its computer included); null = it still owes that look */
   lookedAt?: string | null;
@@ -634,7 +634,7 @@ export interface Followup {
   waitingOn: "agent" | "person";
   /** when it only matters if something hasn't happened yet ("only if it hasn't gone out") */
   condition: string;
-  /** "checkback" = Wisp set it because a chat stopped while waiting on the person; never shown as a pill */
+  /** "checkback" = Bubble AI set it because a chat stopped while waiting on the person; never shown as a pill */
   kind: "followup" | "checkback";
   /** the chat it came from, and the reply that shows it */
   channelId: string | null;

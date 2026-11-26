@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { planFromWindows, type AccessLevel, type AgentEvent, type HarnessCatalog, type PlanUsage, type PlanWindow } from "@wisp/core";
+import { planFromWindows, type AccessLevel, type AgentEvent, type HarnessCatalog, type PlanUsage, type PlanWindow } from "@bubble-ai/core";
 import type { AdapterEvent, CatalogPlace, HarnessAdapter, RunInput, RunPlace, RunResult } from "./types.ts";
 import { CLAUDE_BUILTINS, claudeCommands, claudeInitCommands, commandsIn, skillsIn } from "./commands.ts";
 import { RunFiles, commandVersion, launched, runJsonl } from "./process.ts";
@@ -11,7 +11,7 @@ const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 /** How long Claude Code waits for an MCP server to start (its MCP_TIMEOUT), in milliseconds. */
 export const MCP_STARTUP_MS = 180_000;
 
-/** The MCP servers a run gets (Wisp's tools, its computer's browser, its connectors), as Claude Code's config, or null without any. Exported for tests. */
+/** The MCP servers a run gets (Bubble AI's tools, its computer's browser, its connectors), as Claude Code's config, or null without any. Exported for tests. */
 export function claudeMcpConfig(input: RunInput): { mcpServers: Record<string, unknown> } | null {
   const servers: Record<string, unknown> = {};
   if (input.mcp) servers.wisp = { type: "stdio", ...input.mcp };
@@ -40,7 +40,7 @@ export function claudeArgs(input: RunInput, opts: { mcpConfigFile?: string } = {
   args.push("--permission-mode", PERMISSION_MODE[input.access ?? "edit"]);
   // Claude Code's fast mode is a setting (what /fast toggles); --settings layers it on for this run
   if (input.fast) args.push("--settings", JSON.stringify({ fastMode: true }));
-  // not the person's own plugins, hooks, MCP servers or browser link: only what Wisp passes in below
+  // not the person's own plugins, hooks, MCP servers or browser link: only what Bubble AI passes in below
   if (input.ownPlugins !== true) args.push("--strict-mcp-config", "--setting-sources", input.ownMemory ? "user,project,local" : "project,local", "--no-chrome");
   const mcp = claudeMcpConfig(input);
   if (mcp) {
@@ -52,10 +52,10 @@ export function claudeArgs(input: RunInput, opts: { mcpConfigFile?: string } = {
 
 /**
  * Environment for one run. Claude Code's own auto-memory is off: it writes to files on the
- * device that nobody else can see, while Wisp's memory is shared and visible.
+ * device that nobody else can see, while Bubble AI's memory is shared and visible.
  */
 export function claudeEnv(input: RunInput): Record<string, string> {
-  // a tool server that's slow to start (a busy or small computer) gets time to, instead of a run without Wisp's tools
+  // a tool server that's slow to start (a busy or small computer) gets time to, instead of a run without Bubble AI's tools
   const env = { MCP_TIMEOUT: String(MCP_STARTUP_MS), ...input.env };
   if (input.ownMemory) return env;
   return { ...env, CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
@@ -206,7 +206,7 @@ export function claudePlan(info: any): PlanUsage | undefined {
   return planFromWindows(windows);
 }
 
-/** Translate one stream-json line into Wisp events. Exported for tests. */
+/** Translate one stream-json line into Bubble AI events. Exported for tests. */
 export function parseClaudeLine(m: any, toolNames = new Map<string, string>(), streamed = new Set<string>()): AdapterEvent[] {
   const out: AdapterEvent[] = [];
   if (m.type === "system" && m.subtype === "init" && m.session_id) out.push({ type: "session", id: m.session_id });

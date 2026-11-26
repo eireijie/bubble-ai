@@ -103,7 +103,7 @@ export function registerStorageApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     }
   });
 
-  /** The page asks every couple of seconds until the person has approved Wisp in Nextcloud. */
+  /** The page asks every couple of seconds until the person has approved Bubble AI in Nextcloud. */
   app.post("/api/storage/nextcloud/poll", async (req, reply) => {
     const c = caller(req, reply, { owner: true, hubOwner: true });
     if (!c) return;
@@ -129,7 +129,7 @@ export function registerStorageApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     }
   });
 
-  /** Where Google or Dropbox sends the browser back. No Wisp token here: the state ties it to the sign-in that started it. */
+  /** Where Google or Dropbox sends the browser back. No Bubble AI token here: the state ties it to the sign-in that started it. */
   app.get(STORAGE_CALLBACK, async (req, reply) => {
     const q = req.query as { state?: string; code?: string; error?: string; error_description?: string };
     const back = (msg?: string) => reply.redirect(`/?storage=${msg ? encodeURIComponent(msg) : "ok"}#/settings/storage`);

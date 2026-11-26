@@ -9,7 +9,7 @@ import { execFile, execFileSync } from "node:child_process";
  * terminal (node-pty). A shell outlives the browser that opened it: when the viewer goes (a closed
  * laptop, a dropped connection), it keeps running for a while and the next viewer of the same
  * session gets its recent screen back. With tmux on the computer the shell also survives this
- * device's Wisp restarting.
+ * device's Bubble AI restarting.
  */
 
 /** How long a shell nobody is looking at keeps running. */
@@ -67,7 +67,7 @@ const sq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
 /**
  * The shell to open on this device itself: tmux when it's here, otherwise the person's own shell.
- * With `launch` (a harness's command, from Wisp's own list) the pane starts in that CLI, and
+ * With `launch` (a harness's command, from Bubble AI's own list) the pane starts in that CLI, and
  * drops to a shell when it quits.
  */
 export function deviceShell(session: string, opts: { platform?: NodeJS.Platform; env?: NodeJS.ProcessEnv; has?: (bin: string) => boolean; launch?: string } = {}): ShellCommand {
@@ -86,7 +86,7 @@ export function deviceShell(session: string, opts: { platform?: NodeJS.Platform;
   if (has("tmux"))
     return {
       file: "tmux",
-      // Wisp's pane header already names the computer, so tmux's status bar goes (for Wisp's sessions only)
+      // Bubble AI's pane header already names the computer, so tmux's status bar goes (for Bubble AI's sessions only)
       args: ["new-session", "-A", "-s", `wisp-${session}`, ...(run ? [run] : []), ";", "set-option", "-t", `wisp-${session}`, "status", "off"],
       cwd,
       env: { SHELL: shell },
@@ -134,8 +134,8 @@ export function nodePty(): SpawnPty {
   } catch {
     throw new Error(
       process.platform === "linux"
-        ? "Terminals need node-pty, which couldn't be built on this device. Install build tools (build-essential, python3), then run npm install in Wisp's folder."
-        : "Terminals need node-pty, which isn't installed with this copy of Wisp. Update Wisp on this device.",
+        ? "Terminals need node-pty, which couldn't be built on this device. Install build tools (build-essential, python3), then run npm install in Bubble AI's folder."
+        : "Terminals need node-pty, which isn't installed with this copy of Bubble AI. Update Bubble AI on this device.",
     );
   }
   // npm drops the executable bit from node-pty's helper on macOS, and then every spawn fails

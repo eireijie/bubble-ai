@@ -4,7 +4,7 @@ vi.setConfig({ testTimeout: 30_000 });
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { WispClient } from "@wisp/sdk";
+import { WispClient } from "@bubble-ai/sdk";
 import { buildHub } from "../src/app.ts";
 import { ADVANCED_KEY, HOME_KEY, SHARED_KEY, adoptShared, sharedSize } from "../src/shared-computer.ts";
 import { saveAgentDefaults } from "../src/agent-defaults.ts";
@@ -79,7 +79,7 @@ describe("the shared computer", () => {
     const plain = await owner.request("POST", "/api/agents", { handle: "old", name: "Old", harness: "custom", nodeId: home });
     const headless = await owner.request("POST", "/api/agents", { handle: "quiet", name: "Quiet", harness: "custom", nodeId: home, settings: { headless: true } });
     const elsewhere = await owner.request("POST", "/api/agents", { handle: "far", name: "Far", harness: "custom", nodeId: other });
-    // as when upgrading a Wisp from before the shared computer
+    // as when upgrading a Bubble AI from before the shared computer
     hub.store.setSetting(ws, "computers.sharedAdopted", null);
     const moved = adoptShared(hub, ws);
     expect(moved).toEqual([plain.id]);

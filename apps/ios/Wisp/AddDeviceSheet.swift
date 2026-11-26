@@ -2,7 +2,7 @@ import SwiftUI
 import CoreImage.CIFilterBuiltins
 
 // "Add a device or phone": a phone scans a QR code and checks a code; another computer picks Join my
-// Wisp and pastes a link, or runs one command (comp-AddDevice.dc.html, comp-AddDeviceComputer.dc.html).
+// Bubble AI and pastes a link, or runs one command (comp-AddDevice.dc.html, comp-AddDeviceComputer.dc.html).
 
 struct DevicePollingBackoff {
   private(set) var interval = 5
@@ -54,7 +54,7 @@ struct AddDeviceSheet: View {
   }
 }
 
-/** A QR code for the Wisp app on a phone, then the code both screens show. */
+/** A QR code for the Bubble AI app on a phone, then the code both screens show. */
 private struct PhonePairing: View {
   @Environment(Store.self) private var store
   @State private var link: String?
@@ -69,7 +69,7 @@ private struct PhonePairing: View {
         Image(uiImage: qr).interpolation(.none).resizable().scaledToFit()
           .frame(width: 210, height: 210).padding(12)
           .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white))
-          .accessibilityLabel("QR code to scan with the Wisp app on your phone")
+          .accessibilityLabel("QR code to scan with the Bubble AI app on your phone")
       } else if action.busy { ProgressView().frame(height: 210) }
       switch pairing?.state {
       case "claimed", "approved":
@@ -90,7 +90,7 @@ private struct PhonePairing: View {
         Text(pairing?.state == "expired" ? "The code expired." : "Pairing was cancelled.").font(.system(size: 13)).foregroundStyle(Palette.faint)
         Button { start() } label: { Text("Start again").frame(maxWidth: .infinity) }.secondaryButton().controlSize(.large)
       default:
-        Text("Open Wisp on your phone, tap Scan QR code and point it here.").font(.system(size: 15)).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
+        Text("Open Bubble AI on your phone, tap Scan QR code and point it here.").font(.system(size: 15)).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
       }
       if let link, pairing?.state == "waiting" {
         Button { UIPasteboard.general.string = link; copied = true; Task { try? await Task.sleep(for: .seconds(1.5)); copied = false } } label: {
@@ -142,7 +142,7 @@ private struct PhonePairing: View {
   }
 }
 
-/** Another computer: install Wisp, pick Join my Wisp, paste the link (or run one command). */
+/** Another computer: install Bubble AI, pick Join my Bubble AI, paste the link (or run one command). */
 private struct ComputerJoin: View {
   @Environment(Store.self) private var store
   @State private var invite: JoinInvite?
@@ -157,8 +157,8 @@ private struct ComputerJoin: View {
   var body: some View {
     VStack(spacing: 14) {
       CardGroup {
-        step(1, "Install Wisp on the other computer")
-        step(2, "Pick Join my Wisp")
+        step(1, "Install Bubble AI on the other computer")
+        step(2, "Pick Join my Bubble AI")
         step(3, "Paste this link or type the code")
       }
       if store.isOwner {
@@ -185,7 +185,7 @@ private struct ComputerJoin: View {
     .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
         }
       } else {
-        Text("Ask your Wisp's owner for a join link.").font(.system(size: 13)).foregroundStyle(Palette.faint)
+        Text("Ask your Bubble AI's owner for a join link.").font(.system(size: 13)).foregroundStyle(Palette.faint)
       }
       if store.canManage { command }
     }
@@ -203,12 +203,12 @@ private struct ComputerJoin: View {
 
   private func make() { joinAction.run { invite = try await store.makeJoinInvite() } }
 
-  /** The other way in: one command that installs Wisp and connects it with a key. */
+  /** The other way in: one command that installs Bubble AI and connects it with a key. */
   @ViewBuilder private var command: some View {
     DisclosureGroup(isExpanded: $more) {
       VStack(alignment: .leading, spacing: 10) {
         if let token, let hub = store.api?.base.absoluteString {
-          Text("On \(name), run this once. It installs Wisp if it isn't there yet and keeps the device connected.").font(.system(size: 13)).foregroundStyle(Palette.muted)
+          Text("On \(name), run this once. It installs Bubble AI if it isn't there yet and keeps the device connected.").font(.system(size: 13)).foregroundStyle(Palette.muted)
           ForEach(Self.commands(hub: hub, token: token, name: name), id: \.0) { title, command in
             VStack(alignment: .leading, spacing: 6) {
               Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.faint)
@@ -235,12 +235,12 @@ private struct ComputerJoin: View {
   static func commands(hub: String, token: String, name: String) -> [(String, String)] { ComputerJoinCommands.make(hub: hub, token: token, name: name) }
 }
 
-/** The commands that install Wisp on another computer and connect it with a key. */
+/** The commands that install Bubble AI on another computer and connect it with a key. */
 enum ComputerJoinCommands {
   static func make(hub: String, token: String, name: String) -> [(String, String)] {
     let origin = hub.hasSuffix("/") ? String(hub.dropLast()) : hub
     let shName = "'" + name.replacingOccurrences(of: "'", with: "'\\''") + "'"
     let psName = "'" + name.replacingOccurrences(of: "'", with: "''") + "'"
-    return [("Mac / Linux", "curl -fsSL \(origin)/install.sh | bash -s -- --hub \(origin) --token \(token) --name \(shName)"), ("Windows", "& ([scriptblock]::Create((irm \(origin)/install.ps1))) -Hub \(origin) -Token \(token) -Name \(psName)"), ("Already installed", "wisp node start --hub \(origin) --token \(token) --name \(shName)")]
+    return [("Mac / Linux", "curl -fsSL \(origin)/install.sh | bash -s -- --hub \(origin) --token \(token) --name \(shName)"), ("Windows", "& ([scriptblock]::Create((irm \(origin)/install.ps1))) -Hub \(origin) -Token \(token) -Name \(psName)"), ("Already installed", "bubble-ai node start --hub \(origin) --token \(token) --name \(shName)")]
   }
 }

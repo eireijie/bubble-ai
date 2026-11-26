@@ -3,7 +3,7 @@
  * itself ("wisp-skill:" and the text, encoded), and a file is the SKILL.md anyone's harness reads.
  * Bringing one in reads either back, or any SKILL.md someone sends.
  */
-import { skillTitle } from "@wisp/core";
+import { skillTitle } from "@bubble-ai/core";
 
 export interface SharedSkill {
   name: string;

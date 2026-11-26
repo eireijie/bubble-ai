@@ -1,6 +1,6 @@
 # Agents that work on their own, without running up usage
 
-A Wisp agent left alone notices things in the person's apps, does the work, and writes first. This
+A Bubble AI agent left alone notices things in the person's apps, does the work, and writes first. This
 page is about what that costs and how the cost is kept down. The rule: **code watches, a model only
 wakes when something really changed, and never past the person's limits or their plan's.**
 
@@ -16,14 +16,14 @@ wakes when something really changed, and never past the person's limits or their
 | A team's schedule comes due | The team's steps | 1 per step |
 | The agent asked to look again at a time (`next_check`) | A check at that time, whatever the hub can see | 1 full |
 | Only notes changed in the memory it shares (other agents' memory passes write there) | A sort, then a check only on a yes | 1 small, sometimes 1 full |
-| A connected app with no watch (Wisp can't see when it changes) | A check at the agent's pace, doubling up to 12 hours while quiet | a few a day at most |
+| A connected app with no watch (Bubble AI can't see when it changes) | A check at the agent's pace, doubling up to 12 hours while quiet | a few a day at most |
 
 ## Sorting before a full check (`triage.ts`)
 
 A full check wakes the agent with all its tools, its memory and its notes. With Codex on its small
 model that measured 47,000 to 190,000 tokens per check, whether or not the change mattered. So a
-batch of changes first goes to the harness's smallest model (`smallestModel` in `@wisp/core`) as a
-**bare run**: a few lines, no Wisp tools, no browser, no connectors, read-only, low effort. It
+batch of changes first goes to the harness's smallest model (`smallestModel` in `@bubble-ai/core`) as a
+**bare run**: a few lines, no Bubble AI tools, no browser, no connectors, read-only, low effort. It
 answers `{"wake": true|false, "why": "…"}`.
 
 - A no: the changes are kept on record (titles and links, as always) and nothing else happens.
@@ -35,7 +35,7 @@ answers `{"wake": true|false, "why": "…"}`.
 - What it decided is kept with the run ("no: a small edit") and shows in the agent's activity list.
 - Skipped for changes addressed to the person and for sites only the agent's own browser can see.
 - Everything in the prompt that came from an app or a page is framed as outside data.
-- `WISP_TRIAGE=off` turns sorting off (every batch goes straight to a check, as before).
+- `BUBBLE_TRIAGE=off` turns sorting off (every batch goes straight to a check, as before).
 
 A sort is a `runs` row of kind `triage`, so it shows in Usage under the agent's background work,
 and counts against the allowances below, but not as a check.
@@ -66,7 +66,7 @@ the person gets **one** status line in the agent's chat.
 | Follow-ups (promises) run past the first two, but stop at | 2 × the agent's token limit | `FOLLOWUP_HARD_STOP` |
 | The plan the agent runs on | stops at 90% of a window; stops completely when the harness says the limit is reached | `limits.ts` |
 
-**How tokens are counted** (`spentTokens` in `@wisp/core`): fresh input and output in full, input
+**How tokens are counted** (`spentTokens` in `@bubble-ai/core`): fresh input and output in full, input
 read from the harness's cache at a tenth (`CACHED_INPUT_WEIGHT`), about what plans charge for it.
 Harnesses report every turn's whole context as input, so a check that takes ten turns re-reads the same
 prefix ten times; counting that in full made one quiet Codex check-back (283k read, 259k of it cached,
@@ -81,7 +81,7 @@ before midnight. Once a day, not in quiet hours (10pm–7am when the agent has n
 
 Each sign-in an agent runs on (a model connection, or a harness's own sign-in on a device) is
 watched: the harness reports how full each of its windows is after every run, and a failed run is
-read for "limit reached" in any harness's words (`limitProblem` in `@wisp/core`), with the reset
+read for "limit reached" in any harness's words (`limitProblem` in `@bubble-ai/core`), with the reset
 time when it gives one.
 
 - At 90% of a window, work nobody asked for (checks, sorts) waits until that window resets, so the
@@ -93,7 +93,7 @@ time when it gives one.
 - Memory passes are work nobody asked for too: they wait for the plan and for the agent's own tokens,
   and keep what they had to save.
 - A scheduled routine or a team's scheduled run is skipped while the limit is reached (it would only
-  fail), with one line where it would have run. A new agent's hello falls back to Wisp's plain one.
+  fail), with one line where it would have run. A new agent's hello falls back to Bubble AI's plain one.
 - The pause is said once per sign-in until it is over, however often runs fail and however the reset
   time the harness reports moves; again only when "leaving you the rest" becomes "the limit is reached".
 - Changes waiting for a paused plan are kept up to two weeks (others go after two days, as before).
@@ -104,11 +104,11 @@ time when it gives one.
 
 ## Tools that arrive late
 
-Codex starts a turn without an MCP server that is slow to come up, and Wisp's own tool server can
+Codex starts a turn without an MCP server that is slow to come up, and Bubble AI's own tool server can
 take a long time to start on a busy or small computer (47 seconds was measured on a loaded Mac).
 The agent then ran with no way to message, set a follow-up or ask for approval, and said so only in
-its reply. For Codex, Wisp's own tool server is now `required` and every tool server gets three
-minutes to start (`startup_timeout_sec`): the run waits for Wisp's tools and fails loudly if they
+its reply. For Codex, Bubble AI's own tool server is now `required` and every tool server gets three
+minutes to start (`startup_timeout_sec`): the run waits for Bubble AI's tools and fails loudly if they
 can't start. A browser or connector that can't start doesn't fail the run. Claude Code only gets the
 longer wait (`MCP_TIMEOUT`); it has no "required" setting, and this wasn't run with Claude Code.
 

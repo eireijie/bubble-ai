@@ -29,7 +29,7 @@ export function nearbyWisp(service: Advertisement): NearbyWisp | null {
   const hostname = isIP(address) === 6 ? `[${address}]` : address;
   try {
     const url = new URL(`http://${hostname}:${service.port}`).origin;
-    return { id: String(txt.id), name: String(txt.name || service.name || "Your Wisp"), host: String(txt.host || service.host), url };
+    return { id: String(txt.id), name: String(txt.name || service.name || "Your Bubble AI"), host: String(txt.host || service.host), url };
   } catch { return null; }
 }
 

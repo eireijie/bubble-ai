@@ -1,4 +1,4 @@
-import { PLAN_RESERVE } from "@wisp/core";
+import { PLAN_RESERVE } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 
 /**
@@ -13,12 +13,12 @@ export const ASK_BEFORE_DEFAULT: readonly AskBefore[] = ASK_BEFORE;
 
 /** How each rule reads in an agent's prompt. */
 export const ASK_BEFORE_TEXT: Record<AskBefore, string> = {
-  send: "sending email or messages outside Wisp",
+  send: "sending email or messages outside Bubble AI",
   spend: "buying or paying for anything",
   delete: "deleting files, data or accounts",
   post: "posting publicly (social media, reviews, comments)",
   signup: "signing up for new accounts or services",
-  share: "sharing files or private information outside Wisp",
+  share: "sharing files or private information outside Bubble AI",
 };
 
 export function agentPolicy(hub: Hub, workspaceId: string) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FEATURE_PRESETS } from "@wisp/core";
+import { FEATURE_PRESETS } from "@bubble-ai/core";
 import { SETTINGS_PAGES, href, parseRoute, type SettingsPage } from "../../router.ts";
 import { FIVE, FIVE_ROUTE, ROUTE_ROW, ROWS, fivePages, pageRows, rowById, rowTarget, searchableRows, settingsLanding, type Five } from "./map.ts";
 
@@ -73,7 +73,7 @@ describe("settings rows", () => {
   });
 
   it("shows 4 to 7 by default on every page, the rest under Show all", () => {
-    // Learn Wisp is the tour and what setup left to do, drawn by the page itself, not rows
+    // Learn Bubble AI is the tour and what setup left to do, drawn by the page itself, not rows
     for (const page of FIVE.filter((p) => p !== "learn")) {
       const shown = pageRows(page, false, everything).length;
       expect(shown, page).toBeGreaterThanOrEqual(4);
@@ -86,7 +86,7 @@ describe("settings rows", () => {
     for (const page of FIVE) expect(settingsLanding(FIVE_ROUTE[page])).toEqual({ page, row: null, sheet: false, all: false });
   });
 
-  it("gives guests only what they can use: You, their password and sign-ins, About, Learn Wisp", () => {
+  it("gives guests only what they can use: You, their password and sign-ins, About, Learn Bubble AI", () => {
     expect(fivePages(true, everything)).toEqual(["you", "privacy", "about", "learn"]);
     expect(pageRows("privacy", true, everything).map((r) => r.id)).toEqual(["password", "sessions"]);
     expect(fivePages(false, everything)).toEqual([...FIVE]);

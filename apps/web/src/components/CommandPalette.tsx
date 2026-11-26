@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AudioLines, Bell, Building2, CornerDownLeft, FileText, FolderPlus, LogOut, MessageSquare, Minimize2, PanelLeft, Plus, RotateCcw, Search, SquarePen, Users, type LucideIcon } from "lucide-react";
-import type { Agent, Channel, Message } from "@wisp/core";
+import type { Agent, Channel, Message } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useInboxCount, useStore, useTeams, type ChannelInfo } from "../store.ts";
 import { go, href, parseRoute } from "../router.ts";
@@ -178,7 +178,7 @@ export function CommandPalette() {
 function SignOutDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   return (
-    <Modal title="Sign out of Wisp?" onClose={onClose}>
+    <Modal title="Sign out of Bubble AI?" onClose={onClose}>
       <p className="text-body text-muted mb-5">Your agents keep working. To come back, sign in again.</p>
       <div className="flex flex-col gap-2">
         <Button
@@ -310,7 +310,7 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
     const act = (key: string, Icon: LucideIcon, label: string, words: string, run: () => void) => ({ key: `x:${key}`, group: "Actions", icon: line(Icon), label, words, run });
     const open = here ? channels.find((c) => c.id === here) : undefined;
     const dmAgent = open && open.kind === "dm" && !open.archivedAt ? agents.find((a) => open.name.endsWith(`:${a.id}`)) : undefined;
-    // "/new" and "/compact" are Wisp's own commands: every agent answers them in its chat
+    // "/new" and "/compact" are Bubble AI's own commands: every agent answers them in its chat
     const say = (body: string) => void api("POST", `/api/channels/${open!.id}/messages`, { body, threadId: null, fileIds: [] }).catch((e) => alert(`Couldn't send: ${(e as Error).message}`));
     // a small window shows the rail until it's opened by hand, so the sidebar can't say which way it goes
     const sidebar = !media(`(min-width: ${SIDEBAR.roomy}px)`) ? "Expand or collapse sidebar" : loadSidebar().collapsed ? "Expand sidebar" : "Collapse sidebar";
@@ -358,7 +358,7 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
   };
 
   let lastGroup: string | null = null;
-  // it drops in from the top over a dim (Wisp's motion), and is gone at once when closed
+  // it drops in from the top over a dim (Bubble AI's motion), and is gone at once when closed
   return toBody(
     <div className="m-palette-scrim fixed inset-0 z-50 flex items-start justify-center bg-black/45 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] md:pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label="Search everything" className="m-palette-card flex max-h-full w-full max-w-[583px] flex-col overflow-hidden rounded-[18px] border border-line bg-float shadow-float">

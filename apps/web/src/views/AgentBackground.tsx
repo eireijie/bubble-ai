@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronRight, Clock, MessageCircle, RefreshCw, X } from "lucide-react";
-import type { Agent, BackgroundSource, BackgroundUsage, BackgroundWork, ChatLoop, Followup, HarnessCatalog } from "@wisp/core";
+import type { Agent, BackgroundSource, BackgroundUsage, BackgroundWork, ChatLoop, Followup, HarnessCatalog } from "@bubble-ai/core";
 import { effortName, prettyModel } from "../components/EffortSlider.tsx";
 import { api } from "../api.ts";
 import { usePrefs, useStore } from "../store.ts";

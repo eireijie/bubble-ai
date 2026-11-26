@@ -15,12 +15,12 @@ export function describe(u: DesktopUpdate | null): {
     case "downloading":
       return {
         pill: <Pill tone="accent">Downloading {u.detail}</Pill>,
-        hint: "It installs when you restart Wisp.",
+        hint: "It installs when you restart Bubble AI.",
       };
     case "ready":
       return {
-        pill: <Pill tone="accent">Wisp {u.version} is ready</Pill>,
-        hint: "Restart Wisp to finish updating. It also installs when you quit.",
+        pill: <Pill tone="accent">Bubble AI {u.version} is ready</Pill>,
+        hint: "Restart Bubble AI to finish updating. It also installs when you quit.",
       };
     case "current":
       return {
@@ -33,7 +33,7 @@ export function describe(u: DesktopUpdate | null): {
     case "timed-out":
       return { pill: <Pill tone="warn">Couldn't check</Pill>, hint: u.detail };
     default:
-      return { pill: "Not checked yet", hint: `This is Wisp ${u.current}.` };
+      return { pill: "Not checked yet", hint: `This is Bubble AI ${u.current}.` };
   }
 }
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Models are the brain, harnesses the body. A person connects a model provider to Wisp once (a
+ * Models are the brain, harnesses the body. A person connects a model provider to Bubble AI once (a
  * sign-in on their subscription, or an API key); the hub keeps that connection and hands it to
  * whichever device or VM runs an agent that uses it, so nobody signs in inside a VM again.
  *

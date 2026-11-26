@@ -1,12 +1,12 @@
 import webpush from "web-push";
-import type { Message } from "@wisp/core";
+import type { Message } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 
 const KEY = "push_vapid";
 type PushCategory = "approval" | "dm" | "reply" | "channel" | "other";
 
 /**
- * Web push: notifications that reach a person's phone or computer while Wisp is closed, from an
+ * Web push: notifications that reach a person's phone or computer while Bubble AI is closed, from an
  * agent writing to them in a DM or asking for their OK. Each workspace gets its own VAPID keys
  * the first time someone turns push on.
  */
@@ -52,7 +52,7 @@ export class Push {
     const card = msg.parts.find((p) => p.type === "approval");
     const approval = card && card.type === "approval" ? this.hub.store.approval(card.approvalId) : undefined;
     if (approval && this.hub.flows.silentApproval(approval)) return;
-    const title = asks ? `${agent?.name ?? "An agent"} wants your OK` : (agent?.name ?? "Wisp");
+    const title = asks ? `${agent?.name ?? "An agent"} wants your OK` : (agent?.name ?? "Bubble AI");
     const body = (msg.body || "").replace(/\s+/g, " ").trim().slice(0, 200);
     if (!body) return;
     for (const userId of to) {

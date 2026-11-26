@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowRight } from "lucide-react";
-import { describeFlow, type ChannelTeam, type FlowLine, type TeamStep } from "@wisp/core";
+import { describeFlow, type ChannelTeam, type FlowLine, type TeamStep } from "@bubble-ai/core";
 import { useStore } from "../store.ts";
 import { cx } from "../components/ui.tsx";
 import { KindIcon, StepNum, useIsPhone } from "./parts.tsx";

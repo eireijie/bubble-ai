@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /**
- * Bubbles (2026-11-25, canvas "Wisp, bubbles" v20; web: components/Bubble.tsx and bubble.css).
+ * Bubbles (2026-11-25, canvas "Bubble AI, bubbles" v20; web: components/Bubble.tsx and bubble.css).
  * Every agent is a clear bubble with a rainbow rim and highlights, tinted with its own colour, and
  * two eyes (no mouth) that blink, glance around and look toward your finger while you touch the
  * screen. Light mode keeps the glass thin; dark mode frosts it in the agent's colour, lifted

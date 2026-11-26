@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useState } from "react";
-import { APPLE_DEFAULTS, type AppleMacStatus, type AppleView } from "@wisp/core";
+import { APPLE_DEFAULTS, type AppleMacStatus, type AppleView } from "@bubble-ai/core";
 import { api, observeEvents } from "../../api.ts";
 import { AppleSeg } from "../../components/AppleParts.tsx";
 import { OwnersOnly } from "./parts.tsx";

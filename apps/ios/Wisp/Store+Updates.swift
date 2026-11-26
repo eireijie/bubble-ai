@@ -8,7 +8,7 @@ extension Store {
   }
 
   /**
-   * Notices that the hub was updated while the app was open (Settings → Updates & about, `wisp update`),
+   * Notices that the hub was updated while the app was open (Settings → Updates & about, `bubble-ai update`),
    * so it can offer a reload instead of running old data. The first look is the baseline; a later
    * look (after the connection comes back, which is what an update looks like) compares to it.
    */

@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 @MainActor
 final class ReviewTests: XCTestCase {
@@ -26,7 +26,7 @@ final class ReviewTests: XCTestCase {
   }
 
   func testPreferencesMigrateOnceWithoutReplacingCurrentValues() throws {
-    let suite = "ai.wisp.tests." + UUID().uuidString
+    let suite = "ai.bubbleai.tests." + UUID().uuidString
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
     defaults.set("dark", forKey: "warren.mode")
@@ -48,10 +48,10 @@ final class ReviewTests: XCTestCase {
   }
 
   func testEnvironmentPrefersCurrentNameIncludingEmptyValues() {
-    XCTAssertEqual(envVar("TOKEN", in: ["WISP_TOKEN": "new", "WARREN_TOKEN": "old"]), "new")
+    XCTAssertEqual(envVar("TOKEN", in: ["BUBBLE_TOKEN": "new", "WARREN_TOKEN": "old"]), "new")
     XCTAssertEqual(envVar("TOKEN", in: ["WARREN_TOKEN": "old"]), "old")
-    XCTAssertEqual(envVar("TOKEN", in: ["WISP_TOKEN": "", "WARREN_TOKEN": "old"]), "")
-    XCTAssertEqual(envVar("TOKEN", in: ["WISP_TOKEN": "$(WISP_TOKEN)", "WARREN_TOKEN": "old"]), "old")
+    XCTAssertEqual(envVar("TOKEN", in: ["BUBBLE_TOKEN": "", "WARREN_TOKEN": "old"]), "")
+    XCTAssertEqual(envVar("TOKEN", in: ["BUBBLE_TOKEN": "$(BUBBLE_TOKEN)", "WARREN_TOKEN": "old"]), "old")
     XCTAssertNil(envVar("TOKEN", in: [:]))
   }
 

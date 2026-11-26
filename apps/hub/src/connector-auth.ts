@@ -105,7 +105,7 @@ class Provider implements OAuthClientProvider {
   }
 
   get clientMetadata(): OAuthClientMetadata {
-    return { client_name: "Wisp", redirect_uris: [this.redirect], grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], token_endpoint_auth_method: "none" };
+    return { client_name: "Bubble AI", redirect_uris: [this.redirect], grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], token_endpoint_auth_method: "none" };
   }
 
   state() {
@@ -158,7 +158,7 @@ class Provider implements OAuthClientProvider {
 export class ConnectorAuth {
   /** tests swap this for a fake server */
   fetchFn: typeof fetch = (...a) => fetch(...a);
-  /** sign-ins through Wisp's app with GitHub, Slack or Google */
+  /** sign-ins through Bubble AI's app with GitHub, Slack or Google */
   readonly apps: AppSignIn;
 
   constructor(private db: Db) {

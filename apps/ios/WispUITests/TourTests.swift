@@ -8,13 +8,13 @@ final class TourTests: XCTestCase {
     let environment = ProcessInfo.processInfo.environment
     guard let hub = envVar("HUB", in: environment), hub.hasPrefix("http"),
           let token = envVar("TOKEN", in: environment), !token.isEmpty, !token.hasPrefix("$(") else {
-      throw XCTSkip("Set WISP_HUB and WISP_TOKEN to tour a signed-in workspace.")
+      throw XCTSkip("Set BUBBLE_HUB and BUBBLE_TOKEN to tour a signed-in workspace.")
     }
     continueAfterFailure = false
-    app.launchEnvironment["WISP_HUB"] = hub
-    app.launchEnvironment["WISP_TOKEN"] = token
+    app.launchEnvironment["BUBBLE_HUB"] = hub
+    app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
-    XCTAssertTrue(app.tabBars.buttons["Chats"].waitForExistence(timeout: 30), "The test session must reach Wisp.")
+    XCTAssertTrue(app.tabBars.buttons["Chats"].waitForExistence(timeout: 30), "The test session must reach Bubble AI.")
     XCTAssertEqual(app.tabBars.buttons.count, 5, "Inbox, Chats, Agents, Computers and More")
     app.tabBars.buttons["More"].tap()
 
@@ -125,5 +125,5 @@ func envVar(_ suffix: String, in environment: [String: String] = ProcessInfo.pro
     guard let value, !value.hasPrefix("$(") else { return nil }
     return value
   }
-  return resolved(environment["WISP_" + suffix]) ?? resolved(environment["WARREN_" + suffix])
+  return resolved(environment["BUBBLE_" + suffix]) ?? resolved(environment["WISP_" + suffix]) ?? resolved(environment["WARREN_" + suffix])
 }

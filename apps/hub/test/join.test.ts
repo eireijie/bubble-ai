@@ -22,7 +22,7 @@ const makeInvite = async () => (await call("POST", "/api/join/invites", undefine
 beforeAll(async () => {
   dir = await fs.mkdtemp(path.join(os.tmpdir(), "wisp-join-"));
   built = await buildHub({ dataDir: dir, setupCode: false });
-  const setup = (await call("POST", "/api/setup", { email: "owner@example.com", name: "Yug", password: "password123", workspaceName: "Yug's Wisp" })).json();
+  const setup = (await call("POST", "/api/setup", { email: "owner@example.com", name: "Yug", password: "password123", workspaceName: "Yug's Bubble AI" })).json();
   owner = setup.token; workspaceId = setup.workspace.id;
 });
 afterEach(() => vi.restoreAllMocks());
@@ -33,10 +33,10 @@ describe("asking to join", () => {
     expect((await call("GET", "/api/me", undefined, owner)).json().prefs.experience).toBe("simple");
     const legacy = built.hub.store.createUser("legacy@example.com", "Legacy", "");
     built.hub.store.setPrefs(legacy.id, { clock: "24h" });
-    await createOrganization(built.hub, legacy, "New Wisp");
+    await createOrganization(built.hub, legacy, "New Bubble AI");
     expect(built.hub.store.prefs(legacy.id)).toEqual({ clock: "24h", experience: "simple" });
     built.hub.store.setPrefs(legacy.id, { experience: "advanced" });
-    await createOrganization(built.hub, legacy, "Another Wisp");
+    await createOrganization(built.hub, legacy, "Another Bubble AI");
     expect(built.hub.store.prefs(legacy.id).experience).toBe("advanced");
   });
   it("creates a computer only after approval and hands out its credential exactly once", async () => {
@@ -56,11 +56,11 @@ describe("asking to join", () => {
     expect(results.map((v) => v.statusCode).sort()).toEqual([200, 409]);
     expect(built.hub.store.nodes(workspaceId)).toHaveLength(before + 1);
     const done = (await poll(r)).json();
-    expect(done).toMatchObject({ status: "approved", nodeId: expect.any(String), nodeToken: expect.stringMatching(/^wr_node_/), hubUrl: "http://wisp.example:4747", workspaceName: "Yug's Wisp", hubId: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    expect(done).toMatchObject({ status: "approved", nodeId: expect.any(String), nodeToken: expect.stringMatching(/^wr_node_/), hubUrl: "http://wisp.example:4747", workspaceName: "Yug's Bubble AI", hubId: expect.stringMatching(/^[0-9a-f-]{36}$/) });
     expect(resolveToken(built.hub.store.db, done.nodeToken)).toMatchObject({ kind: "node", subjectId: done.nodeId, workspaceId });
     expect(built.hub.store.node(done.nodeId)).toMatchObject({ name: device.name, ownerId: resolveToken(built.hub.store.db, owner)!.subjectId });
     expect((await poll(r)).json()).toEqual({ status: "approved" });
-    // the real Wisp can prove it holds this computer's credential, without anyone sending it
+    // the real Bubble AI can prove it holds this computer's credential, without anyone sending it
     const nonce = "n".repeat(24);
     const key = crypto.createHash("sha256").update(done.nodeToken).digest("hex");
     const proof = (await call("POST", "/api/join/prove", { nodeId: done.nodeId, nonce }, "")).json();
@@ -85,7 +85,7 @@ describe("asking to join", () => {
     const u = store.createUser("member@example.com", "Member", "");
     store.addMember(workspaceId, u.id, "member");
     const member = issueToken(store.db, "session", u.id, workspaceId);
-    const ws = store.createWorkspace("Other Wisp");
+    const ws = store.createWorkspace("Other Bubble AI");
     store.addMember(ws.id, u.id, "owner");
     const other = issueToken(store.db, "session", u.id, ws.id);
     const r = (await ask()).json();
@@ -138,7 +138,7 @@ describe("invite links", () => {
     expect((await ask({ ...device, invite: "invalid" })).statusCode).toBe(403);
     const page = await call("GET", `/join/${invite}`);
     expect(page.statusCode).toBe(200);
-    expect(page.body).toContain("Open Wisp on that computer and pick Join my Wisp");
+    expect(page.body).toContain("Open Bubble AI on that computer and pick Join my Bubble AI");
     expect(page.body).toContain("| sh -s join");
     expect(page.headers["referrer-policy"]).toBe("no-referrer");
     expect((await call("GET", "/join/invalid")).statusCode).toBe(410);
@@ -158,7 +158,7 @@ describe("invite links", () => {
   });
   it("keeps invites across restarts and scopes requests to the invited workspace", async () => {
     const store = built.hub.store, userId = resolveToken(store.db, owner)!.subjectId;
-    const ws = store.createWorkspace("Invited Wisp"); store.addMember(ws.id, userId, "owner");
+    const ws = store.createWorkspace("Invited Bubble AI"); store.addMember(ws.id, userId, "owner");
     const token = issueToken(store.db, "session", userId, ws.id);
     const link = (await call("POST", "/api/join/invites", undefined, token)).json();
     const invite = new URL(link.url).pathname.split("/")[2];
@@ -167,7 +167,7 @@ describe("invite links", () => {
     const r = (await ask({ ...device, invite }, "9.9.9.9")).json();
     expect((await approve(r)).statusCode).toBe(404);
     expect((await approve(r, token)).statusCode).toBe(200);
-    expect((await poll(r)).json().workspaceName).toBe("Invited Wisp");
+    expect((await poll(r)).json().workspaceName).toBe("Invited Bubble AI");
   });
 });
 
@@ -190,7 +190,7 @@ describe("join limits", () => {
 });
 
 describe("page protection", () => {
-  it("doesn't let other sites frame Wisp's pages", async () => {
+  it("doesn't let other sites frame Bubble AI's pages", async () => {
     const res = await built.app.inject({ method: "GET", url: "/api/join/requests" });
     expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
     expect(String(res.headers["content-security-policy"])).toContain("frame-ancestors");

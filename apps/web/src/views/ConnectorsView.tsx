@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { CONNECTOR_HELP, connectorUnsupportedReason, harnessSupportsConnectors, isMasked, SIGN_IN_PROVIDERS, trustLabel, type Agent, type CatalogConnector, type CatalogField, type Connector, type ConnectorKind, type MarketplaceEntry, type MarketplaceInstall } from "@wisp/core";
+import { CONNECTOR_HELP, connectorUnsupportedReason, harnessSupportsConnectors, isMasked, SIGN_IN_PROVIDERS, trustLabel, type Agent, type CatalogConnector, type CatalogField, type Connector, type ConnectorKind, type MarketplaceEntry, type MarketplaceInstall } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { AreaBox, Circle, Dlg, Label, Labeled, Prim, Seg, TextBox } from "../components/MarketParts.tsx";
 import { AgentPicker } from "../components/ShopParts.tsx";
@@ -37,7 +37,7 @@ export function connectSummary(src: { builtIn: CatalogConnector } | { entry: Mar
     if (c.signIn)
       return {
         can: `Your agents will be able to use ${c.name} through this connection.${c.signInReads ? ` ${c.signInReads}.` : ""}`,
-        runBy: `On Wisp's list of well-known apps. It connects to ${hostOf(c.signIn.url) ?? "the app's own address"}, run by ${c.signIn.via === "app" ? SIGN_IN_PROVIDERS[c.signIn.provider].name : c.name}, not by Wisp.`,
+        runBy: `On Bubble AI's list of well-known apps. It connects to ${hostOf(c.signIn.url) ?? "the app's own address"}, run by ${c.signIn.via === "app" ? SIGN_IN_PROVIDERS[c.signIn.provider].name : c.name}, not by Bubble AI.`,
         caution: null,
       };
     const host = c.kind === "mcp-http" ? hostOf(c.url) : null;
@@ -45,10 +45,10 @@ export function connectSummary(src: { builtIn: CatalogConnector } | { entry: Mar
       can: c.kind === "secret" ? `Your agents get the key you enter, so they can use ${c.name} with it.` : `Your agents will be able to use ${c.name} through this connection: read and act on what this app allows.`,
       runBy:
         c.kind === "secret"
-          ? "Wisp keeps the key and gives it only to the agents you pick."
+          ? "Bubble AI keeps the key and gives it only to the agents you pick."
           : c.kind === "mcp-http"
-            ? `On Wisp's list of well-known apps. It connects to ${host ?? "the app's own address"}, not to a server run by Wisp.`
-            : "On Wisp's list of well-known apps. It runs as a program on the agent's own computer.",
+            ? `On Bubble AI's list of well-known apps. It connects to ${host ?? "the app's own address"}, not to a server run by Bubble AI.`
+            : "On Bubble AI's list of well-known apps. It runs as a program on the agent's own computer.",
       caution: null,
     };
   }
@@ -58,12 +58,12 @@ export function connectSummary(src: { builtIn: CatalogConnector } | { entry: Mar
   const who = entry.domain ? `${entry.publisher} (${entry.domain})` : entry.publisher;
   const can = install.fields.length ? `Your agents get the key you enter, so they can use ${name} with it.` : `Your agents will be able to use ${name} through this connection: read and act on what this app allows.`;
   if (trust.kind === "unverified") {
-    return { can, runBy: `Run by ${entry.publisher}, not by the app's maker or Wisp.`, caution: "Nobody has confirmed who they are. Only connect if you trust them." };
+    return { can, runBy: `Run by ${entry.publisher}, not by the app's maker or Bubble AI.`, caution: "Nobody has confirmed who they are. Only connect if you trust them." };
   }
   if (trust.kind === "maker") {
-    return { can, runBy: `Made and run by ${trust.text.replace(/^Made by /, "")} (${entry.domain ?? entry.publisher}), not by Wisp.`, caution: null };
+    return { can, runBy: `Made and run by ${trust.text.replace(/^Made by /, "")} (${entry.domain ?? entry.publisher}), not by Bubble AI.`, caution: null };
   }
-  return { can, runBy: `Run by ${who}, not by Wisp. The registry confirmed who they are; that doesn't mean ${name}'s own maker endorses it.`, caution: null };
+  return { can, runBy: `Run by ${who}, not by Bubble AI. The registry confirmed who they are; that doesn't mean ${name}'s own maker endorses it.`, caution: null };
 }
 
 /** A registry server in one of its install options, as something the form can fill in. */

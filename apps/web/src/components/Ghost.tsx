@@ -1,4 +1,4 @@
-import type { GhostAppearance } from "@wisp/core";
+import type { GhostAppearance } from "@bubble-ai/core";
 import { Bubble, type BubbleMood } from "./Bubble.tsx";
 
 /** How an agent's bubble feels right now (the name stays from when agents were ghosts). */

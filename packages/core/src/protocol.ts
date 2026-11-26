@@ -130,7 +130,7 @@ export const RunRequest = z.object({
   /** start a new harness session instead of continuing this conversation's (background checks) */
   fresh: z.boolean().optional(),
   /**
-   * Only an answer is wanted: no Wisp tools, no browser, no connectors, read-only. For sorting work
+   * Only an answer is wanted: no Bubble AI tools, no browser, no connectors, read-only. For sorting work
    * (is this change worth a full look?), where every tool's description would cost more than the question.
    */
   bare: z.boolean().optional(),
@@ -181,7 +181,7 @@ export const NodeToHub = z.discriminatedUnion("type", [
     type: z.literal("hello"),
     nodeName: z.string(),
     agents: z.array(z.string()),
-    /** the Wisp version this device runs (missing from devices older than updates) */
+    /** the Bubble AI version this device runs (missing from devices older than updates) */
     version: z.object({ commit: z.string().nullable(), date: z.string().nullable() }).optional(),
   }),
   /**
@@ -223,7 +223,7 @@ export const NodeToHub = z.discriminatedUnion("type", [
   z.object({ type: z.literal("term_closed"), termId: z.string(), error: z.string().max(500).optional(), exited: z.boolean().optional() }),
   /** something about the screen's code its owner should hear about (wrong codes, a lockout) */
   z.object({ type: z.literal("screen_event"), text: z.string().max(500), alert: z.boolean().optional() }),
-  /** agents that already exist on this device and could be brought into Wisp */
+  /** agents that already exist on this device and could be brought into Bubble AI */
   z.object({ type: z.literal("discovered"), agents: z.array(DiscoveredAgent).max(100) }),
   /** skills and MCP servers this device's harnesses already have (secret values stay on the device) */
   z.object({ type: z.literal("shelf"), items: z.array(ShelfItem).max(1000) }),
@@ -290,7 +290,7 @@ export const HubToNode = z.discriminatedUnion("type", [
   z.object({ type: z.literal("install_harness"), requestId: z.string(), harness: z.string().max(60) }),
   /** send everything about one discovered agent (its soul, instructions and notes), to import it */
   z.object({ type: z.literal("read_agent"), requestId: z.string(), key: z.string() }),
-  /** update this device's copy of Wisp from GitHub and restart; answered with a result (UpdateResult) */
+  /** update this device's copy of Bubble AI from GitHub and restart; answered with a result (UpdateResult) */
   z.object({ type: z.literal("update"), requestId: z.string() }),
   /** read the harnesses' own settings (all of them, or one); answered with a result (HarnessSettings[]) */
   z.object({ type: z.literal("harness_settings"), requestId: z.string(), harness: z.string().max(60).optional(), account: z.string().max(64).optional() }),
@@ -314,7 +314,7 @@ export const HubToNode = z.discriminatedUnion("type", [
   z.object({ type: z.literal("harness_open_config"), requestId: z.string(), harness: z.string().max(60), account: z.string().max(64).optional() }),
   /**
    * First-run memory import: run this harness once, read-only, in the device owner's home folder,
-   * with Wisp's memory prompt (the device builds it itself; the hub sends no prompt). Answered with
+   * with Bubble AI's memory prompt (the device builds it itself; the hub sends no prompt). Answered with
    * a result ({ answer }). `credential`: the person's own model connection for it, when they have one.
    */
   /**
@@ -378,7 +378,7 @@ export type ClientEvent =
   | { type: "tasks_changed" }
   /** a stepped team's request moved on (team-flow.ts) */
   | { type: "flows_changed"; channelId: string }
-  /** notes were changed outside Wisp (Obsidian, a git pull or push) */
+  /** notes were changed outside Bubble AI (Obsidian, a git pull or push) */
   | { type: "memory_changed" }
   /** someone's model connections changed (added, removed, renamed, plan usage); refetch GET /api/model-connections */
   | { type: "model_connections_changed" }

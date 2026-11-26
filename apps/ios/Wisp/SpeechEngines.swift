@@ -9,8 +9,8 @@ enum CallAudioError: LocalizedError {
   case microphoneDenied, speechDenied, speechUnavailable, noMicrophone
   var errorDescription: String? {
     switch self {
-    case .microphoneDenied: "Microphone access is off. Allow the microphone for Wisp in Settings, then call again."
-    case .speechDenied: "Speech recognition is off. Allow it for Wisp in Settings, or choose OpenAI for listening in Voice settings."
+    case .microphoneDenied: "Microphone access is off. Allow the microphone for Bubble AI in Settings, then call again."
+    case .speechDenied: "Speech recognition is off. Allow it for Bubble AI in Settings, or choose OpenAI for listening in Voice settings."
     case .speechUnavailable: "Speech recognition isn't available right now. Try again, or choose OpenAI for listening in Voice settings."
     case .noMicrophone: "We couldn't find a microphone to use. Check that no other app is using it."
     }

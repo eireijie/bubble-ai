@@ -1,5 +1,5 @@
-import { personDir } from "@wisp/core";
-import { parseNote, type CommitAuthor, type Vault } from "@wisp/vault";
+import { personDir } from "@bubble-ai/core";
+import { parseNote, type CommitAuthor, type Vault } from "@bubble-ai/vault";
 
 /** What agents remember about a person. "did" is a dated journal of what they did. */
 export const MEMORY_KINDS = ["preference", "plan", "did", "detail"] as const;

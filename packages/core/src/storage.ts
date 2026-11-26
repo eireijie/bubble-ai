@@ -4,7 +4,7 @@
  * never leave it.
  */
 
-/** How Wisp talks to a service. */
+/** How Bubble AI talks to a service. */
 export type StorageKind = "webdav" | "gdrive" | "dropbox";
 
 /** What people pick from. Several WebDAV servers have their own name and logo. */
@@ -20,7 +20,7 @@ export const STORAGE_SERVICES: Record<StorageService, { name: string; kind: Stor
 
 export const STORAGE_SERVICE_IDS = Object.keys(STORAGE_SERVICES) as StorageService[];
 
-/** How Wisp signs in: a token from the service, an app password, or a login read from the password manager each time. */
+/** How Bubble AI signs in: a token from the service, an app password, or a login read from the password manager each time. */
 export type StorageSignIn = "oauth" | "app-password" | "password-manager";
 
 /** What agents may do in a folder: look and copy out, or also add, replace and delete (each asked first). */
@@ -41,7 +41,7 @@ export interface StorageConnection {
   kind: StorageKind;
   /** the server's address (WebDAV), or null */
   url: string | null;
-  /** who Wisp is signed in as, as the service says it */
+  /** who Bubble AI is signed in as, as the service says it */
   account: string;
   signIn: StorageSignIn;
   /** the password manager login it reads, when signIn is "password-manager" */
@@ -75,7 +75,7 @@ export interface StorageRequest {
   service: StorageService;
   action: "upload" | "replace" | "delete" | "mkdir";
   path: string;
-  /** the Wisp file it puts there (upload, replace) */
+  /** the Bubble AI file it puts there (upload, replace) */
   fileId: string | null;
   size: number | null;
   /** the allowed folder it falls in, for "Always in this folder" */
@@ -87,7 +87,7 @@ export interface StorageRequest {
 export class StoragePathError extends Error {}
 
 /**
- * A path as Wisp keeps it: starts with "/", no trailing "/", no "." or ".." parts, no
+ * A path as Bubble AI keeps it: starts with "/", no trailing "/", no "." or ".." parts, no
  * backslashes or control characters. Anything that tries to climb out is refused rather than
  * cleaned up, so "a/../../b" never quietly means something else.
  */

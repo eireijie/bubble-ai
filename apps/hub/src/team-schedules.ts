@@ -1,4 +1,4 @@
-import { cronMatches, parseCron, SCHEDULE_MARK, stepAgentId, zonedParts, type TeamFlow, type TeamStep } from "@wisp/core";
+import { cronMatches, parseCron, SCHEDULE_MARK, stepAgentId, zonedParts, type TeamFlow, type TeamStep } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 
 /** Schedule boxes on team flow charts: at their times they ask the team and start the steps they point to. */

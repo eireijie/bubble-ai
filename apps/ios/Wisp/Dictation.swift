@@ -27,7 +27,7 @@ final class Dictation {
   private func start(_ onText: @escaping (String) -> Void) async {
     error = nil
     guard await CallAudio.requestMicrophone(), await CallAudio.requestSpeech() else {
-      error = "Allow the microphone and speech recognition for Wisp in Settings to dictate."
+      error = "Allow the microphone and speech recognition for Bubble AI in Settings to dictate."
       return
     }
     guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {

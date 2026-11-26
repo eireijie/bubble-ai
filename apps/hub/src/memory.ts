@@ -1,5 +1,5 @@
-import { accessChecker, atLeast, covers, personDir, soulPath, startupRules, teamChain, teamsBelow, type Agent, type Team } from "@wisp/core";
-import type { Vault } from "@wisp/vault";
+import { accessChecker, atLeast, covers, personDir, soulPath, startupRules, teamChain, teamsBelow, type Agent, type Team } from "@bubble-ai/core";
+import type { Vault } from "@bubble-ai/vault";
 import type { MemoryAccess } from "./access.ts";
 import { Profiles } from "./profile.ts";
 import type { Store } from "./store.ts";
@@ -67,7 +67,7 @@ export class AgentMemory {
 
     return [
       person
-        ? `## What you know about ${person.name}\nFrom memory; ${person.name} can see and edit all of it in Wisp. When you learn something lasting about them (a preference, a plan, something they did, a small detail they mention), save it right away with memory_remember. Never save passwords, keys or other secrets.${about ? `\n\n${about}` : "\n\nNothing saved yet."}`
+        ? `## What you know about ${person.name}\nFrom memory; ${person.name} can see and edit all of it in Bubble AI. When you learn something lasting about them (a preference, a plan, something they did, a small detail they mention), save it right away with memory_remember. Never save passwords, keys or other secrets.${about ? `\n\n${about}` : "\n\nNothing saved yet."}`
         : "",
       mine,
       below,

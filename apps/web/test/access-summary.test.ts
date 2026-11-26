@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { MemoryLevel } from "@wisp/core";
+import type { MemoryLevel } from "@bubble-ai/core";
 import { accessSummary, isShared } from "../src/components/AccessDialog.tsx";
 
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false }));

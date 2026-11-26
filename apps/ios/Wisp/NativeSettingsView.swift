@@ -148,7 +148,7 @@ struct WorkspaceSettingsView: View {
         NavigationLink { DeleteOrgView(org: org) } label: { Text("Delete workspace").frame(maxWidth: .infinity) }
           .buttonStyle(.pill(.destructive)).accessibilityIdentifier("workspace-delete")
       } else {
-        CardHint(store.orgList.count > 1 ? "This is the first workspace on this Wisp, so it can't be deleted." : "Your only workspace can't be deleted. Make or join another one first.")
+        CardHint(store.orgList.count > 1 ? "This is the first workspace on this Bubble AI, so it can't be deleted." : "Your only workspace can't be deleted. Make or join another one first.")
       }
     }
   }
@@ -176,7 +176,7 @@ struct DeleteOrgView: View {
   }
 }
 
-/** Settings → Mobile (set-Mobile.dc.html): pair another phone with this Wisp by scanning a QR code, then matching a code. */
+/** Settings → Mobile (set-Mobile.dc.html): pair another phone with this Bubble AI by scanning a QR code, then matching a code. */
 struct MobileSettingsView: View {
   @Environment(Store.self) private var store
   @State private var started: Started?
@@ -195,7 +195,7 @@ struct MobileSettingsView: View {
       VStack(spacing: 14) {
         switch pairing?.state {
         case "waiting":
-          if let qr { Image(uiImage: qr).interpolation(.none).resizable().scaledToFit().frame(width: 220, height: 220).padding(10).background(Color.white, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("QR code to scan with the Wisp app on your phone") }
+          if let qr { Image(uiImage: qr).interpolation(.none).resizable().scaledToFit().frame(width: 220, height: 220).padding(10).background(Color.white, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("QR code to scan with the Bubble AI app on your phone") }
           Text("Point your camera here. It gets the app and joins.").font(.system(size: 15)).foregroundStyle(Palette.text).multilineTextAlignment(.center)
           Text("The code expires in 5 minutes.").font(.system(size: 13)).foregroundStyle(Palette.faint)
           if let hint = reachHint { Text(hint).font(.system(size: 13)).foregroundStyle(Palette.faint).multilineTextAlignment(.center) }
@@ -238,7 +238,7 @@ struct MobileSettingsView: View {
     guard let addresses = started?.addresses else { return nil }
     if addresses.isEmpty { return "Connect this computer to Wi-Fi and start again." }
     let local = addresses.allSatisfy { $0.range(of: #"^http://(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.)"#, options: .regularExpression) != nil }
-    return local ? "Your phone needs to be on the same Wi-Fi as this device, or signed in to Tailscale." : "Your phone can reach this Wisp from anywhere."
+    return local ? "Your phone needs to be on the same Wi-Fi as this device, or signed in to Tailscale." : "Your phone can reach this Bubble AI from anywhere."
   }
 
   private func start() {

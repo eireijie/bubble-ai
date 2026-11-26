@@ -25,7 +25,7 @@ declare global {
       info(): Promise<{ version: string; platform: string; device: boolean }>;
       /** with a claim, this computer becomes that waiting device; without one, a new device */
       connectDevice(claim?: { token: string; name: string }): Promise<void>;
-      /** open the system's own notifications switch for Wisp (System Settings › Notifications › Wisp) */
+      /** open the system's own notifications switch for Bubble AI (System Settings › Notifications › Bubble AI) */
       notifications?: { openSettings(): Promise<void> };
       /** the computer's own microphone permission for calls (macOS asks once; only System Settings changes it after) */
       microphone?: {
@@ -40,9 +40,9 @@ declare global {
       };
       updates: {
         status(): Promise<DesktopUpdate | null>;
-        /** look for a newer Wisp now; downloads it when there is one */
+        /** look for a newer Bubble AI now; downloads it when there is one */
         check(): Promise<DesktopUpdate | null>;
-        /** install the downloaded update and open Wisp again */
+        /** install the downloaded update and open Bubble AI again */
         restart(): Promise<void>;
       };
       buddy: {
@@ -72,7 +72,7 @@ export function useDesktopAgents() {
 
 export type DesktopInfo = { version: string; platform: string; device: boolean };
 
-/** undefined: not in the desktop app (or not asked yet); otherwise what the Wisp app says about this computer. */
+/** undefined: not in the desktop app (or not asked yet); otherwise what the Bubble AI app says about this computer. */
 export function useDesktopInfo(): { inDesktop: boolean; info: DesktopInfo | null; connect: (claim?: { token: string; name: string }) => Promise<void> } {
   const desktop = typeof window !== "undefined" ? window.wispDesktop : undefined;
   const [info, setInfo] = useState<DesktopInfo | null>(null);

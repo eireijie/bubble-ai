@@ -52,7 +52,7 @@ enum AgentAccess: String, CaseIterable, Identifiable {
     guard let device else { return "It has no device yet, so it can't touch any files." }
     switch self {
     case .readOnly: return "\(name) asks before changing any file on \(device)."
-    case .edit: return "\(name) may change files in its own working folder on \(device) (~/.wisp/agents/\(handle)) and asks before changing files elsewhere. Some harnesses can't enforce this strictly."
+    case .edit: return "\(name) may change files in its own working folder on \(device) (~/.bubble-ai/agents/\(handle)) and asks before changing files elsewhere. Some harnesses can't enforce this strictly."
     case .full: return "\(name) may change files and run commands on \(device), if \(device) allows full access (a device can refuse and drop it to Edit)."
     }
   }
@@ -145,9 +145,9 @@ enum ConnectionFormat: String, CaseIterable, Identifiable {
   func config(hub: String, token: String) -> String {
     switch self {
     case .claude:
-      return "claude mcp add wisp --env WISP_URL=\(Self.shell(hub)) --env WISP_TOKEN=\(Self.shell(token)) -- wisp-mcp"
+      return "claude mcp add bubble-ai --env BUBBLE_URL=\(Self.shell(hub)) --env BUBBLE_TOKEN=\(Self.shell(token)) -- wisp-mcp"
     case .codex:
-      return "[mcp_servers.wisp]\ncommand = \"wisp-mcp\"\nenv = { WISP_URL = \(Self.quoted(hub)), WISP_TOKEN = \(Self.quoted(token)) }"
+      return "[mcp_servers.wisp]\ncommand = \"wisp-mcp\"\nenv = { BUBBLE_URL = \(Self.quoted(hub)), BUBBLE_TOKEN = \(Self.quoted(token)) }"
     case .json:
       return """
       {
@@ -155,8 +155,8 @@ enum ConnectionFormat: String, CaseIterable, Identifiable {
           "wisp": {
             "command": "wisp-mcp",
             "env": {
-              "WISP_URL": \(Self.quoted(hub)),
-              "WISP_TOKEN": \(Self.quoted(token))
+              "BUBBLE_URL": \(Self.quoted(hub)),
+              "BUBBLE_TOKEN": \(Self.quoted(token))
             }
           }
         }

@@ -3,7 +3,7 @@ const NO_GOAL = /^Helps with whatever you need/i;
 
 /**
  * The setup onboarding recommends from what the person told it: a morning routine when "What I do"
- * says something real or page 3 found their work, else nothing (Here's your Wisp then shows only
+ * says something real or page 3 found their work, else nothing (Here's your Bubble AI then shows only
  * what was really set up).
  */
 export function recommendedSetup(person: string, role: string, facts: readonly { group: string; text: string }[]): { routine: { name: string; schedule: string; steps: string } | null } {

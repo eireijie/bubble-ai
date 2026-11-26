@@ -1,13 +1,13 @@
 import { migrateServices } from "./migrate-services.ts";
-import { envVar } from "@wisp/core";
-// `wisp service`: keep the hub or this device running with the system's own service manager:
+import { envVar } from "@bubble-ai/core";
+// `bubble-ai service`: keep the hub or this device running with the system's own service manager:
 // a LaunchAgent on macOS, systemd on Linux, and a task at sign-in on Windows (not a Windows
 // service, which runs outside the desktop session, so agents couldn't use the screen).
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { REPO_ROOT } from "@wisp/update";
+import { REPO_ROOT } from "@bubble-ai/update";
 
 export type ServiceKind = "hub" | "node";
 
@@ -23,13 +23,13 @@ interface Spec {
 const isRoot = () => process.getuid?.() === 0;
 
 export function spec(kind: ServiceKind, dir: string): Spec {
-  const script = path.join(REPO_ROOT, "bin", kind === "hub" ? "wisp-hub.mjs" : "wisp.mjs");
+  const script = path.join(REPO_ROOT, "bin", kind === "hub" ? "bubble-ai-hub.mjs" : "bubble-ai.mjs");
   // service managers start programs with a minimal PATH, so keep this terminal's: the device needs
   // it to find `claude`, `codex` and the VM engine
-  // WISP_SERVICE tells `wisp node start` it's the service itself, not a second copy started by hand
-  const env: Record<string, string> = { PATH: process.env.PATH ?? "", WISP_SERVICE: "1" };
-  if (kind === "hub") for (const k of ["WISP_DATA_DIR", "PORT", "HOST", "WISP_WEB_DIR"])  { const value = k.startsWith("WISP_") ? envVar(k.slice(5)) : process.env[k]; if (value !== undefined) env[k] = value; }
-  if (kind === "node" && dir !== path.join(os.homedir(), ".wisp")) env.WISP_NODE_DIR = dir;
+  // BUBBLE_SERVICE tells `bubble-ai node start` it's the service itself, not a second copy started by hand
+  const env: Record<string, string> = { PATH: process.env.PATH ?? "", BUBBLE_SERVICE: "1" };
+  if (kind === "hub") for (const k of ["BUBBLE_DATA_DIR", "PORT", "HOST", "BUBBLE_WEB_DIR"])  { const value = k.startsWith("BUBBLE_") ? envVar(k.slice(5)) : process.env[k]; if (value !== undefined) env[k] = value; }
+  if (kind === "node" && dir !== path.join(os.homedir(), ".bubble-ai")) env.BUBBLE_NODE_DIR = dir;
   const name = process.platform === "darwin" ? `ai.wisp.${kind}` : process.platform === "win32" ? `Wisp ${kind}` : kind === "hub" ? "wisp" : "wisp-node";
   return { kind, name, args: [process.execPath, script, ...(kind === "node" ? ["node", "start"] : [])], env, log: path.join(dir, `${kind}.log`) };
 }
@@ -68,7 +68,7 @@ function launchdPlist(s: Spec) {
 export function systemdUnit(s: Spec, system: boolean) {
   const q = (a: string) => (/[\s"\\]/.test(a) ? `"${a.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : a);
   return `[Unit]
-Description=Wisp ${s.kind === "hub" ? "hub" : "device"}
+Description=Bubble AI ${s.kind === "hub" ? "hub" : "device"}
 After=network-online.target
 Wants=network-online.target
 
@@ -149,7 +149,7 @@ export function installService(kind: ServiceKind, dir: string): Spec {
     ].join("; ");
     run("powershell.exe", ["-NoProfile", "-Command", script]);
   } else {
-    throw new Error(`Starting Wisp automatically isn't supported on ${process.platform}. Run it in a terminal instead.`);
+    throw new Error(`Starting Bubble AI automatically isn't supported on ${process.platform}. Run it in a terminal instead.`);
   }
   return s;
 }
@@ -173,7 +173,7 @@ export function uninstallService(kind: ServiceKind, dir: string) {
 
 /**
  * Whether this process is the service itself (or the keeper's child it runs), not a second copy
- * started by hand. Services installed before WISP_SERVICE existed don't set it, so this also
+ * started by hand. Services installed before BUBBLE_SERVICE existed don't set it, so this also
  * matches the service's own process id, and on macOS the job label launchd hands its jobs.
  */
 export function isService(status: { name: string; pid?: number }): boolean {

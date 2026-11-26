@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
-import { FEATURE_INFO } from "@wisp/core";
+import { FEATURE_INFO } from "@bubble-ai/core";
 import { useStore } from "../../store.ts";
 import { go, parseRoute, type Route, href } from "../../router.ts";
 import { motionReduced, useMotionReduced } from "../../theme.ts";
@@ -423,10 +423,10 @@ function Running({ run }: { run: TourRun }) {
           </span>
           <span className="mt-0.5 text-[12px] text-muted">{end ? "Done" : eyebrow(run.i, stops)}</span>
           <span id="tour-title" className="text-[16px] font-[650] leading-[21px]">
-            {end ? "That's Wisp" : stop!.title}
+            {end ? "That's Bubble AI" : stop!.title}
           </span>
           <span id="tour-body" className="text-[14px] leading-5 text-muted">
-            {end ? "Show me around stays in Help and in Settings › Learn Wisp." : stopBody(stop!, { fallback: !!shown?.fallback, phone: isPhone() })}
+            {end ? "Show me around stays in Help and in Settings › Learn Bubble AI." : stopBody(stop!, { fallback: !!shown?.fallback, phone: isPhone() })}
           </span>
           {stop?.tryIt && (
             <button type="button" onClick={tryIt} className={cx("-mx-1 flex h-7 w-fit items-center gap-1.5 rounded-md px-1 text-left text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/40", tried ? "text-ok" : "text-wisp-strong hover:underline")}>

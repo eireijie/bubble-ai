@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import type { Agent } from "@wisp/core";
-import { defaultAppearance } from "@wisp/core/src/appearance.ts";
+import type { Agent } from "@bubble-ai/core";
+import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { useStore } from "../store.ts";
 import { agentMood } from "../ghostMood.ts";
 import { Ghost, type GhostMood } from "./Ghost.tsx";

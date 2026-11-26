@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { create } from "zustand";
-import { channelTeams, type Agent, type AgentEvent, type Approval, type Channel, type ChannelNotify, type ClientEvent, type Computer, type Discussion, type Features, type Message, type LeadStatus, type ModelLogin, type Reaction, type Section, type Team, type User, type UserPrefs } from "@wisp/core";
+import { channelTeams, type Agent, type AgentEvent, type Approval, type Channel, type ChannelNotify, type ClientEvent, type Computer, type Discussion, type Features, type Message, type LeadStatus, type ModelLogin, type Reaction, type Section, type Team, type User, type UserPrefs } from "@bubble-ai/core";
 import { api } from "./api.ts";
 import { notifyOn } from "./notifications.ts";
 import { agentColor } from "./components/ui.tsx";
@@ -10,7 +10,7 @@ import { agentReadiness } from "./devices.ts";
 export interface Me {
   kind: "user";
   user: User;
-  /** how Wisp behaves for this person, on every device (Settings → Preferences) */
+  /** how Bubble AI behaves for this person, on every device (Settings → Preferences) */
   prefs: UserPrefs;
   role: "owner" | "member" | "guest";
   /** owner of the hub's first workspace: only they can make new workspaces (missing on older hubs) */
@@ -121,7 +121,7 @@ interface State {
   tasksVersion: number;
   /** bumps when a stepped team's request moves on */
   flowsVersion: number;
-  /** bumps when notes change outside Wisp, so Memory reloads */
+  /** bumps when notes change outside Bubble AI, so Memory reloads */
   memoryVersion: number;
   /** bumps when the person's model connections change (added, renamed, removed, renewed, new plan usage) */
   modelsVersion: number;
@@ -400,7 +400,7 @@ export const useStore = create<State>((set, get) => ({
           channels: s.channels.map((c) => {
             if (c.id !== m.channelId) return c;
             const summary = m.parts.some((p) => p.type === "summary");
-            // a divider or empty note from Wisp isn't what the chat is about
+            // a divider or empty note from Bubble AI isn't what the chat is about
             if (m.author.id === "system" || (!m.body && !summary && !m.parts.some((p) => p.type === "file"))) return c;
             const last = { at: m.createdAt, body: summary ? "Compacted the conversation" : m.body.slice(0, 400), author: m.author };
             return !mine && s.activeChannel !== m.channelId && c.notify !== "mute" ? { ...c, last, unread: c.unread + 1 } : { ...c, last };

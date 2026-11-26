@@ -17,7 +17,7 @@ const DOWNLOAD: Record<string, string> = {
 };
 
 /**
- * Settings → Access and the "Use Wisp from anywhere" setup step: the hub's addresses and its
+ * Settings → Access and the "Use Bubble AI from anywhere" setup step: the hub's addresses and its
  * Tailscale status, and (owners) turning Tailscale's https address on or off.
  */
 export function registerReachApi(app: FastifyInstance, hub: Hub, h: Helpers) {
@@ -30,7 +30,7 @@ export function registerReachApi(app: FastifyInstance, hub: Hub, h: Helpers) {
       /** the address to give out: Tailscale's when it's on, else null (only this network) */
       publicUrl,
       cloudflare: hub.reach.cloudflare.status(),
-      /** where Grok, ChatGPT and Claude connect while Wisp's door for them is open (Tailscale Funnel, connector paths only) */
+      /** where Grok, ChatGPT and Claude connect while Bubble AI's door for them is open (Tailscale Funnel, connector paths only) */
       connectorUrl: await hub.reach.connectorUrl(),
       lan: lanAddresses(port),
       addresses: [...new Set([...(publicUrl ? [publicUrl] : []), ...reachableAddresses(null, port)])],

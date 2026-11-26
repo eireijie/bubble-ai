@@ -17,7 +17,7 @@ struct JoinApprovalModifier: ViewModifier {
         dismissed = []
         guard store.isOwner else { store.joinRequests = []; return }
         while !Task.isCancelled {
-          // an older Wisp has no join requests; the live events still arrive if it does
+          // an older Bubble AI has no join requests; the live events still arrive if it does
           try? await store.refreshJoinRequests()
           do { try await Task.sleep(for: .seconds(15)) } catch { return }
         }

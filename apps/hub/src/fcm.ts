@@ -1,14 +1,14 @@
-import { envVar } from "@wisp/core";
+import { envVar } from "@bubble-ai/core";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import type { Hub } from "./hub.ts";
 import type { PushPayload, PushDevice } from "./apns.ts";
 
 /**
- * Push notifications to Wisp's Android app through Firebase Cloud Messaging (FCM, HTTP v1), the
+ * Push notifications to Bubble AI's Android app through Firebase Cloud Messaging (FCM, HTTP v1), the
  * Android twin of apns.ts. Optional: a hub without a Firebase service account keeps Android
  * tokens but sends nothing. The service account is the self-hoster's own (Firebase console →
- * Project settings → Service accounts → Generate new private key), from env vars (WISP_FCM_*) or,
+ * Project settings → Service accounts → Generate new private key), from env vars (BUBBLE_FCM_*) or,
  * if those aren't set, from Settings (an owner's PUT /api/settings/push/android).
  *
  * The same settings hold the Firebase *client* config (app id, API key, sender id) that the app

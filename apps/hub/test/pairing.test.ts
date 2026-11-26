@@ -86,7 +86,7 @@ describe("pairing a phone", () => {
     expect((await api("POST", `/api/pair/${qr.id}/status`, { secret: qr.secret }, "")).status).toBe(404);
     // and it's a sign-in you can see and sign out
     const sessions = (await api<any[]>("GET", "/api/me/sessions")).data;
-    expect(sessions.map((s) => s.label)).toContain("Wisp on Alex's iPhone");
+    expect(sessions.map((s) => s.label)).toContain("Bubble AI on Alex's iPhone");
   });
 
   it("can be cancelled, needs a signed-in person to start, and is only visible to them", async () => {

@@ -5,9 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { inFolder, storagePath } from "@wisp/core";
-import { createWispMcp } from "@wisp/mcp/src/server.ts";
-import { WispClient } from "@wisp/sdk";
+import { inFolder, storagePath } from "@bubble-ai/core";
+import { createWispMcp } from "@bubble-ai/mcp/src/server.ts";
+import { WispClient } from "@bubble-ai/sdk";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 import { parseMultistatus } from "../src/storage-providers.ts";
@@ -15,11 +15,11 @@ import { makeRoomAs } from "./room.ts";
 import { startStubs, type Stubs } from "./storage-stubs.ts";
 
 /**
- * The Storage mod. WebDAV runs against a real server when WISP_TEST_WEBDAV is set
+ * The Storage mod. WebDAV runs against a real server when BUBBLE_TEST_WEBDAV is set
  * ("http://127.0.0.1:8080/|user|password|/its/root/folder"), else against the stub;
  * Nextcloud's sign-in, Google Drive and Dropbox always run against stubs.
  */
-const LIVE = process.env.WISP_TEST_WEBDAV?.split("|");
+const LIVE = process.env.BUBBLE_TEST_WEBDAV?.split("|");
 
 let dir: string;
 let files: string;
@@ -198,7 +198,7 @@ describe("WebDAV", () => {
     expect(paths.some((p: string) => p.startsWith("/Private") || p.startsWith("/Clients/AcmeEvil"))).toBe(false);
   });
 
-  it("copies a file into Wisp for the agent's conversation", async () => {
+  it("copies a file into Bubble AI for the agent's conversation", async () => {
     const f = await agentCall(scoutToken)("/api/storage/agent/download", { storage: "NAS", path: "/Photos/cat.txt" });
     expect(f.status).toBe(200);
     expect(f.data).toMatchObject({ name: "cat.txt", size: 5 });

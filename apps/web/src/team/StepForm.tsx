@@ -1,5 +1,5 @@
 import { Check, Minus, Plus } from "lucide-react";
-import { DEFAULT_ROUNDS, MAX_ROUNDS_LIMIT, stepAgentId, stepGraph, stepsAfter, workSteps, type ChannelTeam, type StepRule, type TeamRole, type TeamStep, type TeamStepKind } from "@wisp/core";
+import { DEFAULT_ROUNDS, MAX_ROUNDS_LIMIT, stepAgentId, stepGraph, stepsAfter, workSteps, type ChannelTeam, type StepRule, type TeamRole, type TeamStep, type TeamStepKind } from "@bubble-ai/core";
 import { useStore } from "../store.ts";
 import { useCreateAgent } from "./NewAgent.tsx";
 import { AgentAvatar, cx } from "../components/ui.tsx";

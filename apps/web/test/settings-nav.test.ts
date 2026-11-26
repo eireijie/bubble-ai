@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { FEATURE_PRESETS } from "@wisp/core";
+import { FEATURE_PRESETS } from "@bubble-ai/core";
 
 // the settings pages read browser state when their modules load; the list itself doesn't need it
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false, THEMES: [], useAppearance: () => ({}) }));
@@ -8,8 +8,8 @@ const { SETTINGS_PAGES } = await import("../src/router.ts");
 const { FIVE, FIVE_LABEL, ROWS, fivePages, settingsLanding } = await import("../src/views/settings/map.ts");
 
 describe("settings navigation", () => {
-  it("is six pages: You, Agents, Computers, Privacy and data, About, Learn Wisp", () => {
-    expect(fivePages(false, FEATURE_PRESETS.everything).map((p) => FIVE_LABEL[p])).toEqual(["You", "Agents", "Computers", "Privacy and data", "About", "Learn Wisp"]);
+  it("is six pages: You, Agents, Computers, Privacy and data, About, Learn Bubble AI", () => {
+    expect(fivePages(false, FEATURE_PRESETS.everything).map((p) => FIVE_LABEL[p])).toEqual(["You", "Agents", "Computers", "Privacy and data", "About", "Learn Bubble AI"]);
   });
 
   it("has a sheet to open for every row that says it opens one, and no others", () => {

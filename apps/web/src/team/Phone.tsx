@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Clock, Flag, Plus, Share2, UserCheck } from "lucide-react";
-import { stepOrder, type ChannelTeam, type TeamStep } from "@wisp/core";
+import { stepOrder, type ChannelTeam, type TeamStep } from "@bubble-ai/core";
 import { useStore } from "../store.ts";
 import { AgentAvatar, Button, Modal, agentColor, cx } from "../components/ui.tsx";
 import { whenText } from "./ScheduleForm.tsx";

@@ -81,7 +81,7 @@ enum SkillShare {
     return SharedSkill(name: String((title.isEmpty ? "New skill" : title).prefix(60)), description: String(description.prefix(500)), content: body, tags: Array(tags.prefix(10)))
   }
 
-  /** The SKILL.md Wisp writes for a skill. */
+  /** The SKILL.md Bubble AI writes for a skill. */
   static func file(_ skill: HelperSkill) -> String {
     func quoted(_ v: String) -> String {
       let flat = v.split(whereSeparator: \.isWhitespace).joined(separator: " ")
@@ -262,7 +262,7 @@ struct SkillShareSheet: View {
       Button { page = .home } label: { Text("Back").frame(maxWidth: .infinity) }.secondaryButton()
       Button {
         if let s = SkillShare.read(link: pasted) ?? (pasted.contains("---") || pasted.contains("#") ? SkillShare.read(file: pasted) : nil) { found = s; action.error = nil; page = .found }
-        else { action.error = "That isn't a Wisp skill link or a SKILL.md file." }
+        else { action.error = "That isn't a Bubble AI skill link or a SKILL.md file." }
       } label: { Text("Continue").frame(maxWidth: .infinity) }.primaryButton().disabled(pasted.trimmed.isEmpty)
     }
   }

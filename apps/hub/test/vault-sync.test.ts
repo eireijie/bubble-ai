@@ -60,7 +60,7 @@ let clone: string;
 
 beforeAll(async () => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-sync-"));
-  delete process.env.WISP_VAULT_DIR;
+  delete process.env.BUBBLE_VAULT_DIR;
   const built = await buildHub({ dataDir: path.join(tmp, "data"), setupCode: false });
   hub = built.hub;
   await built.app.listen({ port: 0, host: "127.0.0.1" });
@@ -137,14 +137,14 @@ describe("memory over git", () => {
     expect(fs.readFileSync(path.join(again, "shared/big.md"), "utf8")).toHaveLength(fs.readFileSync(path.join(clone, "shared/big.md"), "utf8").length);
   });
 
-  it("pulls what agents and people wrote in Wisp", async () => {
-    await api("PUT", "/api/vault/note", { path: "shared/from-wisp.md", content: "# From Wisp\n" });
+  it("pulls what agents and people wrote in Bubble AI", async () => {
+    await api("PUT", "/api/vault/note", { path: "shared/from-wisp.md", content: "# From Bubble AI\n" });
     await git(clone, "pull", "-q", "--ff-only");
     expect(fs.existsSync(path.join(clone, "shared/from-wisp.md"))).toBe(true);
   });
 
   it("refuses a push that isn't up to date, and one that touches hidden files, links or other branches", async () => {
-    // not up to date: Wisp has a newer commit than this clone
+    // not up to date: Bubble AI has a newer commit than this clone
     fs.writeFileSync(path.join(clone, "shared/stale.md"), "stale\n");
     await git(clone, "add", "-A");
     await git(clone, "commit", "-q", "-m", "stale");
@@ -251,27 +251,27 @@ describe("memory over git", () => {
 });
 
 describe("edits made in Obsidian on this machine", () => {
-  it("show up in Wisp, credited to Obsidian, without looping on Wisp's own saves", async () => {
+  it("show up in Bubble AI, credited to Obsidian, without looping on Bubble AI's own saves", async () => {
     const root = hub.vaults.primary.root;
     fs.mkdirSync(path.join(root, "Projects"), { recursive: true });
     fs.writeFileSync(path.join(root, "Projects/Idea.md"), "# Idea\nwritten straight to disk zebrafinch\n");
     await waitFor(async () => (await api<any[]>("GET", "/api/vault/search?q=zebrafinch")).data.length > 0);
-    // the change that brought the note in (not simply the newest one: Wisp's daily tidy can commit in between)
+    // the change that brought the note in (not simply the newest one: Bubble AI's daily tidy can commit in between)
     const change = (await api<any[]>("GET", "/api/vault/changes")).data.find((c) => c.files.some((f: any) => f.path === "Projects/Idea.md"));
     expect(change).toMatchObject({ author: "Edited in Obsidian" });
     expect(change.files.map((f: any) => f.path)).toEqual(["Projects/Idea.md"]);
 
-    // Wisp's own save is not mistaken for an outside edit: one commit by the person, none for an
-    // edit found on disk. Counted by who made them, not in total and not by which is newest: Wisp
-    // also commits on a timer of its own (the daily tidy, first 30s after the hub starts), as "Wisp".
+    // Bubble AI's own save is not mistaken for an outside edit: one commit by the person, none for an
+    // edit found on disk. Counted by who made them, not in total and not by which is newest: Bubble AI
+    // also commits on a timer of its own (the daily tidy, first 30s after the hub starts), as "Bubble AI".
     const by = async (author: string) => Number(await git(root, "rev-list", "--count", `--author=^${author} <`, "HEAD"));
     const commits = async () => ({ alex: await by("Alex"), outside: await by("Edited in Obsidian") });
     const before = await commits();
-    await api("PUT", "/api/vault/note", { path: "shared/agent-note.md", content: "# Agent\nsaved by Wisp\n" });
+    await api("PUT", "/api/vault/note", { path: "shared/agent-note.md", content: "# Agent\nsaved by Bubble AI\n" });
     await sleep(2500);
     expect(await commits()).toEqual({ alex: before.alex + 1, outside: before.outside });
 
-    // editing and deleting in Wisp (the web app's Save and Delete) don't add outside-edit commits either
+    // editing and deleting in Bubble AI (the web app's Save and Delete) don't add outside-edit commits either
     await api("PUT", "/api/vault/note", { path: "shared/agent-note.md", content: "# Agent\nfixed by a person" });
     await api("DELETE", "/api/vault/note?path=shared/agent-note.md");
     await sleep(2500);
@@ -284,7 +284,7 @@ describe("edits made in Obsidian on this machine", () => {
 });
 
 describe("where memory lives", () => {
-  it("shows the folder to the owner only, and refuses folders that would hold Wisp's own data", async () => {
+  it("shows the folder to the owner only, and refuses folders that would hold Bubble AI's own data", async () => {
     const s = (await api("GET", "/api/memory/storage")).data;
     expect(s).toMatchObject({ path: hub.vaults.primary.root, source: "default", pendingRestart: false, sync: { allowed: true, urlPath: "/git/vault.git" } });
     expect((await api("GET", "/api/memory/storage", undefined, sam)).data.path).toBeNull();

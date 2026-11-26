@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { memoryPrompt, parseMemoryAnswer } from "@wisp/core/src/memory-import.ts";
+import { memoryPrompt, parseMemoryAnswer } from "@bubble-ai/core/src/memory-import.ts";
 import { api } from "./api.ts";
 import { FACT_GROUPS, NOTE_OF_GROUP, SCAN_PARTS, factsFromAnswer, loadAnswers, saveAnswers, type Fact, type ScanPart } from "./onboardingV3.ts";
 

@@ -1,5 +1,5 @@
-import { runsInVm, type Agent, type GhostShape } from "@wisp/core";
-import type { GhostAppearance } from "@wisp/core/src/appearance.ts";
+import { runsInVm, type Agent, type GhostShape } from "@bubble-ai/core";
+import type { GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api } from "../../api.ts";
 import type { DeviceInfo } from "../../devices.ts";
 import type { ComputerInfo } from "../../store.ts";
@@ -14,7 +14,7 @@ export const NO_NODE = /Node\.js isn't installed on this computer/;
 export const lookOf = (color: string, shape: GhostShape): GhostAppearance => ({ ...WHITE_WISP, shape, color, color2: undefined });
 
 /**
- * Make the first agent: on the model connection Wisp keeps for it when there is one (the hub hands
+ * Make the first agent: on the model connection Bubble AI keeps for it when there is one (the hub hands
  * it to each run, wherever the agent works), else on the harness's own sign-in where it runs.
  * Installs a new harness on the device when requested. `greetLater` holds its hello until
  * POST /api/agents/:id/greet, so it can greet with what it was just told.
@@ -44,7 +44,7 @@ export async function makeFirstAgent(device: DeviceInfo, harness: string, name: 
     if (!computer) computer = await api<ComputerInfo>("POST", "/api/computers", { kind: "vm", nodeId: device.id, name: `${name}'s desk`, cpus: 2, memoryGb: 4 });
     return api<Agent>("POST", "/api/agents", { ...common, computerId: computer.id, settings: { runIn: "computer", ...look } });
   }
-  // otherwise Wisp places it: the AI stays beside its sign-in, and it works on the shared computer
+  // otherwise Bubble AI places it: the AI stays beside its sign-in, and it works on the shared computer
   return api<Agent>("POST", "/api/agents", { ...common, useDefaults: true, settings: look });
 }
 
@@ -59,7 +59,7 @@ export interface AgentShape {
 /**
  * "Your agent" → Continue: the agent the person just named exists from here on, whatever happens
  * on "Its AI". Nothing is installed and nobody is signed in yet: it starts on `harness` (what was
- * found, or a guess the next screen replaces) where Wisp places it, and holds its hello
+ * found, or a guess the next screen replaces) where Bubble AI places it, and holds its hello
  * (`greet: "later"`) until its AI is chosen.
  */
 export function makeNamedAgent(shape: AgentShape, harness: string, device: DeviceInfo | undefined, agents: Pick<Agent, "handle">[]): Promise<Agent> {
@@ -120,7 +120,7 @@ export async function pointAgentAt(agent: Pick<Agent, "id" | "name" | "nodeId">,
   await api("PATCH", `/api/agents/${agent.id}`, { harness, ...where, settings: { connectionId } });
 }
 
-/** Claude Code or Codex on the person's computer, signed in through Wisp, can be asked for them. */
+/** Claude Code or Codex on the person's computer, signed in through Bubble AI, can be asked for them. */
 export function askableOn(device: DeviceInfo | undefined, ready: { harness: string; connectionId: string | null }[]): Askable[] {
   if (!device?.mine) return [];
   // the hub asks with the person's connection when there is one, else the device's own sign-in

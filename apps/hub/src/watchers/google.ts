@@ -1,19 +1,19 @@
-import { envVar } from "@wisp/core";
+import { envVar } from "@bubble-ai/core";
 import { getJson, line, pick, WatchError, type FoundEvent, type PollContext, type Watcher } from "./types.ts";
 
 /**
  * Google Drive (and Docs), Gmail and Calendar, read through Google's change feeds: Drive's change
  * page tokens, Gmail's history ids and Calendar's sync tokens. They need a Google sign-in through
- * an OAuth app. Wisp doesn't have its own verified one yet (see docs/connector-events.md), so these
- * only work when a hub is given one (WISP_GOOGLE_CLIENT_ID and WISP_GOOGLE_CLIENT_SECRET) and a
+ * an OAuth app. Bubble AI doesn't have its own verified one yet (see docs/connector-events.md), so these
+ * only work when a hub is given one (BUBBLE_GOOGLE_CLIENT_ID and BUBBLE_GOOGLE_CLIENT_SECRET) and a
  * watch holds the person's refresh token. Until then agents watch Google in their computer's browser.
  */
 
 const client = () => ({ id: envVar("GOOGLE_CLIENT_ID") ?? "", secret: envVar("GOOGLE_CLIENT_SECRET") ?? "" });
 
-const unavailable = () => (client().id && client().secret ? null : "Wisp doesn't have its own Google sign-in yet. Watch it in the agent's computer's browser for now.");
+const unavailable = () => (client().id && client().secret ? null : "Bubble AI doesn't have its own Google sign-in yet. Watch it in the agent's computer's browser for now.");
 
-const HOW = "Needs Wisp's Google sign-in, which isn't available yet. Until then, watch it with a browser watch on the agent's computer, where the person is signed in.";
+const HOW = "Needs Bubble AI's Google sign-in, which isn't available yet. Until then, watch it with a browser watch on the agent's computer, where the person is signed in.";
 
 /** A short-lived access token from the watch's refresh token. Cached for the life of the token. */
 const cache = new Map<string, { token: string; until: number }>();

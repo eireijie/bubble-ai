@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, PencilLine, X } from "lucide-react";
-import { personDir, type Agent } from "@wisp/core";
+import { personDir, type Agent } from "@bubble-ai/core";
 import { useStore, type Member } from "../../store.ts";
 import { AgentAvatar, GhostMark, Modal, UserAvatar, cx } from "../../components/ui.tsx";
 
@@ -130,14 +130,14 @@ export function ConfirmCard({ icon, title, children, action, keep = "Keep it", o
   );
 }
 
-/** Who made a change: an agent (by its @handle), Obsidian, Wisp itself, or a person. */
+/** Who made a change: an agent (by its @handle), Obsidian, Bubble AI itself, or a person. */
 export function whoIs(author: string, agents: Agent[], members: Member[], size = 28): { name: string; avatar: ReactNode; agent?: Agent } {
   const agent = author.startsWith("@") ? agents.find((a) => `@${a.handle}` === author) : agents.find((a) => a.name === author);
   if (agent) return { name: agent.name, agent, avatar: <AgentAvatar agent={agent} size={size} interactive={false} /> };
   if (author === "Edited in Obsidian")
     return { name: "Obsidian", avatar: <span className="shrink-0 rounded-full bg-chip grid place-items-center text-muted" style={{ width: size, height: size }}><PencilLine size={size * 0.5} /></span> };
-  if (author === "Wisp" || author === "Warren")
-    return { name: "Wisp", avatar: <span className="shrink-0 rounded-full bg-chip grid place-items-center text-muted" style={{ width: size, height: size }}><GhostMark size={size * 0.55} /></span> };
+  if (author === "Bubble AI" || author === "Warren")
+    return { name: "Bubble AI", avatar: <span className="shrink-0 rounded-full bg-chip grid place-items-center text-muted" style={{ width: size, height: size }}><GhostMark size={size * 0.55} /></span> };
   return { name: author, avatar: <UserAvatar name={author} size={size} /> };
 }
 

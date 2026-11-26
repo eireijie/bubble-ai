@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Bot, Check, ChevronRight, Cloud, Download, Laptop, Loader2, Lock, Monitor, Plus, Search, UserPlus, X } from "lucide-react";
-import { randomAppearance, type GhostAppearance } from "@wisp/core/src/appearance.ts";
+import { randomAppearance, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { Ghost } from "../components/Ghost.tsx";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx";
 import { prettyModel } from "../components/EffortSlider.tsx";
-import { HARNESSES, accountsSignedIn, preferSignedIn, runsInVm, type Agent, type AgentSignIn, type Connector, type DiscoveredAgent, type Skill } from "@wisp/core";
+import { HARNESSES, accountsSignedIn, preferSignedIn, runsInVm, type Agent, type AgentSignIn, type Connector, type DiscoveredAgent, type Skill } from "@bubble-ai/core";
 import { HarnessSignInButton } from "../components/HarnessSignInButton.tsx";
 import { api } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
@@ -93,7 +93,7 @@ export function ComputerPicker({
             <Lock size={15} />,
             "My own screen",
             node.capabilities?.screen.off
-              ? `Off. Turn it on at ${node.name}: wisp node screen on`
+              ? `Off. Turn it on at ${node.name}: bubble-ai node screen on`
               : node.capabilities?.screen.ok === false
                 ? node.capabilities.screen.detail
                 : "It runs on this computer.",
@@ -388,7 +388,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
     ...declared.map((h) => ({ id: h.id, label: h.id.slice(4), protocol: "acp" as const, note: "Available on a connected device", binary: "" })),
     HARNESSES.find((h) => h.id === "custom")!,
   ];
-  // Simple (the default): Wisp places it, so only the AI is a choice here; Advanced picks where it runs too
+  // Simple (the default): Bubble AI places it, so only the AI is a choice here; Advanced picks where it runs too
   const { advanced: pickWhere } = useComputerMode();
   const simple = !pickWhere && defaults !== "error";
   const useDefaults = (mode === "defaults" || simple) && !invite && defaults !== null && defaults !== "error";
@@ -442,7 +442,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
         };
         const common = { name: cleanName, handle: finalHandle, instructions };
         if (useDefaults) {
-          // Customize in Simple: the AI picked here, the rest placed by Wisp
+          // Customize in Simple: the AI picked here, the rest placed by Bubble AI
           const ai = mode === "custom" && !external ? { harness, ...(model.trim() ? { model: model.trim() } : {}) } : {};
           a = await api<Agent>("POST", "/api/agents", { ...common, ...ai, useDefaults: true, settings });
         } else {
@@ -849,7 +849,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
             <div className="flex items-center gap-3.5">
               <Ghost look={look} size={56} trackPointer />
               <h1 tabIndex={-1} className="min-w-0 text-[19px] font-semibold leading-[26px] outline-none">
-                Invite {cleanName} to Wisp
+                Invite {cleanName} to Bubble AI
               </h1>
             </div>
             <ConnectionInstructions token={token} harness={harness} />
@@ -1033,7 +1033,7 @@ export function ImportAgent({
       <div className="rounded-[14px] bg-card p-4 space-y-3 text-sm">
         <p className="font-medium">No saved setups found yet</p>
         <p className="text-muted">
-          {usableDevices(nodes).some((n) => n.online) ? "Wisp checks known folders on your connected devices." : "Connect a device first."}
+          {usableDevices(nodes).some((n) => n.online) ? "Bubble AI checks known folders on your connected devices." : "Connect a device first."}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="primary" onClick={onInvite}>

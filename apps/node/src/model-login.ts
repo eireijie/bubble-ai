@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { chatgptAccount, type ConnectionSecret, type HarnessLogin, type ModelLogin, type ModelProvider, type NodeToHub } from "@wisp/core";
-import { modelLoginCommand, setupTokenFrom } from "@wisp/adapters";
+import { chatgptAccount, type ConnectionSecret, type HarnessLogin, type ModelLogin, type ModelProvider, type NodeToHub } from "@bubble-ai/core";
+import { modelLoginCommand, setupTokenFrom } from "@bubble-ai/adapters";
 import { HarnessLogins } from "./harness-login.ts";
 
 /**
@@ -86,7 +86,7 @@ export class ModelLogins {
     try {
       if (l.status !== "done") return this.send({ type: "model_login_done", loginId, ok: false, error: l.error ?? "the sign-in didn't finish" });
       const got = readSecret(e.provider, e.dir, e.raw);
-      if (!got) return this.send({ type: "model_login_done", loginId, ok: false, error: "the sign-in finished, but what it saved wasn't where Wisp looked; try again" });
+      if (!got) return this.send({ type: "model_login_done", loginId, ok: false, error: "the sign-in finished, but what it saved wasn't where Bubble AI looked; try again" });
       this.send({ type: "model_login_done", loginId, ok: true, ...got });
     } finally {
       fs.rmSync(e.dir, { recursive: true, force: true });

@@ -29,7 +29,7 @@ import {
   type TeamStep,
   type TeamStepKind,
   type TeamTemplate,
-} from "@wisp/core";
+} from "@bubble-ai/core";
 
 // Editing a team's flow chart. Every change goes through `normalizeSteps`, so the arrows (`nexts`,
 // `inputs`, `next`) always agree with each other and any client can read any step. These mirror

@@ -1,20 +1,20 @@
 #!/usr/bin/env -S npx tsx
-import { envVar } from "@wisp/core";
+import { envVar } from "@bubble-ai/core";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { WispClient } from "@wisp/sdk";
+import { WispClient } from "@bubble-ai/sdk";
 import { createWispMcp } from "./server.ts";
 
 /**
  * wisp-mcp: stdio MCP server.
- *   WISP_URL    hub URL (default http://localhost:4747)
- *   WISP_TOKEN  agent token, or node token together with WISP_AGENT
- *   WISP_AGENT  agent id when using a node token
- *   WISP_RUN    the request this server works on (set by the device for each run)
+ *   BUBBLE_URL    hub URL (default http://localhost:4747)
+ *   BUBBLE_TOKEN  agent token, or node token together with BUBBLE_AGENT
+ *   BUBBLE_AGENT  agent id when using a node token
+ *   BUBBLE_RUN    the request this server works on (set by the device for each run)
  */
 const url = envVar("URL") ?? "http://localhost:4747";
 const token = envVar("TOKEN");
 if (!token) {
-  console.error("wisp-mcp: set WISP_TOKEN (create one in Wisp under Agent → Connect)");
+  console.error("wisp-mcp: set BUBBLE_TOKEN (create one in Bubble AI under Agent → Connect)");
   process.exit(1);
 }
 

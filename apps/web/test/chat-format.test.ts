@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Message } from "@wisp/core";
+import type { Message } from "@bubble-ai/core";
 import { isGrouped, needsStamp, snippetOf, stampLabel, toolLine } from "../src/chatFormat.ts";
 
 const msg = (over: Partial<Message> & { at?: string }): Message => ({ id: "m", channelId: "c", threadId: null, author: { kind: "user", id: "u" }, body: "hi", parts: [], hop: 0, createdAt: over.at ?? "2026-10-24T21:30:00.000Z", ...over }) as Message;

@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:" />
-<title>Wisp</title>
+<title>Bubble AI</title>
 <style>
-  /* Wisp's look: a dark ground with a panel, tight corners, plain left-aligned titles. Light follows the system. */
+  /* Bubble AI's look: a dark ground with a panel, tight corners, plain left-aligned titles. Light follows the system. */
   :root {
     --ground: #ececef; --panel: #ffffff; --card: #f2f2f5; --control: #ffffff; --control-line: rgb(0 0 0 / 0.12);
     --ink: #17171a; --muted: #5f5f68; --faint: #8a8a94; --line: rgb(0 0 0 / 0.08);
@@ -30,7 +30,7 @@
     font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Segoe UI", Roboto, sans-serif;
     display: flex; height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased; --k: 1;
   }
-  /* the stage where the wisps live, and beside it the panel with what you do next */
+  /* the stage where the bubbles live, and beside it the panel with what you do next */
   #stage { position: relative; flex: 1; min-width: 0; overflow: hidden; }
   .side { width: 448px; flex: none; padding: 12px 12px 12px 0; display: flex; min-height: 0; }
   main {
@@ -99,7 +99,7 @@
   .choice strong { font-size: 15px; font-weight: 500; }
   .choice .text span { color: var(--muted); font-size: 13px; }
   a { color: var(--link); }
-  /* found Wisps and waiting rows */
+  /* found Bubbles and waiting rows */
   .found { display: grid; margin: 0; }
   .found:empty { display: none; }
   .found-row { display: flex; align-items: center; gap: 12px; padding: 12px 18px; min-height: 64px; border-top: 1px solid var(--line); }
@@ -217,7 +217,7 @@
   .fix b { display: block; font-weight: 600; font-size: 14px; margin-bottom: 3px; }
   .fix p { margin: 0; color: var(--muted); font-size: 13.5px; }
   :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-  /* the wisps: the same drawing and motion as the app's ghost */
+  /* the bubbles: the same drawing and motion as the app's ghost */
   .w { position: absolute; left: 0; top: 0; width: 300px; height: 300px; pointer-events: none; transition: left 850ms cubic-bezier(0.3, 0.85, 0.3, 1), top 850ms cubic-bezier(0.3, 0.85, 0.3, 1), transform 850ms cubic-bezier(0.3, 0.85, 0.3, 1), opacity 600ms; }
   .w svg { display: block; overflow: visible; width: 100%; height: 100%; }
   @property --ga-a{syntax:"<angle>";inherits:false;initial-value:52deg}
@@ -281,7 +281,7 @@
   </div>
   <header>
     <div>
-      <h1 id="title">Welcome to Wisp</h1>
+      <h1 id="title">Welcome to Bubble AI</h1>
       <p id="subtitle">One question, then pick where your agents live.</p>
     </div>
   </header>
@@ -305,13 +305,13 @@
     </button>
     <div class="push"></div>
     <button class="primary wide" id="welcome-go">Continue</button>
-    <button class="link wide" id="pick-join">Already have a Wisp? Join it</button>
+    <button class="link wide" id="pick-join">Already have a Bubble AI? Join it</button>
   </div>
 
   <div id="create" hidden>
     <section>
       <h2>Host the server here</h2>
-      <p>Install the Wisp server on this computer. All your devices will connect to it.</p>
+      <p>Install the Bubble AI server on this computer. All your devices will connect to it.</p>
       <p class="error" id="create-error" hidden></p>
       <pre id="log" hidden></pre>
       <div class="push"></div>
@@ -337,10 +337,10 @@
 
   <div id="join" hidden>
     <section>
-      <h2>Join my Wisp</h2>
-      <p>Find your Wisp on this Wi-Fi, or paste an invite link.</p>
+      <h2>Join my Bubble AI</h2>
+      <p>Find your Bubble AI on this Wi-Fi, or paste an invite link.</p>
       <div class="group">
-        <div id="wisps" class="found"></div>
+        <div id="bubbles" class="found"></div>
         <div class="status-row"><span class="dots" id="discovery-dots" aria-hidden="true"><i></i><i></i><i></i></span><span id="discovery-status" role="status" aria-live="polite">Looking on this Wi-Fi…</span></div>
       </div>
       <div class="row"><button class="link" id="scan">Search again</button></div>
@@ -354,7 +354,7 @@
   </div>
 
   <section id="waiting" class="waiting" hidden>
-    <h2 id="waiting-title">Approve this computer on your Wisp</h2>
+    <h2 id="waiting-title">Approve this computer on your Bubble AI</h2>
     <p id="approval-host"></p>
     <div class="code" id="join-code" aria-label="Approval code"></div>
     <p id="join-status" role="status" aria-live="polite">It should show the same code.</p>
@@ -402,7 +402,7 @@
         <label class="field"><input id="cloud-name" autocomplete="name" placeholder="Name" aria-label="Name" required /></label>
         <label class="field"><input id="cloud-email" type="email" autocomplete="email" placeholder="Email" aria-label="Email" required /></label>
         <label class="field"><input id="cloud-password" type="password" autocomplete="new-password" minlength="8" required placeholder="Password" aria-label="Password" /></label>
-        <button class="primary wide" type="submit" id="cloud-go">Start Wisp</button>
+        <button class="primary wide" type="submit" id="cloud-go">Start Bubble AI</button>
       </form>
       <p class="hint" id="cloud-billing" style="text-align:center"></p>
       <p class="error" id="cloud-error" hidden></p>
@@ -433,12 +433,12 @@
   </section>
 
   <section id="unreachable" hidden>
-    <h2>Can't reach your Wisp</h2>
+    <h2>Can't reach your Bubble AI</h2>
     <p id="unreachable-detail"></p>
     <div class="row">
       <button class="primary" id="retry">Try again</button>
     </div>
-    <div class="row"><button class="link" id="switch">Start or join another Wisp</button></div>
+    <div class="row"><button class="link" id="switch">Start or join another Bubble AI</button></div>
   </section>
 </main>
 </div>
@@ -534,12 +534,12 @@
     $("scan").disabled = true;
     $("discovery-status").textContent = "Looking on this Wi-Fi…";
     $("discovery-dots").hidden = false;
-    $("wisps").replaceChildren();
+    $("bubbles").replaceChildren();
     try {
       const result = await setup.discover();
       if (generation !== scanGeneration) return;
-      $("discovery-status").textContent = result.wisps?.length ? "Found on this Wi-Fi" : result.error || "No Wisps found; ask for an invite link from your Wisp.";
-      $("wisps").replaceChildren(...(result.wisps || []).map((wisp) => {
+      $("discovery-status").textContent = result.bubbles?.length ? "Found on this Wi-Fi" : result.error || "No Bubbles found; ask for an invite link from your Bubble AI.";
+      $("bubbles").replaceChildren(...(result.bubbles || []).map((wisp) => {
         const row = document.createElement("div");
         row.className = "found-row";
         const identity = document.createElement("div");
@@ -563,7 +563,7 @@
 
   function goJoin() {
     stopJoin();
-    $("title").textContent = "Join my Wisp";
+    $("title").textContent = "Join my Bubble AI";
     $("subtitle").textContent = "Your other computer is waiting for you.";
     $("join-go").disabled = $("url").disabled = false;
     err("join-error", "");
@@ -586,12 +586,12 @@
       if (!r?.ok) throw new Error(r?.error || "Couldn't ask to join; try again.");
       expiresAt = Date.parse(r.expiresAt);
       $("join-code").textContent = `${r.code.slice(0, 3)} ${r.code.slice(3)}`;
-      $("approval-host").textContent = `Open Wisp on ${host || r.host} and approve this computer.`;
+      $("approval-host").textContent = `Open Bubble AI on ${host || r.host} and approve this computer.`;
       $("join-status").textContent = "It should show the same code.";
       $("join-expiry").textContent = "This code lasts 10 minutes.";
       $("join-again").hidden = true;
       $("join-code").hidden = false;
-      $("waiting-title").textContent = "Approve this computer on your Wisp";
+      $("waiting-title").textContent = "Approve this computer on your Bubble AI";
       $("cancel-join").textContent = "Cancel";
       err("waiting-error", "");
       show("waiting");
@@ -607,7 +607,7 @@
     $("waiting-title").textContent = status === "denied" ? "Not approved" : "This code expired";
     $("join-code").hidden = true;
     $("approval-host").textContent = "";
-    $("join-status").textContent = status === "denied" ? "This computer wasn't approved. Your Wisp said no, or nobody answered in time. You can ask again." : "This code has expired.";
+    $("join-status").textContent = status === "denied" ? "This computer wasn't approved. Your Bubble AI said no, or nobody answered in time. You can ask again." : "This code has expired.";
     $("join-expiry").textContent = "Ask to join again for a new code.";
     $("join-again").hidden = false;
     $("cancel-join").textContent = "Back";
@@ -623,7 +623,7 @@
       if (!r?.ok) throw new Error(r?.error);
       err("waiting-error", "");
       if (r.status === "approved") {
-        $("starting-title").textContent = "Opening your Wisp…";
+        $("starting-title").textContent = "Opening your Bubble AI…";
         return show("starting");
       }
       if (r.status === "denied" || r.status === "expired") return finishJoin(r.status);
@@ -636,7 +636,7 @@
 
   function goWelcome() {
     stopJoin();
-    $("title").textContent = "Welcome to Wisp";
+    $("title").textContent = "Welcome to Bubble AI";
     $("subtitle").textContent = "One question, then pick where your agents live.";
     show("welcome");
   }
@@ -646,7 +646,7 @@
     $("subtitle").textContent = "Getting your workspace ready.";
   } else if (state.step === "unreachable") {
     show("unreachable");
-    $("title").textContent = "Wisp";
+    $("title").textContent = "Bubble AI";
     $("subtitle").textContent = "";
     $("unreachable-detail").textContent = `Nothing answered at ${state.hubUrl}${state.error ? ` (${state.error})` : ""}. Check that it's running and that this computer can reach it.`;
   } else if (state.step === "create") {
@@ -694,7 +694,7 @@
     if (r?.log) { $("log").hidden = false; $("log").textContent = r.log; }
   };
   $("create-go").onclick = startWisp;
-  $("ready-go").onclick = () => afterServer("Opening your Wisp…");
+  $("ready-go").onclick = () => afterServer("Opening your Bubble AI…");
   $("join-form").onsubmit = (e) => { e.preventDefault(); requestJoin($("url").value.trim()); };
 
   // ------------------------------------------------ Cloud: a server in the person's own cloud account
@@ -718,7 +718,7 @@
   };
   // what each provider asks of the person, and its 4 GB price for the list (the real prices come from its API)
   const HOW = {
-    digitalocean: { note: "Sign in. Same price everywhere.", from: "$24", foot: "Wisp only asks to create, see and delete servers. The sign-in ends when setup does." },
+    digitalocean: { note: "Sign in. Same price everywhere.", from: "$24", foot: "Bubble AI only asks to create, see and delete servers. The sign-in ends when setup does." },
     hetzner: { note: "Cheapest in Europe. Paste an API token.", from: "€5.99", step1: "New? Hetzner may ask for an ID check before your first server.", step2: "In your project, open Security, API tokens. Make one with Read & Write and copy it.", foot: "The token stays in this window and is gone when setup ends." },
     vultr: { note: "Same price everywhere. Paste an API key.", from: "$20", step1: "New? Vultr asks for a card when you sign up.", step2: "Open Account, API. Turn the API on, allow all IPv4 and IPv6 addresses, and copy the key.", foot: "The key stays in this window and is gone when setup ends." },
   };
@@ -848,7 +848,7 @@
   };
   $("cloud-location").onchange = renderPlans;
 
-  const TIER = { 2: "agents without computers of their own", 4: "Wisp and your first agent's computer", 8: "a few agents with computers at once", 16: "many agents with computers at once" };
+  const TIER = { 2: "agents without computers of their own", 4: "Bubble AI and your first agent's computer", 8: "a few agents with computers at once", 16: "many agents with computers at once" };
   function renderPlans() {
     const loc = $("cloud-location").value;
     const place = offer.locations.find((l) => l.name === loc);
@@ -883,7 +883,7 @@
   function priceButton() {
     const p = chosen();
     if (!p) return;
-    $("cloud-go").textContent = `Start Wisp for ${money(p.monthly)}/month`;
+    $("cloud-go").textContent = `Start Bubble AI for ${money(p.monthly)}/month`;
     $("cloud-billing").textContent = `${prov.name} bills by the hour, up to ${money(p.monthly)} a month${p.ipv4 ? ` with the IPv4 address` : ""}, until you delete the server.`;
   }
 
@@ -896,7 +896,7 @@
   const STEPS = [
     ["create", "Creating the server"],
     ["boot", "Starting it"],
-    ["https", "Installing Wisp"],
+    ["https", "Installing Bubble AI"],
     ["account", "Making your account"],
   ];
   let current = "create";
@@ -985,7 +985,7 @@
       $("cloud-retry-actions").hidden = false;
       return;
     }
-    $("cloud-progress-title").textContent = "Your Wisp isn't ready yet";
+    $("cloud-progress-title").textContent = "Your Bubble AI isn't ready yet";
     $("cloud-progress-sub").textContent = `The server is on, but setting it up stopped. ${prov.name} bills for it until you delete it.`;
     showCloudFailure(r.server);
   }
@@ -1031,13 +1031,13 @@
       pickProvider(state.server.provider || "hetzner");
       show("cloud");
       cloudCard("cloud-progress");
-      $("cloud-progress-title").textContent = "Your Wisp isn't ready yet";
+      $("cloud-progress-title").textContent = "Your Bubble AI isn't ready yet";
       $("cloud-progress-sub").textContent = `${prov.name} bills for ${state.server.name} until you delete it.`;
       showCloudFailure(state.server);
     });
   }
 
-  // ------------------------------------------------ after the server: open Wisp
+  // ------------------------------------------------ after the server: open Bubble AI
   function afterServer(opening) {
     openWisp(opening);
   }
@@ -1048,7 +1048,7 @@
   }
 </script>
 <script>
-  // The stage's wisps. Plain script, because this page runs before the app does; the drawing and the
+  // The stage's bubbles. Plain script, because this page runs before the app does; the drawing and the
   // numbers come from the app's Ghost.tsx and GhostArms.tsx, so the same wisp carries on after this page.
   (() => {
 const BODY = {
@@ -1061,8 +1061,8 @@ const BODY = {
 const COLORS = [["White", "#ffffff", "#ffffff"], ["Bubblegum sky", "#8bd4ff", "#ff51bf"], ["Orchid peach", "#e771ff", "#ffd87c"], ["Coral mint", "#beffe8", "#ff797b"], ["Arctic blue", "#97fff3", "#0084ff"], ["Solar flare", "#ecca5c", "#fe3c3f"], ["Violet ember", "#ff5c43", "#6262ff"], ["Ultraviolet tide", "#7516cf", "#00e8d1"]];
 const swap = (d, a, b) => d.replaceAll(a, "§").replaceAll(b, a).replaceAll("§", b);
 const SHEET_B = "M42 52 C42 28 50 16 60 16 C70 16 78 28 78 52 C80 72 92 86 100 100 Q93 105 86 98 Q78 105 70 98 Q60 105 50 98 Q42 105 34 98 Q27 105 20 100 C28 86 40 72 42 52 Z";
-const WISP_B = "M60 16 C80 16 90 32 90 52 C90 74 80 86 70 92 C62 97 64 106 72 110 C58 110 52 100 52 92 C38 86 30 72 30 52 C30 32 40 16 60 16 Z";
-const ALT = { classic: (d) => swap(d, "104", "88"), round: (d) => swap(d, "100", "84"), tall: (d) => swap(d, "110", "94"), sheet: () => SHEET_B, wisp: () => WISP_B };
+const BUBBLE_B = "M60 16 C80 16 90 32 90 52 C90 74 80 86 70 92 C62 97 64 106 72 110 C58 110 52 100 52 92 C38 86 30 72 30 52 C30 32 40 16 60 16 Z";
+const ALT = { classic: (d) => swap(d, "104", "88"), round: (d) => swap(d, "100", "84"), tall: (d) => swap(d, "110", "94"), sheet: () => SHEET_B, wisp: () => BUBBLE_B };
 const RIG = { classic: { y: 66, x: [30, 90], tilt: [0, 0], s: .95 }, round: { y: 70, x: [22, 98], tilt: [0, 0], s: 1.08 }, tall: { y: 58, x: [38, 82], tilt: [0, 0], s: .82 }, sheet: { y: 67, x: [38.5, 81.5], tilt: [-20.4, -20.4], s: .86 }, wisp: { y: 62, x: [30.4, 89], tilt: [6.9, 11.4], s: .98 } };
 const r2 = (n) => Math.round(n * 100) / 100;
 const NONE = "M0 0";

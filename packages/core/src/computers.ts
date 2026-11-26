@@ -3,7 +3,7 @@ import { AppleMacStatus } from "./apple.ts";
 
 /**
  * Agents work on computers, like people do. A computer is one of:
- *   device  the screen of a device running `wisp node` (a laptop, a desktop, a server with a display)
+ *   device  the screen of a device running `bubble-ai node` (a laptop, a desktop, a server with a display)
  *   vm      a virtual computer that a device runs for its agents (a Linux desktop in Docker)
  *   orgo    a cloud computer from orgo.ai
  * Several agents can share one computer (its files, browser and sign-ins), and people can watch
@@ -12,7 +12,7 @@ import { AppleMacStatus } from "./apple.ts";
 export type ComputerKind = "device" | "vm" | "orgo";
 
 export interface VmConfig {
-  /** container image; default is the one Wisp builds from docker/computer */
+  /** container image; default is the one Bubble AI builds from docker/computer */
   image?: string;
   /** screen size, e.g. "1280x800" */
   resolution?: string;
@@ -79,7 +79,7 @@ export const DeviceCapabilities = z.object({
     off: z.boolean().optional(),
     /** Remote Desktop is set up at the device: live view goes through its own VNC server */
     remote: z.boolean().optional(),
-    /** opening the screen from Wisp needs the code picked at the device (a 6-digit PIN or a password) */
+    /** opening the screen from Bubble AI needs the code picked at the device (a 6-digit PIN or a password) */
     code: z.enum(["pin", "password"]).optional(),
   }),
   /** can this device run VMs for its agents? `engine`: what runs them; `image`: whether the VM image is here yet */
@@ -89,11 +89,11 @@ export const DeviceCapabilities = z.object({
     engine: z.string().max(60).optional(),
     image: z.enum(["ready", "preparing", "missing", "failed"]).optional(),
   }),
-  /** RustDesk is set up for this device (`wisp node rustdesk`): its ID, for its owner to connect with. Its password stays in RustDesk */
+  /** RustDesk is set up for this device (`bubble-ai node rustdesk`): its ID, for its owner to connect with. Its password stays in RustDesk */
   rustdesk: z.object({ id: z.string().max(40) }).optional(),
   /** other remote desktop apps found here (installed, or a VNC or Remote Desktop server answering), to suggest on the device's page */
   remoteApps: z.array(z.string().max(40)).max(10).optional(),
-  /** someone ran `wisp node pause` on the device: no agent runs and no computer use until they resume */
+  /** someone ran `bubble-ai node pause` on the device: no agent runs and no computer use until they resume */
   paused: z.boolean().optional(),
   /** which commands connectors need are on the device's PATH (npx, uvx, docker…), so a connector that can't start is caught before it's enabled */
   commands: z.record(z.string().max(100), z.boolean()).optional(),
@@ -261,8 +261,8 @@ export interface RunOutput {
 }
 
 /**
- * Remote desktop apps a person may already use to reach a device (besides RustDesk, which Wisp sets
- * up). They paste the app's ID, address or link on the device's page; Wisp only keeps that and opens
+ * Remote desktop apps a person may already use to reach a device (besides RustDesk, which Bubble AI sets
+ * up). They paste the app's ID, address or link on the device's page; Bubble AI only keeps that and opens
  * the app with it, never a password. `field`: what identifies the device in that app.
  */
 export const REMOTE_APPS = {

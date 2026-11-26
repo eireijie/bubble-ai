@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { type CatalogConnector, type Connector, type SignInOption, CONNECTOR_CATALOG, SETTINGS_HARNESSES, SIGN_IN_PROVIDERS, catalogConnector, signInReturnsTo, WISP_COMMANDS, agentSkillPath, catalogSkill, fillTemplate, harnessLabel, skillBody, skillFile, skillSlug, skillTitle, type HarnessSkillFile, type Skill } from "@wisp/core";
+import { type CatalogConnector, type Connector, type SignInOption, CONNECTOR_CATALOG, SETTINGS_HARNESSES, SIGN_IN_PROVIDERS, catalogConnector, signInReturnsTo, BUBBLE_COMMANDS, agentSkillPath, catalogSkill, fillTemplate, harnessLabel, skillBody, skillFile, skillSlug, skillTitle, type HarnessSkillFile, type Skill } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import type { Hub } from "./hub.ts";
 import { CALLBACK_PATH, ConnectorAuth, isPublicUrl } from "./connector-auth.ts";
@@ -47,7 +47,7 @@ function closePage(ok: boolean, message: string): string {
 /** Before finishing a sign-in that came back to a different browser than the one that started it. */
 function confirmSignInPage(who: string, names: string, continueTo: string, cancelTo: string): string {
   const esc = (t: string) => t.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
-  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Finish signing in</title><style>:root{color-scheme:light dark}body{font:15px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#fff;color:#141414}@media(prefers-color-scheme:dark){body{background:#121214;color:#ededf0}a.go{background:#ededf0!important;color:#121214!important}}main{max-width:380px;padding:24px 16px}h1{font-size:19px;font-weight:600;margin:0 0 8px}p{margin:0 0 16px;opacity:.8}.row{display:flex;gap:12px;align-items:center}a.go{background:#141414;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-weight:500}a.no{color:inherit;opacity:.7}</style><main><h1>Finish signing in</h1><p>${esc(who)} started this sign-in for ${esc(names)} in Wisp. Continuing connects the account you just signed in with to it. Continue only if you started it.</p><div class="row"><a class="go" href="${esc(continueTo)}">Continue</a><a class="no" href="${esc(cancelTo)}">Cancel</a></div></main>`;
+  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Finish signing in</title><style>:root{color-scheme:light dark}body{font:15px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#fff;color:#141414}@media(prefers-color-scheme:dark){body{background:#121214;color:#ededf0}a.go{background:#ededf0!important;color:#121214!important}}main{max-width:380px;padding:24px 16px}h1{font-size:19px;font-weight:600;margin:0 0 8px}p{margin:0 0 16px;opacity:.8}.row{display:flex;gap:12px;align-items:center}a.go{background:#141414;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-weight:500}a.no{color:inherit;opacity:.7}</style><main><h1>Finish signing in</h1><p>${esc(who)} started this sign-in for ${esc(names)} in Bubble AI. Continuing connects the account you just signed in with to it. Continue only if you started it.</p><div class="row"><a class="go" href="${esc(continueTo)}">Continue</a><a class="no" href="${esc(cancelTo)}">Cancel</a></div></main>`;
 }
 
 const SKILL_BODY = z.object({ name: NAME, description: z.string().trim().max(500).default(""), content: z.string().min(1).max(100_000), tags: z.array(z.string().trim().min(1).max(30)).max(10).default([]) });
@@ -174,19 +174,19 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
 
   // --- one-click sign-in for catalog apps ----------------------------------------------------------
 
-  /** How each catalog app with a sign-in can be connected from where this person opened Wisp. */
+  /** How each catalog app with a sign-in can be connected from where this person opened Bubble AI. */
   async function signInOption(entry: CatalogConnector, origin: string): Promise<{ ok: true } | { ok: false; reason: string }> {
     const s = entry.signIn!;
     if (s.via === "app") return connectors.auth.apps.available(s.provider);
     if (signInReturnsTo(origin, s.localOnly)) return { ok: true };
-    return { ok: false, reason: s.localOnly ? `${entry.name} only signs in when Wisp is open on this computer (localhost).` : `${entry.name} only signs in when Wisp is open over https or on this computer.` };
+    return { ok: false, reason: s.localOnly ? `${entry.name} only signs in when Bubble AI is open on this computer (localhost).` : `${entry.name} only signs in when Bubble AI is open over https or on this computer.` };
   }
 
   app.get("/api/connectors/sign-in", async (req, reply) => {
     const c = need(req, reply, { member: true });
     if (!c) return;
     const origin = String((req.query as { origin?: string }).origin ?? "");
-    if (!URL_.safeParse(origin).success) return reply.code(400).send({ error: "origin: the address Wisp is open at" });
+    if (!URL_.safeParse(origin).success) return reply.code(400).send({ error: "origin: the address Bubble AI is open at" });
     const out: Record<string, SignInOption> = {};
     for (const entry of CONNECTOR_CATALOG_WITH_SIGN_IN()) {
       const o = await signInOption(entry, origin);
@@ -261,8 +261,8 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
   };
 
   /**
-   * Where every sign-in comes back: GitHub, Slack and Google (through Wisp's relay, or straight
-   * here) at APP_CALLBACK_PATH, the servers' own MCP sign-ins at CALLBACK_PATH. No Wisp token here:
+   * Where every sign-in comes back: GitHub, Slack and Google (through Bubble AI's relay, or straight
+   * here) at APP_CALLBACK_PATH, the servers' own MCP sign-ins at CALLBACK_PATH. No Bubble AI token here:
    * the state ties it to the sign-in that started it, and only the browser that started it
    * finishes without being asked (a sign-in link passed to someone else must not quietly put
    * their account on the sender's connector).
@@ -317,7 +317,7 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
     if (!(await addressAllowed(c, url, {}, reply))) return;
     const s = catalogConnector(conn.catalogId ?? "")?.signIn;
     try {
-      // made by signing in through Wisp's app with GitHub, Slack or Google: sign in the same way again
+      // made by signing in through Bubble AI's app with GitHub, Slack or Google: sign in the same way again
       if (s?.via === "app" && s.url === conn.url) return { url: bindBrowser(reply, await connectors.auth.apps.start([conn.id], s.provider, s.scopes, new URL(body.origin).origin, c.actor.id, body.returnTo ?? null), body.origin) };
       const to = bindBrowser(reply, await connectors.auth.start(conn.id, url, new URL(body.origin).origin, c.actor.id, { scope: s?.via === "mcp" && s.url === conn.url ? s.scope : undefined, returnTo: body.returnTo ?? null }), body.origin);
       return to ? { url: to } : { signedIn: true };
@@ -518,8 +518,8 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
       }
     } else {
       if (skills.learnedBy(c.workspaceId, agent.id).length >= MAX_LEARNED) return reply.code(400).send({ error: "Too many learned skills. Forget some in Settings → Skills." });
-      // not a name "/" already uses for this agent: Wisp's commands, or its harness's own
-      const reserved = [...WISP_COMMANDS.map((w) => w.name), ...(hub.catalogFor(agent)?.commands ?? []).map((x) => x.name)];
+      // not a name "/" already uses for this agent: Bubble AI's commands, or its harness's own
+      const reserved = [...BUBBLE_COMMANDS.map((w) => w.name), ...(hub.catalogFor(agent)?.commands ?? []).map((x) => x.name)];
       skill = skills.create(c.workspaceId, agent.id, { name: body.name, slug: skills.freeSlug(c.workspaceId, slug, reserved), description: body.description, source: "learned", content: body.content, learnedBy: agent.id });
       skills.attach(skill.id, agent.id, true);
       skill = skills.get(skill.id)!;

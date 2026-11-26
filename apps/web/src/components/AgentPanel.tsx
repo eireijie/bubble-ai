@@ -1,8 +1,8 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { isTopOverlay, toBody, useOverlay } from "../overlays.ts";
 import { Check, ChevronLeft, ChevronRight, Eye, Hand, Loader2, Maximize2, MessageSquare, Minimize2, Shield, ShieldAlert, Video, X } from "lucide-react";
-import { harnessLabel, type AccessLevel, type Agent } from "@wisp/core";
-import { defaultAppearance } from "@wisp/core/src/appearance.ts";
+import { harnessLabel, type AccessLevel, type Agent } from "@bubble-ai/core";
+import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api } from "../api.ts";
 import { useStore, useTeams, type ComputerInfo } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
@@ -311,7 +311,7 @@ export function setupNextStep(agent: Pick<Agent, "id" | "nodeId" | "harness" | "
   if (!agent.nodeId) return { text: `Choose the computer that runs ${agent.name}.`, href: href({ view: "agents", agentId: agent.id, tab: "device" }), action: "Choose a device" };
   const device = devices?.find((d) => d.id === agent.nodeId);
   if (!device) return null;
-  if (!device.online) return { text: `Open Wisp on ${device.name} so it reconnects. Messages wait until then.`, href: href({ view: "computers", computerId: null }), action: "See computers" };
+  if (!device.online) return { text: `Open Bubble AI on ${device.name} so it reconnects. Messages wait until then.`, href: href({ view: "computers", computerId: null }), action: "See computers" };
   if (device.paused) return { text: `${device.name} is paused. Resume it on that computer.`, href: href({ view: "computers", computerId: null }), action: "See computers" };
   if (agent.signIn) return { text: `Sign in to ${harnessLabel(agent.harness)} on ${agent.signIn.where} so ${agent.name} can answer.`, href: href(agent.signIn.computerId ? { view: "agents", agentId: agent.id, tab: "computer" } : { view: "settings", page: "harnesses" }), action: "Sign in" };
   if (agentSignedIn(agent, device) === false) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Cloud, Laptop, Monitor } from "lucide-react";
-import type { Agent, DeviceCapabilities, DeviceRole } from "@wisp/core";
+import type { Agent, DeviceCapabilities, DeviceRole } from "@bubble-ai/core";
 import { useStore, type ComputerInfo } from "../store.ts";
 import type { DeviceInfo } from "../devices.ts";
 import { href } from "../router.ts";
@@ -208,14 +208,14 @@ export function askLevel(agents: Agent[], nodeId: string): { level: Exclude<AskL
   return { level: allowed.some((a) => a.settings.useDevices![nodeId] === "ask") ? "ask" : "tell", agents: allowed };
 }
 
-/** What the hub says about Wisp's version: its own, and how far behind the newest it is. */
+/** What the hub says about Bubble AI's version: its own, and how far behind the newest it is. */
 export interface HubVersion {
   version: { commit: string | null } | null;
   check: { behind: number | null } | null;
 }
 
 /**
- * Is there a newer Wisp for this device? Yes when the hub knows of one, when the device runs
+ * Is there a newer Bubble AI for this device? Yes when the hub knows of one, when the device runs
  * something other than the hub does, or when its last update failed. When nobody can tell (no
  * versions to compare), the answer is yes, so the way to update never disappears.
  */

@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
-import { GHOST_WHITE, type GhostAppearance } from "@wisp/core/src/appearance.ts";
+import { GHOST_WHITE, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { setGazeFocus } from "../../ghostGaze.ts";
 import { motionReduced } from "../../theme.ts";
 import { Ghost, type GhostMood } from "../Ghost.tsx";
 
-/** Wisp itself, before you've made an agent: plain white. */
+/** Bubble AI itself, before you've made an agent: plain white. */
 export const WHITE_WISP: GhostAppearance = { shape: "classic", ...GHOST_WHITE, eyes: "dots", mouth: "smile", cheeks: false, hat: "none", accessory: "none", motion: "float" };
 
 /** The host before it has a colour: the old ghost's own pale default, so it reads on white pages too. */

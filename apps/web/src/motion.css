@@ -1,5 +1,5 @@
 /*
- * Wisp motion language: springy, quick, purposeful. Durations stay between 180 and 320ms.
+ * Bubble AI motion language: springy, quick, purposeful. Durations stay between 180 and 320ms.
  * Only transform, opacity (and colors) animate. Easing tokens come from the approved spec:
  *   --pop     overshoot: press release, bubbles, menus, toasts, indicators
  *   --soft    tiny overshoot: sheets (large surfaces must not reveal their edges)

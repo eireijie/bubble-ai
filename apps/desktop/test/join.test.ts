@@ -21,10 +21,10 @@ describe("desktop invite addresses", () => {
 });
 
 describe("Wi-Fi discovery", () => {
-  const service = { name: "Wisp", port: 4747, addresses: ["fe80::1", "169.254.1.1", "192.168.1.2"], txt: { v: "1", id: "stable", name: "Yug's Wisp", host: "mac.local" } };
+  const service = { name: "Bubble AI", port: 4747, addresses: ["fe80::1", "169.254.1.1", "192.168.1.2"], txt: { v: "1", id: "stable", name: "Yug's Bubble AI", host: "mac.local" } };
 
   it("resolves usable addresses and requires the supported protocol", () => {
-    expect(serviceWisp(service)).toEqual({ id: "stable", name: "Yug's Wisp", host: "mac.local", url: "http://192.168.1.2:4747" });
+    expect(serviceWisp(service)).toEqual({ id: "stable", name: "Yug's Bubble AI", host: "mac.local", url: "http://192.168.1.2:4747" });
     expect(serviceWisp({ ...service, addresses: ["fd12::2"] }).url).toBe("http://[fd12::2]:4747");
     expect(serviceWisp({ ...service, txt: { v: "2" } })).toBeNull();
   });
@@ -38,9 +38,9 @@ describe("Wi-Fi discovery", () => {
     const discovery = new Discovery(() => ({ Bonjour: class { find = find; destroy = destroy; } }));
     const result = discovery.browse();
     up(service);
-    up({ ...service, txt: { ...service.txt, name: "Renamed Wisp" } });
+    up({ ...service, txt: { ...service.txt, name: "Renamed Bubble AI" } });
     await vi.advanceTimersByTimeAsync(4000);
-    expect(await result).toMatchObject({ ok: true, wisps: [{ id: "stable", name: "Renamed Wisp" }] });
+    expect(await result).toMatchObject({ ok: true, bubbles: [{ id: "stable", name: "Renamed Bubble AI" }] });
     expect(find).toHaveBeenCalledWith({ type: "wisp", protocol: "tcp" }, expect.any(Function));
     expect(browser.stop).toHaveBeenCalledOnce();
     expect(destroy).toHaveBeenCalledOnce();
@@ -56,10 +56,10 @@ describe("Wi-Fi discovery", () => {
     } }));
     const first = discovery.browse();
     discovery.cancel();
-    expect(await first).toEqual({ ok: true, wisps: [] });
+    expect(await first).toEqual({ ok: true, bubbles: [] });
     const second = discovery.browse();
     error();
-    expect(await second).toMatchObject({ ok: false, wisps: [] });
+    expect(await second).toMatchObject({ ok: false, bubbles: [] });
     expect(stop).toHaveBeenCalledTimes(2);
     expect(destroy).toHaveBeenCalledTimes(2);
   });
@@ -79,7 +79,7 @@ describe("desktop join protocol", () => {
         expect(req.url).toBe("/api/join/requests/request");
         expect(req.headers["x-join-secret"]).toBe("private");
         reads++;
-        res.end(JSON.stringify(reads === 1 ? { status: "approved", nodeId: "device", nodeToken: "device-secret", hubUrl: "http://localhost:4747", workspaceName: "My Wisp" } : { status: "approved" }));
+        res.end(JSON.stringify(reads === 1 ? { status: "approved", nodeId: "device", nodeToken: "device-secret", hubUrl: "http://localhost:4747", workspaceName: "My Bubble AI" } : { status: "approved" }));
       }
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

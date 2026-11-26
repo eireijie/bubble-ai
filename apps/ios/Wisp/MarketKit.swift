@@ -29,7 +29,7 @@ struct MarketTile: View {
   }
 }
 
-/** A small status pill: "On", "Signed in", "Coming soon", "Made by Wisp". */
+/** A small status pill: "On", "Signed in", "Coming soon", "Made by Bubble AI". */
 struct MarketPill: View {
   enum Tone { case blue, green, grey, warn }
   var text: String

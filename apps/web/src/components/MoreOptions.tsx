@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 
 /**
  * Rarely used settings, folded under a "More options" row where they live. Everyone sees the same
- * Wisp: nothing is hidden, the knobs are just one click away. `about` says what's inside.
+ * Bubble AI: nothing is hidden, the knobs are just one click away. `about` says what's inside.
  */
 export function MoreOptions({ children, about, title = "More options", className }: { children: ReactNode; about?: string; title?: string; className?: string }) {
   const [open, setOpen] = useState(false);

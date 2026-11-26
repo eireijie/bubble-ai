@@ -2,7 +2,7 @@ import { useState, type ComponentType, type ReactNode } from "react";
 import { KeyRound } from "lucide-react";
 import { SuggestionBanner } from "./SuggestionBanner.tsx";
 import { Loader2, LogIn } from "lucide-react";
-import { harnessLabel, type AgentSignIn, type HarnessSettings } from "@wisp/core";
+import { harnessLabel, type AgentSignIn, type HarnessSettings } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { go } from "../router.ts";
 import { useStore } from "../store.ts";

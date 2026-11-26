@@ -2,7 +2,7 @@ import XCTest
 
 /**
  * Walks the agent screens against `hub.py --agents`: the profile and every page under it, Edit, Look,
- * New agent and Bring an agent in. Set WISP_HUB, WISP_TOKEN, and WISP_SHOTS for screenshots.
+ * New agent and Bring an agent in. Set BUBBLE_HUB, BUBBLE_TOKEN, and BUBBLE_SHOTS for screenshots.
  */
 @MainActor
 final class AgentScreensTests: XCTestCase {
@@ -12,11 +12,11 @@ final class AgentScreensTests: XCTestCase {
     let environment = ProcessInfo.processInfo.environment
     guard let hub = envVar("HUB", in: environment), hub.hasPrefix("http"),
           let token = envVar("TOKEN", in: environment), !token.isEmpty else {
-      throw XCTSkip("Set WISP_HUB and WISP_TOKEN, pointing at WispUITests/Fixtures/hub.py --agents.")
+      throw XCTSkip("Set BUBBLE_HUB and BUBBLE_TOKEN, pointing at WispUITests/Fixtures/hub.py --agents.")
     }
     continueAfterFailure = false
-    app.launchEnvironment["WISP_HUB"] = hub
-    app.launchEnvironment["WISP_TOKEN"] = token
+    app.launchEnvironment["BUBBLE_HUB"] = hub
+    app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
     let bar = app.tabBars.firstMatch
     XCTAssertTrue(bar.buttons["Agents"].waitForExistence(timeout: 30))
@@ -101,7 +101,7 @@ final class AgentScreensTests: XCTestCase {
     let screenshot = app.screenshot()
     let image = XCTAttachment(screenshot: screenshot)
     image.name = name; image.lifetime = .keepAlways; add(image)
-    if let folder = ProcessInfo.processInfo.environment["WISP_SHOTS"], !folder.isEmpty {
+    if let folder = ProcessInfo.processInfo.environment["BUBBLE_SHOTS"], !folder.isEmpty {
       try? screenshot.pngRepresentation.write(to: URL(fileURLWithPath: folder).appendingPathComponent("\(name).png"))
     }
   }

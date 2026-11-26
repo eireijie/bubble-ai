@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { normalizeSteps, teamProblem, type ChannelTeam, type TeamStep } from "@wisp/core";
+import { normalizeSteps, teamProblem, type ChannelTeam, type TeamStep } from "@bubble-ai/core";
 
 // the pages these helpers live in read the browser as they load; none of it is used here
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false, useMotionReduced: () => false }));

@@ -1,4 +1,4 @@
-import { HARNESSES } from "@wisp/core";
+import { HARNESSES } from "@bubble-ai/core";
 import { acpAdapter } from "./acp.ts";
 import { claudeCode } from "./claude-code.ts";
 import { codex } from "./codex.ts";

@@ -45,7 +45,7 @@ Browser watches cost a check each time, about 60k tokens, so a watch shows its e
 - Document text is never fetched or kept. An event is a title, a link, who changed it and when, plus at most a one-line preview (a Slack message, an email subject). Previews are deleted once the agent's check ends, or after a day. Titles and links are kept a week.
 - People see their watches (`GET /api/watches`) and can pause them or stop them (`PATCH`/`DELETE /api/watches/:id`). Stopping deletes the watch, its key and everything it saw. Pausing drops what was waiting.
 - Keys are never returned by the API. Watches only call public addresses.
-- Watching is read-only. Anything outside Wisp the agent then wants to do still goes through `approval_request`.
+- Watching is read-only. Anything outside Bubble AI the agent then wants to do still goes through `approval_request`.
 
 ## For agents and setup flows
 
@@ -61,18 +61,18 @@ Write a `Watcher` in `apps/hub/src/watchers/` (`service`, the connector keys it 
 
 Webhooks are a follow-up. The plan is a `/hooks/<random id>` path added to the Tailscale Funnel connector door (`reach.ts`), only when the person turns it on. A push would only tell the hub to look now. Its body is never trusted, so the same cursor-based poll still decides what changed. That gives near-instant Slack, GitHub and Stripe events without widening what the public door can do. Gmail push needs a Pub/Sub topic, and Drive and Calendar push need a public HTTPS address, so for Google, polling stays the default.
 
-## Google, Meta and other big platforms: what an official Wisp app needs
+## Google, Meta and other big platforms: what an official Bubble AI app needs
 
-Today each owner would have to make their own Google Cloud project, which is developer setup most people won't do. The Google watchers are written and tested against stubbed APIs, but they stay switched off until Wisp has one shared, verified OAuth app (`WISP_GOOGLE_CLIENT_ID` / `WISP_GOOGLE_CLIENT_SECRET`). Until then, agents watch Google in their computer's browser.
+Today each owner would have to make their own Google Cloud project, which is developer setup most people won't do. The Google watchers are written and tested against stubbed APIs, but they stay switched off until Bubble AI has one shared, verified OAuth app (`BUBBLE_GOOGLE_CLIENT_ID` / `BUBBLE_GOOGLE_CLIENT_SECRET`). Until then, agents watch Google in their computer's browser.
 
 What one official Google app would take:
 
 - **Scopes.** Drive changes with file names: `drive.metadata.readonly` (restricted). Gmail sender and subject: `gmail.metadata` or `gmail.readonly` (restricted). Calendar: `calendar.readonly` (sensitive). Restricted scopes need Google's full verification plus a yearly CASA security assessment.
 - **Verification.** A verified domain and homepage for the app, a privacy policy that matches Google's Limited Use rules, a demo video of the consent flow, and a written reason for each scope. Google's own review is usually days to a few weeks; CASA is the long part.
 - **CASA (Tier 2 for these scopes).** Done by an authorized lab and renewed every year. Reported prices range from about $540 a year (Google's discounted TAC Security plan) to $3,000–4,500 at other labs, with about 1–3 weeks of lab time. Self-scans reportedly aren't accepted any more. Check Google's CASA page for current prices before budgeting.
-- **Self-hosting wrinkle.** A shared client ID means every self-hosted hub signs in through Wisp's app, and the redirect has to land on a fixed, verified address. The likely shape: a small sign-in relay on the Wisp website that hands the person's refresh token back to their own hub, and never keeps it. That relay is part of what Google reviews.
+- **Self-hosting wrinkle.** A shared client ID means every self-hosted hub signs in through Bubble AI's app, and the redirect has to land on a fixed, verified address. The likely shape: a small sign-in relay on the Bubble AI website that hands the person's refresh token back to their own hub, and never keeps it. That relay is part of what Google reviews.
 - **Until verified.** An app left "in testing" works for up to 100 named test users, but their sign-ins expire every 7 days, so it isn't good enough to ship.
 
-Meta (Instagram, Facebook, WhatsApp) is similar: Business Verification of the company behind the app, App Review for each permission (reported at a few weeks), and webhooks set up in the app dashboard. Until Wisp has those, Meta is also a browser watch.
+Meta (Instagram, Facebook, WhatsApp) is similar: Business Verification of the company behind the app, App Review for each permission (reported at a few weeks), and webhooks set up in the app dashboard. Until Bubble AI has those, Meta is also a browser watch.
 
 Sources: [Nango: Google security review](https://nango.dev/docs/api-integrations/google-shared/google-security-review), [Leviathan Security: CASA](https://leviathansecurity.com/programs/google-casa-cloud-application-security-assessment), [Google Apps Script community: CASA verification](https://groups.google.com/g/google-apps-script-community/c/XgsHT2Fr7u8), [Meta: create an app](https://developers.facebook.com/documentation/development/create-an-app.md).

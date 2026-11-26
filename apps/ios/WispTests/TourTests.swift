@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 /** Show me around on the phone: the web's stops and words (apps/web/src/tour.ts), its progress rules, and where the card and bubble go. */
 @MainActor
@@ -28,7 +28,7 @@ final class TourTests: XCTestCase {
   /**
    * Phone words that run ahead of a web change still in review, keyed by stop, holding the web's
    * current words: either is accepted so the two PRs merge in any order. Remove an entry once the
-   * web change is on main. skills: "saves it as a skill" (teach saves a skill, eireijie/wisp#118).
+   * web change is on main. skills: "saves it as a skill" (teach saves a skill, eireijie/bubble-ai#118).
    */
   static let webCatchingUp: [String: String] = [
     "skills": "Jobs agents know how to do. Add them here, or do a task once on a computer and the agent learns it.",

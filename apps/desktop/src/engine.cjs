@@ -1,7 +1,7 @@
 const { envVar } = require("./env.cjs");
-// Runs Wisp's own processes for the desktop app: a hub on this computer, and this computer as a
+// Runs Bubble AI's own processes for the desktop app: a hub on this computer, and this computer as a
 // device. Both are the same `wisp` CLI a terminal would run. A built app carries its own copy of
-// Wisp (scripts/bundle-wisp.mjs) and runs it with the app itself as Node, so it needs nothing
+// Bubble AI (scripts/bundle-bubble-ai.mjs) and runs it with the app itself as Node, so it needs nothing
 // else installed; run from source, it uses this repo and the person's own Node.js 22+.
 const { spawn, execFile, execFileSync } = require("node:child_process");
 const fs = require("node:fs");
@@ -9,7 +9,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const isWin = process.platform === "win32";
-const NODE_DIR = envVar("NODE_DIR", process.env) ?? path.join(os.homedir(), ".wisp");
+const NODE_DIR = envVar("NODE_DIR", process.env) ?? path.join(os.homedir(), ".bubble-ai");
 const NODE_CONFIG = path.join(NODE_DIR, "node.json");
 
 /**
@@ -23,8 +23,8 @@ function loginPath() {
   if (isWin) return shellPath;
   try {
     const shell = process.env.SHELL || "/bin/zsh";
-    const out = execFileSync(shell, ["-ilc", 'printf "__WISP_PATH__%s" "$PATH"'], { encoding: "utf8", timeout: 8000, stdio: ["ignore", "pipe", "ignore"] });
-    const m = out.match(/__WISP_PATH__(.*)$/m);
+    const out = execFileSync(shell, ["-ilc", 'printf "__BUBBLE_PATH__%s" "$PATH"'], { encoding: "utf8", timeout: 8000, stdio: ["ignore", "pipe", "ignore"] });
+    const m = out.match(/__BUBBLE_PATH__(.*)$/m);
     if (m && m[1]) shellPath = m[1];
   } catch {}
   const extra = ["/opt/homebrew/bin", "/usr/local/bin", path.join(os.homedir(), ".local/bin"), path.join(os.homedir(), ".volta/bin")];
@@ -35,10 +35,13 @@ function loginPath() {
 }
 
 function env(extra = {}) {
-  return { ...process.env, PATH: loginPath(), ELECTRON_RUN_AS_NODE: undefined, ...extra };
+  const out = { ...process.env, PATH: loginPath(), ELECTRON_RUN_AS_NODE: undefined, ...extra };
+  // a Wisp folder from before the rename reads WISP_* settings, so it gets those names too
+  for (const [key, value] of Object.entries(extra)) if (key.startsWith("BUBBLE_") && value !== undefined) out[`WISP_${key.slice(7)}`] ??= value;
+  return out;
 }
 
-/** The `node` that runs Wisp: 22 or newer, as Wisp needs. */
+/** The `node` that runs Bubble AI: 22 or newer, as Bubble AI needs. */
 function findNode() {
   for (const dir of loginPath().split(path.delimiter)) {
     const bin = path.join(dir, isWin ? "node.exe" : "node");
@@ -51,15 +54,17 @@ function findNode() {
   return null;
 }
 
-const isWisp = (dir) => !!dir && fs.existsSync(path.join(dir, "bin", "wisp.mjs")) && fs.existsSync(path.join(dir, "apps", "hub"));
+// bin/wisp.mjs is still there (as another name for bin/bubble-ai.mjs), so older folders count too
+const cliOf = (dir) => ["bubble-ai.mjs", "wisp.mjs"].map((cli) => path.join(dir, "bin", cli)).find((file) => fs.existsSync(file)) ?? path.join(dir, "bin", "bubble-ai.mjs");
+const isWisp = (dir) => !!dir && fs.existsSync(cliOf(dir)) && fs.existsSync(path.join(dir, "apps", "hub"));
 
-/** The Wisp folder a `wisp service install` points at (its LaunchAgent runs <dir>/bin/…). */
+/** The Bubble AI folder a `bubble-ai service install` points at (its LaunchAgent runs <dir>/bin/…). */
 function serviceWisp() {
   if (process.platform !== "darwin") return [];
   return ["wisp", "warren"].flatMap((brand) => ["hub", "node"].map((kind) => {
     try {
       const plist = fs.readFileSync(path.join(os.homedir(), "Library/LaunchAgents", `ai.${brand}.${kind}.plist`), "utf8");
-      const m = plist.match(/<string>([^<]+)\/bin\/(?:wisp|warren)(?:-hub)?\.mjs<\/string>/);
+      const m = plist.match(/<string>([^<]+)\/bin\/(?:bubble-ai|wisp|warren)(?:-hub)?\.mjs<\/string>/);
       return m ? m[1] : null;
     } catch {
       return null;
@@ -67,9 +72,9 @@ function serviceWisp() {
   }));
 }
 
-/** Where Wisp is: the saved folder, $WISP_DIR, install.sh's ~/wisp, a service's folder, or the repo this app runs from. */
+/** Where Bubble AI is: the saved folder, $BUBBLE_DIR, install.sh's ~/bubble-ai (or ~/wisp from before the rename), a service's folder, or the repo this app runs from. */
 function findWisp(saved) {
-  const candidates = [saved, envVar("DIR", process.env), path.join(os.homedir(), "wisp"), ...serviceWisp(), path.resolve(__dirname, "../../..")];
+  const candidates = [saved, envVar("DIR", process.env), path.join(os.homedir(), "bubble-ai"), path.join(os.homedir(), "wisp"), ...serviceWisp(), path.resolve(__dirname, "../../..")];
   return candidates.find(isWisp) || null;
 }
 
@@ -89,34 +94,34 @@ function writeNodeConfig(patch) {
   return next;
 }
 
-/** The copy of Wisp inside a built app ($WISP_RUNTIME points a source run at a staged one). */
+/** The copy of Bubble AI inside a built app ($BUBBLE_RUNTIME points a source run at a staged one). */
 function bundledWisp() {
   const dir = envVar("RUNTIME", process.env) ?? (process.resourcesPath ? path.join(process.resourcesPath, "wisp") : null);
   return isWisp(dir) ? dir : null;
 }
 
 /**
- * How to run Wisp here: the app's own copy with the app as Node (its data in ~/.wisp/data), or
- * from source, a Wisp folder and the person's Node.js. `problem` says what's missing.
+ * How to run Bubble AI here: the app's own copy with the app as Node (its data in ~/.bubble-ai/data), or
+ * from source, a Bubble AI folder and the person's Node.js. `problem` says what's missing.
  */
 function runtime(saved) {
   const bundled = bundledWisp();
   if (bundled)
-    return { node: process.execPath, version: process.versions.node, wispDir: bundled, bundled: true, env: { ELECTRON_RUN_AS_NODE: "1", WISP_DATA_DIR: envVar("DATA_DIR", process.env) ?? path.join(NODE_DIR, "data") } };
+    return { node: process.execPath, version: process.versions.node, wispDir: bundled, bundled: true, env: { ELECTRON_RUN_AS_NODE: "1", BUBBLE_DATA_DIR: envVar("DATA_DIR", process.env) ?? path.join(NODE_DIR, "data") } };
   const node = findNode();
   const wispDir = findWisp(saved);
-  if (!node) return { problem: "Wisp needs Node.js 22 or newer. Install it from nodejs.org, then try again." };
-  if (!wispDir) return { problem: "This copy of Wisp is missing its server. Download Wisp again, or run it from a Wisp folder." };
+  if (!node) return { problem: "Bubble AI needs Node.js 22 or newer. Install it from nodejs.org, then try again." };
+  if (!wispDir) return { problem: "This copy of Bubble AI is missing its server. Download Bubble AI again, or run it from a Bubble AI folder." };
   return { node: node.bin, version: node.version, wispDir, bundled: false, env: {} };
 }
 
 /**
- * The setup code a new Wisp on this computer saved in <data>/setup-code (apps/hub/src/setup-code.ts),
+ * The setup code a new Bubble AI on this computer saved in <data>/setup-code (apps/hub/src/setup-code.ts),
  * wherever this computer's hub keeps its data: the app's own copy, a source folder, or a service's.
  */
 function localSetupCode(saved) {
   const found = runtime(saved);
-  const dirs = [envVar("DATA_DIR", process.env), found.env?.WISP_DATA_DIR, found.wispDir && path.join(found.wispDir, "data"), ...serviceWisp().map((d) => d && path.join(d, "data"))];
+  const dirs = [envVar("DATA_DIR", process.env), found.env?.BUBBLE_DATA_DIR, found.wispDir && path.join(found.wispDir, "data"), ...serviceWisp().map((d) => d && path.join(d, "data"))];
   for (const dir of dirs.filter(Boolean)) {
     try {
       const code = fs.readFileSync(path.join(dir, "setup-code"), "utf8").trim();
@@ -126,9 +131,9 @@ function localSetupCode(saved) {
   return null;
 }
 
-/** Whether `wisp service install` already keeps this running (then the app leaves it alone). */
+/** Whether `bubble-ai service install` already keeps this running (then the app leaves it alone). */
 function serviceRunning(kind) {
-  // a service reads ~/.wisp; with another WISP_NODE_DIR, it isn't this app's device
+  // a service reads ~/.wisp; with another BUBBLE_NODE_DIR, it isn't this app's device
   if (envVar("NODE_DIR", process.env)) return Promise.resolve(false);
   return new Promise((resolve) => {
     // Same service names and user/system scope as apps/node/src/service.ts.
@@ -142,7 +147,7 @@ function serviceRunning(kind) {
   });
 }
 
-/** Restart a `wisp service`, so it picks up a node.json that now points at another hub. */
+/** Restart a `bubble-ai service`, so it picks up a node.json that now points at another hub. */
 function restartService(kind) {
   return new Promise((resolve) => {
     const done = (err) => resolve(!err);
@@ -196,7 +201,7 @@ function deviceLogConnected(origin, file = path.join(NODE_DIR, "node.log")) {
     for (const line of lines.reverse()) {
       const connected = line.match(/^\[(?:wisp|warren)\] connected to (\S+) as /);
       if (connected) return new URL(connected[1]).origin === new URL(origin).origin;
-      if (/^--- .* starting node start|^\[(?:wisp|warren)\] (?:disconnected |connection error:|hub rejected the node token|another `(?:wisp|warren) node start`)/.test(line)) return false;
+      if (/^--- .* starting node start|^\[(?:wisp|warren)\] (?:disconnected |connection error:|hub rejected the node token|another `(?:bubble-ai|wisp|warren) node start`)/.test(line)) return false;
     }
   } catch {
     return false;
@@ -228,7 +233,7 @@ function candidates(input) {
   const https = `https://${u.host}`;
   const http = `http://${u.host}`;
   const list = local ? [http, https] : [https, http];
-  if (!u.port) list.push(`http://${u.hostname}:4747`); // Wisp's own port, when it isn't behind a proxy
+  if (!u.port) list.push(`http://${u.hostname}:4747`); // Bubble AI's own port, when it isn't behind a proxy
   return [...new Set(list)];
 }
 
@@ -244,7 +249,7 @@ function reason(err, origin) {
 }
 
 /**
- * Check a server address before joining it: can this computer reach it, and is it a Wisp hub.
+ * Check a server address before joining it: can this computer reach it, and is it a Bubble AI hub.
  * Resolves with the address that worked (`url`), whether nobody has set it up yet, and the checks
  * to show, or `ok: false` with why not.
  */
@@ -263,7 +268,7 @@ async function testHub(input, { timeoutMs = 5000, fetchImpl = fetch } = {}) {
     }
     const body = await res.json().catch(() => null);
     if (!res.ok || !body || typeof body.needsSetup !== "boolean") {
-      answered ??= { ok: false, url: origin, error: `${new URL(origin).host} answered, but it isn't a Wisp server${res.ok ? "" : ` (${res.status})`}.`, checks: [{ label: "Reach the server", ok: true }, { label: "It's a Wisp server", ok: false }] };
+      answered ??= { ok: false, url: origin, error: `${new URL(origin).host} answered, but it isn't a Bubble AI server${res.ok ? "" : ` (${res.status})`}.`, checks: [{ label: "Reach the server", ok: true }, { label: "It's a Bubble AI server", ok: false }] };
       continue;
     }
     const finalOrigin = res.url ? new URL(res.url).origin : origin;
@@ -273,7 +278,7 @@ async function testHub(input, { timeoutMs = 5000, fetchImpl = fetch } = {}) {
       needsSetup: body.needsSetup,
       checks: [
         { label: `Reach ${new URL(finalOrigin).host}`, ok: true },
-        { label: "It's a Wisp server", ok: true },
+        { label: "It's a Bubble AI server", ok: true },
         { label: body.needsSetup ? "Nobody has set it up yet: you'll create the first account" : "Ready for you to sign in", ok: true },
       ],
     };
@@ -289,7 +294,7 @@ function lanAddresses(port) {
   return out;
 }
 
-/** what `wisp node start` exits with when the hub turns its token down ($WISP_EXIT_IF_REJECTED) */
+/** what `bubble-ai node start` exits with when the hub turns its token down ($BUBBLE_EXIT_IF_REJECTED) */
 const REJECTED_CODE = 78;
 
 const alive = (pid) => {
@@ -314,7 +319,7 @@ function commandOf(pid) {
 
 /**
  * The process an earlier run of the app started and never stopped (it crashed, or was force
- * quit), when it's still running: still that Wisp command, not some other process that got its id.
+ * quit), when it's still running: still that Bubble AI command, not some other process that got its id.
  */
 function leftover(pidFile, args) {
   let pid;
@@ -325,10 +330,10 @@ function leftover(pidFile, args) {
   }
   if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid || !alive(pid)) return null;
   const cmd = commandOf(pid);
-  return /(?:wisp|warren)\.mjs/.test(cmd) && cmd.includes(args.join(" ")) ? pid : null;
+  return /(?:bubble-ai|wisp|warren)\.mjs/.test(cmd) && cmd.includes(args.join(" ")) ? pid : null;
 }
 
-/** A Wisp process this app started; it stops when the app quits. */
+/** A Bubble AI process this app started; it stops when the app quits. */
 
 class Child {
   constructor(name, logDir, onChange) {
@@ -387,7 +392,7 @@ class Child {
       const out = fs.openSync(this.log, "a");
       fs.writeSync(out, `\n--- ${new Date().toISOString()} starting ${args.join(" ")}\n`);
       try {
-        proc = spawn(node, [path.join(wispDir, "bin", "wisp.mjs"), ...args], { cwd: wispDir, env: env(extraEnv), stdio: ["ignore", out, out], windowsHide: true });
+        proc = spawn(node, [cliOf(wispDir), ...args], { cwd: wispDir, env: env(extraEnv), stdio: ["ignore", out, out], windowsHide: true });
       } finally {
         fs.closeSync(out);
       }
@@ -464,4 +469,4 @@ class Child {
   }
 }
 
-module.exports = { env, Child, findNode, findWisp, isWisp, runtime, localSetupCode, hubUp, deviceConnected, deviceLogConnected, testHub, restartService, candidates, lanAddresses, serviceRunning, readNodeConfig, writeNodeConfig, NODE_CONFIG };
+module.exports = { env, Child, findNode, findWisp, isWisp, cliOf, runtime, localSetupCode, hubUp, deviceConnected, deviceLogConnected, testHub, restartService, candidates, lanAddresses, serviceRunning, readNodeConfig, writeNodeConfig, NODE_CONFIG };

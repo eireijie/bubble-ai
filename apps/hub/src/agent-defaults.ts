@@ -1,4 +1,4 @@
-import { accountsSignedIn, preferSignedIn } from "@wisp/core";
+import { accountsSignedIn, preferSignedIn } from "@bubble-ai/core";
 import type { Store } from "./store.ts";
 
 /**

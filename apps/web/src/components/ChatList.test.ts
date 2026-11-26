@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import type { ChannelInfo, LiveRun } from "../store.ts";
 import { chatPreview, chatPreviewLine, firstWaiting, type Chat, type PreviewContext } from "./ChatList.tsx";
 

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useOverlay } from "../overlays.ts";
 import { builderCovered } from "./escape.ts";
 import { ArrowUp, ChevronLeft, Loader2, MoreHorizontal, Plus, X } from "lucide-react";
-import { TEAM_TEMPLATES, type ChannelTeam, type TeamDraft, type TeamTemplate } from "@wisp/core";
+import { TEAM_TEMPLATES, type ChannelTeam, type TeamDraft, type TeamTemplate } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { inkOn } from "../chatTint.ts";
 import { useStore } from "../store.ts";

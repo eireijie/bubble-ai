@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { watchEstimate } from "@wisp/core";
+import { watchEstimate } from "@bubble-ai/core";
 import { WatchError, watcherFor, type PollContext } from "../src/watchers/index.ts";
 import { githubHtmlUrl } from "../src/watchers/github.ts";
 
@@ -128,17 +128,17 @@ describe("watchers", () => {
     expect(r.cursor).toBe("1762084901");
   });
 
-  describe("Google, once Wisp has its own sign-in", () => {
+  describe("Google, once Bubble AI has its own sign-in", () => {
     afterEach(() => {
-      delete process.env.WISP_GOOGLE_CLIENT_ID;
-      delete process.env.WISP_GOOGLE_CLIENT_SECRET;
+      delete process.env.BUBBLE_GOOGLE_CLIENT_ID;
+      delete process.env.BUBBLE_GOOGLE_CLIENT_SECRET;
     });
     const token: [RegExp, () => unknown] = [/oauth2\.googleapis\.com\/token/, () => ({ access_token: "ya29", expires_in: 3600 })];
 
     it("isn't offered until then", () => {
       expect(watcherFor("gdrive")!.unavailable!()).toMatch(/browser/);
-      process.env.WISP_GOOGLE_CLIENT_ID = "id";
-      process.env.WISP_GOOGLE_CLIENT_SECRET = "s";
+      process.env.BUBBLE_GOOGLE_CLIENT_ID = "id";
+      process.env.BUBBLE_GOOGLE_CLIENT_SECRET = "s";
       expect(watcherFor("gdrive")!.unavailable!()).toBeNull();
     });
 

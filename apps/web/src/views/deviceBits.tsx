@@ -1,4 +1,4 @@
-import type { DeviceCapabilities, DeviceRole, OwnRemoteDesktop } from "@wisp/core";
+import type { DeviceCapabilities, DeviceRole, OwnRemoteDesktop } from "@bubble-ai/core";
 
 export interface NodeInfo {
   id: string;
@@ -13,7 +13,7 @@ export interface NodeInfo {
   online: boolean;
   lastSeen: string | null;
   agents: string[];
-  /** the Wisp version it runs; null for devices from before updates */
+  /** the Bubble AI version it runs; null for devices from before updates */
   version: { commit: string | null; date: string | null } | null;
   update: { state: "idle" | "updating" | "restarting" | "failed"; message: string } | null;
   /** the remote desktop app its owner uses to reach it; only they get it */

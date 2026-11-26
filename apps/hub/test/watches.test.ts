@@ -2,14 +2,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 
 // these checks are about what a watch finds and delivers; sorting it first has its own suite (agents-work.test.ts)
-process.env.WISP_TRIAGE = "off";
+process.env.BUBBLE_TRIAGE = "off";
 
 let dir: string;
 let close: () => Promise<void>;
@@ -31,7 +31,7 @@ const fake: HarnessAdapter = {
   async run(input, onEvent) {
     calls.push(input);
     onEvent({ type: "session", id: `sess-${calls.length}` });
-    const a = new WispClient({ url: input.mcp!.env.WISP_URL, token: input.mcp!.env.WISP_TOKEN });
+    const a = new WispClient({ url: input.mcp!.env.BUBBLE_URL, token: input.mcp!.env.BUBBLE_TOKEN });
     const finalText = input.prompt.includes("## Working in the background") ? await onCheck(a, input) : "hi";
     return { finalText, sessionId: `sess-${calls.length}` };
   },
@@ -87,7 +87,7 @@ beforeAll(async () => {
   await owner.send(dm().id, "hello");
   await waitFor(() => calls.length || undefined);
   await idle();
-  agent = new WispClient({ url, token: calls[0].mcp!.env.WISP_TOKEN });
+  agent = new WispClient({ url, token: calls[0].mcp!.env.BUBBLE_TOKEN });
   await owner.request("PUT", `/api/agents/${agentId}/background`, { enabled: true, quietStart: "00:00", quietEnd: "00:00", dailyCap: null });
   await waitFor(() => hub.store.background(agentId, me)?.lastNote || undefined);
   await idle();
@@ -106,7 +106,7 @@ describe("watches", () => {
     pages = [page("p1", "Q4 notes", "2026-11-02T09:00:00.000Z")];
     const lines = () => hub.watches.promptLines({ id: "none", agentId, requestedBy: me }, "Me", String).join("\n");
     // checks suggest watching apps it's connected to, once
-    expect(lines()).toContain(`You're connected to Notion, but Wisp doesn't tell you when it changes`);
+    expect(lines()).toContain(`You're connected to Notion, but Bubble AI doesn't tell you when it changes`);
     const w = await agent.startWatch({ service: "notion" });
     expect(lines()).not.toContain("You're connected to");
     watchId = w.id;

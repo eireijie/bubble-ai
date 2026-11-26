@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { envVar } from "@wisp/core";
-import { WispClient } from "@wisp/sdk";
+import { envVar } from "@bubble-ai/core";
+import { WispClient } from "@bubble-ai/sdk";
 import { z } from "zod";
 import type { Caller } from "./api.ts";
 import { bearer, id, issueToken, now, resolveToken, sha } from "./auth.ts";
@@ -67,7 +67,7 @@ export async function oauthIssuer(req: FastifyRequest, reach: Pick<Reach, "conne
 
 /**
  * Where the person approves a sign-in. Behind the connector door it's the private Tailscale
- * address, so only the paths cloud servers call are public and Wisp's own pages never are.
+ * address, so only the paths cloud servers call are public and Bubble AI's own pages never are.
  */
 function authorizeOrigin(issuer: string): string {
   const u = new URL(issuer);
@@ -141,14 +141,14 @@ interface Code {
   expires: number;
 }
 /**
- * The MCP SDK and Wisp's MCP server, loaded when the first cloud client opens a session: only
+ * The MCP SDK and Bubble AI's MCP server, loaded when the first cloud client opens a session: only
  * `/mcp` needs them, and they were about a third of everything the hub loads to start.
  */
 const loadMcp = async () => {
   const [{ StreamableHTTPServerTransport }, { isInitializeRequest }, { createWispMcp }] = await Promise.all([
     import("@modelcontextprotocol/sdk/server/streamableHttp.js"),
     import("@modelcontextprotocol/sdk/types.js"),
-    import("@wisp/mcp/src/server.ts"),
+    import("@bubble-ai/mcp/src/server.ts"),
   ]);
   return { StreamableHTTPServerTransport, isInitializeRequest, createWispMcp };
 };
@@ -220,7 +220,7 @@ export function registerRemoteMcp(app: FastifyInstance, hub: Hub, h: Helpers) {
   const issuer = (req: FastifyRequest) => oauthIssuer(req, hub.reach);
   const resourceMetadata = async (req: FastifyRequest) => {
     const o = await issuer(req);
-    return { resource: `${o}/mcp`, authorization_servers: [o], bearer_methods_supported: ["header"], scopes_supported: ["agent"], resource_name: "Wisp" };
+    return { resource: `${o}/mcp`, authorization_servers: [o], bearer_methods_supported: ["header"], scopes_supported: ["agent"], resource_name: "Bubble AI" };
   };
   const serverMetadata = async (req: FastifyRequest) => {
     const o = await issuer(req);
@@ -297,19 +297,19 @@ export function registerRemoteMcp(app: FastifyInstance, hub: Hub, h: Helpers) {
   app.get("/oauth/authorize", async (req, reply) => {
     const q = req.query as Record<string, string | undefined>;
     const c = client(q.client_id);
-    if (!c) return problem(reply, "This app isn't connected to this Wisp yet. Remove it in the app and add it again.");
+    if (!c) return problem(reply, "This app isn't connected to this Bubble AI yet. Remove it in the app and add it again.");
     const registered = JSON.parse(c.redirect_uris_json) as string[];
     const redirectUri = q.redirect_uri ?? (registered.length === 1 ? registered[0] : undefined);
     if (!redirectUri || !redirectMatches(registered, redirectUri)) return problem(reply, "This app asked to return to an address it didn't register.");
     // nobody has approved this app yet, so a bad request gets a page here instead of a trip to its address
-    if (q.response_type !== "code") return problem(reply, "This app asked to sign in in a way Wisp doesn't support.");
+    if (q.response_type !== "code") return problem(reply, "This app asked to sign in in a way Bubble AI doesn't support.");
     if (!q.code_challenge || q.code_challenge_method !== "S256") return problem(reply, "This app has to use PKCE (S256) to connect.");
     if (q.resource) {
       let target: URL | null = null;
       try {
         target = new URL(q.resource);
       } catch {}
-      if (!target || target.host !== new URL(await issuer(req)).host || target.pathname.replace(/\/+$/, "") !== "/mcp") return problem(reply, "This app asked for a different server than this Wisp.");
+      if (!target || target.host !== new URL(await issuer(req)).host || target.pathname.replace(/\/+$/, "") !== "/mcp") return problem(reply, "This app asked for a different server than this Bubble AI.");
     }
     const requestId = random();
     if (pending.size >= MAX_PENDING) {
@@ -357,7 +357,7 @@ export function registerRemoteMcp(app: FastifyInstance, hub: Hub, h: Helpers) {
     const owner = h.deviceOwnerOf(agent);
     if (owner && owner !== c.actor.id) return reply.code(403).send({ error: `@${agent.handle} runs directly on someone's device; only they can connect to it` });
     // an app acts as the agent with all its access, which can be more than this member's own
-    if (!owner && c.viewer.role !== "owner") return reply.code(403).send({ error: `Only an owner of this Wisp can connect apps to @${agent.handle}.` });
+    if (!owner && c.viewer.role !== "owner") return reply.code(403).send({ error: `Only an owner of this Bubble AI can connect apps to @${agent.handle}.` });
     pending.delete((req.params as { id: string }).id);
     const code = random();
     codes.set(code, { clientId: p.clientId, redirectUri: p.redirectUri, challenge: p.challenge, agentId: agent.id, userId: c.actor.id, workspaceId: c.workspaceId, scope: p.scope, expires: Date.now() + CODE_TTL_MS });

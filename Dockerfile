@@ -1,4 +1,4 @@
-# Wisp hub: API, realtime, memory vault, and the web app in one image.
+# Bubble AI hub: API, realtime, memory vault, and the web app in one image.
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
@@ -25,9 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 COPY --from=build /app /app
 # A separate default lets old compose files still override WARREN_DATA_DIR.
 ENV NODE_ENV=production \
-    WISP_DEFAULT_DATA_DIR=/data \
+    BUBBLE_DEFAULT_DATA_DIR=/data \
     PORT=4747
 VOLUME ["/data"]
 EXPOSE 4747
 HEALTHCHECK --interval=30s --timeout=3s CMD node -e "fetch('http://localhost:4747/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "bin/wisp-hub.mjs"]
+CMD ["node", "bin/bubble-ai-hub.mjs"]

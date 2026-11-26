@@ -55,7 +55,7 @@ struct BubbleShape: Shape {
   }
 }
 
-/** A message's rounded bubble: Wisp violet with dark words when it's yours, grey otherwise. */
+/** A message's rounded bubble: Bubble AI violet with dark words when it's yours, grey otherwise. */
 struct Bubble<Content: View>: View {
   var side: BubbleSide
   /** the last bubble of its group: it gets a tail */
@@ -226,7 +226,7 @@ struct StreamingRow: View {
   }
 }
 
-/** "› Handed to Pappy · 4 replies · Working": a step Wisp handed out, which opens its own thread. */
+/** "› Handed to Pappy · 4 replies · Working": a step Bubble AI handed out, which opens its own thread. */
 struct HandoffRow: View {
   @Environment(Store.self) private var store
   var message: Message

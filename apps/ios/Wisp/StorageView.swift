@@ -68,7 +68,7 @@ extension Store {
     return (out.pendingId, out.loginUrl)
   }
 
-  /** The connection once the person approved Wisp in Nextcloud, or nil while waiting. */
+  /** The connection once the person approved Bubble AI in Nextcloud, or nil while waiting. */
   func pollNextcloud(_ pendingId: String) async throws -> StorageConnection? {
     struct Body: Encodable { var pendingId: String }
     struct Out: Decodable { var connection: StorageConnection? }
@@ -238,7 +238,7 @@ private struct ConnectNextcloud: View {
       MarketField(label: "Address", placeholder: "https://cloud.example.com", text: $server, keyboard: .URL, plain: true)
       MarketPrimaryButton(title: "Sign in with Nextcloud", busy: waiting, disabled: server.trimmed.isEmpty) { start() }
         .accessibilityIdentifier("storage-nextcloud-signin")
-      Text("Your Nextcloud opens in the browser to approve Wisp. Wisp gets its own app password, which you can revoke there under Security. It never sees your password.")
+      Text("Your Nextcloud opens in the browser to approve Bubble AI. Bubble AI gets its own app password, which you can revoke there under Security. It never sees your password.")
         .font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
       if waiting {
         HStack(spacing: 10) { ProgressView(); Text("Waiting for you to approve in the browser…") }.font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
@@ -293,7 +293,7 @@ private struct ConnectServer: View {
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.horizontal, 8).frame(minHeight: 50)
           .background(Palette.control, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-          Text("Wisp reads it from \(source.label) each time it opens the server and never keeps it. Use a user that can only reach the shares agents need.")
+          Text("Bubble AI reads it from \(source.label) each time it opens the server and never keeps it. Use a user that can only reach the shares agents need.")
             .font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
         } else {
           Text("No password manager is connected. Connect one in Settings → Logins, or use an app password.").font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
@@ -340,7 +340,7 @@ private struct ConnectCloud: View {
       ConnectHead(service: service, back: back)
       VStack(alignment: .leading, spacing: 4) {
         Text("Your \(google ? "Google" : "Dropbox") app").font(.system(size: 15, weight: .semibold))
-        Text("Wisp runs on your own server, so it signs in to \(service.name) through an app you make \(google ? "in Google Cloud" : "in the Dropbox App Console"). Once per workspace.")
+        Text("Bubble AI runs on your own server, so it signs in to \(service.name) through an app you make \(google ? "in Google Cloud" : "in the Dropbox App Console"). Once per workspace.")
           .font(.system(size: 13)).foregroundStyle(Palette.muted)
         Button("How") { if let help { openURL(help) } }.font(.system(size: 13, weight: .medium))
         Text("Redirect address: \((store.api?.base.absoluteString ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "/")))/api/storage/oauth/callback")

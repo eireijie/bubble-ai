@@ -104,7 +104,7 @@ extension Store {
     let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))) ?? id
     return try await fetch { try await $0.get("/api/nodes/\(device)/harness-settings/\(harness)/skills/\(escaped)", ["account": account]) }
   }
-  /** Give every agent in `agentIds` an app set up in Wisp, or take it away. */
+  /** Give every agent in `agentIds` an app set up in Bubble AI, or take it away. */
   func attachConnector(_ connector: AppConnector, agentIds: [String], on: Bool) async throws {
     for agent in agentIds {
       if on { try await fetch { try await $0.put("/api/connectors/\(connector.id)/agents/\(agent)", Empty()) } }

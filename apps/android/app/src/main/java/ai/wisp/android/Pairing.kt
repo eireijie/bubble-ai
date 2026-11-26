@@ -10,7 +10,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * What a pairing QR code from Wisp → Settings → Mobile carries:
+ * What a pairing QR code from Bubble AI → Settings → Mobile carries:
  * `wisp://pair?v=1&id=…&s=…&u=http://wisp.local:4747&u=…` (the pairing, its one-time secret,
  * and the addresses this phone might reach the computer at, best first).
  */
@@ -40,7 +40,7 @@ class PairingError(message: String) : IOException(message)
 object Pairing {
     data class Claimed(val code: String, val workspaceName: String?)
 
-    /** The first of the QR code's addresses (in its order) that answers as a Wisp hub, or null. */
+    /** The first of the QR code's addresses (in its order) that answers as a Bubble AI hub, or null. */
     fun reachable(addresses: List<String>): String? {
         val pool = Executors.newFixedThreadPool(addresses.size.coerceAtLeast(1))
         try {
@@ -79,8 +79,8 @@ object Pairing {
             throw PairingError("Couldn't reach your computer. ${e.message ?: ""}".trim())
         }
         val json = runCatching { JSONObject(text) }.getOrNull()
-        if (status !in 200..299) throw PairingError(json?.optString("error")?.ifEmpty { null } ?: "Wisp said $status")
-        return json ?: throw PairingError("Wisp sent something this app doesn't understand. Is Wisp up to date?")
+        if (status !in 200..299) throw PairingError(json?.optString("error")?.ifEmpty { null } ?: "Bubble AI said $status")
+        return json ?: throw PairingError("Bubble AI sent something this app doesn't understand. Is Bubble AI up to date?")
     }
 
     private fun request(method: String, url: String, body: JSONObject?, timeoutMs: Int): Pair<Int, String> {

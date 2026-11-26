@@ -28,54 +28,63 @@ describe("desktop updates", () => {
   });
 
   it("downloads the build for this computer", () => {
-    expect(updater.assetName("darwin", "arm64", {})).toBe("Wisp-mac-arm64.zip");
-    expect(updater.assetName("darwin", "x64", {})).toBe("Wisp-mac-x64.zip");
-    expect(updater.assetName("win32", "x64", {})).toBe("Wisp-win-x64.exe");
-    expect(updater.assetName("linux", "x64", { APPIMAGE: "/home/me/Wisp.AppImage" })).toBe("Wisp-linux-x86_64.AppImage");
+    expect(updater.assetName("darwin", "arm64", {})).toBe("Bubble-AI-mac-arm64.zip");
+    expect(updater.assetName("darwin", "x64", {})).toBe("Bubble-AI-mac-x64.zip");
+    expect(updater.assetName("win32", "x64", {})).toBe("Bubble-AI-win-x64.exe");
+    expect(updater.assetName("linux", "x64", { APPIMAGE: "/home/me/Bubble AI.AppImage" })).toBe("Bubble-AI-linux-x86_64.AppImage");
     // a .deb install updates through the package manager
     expect(updater.assetName("linux", "x64", {})).toBeNull();
   });
 
+  it("keeps publishing the Wisp-* names that Wisp apps from before the rename look for", () => {
+    const workflow = fs.readFileSync(fileURLToPath(new URL("../../../.github/workflows/desktop-release.yml", import.meta.url)), "utf8");
+    // every Bubble-AI-* build is also uploaded as Wisp-*, so Wisp-mac-arm64.zip etc. stay on each release
+    expect(workflow).toContain(`cp "$f" "Wisp-\${f#Bubble-AI-}"`);
+    expect(workflow).toContain("gh release upload \"$GITHUB_REF_NAME\" Bubble-AI-* Wisp-* --clobber");
+    for (const [platform, arch, env] of [["darwin", "arm64", {}], ["darwin", "x64", {}], ["win32", "x64", {}], ["linux", "x64", { APPIMAGE: "/a" }]] as const)
+      expect(updater.assetName(platform, arch, env)).toMatch(/^Bubble-AI-/);
+  });
+
   it("picks the newest desktop release that has this computer's build, skipping hub tags, drafts and pre-releases", () => {
     const releases = [
-      release("v0.9.0", ["Wisp-mac-arm64.zip"]),
-      release("desktop-v0.3.0", ["Wisp-mac-arm64.zip"], { prerelease: true }),
-      release("desktop-v0.2.5", ["Wisp-mac-arm64.zip"], { draft: true }),
-      release("desktop-v0.2.0", ["Wisp-win-x64.exe"]),
-      release("desktop-v0.1.2", ["Wisp-mac-arm64.zip", "Wisp-win-x64.exe"]),
-      release("desktop-v0.1.10", ["Wisp-mac-arm64.zip"]),
+      release("v0.9.0", ["Bubble-AI-mac-arm64.zip"]),
+      release("desktop-v0.3.0", ["Bubble-AI-mac-arm64.zip"], { prerelease: true }),
+      release("desktop-v0.2.5", ["Bubble-AI-mac-arm64.zip"], { draft: true }),
+      release("desktop-v0.2.0", ["Bubble-AI-win-x64.exe"]),
+      release("desktop-v0.1.2", ["Bubble-AI-mac-arm64.zip", "Bubble-AI-win-x64.exe"]),
+      release("desktop-v0.1.10", ["Bubble-AI-mac-arm64.zip"]),
     ];
-    expect(updater.pickUpdate(releases, "0.0.1", "Wisp-mac-arm64.zip")).toMatchObject({
+    expect(updater.pickUpdate(releases, "0.0.1", "Bubble-AI-mac-arm64.zip")).toMatchObject({
       version: "0.1.10",
-      url: "https://example.com/desktop-v0.1.10/Wisp-mac-arm64.zip",
+      url: "https://example.com/desktop-v0.1.10/Bubble-AI-mac-arm64.zip",
       digest: "sha256:desktop-v0.1.10",
     });
-    expect(updater.pickUpdate(releases, "0.0.1", "Wisp-win-x64.exe")?.version).toBe("0.2.0");
-    expect(updater.pickUpdate(releases, "0.1.10", "Wisp-mac-arm64.zip")).toBeNull();
+    expect(updater.pickUpdate(releases, "0.0.1", "Bubble-AI-win-x64.exe")?.version).toBe("0.2.0");
+    expect(updater.pickUpdate(releases, "0.1.10", "Bubble-AI-mac-arm64.zip")).toBeNull();
   });
 
   it("only replaces a Mac app it can write to", () => {
-    expect(updater.macBundle("/Applications/Wisp.app/Contents/MacOS/Wisp")).toBe("/Applications/Wisp.app");
-    expect(updater.canReplace("/Volumes/Wisp/Wisp.app")).toBe(false);
-    expect(updater.canReplace("/private/var/folders/x/AppTranslocation/ABC/d/Wisp.app")).toBe(false);
+    expect(updater.macBundle("/Applications/Bubble AI.app/Contents/MacOS/Bubble AI")).toBe("/Applications/Bubble AI.app");
+    expect(updater.canReplace("/Volumes/Bubble AI/Bubble AI.app")).toBe(false);
+    expect(updater.canReplace("/private/var/folders/x/AppTranslocation/ABC/d/Bubble AI.app")).toBe(false);
   });
 });
 
 describe("downloading an update", () => {
-  const body = Buffer.from("a new Wisp build");
+  const body = Buffer.from("a new Bubble AI build");
   const digest = `sha256:${crypto.createHash("sha256").update(body).digest("hex")}`;
   const serve = (bytes: Buffer) => async () => new Response(bytes);
-  const dest = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), "wisp-update-")), "Wisp.zip");
+  const dest = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), "wisp-update-")), "Bubble AI.zip");
 
   it("keeps a build that matches the release's size and checksum", async () => {
     const file = dest();
-    await updater.downloadTo("https://x/Wisp.zip", file, { size: body.length, digest }, { fetchImpl: serve(body) });
+    await updater.downloadTo("https://x/Bubble AI.zip", file, { size: body.length, digest }, { fetchImpl: serve(body) });
     expect(fs.readFileSync(file)).toEqual(body);
   });
 
   it("won't download a build the release has no checksum for", async () => {
     let fetched = false;
-    const err = await updater.downloadTo("https://x/Wisp.zip", dest(), { size: body.length, digest: null }, { fetchImpl: async () => ((fetched = true), new Response(body)) }).catch((e: Error) => e);
+    const err = await updater.downloadTo("https://x/Bubble AI.zip", dest(), { size: body.length, digest: null }, { fetchImpl: async () => ((fetched = true), new Response(body)) }).catch((e: Error) => e);
     expect(err.message).toMatch(/no checksum/);
     expect(fetched).toBe(false);
   });
@@ -83,22 +92,23 @@ describe("downloading an update", () => {
   it("throws away a build of the wrong size or checksum", async () => {
     for (const [got, size, sum] of [[body.subarray(0, 5), body.length, digest], [Buffer.concat([body, body]), body.length, digest], [body, body.length, `sha256:${"0".repeat(64)}`]] as const) {
       const file = dest();
-      await expect(updater.downloadTo("https://x/Wisp.zip", file, { size, digest: sum }, { fetchImpl: serve(got) })).rejects.toThrow();
+      await expect(updater.downloadTo("https://x/Bubble AI.zip", file, { size, digest: sum }, { fetchImpl: serve(got) })).rejects.toThrow();
       expect(fs.existsSync(file)).toBe(false);
     }
   });
 
   it("fails cleanly when the file can't be written", async () => {
-    const file = path.join(os.tmpdir(), "wisp-no-such-dir", String(Date.now()), "Wisp.zip");
-    await expect(updater.downloadTo("https://x/Wisp.zip", file, { size: body.length, digest }, { fetchImpl: serve(body) })).rejects.toThrow(/ENOENT/);
+    const file = path.join(os.tmpdir(), "wisp-no-such-dir", String(Date.now()), "Bubble AI.zip");
+    await expect(updater.downloadTo("https://x/Bubble AI.zip", file, { size: body.length, digest }, { fetchImpl: serve(body) })).rejects.toThrow(/ENOENT/);
   });
 });
 
 describe("installing an update on a Mac", () => {
-  /** Run the swap script against a pretend Wisp.app; `zip` is the downloaded build. */
-  const run = (zip: (dir: string) => string) => {
+  /** Run the swap script against a pretend Bubble AI.app; `zip` is the downloaded build. */
+  const run = (zip: (dir: string) => string, appName = "Bubble AI.app", existing: string[] = []) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-swap-"));
-    const bundle = path.join(root, "Applications", "Wisp.app");
+    const bundle = path.join(root, "Applications", appName);
+    for (const other of existing) fs.mkdirSync(path.join(root, "Applications", other, "keep"), { recursive: true });
     fs.mkdirSync(bundle, { recursive: true });
     fs.writeFileSync(path.join(bundle, "version"), "old");
     const dir = path.join(root, "updates");
@@ -112,34 +122,56 @@ describe("installing an update on a Mac", () => {
     } catch {
       ok = false;
     }
-    return { ok, version: fs.readFileSync(path.join(bundle, "version"), "utf8"), leftovers: fs.readdirSync(path.dirname(bundle)) };
+    const apps = path.dirname(bundle);
+    const installed = fs.existsSync(path.join(apps, "Bubble AI.app", "version")) ? path.join(apps, "Bubble AI.app") : bundle;
+    return { ok, version: fs.readFileSync(path.join(installed, "version"), "utf8"), leftovers: fs.readdirSync(apps).sort() };
   };
+  const build = (dir: string) => {
+    const src = path.join(dir, "src", "Bubble AI.app");
+    fs.mkdirSync(src, { recursive: true });
+    fs.writeFileSync(path.join(src, "version"), "new");
+    const zip = path.join(dir, "Bubble AI.zip");
+    execFileSync("/usr/bin/ditto", ["-c", "-k", "--keepParent", src, zip]);
+    fs.rmSync(path.join(dir, "src"), { recursive: true });
+    return zip;
+  };
+
+  it.runIf(process.platform === "darwin")("renames a Wisp.app from before the rename to Bubble AI.app", () => {
+    expect(run(build, "Wisp.app")).toEqual({ ok: true, version: "new", leftovers: ["Bubble AI.app"] });
+  });
+
+  it.runIf(process.platform === "darwin")("keeps the old path when a Bubble AI.app is already there", () => {
+    const r = run(build, "Wisp.app", ["Bubble AI.app"]);
+    expect(r.ok).toBe(true);
+    // the running app was replaced in place; the other Bubble AI.app wasn't touched
+    expect(r).toEqual({ ok: true, version: "new", leftovers: ["Bubble AI.app", "Wisp.app"] });
+  });
 
   it.runIf(process.platform === "darwin")("replaces the app with the new one", () => {
     const r = run((dir) => {
-      const src = path.join(dir, "src", "Wisp.app");
+      const src = path.join(dir, "src", "Bubble AI.app");
       fs.mkdirSync(src, { recursive: true });
       fs.writeFileSync(path.join(src, "version"), "new");
-      const zip = path.join(dir, "Wisp.zip");
+      const zip = path.join(dir, "Bubble AI.zip");
       execFileSync("/usr/bin/ditto", ["-c", "-k", "--keepParent", src, zip]);
       fs.rmSync(path.join(dir, "src"), { recursive: true });
       return zip;
     });
-    expect(r).toEqual({ ok: true, version: "new", leftovers: ["Wisp.app"] });
+    expect(r).toEqual({ ok: true, version: "new", leftovers: ["Bubble AI.app"] });
   });
 
   it.runIf(process.platform === "darwin")("leaves the old app in place when the download isn't a good build", () => {
     const r = run((dir) => {
-      const zip = path.join(dir, "Wisp.zip");
+      const zip = path.join(dir, "Bubble AI.zip");
       fs.writeFileSync(zip, "not a zip");
       return zip;
     });
-    expect(r).toEqual({ ok: false, version: "old", leftovers: ["Wisp.app"] });
+    expect(r).toEqual({ ok: false, version: "old", leftovers: ["Bubble AI.app"] });
   });
 
   it("puts the old app back if the new one can't be moved in", () => {
-    const script = updater.macScript({ pid: 1, file: "/u/W.zip", unpacked: "/u/unpacked", bundle: "/Applications/Wisp.app", dir: "/u", relaunch: true });
-    expect(script).toContain(`if ! mv "$NEW" '/Applications/Wisp.app'; then rm -rf '/Applications/Wisp.app'; mv '/Applications/Wisp.app.old' '/Applications/Wisp.app'; /usr/bin/open '/Applications/Wisp.app'; exit 1; fi`);
+    const script = updater.macScript({ pid: 1, file: "/u/W.zip", unpacked: "/u/unpacked", bundle: "/Applications/Bubble AI.app", dir: "/u", relaunch: true });
+    expect(script).toContain(`if ! mv "$NEW" "$DEST"; then rm -rf "$DEST"; mv '/Applications/Bubble AI.app.old' '/Applications/Bubble AI.app'; /usr/bin/open '/Applications/Bubble AI.app'; exit 1; fi`);
   });
 });
 
@@ -152,8 +184,8 @@ describe("starting the update installer", () => {
       children.push(child);
       return child;
     });
-    const body = Buffer.from("a new Wisp build");
-    const name = updater.assetName(platform, process.arch, { APPIMAGE: "/Wisp.AppImage" });
+    const body = Buffer.from("a new Bubble AI build");
+    const name = updater.assetName(platform, process.arch, { APPIMAGE: "/Bubble AI.AppImage" });
     const update = release("desktop-v0.0.2", [name]);
     Object.assign(update.assets[0], { size: body.length, digest: `sha256:${crypto.createHash("sha256").update(body).digest("hex")}` });
     const fetch = vi.fn(async (url: string) => url.includes("api.github.com") ? new Response(JSON.stringify([update])) : new Response(body));
@@ -165,7 +197,7 @@ describe("starting the update installer", () => {
     const module = { exports: {} as typeof updater };
     runInNewContext(fs.readFileSync(filename, "utf8"), {
       module, fetch, AbortSignal,
-      process: { ...process, platform, execPath: path.join(root, "Wisp.app", "Contents", "MacOS", "Wisp"), env: { APPIMAGE: "/Wisp.AppImage" } },
+      process: { ...process, platform, execPath: path.join(root, "Bubble AI.app", "Contents", "MacOS", "Bubble AI"), env: { APPIMAGE: "/Bubble AI.AppImage" } },
       setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms), clearTimeout: (timer: NodeJS.Timeout) => clearTimeout(timer),
       require: (name: string) => name === "node:child_process" ? { spawn } : name === "node:os" ? { tmpdir: () => root } : require(name),
     });
@@ -220,7 +252,7 @@ describe("starting the update installer", () => {
     } finally { f.cleanup(); }
   });
 
-  it("keeps Wisp open and the download retryable when the spawn deadline expires", async () => {
+  it("keeps Bubble AI open and the download retryable when the spawn deadline expires", async () => {
     const f = await fixture();
     vi.useFakeTimers();
     try {
@@ -270,7 +302,7 @@ describe("starting the update installer", () => {
 describe("update request deadlines", () => {
   it("aborts and removes a download whose body stalls", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-update-timeout-"));
-    const file = path.join(root, "Wisp.zip");
+    const file = path.join(root, "Bubble AI.zip");
     try {
       await expect(updater.downloadTo("https://hub/build", file, { digest: `sha256:${"0".repeat(64)}` }, {
         timeoutMs: 10, fetchImpl: async (_url: string, init: RequestInit) => {
@@ -285,7 +317,7 @@ describe("update request deadlines", () => {
   it("reports a check from the Updates page without a notification", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-updater-"));
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => [] })));
-    vi.stubEnv("APPIMAGE", "/Wisp.AppImage");
+    vi.stubEnv("APPIMAGE", "/Bubble AI.AppImage");
     try {
       const notify = vi.fn();
       const app = { isPackaged: true, getPath: () => root, getVersion: () => "0.0.1" };
@@ -310,7 +342,7 @@ describe("update request deadlines", () => {
     });
     vi.stubGlobal("fetch", fetch);
     // on Linux the updater only runs for AppImage builds, so CI needs to look like one
-    vi.stubEnv("APPIMAGE", "/Wisp.AppImage");
+    vi.stubEnv("APPIMAGE", "/Bubble AI.AppImage");
     try {
       const app = { isPackaged: true, getPath: () => root, getVersion: () => "0.0.1" };
       const u = updater.createUpdater({ app, refresh: vi.fn(), log: vi.fn(), notify: vi.fn() });

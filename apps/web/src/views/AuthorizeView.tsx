@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { ArrowRight, Check, Globe, Plus } from "lucide-react";
 import { AgentAvatar, cx } from "../components/ui.tsx";
@@ -17,7 +17,7 @@ export function handleFor(name: string, taken: string[]): string {
 }
 
 /**
- * An app connecting to Wisp by URL (Grok, ChatGPT, Claude…) signs in here: the person picks
+ * An app connecting to Bubble AI by URL (Grok, ChatGPT, Claude…) signs in here: the person picks
  * which agent it acts as, or makes one for it, and is sent back to the app.
  */
 export function AuthorizeView({ requestId }: { requestId: string }) {
@@ -83,7 +83,7 @@ export function AuthorizeView({ requestId }: { requestId: string }) {
           <span className="auth-bob">
             <WispGhost size={60} />
           </span>
-          <span className="sr-only">Wisp</span>
+          <span className="sr-only">Bubble AI</span>
           <p className={cx("text-sm text-center", error ? "text-bad" : "text-muted")}>{error ?? "Loading…"}</p>
         </div>
       ) : (
@@ -94,7 +94,7 @@ export function AuthorizeView({ requestId }: { requestId: string }) {
             </span>
             <ArrowRight size={22} className="text-faint" aria-hidden />
             <WispGhost size={60} className="text-ink" />
-            <span className="sr-only">Wisp</span>
+            <span className="sr-only">Bubble AI</span>
           </div>
           <h1 className="t-title text-center">Let {info.client} act as an agent?</h1>
           <div className="rounded-3xl bg-card overflow-hidden divide-y divide-line" role="radiogroup" aria-label="Which agent">

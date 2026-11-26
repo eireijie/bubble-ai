@@ -1,6 +1,6 @@
 import SwiftUI
 
-/** Who made a change: an agent (by its @handle), Obsidian, Wisp itself, or a person. */
+/** Who made a change: an agent (by its @handle), Obsidian, Bubble AI itself, or a person. */
 struct ChangeAuthor {
   var name: String
   var kind: String?
@@ -12,7 +12,7 @@ struct ChangeAuthor {
       return ChangeAuthor(name: agent.name, kind: "agent", agent: agent)
     }
     if author == "Edited in Obsidian" { return ChangeAuthor(name: "Obsidian", kind: "on disk", symbol: "pencil.line") }
-    if author == "Wisp" || author == "Warren" { return ChangeAuthor(name: "Wisp", symbol: "sparkle") }
+    if author == "Bubble AI" || author == "Warren" { return ChangeAuthor(name: "Bubble AI", symbol: "sparkle") }
     return ChangeAuthor(name: author, kind: "person")
   }
 }

@@ -1,10 +1,10 @@
 import SwiftUI
 
-// The pieces of the screens before you're in the app (pairing, waiting, errors): the Wisp ghost
+// The pieces of the screens before you're in the app (pairing, waiting, errors): the Bubble AI ghost
 // bobbing over a big title, a tall code card, and full-width pill buttons. They follow the
 // approved design (auth-Pair*, auth-Join*) and build on Palette and Chrome.
 
-/** Wisp's ghost as one simple piece, drawn in a 24-point box like the design's path. */
+/** Bubble AI's ghost as one simple piece, drawn in a 24-point box like the design's path. */
 struct WispGhostShape: Shape {
   func path(in rect: CGRect) -> Path {
     let s = min(rect.width, rect.height) / 24

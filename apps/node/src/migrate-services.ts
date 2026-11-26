@@ -21,20 +21,20 @@ const quote = (s: string) => `'${s.replaceAll("'", "''")}'`;
 /** Rewrite only our names/paths; all arguments and environment settings remain in the definition. */
 export function rewriteService(text: string, moveHome = true): string {
   return text.replace(/ai\.warren\.(hub|node)/g, "ai.wisp.$1")
-    .replace(/Warren (hub|node|device)/g, "Wisp $1")
-    .replace(/WARREN_/g, "WISP_")
-    .replace(/([/\\])\.warren(?=[/\\]|[\s"'<]|$)/g, moveHome ? "$1.wisp" : "$1.warren")
+    .replace(/Warren (hub|node|device)/g, "Bubble AI $1")
+    .replace(/WARREN_/g, "BUBBLE_")
+    .replace(/([/\\])\.warren(?=[/\\]|[\s"'<]|$)/g, moveHome ? "$1.bubble-ai" : "$1.warren")
     .replace(/\/var\/lib\/warren(?=\/|[\s"'<]|$)/g, "/var/lib/wisp")
     .replace(/\/opt\/warren(?=\/|[\s"'<]|$)/g, "/opt/wisp")
-    .replace(/warren(-hub|-mcp)?\.mjs/g, "wisp$1.mjs")
+    .replace(/warren(-hub|-mcp)?\.mjs/g, "bubble-ai$1.mjs")
     .replace(/\bwarren-node(?=\.service|[\s"'<]|$)/g, "wisp-node")
     .replace(/\bwarren(?=\.service)/g, "wisp")
-    .replace(/([/\\]bin[/\\])warren(-hub|-mcp)?(?=[\s"'<]|$)/g, "$1wisp$2");
+    .replace(/([/\\]bin[/\\])warren(-hub|-mcp)?(?=[\s"'<]|$)/g, "$1bubble-ai$2");
 }
 
 /** Older CLI-installed hubs defaulted to <checkout>/data. Make that choice explicit on upgrade. */
 function preserveHubData(text: string, platform: NodeJS.Platform, io: typeof fs): string {
-  if (/(?:WARREN|WISP)_DATA_DIR/.test(text)) return text;
+  if (/(?:WARREN|WISP|BUBBLE)_DATA_DIR/.test(text)) return text;
   const decode = (value: string) => value.replaceAll("&quot;", '"').replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
   const xml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   const directory = platform === "darwin" ? text.match(/<key>WorkingDirectory<\/key>\s*<string>([^<]+)<\/string>/)?.[1]
@@ -44,19 +44,19 @@ function preserveHubData(text: string, platform: NodeJS.Platform, io: typeof fs)
   const data = path.join(decode(directory), "data");
   if (!io.existsSync(data)) return text;
   if (platform === "darwin") {
-    const setting = `<key>WISP_DATA_DIR</key><string>${xml(data)}</string>`;
+    const setting = `<key>BUBBLE_DATA_DIR</key><string>${xml(data)}</string>`;
     if (/<key>EnvironmentVariables<\/key>\s*<dict>/.test(text)) return text.replace(/(<key>EnvironmentVariables<\/key>\s*<dict>)/, `$1${setting}`);
     return text.replace(/(<plist[^>]*>\s*<dict>)/, `$1<key>EnvironmentVariables</key><dict>${setting}</dict>`);
   }
-  if (platform === "linux") return text.replace(/^(\[Service\])$/m, `$1\nEnvironment="WISP_DATA_DIR=${data.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`);
+  if (platform === "linux") return text.replace(/^(\[Service\])$/m, `$1\nEnvironment="BUBBLE_DATA_DIR=${data.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`);
   // Standard PowerShell actions emitted by the CLI use -Command followed by the script.
-  return text.replace(/(<Arguments>[^<]*?-Command )/, `$1${xml(`$env:WISP_DATA_DIR=${quote(data)}; `)}`);
+  return text.replace(/(<Arguments>[^<]*?-Command )/, `$1${xml(`$env:BUBBLE_DATA_DIR=${quote(data)}; `)}`);
 }
 
 /** Injectable single entry point used by startup, service commands and the desktop's migrate command. */
 export function migrateServices({ platform = process.platform, home, run = serviceRunner, fs: io = fs, uid = process.getuid?.() ?? 0, systemDir = "/etc/systemd/system", system = uid === 0, kinds = ["hub", "node"], removeOnly = false, log = () => {} }: ServiceMigrationOptions): string[] {
   const changed: string[] = [];
-  const moveHome = !(io.existsSync(path.join(home, ".warren")) && !io.existsSync(path.join(home, ".wisp")));
+  const moveHome = !(io.existsSync(path.join(home, ".warren")) && !io.existsSync(path.join(home, ".bubble-ai")));
   const rewrite = (text: string, kind: "hub" | "node") => {
     let next = rewriteService(kind === "hub" ? preserveHubData(text, platform, io) : text, moveHome);
     // A checkout or system data directory can be unwritable; retain its existing path then.
@@ -119,6 +119,6 @@ export function migrateServices({ platform = process.platform, home, run = servi
       changed.push(oldName);
     }
   }
-  if (changed.length) log(`Wisp ${removeOnly ? "removed" : "replaced"} old services: ${changed.join(", ")}`);
+  if (changed.length) log(`Bubble AI ${removeOnly ? "removed" : "replaced"} old services: ${changed.join(", ")}`);
   return changed;
 }

@@ -1,13 +1,13 @@
 import { api } from "./api.ts";
 
 /**
- * Onboarding v3's answers: what the person wants help with (page 2) and what Wisp will turn on for
+ * Onboarding v3's answers: what the person wants help with (page 2) and what Bubble AI will turn on for
  * it. Saved per workspace in this browser so later pages (the agent's role, its first task, and
- * "Here's your Wisp", which creates the routines and turns on the mods) can read them, and as an
+ * "Here's your Bubble AI", which creates the routines and turns on the mods) can read them, and as an
  * "About me" memory so every agent already knows.
  */
 
-/** Something Wisp sets up for a goal on the last page. `label` is what the person sees. */
+/** Something Bubble AI sets up for a goal on the last page. `label` is what the person sees. */
 export type TurnOn = { label: string } & (
   | { kind: "routine"; title: string; time: string; every: "day" | "week" }
   | { kind: "mod"; id: "code" | "apple" }
@@ -68,7 +68,7 @@ export interface OnboardingAnswers {
   /** page 2 was answered (Continue) or passed (Skip for now) */
   goalsDone: boolean;
   skipped?: boolean;
-  /** page 3: what Wisp knows about the person (kept chips), and that the page was passed */
+  /** page 3: what Bubble AI knows about the person (kept chips), and that the page was passed */
   facts?: Fact[];
   knowDone?: boolean;
   /** page 4: the agent it made */
@@ -214,14 +214,14 @@ export interface AgentDraft {
   instructions: string;
 }
 
-/** "You are Juno, Sam's agent in Wisp. Your job: … Ask before connecting an account, spending money or sending anything as them." */
+/** "You are Juno, Sam's agent in Bubble AI. Your job: … Ask before connecting an account, spending money or sending anything as them." */
 export function agentInstructions(agent: string, person: string, role: string, goals: readonly string[], other = ""): string {
   const who = person.trim().split(/\s+/)[0] || "the person";
   const picks = pickedGoals(goals).map((g) => g.label.toLowerCase());
   const want = picks.length ? picks.join(", ") : other.trim();
   const job = role.trim().replace(/[.\s]+$/, "");
   return [
-    `You are ${agent.trim()}, ${who}'s agent in Wisp.`,
+    `You are ${agent.trim()}, ${who}'s agent in Bubble AI.`,
     job ? `Your job: ${job}.` : "",
     want ? `${who} wants help with: ${want.replace(/[.\s]+$/, "")}.` : "",
     "What you know about them is in your notes; use it without asking again.",

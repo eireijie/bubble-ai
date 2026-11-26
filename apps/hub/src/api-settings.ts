@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { MAX_PINS, harnessInfo, type UserPrefs } from "@wisp/core";
+import { MAX_PINS, harnessInfo, type UserPrefs } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { bearer, hashPassword, issueToken, revokeSubjectTokens, verifyPassword } from "./auth.ts";
 import { ComputerError } from "./computers.ts";
@@ -125,7 +125,7 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     return { signedOut: n };
   });
 
-  // --- push notifications to Wisp's iOS app ---------------------------------------------------------
+  // --- push notifications to Bubble AI's iOS app ---------------------------------------------------------
 
   /** Whether this hub can send pushes, and the phones you get them on. */
   app.get("/api/me/push", async (req, reply) => {
@@ -167,7 +167,7 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     const c = need(req, reply, { user: true });
     if (!c) return;
     if (!hub.apns.config(c.workspaceId) && !hub.fcm.config(c.workspaceId)) return reply.code(409).send({ error: "push isn't set up on this hub; add an APNs key (iPhone) or a Firebase service account (Android) first" });
-    return hub.apns.sendTo(c.workspaceId, c.actor.id, { aps: { alert: { title: "Wisp", body: "Notifications work on this phone." } }, wisp: { kind: "test", category: "other" } });
+    return hub.apns.sendTo(c.workspaceId, c.actor.id, { aps: { alert: { title: "Bubble AI", body: "Notifications work on this phone." } }, wisp: { kind: "test", category: "other" } });
   });
 
   /** The APNs key, without the key itself. */
@@ -360,7 +360,7 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
   app.get("/api/invites/check", async (req, reply) => {
     const i = usable((req.query as { code?: string }).code);
     if (!i) return reply.code(404).send({ error: "This invite link has expired or was already used. Ask for a new one." });
-    return { workspace: store.workspace(i.workspaceId)?.name ?? "Wisp", role: i.role, expiresAt: i.expiresAt };
+    return { workspace: store.workspace(i.workspaceId)?.name ?? "Bubble AI", role: i.role, expiresAt: i.expiresAt };
   });
 
   app.post("/api/invites/accept", async (req, reply) => {
@@ -473,7 +473,7 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (!n) return;
     const body = parse(z.object({ harness: z.string().max(60) }), req.body, reply);
     if (!body) return;
-    if (!harnessInfo(body.harness)?.install?.npm) return reply.code(400).send({ error: "Wisp can't install that one for you; use its installer on the device" });
+    if (!harnessInfo(body.harness)?.install?.npm) return reply.code(400).send({ error: "Bubble AI can't install that one for you; use its installer on the device" });
     try {
       return await hub.computers.nodeRequest(n.id, (requestId) => ({ type: "install_harness", requestId, harness: body.harness }), 16 * 60_000);
     } catch (err) {
@@ -520,7 +520,7 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
       topic: ch.topic,
       messages: (db.prepare("SELECT id, thread_id, author_kind, author_id, body, created_at FROM messages WHERE channel_id = ? ORDER BY created_at").all(ch.id) as { id: string; thread_id: string | null; author_kind: string; author_id: string; body: string; created_at: string }[])
         .filter((m) => m.body)
-        .map((m) => ({ id: m.id, thread: m.thread_id, at: m.created_at, from: m.author_kind === "agent" ? (agents[m.author_id] ?? "agent") : (members[m.author_id] ?? (m.author_id === "system" ? "Wisp" : "someone")), text: m.body })),
+        .map((m) => ({ id: m.id, thread: m.thread_id, at: m.created_at, from: m.author_kind === "agent" ? (agents[m.author_id] ?? "agent") : (members[m.author_id] ?? (m.author_id === "system" ? "Bubble AI" : "someone")), text: m.body })),
     }));
     reply.header("content-disposition", `attachment; filename="wisp-conversations-${new Date().toISOString().slice(0, 10)}.json"`);
     return { workspace: store.workspace(c.workspaceId)?.name, exportedAt: new Date().toISOString(), channels: out };

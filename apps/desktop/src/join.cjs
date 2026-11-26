@@ -6,7 +6,7 @@ function parseTarget(input) {
   const text = String(input || "").trim();
   let url;
   try { url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`); } catch {}
-  if (!url || !/^https?:$/.test(url.protocol) || url.username || url.password) throw new Error("Paste a Wisp invite link or address.");
+  if (!url || !/^https?:$/.test(url.protocol) || url.username || url.password) throw new Error("Paste a Bubble AI invite link or address.");
   const match = url.pathname.match(/^\/join\/([^/]+)\/?$/);
   if (url.pathname.startsWith("/join") && !match) throw new Error("That invite link is incomplete.");
   return { origins: match ? [url.origin] : candidates(text), invite: match ? decodeURIComponent(match[1]) : undefined };
@@ -18,7 +18,7 @@ function serviceWisp(service) {
   const addresses = (service.addresses || []).filter((a) => isIP(a) && a !== "::1" && !/^(127\.|169\.254\.|fe[89ab])/i.test(a));
   const address = addresses.find((a) => isIP(a) === 4) || addresses[0];
   if (!address) return null;
-  return { id: String(txt.id), name: String(txt.name || service.name || "Your Wisp"), host: String(txt.host || service.host || "the computer Wisp lives on"), url: `http://${isIP(address) === 6 ? `[${address}]` : address}:${service.port}` };
+  return { id: String(txt.id), name: String(txt.name || service.name || "Your Bubble AI"), host: String(txt.host || service.host || "the computer Bubble AI lives on"), url: `http://${isIP(address) === 6 ? `[${address}]` : address}:${service.port}` };
 }
 
 /** Bonjour stays in the main process and is always torn down after the short scan. */
@@ -38,7 +38,7 @@ class Discovery {
         this.finish = null;
         try { browser?.stop(); } catch {}
         try { bonjour?.destroy(); } catch {}
-        resolve({ ok: !error, wisps: [...found.values()], ...(error ? { error: "Couldn't search this Wi-Fi; you can paste an invite link." } : {}) });
+        resolve({ ok: !error, bubbles: [...found.values()], ...(error ? { error: "Couldn't search this Wi-Fi; you can paste an invite link." } : {}) });
       };
       this.finish = () => finish();
       try {
@@ -80,15 +80,15 @@ class JoinClient {
           body: JSON.stringify({ name: this.name(), kind: "computer", platform: this.platform, ...(target.invite ? { invite: target.invite } : {}) }),
           signal: AbortSignal.timeout(10_000),
         });
-      } catch { lastError = new Error("Couldn't reach your Wisp; check the link and your Wi-Fi."); continue; }
+      } catch { lastError = new Error("Couldn't reach your Bubble AI; check the link and your Wi-Fi."); continue; }
       const body = await res.json().catch(() => null);
       if (generation !== this.generation) return { ok: false, cancelled: true };
-      if (!res.ok) throw new Error(res.status === 403 ? "Ask for a new invite link from your Wisp." : res.status === 429 ? "Too many attempts; try again in a minute." : "Couldn't ask to join your Wisp; try again.");
-      if (!body || typeof body.requestId !== "string" || !body.requestId || typeof body.secret !== "string" || !body.secret || typeof body.code !== "string" || !/^\d{6}$/.test(body.code) || !Number.isFinite(Date.parse(body.expiresAt))) throw new Error("Your Wisp returned an incomplete request; try again.");
+      if (!res.ok) throw new Error(res.status === 403 ? "Ask for a new invite link from your Bubble AI." : res.status === 429 ? "Too many attempts; try again in a minute." : "Couldn't ask to join your Bubble AI; try again.");
+      if (!body || typeof body.requestId !== "string" || !body.requestId || typeof body.secret !== "string" || !body.secret || typeof body.code !== "string" || !/^\d{6}$/.test(body.code) || !Number.isFinite(Date.parse(body.expiresAt))) throw new Error("Your Bubble AI returned an incomplete request; try again.");
       this.pending = { origin, requestId: body.requestId, secret: body.secret, expiresAt: body.expiresAt };
       return { ok: true, code: body.code, expiresAt: body.expiresAt, host: new URL(origin).hostname };
     }
-    throw lastError || new Error("Paste a Wisp invite link or address.");
+    throw lastError || new Error("Paste a Bubble AI invite link or address.");
   }
   async poll() {
     const pending = this.pending;

@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
 import { Check, Clock, CornerUpLeft, MessageCircle, Minus, X } from "lucide-react";
-import type { Followup, Message, MessagePart } from "@wisp/core";
+import type { Followup, Message, MessagePart } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { usePrefs, useStore } from "../store.ts";
 import { useChangedSinceMount } from "../motion.ts";

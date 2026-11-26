@@ -6,7 +6,7 @@ import { cx } from "./ui.tsx";
 
 /**
  * Everything before you're in the app (sign in, join, setup, authorize) shares one look: the
- * Wisp ghost bobbing over a big title, tall rounded fields, and pill buttons. On phones the
+ * Bubble AI ghost bobbing over a big title, tall rounded fields, and pill buttons. On phones the
  * page is the screen; on desktops it is a centered card.
  */
 export function AuthPage({ children, themeToggle = true, wide }: { children: ReactNode; themeToggle?: boolean; wide?: boolean }) {

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { frontMatter, shortDescription, type HarnessSettingItem } from "@wisp/core";
+import { frontMatter, shortDescription, type HarnessSettingItem } from "@bubble-ai/core";
 
 /**
  * File formats harness configs come in, read and changed the way harness-config.ts needs: YAML and
@@ -41,7 +41,7 @@ export async function findSkills(root: string): Promise<{ id: string; name: stri
  */
 export async function safeWrite(file: string, before: string, after: string) {
   const now = await fs.readFile(file, "utf8").catch(() => "");
-  if (now !== before) throw new Error(`${path.basename(file)} changed while Wisp was changing it; try again`);
+  if (now !== before) throw new Error(`${path.basename(file)} changed while Bubble AI was changing it; try again`);
   const mode = (await fs.stat(file).catch(() => null))?.mode;
   await fs.mkdir(path.dirname(file), { recursive: true });
   if (before !== "") {
@@ -149,7 +149,7 @@ export function yamlScalar(v: string | boolean) {
   return plain ? v : JSON.stringify(v);
 }
 
-// --- TOML: a reader for the parts Wisp needs, and edits by line ---------------------------------
+// --- TOML: a reader for the parts Bubble AI needs, and edits by line ---------------------------------
 
 export interface TomlTable {
   path: string[];
@@ -200,7 +200,7 @@ export function parseToml(text: string): TomlDoc {
     // a key can't start with "[", so this is a [table] or [[array]] header
     if (l.startsWith("[")) {
       const header = /^(\[\[?)\s*(.+?)\s*\]\]?\s*(#.*)?$/.exec(l);
-      if (!header) throw new Error(`line ${i + 1} isn't something Wisp can read: ${l.slice(0, 60)}`);
+      if (!header) throw new Error(`line ${i + 1} isn't something Bubble AI can read: ${l.slice(0, 60)}`);
       const array = header[1] === "[[";
       table = tomlKeyPath(header[2]);
       arrayIndex = array ? ++arrays : 0;
@@ -208,7 +208,7 @@ export function parseToml(text: string): TomlDoc {
       continue;
     }
     const eq = tomlSplitKey(l);
-    if (!eq) throw new Error(`line ${i + 1} isn't something Wisp can read: ${l.slice(0, 60)}`);
+    if (!eq) throw new Error(`line ${i + 1} isn't something Bubble AI can read: ${l.slice(0, 60)}`);
     const keys = tomlKeyPath(eq.key);
     // a value can go on over several lines (arrays, """strings""")
     let raw = eq.value;
@@ -439,7 +439,7 @@ export function isPlainJson(text: string): boolean {
 
 /** Change a JSON config by mutating its parsed value; keeps its indent. Refuses a file with comments. */
 export function editJson(text: string, name: string, mutate: (o: Record<string, unknown>) => void): string {
-  if (!isPlainJson(text)) throw new Error(`${name} has comments in it, so Wisp leaves it as it is; change it on the device`);
+  if (!isPlainJson(text)) throw new Error(`${name} has comments in it, so Bubble AI leaves it as it is; change it on the device`);
   const o = text.trim() ? asObject(JSON.parse(text)) : {};
   mutate(o);
   const indent = /^\{\s*\n(\s+)"/.exec(text)?.[1] ?? "  ";
@@ -495,10 +495,10 @@ export interface ConfigSummary {
   apps: HarnessSettingItem[];
   plugins: HarnessSettingItem[];
   skills: HarnessSettingItem[];
-  /** what Wisp shows but can't change for this harness ("model", "provider"), or everything ("file") */
+  /** what Bubble AI shows but can't change for this harness ("model", "provider"), or everything ("file") */
   fixed?: ("model" | "provider" | "file")[];
   modelChoices?: string[];
-  /** the default reasoning effort, for harnesses whose config has one Wisp can change */
+  /** the default reasoning effort, for harnesses whose config has one Bubble AI can change */
   effort?: string | null;
 }
 

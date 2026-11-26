@@ -2,7 +2,7 @@ import XCTest
 import Security
 import UIKit
 import Synchronization
-@testable import Wisp
+@testable import Bubble AI
 
 @MainActor
 final class ChatTests: XCTestCase {

@@ -9,12 +9,12 @@ vi.mock("../theme.ts", () => ({ motionReduced: () => false, useMotionReduced: ()
 beforeEach(() => vi.mocked(useState).mockReset());
 
 describe("app authorization copy", () => {
-  it.each([null, { client: "Grok", returnsTo: "grok.com" }])("uses Wisp branding and plain language (%j)", (info) => {
+  it.each([null, { client: "Grok", returnsTo: "grok.com" }])("uses Bubble AI branding and plain language (%j)", (info) => {
     const states = [info, [], "new", "Grok", null, false, false];
     let index = 0;
     vi.mocked(useState).mockImplementation((): [any, any] => [states[index++], vi.fn()]);
     const html = renderToStaticMarkup(AuthorizeView({ requestId: "request" }));
-    expect(html).toContain("Wisp");
+    expect(html).toContain("Bubble AI");
     expect(html).not.toMatch(/Warren|\b(hub|node|token)\b/i);
     if (info) {
       expect(html).toContain("Let Grok act as an agent?");

@@ -62,7 +62,7 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
           <div className="mt-0.5 font-mono text-[14px] break-all">{storage.path}</div>
         </div>
       )}
-      {storage.path && <p className="mt-2 px-1 text-xs text-muted">{storage.movable === false ? "Each extra workspace keeps its memory in Wisp's own data folder, so it can't be moved." : fixed ? "Set by WISP_VAULT_DIR where Wisp runs, so it can only be changed there." : storage.source === "default" ? "Wisp's own data folder, the default." : "Chosen here."}</p>}
+      {storage.path && <p className="mt-2 px-1 text-xs text-muted">{storage.movable === false ? "Each extra workspace keeps its memory in Bubble AI's own data folder, so it can't be moved." : fixed ? "Set by BUBBLE_VAULT_DIR where Bubble AI runs, so it can only be changed there." : storage.source === "default" ? "Bubble AI's own data folder, the default." : "Chosen here."}</p>}
       {!fixed && (
         <>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -91,19 +91,19 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
               </div>
               <MoreOptions about="what happens to your notes">
                 <p className="text-xs text-muted leading-relaxed">
-                  Type the full path on the machine that runs Wisp. If the folder is an Obsidian vault, its notes are used as they are and its <Code>.obsidian</Code> settings are never touched or saved. If you were already using Wisp, your earlier notes are copied across the next time Wisp starts: an empty folder gets everything (history included); a folder with notes only gets the files it doesn't have. Your earlier folder is left exactly as it was. Running in Docker? The folder has to be inside a volume you mounted.
+                  Type the full path on the machine that runs Bubble AI. If the folder is an Obsidian vault, its notes are used as they are and its <Code>.obsidian</Code> settings are never touched or saved. If you were already using Bubble AI, your earlier notes are copied across the next time Bubble AI starts: an empty folder gets everything (history included); a folder with notes only gets the files it doesn't have. Your earlier folder is left exactly as it was. Running in Docker? The folder has to be inside a volume you mounted.
                 </p>
               </MoreOptions>
               {error && <p className="text-sm text-bad">{error}</p>}
             </form>
           )}
-          <p className="mt-2 px-1 text-xs text-muted">Wisp restarts to pick up a new folder. Your notes stay where they are.</p>
+          <p className="mt-2 px-1 text-xs text-muted">Bubble AI restarts to pick up a new folder. Your notes stay where they are.</p>
         </>
       )}
       {storage.pendingRestart && (
         <div className="mt-3 rounded-3xl bg-info/15 p-4 text-sm space-y-2">
           <p>
-            Wisp will use <Code>{storage.nextPath}</Code> after it restarts. Nothing changes until then.
+            Bubble AI will use <Code>{storage.nextPath}</Code> after it restarts. Nothing changes until then.
           </p>
           {storage.restartable ? (
             <button
@@ -115,21 +115,21 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
                 setTimeout(() => window.location.reload(), 4000);
               }}
             >
-              {restarting ? "Restarting…" : "Restart Wisp now"}
+              {restarting ? "Restarting…" : "Restart Bubble AI now"}
             </button>
           ) : (
-            <p className="text-muted">Stop Wisp and start it again to switch.</p>
+            <p className="text-muted">Stop Bubble AI and start it again to switch.</p>
           )}
         </div>
       )}
       {storage.moved && storage.moved.how !== "none" && (
         <p className="mt-3 px-1 text-xs text-muted">
-          {storage.moved.how === "copied" ? "Your earlier memory was copied here" : `${storage.moved.files} notes from your earlier memory were added here, and nothing in this folder was overwritten`} the last time Wisp started.
+          {storage.moved.how === "copied" ? "Your earlier memory was copied here" : `${storage.moved.files} notes from your earlier memory were added here, and nothing in this folder was overwritten`} the last time Bubble AI started.
         </p>
       )}
       {storage.previous && (
         <p className="mt-3 px-1 text-xs text-muted">
-          Your earlier memory is still in <Code>{storage.previous}</Code>. Wisp never deletes it; remove it yourself once you're happy with the new place.
+          Your earlier memory is still in <Code>{storage.previous}</Code>. Bubble AI never deletes it; remove it yourself once you're happy with the new place.
         </p>
       )}
     </section>
@@ -175,7 +175,7 @@ function Obsidian({ storage, reload }: { storage: MemoryStorage; reload: () => v
       </div>
       {storage.path && (
         <p className="mt-2 px-1 text-xs text-muted leading-relaxed">
-          On the computer that runs Wisp: in Obsidian choose <b>Open folder as vault</b> and pick <Code>{storage.path}</Code>. Edits you make there are picked up within a few seconds and saved as "Edited in Obsidian".
+          On the computer that runs Bubble AI: in Obsidian choose <b>Open folder as vault</b> and pick <Code>{storage.path}</Code>. Edits you make there are picked up within a few seconds and saved as "Edited in Obsidian".
         </p>
       )}
 
@@ -200,7 +200,7 @@ function Obsidian({ storage, reload }: { storage: MemoryStorage; reload: () => v
               <p className="text-sm font-medium">Your new token. You only see it once.</p>
               <CopyBlock text={fresh.token} />
               <p className="text-xs text-muted">Then, in a terminal in the folder where you keep your vaults:</p>
-              <CopyBlock text={`git clone "${remoteUrl(fresh.token)}" "Wisp memory"`} />
+              <CopyBlock text={`git clone "${remoteUrl(fresh.token)}" "Bubble AI memory"`} />
             </div>
           )}
           {window.location.protocol === "http:" && !local && <p className="mt-2 px-1 text-xs text-muted">This address isn't encrypted. That's fine on your home network or a private network like Tailscale; otherwise use an https address so the token can't be read on the way.</p>}
@@ -215,15 +215,15 @@ function Obsidian({ storage, reload }: { storage: MemoryStorage; reload: () => v
                   Copy memory to that computer with the <Code>git clone</Code> command shown after you create the token (replace YOUR-TOKEN with it).
                 </li>
                 <li>
-                  In Obsidian choose <b>Open folder as vault</b> and pick the new <Code>Wisp memory</Code> folder. Then open <b>Settings → Community plugins → Browse</b>, install <b>Git</b> (by Vinzent03) and turn it on.
+                  In Obsidian choose <b>Open folder as vault</b> and pick the new <Code>Bubble AI memory</Code> folder. Then open <b>Settings → Community plugins → Browse</b>, install <b>Git</b> (by Vinzent03) and turn it on.
                 </li>
                 <li>
                   In the Git plugin's settings set <b>Auto pull interval</b> and <b>Auto commit-and-sync interval</b> to a few minutes, and turn on <b>Pull on startup</b>.
                 </li>
               </ol>
               <ul className="mt-3 list-disc pl-5 space-y-1.5 text-xs text-muted marker:text-faint">
-                <li>Your changes show up in Wisp under your name, in Activity.</li>
-                <li>Wisp checks every change against the same rules as the app. If you edit a note you're not allowed to edit, the sync is refused and the plugin says so; undo that edit and sync again.</li>
+                <li>Your changes show up in Bubble AI under your name, in Activity.</li>
+                <li>Bubble AI checks every change against the same rules as the app. If you edit a note you're not allowed to edit, the sync is refused and the plugin says so; undo that edit and sync again.</li>
                 <li>If you and an agent changed the same note, the plugin shows a merge conflict the way any git project does. Keep the text you want and sync again.</li>
                 <li>
                   Obsidian's own settings and plugins (the <Code>.obsidian</Code> folder) stay on your computer and are never synced.
@@ -259,7 +259,7 @@ function Obsidian({ storage, reload }: { storage: MemoryStorage; reload: () => v
               </div>
             ))}
           </div>
-          <p className="mt-2 px-1 text-xs text-muted">Tokens work only for syncing memory, not for signing in to Wisp.</p>
+          <p className="mt-2 px-1 text-xs text-muted">Tokens work only for syncing memory, not for signing in to Bubble AI.</p>
         </>
       )}
     </>

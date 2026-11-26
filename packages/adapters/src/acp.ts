@@ -2,13 +2,13 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { shortDescription, type AccessLevel, type AgentEvent, type CommandOption, type ConnectorSpec, type HarnessCatalog, type ModelOption } from "@wisp/core";
+import { shortDescription, type AccessLevel, type AgentEvent, type CommandOption, type ConnectorSpec, type HarnessCatalog, type ModelOption } from "@bubble-ai/core";
 import type { AdapterEvent, CatalogPlace, HarnessAdapter, McpServerSpec, RunInput, RunResult } from "./types.ts";
 import { commandVersion, launched, spawnCommand, stopProcess } from "./process.ts";
 
 /**
  * Agent Client Protocol (https://agentclientprotocol.com): JSON-RPC 2.0 over stdio, one JSON
- * object per line. Wisp is the client; the harness is the agent. One run is: initialize,
+ * object per line. Bubble AI is the client; the harness is the agent. One run is: initialize,
  * session/new (or session/load to resume), then session/prompt while session/update
  * notifications stream what the agent does.
  */
@@ -136,7 +136,7 @@ export class AcpError extends Error {
 
 /**
  * Flags that keep a harness's own extensions and MCP servers out of a run, for the ACP harnesses
- * that have them (Wisp's servers are passed in with the session, by name). Exported for tests.
+ * that have them (Bubble AI's servers are passed in with the session, by name). Exported for tests.
  */
 export function acpIsolationArgs(id: string, input: Pick<RunInput, "mcp" | "browser" | "connectors">): string[] {
   if (id !== "gemini") return [];
@@ -160,7 +160,7 @@ export function acpMcpServers(mcp: McpServerSpec | undefined, browser?: McpServe
 
 /**
  * Answer a permission request from the agent. Read-only agents may look but not change or run
- * anything; "edit" and "full" agents may go ahead (headless runs have nobody to ask, and Wisp's
+ * anything; "edit" and "full" agents may go ahead (headless runs have nobody to ask, and Bubble AI's
  * own tools are checked by the hub). Exported for tests.
  */
 export function permissionOutcome(params: Json, access: AccessLevel): Json {
@@ -186,7 +186,7 @@ function contentText(c: Json): string {
 }
 
 /**
- * Translate one session/update into Wisp events. `tools` remembers each tool call's name so
+ * Translate one session/update into Bubble AI events. `tools` remembers each tool call's name so
  * results can be matched to it. Exported for tests.
  */
 export function parseAcpUpdate(update: Json, tools = new Map<string, string>()): AdapterEvent[] {
@@ -218,7 +218,7 @@ export function parseAcpUpdate(update: Json, tools = new Map<string, string>()):
   }
 }
 
-/** A tool call's name: MCP tools keep their server-qualified name so Wisp can recognize its own. */
+/** A tool call's name: MCP tools keep their server-qualified name so Bubble AI can recognize its own. */
 function toolName(u: Json): string {
   const title = String(u.title ?? "").trim();
   const raw = u._meta?.toolName ?? u.rawInput?.tool ?? null;
@@ -301,8 +301,8 @@ export function acpAdapter(info: { id: string; label: string; binary: string; ar
         },
         async (method, params) => {
           if (method === "session/request_permission") return permissionOutcome(params, input.access ?? "edit");
-          // Wisp doesn't offer files or terminals to the agent; it uses its own
-          throw new Error(`${method} is not supported by Wisp`);
+          // Bubble AI doesn't offer files or terminals to the agent; it uses its own
+          throw new Error(`${method} is not supported by Bubble AI`);
         },
       );
       const onAbort = () => {
@@ -327,9 +327,9 @@ export function acpAdapter(info: { id: string; label: string; binary: string; ar
           try {
             session = await conn.request("session/new", { cwd: input.cwd, mcpServers }, 120_000);
           } catch (err) {
-            // some agents (OpenClaw) refuse per-session MCP servers; run without Wisp's tools rather than not at all
+            // some agents (OpenClaw) refuse per-session MCP servers; run without Bubble AI's tools rather than not at all
             if (!mcpServers.length || !/mcp/i.test((err as Error).message)) throw err;
-            onEvent({ type: "status", text: `${info.label} doesn't accept Wisp's tools per session; add wisp-mcp to its own MCP settings to give it chat, memory and computer tools.` });
+            onEvent({ type: "status", text: `${info.label} doesn't accept Bubble AI's tools per session; add wisp-mcp to its own MCP settings to give it chat, memory and computer tools.` });
             session = await conn.request("session/new", { cwd: input.cwd, mcpServers: [] }, 120_000);
           }
           sessionId = session?.sessionId;
@@ -398,8 +398,8 @@ export function acpAdapter(info: { id: string; label: string; binary: string; ar
 }
 
 /**
- * Commands that make no sense in a chat run one message at a time: Wisp has its own (/new, /compact,
- * /stop, /model, /context), or they act on a running turn that Wisp's runs never leave open.
+ * Commands that make no sense in a chat run one message at a time: Bubble AI has its own (/new, /compact,
+ * /stop, /model, /context), or they act on a running turn that Bubble AI's runs never leave open.
  */
 const ACP_CHAT_SKIP = new Set(["new", "reset", "clear", "compact", "compress", "model", "context", "steer", "queue", "stop"]);
 

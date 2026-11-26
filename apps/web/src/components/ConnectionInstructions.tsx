@@ -23,15 +23,15 @@ export function ConnectionInstructions({
   const shell = (s: string) => `'${s.replaceAll("'", "'\\''")}'`;
   const config =
     format === "claude"
-      ? `claude mcp add wisp --env WISP_URL=${shell(hub)} --env WISP_TOKEN=${shell(token)} -- wisp-mcp`
+      ? `claude mcp add bubble-ai --env BUBBLE_URL=${shell(hub)} --env BUBBLE_TOKEN=${shell(token)} -- wisp-mcp`
       : format === "codex"
-        ? `[mcp_servers.wisp]\ncommand = "wisp-mcp"\nenv = { WISP_URL = ${JSON.stringify(hub)}, WISP_TOKEN = ${JSON.stringify(token)} }`
+        ? `[mcp_servers.wisp]\ncommand = "wisp-mcp"\nenv = { BUBBLE_URL = ${JSON.stringify(hub)}, BUBBLE_TOKEN = ${JSON.stringify(token)} }`
         : JSON.stringify(
             {
               mcpServers: {
                 wisp: {
                   command: "wisp-mcp",
-                  env: { WISP_URL: hub, WISP_TOKEN: token },
+                  env: { BUBBLE_URL: hub, BUBBLE_TOKEN: token },
                 },
               },
             },
@@ -42,7 +42,7 @@ export function ConnectionInstructions({
     <div className="space-y-4">
       <p className="text-sm text-muted">
         On the agent's machine, run{" "}
-        <code className="text-ink">npm install && npm link</code> in Wisp's
+        <code className="text-ink">npm install && npm link</code> in Bubble AI's
         folder, add this to its MCP settings and restart the session.
       </p>
       <div

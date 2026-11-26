@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Questions and ideas
-    url: https://github.com/eireijie/wisp/discussions
-    about: Ask how to do something, or share what you've built with Wisp.
+    url: https://github.com/eireijie/bubble-ai/discussions
+    about: Ask how to do something, or share what you've built with Bubble AI.
   - name: Security issue
-    url: https://github.com/eireijie/wisp/security/advisories/new
+    url: https://github.com/eireijie/bubble-ai/security/advisories/new
     about: Report a vulnerability privately instead of opening an issue.

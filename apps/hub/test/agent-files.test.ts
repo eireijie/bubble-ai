@@ -7,8 +7,8 @@ import type { WebSocket } from "ws";
 import type { FastifyInstance } from "fastify";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { WispClient } from "@wisp/sdk";
-import { createWispMcp } from "@wisp/mcp/src/server.ts";
+import { WispClient } from "@bubble-ai/sdk";
+import { createWispMcp } from "@bubble-ai/mcp/src/server.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 

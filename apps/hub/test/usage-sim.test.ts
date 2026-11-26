@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
@@ -12,7 +12,7 @@ import type { Hub } from "../src/hub.ts";
  * A simulated day of the 2026-11-08 feature test's setup: Atlas has its own computer, checks in every
  * 3 hours, and watches a public GitHub repo's issues page in its browser. The page's relative times
  * move on all day and one new issue appears at hour 10; the agent finds nothing to say otherwise.
- * Prints the model runs it took and what they cost by Wisp's own estimates. Written against APIs that
+ * Prints the model runs it took and what they cost by Bubble AI's own estimates. Written against APIs that
  * main has too, so the same file measures before and after.
  */
 
@@ -86,7 +86,7 @@ beforeAll(async () => {
   await owner.send(hub.store.dmChannel(ws, me, agentId).id, "hello");
   await waitFor(() => calls.length || undefined);
   await idle();
-  agent = new WispClient({ url, token: calls[0].mcp!.env.WISP_TOKEN });
+  agent = new WispClient({ url, token: calls[0].mcp!.env.BUBBLE_TOKEN });
   // its own computer, like an agent made in first-run setup
   hub.store.db.prepare("UPDATE agents SET computer_id = 'comp_test' WHERE id = ?").run(agentId);
 }, 30_000);

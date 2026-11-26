@@ -123,7 +123,7 @@ struct TeamFlow: Decodable, Identifiable, Hashable {
     return out
   }
 
-  /** What the Inbox says about a team from its newest request: a failed step is never "Quiet". Mirrors teamRunState in @wisp/core. */
+  /** What the Inbox says about a team from its newest request: a failed step is never "Quiet". Mirrors teamRunState in @bubble-ai/core. */
   static func runState(_ flows: [TeamFlow], busyName: String?) -> (text: String, bad: Bool) {
     if let f = flows.first {
       switch f.status {

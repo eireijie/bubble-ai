@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronDown, Clock, GitBranch, LayoutGrid, MessageSquare, Repeat2, SlidersHorizontal, UserCheck, Bot, Share2 } from "lucide-react";
-import { stepAgentId, type Agent, type ChannelTeam, type TeamStep, type TeamStepKind } from "@wisp/core";
-import { defaultAppearance } from "@wisp/core/src/appearance.ts";
+import { stepAgentId, type Agent, type ChannelTeam, type TeamStep, type TeamStepKind } from "@bubble-ai/core";
+import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { Ghost } from "../components/Ghost.tsx";
 import { useStore } from "../store.ts";
 import { AgentAvatar, cx } from "../components/ui.tsx";

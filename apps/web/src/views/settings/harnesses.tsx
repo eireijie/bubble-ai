@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useComputerMode } from "../../computerMode.ts";
 import { ArrowUp, ChevronLeft, Copy, ExternalLink, Loader2, Plus, Share2, UserPen, LogIn, UserMinus, FileCog } from "lucide-react";
-import { harnessLabel, type Connector, type HarnessCatalog, type HarnessLogin, type HarnessSettings, type HarnessSettingsChange, type HarnessSettingItem } from "@wisp/core";
+import { harnessLabel, type Connector, type HarnessCatalog, type HarnessLogin, type HarnessSettings, type HarnessSettingsChange, type HarnessSettingItem } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useDevices } from "../../devices.ts";
 import { href } from "../../router.ts";
@@ -254,7 +254,7 @@ function HarnessPanel({ device, settings, agents, catalog, onChange, onLoad }: {
       <header className="flex items-center gap-3">
         <h2 className="t-title min-w-0 flex-1 truncate">{label}</h2>
       </header>
-      {settings.fixed?.includes("file") && <p className="px-1 text-[13px] text-muted">{settings.configPath.split("/").pop()} has comments in it, so Wisp only shows it. Change it on {device.name}.</p>}
+      {settings.fixed?.includes("file") && <p className="px-1 text-[13px] text-muted">{settings.configPath.split("/").pop()} has comments in it, so Bubble AI only shows it. Change it on {device.name}.</p>}
 
       <Accounts device={device} settings={settings} users={users} onLoad={onLoad} />
 
@@ -380,7 +380,7 @@ function ModelRow({ settings, catalog, busy, onPick }: { settings: HarnessSettin
   );
 }
 
-/** Apps: the ones logged in once in Wisp (every agent here gets them), then the harness's own. */
+/** Apps: the ones logged in once in Bubble AI (every agent here gets them), then the harness's own. */
 function WispAndDeviceApps({ settings, users, busy, onToggle }: { settings: HarnessSettings; users: HarnessesResponse["agents"]; busy: string | null; onToggle: (item: HarnessSettingItem, on: boolean) => void }) {
   const [connectors, setConnectors] = useState<Connector[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -400,7 +400,7 @@ function WispAndDeviceApps({ settings, users, busy, onToggle }: { settings: Harn
       setError((e as Error).message);
     }
   };
-  const wispNote = (c: Connector) => (c.auth?.required ? (c.auth.signedIn ? "Logged in through Wisp" : "Needs logging in, in Wisp") : "Set up in Wisp");
+  const wispNote = (c: Connector) => (c.auth?.required ? (c.auth.signedIn ? "Logged in through Bubble AI" : "Needs logging in, in Bubble AI") : "Set up in Bubble AI");
   return (
     <section className="space-y-2">
       <div className="flex items-baseline justify-between">
@@ -493,7 +493,7 @@ function AskBox({ agent, harness, device }: { agent: HarnessesResponse["agents"]
   );
 }
 
-/** Copy one of a harness's skills into Wisp's skills, for the agents you pick. */
+/** Copy one of a harness's skills into Bubble AI's skills, for the agents you pick. */
 function ShareSkill({ deviceId, harness, account, skill, onClose, onShared }: { deviceId: string; harness: string; account: string; skill: HarnessSettingItem; onClose: () => void; onShared: (note: string) => void }) {
   const agents = useStore((s) => s.agents);
   const [picked, setPicked] = useState<string[]>([]);
@@ -627,7 +627,7 @@ function Accounts({ device, settings, users, onLoad }: { device: HarnessesRespon
 
 /**
  * Signing an account in without the device's terminal: the device runs the harness's sign-in and
- * Wisp shows the link and code it prints (and passes back a code the page gives you).
+ * Bubble AI shows the link and code it prints (and passes back a code the page gives you).
  */
 export function HarnessSignIn({ device, settings, account, onClose, onDone }: { device: HarnessesResponse["device"]; settings: HarnessSettings; account: HarnessSettings["accounts"][number]; onClose: () => void; onDone: () => void }) {
   const label = harnessLabel(settings.harness);
@@ -773,7 +773,7 @@ export function HarnessSignIn({ device, settings, account, onClose, onDone }: { 
             </p>
           )}
           <p className="px-1 text-sm text-faint">
-            Wisp passes the code to {label} on {device.name}. Your password stays with {label}.
+            Bubble AI passes the code to {label} on {device.name}. Your password stays with {label}.
           </p>
           <p className="flex items-center gap-1.5 px-1 text-xs text-muted">
             <Loader2 size={12} className="animate-spin" /> Waiting for you to finish signing in

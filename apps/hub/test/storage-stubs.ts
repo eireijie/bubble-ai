@@ -5,7 +5,7 @@ import path from "node:path";
 /**
  * Stand-ins for the services the Storage mod talks to: a WebDAV server over a folder on disk
  * (with Nextcloud's sign-in flow in front), and small in-memory Google Drive and Dropbox APIs.
- * They answer the way the real ones do for the calls Wisp makes, nothing more.
+ * They answer the way the real ones do for the calls Bubble AI makes, nothing more.
  */
 export interface Stubs {
   base: string;

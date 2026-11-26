@@ -1,22 +1,22 @@
 {
-  "name": "@wisp/desktop",
-  "productName": "Wisp",
+  "name": "@bubble-ai/desktop",
+  "productName": "Bubble AI",
   "version": "0.0.2",
-  "description": "Wisp for Mac, Windows and Linux: the workspace in its own window, a hub on this computer, and this computer as a device for agents.",
+  "description": "Bubble AI for Mac, Windows and Linux: the workspace in its own window, a hub on this computer, and this computer as a device for agents.",
   "license": "Apache-2.0",
   "private": true,
   "main": "src/main.cjs",
   "scripts": {
     "start": "electron .",
-    "bundle": "node scripts/bundle-wisp.mjs",
+    "bundle": "node scripts/bundle-bubble-ai.mjs",
     "dist": "npm run bundle && electron-builder --dir",
     "dist:mac": "npm run bundle && electron-builder --mac",
-    "dist:win": "npm run bundle && electron-builder --win -c.extraMetadata.name=Wisp",
+    "dist:win": "npm run bundle && electron-builder --win \"-c.extraMetadata.name=Bubble AI\"",
     "dist:linux": "npm run bundle && electron-builder --linux"
   },
   "build": {
-    "appId": "ai.wisp.desktop",
-    "productName": "Wisp",
+    "appId": "ai.bubbleai.desktop",
+    "productName": "Bubble AI",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -39,57 +39,60 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Wisp uses your microphone when you call an agent.",
-        "NSAppleEventsUsageDescription": "Wisp uses this to send texts you approve through Messages, and to let your agents work on this Mac's screen when you lend it to them.",
-        "NSContactsUsageDescription": "Wisp lets your agents look people up in Contacts when you turn on the Apple mod.",
-        "NSCalendarsFullAccessUsageDescription": "Wisp lets your agents read your calendar, and add or move events you approve, when you turn on the Apple mod.",
-        "NSCalendarsUsageDescription": "Wisp lets your agents read your calendar, and add or move events you approve, when you turn on the Apple mod.",
-        "NSRemindersFullAccessUsageDescription": "Wisp lets your agents read your reminders, and add or complete ones you approve, when you turn on the Apple mod.",
-        "NSRemindersUsageDescription": "Wisp lets your agents read your reminders, and add or complete ones you approve, when you turn on the Apple mod.",
-        "NSLocalNetworkUsageDescription": "Wisp finds and connects to Wisp on your other computers over your own network.",
+        "NSMicrophoneUsageDescription": "Bubble AI uses your microphone when you call an agent.",
+        "NSAppleEventsUsageDescription": "Bubble AI uses this to send texts you approve through Messages, and to let your agents work on this Mac's screen when you lend it to them.",
+        "NSContactsUsageDescription": "Bubble AI lets your agents look people up in Contacts when you turn on the Apple mod.",
+        "NSCalendarsFullAccessUsageDescription": "Bubble AI lets your agents read your calendar, and add or move events you approve, when you turn on the Apple mod.",
+        "NSCalendarsUsageDescription": "Bubble AI lets your agents read your calendar, and add or move events you approve, when you turn on the Apple mod.",
+        "NSRemindersFullAccessUsageDescription": "Bubble AI lets your agents read your reminders, and add or complete ones you approve, when you turn on the Apple mod.",
+        "NSRemindersUsageDescription": "Bubble AI lets your agents read your reminders, and add or complete ones you approve, when you turn on the Apple mod.",
+        "NSLocalNetworkUsageDescription": "Bubble AI finds and connects to Bubble AI on your other computers over your own network.",
         "NSBonjourServices": [
           "_wisp._tcp"
         ]
       },
-      "artifactName": "Wisp-mac-${arch}.${ext}"
+      "artifactName": "Bubble-AI-mac-${arch}.${ext}"
     },
     "win": {
       "icon": "build/icon.png",
-      "executableName": "Wisp",
+      "executableName": "Bubble AI",
       "target": [
         "nsis"
       ],
-      "artifactName": "Wisp-win-${arch}.${ext}"
+      "artifactName": "Bubble-AI-win-${arch}.${ext}"
     },
     "linux": {
       "icon": "build/icon.png",
-      "executableName": "wisp",
-      "maintainer": "Wisp contributors <wisp@localhost>",
+      "executableName": "bubble-ai",
+      "maintainer": "Bubble AI contributors <bubble-ai@localhost>",
       "target": [
         "AppImage",
         "deb"
       ],
       "category": "Office",
-      "artifactName": "Wisp-linux-${arch}.${ext}"
+      "artifactName": "Bubble-AI-linux-${arch}.${ext}"
     },
     "afterPack": "scripts/after-pack.cjs",
     "afterSign": "scripts/after-sign.cjs",
     "publish": null,
     "protocols": [
       {
-        "name": "Wisp pairing",
+        "name": "Bubble AI pairing",
         "schemes": [
           "wisp",
           "warren"
         ]
       }
     ],
-    "executableName": "wisp",
+    "executableName": "bubble-ai",
+    "nsis": {
+      "guid": "e769ad2c-8310-53d0-9723-85384d471665"
+    },
     "appImage": {
-      "artifactName": "Wisp-linux-x86_64.${ext}"
+      "artifactName": "Bubble-AI-linux-x86_64.${ext}"
     },
     "deb": {
-      "artifactName": "Wisp-linux-amd64.${ext}"
+      "artifactName": "Bubble-AI-linux-amd64.${ext}"
     }
   },
   "devDependencies": {
@@ -99,6 +102,6 @@
   "dependencies": {
     "bonjour-service": "^1.3.0"
   },
-  "author": "Wisp contributors",
-  "homepage": "https://github.com/eireijie/wisp"
+  "author": "Bubble AI contributors",
+  "homepage": "https://github.com/eireijie/bubble-ai"
 }

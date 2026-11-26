@@ -370,7 +370,7 @@ extension View {
 }
 
 /**
- * The system's own sign-in sheet (the browser, over the app): where a sign-in page opens. Wisp's
+ * The system's own sign-in sheet (the browser, over the app): where a sign-in page opens. Bubble AI's
  * hub runs the sign-in and the page is the app's own (GitHub, Notion, Google…); the app only shows
  * it and never sees what is typed there. It shares Safari's sign-ins, so someone already signed in
  * to the app in Safari isn't asked again.

@@ -92,9 +92,9 @@ describe("filing notes", () => {
 
 describe("Vault", () => {
   it("writes, reads, links, searches, and versions notes", async () => {
-    await vault.write("shared/projects/wisp", "# Wisp\nUses [[Obsidian]] style links.", me);
+    await vault.write("shared/projects/wisp", "# Bubble AI\nUses [[Obsidian]] style links.", me);
     await vault.write("shared/obsidian.md", "# Obsidian\nA markdown knowledge base.", me);
-    expect((await vault.read("shared/projects/wisp.md")).title).toBe("Wisp");
+    expect((await vault.read("shared/projects/wisp.md")).title).toBe("Bubble AI");
     expect(vault.backlinks("shared/obsidian.md")).toEqual(["shared/projects/wisp.md"]);
     expect(vault.resolveLink("Obsidian")).toBe("shared/obsidian.md");
     expect(vault.search("knowledge").map((h) => h.path)).toEqual(["shared/obsidian.md"]);
@@ -232,8 +232,8 @@ describe("an existing Obsidian vault", () => {
   });
 });
 
-describe("edits made outside Wisp", () => {
-  it("are committed as 'Edited in Obsidian', indexed, and never confused with Wisp's own saves", async () => {
+describe("edits made outside Bubble AI", () => {
+  it("are committed as 'Edited in Obsidian', indexed, and never confused with Bubble AI's own saves", async () => {
     await vault.write("shared/ours.md", "# Ours\n", me);
     const stop = vault.watch({ debounceMs: 30, intervalMs: 600_000 });
     try {
@@ -242,7 +242,7 @@ describe("edits made outside Wisp", () => {
       const first = (await vault.changes(1))[0];
       expect(first).toMatchObject({ author: OUTSIDE_AUTHOR.name, files: [{ path: "Notes/outside.md", change: "added" }] });
 
-      // Wisp's own save while the watcher is running: exactly one commit, by Wisp's author
+      // Bubble AI's own save while the watcher is running: exactly one commit, by Bubble AI's author
       const count = () => Number(gitOut(dir, "rev-list", "--count", "HEAD"));
       const before = count();
       await vault.write("shared/ours.md", "# Ours\nedited", me);
@@ -262,7 +262,7 @@ describe("edits made outside Wisp", () => {
     }
   });
 
-  it("are left alone while Wisp is saving that very note", async () => {
+  it("are left alone while Bubble AI is saving that very note", async () => {
     const saving = vault.write("shared/race.md", "# Race\n", me);
     // an outside sync that runs while the save is in flight must not commit it as an outside edit
     const sync = vault.syncFromDisk();

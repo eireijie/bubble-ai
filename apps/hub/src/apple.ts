@@ -22,7 +22,7 @@ import {
   type ApplePlaceEvent,
   type Approval,
   type MessagePart,
-} from "@wisp/core";
+} from "@bubble-ai/core";
 import { id } from "./auth.ts";
 import { featureOn } from "./features.ts";
 import type { Hub } from "./hub.ts";
@@ -180,8 +180,8 @@ export class Apple {
   /** Ask the bridge Mac; errors come back in words for the person. */
   async ask<T = unknown>(workspaceId: string, op: AppleOp, timeoutMs = MAC_TIMEOUT_MS): Promise<T> {
     const mac = this.mac(workspaceId);
-    if (!mac) throw new AppleError("Apple apps need a Mac that joined Wisp. Add one in Computers, then pick it in Settings → Apple.", 409);
-    if (!mac.online) throw new AppleError(`${mac.name} is offline, so Wisp can't reach its Apple apps right now.`, 503);
+    if (!mac) throw new AppleError("Apple apps need a Mac that joined Bubble AI. Add one in Computers, then pick it in Settings → Apple.", 409);
+    if (!mac.online) throw new AppleError(`${mac.name} is offline, so Bubble AI can't reach its Apple apps right now.`, 503);
     try {
       return (await this.hub.computers.nodeRequest(mac.nodeId, (requestId) => ({ type: "apple", requestId, op }), timeoutMs)) as T;
     } catch (e) {
@@ -198,7 +198,7 @@ export class Apple {
     await this.ask(workspaceId, { op: "status" }).catch(() => undefined);
   }
 
-  /** The real app icon, read from the Mac's own apps once and kept (Wisp ships no Apple artwork). */
+  /** The real app icon, read from the Mac's own apps once and kept (Bubble AI ships no Apple artwork). */
   async icon(workspaceId: string, app: AppleApp): Promise<Buffer | null> {
     const dir = this.dataDir ? path.join(this.dataDir, "apple-icons") : null;
     const file = dir && path.join(dir, `${app}.png`);
@@ -387,7 +387,7 @@ export class Apple {
         if (got) fix = this.lastFix.get(ws);
       }
       this.waiting.delete(requestId);
-      if (!fix) throw new AppleError(sent ? "The iPhone didn't answer in time. It may be off or out of signal." : "No iPhone can answer: open Wisp on the iPhone once with Location allowed.", 503);
+      if (!fix) throw new AppleError(sent ? "The iPhone didn't answer in time. It may be off or out of signal." : "No iPhone can answer: open Bubble AI on the iPhone once with Location allowed.", 503);
     }
     const s = this.settings(ws);
     const near = s.places.find((p) => metres(p.latitude, p.longitude, fix!.latitude, fix!.longitude) <= p.radius)?.name;

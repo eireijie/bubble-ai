@@ -9,11 +9,11 @@ final class TypingTests: XCTestCase {
     let environment = ProcessInfo.processInfo.environment
     guard let hub = envVar("HUB", in: environment), hub.hasPrefix("http"),
           let token = envVar("TOKEN", in: environment), !token.isEmpty, !token.hasPrefix("$(") else {
-      throw XCTSkip("Set WISP_HUB and WISP_TOKEN, pointing at WispUITests/Fixtures/hub.py.")
+      throw XCTSkip("Set BUBBLE_HUB and BUBBLE_TOKEN, pointing at WispUITests/Fixtures/hub.py.")
     }
     continueAfterFailure = false
-    app.launchEnvironment["WISP_HUB"] = hub
-    app.launchEnvironment["WISP_TOKEN"] = token
+    app.launchEnvironment["BUBBLE_HUB"] = hub
+    app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
     XCTAssertTrue(app.tabBars.buttons["Chats"].waitForExistence(timeout: 30))
     app.tabBars.buttons["Chats"].tap()

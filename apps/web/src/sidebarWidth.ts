@@ -1,5 +1,5 @@
 /**
- * The desktop sidebar's width (2026-11-22 "Wisp, decluttered"): always docked, dragged wider or
+ * The desktop sidebar's width (2026-11-22 "Bubble AI, decluttered"): always docked, dragged wider or
  * narrower by its edge, and it stays where it's left. Below SNAP it snaps to a rail of ghosts.
  * The width and whether it's collapsed are remembered on this device.
  */

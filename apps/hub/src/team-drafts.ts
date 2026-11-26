@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { describeFlow, layoutSteps, normalizeSteps, stepsProblem, type Actor, type TeamDraft, type TeamStep, type TeamStepKind } from "@wisp/core";
+import { describeFlow, layoutSteps, normalizeSteps, stepsProblem, type Actor, type TeamDraft, type TeamStep, type TeamStepKind } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import type { Hub } from "./hub.ts";
 import { workspaceLead } from "./lead.ts";

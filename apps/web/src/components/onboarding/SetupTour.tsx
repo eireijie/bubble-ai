@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { useStore } from "../../store.ts";
 import { andList } from "../../views/onboarding/BubbleSetup.tsx";
 import { cx } from "../ui.tsx";
@@ -9,7 +9,7 @@ import { api } from "../../api.ts";
 import { SuggestionBanner } from "../SuggestionBanner.tsx";
 
 /**
- * Right after the first run (2026-11-25 "Wisp, bubbles", board 6), in the new agent's chat.
+ * Right after the first run (2026-11-25 "Bubble AI, bubbles", board 6), in the new agent's chat.
  * Advanced: the agent says what got done ("Great! I can see all that you've done.", which apps are
  * connected and which are still off), then Show me around starts on its own (board 9: 25 stops,
  * Skip tour any time; components/tour). Simple: one quiet line that apps can be added anytime,

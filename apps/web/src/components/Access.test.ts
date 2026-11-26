@@ -58,14 +58,14 @@ describe("reach setup", () => {
     expect(act).toHaveBeenCalledExactlyOnceWith("login");
     expect(window.open).toHaveBeenCalledWith("https://login.tailscale.com", "_blank", "noopener,noreferrer");
   });
-  it("handles an older Wisp without the reach API", async () => {
+  it("handles an older Bubble AI without the reach API", async () => {
     useAccessStore.setState({ refresh: vi.fn(async () => null) });
     await expect(enableTailscale()).rejects.toThrow("isn't available yet");
   });
 });
 
 describe("linkReach", () => {
-  it("tells who can open a link to this Wisp", () => {
+  it("tells who can open a link to this Bubble AI", () => {
     expect(linkReach("http://192.168.1.20:4747/join/x", base)).toBe("wifi");
     expect(linkReach("http://wisp.local:4747", base)).toBe("wifi");
     expect(linkReach(null, base)).toBe("wifi");

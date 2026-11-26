@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { deviceAdapters } from "@wisp/adapters";
+import { deviceAdapters } from "@bubble-ai/adapters";
 import { Reach } from "../../hub/src/reach.ts";
 import { commandExists, type NodeConfig } from "./daemon.ts";
 import { detectEngine } from "./computers/index.ts";
@@ -38,7 +38,7 @@ export function connectionLogged(dir: string): boolean {
   finally { if (descriptor !== undefined) fs.closeSync(descriptor); }
 }
 
-/** Independent probes keep a missing app or an unreachable Wisp from hiding the remaining fixes. */
+/** Independent probes keep a missing app or an unreachable Bubble AI from hiding the remaining fixes. */
 export async function checkDoctor(dir: string, saved: DoctorConfig, overrides: Partial<DoctorDependencies> = {}): Promise<DoctorCheck[]> {
   const localUrl = `http://localhost:${process.env.PORT ?? "4747"}`;
   const deps: DoctorDependencies = {
@@ -89,21 +89,21 @@ export async function checkDoctor(dir: string, saved: DoctorConfig, overrides: P
   }
   else try { away = await deps.away(); } catch {}
   return [
-    { label: "Wisp is running", ok: healthy, fix: saved.hub && remote ? "Open Wisp on the computer it lives on and check your connection." : "Run: wisp service install hub" },
-    { label: "This computer is connected", ok: connected, fix: saved.paused ? "Run: wisp node resume" : saved.token ? running ? "Check your connection, then run: wisp service install node" : "Run: wisp service install node" : saved.local ? `Finish getting ready at ${localUrl}` : "Run: wisp join" },
-    { label: "Found agent apps", ok: harnesses.length > 0, detail: harnesses.join(", "), fix: "Open Wisp and choose an agent app to install." },
-    { label: "VM engine is ready", ok: engine, fix: "Run: wisp setup" },
-    { label: "Away from home", ok: away.on, detail: away.on ? awayDetail || "On" : away.found ? "Tailscale found" : "Off", fix: "Open Wisp → Settings → Devices → Away from home." },
+    { label: "Bubble AI is running", ok: healthy, fix: saved.hub && remote ? "Open Bubble AI on the computer it lives on and check your connection." : "Run: bubble-ai service install hub" },
+    { label: "This computer is connected", ok: connected, fix: saved.paused ? "Run: bubble-ai node resume" : saved.token ? running ? "Check your connection, then run: bubble-ai service install node" : "Run: bubble-ai service install node" : saved.local ? `Finish getting ready at ${localUrl}` : "Run: bubble-ai join" },
+    { label: "Found agent apps", ok: harnesses.length > 0, detail: harnesses.join(", "), fix: "Open Bubble AI and choose an agent app to install." },
+    { label: "VM engine is ready", ok: engine, fix: "Run: bubble-ai setup" },
+    { label: "Away from home", ok: away.on, detail: away.on ? awayDetail || "On" : away.found ? "Tailscale found" : "Off", fix: "Open Bubble AI → Settings → Devices → Away from home." },
   ];
 }
 
 export async function doctor(dir: string, say: (line: string) => void = console.log): Promise<boolean> {
-  say("Wisp");
+  say("Bubble AI");
   let saved: DoctorConfig;
   try { saved = readDoctorConfig(dir); }
   catch {
     say("✗ Couldn't read this computer's settings");
-    say(`  Fix: Check ${path.join(dir, "node.json")} and run wisp doctor again.`);
+    say(`  Fix: Check ${path.join(dir, "node.json")} and run bubble-ai doctor again.`);
     return false;
   }
   const checks = await checkDoctor(dir, saved);

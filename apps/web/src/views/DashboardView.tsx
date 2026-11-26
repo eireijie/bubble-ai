@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
-import { harnessLabel, type Actor, type Agent, type Approval, type FlowLane, type Followup, type TeamFlow } from "@wisp/core";
-import { defaultAppearance } from "@wisp/core/src/appearance.ts";
+import { harnessLabel, type Actor, type Agent, type Approval, type FlowLane, type Followup, type TeamFlow } from "@bubble-ai/core";
+import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api } from "../api.ts";
 import { useStore, useTeams, useWaitingOnYou, usePrefs, type ComputerInfo } from "../store.ts";
 import { waitingOnYou } from "../team/Runs.tsx";

@@ -1,15 +1,17 @@
 #!/bin/sh
-# Install Wisp without questions: curl -fsSL https://raw.githubusercontent.com/eireijie/wisp/main/install.sh | sh
+# Install Bubble AI without questions: curl -fsSL https://raw.githubusercontent.com/eireijie/bubble-ai/main/install.sh | sh
 # Join instead: ... | sh -s join [invite-link]
 # Legacy: --hub-server, --hub URL --token VALUE, --name NAME, --dir DIR,
 # --yes, --no-service, --no-device and --no-open are still accepted.
 set -eu
 
-GITHUB_REPO="eireijie/wisp"
-WISP_REPO="${WISP_REPO-${WARREN_REPO-https://github.com/$GITHUB_REPO.git}}"
-DIR="${WISP_DIR-${WARREN_DIR-$HOME/wisp}}"
-# Reuse an existing checkout so an update never installs a second hub.
-if [ -z "${WISP_DIR+x}${WARREN_DIR+x}" ] && [ ! -e "$DIR" ] && [ -d "$HOME/warren/.git" ]; then DIR="$HOME/warren"; fi
+GITHUB_REPO="eireijie/bubble-ai"
+BUBBLE_REPO="${BUBBLE_REPO-${WISP_REPO-${WARREN_REPO-https://github.com/$GITHUB_REPO.git}}}"
+DIR="${BUBBLE_DIR-${WISP_DIR-${WARREN_DIR-$HOME/bubble-ai}}}"
+# Reuse an existing checkout (from before the renames) so an update never installs a second hub.
+if [ -z "${BUBBLE_DIR+x}${WISP_DIR+x}${WARREN_DIR+x}" ] && [ ! -e "$DIR" ]; then
+  if [ -d "$HOME/wisp/.git" ]; then DIR="$HOME/wisp"; elif [ -d "$HOME/warren/.git" ]; then DIR="$HOME/warren"; fi
+fi
 MODE=hub HUB= TOKEN= NAME= INVITE= SERVICE=1 DEVICE=1 OPEN=1
 fail() { printf '%s\n' "✗ $*" >&2; exit 1; }
 value() { [ -n "$2" ] || fail "$1 needs a value."; }
@@ -25,7 +27,7 @@ while [ $# -gt 0 ]; do
     --no-service) SERVICE= ;;
     --no-device) DEVICE= ;;
     --no-open) OPEN= ;;
-    -h|--help) printf '%s\n' 'Wisp' 'Usage: install.sh [join [invite-link]] [--dir DIR] [--no-service] [--no-open]' 'Legacy: --hub-server | --hub URL --token VALUE [--name NAME]'; exit 0 ;;
+    -h|--help) printf '%s\n' 'Bubble AI' 'Usage: install.sh [join [invite-link]] [--dir DIR] [--no-service] [--no-open]' 'Legacy: --hub-server | --hub URL --token VALUE [--name NAME]'; exit 0 ;;
     *) fail "Unknown option: $1" ;;
   esac
   shift
@@ -33,17 +35,20 @@ done
 # Invite links work in the older address option too.
 case "$HUB" in */join/*) MODE=join; INVITE="$HUB" ;; esac
 if [ "$MODE" = device ]; then [ -n "$HUB" ] && [ -n "$TOKEN" ] || fail 'Use join [invite-link], or provide both --hub and --token.'; fi
-printf '%s\n' 'Wisp'
+printf '%s\n' 'Bubble AI'
 command -v git >/dev/null 2>&1 || fail 'Install Git, then run this installer again.'
 command -v curl >/dev/null 2>&1 || fail 'Install curl, then run this installer again.'
-STATE="$HOME/.wisp"
-# An older Warren home moves to ~/.wisp with `wisp migrate` below; until then it stays in use.
-if [ ! -e "$STATE" ] && [ -d "$HOME/.warren" ] && [ ! -L "$HOME/.warren" ]; then STATE="$HOME/.warren"; fi
+STATE="$HOME/.bubble-ai"
+# An older Wisp or Warren home moves to ~/.bubble-ai with `bubble-ai migrate` below; until then it stays in use.
+if [ ! -e "$STATE" ]; then
+  if [ -d "$HOME/.wisp" ] && [ ! -L "$HOME/.wisp" ]; then STATE="$HOME/.wisp"
+  elif [ -d "$HOME/.warren" ] && [ ! -L "$HOME/.warren" ]; then STATE="$HOME/.warren"; fi
+fi
 mkdir -p "$STATE/runtime"
 LOG="$STATE/install.log"
 TEMP=$(mktemp -d "${TMPDIR:-/tmp}/wisp-install.XXXXXX")
 trap 'rm -rf "$TEMP"' EXIT HUP INT TERM
-quiet() { "$@" >>"$LOG" 2>&1 || fail "Couldn't finish getting ready; check $LOG and run wisp doctor."; }
+quiet() { "$@" >>"$LOG" 2>&1 || fail "Couldn't finish getting ready; check $LOG and run bubble-ai doctor."; }
 node_major() { "$1" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }
 RUNTIME="$STATE/runtime/node"
 if command -v node >/dev/null 2>&1 && [ "$(node_major "$(command -v node)")" -ge 22 ]; then
@@ -74,24 +79,24 @@ export PATH="$(dirname "$NODE"):$PATH"
 # Update only a clean checkout; never discard someone's local changes.
 if [ -d "$DIR/.git" ]; then
   origin=$(git -C "$DIR" remote get-url origin)
-  case "$origin" in https://github.com/eireijie/warren|https://github.com/eireijie/warren.git|git@github.com:eireijie/warren.git) git -C "$DIR" remote set-url origin "$WISP_REPO" ;; esac
+  case "$origin" in https://github.com/eireijie/warren|https://github.com/eireijie/warren.git|git@github.com:eireijie/warren.git) git -C "$DIR" remote set-url origin "$BUBBLE_REPO" ;; esac
   quiet git -C "$DIR" pull --ff-only
 else
   [ ! -e "$DIR" ] || fail "$DIR exists; choose another folder with --dir."
-  quiet git clone "$WISP_REPO" "$DIR"
+  quiet git clone "$BUBBLE_REPO" "$DIR"
 fi
 cd "$DIR"
 DIR=$(pwd -P)
-printf '%s\n' '◌ Getting Wisp ready…'
+printf '%s\n' '◌ Getting Bubble AI ready…'
 quiet npm ci --no-audit --no-fund --loglevel=error
 quiet npm ci --prefix bin --no-audit --no-fund --loglevel=error
 if [ "$MODE" = hub ]; then quiet npm run build --silent; fi
-printf '%s\n' '✓ Downloaded Wisp'
-# Move an older Warren home and services to Wisp before starting anything under the new name.
-quiet "$NODE" "$DIR/bin/wisp.mjs" migrate
-if [ "$STATE" = "$HOME/.warren" ] && [ -d "$HOME/.wisp" ]; then
-  case "$NODE" in "$HOME/.warren/"*) NODE="$HOME/.wisp/${NODE#"$HOME/.warren/"}" ;; esac
-  STATE="$HOME/.wisp"
+printf '%s\n' '✓ Downloaded Bubble AI'
+# Move an older Warren home and services to Bubble AI before starting anything under the new name.
+quiet "$NODE" "$DIR/bin/bubble-ai.mjs" migrate
+if [ "$STATE" != "$HOME/.bubble-ai" ] && [ -d "$HOME/.bubble-ai" ]; then
+  case "$NODE" in "$STATE/"*) NODE="$HOME/.bubble-ai/${NODE#"$STATE/"}" ;; esac
+  STATE="$HOME/.bubble-ai"
   LOG="$STATE/install.log"
 fi
 BIN="$HOME/.local/bin"
@@ -102,10 +107,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const [bin, dir, node] = process.argv.slice(2);
 const quote = s => "'" + s.replace(/'/g, "'\\''") + "'";
-for (const name of ['wisp', 'wisp-mcp', 'wisp-hub']) {
+// bubble-ai is the command now; wisp stays as another name for it, since older notes and scripts use it
+for (const name of ['bubble-ai', 'bubble-ai-mcp', 'bubble-ai-hub', 'wisp', 'wisp-mcp', 'wisp-hub']) {
   const file = path.join(bin, name);
   try { fs.unlinkSync(file); } catch (e) { if (e.code !== 'ENOENT') throw e; }
-  fs.writeFileSync(file, '#!/bin/sh\nexec ' + quote(node) + ' ' + quote(path.join(dir, 'bin', name + '.mjs')) + ' "$@"\n', { mode: 0o755 });
+  fs.writeFileSync(file, '#!/bin/sh\nexec ' + quote(node) + ' ' + quote(path.join(dir, 'bin', name.replace(/^wisp/, 'bubble-ai') + '.mjs')) + ' "$@"\n', { mode: 0o755 });
 }
 // the old Warren commands, when they belong to this checkout or the old ~/warren one
 const ours = [path.join(dir, 'bin'), path.join(process.env.HOME || '', 'warren', 'bin')];
@@ -125,29 +131,29 @@ if [ "$MODE" = join ]; then
   [ -z "$INVITE" ] || set -- "$INVITE"
   [ -z "$NAME" ] || set -- "$@" --name "$NAME"
   [ -n "$SERVICE" ] || set -- "$@" --no-service
-  wisp join "$@"
+  bubble-ai join "$@"
 elif [ "$MODE" = device ]; then
   set -- --hub "$HUB" --token "$TOKEN"
   [ -z "$NAME" ] || set -- "$@" --name "$NAME"
-  if [ -n "$SERVICE" ]; then quiet wisp service install node "$@"; printf '%s\n' '✓ This computer joined'
-  else printf '%s\n' '✓ Installed Wisp; use the existing connection flags with wisp node start'; fi
+  if [ -n "$SERVICE" ]; then quiet bubble-ai service install node "$@"; printf '%s\n' '✓ This computer joined'
+  else printf '%s\n' '✓ Installed Bubble AI; use the existing connection flags with bubble-ai node start'; fi
 elif [ -n "$SERVICE" ]; then
-  quiet wisp service install hub
-  P=$(wisp service status hub --json 2>/dev/null | "$NODE" -pe 'JSON.parse(require("node:fs").readFileSync(0, "utf8"))[0].port || ""' 2>/dev/null || true)
+  quiet bubble-ai service install hub
+  P=$(bubble-ai service status hub --json 2>/dev/null | "$NODE" -pe 'JSON.parse(require("node:fs").readFileSync(0, "utf8"))[0].port || ""' 2>/dev/null || true)
   [ -n "$P" ] || P="${PORT:-4747}"
   up=
   for _ in $(seq 1 30); do
     if curl -fsS --max-time 2 "http://127.0.0.1:$P/healthz" >/dev/null 2>&1; then up=1; break; fi
     sleep 1
   done
-  [ -n "$up" ] || fail 'Wisp did not start; run wisp doctor.'
-  printf '%s\n' '✓ Started Wisp (starts again when you log in)'
-  wisp setup-code 2>/dev/null | grep -v 'already has an owner' || true
+  [ -n "$up" ] || fail 'Bubble AI did not start; run bubble-ai doctor.'
+  printf '%s\n' '✓ Started Bubble AI (starts again when you log in)'
+  bubble-ai setup-code 2>/dev/null | grep -v 'already has an owner' || true
   if [ -n "$DEVICE" ]; then
     set -- --local
     [ -z "$NAME" ] || set -- "$@" --name "$NAME"
-    if wisp service install node "$@" >>"$LOG" 2>&1; then printf '%s\n' '✓ This computer is ready to join when you finish getting ready'
-    else printf '%s\n' '✗ This computer needs a check; run wisp doctor'; fi
+    if bubble-ai service install node "$@" >>"$LOG" 2>&1; then printf '%s\n' '✓ This computer is ready to join when you finish getting ready'
+    else printf '%s\n' '✗ This computer needs a check; run bubble-ai doctor'; fi
     # A connected computer also prepares its VM image in the background.
     printf '%s\n' '◌ Getting computers ready for agents…'
   fi
@@ -155,15 +161,15 @@ elif [ -n "$SERVICE" ]; then
   for app in claude codex gemini hermes kimi qwen; do
     if command -v "$app" >/dev/null 2>&1; then apps="${apps:+$apps, }$app"; fi
   done
-  if [ -n "$apps" ]; then printf '%s\n' "✓ Found agent apps: $apps"; else printf '%s\n' '◌ Agent apps can be added in Wisp'; fi
+  if [ -n "$apps" ]; then printf '%s\n' "✓ Found agent apps: $apps"; else printf '%s\n' '◌ Agent apps can be added in Bubble AI'; fi
   if command -v tailscale >/dev/null 2>&1 || [ -e /Applications/Tailscale.app ]; then printf '%s\n' '✓ Found Tailscale'; fi
   URL="http://localhost:$P"
-  printf '%s\n' "Opening Wisp in your browser… $URL"
+  printf '%s\n' "Opening Bubble AI in your browser… $URL"
   if [ -n "$OPEN" ] && [ -z "${SSH_CONNECTION:-}" ]; then
     if [ "$(uname -s)" = Darwin ]; then open "$URL" >/dev/null 2>&1 || true
     elif command -v xdg-open >/dev/null 2>&1 && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }; then (xdg-open "$URL" >/dev/null 2>&1 &) || true; fi
   fi
 else
-  printf '%s\n' '✓ Installed Wisp; start it with: wisp service install hub'
+  printf '%s\n' '✓ Installed Bubble AI; start it with: bubble-ai service install hub'
 fi
-printf '%s\n' 'Other computers → Install Wisp there, then run wisp join' 'Phones → Open Add a device in Wisp and scan the code' 'Stuck? → wisp doctor'
+printf '%s\n' 'Other computers → Install Bubble AI there, then run bubble-ai join' 'Phones → Open Add a device in Bubble AI and scan the code' 'Stuck? → bubble-ai doctor'

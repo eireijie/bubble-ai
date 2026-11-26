@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentEvent, Approval, Message } from "@wisp/core";
+import type { AgentEvent, Approval, Message } from "@bubble-ai/core";
 import { api } from "./api.ts";
 import { conversationKey, keep, liveShape, sameData, useStore, type DiscussionInfo, type LiveRun } from "./store.ts";
 

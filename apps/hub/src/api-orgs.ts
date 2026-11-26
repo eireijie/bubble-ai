@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { FEATURE_KEYS, FEATURE_PRESETS, MAX_MODEL_ID_LENGTH, type Features } from "@wisp/core";
+import { FEATURE_KEYS, FEATURE_PRESETS, MAX_MODEL_ID_LENGTH, type Features } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { bearer, issueToken, revokeToken } from "./auth.ts";
 import { deviceLabel } from "./api-settings.ts";
@@ -120,7 +120,7 @@ export function registerOrgApi(app: FastifyInstance, hub: Hub, h: Helpers) {
     if (!ws || !store.role(wsId, c.actor.id)) return reply.code(404).send({ error: "workspace not found" });
     if (store.role(wsId, c.actor.id) !== "owner") return reply.code(403).send({ error: "only an owner can delete this workspace" });
     if (body.name.trim() !== ws.name) return reply.code(400).send({ error: "type the workspace's name to delete it" });
-    if (hub.vaults.isPrimary(wsId)) return reply.code(409).send({ error: "this is the first workspace on this Wisp, so it can't be deleted" });
+    if (hub.vaults.isPrimary(wsId)) return reply.code(409).send({ error: "this is the first workspace on this Bubble AI, so it can't be deleted" });
     const next = db
       .prepare("SELECT w.id FROM memberships m JOIN workspaces w ON w.id = m.workspace_id WHERE m.user_id = ? AND w.id != ? ORDER BY w.created_at LIMIT 1")
       .get(c.actor.id, wsId) as { id: string } | undefined;

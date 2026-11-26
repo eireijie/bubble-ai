@@ -1,12 +1,12 @@
 import SwiftUI
 
 private let askActions: [(key: String, title: String, detail: String)] = [
-  ("send", "Sending email or messages outside Wisp", "Email, texts, Slack, DMs on other sites"),
+  ("send", "Sending email or messages outside Bubble AI", "Email, texts, Slack, DMs on other sites"),
   ("spend", "Buying or paying for anything", "Orders, subscriptions, upgrades, ads"),
   ("delete", "Deleting files, data or accounts", "Anything that can't be undone"),
   ("post", "Posting publicly", "Social media, reviews, comments, forums"),
   ("signup", "Signing up for new accounts or services", "New logins, free trials, newsletters"),
-  ("share", "Sharing files or private information outside Wisp", "Uploads, links, forms with personal details"),
+  ("share", "Sharing files or private information outside Bubble AI", "Uploads, links, forms with personal details"),
 ]
 private let accessChoices: [(key: String, title: String, detail: String)] = [
   ("read-only", "Read only", "Can look at files, can't change them"),
@@ -146,7 +146,7 @@ struct TeamLeadView: View {
     SettingsPage("Team lead", id: "team-lead") {
       if !store.isOwner { OwnersOnlyNote() }
       CardGroup {
-        OptionRow(title: "Automatic", subtitle: automatic.map { "Wisp picks: \($0.name)" } ?? "Wisp picks a team's lead, else the first agent", selected: store.taskLeadOverride == nil, id: "lead-auto") { save(nil) }
+        OptionRow(title: "Automatic", subtitle: automatic.map { "Bubble AI picks: \($0.name)" } ?? "Bubble AI picks a team's lead, else the first agent", selected: store.taskLeadOverride == nil, id: "lead-auto") { save(nil) }
         ForEach(store.agents) { agent in
           OptionRow(title: agent.name, subtitle: "@\(agent.handle)", selected: store.taskLeadOverride == agent.id, id: "lead-\(agent.handle)") { save(agent.id) }
         }
@@ -267,10 +267,10 @@ struct DataExportView: View {
       CardLabel("Back up everything")
       if let info {
         CardGroup {
-          ValueRow(title: "Where the folder is", value: store.nodes.first(where: { $0.online })?.name ?? "The computer Wisp runs on")
+          ValueRow(title: "Where the folder is", value: store.nodes.first(where: { $0.online })?.name ?? "The computer Bubble AI runs on")
           ValueRow(title: "What is inside", value: "\(info.notes ?? 0) notes · \(info.messages ?? 0) messages")
         }
-        CardHint("\(info.files ?? 0) files and \(info.agents ?? 0) agents too. Copy the whole Wisp folder to a USB drive or cloud folder and you have a full backup. Memory notes live in a different folder if you moved it.")
+        CardHint("\(info.files ?? 0) files and \(info.agents ?? 0) agents too. Copy the whole Bubble AI folder to a USB drive or cloud folder and you have a full backup. Memory notes live in a different folder if you moved it.")
       } else if !store.isOwner {
         CardHint("Ask a workspace owner for the backup folder.")
       }
@@ -305,7 +305,7 @@ struct DataExportView: View {
 struct HowToBackUpView: View {
   var body: some View {
     SettingsPage("How to back up", id: "how-to-back-up") {
-      StepsCard(steps: ["Quit Wisp on the computer that runs the hub, so the copy is complete.", "Copy the whole folder to a USB drive or a cloud folder.", "Start Wisp again."])
+      StepsCard(steps: ["Quit Bubble AI on the computer that runs the hub, so the copy is complete.", "Copy the whole folder to a USB drive or a cloud folder.", "Start Bubble AI again."])
     }
   }
 }
@@ -313,7 +313,7 @@ struct HowToBackUpView: View {
 struct HowToRestoreView: View {
   var body: some View {
     SettingsPage("How to restore", id: "how-to-restore") {
-      StepsCard(steps: ["Install Wisp on the computer, or keep the install you already have.", "Quit Wisp.", "Put your copied folder back in the same place, replacing the folder there.", "If your memory notes were in a separate folder, put that folder back too.", "Start Wisp again. Your devices reconnect by themselves when they are online."])
+      StepsCard(steps: ["Install Bubble AI on the computer, or keep the install you already have.", "Quit Bubble AI.", "Put your copied folder back in the same place, replacing the folder there.", "If your memory notes were in a separate folder, put that folder back too.", "Start Bubble AI again. Your devices reconnect by themselves when they are online."])
     }
   }
 }

@@ -207,7 +207,7 @@ describe("Codex settings", () => {
     skill(".agents/skills/deploy", "deploy");
   });
 
-  it("reads the parts Wisp shows", async () => {
+  it("reads the parts Bubble AI shows", async () => {
     const s = await readHarnessSettings("codex", { home });
     expect(s.error).toBeUndefined();
     expect(s.model).toBe("gpt-6-astra");

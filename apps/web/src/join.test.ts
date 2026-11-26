@@ -26,12 +26,12 @@ describe("device approval", () => {
     expect(updateJoinRequests(queue, { type: "join_request_done", id: request.id })).toEqual([]);
   });
   it("gives an actionable 404 fallback", () => {
-    expect(unavailable({ status: 404 }, "Invite links")).toContain("update Wisp");
+    expect(unavailable({ status: 404 }, "Invite links")).toContain("update Bubble AI");
     expect(unavailable(new Error("Offline"), "Invite links")).toBe("Offline");
   });
 });
 describe("connected apps compatibility", () => {
-  it("hides the list when a Wisp doesn't support it yet", async () => {
+  it("hides the list when a Bubble AI doesn't support it yet", async () => {
     vi.mocked(api).mockRejectedValue({ status: 404 });
     await expect(loadMcpClients()).resolves.toBeNull();
     expect(api).toHaveBeenCalledWith("GET", "/api/mcp/clients");

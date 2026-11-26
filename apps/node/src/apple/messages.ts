@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AppleChat, AppleMessage, ApplePermission } from "@wisp/core";
+import type { AppleChat, AppleMessage, ApplePermission } from "@bubble-ai/core";
 import { exec } from "../computers/driver.ts";
 import { decodeAttributedBodyHex } from "./typedstream.ts";
 import { MS_SQL, appleMsToIso, chatName, cleanText, handleKey, isGroup, likePattern, nameOf, sqlString, unixMsToAppleDate, type ChatRow } from "./util.ts";

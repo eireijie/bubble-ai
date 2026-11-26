@@ -1,4 +1,4 @@
-import type { Computer } from "@wisp/core";
+import type { Computer } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 import type { Store } from "./store.ts";
 
@@ -11,7 +11,7 @@ import type { Store } from "./store.ts";
 
 /** The workspace's shared computer. */
 export const SHARED_KEY = "computers.shared";
-/** The device Wisp itself runs on (the hub's own computer, or the Cloud server). */
+/** The device Bubble AI itself runs on (the hub's own computer, or the Cloud server). */
 export const HOME_KEY = "devices.home";
 /** "true": owners choose where each agent runs (Settings → Devices). Simple otherwise. */
 export const ADVANCED_KEY = "computers.advanced";
@@ -35,7 +35,7 @@ export function sharedSize(memoryGb: number | undefined): { cpus: number; memory
 const canRunVms = (store: Store, nodeId: string) => !!store.nodeCapabilities(nodeId)?.vm.ok;
 
 /**
- * The device Wisp lives on: the one it registered for itself (`wisp service install node --local`,
+ * The device Bubble AI lives on: the one it registered for itself (`bubble-ai service install node --local`,
  * and the Cloud server's device), else the oldest device of the workspace's first owner.
  */
 export function homeDevice(store: Store, workspaceId: string): string | null {

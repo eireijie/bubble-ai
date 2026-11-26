@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
-import { TEAM_TEMPLATES, type TeamTemplate } from "@wisp/core";
+import { TEAM_TEMPLATES, type TeamTemplate } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { Button, Modal, cx } from "../components/ui.tsx";
 import { MiniChart } from "./How.tsx";

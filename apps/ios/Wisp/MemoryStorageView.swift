@@ -33,7 +33,7 @@ struct MemoryStorageView: View {
           Text(storage.path ?? "").font(.system(size: 16, design: .monospaced)).foregroundStyle(Palette.text).textSelection(.enabled)
         }.padding(.horizontal, 18).padding(.vertical, 14).frame(maxWidth: .infinity, alignment: .leading).background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
     .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
-        if fixed { CardCaption("Set by WISP_VAULT_DIR where Wisp runs, so it can only be changed there.") }
+        if fixed { CardCaption("Set by BUBBLE_VAULT_DIR where Bubble AI runs, so it can only be changed there.") }
         else {
           HStack(spacing: 10) {
             pill("Use a different folder") { changing.toggle() }
@@ -42,18 +42,18 @@ struct MemoryStorageView: View {
           if changing {
             MemoryFieldCard { TextField("/Users/you/Documents/My Obsidian vault", text: $path).textInputAutocapitalization(.never).autocorrectionDisabled().foregroundStyle(Palette.text).accessibilityIdentifier("memory-folder-field") }
             HStack { Spacer(); PillAction(title: "Save", symbol: "checkmark", enabled: !action.busy && path.trimmed != (storage.setting ?? "") && path.count <= 1000) { action.run { try await store.saveMemoryStorage(path.trimmed); changing = false } } }
-            CardCaption("Type the full path on the computer that runs Wisp. If it's an Obsidian vault, its notes are used as they are.")
+            CardCaption("Type the full path on the computer that runs Bubble AI. If it's an Obsidian vault, its notes are used as they are.")
           }
-          CardCaption("Wisp restarts to pick up a new folder. Your notes stay where they are.")
+          CardCaption("Bubble AI restarts to pick up a new folder. Your notes stay where they are.")
         }
         if storage.pendingRestart == true {
           VStack(alignment: .leading, spacing: 10) {
-            Text("Wisp will use \(storage.nextPath ?? "the new folder") after it restarts. Nothing changes until then.").font(.system(size: 15)).foregroundStyle(Palette.text)
-            if storage.restartable == true { Button { restarting = true } label: { Text("Restart Wisp now").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.sheet).padding(.horizontal, 20).frame(height: 44).background(Capsule().fill(Palette.text)) }.buttonStyle(.plain) }
-            else { Text("Stop Wisp and start it again on the computer to switch.").font(.system(size: 13)).foregroundStyle(Palette.muted) }
+            Text("Bubble AI will use \(storage.nextPath ?? "the new folder") after it restarts. Nothing changes until then.").font(.system(size: 15)).foregroundStyle(Palette.text)
+            if storage.restartable == true { Button { restarting = true } label: { Text("Restart Bubble AI now").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.sheet).padding(.horizontal, 20).frame(height: 44).background(Capsule().fill(Palette.text)) }.buttonStyle(.plain) }
+            else { Text("Stop Bubble AI and start it again on the computer to switch.").font(.system(size: 13)).foregroundStyle(Palette.muted) }
           }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Color(light: 0xDCE9FF, dark: 0x1F3A66)))
         }
-        if let previous = storage.previous { CardCaption("Your earlier memory is still in \(previous). Wisp never deletes it.") }
+        if let previous = storage.previous { CardCaption("Your earlier memory is still in \(previous). Bubble AI never deletes it.") }
       } else {
         CardCaption("Everything your agents and people remember is kept as plain markdown notes in one folder.")
       }
@@ -70,8 +70,8 @@ struct MemoryStorageView: View {
       }
     }
     .task { do { try await store.refreshMemoryStorage(); path = storage?.setting ?? "" } catch { action.error = error.localizedDescription } }
-    .confirmationDialog("Restart Wisp now? Everyone will briefly disconnect.", isPresented: $restarting, titleVisibility: .visible) {
-      Button("Restart Wisp") { action.run { try await store.connection().post("/api/memory/storage/restart", Empty()) } }
+    .confirmationDialog("Restart Bubble AI now? Everyone will briefly disconnect.", isPresented: $restarting, titleVisibility: .visible) {
+      Button("Restart Bubble AI") { action.run { try await store.connection().post("/api/memory/storage/restart", Empty()) } }
     }
   }
 
@@ -96,7 +96,7 @@ struct ObsidianSyncView: View {
   private func cloneCommand(_ token: String) -> String {
     guard let base = store.api?.base, var parts = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return "" }
     parts.user = "wisp"; parts.password = token; parts.path = storage?.sync?.urlPath ?? ""
-    return "git clone \"\(parts.string ?? "")\" \"Wisp memory\""
+    return "git clone \"\(parts.string ?? "")\" \"Bubble AI memory\""
   }
 
   var body: some View {
@@ -157,7 +157,7 @@ struct ObsidianSyncView: View {
             }.padding(.horizontal, 18).padding(.vertical, 12)
           }
         }
-        CardCaption("Tokens work only for syncing memory, not for signing in to Wisp.")
+        CardCaption("Tokens work only for syncing memory, not for signing in to Bubble AI.")
       }
     }
     .task { try? await store.refreshMemoryStorage() }

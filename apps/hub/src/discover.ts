@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { looksSecret, parseMemoryAnswer } from "@wisp/core/src/memory-import.ts";
+import { looksSecret, parseMemoryAnswer } from "@bubble-ai/core/src/memory-import.ts";
 
 /**
  * Onboarding v3, page 3, "Look around this Mac": with the person's one yes, the hub reads a few
@@ -35,8 +35,8 @@ export const PART_TIMEOUT_MS = 4000;
 
 /** Whether the hub runs on a person's own computer (macOS or Windows), not a Linux server. */
 export function discoverAvailable(platform = process.platform): boolean {
-  if (process.env.WISP_DISCOVER === "0") return false;
-  return platform === "darwin" || platform === "win32" || process.env.WISP_DISCOVER === "1";
+  if (process.env.BUBBLE_DISCOVER === "0") return false;
+  return platform === "darwin" || platform === "win32" || process.env.BUBBLE_DISCOVER === "1";
 }
 
 export const computerLabel = (platform = process.platform) => (platform === "darwin" ? "this Mac" : "this computer");

@@ -1,4 +1,4 @@
-import type { Agent, AppleApp, AppleLevel, AppleOp, Allowance, Approval, Channel, ComputerAction, ConnectionModel, HarnessSettings, HarnessSettingsChange, Message, ModelConnection, ModelLogin, ModelProvider, Routine, Followup, ChatLoop, Skill, StorageEntry, StorageFolder, StorageService, Watch, WatchService, WatchServiceInfo } from "@wisp/core";
+import type { Agent, AppleApp, AppleLevel, AppleOp, Allowance, Approval, Channel, ComputerAction, ConnectionModel, HarnessSettings, HarnessSettingsChange, Message, ModelConnection, ModelLogin, ModelProvider, Routine, Followup, ChatLoop, Skill, StorageEntry, StorageFolder, StorageService, Watch, WatchService, WatchServiceInfo } from "@bubble-ai/core";
 
 export interface WispClientOptions {
   url: string; // hub base URL, e.g. http://localhost:4747
@@ -19,7 +19,7 @@ export class WispError extends Error {
   }
 }
 
-/** Minimal typed client for the Wisp hub API. Used by wisp-mcp, the node daemon, and custom agents. */
+/** Minimal typed client for the Bubble AI hub API. Used by wisp-mcp, the node daemon, and custom agents. */
 export class WispClient {
   readonly url: string;
   constructor(private opts: WispClientOptions) {
@@ -180,11 +180,11 @@ export class WispClient {
   storageSearch(storage: string, query: string, path?: string) {
     return this.request<StorageEntry[]>("POST", "/api/storage/agent/search", { storage, query, ...(path ? { path } : {}) });
   }
-  /** Copy a file from a storage into Wisp; returns the Wisp file. */
+  /** Copy a file from a storage into Bubble AI; returns the Bubble AI file. */
   storageToWisp(storage: string, path: string) {
     return this.request<{ id: string; name: string; size: number; mime: string }>("POST", "/api/storage/agent/download", { storage, path });
   }
-  /** Put a Wisp file on a storage, make a folder or delete something: done, or a person is asked first. */
+  /** Put a Bubble AI file on a storage, make a folder or delete something: done, or a person is asked first. */
   storageChange(storage: string, action: "put" | "delete" | "mkdir", path: string, fileId?: string) {
     return this.request<{ status: "done" | "asked"; message: string; approvalId?: string }>("POST", "/api/storage/agent/change", { storage, action, path, ...(fileId ? { fileId } : {}) });
   }
@@ -323,6 +323,6 @@ export interface SavedNote {
   path: string;
   similar?: { path: string; title: string }[];
   linkable?: string[];
-  /** [[links]] Wisp added because the note linked to nothing */
+  /** [[links]] Bubble AI added because the note linked to nothing */
   linked?: string[];
 }

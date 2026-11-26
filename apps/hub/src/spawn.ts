@@ -1,4 +1,4 @@
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 import { pickedLead } from "./lead.ts";
 import { MAX_MADE_DEPTH, agentPolicy } from "./policy.ts";

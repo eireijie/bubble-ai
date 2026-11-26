@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import Wisp
+@testable import Bubble AI
 
 /** The merged Computers tab: states, groups, the add flows and where the old Devices links go. */
 @MainActor
@@ -41,7 +41,7 @@ final class ComputersHomeTests: XCTestCase {
   }
 
   func testDeviceStatesIncludeUpdating() throws {
-    let json = #"{"id":"n1","name":"Mac","mine":true,"online":true,"update":{"state":"updating","message":"Getting the latest Wisp"}}"#
+    let json = #"{"id":"n1","name":"Mac","mine":true,"online":true,"update":{"state":"updating","message":"Getting the latest Bubble AI"}}"#
     let node = try Wire.decoder.decode(AgentNode.self, from: Data(json.utf8))
     XCTAssertTrue(node.isUpdating)
     let idle = try Wire.decoder.decode(AgentNode.self, from: Data(#"{"id":"n1","name":"Mac","online":true,"update":{"state":"idle","message":""}}"#.utf8))

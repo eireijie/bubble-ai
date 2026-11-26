@@ -22,7 +22,7 @@ export function updateJoinRequests(requests: JoinRequest[], event: unknown): Joi
 
 export function unavailable(error: unknown, feature: string): string {
   return (error as { status?: number })?.status === 404
-    ? `${feature} isn't available yet; update Wisp on the computer it lives on.`
+    ? `${feature} isn't available yet; update Bubble AI on the computer it lives on.`
     : (error as Error).message || `Couldn't load ${feature.toLowerCase()}.`;
 }
 

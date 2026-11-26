@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import type { AgentEvent } from "@wisp/core";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import type { AgentEvent } from "@bubble-ai/core";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import { makeRoomFor } from "./room.ts";
@@ -33,7 +33,7 @@ const fake: HarnessAdapter = {
   async run(input, onEvent) {
     calls.push(input);
     onEvent({ type: "session", id: `sess-${calls.length}` });
-    const agent = new WispClient({ url: input.mcp!.env.WISP_URL, token: input.mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: input.mcp!.env.BUBBLE_URL, token: input.mcp!.env.BUBBLE_TOKEN });
     const finalText = input.prompt.includes("## Working in the background") ? await onCheck(agent, input) : "hi";
     if (reportUsage && input.prompt.includes("## Working in the background")) onEvent(reportUsage);
     return { finalText, sessionId: `sess-${calls.length}` };
@@ -153,7 +153,7 @@ describe("background work", () => {
 
   it("wakes for a follow-up the agent set, with its note, once", async () => {
     onCheck = async () => "ok";
-    const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: calls[0].mcp!.env.BUBBLE_URL, token: calls[0].mcp!.env.BUBBLE_TOKEN });
     const f = await agent.setFollowup({ inMinutes: 90, note: "remind them about the essay" });
     expect(hub.store.pendingFollowups(agentId).map((x) => x.id)).toContain(f.id);
     const n = calls.length;
@@ -425,7 +425,7 @@ describe("web push preferences", () => {
     await expect(owner.request("POST", "/api/push/subscribe", { endpoint, keys, prefs: { dms: "no" } })).rejects.toThrow();
     await owner.request("POST", "/api/push/subscribe", { endpoint, keys, prefs });
     expect(hub.store.pushSubscriptions(me).find((s) => s.endpoint === endpoint)?.prefs).toEqual(prefs);
-    const note = { title: "Wisp", body: "Hello" };
+    const note = { title: "Bubble AI", body: "Hello" };
     const sentTo = () => pushed.splice(0).map((p) => p.endpoint).sort();
     pushed.length = 0;
     try {
@@ -588,7 +588,7 @@ describe("what a check costs", () => {
 
     // a follow-up the agent set is not a regular check, so it runs with the limit reached
     hub.store.setBackground(agentId, me, { dailyCap: hub.store.backgroundRuns(agentId, me, startOfDay(new Date(), "UTC").toISOString()).length });
-    const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: calls[0].mcp!.env.BUBBLE_URL, token: calls[0].mcp!.env.BUBBLE_TOKEN });
     await agent.setFollowup({ inMinutes: 20, note: "tell Sam the essay is due" });
     const m = calls.length;
     hub.background.tick(new Date(Date.now() + 21 * 60_000));
@@ -635,7 +635,7 @@ describe("one allowance for all background work", () => {
     const used = (await owner.request("GET", "/api/background/allowance")).todayTokens;
     // used is 90% of this amount
     await owner.request("PUT", "/api/background/allowance", { dailyTokens: Math.max(10_000, Math.round(used / 0.9)) });
-    const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: calls[0].mcp!.env.BUBBLE_URL, token: calls[0].mcp!.env.BUBBLE_TOKEN });
     hub.store.setBackground(agentId, me, { enabled: true });
     const r = await agent.nextCheck(30, "calm");
     expect(r.minutes).toBe(60);
@@ -644,10 +644,10 @@ describe("one allowance for all background work", () => {
   });
 });
 
-describe("agents changing Wisp for their person", () => {
+describe("agents changing Bubble AI for their person", () => {
   it("changes its own background work, shows what changed in the DM, and the person can undo it", async () => {
     hub.store.setBackground(agentId, me, { enabled: false, everyMinutes: 30, quietStart: "23:00", quietEnd: "07:00" });
-    const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: calls[0].mcp!.env.BUBBLE_URL, token: calls[0].mcp!.env.BUBBLE_TOKEN });
     expect((await agent.mySettings()).background).toMatchObject({ enabled: false, everyMinutes: 30 });
     const r = await agent.changeSettings({ background: { everyMinutes: 120, quietStart: "22:00" } });
     expect(r.changed).toEqual(["Checks: every 30 min → every 2 hours", "Quiet hours: 10pm – 7am"]);
@@ -675,7 +675,7 @@ describe("agents changing Wisp for their person", () => {
   it("keeps background work off when changing it for someone who never turned it on", async () => {
     const saved = hub.store.background(agentId, me)!;
     hub.store.db.prepare("DELETE FROM background WHERE agent_id = ? AND user_id = ?").run(agentId, me);
-    const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: calls[0].mcp!.env.BUBBLE_URL, token: calls[0].mcp!.env.BUBBLE_TOKEN });
     const r = await agent.changeSettings({ background: { everyMinutes: 120 } });
     expect(hub.store.background(agentId, me)).toMatchObject({ enabled: false, everyMinutes: 120 });
     expect(r.changed).toEqual(["Checks: every 2 hours"]);
@@ -683,7 +683,7 @@ describe("agents changing Wisp for their person", () => {
   });
 
   it("turns mods on and off for an owner, and back", async () => {
-    const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: calls[0].mcp!.env.BUBBLE_URL, token: calls[0].mcp!.env.BUBBLE_TOKEN });
     const s = await agent.mySettings();
     expect(s.canChangeMods).toBe(true);
     expect(s.mods.find((m) => m.key === "tasks")?.on).toBe(true);
@@ -696,7 +696,7 @@ describe("agents changing Wisp for their person", () => {
   });
 
   it("asks before turning on a mod that widens its reach, and only a yes turns it on", async () => {
-    const agent = new WispClient({ url: calls[0].mcp!.env.WISP_URL, token: calls[0].mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: calls[0].mcp!.env.BUBBLE_URL, token: calls[0].mcp!.env.BUBBLE_TOKEN });
     expect((await owner.request("GET", "/api/features")).features.apple).toBe(false);
     const r = await agent.changeSettings({ mods: { apple: true } });
     expect(r.changed).toEqual([]);

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { AccessRule } from "@wisp/core";
+import type { AccessRule } from "@bubble-ai/core";
 import { api } from "../src/api.ts";
 import { useStore } from "../src/store.ts";
 import { MemoryHome, ViewMenu } from "../src/views/MemoryHome.tsx";
@@ -68,7 +68,7 @@ describe("folders", () => {
     expect(accessWord("nobody")).toBe("Nobody");
   });
 
-  it("keeps Wisp's own folders from being renamed or deleted", () => {
+  it("keeps Bubble AI's own folders from being renamed or deleted", () => {
     for (const fixed of ["shared", "agents/a1", "people/u1", "teams", "teams/launch", "groups"]) expect(fixedFolder(fixed)).toBe(true);
     for (const free of ["projects", "shared/projects", "agents/a1/plans", "teams/launch/notes"]) expect(fixedFolder(free)).toBe(false);
   });
@@ -260,7 +260,7 @@ describe("the Memory page", () => {
     expect(html).toContain(">Shared<");
     expect(html).toContain(">Juno&#x27;s notes<");
     expect(html).toContain('aria-expanded="true"');
-    // only the open folder shows its notes and its own menu (Shared is Wisp's own: it can be shared, not renamed)
+    // only the open folder shows its notes and its own menu (Shared is Bubble AI's own: it can be shared, not renamed)
     expect(html).toContain(">Release<");
     expect(html).not.toContain(">Dentist<");
     expect(html).toContain('aria-label="Shared: share"');

@@ -7,7 +7,7 @@ enum ThemeSettings {
   static let textKey = "wisp.textSize"
   static let motionKey = "wisp.motion"
   static let modeKey = "wisp.mode"
-  /** Wisp is designed dark first; light and "match the system" are a choice away. */
+  /** Bubble AI is designed dark first; light and "match the system" are a choice away. */
   static let defaultMode = "dark"
 
   /** The theme's accent: dark in light mode and light in dark mode for Mono, so it reads as the text color. */
