@@ -32,9 +32,10 @@ extension View {
   }
 
   /** The light surface a pill (name, tab bar) sits on. */
-  @ViewBuilder func glassPill() -> some View {
+  // inside a Button pass interactive: false: interactive glass takes the first tap for itself, so the button needed two
+  @ViewBuilder func glassPill(interactive: Bool = true) -> some View {
     if #available(iOS 26, *) {
-      self.glassEffect(.regular.interactive(), in: .capsule)
+      self.glassEffect(interactive ? .regular.interactive() : .regular, in: .capsule)
     } else {
       self.background(Capsule().fill(Palette.control)).overlay(Capsule().strokeBorder(Palette.hairline))
     }
@@ -133,7 +134,7 @@ struct NamePill<Icon: View>: View {
     }
     .padding(.leading, 12).padding(.trailing, 18)
     .frame(height: 44)
-    .glassPill()
+    .glassPill(interactive: false)
     .contentShape(Capsule())
   }
 }

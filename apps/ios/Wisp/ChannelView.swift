@@ -253,7 +253,7 @@ struct ChannelView: View {
           }
           .padding(.horizontal, 10).frame(height: 24)
           .fixedSize(horizontal: false, vertical: true)
-          .glassPill()
+          .glassPill(interactive: false)
           if current.archivedAt != nil { Text("Archived").font(.system(size: 11)).foregroundStyle(Palette.muted) }
         }
         .contentShape(Rectangle())
