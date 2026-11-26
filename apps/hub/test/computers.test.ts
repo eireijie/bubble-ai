@@ -770,6 +770,29 @@ describe("routines", () => {
     expect(kept).toMatchObject({ status: "ready", schedule: "0 9 * * 1" });
     expect((await vault.read(kept.notePath)).content).toContain(`Follow the skill /${timedSkill.slug}.`);
   });
+
+  it("keeps learning routines as they are while skills are off, and converts them when skills go on", async () => {
+    const ws = hub.store.agent(agentId)!.workspaceId;
+    const userId = hub.store.members(ws).find((m) => m.role === "owner")!.id;
+    const vault = hub.vault(ws);
+    const notePath = `agents/${agentId}/routines/off-lesson.md`;
+    await vault.write(notePath.replace(/\.md$/, ".recording.md"), `# Recording: Off lesson\n\n## Steps\n1. [0:01] typed "hi"\n`, { name: "test", email: "t@x" }, "rec");
+    await vault.write(notePath, `# Off lesson\n\nlearning\n`, { name: "test", email: "t@x" }, "note");
+    const r = hub.store.createRoutine({ workspaceId: ws, agentId, name: "Off lesson", notePath, schedule: null, timezone: "UTC", channelId: null, status: "learning", createdBy: { kind: "user", id: userId } });
+
+    await owner.request("PUT", "/api/settings/agents", { learnSkills: false });
+    await hub.routines.migrateLearning(); // what a restart does
+    expect(hub.store.routine(r.id)).toMatchObject({ status: "learning" });
+    expect(hub.skills.learnedBy(ws, agentId).find((s) => s.name === "Off lesson")).toBeUndefined();
+    // saving another setting while skills stay off doesn't convert it either
+    await owner.request("PUT", "/api/settings/agents", { maxHops: 8 });
+    expect(hub.store.routine(r.id)).toMatchObject({ status: "learning" });
+
+    await owner.request("PUT", "/api/settings/agents", { learnSkills: true });
+    expect(hub.store.routine(r.id)).toBeUndefined();
+    expect(hub.skills.learnedBy(ws, agentId).find((s) => s.name === "Off lesson")!.content).toContain('typed "hi"');
+    await owner.request("PUT", "/api/settings/agents", { maxHops: 6 });
+  });
 });
 
 describe("importing existing agents", () => {
