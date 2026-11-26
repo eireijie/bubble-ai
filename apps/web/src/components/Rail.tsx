@@ -424,7 +424,7 @@ export function Rail({ route }: { route: Route }) {
     ...(!wide && inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
     ...(!wide && !isGuest ? [place("Apps and skills", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
-    ...(!wide && !isGuest && features.tasks ? [place("Tasks", <ListTodo {...icon} />, { view: "tasks" })] : []),
+    ...(!wide && !isGuest ? [place(features.tasks ? "Tasks" : "Tasks (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "mods" })] : []),
     ...(!isGuest ? MOD_NAV.filter((m) => features[m.feature] && (!wide || m.place === "more")).map((m) => place(m.label, m.icon(18), m.to)) : []),
     ...(!wide && ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
     ...(orgs.length > 1
@@ -526,7 +526,8 @@ export function Rail({ route }: { route: Route }) {
             {!isGuest && placeRow({ label: "Computers", icon: <ComputersIcon size={17} />, to: computersTo, on: computersOn, aria: computersLabel, tour: "computers", count: <><span aria-hidden className={cx("mr-1.5 inline-block size-1.5 rounded-full align-middle", onCount > 0 ? "bg-[#30d158]" : "bg-muted opacity-50")} />{onCount} on</> })}
             {placeRow({ label: "Memory", icon: <BookOpen {...placeIcon} />, to: vaultTo, on: vaultOn, aria: `Memory vault${notes != null ? `, ${notes} notes` : ""}`, tour: "vault", count: notes != null ? String(notes) : null })}
             {!isGuest && placeRow({ label: "Apps and skills", icon: <LayoutGrid {...placeIcon} />, to: href({ view: "marketplace" }), on: route.view === "marketplace" || route.view === "skills" || route.view === "connectors" || route.view === "mods" })}
-            {!isGuest && features.tasks && placeRow({ label: "Tasks", icon: <ListTodo {...placeIcon} />, to: href({ view: "tasks" }), on: route.view === "tasks" })}
+            {/* Tasks is a mod: while it's off the row opens Mods, where it's switched on */}
+            {!isGuest && placeRow({ label: "Tasks", icon: <ListTodo {...placeIcon} />, to: href(features.tasks ? { view: "tasks" } : { view: "mods" }), on: route.view === "tasks", aria: features.tasks ? undefined : "Tasks, off. Turn it on in Mods", count: features.tasks ? null : "Off" })}
             {!isGuest && MOD_NAV.filter((m) => m.place === "rail" && features[m.feature]).map((m) => placeRow({ label: m.label, icon: m.icon(17), to: href(m.to), on: m.views.includes(route.view) }))}
             {!isGuest && ready.started && ready.left > 0 && placeRow({ label: "Finish setup", icon: <Compass {...placeIcon} />, to: href({ view: "settings", page: "learn" }), on: route.view === "settings" && (route.page as string | null) === "learn", count: `${ready.left} left` })}
           </nav>
