@@ -1722,7 +1722,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       channelId: o.channelId,
       threadId: o.threadId ?? null,
       author: o.author,
-      body: `@${o.target.handle} New task **${task.title}**\n\n${task.brief}`,
+      // a one-line task is its title: the brief isn't said a second time
+      body: `@${o.target.handle} New task **${task.title}**${task.brief.trim() && task.brief.trim() !== task.title.trim() ? `\n\n${task.brief}` : ""}`,
       parts: [{ type: "task" as const, taskId: task.id }, ...files.map((f) => ({ type: "file" as const, fileId: f!.id, name: f!.name }))],
       hop: o.hop,
       replyInThread: true,

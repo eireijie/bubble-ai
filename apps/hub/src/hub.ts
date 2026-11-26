@@ -982,10 +982,9 @@ export class Hub {
     const reason = result.reason ?? runFailureReason(agent.harness, result.error);
     const retry = !!run.triggerMessageId && !run.discussionId;
     const inVm = agent.settings.runIn === "computer" && !!agent.computerId;
-    const device = inVm ? this.store.computer(agent.computerId!)?.name : agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
     const base = { type: "run_failed" as const, runId: run.id, retry, reason };
-    if (reason === "error") return base;
-    const why = runFailureLine(reason, agent.harness, device);
+    const why = this.failureWhy(agent, result.error, reason);
+    if (reason === "error") return why ? { ...base, why } : base;
     if (reason === "not_installed") {
       // Bubble AI installs it with the device's own recipe when it can (npm); a computer's image is set up differently
       const canInstall = !inVm && !!agent.nodeId && !!harnessInfo(agent.harness)?.install?.npm;
@@ -994,6 +993,20 @@ export class Hub {
     if (reason === "signed_out") return { ...base, why, fix: this.failureFix(agent, result.error) ?? (inVm ? "computer" : "signin") };
     if (reason === "no_device") return { ...base, why, fix: "device" };
     return { ...base, why };
+  }
+
+  /**
+   * Why a run failed, in one short plain line: "Claude Code isn't installed on Mac mini." for a
+   * known reason, else the harness's own first sentence, cut short ("" when it said nothing useful).
+   */
+  failureWhy(agent: Pick<Agent, "harness" | "computerId" | "settings" | "nodeId">, error: string, reason: RunFailureReason = runFailureReason(agent.harness, error)): string {
+    const inVm = agent.settings.runIn === "computer" && !!agent.computerId;
+    const device = inVm ? this.store.computer(agent.computerId!)?.name : agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
+    if (reason !== "error") return runFailureLine(reason, agent.harness, device);
+    const first = plainFailure(error).split(/\n|(?<=[.!?])\s/)[0]?.trim() ?? "";
+    if (!first || /^(cancelled|stopped)/i.test(first)) return "";
+    const line = first.length > 140 ? `${first.slice(0, 139).trimEnd()}…` : first;
+    return /[.!?…]$/.test(line) ? line : `${line}.`;
   }
 
   /** What fixes a failed run, when a person has to sign something in first. */

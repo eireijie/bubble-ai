@@ -84,7 +84,7 @@ describe("settings rows", () => {
 
   it("lists every mod on the Mods page, Storage and Apple included, even while they're off", () => {
     const ids = pageRows("mods", false, FEATURE_PRESETS.simple).map((r) => r.id);
-    expect(ids).toEqual(["mod-background", "mod-routines", "mod-teach", "mod-tasks", "storage", "apple", "mod-invite", "mod-remote", "mod-code"]);
+    expect(ids).toEqual(["mod-background", "mod-routines", "mod-teach", "mod-tasks", "storage", "apple", "mod-invite", "mod-remote", "mod-code", "mod-buddy"]);
     expect(searchableRows(false, FEATURE_PRESETS.simple).map((r) => r.id)).toEqual(expect.arrayContaining(["storage", "apple", "mod-background", "mod-tasks"]));
   });
 

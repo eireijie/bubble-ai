@@ -62,13 +62,13 @@ describe("Add: apps, skills and mods on one page", () => {
     expect(html).toContain(FEATURE_INFO.remoteDesktop.name);
   });
 
-  it("lists every mod, the ones that are on with a check and the rest with Add; Code stays out while it is on", () => {
+  it("lists every mod, the ones that are on with a check and the rest with Add, Code included", () => {
     const html = add("mods");
     for (const k of ["background", "routines", "teach", "tasks", "buddy", "invite", "remoteDesktop", "storage", "apple"] as const) expect(html).toContain(FEATURE_INFO[k].name);
     expect(html).toContain('aria-label="Add Storage"');
     expect(html).not.toContain('aria-label="Add Tasks board"');
     expect(html).toContain('role="img" aria-label="On"');
-    expect(html).not.toContain(">Code<");
+    expect(html).toContain(">Code<");
     // no description paragraphs here either
     expect(html).not.toContain(FEATURE_INFO.storage.description);
   });

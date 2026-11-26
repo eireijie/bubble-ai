@@ -1,4 +1,5 @@
 import { createContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { LAYER } from "./layers.ts";
 import { X } from "lucide-react";
 import { cx } from "./ui.tsx";
 
@@ -50,7 +51,7 @@ export function SettingsDialog({ label, closing, onClose, children }: { label: s
   }, []);
   return (
     <div
-      className="settings-pop fixed inset-0 z-[60] grid place-items-center p-6"
+      className={cx("settings-pop fixed inset-0 grid place-items-center p-6", LAYER.settings)}
       data-state={closing ? "out" : "in"}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !closing) onClose();

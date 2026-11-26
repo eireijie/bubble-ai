@@ -45,7 +45,7 @@ export const ROWS: SettingRow[] = [
   row("you", "enter", "Enter sends", "preferences", "send sending message cmd ctrl return new line app behavior preferences"),
   row("you", "clock", "Clock", "preferences", "time 12 24 hour"),
   row("you", "tool-calls", "Tool calls", "preferences", "tools agents used collapsed open hidden"),
-  row("you", "theme", "Theme", "appearance", "colour color accent themes mono mint iris lilac sky"),
+  row("you", "theme", "Color", "appearance", "theme colour color accent themes mono mint iris lilac sky"),
   row("you", "text-size", "Text size", "appearance", "font small large accessibility"),
   row("you", "motion", "Reduce motion", "appearance", "animation accessibility"),
   row("you", "voice", "Voice", "voice", "speech speak talk call calls microphone mic dictation engine openai elevenlabs key speaker test", { sheet: true, noGuests: true }),
@@ -78,7 +78,8 @@ export const ROWS: SettingRow[] = [
   row("mods", "apple", "Apple", "apple", "messages imessage contacts calendar reminders location iphone mac", { ...A, sheet: true, mod: "apple" }),
   row("mods", "mod-invite", "Invite people", "mods", "people members guests share", { ...A, mod: "invite" }),
   row("mods", "mod-remote", "Remote desktop", "mods", "rustdesk reach devices anywhere", { ...A, mod: "remoteDesktop" }),
-  row("mods", "mod-code", "Code", "mods", "coding side by side", { ...A, mod: "code" }),
+  row("mods", "mod-code", "Code", "mods", "code view coding side by side", { ...A, mod: "code" }),
+  row("mods", "mod-buddy", "Desk buddy", "mods", "desktop bubble floating", { ...A, mod: "buddy" }),
 
   row("computers", "devices", "Devices", "devices", "computers phones machines add a device connected offline", A),
   row("computers", "away", "Away from home", "access", "tailscale cloudflare remote outside anywhere network vpn reach", A),

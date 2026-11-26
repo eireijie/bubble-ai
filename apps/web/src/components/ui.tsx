@@ -1,4 +1,5 @@
 import { shareOrigin, useAccess } from "../access.ts";
+import { LAYER } from "./layers.ts";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -109,7 +110,7 @@ export function Modal({ title, onClose, children, wide, drawer = false, headerle
   // on phones the app behind a sheet scales back; the sheet lives in <body> so that scale doesn't touch it
   useSheetBackdrop(!drawer);
   const dialog = (
-    <div className={drawer ? "fixed inset-0 z-50 flex justify-end" : "m-scrim fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={cx(drawer ? "fixed inset-0 flex justify-end" : "m-scrim fixed inset-0 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4", LAYER.modal)} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)} tabIndex={-1} className={cx(drawer ? "m-drawer w-full max-w-[480px] h-dvh bg-panel border-l border-line overflow-y-auto safe-bottom" : "m-dialog w-full bg-panel border border-line rounded-t-[16px] sm:rounded-3xl shadow-panel max-h-[92vh] overflow-y-auto safe-bottom", !drawer && (wide ? "sm:max-w-2xl" : "sm:max-w-md"), className)}>
         {!headerless && <div className="flex items-center justify-between px-5 pt-4 pb-2">
           {typeof title === "string" ? <h2 className="text-base font-semibold">{title}</h2> : <div className="text-base font-semibold">{title}</div>}

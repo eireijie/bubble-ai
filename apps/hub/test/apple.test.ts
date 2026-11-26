@@ -108,10 +108,15 @@ describe("while the mod is off", () => {
 });
 
 describe("settings", () => {
-  it("turns on read-only by default, finds the Mac and merges partial changes", async () => {
+  it("starts with every app off and no agents, finds the Mac and merges partial changes", async () => {
     expect((await api("PUT", "/api/features", { apple: true })).status).toBe(200);
     const v = (await api("GET", "/api/apple")).data;
-    expect(v.settings.levels).toEqual({ messages: 1, contacts: 1, calendar: 1, reminders: 1, location: 1 });
+    expect(v.settings.levels).toEqual({ messages: 0, contacts: 0, calendar: 0, reminders: 0, location: 0 });
+    expect(v.settings).toMatchObject({ allAgents: false, agentIds: [] });
+    // nothing yet, so an agent gets no Apple tools
+    expect((await (await tools(scoutToken)).listTools()).tools.some((t) => t.name.startsWith("apple_"))).toBe(false);
+    // the person turns apps on and picks the agents
+    await api("PUT", "/api/apple/settings", { levels: { messages: 1, contacts: 1, calendar: 1, reminders: 1, location: 1 }, allAgents: true });
     expect(v.macs).toEqual([expect.objectContaining({ nodeId: macId, name: "MacBook Pro", online: true, status: expect.objectContaining({ reminders: "denied" }) })]);
     const next = (await api("PUT", "/api/apple/settings", { levels: { messages: 2 } })).data;
     expect(next.settings.levels).toMatchObject({ messages: 2, calendar: 1 });

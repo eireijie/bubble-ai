@@ -231,6 +231,7 @@ export function ModsFive() {
         {sw("mod-invite", "invite")}
         {sw("mod-remote", "remoteDesktop")}
         {sw("mod-code", "code")}
+        {sw("mod-buddy", "buddy")}
       </Group>
       {!owner && <Note>Only owners can change mods.</Note>}
     </>

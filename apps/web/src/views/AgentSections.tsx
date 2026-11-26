@@ -17,7 +17,7 @@ export const TAB_TITLES: Record<AgentTab, string> = {
   device: "Works on",
   computer: "Works on",
   access: "Who can ask it",
-  routines: "Schedules",
+  routines: "Routines",
   background: "Background checks",
   memory: "Knows",
   skills: "Can use",
@@ -97,7 +97,7 @@ export function Group({ title, children }: { title: string; children: ReactNode 
 
 export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)} className={cx("relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors disabled:opacity-50", on ? "m-switch-on" : "bg-chip")}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)} className={cx("relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors disabled:opacity-50", on ? "m-switch-on" : "bg-ink/20")}>
       <span className={cx("m-knob absolute top-[3px] left-[3px] size-5 rounded-full bg-white shadow", on && "translate-x-[18px]")} />
     </button>
   );
@@ -348,7 +348,7 @@ export function More({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
       <div className={CARD}>
         <Line label="Look and voice" to={to("look")} />
         <Line label="Who can ask it" value={respond === "me" ? "Only me" : respond === "people" ? "Picked people" : "Anyone"} to={to("access")} />
-        {features.routines && <Line label="Schedules" value={routines ? (on ? `${on} on` : "None") : ""} to={to("routines")} />}
+        {features.routines && <Line label="Routines" value={routines ? (on ? `${on} on` : "None") : ""} to={to("routines")} />}
         {features.background && <Line label="Background checks" to={to("background")} />}
         <Line label="Notifications">
           <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />

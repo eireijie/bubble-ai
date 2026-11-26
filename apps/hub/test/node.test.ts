@@ -234,7 +234,10 @@ describe("node daemon", () => {
     // the device's own reason wins over the text
     expect(hub.failurePart(agent, run, { error: "exit 1", reason: "not_installed" })).toMatchObject({ fix: "install" });
     const other = hub.failurePart(agent, run, { error: "something odd" });
-    expect(other).toEqual({ type: "run_failed", runId: "r1", retry: true, reason: "error" });
+    // anything else keeps the harness's own words, one short line, and only Try again
+    expect(other).toEqual({ type: "run_failed", runId: "r1", retry: true, reason: "error", why: "something odd." });
+    expect(hub.failurePart(agent, run, { error: "x".repeat(400) }).why).toHaveLength(140);
+    expect(hub.failurePart(agent, run, { error: "cancelled" }).why).toBeUndefined();
   });
 
   it("waits for runs in flight to report before stopping", async () => {
@@ -243,7 +246,8 @@ describe("node daemon", () => {
     await owner.send(ch.id, "@bolt slow four");
     await waitFor(async () => (calls.length >= n ? true : undefined));
     await daemon.stop();
-    const status = (await owner.messages(ch.id)).messages.flatMap((m) => m.parts).find((p) => p.type === "status" && p.text.startsWith("Run failed"));
+    // the device's report reaches the hub a moment after it stops: on a busy machine, wait for it
+    const status = await waitFor(async () => (await owner.messages(ch.id)).messages.flatMap((m) => m.parts).find((p) => p.type === "status" && p.text.startsWith("Run failed")));
     expect(status).toEqual({ type: "status", text: "Run failed: cancelled" });
     await waitFor(async () => ((await owner.agents()).find((a) => a.handle === "bolt")?.status === "offline" ? true : undefined));
   });

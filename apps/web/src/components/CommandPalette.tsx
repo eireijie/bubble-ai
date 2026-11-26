@@ -360,7 +360,7 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
   let lastGroup: string | null = null;
   // it drops in from the top over a dim (Bubble AI's motion), and is gone at once when closed
   return toBody(
-    <div className="m-palette-scrim fixed inset-0 z-50 flex items-start justify-center bg-black/45 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] md:pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="m-palette-scrim fixed inset-0 z-[70] flex items-start justify-center bg-black/45 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] md:pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label="Search everything" className="m-palette-card flex max-h-full w-full max-w-[583px] flex-col overflow-hidden rounded-[18px] border border-line bg-float shadow-float">
         <div className={cx("flex h-[60px] shrink-0 items-center gap-3 pl-5 pr-3 md:pr-5", rows.length > 0 || q.trim() ? "border-b border-line" : "")}>
           <Search size={19} strokeWidth={1.8} className="shrink-0 text-muted" aria-hidden />

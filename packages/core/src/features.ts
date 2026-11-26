@@ -44,8 +44,8 @@ export function upgradeStoredFeatures(stored: (Partial<Features> & { v?: number 
   return { ...stored, ...(untouched ? on(CORE_MODS) : {}), v: FEATURES_VERSION };
 }
 
-/** Mods kept out of the Mods page (and agents' list) until their screens are built. */
-export const UNLISTED_FEATURES: readonly FeatureKey[] = ["code"];
+/** Mods kept out of the Mods page (and agents' list) until their screens are built: none now. */
+export const UNLISTED_FEATURES: readonly FeatureKey[] = [];
 
 /**
  * Mods that widen what agents can reach (personal data, other people, the network, a shell, the

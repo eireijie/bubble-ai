@@ -113,10 +113,18 @@ const MOD_WORDS: Record<FeatureKey, string> = {
   code: "Terminals, side by side",
   apple: "Messages, Calendar, Reminders",
 };
+/** Where a mod lives once it's on, for the note that says it's on: "Each agent, under More", "In Settings › Storage". */
+export function modWhere(k: FeatureKey): string {
+  const r = MOD_ROWS[k][0];
+  if (r.value) return r.value;
+  if (r.to?.view === "settings") return `In Settings › ${r.label}`;
+  return `In ${r.label}`;
+}
+
 /** A mod's own settings, as rows on its page: where they live, and the way there. */
 const MOD_ROWS: Record<FeatureKey, { label: string; value?: string; to?: Route }[]> = {
   background: [{ label: "Checks", value: "Each agent, under More" }],
-  routines: [{ label: "Schedules", value: "Each agent, under More" }],
+  routines: [{ label: "Routines", value: "Each agent, under More" }],
   teach: [{ label: "Teach", value: "Each agent, under Knows" }],
   tasks: [{ label: "Tasks", to: { view: "tasks" } }],
   buddy: [{ label: "Where", value: "On your desktop" }],
@@ -913,8 +921,11 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
         />
       )}
       {modOn && (
-        <div role="status" className="m-toast glass fixed bottom-6 right-6 z-50 flex w-[320px] items-center gap-2.5 rounded-[18px] py-3 pl-4 pr-3 max-md:inset-x-[18px] max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:right-auto max-md:w-auto">
-          <span className="flex-1 text-[14px] font-medium">{FEATURE_INFO[modOn].name} on</span>
+        <div role="status" className="m-toast glass fixed bottom-6 right-6 z-[110] flex w-[320px] items-center gap-2.5 rounded-[18px] py-3 pl-4 pr-3 max-md:inset-x-[18px] max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:right-auto max-md:w-auto">
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-medium">{FEATURE_INFO[modOn].name} on</span>
+            <span className="block truncate text-[13px] text-muted">{modWhere(modOn)}</span>
+          </span>
           {MOD_ROWS[modOn].some((r) => r.to) && (
             <Button
               variant="primary"
