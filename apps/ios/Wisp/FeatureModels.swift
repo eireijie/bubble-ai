@@ -108,7 +108,7 @@ enum FeatureKey: String, CaseIterable, CodingKey, Identifiable {
     case .routines: "Run a task on a schedule, like a morning summary."
     case .teach: "Do something once while an agent watches, and it becomes a skill."
     case .tasks: "Give out work and track it from start to done."
-    case .buddy: "A small ghost on your desktop that shows what your agents are up to."
+    case .buddy: "A small bubble on your desktop that shows what your agents are up to."
     case .invite: "Let other people into this workspace. Adds a People page and lets agents answer more than just you."
     case .remoteDesktop: "Reach your devices from anywhere with RustDesk, from each device's page."
     case .storage: "Let agents use files on your Nextcloud, NAS, Google Drive or Dropbox."

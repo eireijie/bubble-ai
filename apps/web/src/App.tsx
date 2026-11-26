@@ -2,7 +2,7 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode 
 import { BookOpen, Brain, Building2, ChevronLeft, LifeBuoy, ListTodo, SquarePen, ChevronRight, LogOut, Moon, Settings, Sparkles, Store, Sun, SunMoon, Blocks, X } from "lucide-react";
 import { api, connectEvents, getToken, setToken } from "./api.ts";
 import { useInboxCount, useStore } from "./store.ts";
-import { appHashBeforeSettings, go, href, isDialogRoute, parseRoute, routeForRole, useRoute, type Route } from "./router.ts";
+import { appHashBeforeSettings, go, href, isDialogRoute, parseRoute, routeForRole, SETTINGS_CLOSING, useRoute, type Route } from "./router.ts";
 import { useAppearance, type ModeChoice } from "./theme.ts";
 import { ChatList, NewChatPicker } from "./components/ChatList.tsx";
 import { Rail, rememberChat } from "./components/Rail.tsx";
@@ -321,6 +321,7 @@ function Workspace() {
   // the pop-up keeps what it showed while it closes
   if (popped) heldPop.current = { route: asked, node: <Suspense fallback={<div className="flex-1" />}>{viewFor(asked)}</Suspense> };
   const closePop = () => {
+    window.dispatchEvent(new Event(SETTINGS_CLOSING));
     location.hash = appHashBeforeSettings();
   };
   const pop = (popped || popPresence.mounted) && heldPop.current && (

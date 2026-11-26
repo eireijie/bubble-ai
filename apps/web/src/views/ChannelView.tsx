@@ -510,8 +510,16 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
     if (history.prepended.current) { history.prepended.current = false; lastCount.current = messages.length; return; }
     const added = messages.length - lastCount.current;
     lastCount.current = messages.length;
-    if (atBottom) el.scrollTop = el.scrollHeight;
-    else if (added > 0) setNewSince((n) => n + added);
+    // something you just sent always comes into view, wherever you'd scrolled to
+    const newest = messages[messages.length - 1];
+    const sentByMe = added > 0 && newest?.author.kind === "user" && newest.author.id === me?.user.id;
+    if (atBottom || sentByMe) {
+      el.scrollTop = el.scrollHeight;
+      if (!atBottom) {
+        setAtBottom(true);
+        setNewSince(0);
+      }
+    } else if (added > 0) setNewSince((n) => n + added);
   }, [messages, runs.map((r) => `${r.runId}${r.text.length}${r.last?.name ?? ""}`).join(), channel.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -1744,6 +1752,11 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
       setText(draft);
       ta.current?.focus();
     }
+  }, [channelId, threadId]);
+
+  // a thread opened with a mouse or trackpad ("Reply in thread") is ready to type in; phones keep their keyboard down
+  useEffect(() => {
+    if (threadId && window.matchMedia?.("(pointer: fine)").matches) ta.current?.focus({ preventScroll: true });
   }, [channelId, threadId]);
 
   // "Add files" on the channel intro opens this composer's file picker; Reply on a message focuses its box

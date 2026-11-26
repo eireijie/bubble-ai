@@ -234,7 +234,7 @@ struct ChannelView: View {
             Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(Palette.faint)
           }
           .padding(.horizontal, 10).frame(height: 24)
-          .fixedSize()
+          .fixedSize(horizontal: false, vertical: true)
           .glassPill()
           if current.archivedAt != nil { Text("Archived").font(.system(size: 11)).foregroundStyle(Palette.muted) }
         }

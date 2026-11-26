@@ -49,7 +49,7 @@ extension FeatureKey {
     case .routines: "each agent's Routines tab"
     case .teach: "an agent's page, under Teach"
     case .tasks: "Tasks, in More"
-    case .buddy: "a small ghost on your desktop"
+    case .buddy: "a small bubble on your desktop"
     case .invite: "Settings, People"
     case .remoteDesktop: "each device's page"
     case .storage: "Settings, Storage"

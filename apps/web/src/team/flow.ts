@@ -464,6 +464,12 @@ export function stepProblems(team: ChannelTeam): { lines: string[]; byStep: Map<
 // --- templates ----------------------------------------------------------------------------
 
 /** A template as a team to edit: every step names its own agent (a different one each where it can); roles stay only where a split-the-work step needs them. */
+/** Who a template casts: the agents picked for the team when there are any, otherwise everyone. */
+export function castFrom<A extends { id: string }>(agents: A[], pool?: string[]): A[] {
+  const picked = pool?.length ? agents.filter((a) => pool.includes(a.id)) : [];
+  return picked.length ? picked : agents;
+}
+
 export function fillTemplate(t: Pick<TeamTemplate, "roles" | "steps">, agents: Pick<Agent, "id" | "harness">[], base: ChannelTeam | null = null): ChannelTeam {
   const used = new Set<string>();
   const { roles, steps } = graphFromTemplate(t, ({ harness, index }) => {

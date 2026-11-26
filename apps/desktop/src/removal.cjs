@@ -131,8 +131,8 @@ function createRemoval({
 
   const runningBundle = () => {
     if (!packaged || platform !== "darwin") return null;
-    // electron-builder names the bundle after the product (Bubble AI.app; Wisp.app or Warren.app before the renames)
-    const m = execPath.match(/^(.*\/(?:bubble ai|wisp|warren)\.app)\/Contents\/MacOS\/[^/]+$/i);
+    // the bundle is Bubble AI.app (bubble-ai.app from builds before the Mac executable name was set; Wisp.app or Warren.app before the renames)
+    const m = execPath.match(/^(.*\/(?:bubble[- ]?ai|wisp|warren)\.app)\/Contents\/MacOS\/[^/]+$/i);
     if (!m || m[1].startsWith("/Volumes/") || m[1].includes("/AppTranslocation/")) return null;
     return m[1];
   };
