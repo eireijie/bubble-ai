@@ -45,7 +45,7 @@ struct AgentPermissions: View {
             SwitchRow(title: item.title, isOn: Binding(get: { policy.askBefore.contains(item.key) }, set: { setAsk(item.key, $0) }), id: "ask-\(item.key)")
           }
         }.disabled(!store.isOwner || action.busy)
-        CardCaption(store.isOwner ? "These apply to every agent here. Asks show up in your Inbox and as a card in chat." : "Only owners can change these. Asks show up in your Inbox and as a card in chat.")
+        CardCaption(store.isOwner ? "For every agent here. Asks show up in your Inbox." : "Only owners can change these.")
       } else {
         AgentCard { Text("Asks show up in your Inbox and as a card in chat.").font(.system(size: 15)).foregroundStyle(Palette.muted) }
       }
@@ -59,7 +59,7 @@ struct AgentPermissions: View {
           RowLabel(title: "Personality", subtitle: current.settings?.soulLocked == true ? "Locked: only people can edit it" : "It can refine its own personality", chevron: false)
           RowLabel(title: "Instructions", chevron: false)
         }
-        CardCaption("Which folders and notes @\(current.handle) can use, and why. Change them with the share button on a folder or note in Memory.")
+        CardCaption("Folders and notes it can use. Share more from Memory.")
       } else if let memoryError {
         AgentError(text: memoryError)
         PillButton(title: "Try again", kind: .secondary) { Task { await loadMemory() } }

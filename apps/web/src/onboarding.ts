@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { FEATURE_PRESETS, type Agent, type DeviceRole, type Features } from "@bubble-ai/core";
 import { harnessInfo, harnessLabel, runsInVm } from "@bubble-ai/core/src/harnesses.ts";
 import { api } from "./api.ts";
-import { accessSkipped, onPublicAddress, type AccessInfo } from "./access.ts";
+import { accessSkipped, onPublicAddress, useAccessStore, type AccessInfo } from "./access.ts";
 import { keep, sameData, useStore } from "./store.ts";
 import { agentReadiness, agentSignedIn, type DeviceInfo } from "./devices.ts";
 import type { Route } from "./router.ts";
@@ -79,6 +79,15 @@ export function setDismissed(v: boolean) {
     else localStorage.removeItem(DISMISS_KEY);
   } catch {}
   useDismissStore.setState({ dismissed: v });
+}
+
+/** The last page of the app shown before the first run opened, so it can go back there. None when the first run is where the app started (a new sign-up). */
+let beforeWelcome: string | null = null;
+export function noteAppPage(hash: string) {
+  beforeWelcome = hash || "#/";
+}
+export function welcomeReturn(): string | null {
+  return beforeWelcome;
 }
 
 /** How far along setup is. A skipped but unfinished setup stays visible in the sidebar as "Finish setup". */
@@ -293,9 +302,31 @@ export function setReadyItem(workspaceId: string, id: ReadyItem | "started", don
 
 export type ReadyRow = (typeof READY_ITEMS)[number] & { done: boolean; later: boolean };
 
-/** Each of the four with where it stands, from what was saved. */
-export function readyRows(ticks: Partial<Record<ReadyItem | "started", ReadyTick>>): ReadyRow[] {
-  return READY_ITEMS.map((i) => ({ ...i, done: ticks[i.id] === true, later: ticks[i.id] === "later" }));
+/** What's really set up, whatever was clicked: a phone paired, an app added, reachable away from home. */
+export type ReadyFacts = Partial<Record<ReadyItem, boolean>>;
+
+/** Each of the four with where it stands: ticked here, or already set up some other way. */
+export function readyRows(ticks: Partial<Record<ReadyItem | "started", ReadyTick>>, facts: ReadyFacts = {}): ReadyRow[] {
+  return READY_ITEMS.map((i) => {
+    const done = ticks[i.id] === true || !!facts[i.id];
+    return { ...i, done, later: !done && ticks[i.id] === "later" };
+  });
+}
+
+/** How many of the four are still to do: the count beside "Finish setup", the same rows its list ticks. */
+export const readyLeft = (rows: readonly ReadyRow[]) => rows.filter((r) => !r.done).length;
+
+/** Whether a phone is paired and an app is added, read once per workspace (and again after a tick changes). */
+const useReadyFacts = create<{ workspaceId: string | null; revision: number; facts: ReadyFacts }>(() => ({ workspaceId: null, revision: -1, facts: {} }));
+function loadReadyFacts(workspaceId: string, revision: number) {
+  useReadyFacts.setState({ workspaceId, revision });
+  void Promise.all([
+    api<{ devices?: number }>("GET", "/api/me/push").then((r) => (r.devices ?? 0) > 0, () => undefined),
+    api<unknown[]>("GET", "/api/connectors").then((list) => Array.isArray(list) && list.length > 0, () => undefined),
+  ]).then(([phone, apps]) => {
+    if (useReadyFacts.getState().workspaceId !== workspaceId) return;
+    useReadyFacts.setState((s) => ({ facts: { ...s.facts, ...(phone !== undefined ? { phone } : {}), ...(apps !== undefined ? { apps } : {}) } }));
+  });
 }
 
 /** The one the agent asks about next in its chat: the first neither done nor put off. */
@@ -303,11 +334,20 @@ export const nextAsk = (rows: readonly ReadyRow[]): ReadyRow | null => rows.find
 
 /** The four and whether each is done; `left` counts what isn't (put off counts as left). */
 export function useReadyChecklist(): { items: ReadyRow[]; left: number; started: boolean; workspaceId: string } {
-  useReadyStore((s) => s.revision);
+  const revision = useReadyStore((s) => s.revision);
   const workspaceId = useStore((s) => s.me?.workspace.id) ?? "";
+  const guest = useStore((s) => s.me?.role === "guest");
+  const known = useReadyFacts((s) => (s.workspaceId === workspaceId ? s.facts : null));
+  const loaded = useReadyFacts((s) => s.workspaceId === workspaceId && s.revision === revision);
+  useEffect(() => {
+    if (workspaceId && !guest && !loaded) loadReadyFacts(workspaceId, revision);
+  }, [workspaceId, guest, loaded, revision]);
+  // reachable away from home is known from the access check the app already makes
+  const info = useAccessStore((s) => s.info);
+  const away = !!info?.publicUrl || info?.cloudflare?.state === "running" || onPublicAddress();
   const ticks = readyTicks(workspaceId);
-  const items = readyRows(ticks);
-  return { items, left: items.filter((i) => !i.done).length, started: !!ticks.started, workspaceId };
+  const items = readyRows(ticks, { ...(known ?? {}), ...(away ? { away: true } : {}) });
+  return { items, left: readyLeft(items), started: !!ticks.started, workspaceId };
 }
 
 /** Where your devices connect, and what that address can reach. */

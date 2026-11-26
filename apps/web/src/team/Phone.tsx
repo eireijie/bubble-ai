@@ -20,7 +20,7 @@ function Connector({ from, to, plus, onAdd }: { from: number; to: number; plus: 
       <svg className="absolute inset-0 h-full w-full overflow-visible text-faint" viewBox={`0 0 100 ${h}`} preserveAspectRatio="none" aria-hidden>
         {a.flatMap((x1) => b.map((x2) => <path key={`${x1}-${x2}`} d={x1 === x2 ? `M ${x1} 0 L ${x2} ${h}` : `M ${x1} 0 C ${x1} ${h / 2}, ${x2} ${h / 2}, ${x2} ${h}`} fill="none" stroke="currentColor" strokeWidth={2} vectorEffect="non-scaling-stroke" />))}
       </svg>
-      {to > 1 && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-line bg-panel px-2.5 py-0.5 text-[12px] text-muted">At the same time</span>}
+      {to > 1 && <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-[8px] border border-line bg-panel px-2.5 py-0.5 text-[12px] text-muted">At the same time</span>}
       {plus && (
         <button type="button" onClick={onAdd} aria-label="Add a step here" className="absolute left-1/2 top-1/2 grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-control-line bg-control shadow-panel">
           <Plus size={15} />
@@ -65,11 +65,11 @@ function StepCard({ team, step, wide, problem, working, onOpen, onHold }: { team
         onHold();
       }}
       aria-label={`${step.kind === "schedule" ? `Schedule, ${whenText(step)}` : `Step ${numberOf(team, step.id)}, ${titleOf(step)}`}${working ? ", working now" : ""}${problem ? `. ${problem}` : ""}`}
-      className={cx("flex min-w-0 select-none items-center gap-3 rounded-[14px] border bg-card p-3 text-left [-webkit-touch-callout:none]", wide ? "w-full" : "flex-1", problem ? "border-bad/50" : working ? "border-[1.5px]" : "border-transparent")}
+      className={cx("flex min-w-0 select-none items-center gap-3 rounded-[12px] border bg-card p-3 text-left [-webkit-touch-callout:none]", wide ? "w-full" : "flex-1", problem ? "border-bad/50" : working ? "border-[1.5px]" : "border-transparent")}
       style={working ? { borderColor: agent ? agentColor(agent) : "var(--st-working)" } : undefined}
     >
       {plain ? (
-        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-chip text-muted" aria-hidden>
+        <span className="grid size-8 shrink-0 place-items-center rounded-[8px] bg-chip text-muted" aria-hidden>
           {step.kind === "schedule" ? <Clock size={16} strokeWidth={1.8} /> : step.kind === "ask" ? <UserCheck size={16} strokeWidth={1.8} /> : <Share2 size={16} strokeWidth={1.8} />}
         </span>
       ) : agent ? (
@@ -91,7 +91,7 @@ function StepCard({ team, step, wide, problem, working, onOpen, onHold }: { team
 }
 
 /** The flow at phone width: top to bottom, steps that run together side by side. */
-export function PhoneFlow({ team, problems, working, banner, onOpen, onHold, onAdd }: { team: ChannelTeam; problems: Map<string, string>; /** the steps a request is on right now */ working?: ReadonlySet<string>; banner: React.ReactNode; onOpen: (id: string) => void; onHold: (id: string) => void; onAdd: (at: AddAt) => void }) {
+export function PhoneFlow({ team, problems, working, banner, onOpen, onHold, onAdd, onSchedule }: { team: ChannelTeam; problems: Map<string, string>; /** the steps a request is on right now */ working?: ReadonlySet<string>; banner: React.ReactNode; onOpen: (id: string) => void; onHold: (id: string) => void; onAdd: (at: AddAt) => void; /** start the team on a schedule too (from the "A message comes in" chip) */ onSchedule?: () => void }) {
   const rows = stepRows(team.steps ?? []);
   const last = rows.at(-1) ?? [];
   // a schedule box heads the chart instead (its form says a message still starts the team)
@@ -99,7 +99,7 @@ export function PhoneFlow({ team, problems, working, banner, onOpen, onHold, onA
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center px-4 pb-6 pt-2">
       {banner}
-      {!scheduled && <MessageChip />}
+      {!scheduled && <MessageChip onSchedule={onSchedule} />}
       {rows.map((row, i) => {
         const before = i === 0 ? 0 : rows[i - 1].length;
         return (
@@ -114,7 +114,7 @@ export function PhoneFlow({ team, problems, working, banner, onOpen, onHold, onA
         );
       })}
       <Connector from={last.length} to={0} plus onAdd={() => onAdd({ between: { from: last.map((s) => s.id), to: [] } })} />
-      <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-[13px] text-muted">
+      <span className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-line px-3 text-[13px] text-muted">
         <Flag size={13} aria-hidden /> Done
       </span>
     </div>
@@ -132,7 +132,7 @@ export function AddStepSheet({ team, at, onPick, onClose }: { team: ChannelTeam;
         {!at.between && order.length > 0 && (
           <label className="flex items-center gap-3 text-body text-muted">
             After
-            <select aria-label="After" value={anchor ?? ""} onChange={(e) => setAnchor(e.target.value)} className="h-10 min-w-0 flex-1 rounded-full border border-control-line bg-control px-3 text-ink">
+            <select aria-label="After" value={anchor ?? ""} onChange={(e) => setAnchor(e.target.value)} className="h-10 min-w-0 flex-1 rounded-[8px] border border-control-line bg-control px-3 text-ink">
               {order.map((s) => (
                 <option key={s.id} value={s.id}>
                   {numberOf(team, s.id)}. {titleOf(s)}
@@ -141,7 +141,7 @@ export function AddStepSheet({ team, at, onPick, onClose }: { team: ChannelTeam;
             </select>
           </label>
         )}
-        <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+        <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
           {ADD_KINDS.filter((k) => kinds.includes(k.kind)).map((k) => (
             <button key={k.kind} type="button" title={k.blurb} onClick={() => onPick(k.kind, at.between ? null : anchor)} className="flex h-12 w-full items-center gap-3 px-4 text-left hover:bg-hover">
               <span className="shrink-0 text-muted">

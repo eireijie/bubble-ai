@@ -267,7 +267,7 @@ final class ChatTests: XCTestCase {
     XCTAssertNil(store.api)
     XCTAssertNil(store.me)
     XCTAssertFalse(store.connected)
-    XCTAssertEqual(store.sessionMessage, "Signed out: sign in again")
+    XCTAssertEqual(store.sessionMessage, "You were signed out. Scan the code again to come back.")
     XCTAssertEqual(Session.hub?.host(), "management.test")
     XCTAssertNil(store.syncError)
   }

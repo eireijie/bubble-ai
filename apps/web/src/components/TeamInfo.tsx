@@ -16,6 +16,7 @@ import { nextText, whenText } from "../team/ScheduleForm.tsx";
 import { TeamEditSession } from "../team/SessionLazy.tsx";
 import { lazyView } from "../lazy.tsx";
 import { teamAgentIds } from "../team/flow.ts";
+import { copyText } from "../clipboard.ts";
 
 // the builder's file, fetched only when a team is saved as a template
 const SaveTemplate = lazyView(() => import("../team/Builder.tsx").then((m) => m.SaveTemplate));
@@ -30,7 +31,7 @@ const SHEET_OF_TAB: Record<InfoTab, TeamSheet> = { about: "details", agents: "wh
 /** A sheet opened from More goes back to More. */
 const parentOf = (s: TeamSheet): TeamSheet => (s === "rules" || s === "pins" ? "more" : "details");
 
-const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+const CARD = "overflow-hidden rounded-[12px] bg-card divide-y divide-line";
 const ROW = "flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover disabled:hover:bg-transparent";
 const NO_TEAM: ChannelTeam = { nodes: [], edges: [] };
 
@@ -230,7 +231,7 @@ function NameLabel({ channel, canEdit }: { channel: ChannelInfo; canEdit: boolea
         <input
           autoFocus
           value={value}
-          onChange={(e) => setValue(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
+          onChange={(e) => setValue(e.target.value)}
           onBlur={() => void save()}
           onKeyDown={(e) => (e.key === "Enter" ? (e.currentTarget as HTMLInputElement).blur() : e.key === "Escape" && (e.stopPropagation(), setValue(channel.name), setEditing(false)))}
           maxLength={80}
@@ -287,7 +288,7 @@ function HowSheet({ channel, canEdit, agentCount }: { channel: ChannelInfo; canE
   const works = team?.nodes.length ? [leads.length ? `${leads.join(" and ")} ${leads.length > 1 ? "lead" : "leads"}.` : "", others.length ? `${others.join(", ")} ${others.length > 1 ? "help" : "helps"}.` : ""].filter(Boolean).join(" ") : noChartLine(agentCount);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(linesText(lines));
+      await copyText(linesText(lines));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -298,7 +299,7 @@ function HowSheet({ channel, canEdit, agentCount }: { channel: ChannelInfo; canE
   return (
     <div className="space-y-3">
       {stepped ? (
-        <div className="rounded-[14px] bg-card p-3.5">
+        <div className="rounded-[12px] bg-card p-3.5">
           <HowLines lines={lines} />
         </div>
       ) : (
@@ -366,7 +367,7 @@ function ScheduleSheet({ channel, canEdit }: { channel: ChannelInfo; canEdit: bo
                 <span className="block truncate text-[12px] text-muted">{note?.id === s.id ? note.text : nextText(s)}</span>
               </button>
               {canEdit && (
-                <button type="button" disabled={running === s.id} onClick={() => void runNow(s.id)} aria-label={`Run now: ${whenText(s)}`} title="Run now" className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink disabled:opacity-40">
+                <button type="button" disabled={running === s.id} onClick={() => void runNow(s.id)} aria-label={`Run now: ${whenText(s)}`} title="Run now" className="grid size-8 shrink-0 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40">
                   <Play size={14} />
                 </button>
               )}
@@ -482,7 +483,7 @@ function RulesSheet({ channel, canEdit }: { channel: ChannelInfo; canEdit: boole
         maxLength={4000}
         aria-label="Team rules"
         placeholder="Keep answers short. Link the doc in shared/launch.md."
-        className="block w-full resize-none rounded-[14px] bg-card p-3.5 text-[14px] leading-[22px] outline-none placeholder:text-faint focus:ring-1 focus:ring-ring disabled:opacity-60"
+        className="block w-full resize-none rounded-[12px] bg-card p-3.5 text-[14px] leading-[22px] outline-none placeholder:text-faint focus:ring-1 focus:ring-ring disabled:opacity-60"
       />
       {error && <p className="px-1 text-xs text-bad">{error}</p>}
     </div>
@@ -493,7 +494,6 @@ function RulesSheet({ channel, canEdit }: { channel: ChannelInfo; canEdit: boole
 function MoreSheet({ channel, members, canManage, onSheet, onClose }: { channel: ChannelInfo; members: ChannelMember[] | null; canManage: boolean; onSheet: (s: TeamSheet) => void; onClose: () => void }) {
   const names = useNames();
   const agents = useStore((s) => s.agents);
-  const sections = useStore((s) => s.sections);
   const notify = useStore((s) => s.channels.find((c) => c.id === channel.id)?.notify ?? channel.notify);
   const canEdit = canManage && !channel.archivedAt;
   const team = channel.settings.team;
@@ -505,20 +505,16 @@ function MoreSheet({ channel, members, canManage, onSheet, onClose }: { channel:
   };
   const rules = agentRulesOf(channel.settings);
   const saveRules = (patch: Partial<typeof rules>) => run(patchChannel(channel, { settings: agentRulesOf({ ...rules, ...patch }) }));
-  const leads = (team?.nodes ?? []).filter((n) => n.lead).map((n) => names.agent(n.agentId)?.name).filter(Boolean);
   const answerer = rules.defaultAgentId ? names.agent(rules.defaultAgentId) : undefined;
   const onTeam = new Set((team?.nodes ?? []).map((n) => n.agentId));
   const reportsTo = team?.reportsTo ? names.agent(team.reportsTo) : undefined;
   return (
     <div className="space-y-3">
+      {/* how the team works */}
       <div className={CARD}>
         <PanelRow label="Team rules" value={rules.instructions.trim() ? rules.instructions.trim().split("\n")[0] : "None"} onClick={() => onSheet("rules")} />
-        {team?.nodes.length ? (
-          <div className="flex min-h-[46px] items-center gap-3 px-3.5 text-[14px]">
-            <span className="shrink-0 font-medium">Answers</span>
-            <span className="min-w-0 flex-1 truncate text-right text-[13px] text-muted">{leads.join(" and ") || "The team"}</span>
-          </div>
-        ) : (
+        {/* a team with a flow chart answers through its leads (How it works shows them); without one, pick who answers */}
+        {!team?.nodes.length && (
           <PickRow
             label="Answers"
             value={rules.defaultAgentId ?? ""}
@@ -528,8 +524,6 @@ function MoreSheet({ channel, members, canManage, onSheet, onClose }: { channel:
             onPick={(v) => saveRules({ defaultAgentId: v || null })}
           />
         )}
-        <SwitchRow label="Reply in thread" on={rules.replyInThread} disabled={!canEdit} onChange={(replyInThread) => saveRules({ replyInThread })} />
-        <PanelRow label="Pinned messages" value={channel.pinnedIds.length ? String(channel.pinnedIds.length) : "None"} onClick={() => onSheet("pins")} />
         {!!team?.nodes.length && (
           <PickRow
             label="Reports to"
@@ -540,21 +534,14 @@ function MoreSheet({ channel, members, canManage, onSheet, onClose }: { channel:
             onPick={(v) => run(patchChannel(channel, { settings: { team: { ...team, reportsTo: v || null } } }))}
           />
         )}
-        <PanelRow label="Context and access" onClick={() => setDialog("context")} />
+        <SwitchRow label="Reply in thread" on={rules.replyInThread} disabled={!canEdit} onChange={(replyInThread) => saveRules({ replyInThread })} />
+        {!isProtected(channel) && <SwitchRow label="Private" on={channel.private} disabled={!canManage} onChange={(isPrivate) => run(patchChannel(channel, { private: isPrivate }))} />}
       </div>
+      {/* you and this chat (its section is set from the sidebar's row menu) */}
       <div className={CARD}>
         <PickRow label="Notify me" value={notify} shown={NOTIFY[notify].label} options={(Object.keys(NOTIFY) as ChannelNotify[]).map((k) => ({ value: k, label: NOTIFY[k].label }))} onPick={(v) => void setChannelPrefs(channel, { notify: v as ChannelNotify })} />
-        {!isProtected(channel) && <SwitchRow label="Private" on={channel.private} disabled={!canManage} onChange={(isPrivate) => run(patchChannel(channel, { private: isPrivate }))} />}
-        {sections.length > 0 && (
-          <PickRow
-            label="Section"
-            value={channel.sectionId ?? ""}
-            shown={sections.find((s) => s.id === channel.sectionId)?.name ?? "None"}
-            disabled={!canManage}
-            options={[{ value: "", label: "None" }, ...sections.map((s) => ({ value: s.id, label: s.name }))]}
-            onPick={(v) => run(patchChannel(channel, { sectionId: v || null }))}
-          />
-        )}
+        <PanelRow label="Pinned messages" value={channel.pinnedIds.length ? String(channel.pinnedIds.length) : "None"} onClick={() => onSheet("pins")} />
+        <PanelRow label="Context and access" onClick={() => setDialog("context")} />
       </div>
       <div className={CARD}>
         {canManage && <PanelRow label={channel.archivedAt ? "Unarchive" : "Archive"} onClick={() => (channel.archivedAt ? run(setArchived(channel, false)) : setDialog("archive"))} />}
@@ -608,7 +595,7 @@ function ContextAccessDialog({ channel, members, onClose }: { channel: ChannelIn
   const color = pct === null ? "var(--faint)" : pct > 85 ? "var(--bad)" : pct > 60 ? "var(--warn)" : "var(--ok)";
   return (
     <Modal title="Context and access" onClose={onClose}>
-      <div className="rounded-[14px] bg-card p-4">
+      <div className="rounded-[12px] bg-card p-4">
         <div className="flex items-baseline justify-between">
           <span className="text-body font-medium">Context window</span>
           <span className="text-body font-medium tabular-nums" style={{ color }}>
@@ -651,7 +638,7 @@ function Confirm({ title, body, action, danger, typed, onClose, onConfirm }: { t
   return (
     <Modal title={title} onClose={onClose}>
       <p className="text-sm text-muted">{body}</p>
-      {typed && <input value={text} onChange={(e) => setText(e.target.value)} placeholder={typed} aria-label={`Type ${typed} to confirm`} autoComplete="off" className="mt-3 h-11 w-full rounded-[14px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />}
+      {typed && <input value={text} onChange={(e) => setText(e.target.value)} placeholder={typed} aria-label={`Type ${typed} to confirm`} autoComplete="off" className="mt-3 h-11 w-full rounded-[12px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />}
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-4 flex justify-end gap-2">
         <Button type="button" onClick={onClose}>
@@ -670,7 +657,7 @@ function Confirm({ title, body, action, danger, typed, onClose, onConfirm }: { t
               setBusy(false);
             }
           }}
-          className={cx("h-9 rounded-full px-4 text-sm font-semibold disabled:opacity-50", danger ? "bg-bad text-white" : "bg-accent text-accent-ink")}
+          className={cx("h-9 rounded-[8px] px-4 text-sm font-semibold disabled:opacity-50", danger ? "bg-bad text-white" : "bg-accent text-accent-ink")}
         >
           {action}
         </button>

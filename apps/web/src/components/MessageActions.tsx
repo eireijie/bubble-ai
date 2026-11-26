@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Copy, CornerUpLeft, MessageSquare, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { TAPBACKS, type Message, type Reaction } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { Modal, cx } from "./ui.tsx";
+import { copyText } from "../clipboard.ts";
 
 /**
  * What you can do with a message: Reply, Reply in thread, Copy, Pin, Edit, Delete. The menu from
@@ -28,7 +29,7 @@ export function useMessageActionList(m: Message, opts: { onReply: () => void; on
   const list: MessageAction[] = [];
   if (writable) list.push({ id: "reply", label: "Reply", icon: <CornerUpLeft size={16} />, run: opts.onReply });
   if (opts.onThread) list.push({ id: "thread", label: "Reply in thread", icon: <MessageSquare size={16} />, run: opts.onThread });
-  if (m.body) list.push({ id: "copy", label: "Copy", icon: <Copy size={16} />, run: () => void navigator.clipboard?.writeText(m.body) });
+  if (m.body) list.push({ id: "copy", label: "Copy", icon: <Copy size={16} />, run: () => void copyText(m.body).catch(() => {}) });
   if (canPin) list.push({ id: "pin", label: pinned ? "Unpin" : "Pin to team", icon: pinned ? <PinOff size={16} /> : <Pin size={16} />, run: () => void api(pinned ? "DELETE" : "PUT", `/api/messages/${m.id}/pin`).catch((e) => alert((e as Error).message)) });
   if (mine && writable && m.body) list.push({ id: "edit", label: "Edit", icon: <Pencil size={16} />, run: opts.onEdit });
   if ((mine || owner) && writable) list.push({ id: "delete", label: "Delete", icon: <Trash2 size={16} />, danger: true, run: opts.onDelete });
@@ -93,10 +94,21 @@ export function MessageMenu({ actions, reacted, onReact, at, source, preview, mi
       setBox({ left, top, origin: mine ? "100% 50%" : "0 50%", shift });
       return;
     }
+    // beside the bubble, never over it: left of your own messages, right of theirs, when there is room
+    if (rect) {
+      const room = mine ? rect.left - 8 >= w + 8 : vw - rect.right - 8 >= w + 8;
+      if (room) {
+        const top = Math.min(Math.max(8, (at?.y ?? rect.top) - 20), vh - h - 8);
+        setBox({ left: mine ? rect.left - w - 8 : rect.right + 8, top, origin: mine ? "100% 0" : "0 0", shift: 0 });
+        return;
+      }
+    }
     const x = at?.x ?? rect?.left ?? 16;
-    const y = at?.y ?? (rect ? rect.bottom + 6 : 16);
-    const up = y + h > vh - 8 && y - h > 8;
-    setBox({ left: Math.min(Math.max(8, x), vw - w - 8), top: up ? y - h : Math.min(y, vh - h - 8), origin: `${x <= vw - w - 8 ? 0 : 100}% ${up ? 100 : 0}%`, shift: 0 });
+    // no room at the side: under the bubble (or over it when it's at the bottom), not on it
+    const y = rect ? rect.bottom + 6 : (at?.y ?? 16);
+    const above = rect ? rect.top - 6 - h : y - h;
+    const up = y + h > vh - 8 && above > 8;
+    setBox({ left: Math.min(Math.max(8, x), vw - w - 8), top: up ? above : Math.min(y, vh - h - 8), origin: `${x <= vw - w - 8 ? 0 : 100}% ${up ? 100 : 0}%`, shift: 0 });
   }, [lift, rect, at, mine]);
 
   // the message being lifted leaves its place in the chat while the menu shows it
@@ -194,9 +206,10 @@ export function MessageMenu({ actions, reacted, onReact, at, source, preview, mi
           {preview}
         </div>
       )}
-      <div role="menu" aria-label="Message actions" className={cx("m-glass rounded-[14px] p-1", lift ? "w-[236px]" : "", lift && mine && "self-end")}>
+      <div role="menu" aria-label="Message actions" className={cx("m-glass rounded-[12px] p-1", lift ? "w-[236px]" : "", lift && mine && "self-end")}>
         {actions.map((a, k) => (
-          <div key={a.id}>
+          // no wrapper element: a menu's items sit straight inside it
+          <Fragment key={a.id}>
             {a.danger && k > 0 && <div className="mx-2 my-1 h-px bg-line" role="separator" />}
             <button
               type="button"
@@ -211,7 +224,7 @@ export function MessageMenu({ actions, reacted, onReact, at, source, preview, mi
               <span className="shrink-0 opacity-80">{a.icon}</span>
               <span className="flex-1">{a.label}</span>
             </button>
-          </div>
+          </Fragment>
         ))}
       </div>
     </div>
@@ -252,7 +265,7 @@ export function ReactionBadges({ reactions, meId, mine, onToggle }: { reactions:
             onClick={() => onToggle(r.emoji)}
             aria-label={`${r.emoji} ${r.actors.length}${yours ? ", including you" : ""}`}
             aria-pressed={yours}
-            className={cx("m-react h-[26px] min-w-[26px] px-1.5 rounded-full border-2 border-panel inline-flex items-center justify-center gap-0.5 text-[13px] leading-none", yours ? "bg-accent-soft" : "bg-control")}
+            className={cx("m-react h-[26px] min-w-[26px] px-1.5 rounded-[6px] border-2 border-panel inline-flex items-center justify-center gap-0.5 text-[13px] leading-none", yours ? "bg-accent-soft" : "bg-control")}
           >
             {r.emoji}
             {r.actors.length > 1 && <span className="text-[11px] text-muted">{r.actors.length}</span>}
@@ -380,7 +393,7 @@ export function DeleteMessageDialog({ m, onClose }: { m: Message; onClose: () =>
       {m.body && <p className="line-clamp-2 rounded-2xl bg-card px-3.5 py-2.5 text-sm">{m.body}</p>}
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button onClick={onClose} className="h-11 rounded-full border border-control-line bg-control px-5 text-body font-medium">
+        <button onClick={onClose} className="h-11 rounded-[8px] border border-control-line bg-control px-5 text-body font-medium">
           Cancel
         </button>
         <button
@@ -395,7 +408,7 @@ export function DeleteMessageDialog({ m, onClose }: { m: Message; onClose: () =>
               setBusy(false);
             }
           }}
-          className="h-11 rounded-full bg-bad px-5 text-body font-medium text-white disabled:opacity-50"
+          className="h-11 rounded-[8px] bg-bad px-5 text-body font-medium text-white disabled:opacity-50"
         >
           Delete message
         </button>
@@ -409,6 +422,7 @@ export function EditMessageDialog({ m, onClose }: { m: Message; onClose: () => v
   const [text, setText] = useState(m.body);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const placed = useRef(false);
   // a message that carries a file may lose its caption
   const canSave = !!text.trim() || m.parts.some((p) => p.type === "file");
   const save = async () => {
@@ -426,26 +440,33 @@ export function EditMessageDialog({ m, onClose }: { m: Message; onClose: () => v
   return (
     <Modal title="Edit message" label="Edit message" onClose={onClose}>
       <textarea
-        autoFocus
+        // the cursor starts at the end of the text, where an edit usually goes
+        ref={(el) => {
+          if (!el || placed.current) return;
+          placed.current = true;
+          el.focus();
+          el.setSelectionRange(el.value.length, el.value.length);
+        }}
         rows={4}
         value={text}
         disabled={busy}
         aria-label="Edit message"
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          // like the composer: Enter saves, Shift+Enter is a new line
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             void save();
           }
         }}
-        className="block w-full resize-none rounded-2xl border border-control-line bg-control px-4 py-3 text-body outline-none focus:border-ring"
+        className="block w-full resize-none rounded-[10px] border border-control-line bg-control px-4 py-3 text-body outline-none focus:border-ring"
       />
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-3 flex items-center gap-2">
-        <button onClick={onClose} disabled={busy} className="ml-auto h-11 rounded-full border border-control-line bg-control px-5 text-body font-medium">
+        <button onClick={onClose} disabled={busy} className="ml-auto h-11 rounded-[8px] border border-control-line bg-control px-5 text-body font-medium">
           Cancel
         </button>
-        <button onClick={() => void save()} disabled={busy || !canSave} className="h-11 rounded-full bg-accent px-5 text-body font-medium text-accent-ink disabled:opacity-50">
+        <button onClick={() => void save()} disabled={busy || !canSave} className="h-11 rounded-[8px] bg-accent px-5 text-body font-medium text-accent-ink disabled:opacity-50">
           Save
         </button>
       </div>

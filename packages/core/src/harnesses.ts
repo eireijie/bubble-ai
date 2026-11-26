@@ -26,7 +26,7 @@ export interface HarnessInfo {
   login?: string;
   /**
    * How to install it on a device. `npm` packages Bubble AI can install itself when the device's owner
-   * presses Install (the device runs `npm install -g <npm>`; the hub only names the harness).
+   * presses Install (the device installs <npm> into its own Bubble AI folder; the hub only names the harness).
    * Others show `command` to copy, or `docs`.
    */
   install?: { npm?: string; command?: string; docs?: string };
@@ -83,13 +83,20 @@ export interface SignInProblem {
   explain(device: string): string;
 }
 
+/** The run failed because the harness's program isn't on the device (`spawn codex ENOENT`, "command not found"). */
+export function aiToolMissing(error: string): boolean {
+  return /\bspawn\s+\S+\s+ENOENT\b|command not found|is not recognized as an internal or external command|not found in PATH/i.test(error);
+}
+
 /**
  * A run error fit to show a person: one line, no backticks, no file paths or system error codes.
- * The original stays on the run for the logs.
+ * The original stays on the run for the logs. With the agent's harness and device, a missing AI
+ * tool is said as exactly that ("Codex isn't installed on Mac mini.").
  */
-export function plainFailure(error: string): string {
+export function plainFailure(error: string, harness?: string, device?: string): string {
   const line = error.split("\n").map((l) => l.trim()).find(Boolean) ?? "";
-  if (/\bE(NOENT|ACCES|PERM|CONNREFUSED|CONNRESET|PIPE|TIMEDOUT)\b|^\s*at\s|Traceback|TypeError|ReferenceError/.test(line)) return "Something went wrong on its device. Try again; if it keeps failing, check that device is running.";
+  if (aiToolMissing(error)) return `${harness ? harnessLabel(harness) : "Its AI tool"} isn't installed on ${device ?? "its device"}.`;
+  if (/\bE(NOENT|ACCES|PERM|CONNREFUSED|CONNRESET|PIPE|TIMEDOUT)\b|^\s*at\s|Traceback|TypeError|ReferenceError/.test(line)) return "Something went wrong on its device. Try again.";
   const plain = line.replace(/`/g, "").replace(/(^|[\s("'=:])(~|\.{0,2})?\/(?:[\w.@+-]+\/)+[\w.@+-]*/g, "$1a file").replace(/\s+/g, " ").trim();
   return plain.length > 300 ? `${plain.slice(0, 297).trimEnd()}…` : plain || "It stopped before it finished.";
 }
@@ -123,4 +130,62 @@ export function accountsSignedIn(accounts: Record<string, boolean | null> | unde
   const v = Object.values(accounts ?? {});
   if (v.some((x) => x === true)) return true;
   return v.length && v.every((x) => x === false) ? false : null;
+}
+
+/**
+ * Why a run failed, as a code a device reports with run_failed and the hub passes on, so the chat
+ * can say it plainly and offer the one thing that fixes it:
+ * - not_installed: the harness's program isn't on the device (`spawn claude ENOENT`) → Install
+ * - signed_out: the harness wants a sign-in → Sign in
+ * - no_device: no device can run it (paused, stopped, not assigned) → Choose device
+ * - limit: the plan's usage limit is reached → Try again (later)
+ * - error: anything else → Try again
+ */
+export const RUN_FAILURE_REASONS = ["not_installed", "signed_out", "no_device", "limit", "error"] as const;
+export type RunFailureReason = (typeof RUN_FAILURE_REASONS)[number];
+
+const NOT_INSTALLED = /\bspawn\s+\S+\s+ENOENT\b|command not found|is not recognized as an internal or external command|not found in PATH/i;
+const LIMIT = /usage limit|rate limit|limit (reached|exceeded)|quota|too many requests|\b429\b|out of credits|credit balance/i;
+const NO_DEVICE = /\bis paused\b|was paused|was stopped before|not assigned to this node|isn't connected to a device|device is offline/i;
+
+/** The reason code for a run error, from its text (for devices that report none, and the hub's own failures). */
+export function runFailureReason(harness: string, error: string): RunFailureReason {
+  if (NOT_INSTALLED.test(error)) return "not_installed";
+  if (signInProblem(harness, error) || /isn't signed in/i.test(error)) return "signed_out";
+  if (NO_DEVICE.test(error)) return "no_device";
+  if (LIMIT.test(error)) return "limit";
+  return "error";
+}
+
+/** One short line saying why, for the chat. `device` is where it ran, when known. */
+export function runFailureLine(reason: RunFailureReason, harness: string, device?: string): string {
+  const label = harnessLabel(harness);
+  const on = device ? ` on ${device}` : "";
+  switch (reason) {
+    case "not_installed":
+      return `${label} isn't installed${on}.`;
+    case "signed_out":
+      return `${label} isn't signed in${on}.`;
+    case "no_device":
+      return device ? `${device} can't run it right now.` : "No device can run it right now.";
+    case "limit":
+      return `${label} reached its usage limit.`;
+    default:
+      return "Couldn't finish.";
+  }
+}
+
+/** Between an error's plain words and the raw log behind them (a tool's output), when both travel as one message. */
+export const DETAILS_MARK = "\n\n--- details ---\n";
+
+/** One message carrying plain words for people and, after DETAILS_MARK, the raw log for Details. */
+export function withDetails(text: string, details: string | null | undefined): string {
+  const raw = details?.trim();
+  return raw ? `${text}${DETAILS_MARK}${raw}` : text;
+}
+
+/** Split a message made by withDetails back into its plain words and raw log. */
+export function splitDetails(message: string): { text: string; details: string | null } {
+  const at = message.indexOf(DETAILS_MARK);
+  return at < 0 ? { text: message, details: null } : { text: message.slice(0, at), details: message.slice(at + DETAILS_MARK.length) || null };
 }

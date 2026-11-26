@@ -89,6 +89,11 @@ struct DeviceDetail: View {
       InlineError(error: action.error).listRowBackground(Color.clear)
     }
     .listStyle(.insetGrouped)
+    // the app's own cards, not the stock list: its type, row height, spacing and accent
+    .font(.system(size: 15))
+    .tint(Palette.accent)
+    .listSectionSpacing(14)
+    .environment(\.defaultMinListRowHeight, 52)
     .groundBackground(Palette.sheet)
     .accessibilityIdentifier("device-list")
     .bubbleRefresh { do { try await store.refreshNodes() } catch { action.error = error.localizedDescription }; await store.refreshComputers() }
@@ -107,7 +112,7 @@ struct DeviceDetail: View {
         Spacer(minLength: 6)
         NodePill(node: n)
       }
-      if n.paused == true { Text("Paused at the device. Resume it there with: bubble-ai node resume").font(.footnote).foregroundStyle(Palette.muted) }
+      if n.paused == true { Text("Paused. Resume it on \(n.name).").font(.footnote).foregroundStyle(Palette.muted) }
     }.listRowBackground(Palette.card)
   }
 
@@ -127,7 +132,7 @@ struct DeviceDetail: View {
       if n.lastSeen != nil { step(3, "Open Bubble AI on it if it is not running") }
       Button { action.run { try await store.refreshNodes() } } label: { Label("Check again", systemImage: "arrow.clockwise").frame(maxWidth: .infinity) }
         .secondaryButton().controlSize(.large).disabled(action.busy).accessibilityIdentifier("device-check-again")
-    } header: { Text("To bring it back") }.listRowBackground(Palette.card)
+    } header: { ListCaption("To bring it back") }.listRowBackground(Palette.card)
   }
 
   private func lastSeen(_ n: AgentNode) -> String {
@@ -172,7 +177,7 @@ struct DeviceDetail: View {
               Text(id == "vms" && n.role != id ? n.vmProblem ?? detail : detail).font(.system(size: 13)).foregroundStyle(Palette.faint)
             }
             Spacer(minLength: 6)
-            if n.role == id { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.blue) }
+            if n.role == id { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.accent) }
           }.contentShape(Rectangle())
         }.buttonStyle(.plain).disabled(!editable || action.busy || (id == "vms" && n.role != id && n.vmProblem != nil)).accessibilityIdentifier("device-role-\(id)")
       }
@@ -181,8 +186,8 @@ struct DeviceDetail: View {
           Text("Share with the workspace").font(.system(size: 15)).foregroundStyle(Palette.text)
           Text("Let others in \(store.workspace?.name ?? "the workspace") add agents and VMs here").font(.system(size: 13)).foregroundStyle(Palette.faint)
         }
-      }.tint(Palette.blue).disabled(!editable || action.busy).accessibilityIdentifier("device-shared")
-    } header: { Text("What this device does for agents") }
+      }.tint(Palette.accent).disabled(!editable || action.busy).accessibilityIdentifier("device-shared")
+    } header: { ListCaption("What this device does for agents") }
       .listRowBackground(Palette.card)
   }
 
@@ -212,18 +217,23 @@ struct DeviceDetail: View {
             }.padding(.horizontal, -18)
           }.buttonStyle(.plain).disabled(action.busy).accessibilityIdentifier("device-remove")
         }
-      } footer: {
-        if mine(n) { Text("At \(n.name): bubble-ai node screen code picks a new screen code, and bubble-ai node pause stops everything there until bubble-ai node resume.") }
       }.listRowBackground(Palette.card)
     }
   }
+}
+
+/** A section's small grey caption, as the app's cards have, not the list's capitals. */
+private struct ListCaption: View {
+  var text: String
+  init(_ text: String) { self.text = text }
+  var body: some View { Text(text).font(.system(size: 13)).foregroundStyle(Palette.faint).textCase(nil) }
 }
 
 private struct AgentLabel: View {
   var agent: Agent
   var body: some View {
     HStack(spacing: 10) {
-      AgentAvatar(agent: agent, size: 28, showStatus: false)
+      AgentAvatar(agent: agent, size: 30, showStatus: false).frame(width: 34)
       VStack(alignment: .leading, spacing: 1) {
         Text(agent.name).font(.system(size: 15)).foregroundStyle(Palette.text)
         if agent.status == .busy { Text("Working").font(.system(size: 12)).foregroundStyle(Palette.statusWorkingText) }
@@ -257,10 +267,16 @@ private struct AgentsHere: View {
         }
       }
       if store.canManage && (node.mine == true || node.shared == true) {
-        Button(action: onAdd) { Label("Add an agent here", systemImage: "plus").foregroundStyle(Palette.text) }.accessibilityIdentifier("device-add-agent")
+        Button(action: onAdd) {
+          // the plus sits where the bubbles do, so the rows line up
+          HStack(spacing: 10) {
+            Image(systemName: "plus").font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.muted).frame(width: 34)
+            Text("Add an agent here").foregroundStyle(Palette.text)
+          }
+        }.accessibilityIdentifier("device-add-agent")
       }
       InlineError(error: action.error)
-    } header: { Text("Agents on this computer") }
+    } header: { ListCaption("Agents on this computer") }
     .listRowBackground(Palette.card)
     .confirmationDialog("Run \(headless?.name ?? "it") without a screen? It won't be able to use apps or websites.", isPresented: Binding(get: { headless != nil }, set: { if !$0 { headless = nil } }), titleVisibility: .visible, presenting: headless) { agent in
       Button("No screen") { set(.none, agent) }
@@ -317,13 +333,13 @@ private struct YourScreen: View {
         VStack(alignment: .leading, spacing: 2) {
           Text(status).foregroundStyle(Palette.text)
           if let detail { Text(detail).font(.footnote).foregroundStyle(Palette.muted) }
-          if caps?.off == true && node.online { Text("Turn it on at \(node.name): bubble-ai node screen on").font(.footnote).foregroundStyle(Palette.muted).textSelection(.enabled) }
+          if caps?.off == true && node.online { Text("Screen sharing is off on \(node.name). Turn it on there.").font(.footnote).foregroundStyle(Palette.muted).textSelection(.enabled) }
         }
       }
       if let code = caps?.code {
         VStack(alignment: .leading, spacing: 2) {
           Text("Screen code").foregroundStyle(Palette.text)
-          Text("Checked on the device (\(code == "pin" ? "PIN" : "password")). To change it, run bubble-ai node screen code at \(node.name).").font(.footnote).foregroundStyle(Palette.muted)
+          Text("Asks for its \(code == "pin" ? "PIN" : "password"), checked on \(node.name).").font(.footnote).foregroundStyle(Palette.muted)
         }
       }
       if caps?.ok == true && node.online {
@@ -365,7 +381,8 @@ private struct HarnessesSection: View {
     let have = node.harnesses ?? []
     Section {
       ForEach(have, id: \.id) { h in
-        HStack {
+        HStack(spacing: 10) {
+          BrandLogo(id: h.id, size: 20)
           Text(HarnessChoice.label(h.id)).foregroundStyle(Palette.text)
           Spacer()
           Text(h.version.map { "Installed · \($0)" } ?? "Installed").font(.system(size: 13)).foregroundStyle(Palette.faint)
@@ -374,12 +391,16 @@ private struct HarnessesSection: View {
       if have.isEmpty { Text("Nothing found yet. Refresh once the device is online.").foregroundStyle(Palette.muted) }
       if store.canManage && node.mine == true {
         ForEach(installable.filter { id in !have.contains { $0.id == id } }, id: \.self) { id in
-          HStack {
+          HStack(spacing: 10) {
+            BrandLogo(id: id, size: 20)
             Text(HarnessChoice.label(id)).foregroundStyle(Palette.muted)
             Spacer()
             Text("Not installed").font(.system(size: 13)).foregroundStyle(Palette.faint)
             Button("Install") { installing = id }.buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
               .disabled(!node.online || action.busy).accessibilityIdentifier("install-\(id)")
+              .confirmationDialog("Install \(HarnessChoice.label(id)) on \(node.name)?", isPresented: Binding(get: { installing == id }, set: { if !$0 { installing = nil } }), titleVisibility: .visible) {
+                Button("Install \(HarnessChoice.label(id))") { output = nil; action.run { _ = try await store.installHarness(id, node: node.id); output = "\(HarnessChoice.label(id)) is installed." } }
+              }
           }
         }
       }
@@ -387,11 +408,8 @@ private struct HarnessesSection: View {
       if let output { Text(output).font(.caption).foregroundStyle(Palette.muted).textSelection(.enabled) }
       if action.busy { ProgressView("Working on the device…") }
       InlineError(error: action.error)
-    } header: { Text("Agent harnesses") }
+    } header: { ListCaption("Agent harnesses") }
     .listRowBackground(Palette.card)
-    .confirmationDialog("Install this harness on \(node.name)?", isPresented: Binding(get: { installing != nil }, set: { if !$0 { installing = nil } }), titleVisibility: .visible) {
-      Button("Install") { if let harness = installing { action.run { output = try await store.installHarness(harness, node: node.id) } } }
-    }
   }
 }
 
@@ -434,7 +452,7 @@ private struct RemoteDesktopSection: View {
         Button("Add another app you use") { editing = true }
       }
       InlineError(error: action.error)
-    } header: { Text("Remote desktop") }
+    } header: { ListCaption("Remote desktop") }
     .listRowBackground(Palette.card)
     .confirmationDialog("Stop showing \(node.remoteDesktop?.label ?? "this app") here? The app itself isn't changed.", isPresented: $forgetting, titleVisibility: .visible) {
       Button("Remove", role: .destructive) { action.run { try await store.setRemoteDesktop(node.id, nil) } }

@@ -15,6 +15,8 @@ import {
   GitPullRequest,
   HardDrive,
   Image,
+  Laptop,
+  LayoutGrid,
   ListChecks,
   MessageSquare,
   MonitorSmartphone,
@@ -68,6 +70,7 @@ import { CatalogIcon } from "../components/ShopParts.tsx";
 import { ConnectorForm, registryCatalog } from "./ConnectorsView.tsx";
 import { AppPage, ConnectSignIn, type AppItem } from "./AppPages.tsx";
 import { SkillDetail, SkillEditor, SkillShare, StoreSkillDetail, skillOrigin, type Open } from "./SkillsView.tsx";
+import { LAYER } from "../components/layers.ts";
 
 const HARNESS_NAMES: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", hermes: "Hermes" };
 const harnessName = (h: string) => HARNESS_NAMES[h] ?? h;
@@ -76,11 +79,11 @@ const harnessName = (h: string) => HARNESS_NAMES[h] ?? h;
 const BUILT_IN_SHELF: Record<CatalogConnector["category"], AppCategory> = {
   Code: "Developer",
   "Chat & docs": "Docs and notes",
-  "Work tracking": "Developer",
+  "Work tracking": "Tasks",
   Data: "Data",
   "Web & browser": "Research",
   Payments: "Finance",
-  Utilities: "Automation",
+  Utilities: "Developer",
   "Cloud keys": "Developer",
 };
 
@@ -113,10 +116,18 @@ const MOD_WORDS: Record<FeatureKey, string> = {
   code: "Terminals, side by side",
   apple: "Messages, Calendar, Reminders",
 };
+/** Where a mod lives once it's on, for the note that says it's on: "Each agent, under More", "In Settings › Storage". */
+export function modWhere(k: FeatureKey): string {
+  const r = MOD_ROWS[k][0];
+  if (r.value) return r.value;
+  if (r.to?.view === "settings") return `In Settings › ${r.label}`;
+  return `In ${r.label}`;
+}
+
 /** A mod's own settings, as rows on its page: where they live, and the way there. */
 const MOD_ROWS: Record<FeatureKey, { label: string; value?: string; to?: Route }[]> = {
   background: [{ label: "Checks", value: "Each agent, under More" }],
-  routines: [{ label: "Schedules", value: "Each agent, under More" }],
+  routines: [{ label: "Routines", value: "Each agent, under More" }],
   teach: [{ label: "Teach", value: "Each agent, under Knows" }],
   tasks: [{ label: "Tasks", to: { view: "tasks" } }],
   buddy: [{ label: "Where", value: "On your desktop" }],
@@ -221,13 +232,20 @@ const added = (label = "Added") => (
  * It replaces the Marketplace, the Mods page, Connected apps and Skills, whose addresses open it
  * at the matching section.
  */
-export function MarketplaceView({ section, onBack }: { section: MarketSection | "mods"; onBack?: () => void; embedded?: boolean }) {
+export function MarketplaceView({ section, app: appKey = null, onBack, embedded = false, forAgent }: { section: MarketSection | "mods"; /** the app whose page the address opens (#/marketplace/app/<key>) */ app?: string | null; onBack?: () => void; embedded?: boolean; /** opened from an agent's Can use: what is added goes to that agent alone */ forAgent?: string | null }) {
   const me = useStore((s) => s.me);
   const agents = useStore((s) => s.agents);
+  const forA = forAgent ? agents.find((a) => a.id === forAgent) : undefined;
+  /** who gets what is added here: the agent this was opened for, or every agent */
+  const who = forA ? { agentIds: [forA.id], allAgents: false } : { agentIds: [] as string[], allAgents: true };
   const features = useFeatures();
   const canEdit = !!me && me.role !== "guest";
   const isOwner = me?.role === "owner";
   const target = SECTION_OF[section];
+  // a section picked in the side list shows on its own, in full; All (and the Mods address) shows every section
+  const only = section !== "all" && section !== "mods" ? target : null;
+  // in Settings the page stays where it is; on its own, each app's page has its own address
+  const routed = !embedded;
   const [q, setQ] = useState("");
   // the sections showing every row (the one an address opened, and any "Show all" pressed), and whether "Make or bring your own" is unfolded
   const [expanded, setExpanded] = useState<AddSection[]>(() => (target ? [target] : []));
@@ -240,8 +258,12 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
   const [shelves, setShelves] = useState<DeviceShelf[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
-  // the item whose page is open, and the dialogs on top
-  const [detail, setDetail] = useState<Detail | null>(null);
+  // the item whose page is open (an app's comes from the address), and the dialogs on top
+  const [local, setLocal] = useState<Detail | null>(null);
+  // skills added from their row stay where they were, marked added, until the page is opened again
+  const [kept, setKept] = useState<string[]>([]);
+  // an app linked to by its address that isn't among the featured ones or the last search
+  const [linked, setLinked] = useState<StoreApp | null>(null);
   // coming here from another page (an "Add it" link, the menu) opens the list, not the last item looked at;
   // closing Settings on top of an item (App's closePop says so first) keeps it open
   useEffect(() => {
@@ -250,7 +272,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
     const arrived = () => {
       // Settings opening over this page leaves it as it is
       if (location.hash.startsWith("#/settings")) return;
-      if (!closing) setDetail(null);
+      if (!closing) setLocal(null);
       closing = false;
     };
     window.addEventListener(SETTINGS_CLOSING, close);
@@ -330,7 +352,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
 
   // another address closes what was open and opens its section
   useEffect(() => {
-    setDetail(null);
+    setLocal(null);
     setSharing(null);
     setEditing(null);
     setExpanded(target ? [target] : []);
@@ -356,7 +378,12 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
   const hit = (sec: AddSection, ...fields: (string | null | undefined)[]) => (whole ? whole === sec : matchWords(words, fields));
 
   // --- apps ---
-  const builtInItem = (c: CatalogConnector): AppItem => ({ key: `b:${c.id}`, name: c.name, description: c.description, category: appCategory(c) ?? BUILT_IN_SHELF[c.category], who: "Bubble AI", builtIn: c });
+  /** Signs in with one click from here (until the hub says, a company's own sign-in is taken to work and Bubble AI's app with it not). */
+  const connectsNow = (c: CatalogConnector) => !!c.signIn && (signInOptions[c.id]?.signIn ?? c.signIn.via === "mcp");
+  /** Only signs in, and that sign-in isn't made yet: nothing to add it with today. */
+  const comingSoon = (c: CatalogConnector) => !!signInOptions[c.id]?.soon && !signInOptions[c.id]?.key && !c.fields.length;
+  // Bubble AI's own list knows its shelves; only chat and docs apps are told apart by name (Slack is chat, Drive is docs)
+  const builtInItem = (c: CatalogConnector): AppItem => ({ key: `b:${c.id}`, name: c.name, description: c.description, category: c.category === "Chat & docs" ? (appCategory(c) ?? BUILT_IN_SHELF[c.category]) : BUILT_IN_SHELF[c.category], who: "Bubble AI", builtIn: c });
   const registryItem = (e: StoreApp): AppItem => ({ key: `r:${e.id}`, name: e.name, description: e.description, category: e.category, who: e.publisher, registry: e });
   const haveConnector = (a: AppItem) => (connectors ?? []).find((c) => c.catalogId === ("registry" in a ? `registry:${a.registry.id}` : a.builtIn.id) || squash(c.name) === squash(a.name));
   const apps: AppItem[] = useMemo(() => {
@@ -367,12 +394,16 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
     const seen = new Set<string>();
     const fromRegistry = [...(market.entries ?? []), ...shelf].filter((e) => !signsIn.has(squash(e.name)) && !seen.has(e.id) && !!seen.add(e.id)).map(registryItem);
     const names = new Set(fromRegistry.map((a) => squash(a.name)));
-    const builtIn = CONNECTOR_CATALOG.filter((c) => !names.has(squash(c.name)))
+    // "Cloudflare token" or "Playwright browser" next to the real Cloudflare or Playwright app is the same thing twice
+    const sameAs = (c: CatalogConnector) => names.has(squash(c.name)) || names.has(squash(c.name.replace(/\s+(token|keys?|browser)$/i, "")));
+    const builtIn = CONNECTOR_CATALOG.filter((c) => !sameAs(c))
       .map(builtInItem)
       .filter((a) => hit("apps", a.name, a.description, a.category, a.who));
-    const first = builtIn.filter((a) => "builtIn" in a && a.builtIn.signIn);
-    return [...first, ...fromRegistry, ...builtIn.filter((a) => !first.includes(a))];
-  }, [market.entries, featured, q]); // eslint-disable-line react-hooks/exhaustive-deps
+    // first the apps that sign in with one click from here; last the ones whose sign-in is still to come
+    const first = builtIn.filter((a) => "builtIn" in a && connectsNow(a.builtIn));
+    const later = builtIn.filter((a) => "builtIn" in a && comingSoon(a.builtIn));
+    return [...first, ...fromRegistry, ...builtIn.filter((a) => !first.includes(a) && !later.includes(a)), ...later];
+  }, [market.entries, featured, q, signInOptions]); // eslint-disable-line react-hooks/exhaustive-deps
   const popular = POPULAR_APPS.map((id) => apps.find((a) => a.key === `r:${id}`)).filter((a): a is AppItem => !!a);
   /** The catalog's entry for an added app, when there is one. */
   const appFor = (c: Connector): AppItem | null => {
@@ -382,6 +413,48 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
     if (builtIn) return builtInItem(builtIn);
     const entry = c.catalogId?.startsWith("registry:") ? featured.find((e) => `registry:${e.id}` === c.catalogId) : undefined;
     return entry ? registryItem(entry) : null;
+  };
+
+  // --- the page an address opens ---
+  const appByKey = (key: string): AppItem | null => {
+    if (key.startsWith("b:")) {
+      const c = CONNECTOR_CATALOG.find((x) => x.id === key.slice(2));
+      return c ? builtInItem(c) : null;
+    }
+    const id = key.slice(2);
+    const e = [...(market.entries ?? []), ...featured, ...(linked ? [linked] : [])].find((x) => x.id === id);
+    return e ? registryItem(e) : null;
+  };
+  // m:<mod> is a mod's own page (Tasks while it's off lands there, not at the top of everything)
+  const routeMod = appKey?.startsWith("m:") ? FEATURE_KEYS.find((k) => k === appKey.slice(2)) : undefined;
+  const routeDetail: Detail | null = !routed || !appKey ? null : routeMod ? { kind: "mod", mod: routeMod } : appKey.startsWith("c:") ? { kind: "connector", id: appKey.slice(2) } : (() => {
+    const a = appByKey(appKey);
+    return a ? { kind: "app", app: a } : null;
+  })();
+  // a registry app linked to directly: look it up by name
+  useEffect(() => {
+    if (!routed || !appKey?.startsWith("r:") || routeDetail || linked?.id === appKey.slice(2)) return;
+    const id = appKey.slice(2);
+    let live = true;
+    api<{ entries: StoreApp[] }>("GET", `/api/marketplace?q=${encodeURIComponent((id.split("/").pop() ?? id).replace(/[-_]+/g, " "))}`).then(
+      (r) => live && setLinked(r.entries.find((e) => e.id === id) ?? null),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [appKey, featured.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const detail: Detail | null = routeDetail ?? local;
+  const listRoute = { view: "marketplace" as const, section: section === "mods" ? null : section, ...(forA ? { forAgent: forA.id } : {}) };
+  /** Open an item's page: an app's at its own address, anything else in place. Null goes back to the list. */
+  const setDetail = (d: Detail | null) => {
+    if (routed && d && (d.kind === "app" || d.kind === "connector")) {
+      setLocal(null);
+      go({ ...listRoute, app: d.kind === "app" ? d.app.key : `c:${d.id}` });
+      return;
+    }
+    if (routed && !d && appKey) go(listRoute);
+    setLocal(d);
   };
 
   // --- skills ---
@@ -400,12 +473,13 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
     else if ("library" in s) setDetail({ kind: "skill", open: { entry: s.library }, icon: s.bigIcon });
     else setDetail({ kind: "store", skill: s.store, icon: s.bigIcon });
   };
-  /** Add a skill for every agent (who can use it is on its page). `open` lands on its page. */
+  /** Add a skill for every agent, or for the one agent this was opened for (who can use it is on its page). `open` lands on its page. */
   async function addSkill(body: Record<string, string>, key: string, open = false) {
     setError(null);
     setAdding(key);
     try {
-      const made = await api<Skill>("POST", "/api/skills", { ...body, agentIds: [], allAgents: true });
+      const made = await api<Skill>("POST", "/api/skills", { ...body, ...who });
+      if (!open) setKept((k) => [...k, key]);
       const list = await loadSkills();
       const got = list.find((x) => x.id === made.id);
       if (open && got) setDetail({ kind: "skill", open: { skill: got } });
@@ -487,7 +561,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
   async function connectBySignIn(e: CatalogConnector) {
     setError(null);
     try {
-      const r = await api<{ url?: string; connectors: Connector[] }>("POST", "/api/connectors/connect", { catalogIds: [e.id], origin: location.origin, allAgents: true });
+      const r = await api<{ url?: string; connectors: Connector[] }>("POST", "/api/connectors/connect", { catalogIds: [e.id], origin: location.origin, ...who });
       const id = r.connectors[0]?.id ?? "";
       try {
         sessionStorage.setItem(CONNECTING, id);
@@ -621,24 +695,31 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
     name: a.name,
     // nobody has confirmed who runs it: the row says so, quietly
     words: "registry" in a && trustLabel(a.registry).kind === "unverified" ? "Not verified" : (a.category ?? `By ${a.who}`),
-    action: canEdit && (
-      <Add onClick={() => addApp(a)} aria-label={`Add ${a.name}`}>
-        Add
-      </Add>
-    ),
+    ...("builtIn" in a && comingSoon(a.builtIn)
+      ? { status: <span className="shrink-0 pr-1.5 text-[13px] text-muted">Coming soon</span> }
+      : {
+          action: canEdit && (
+            <Add onClick={() => addApp(a)} aria-label={`Add ${a.name}`}>
+              Add
+            </Add>
+          ),
+        }),
     onOpen: () => setDetail({ kind: "app", app: a }),
   }));
 
-  const freeSkills = skillItems.filter((s) => !installedSkill(s) && hit("skills", s.name, s.description, s.who));
+  const freeSkills = skillItems.filter((s) => (!installedSkill(s) || kept.includes(s.key)) && hit("skills", s.name, s.description, s.who));
   const skillRows: RowDef[] = (searching ? freeSkills : takeTurns(freeSkills)).map((s) => {
     const linkOnly = "store" in s && !s.store.license.open;
+    const have = !!installedSkill(s);
     return {
       key: s.key,
       tile: <Tile size={36}>{s.icon}</Tile>,
       name: s.name,
       words: `From ${s.who}`,
+      status: have ? added() : undefined,
       action:
         canEdit &&
+        !have &&
         (linkOnly ? (
           <Add onClick={() => openSkill(s)} aria-label={`View ${s.name}`}>
             View
@@ -727,9 +808,10 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
         </p>
       )),
     },
-    { id: "mods", rows: modRows },
+    // mods change the whole app, not one agent
+    ...(forA ? [] : [{ id: "mods" as const, rows: modRows }]),
   ];
-  const shownSections = sections.filter((s) => (!whole || whole === s.id) && (s.rows.length > 0 || s.keep || (s.loading && !searching && s.id !== "added")));
+  const shownSections = sections.filter((s) => (!only || only === s.id) && (!whole || whole === s.id) && (s.rows.length > 0 || s.keep || s.id === only || (s.loading && !searching && s.id !== "added")));
   const stillLoading = sections.some((s) => s.loading && (!whole || whole === s.id));
 
   const row = (r: RowDef) => <AddRow key={r.key} tile={r.tile} name={r.name} words={r.words} status={r.status} action={r.action || undefined} onOpen={r.onOpen} />;
@@ -744,18 +826,34 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
             <ChevronLeft size={22} />
           </Circle>
         )}
-        <SearchBox value={q} onChange={(v) => ((auto.current = false), setQ(v))} placeholder="Add an app, a skill or a mod" />
+        <SearchBox value={q} onChange={(v) => ((auto.current = false), setQ(v))} placeholder={only ? SEARCH_IN[only] : "Add an app, a skill or a mod"} />
       </div>
+      {routed && <SectionChips section={section} canEdit={canEdit} forAgent={forA?.id} />}
+      {forA && (
+        <div className="flex items-center gap-2 px-0.5 pt-2 text-[13px] text-muted">
+          <span className="min-w-0 flex-1 truncate">
+            Adding to <span className="font-medium text-ink">{forA.name}</span>
+          </span>
+          <a href={href({ view: "agents", agentId: forA.id, tab: "apps" })} className="shrink-0 font-medium text-ink hover:underline">
+            Done
+          </a>
+          <a href={href({ view: "marketplace", section: section === "mods" ? null : section })} className="shrink-0 hover:text-ink hover:underline">
+            For every agent
+          </a>
+        </div>
+      )}
       {error && <p className="px-0.5 pt-2 text-[13px] text-bad">{error}</p>}
       {signedIn && signedIn !== "ok" && <p className="px-0.5 pt-2 text-[13px] text-bad">Sign-in didn't finish: {signedIn}</p>}
       {shownSections.map((s) => {
-        const open = expanded.includes(s.id) || whole === s.id;
+        // mods are few and some are core behaviour: always all of them, no "Show all" to find them behind
+        const open = expanded.includes(s.id) || whole === s.id || only === s.id || s.id === "mods";
         const n = rowsShown(s.rows.length, open, searching);
         return (
           <section key={s.id} id={`add-${s.id}`} aria-label={SECTION_TITLE[s.id]} className="scroll-mt-2">
             <SectionHead title={SECTION_TITLE[s.id]}>{s.head}</SectionHead>
             {s.rows.slice(0, n).map(row)}
             {s.loading && !s.rows.length && <Loader />}
+            {only === s.id && !s.loading && !s.rows.length && !s.foot && !searching && <p className="px-0.5 py-2 text-[13px] text-muted">{s.id === "added" ? "Nothing added yet" : "Nothing here yet"}</p>}
             {s.foot}
             {s.rows.length > n && (
               <TextBtn className="flex h-10 w-full items-center px-0.5 text-left text-[13px]" onClick={() => setExpanded([...expanded, s.id])}>
@@ -766,7 +864,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
         );
       })}
       {searching && !shownSections.length && !stillLoading && <p className="px-0.5 py-4 text-[14px] text-muted">Nothing matches "{q.trim()}"</p>}
-      {canEdit && (
+      {canEdit && (!only || only === "apps" || only === "skills") && (
         <section aria-label="Make or bring your own" className="mt-2 border-t border-line">
           <button type="button" aria-expanded={making} onClick={() => setMaking(!making)} className="flex h-[52px] w-full items-center px-0.5 text-left text-[14px] text-muted outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40">
             <span className="flex-1">Make or bring your own</span>
@@ -787,7 +885,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
 
   // an open item replaces the list
   const page = (() => {
-    if (!detail) return null;
+    if (!detail) return appKey && routed ? (market.entries === null || !featured.length ? <Loader /> : <p className="text-[14px] text-muted">This app isn't here anymore.</p>) : null;
     if (detail.kind === "app" || detail.kind === "connector") {
       const have = detail.kind === "app" ? haveConnector(detail.app) : connectorById(detail.id);
       const app = detail.kind === "app" ? detail.app : have ? appFor(have) : null;
@@ -840,9 +938,10 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
 
   return (
     <div className="flex min-h-0 flex-1">
+      {routed && <SectionNav section={section} canEdit={canEdit} forAgent={forA?.id} />}
       <div className="min-w-0 flex-1 overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]" onWheel={stopAuto} onTouchMove={stopAuto}>
         <div className="mx-auto w-full max-w-[592px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-9">
-          {detail ? (
+          {detail || (routed && appKey) ? (
             <div className="space-y-4">
               <button type="button" className="circle circle-sm" aria-label="Back to Add" onClick={() => setDetail(null)}>
                 <ChevronLeft size={18} aria-hidden />
@@ -861,6 +960,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
           entry={form.entry}
           existing={form.existing}
           presetEnv={form.presetEnv}
+          presetAgents={forA && !form.existing ? [forA.id] : undefined}
           title={form.title}
           agents={agents}
           taken={(connectors ?? []).filter((c) => c.id !== form.existing?.id).map((c) => c.name.toLowerCase())}
@@ -912,8 +1012,11 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
         />
       )}
       {modOn && (
-        <div role="status" className="m-toast glass fixed bottom-6 right-6 z-50 flex w-[320px] items-center gap-2.5 rounded-[18px] py-3 pl-4 pr-3 max-md:inset-x-[18px] max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:right-auto max-md:w-auto">
-          <span className="flex-1 text-[14px] font-medium">{FEATURE_INFO[modOn].name} on</span>
+        <div role="status" className={`m-toast glass fixed bottom-6 right-6 ${LAYER.toast} flex w-[320px] items-center gap-2.5 rounded-[18px] py-3 pl-4 pr-3 max-md:inset-x-[18px] max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:right-auto max-md:w-auto`}>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-medium">{FEATURE_INFO[modOn].name} on</span>
+            <span className="block truncate text-[13px] text-muted">{modWhere(modOn)}</span>
+          </span>
           {MOD_ROWS[modOn].some((r) => r.to) && (
             <Button
               variant="primary"
@@ -928,6 +1031,47 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
         </div>
       )}
     </div>
+  );
+}
+
+/** The sections, as the side list (desktops) and a row of chips (phones) name them. */
+const NAV: { id: MarketSection; label: string; icon: LucideIcon; editors?: boolean }[] = [
+  { id: "all", label: "All", icon: LayoutGrid },
+  { id: "apps", label: "Apps", icon: Plug },
+  { id: "skills", label: "Skills", icon: Wand2 },
+  { id: "devices", label: "On your devices", icon: Laptop, editors: true },
+  { id: "installed", label: "Installed", icon: Check },
+];
+const SEARCH_IN: Record<AddSection, string> = { added: "Search what's installed", found: "Search your devices", apps: "Search apps", skills: "Search skills", mods: "Search mods" };
+const navItems = (canEdit: boolean) => NAV.filter((n) => canEdit || !n.editors);
+const navHref = (id: MarketSection, forAgent?: string | null) => href({ view: "marketplace", section: id === "all" ? null : id, forAgent });
+
+/** The side list on desktops: All, Apps, Skills, On your devices, Installed. */
+function SectionNav({ section, canEdit, forAgent }: { section: MarketSection | "mods"; canEdit: boolean; forAgent?: string | null }) {
+  const on = section === "mods" ? "all" : section;
+  return (
+    <nav aria-label="Add sections" className="hidden w-52 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-line px-2.5 pb-5 pt-9 md:flex">
+      {navItems(canEdit).map(({ id, label, icon: I }) => (
+        <a key={id} href={navHref(id, forAgent)} aria-current={on === id ? "page" : undefined} className={cx("flex h-9 items-center gap-2.5 rounded-[10px] px-3 text-[14px] font-medium transition-colors", on === id ? "bg-side-active text-ink" : "text-muted hover:bg-side-hover hover:text-ink")}>
+          <I size={16} strokeWidth={1.8} aria-hidden className="shrink-0" />
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+/** The same sections as chips under the search, on phones. */
+function SectionChips({ section, canEdit, forAgent }: { section: MarketSection | "mods"; canEdit: boolean; forAgent?: string | null }) {
+  const on = section === "mods" ? "all" : section;
+  return (
+    <nav aria-label="Add sections" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 pt-1.5 [scrollbar-width:none] md:hidden">
+      {navItems(canEdit).map(({ id, label }) => (
+        <a key={id} href={navHref(id, forAgent)} aria-current={on === id ? "page" : undefined} className={cx("inline-flex h-8 shrink-0 items-center rounded-full px-3.5 text-[13px] font-medium transition-colors", on === id ? "bg-ink text-panel" : "bg-chip text-ink/80 hover:text-ink")}>
+          {label}
+        </a>
+      ))}
+    </nav>
   );
 }
 

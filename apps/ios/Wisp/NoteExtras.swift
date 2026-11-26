@@ -30,7 +30,7 @@ struct NewNoteSheet: View {
             ForEach(choices) { choice in
               Button { selection = choice.folder } label: {
                 RowLabel(title: choice.label, value: who(choice.folder), chevron: false) {
-                  Image(systemName: selection == choice.folder ? "checkmark.circle.fill" : "folder").font(.system(size: 18)).foregroundStyle(selection == choice.folder ? Palette.blue : Palette.muted)
+                  Image(systemName: selection == choice.folder ? "checkmark.circle.fill" : "folder").font(.system(size: 18)).foregroundStyle(selection == choice.folder ? Palette.accent : Palette.muted)
                 }
               }.buttonStyle(.plain)
             }

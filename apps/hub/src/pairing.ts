@@ -9,7 +9,7 @@ import type { Hub } from "./hub.ts";
 /**
  * Pairing a phone with Bubble AI on a computer, without typing an address or a password.
  *
- * 1. Settings → Mobile starts a pairing: the hub makes a one-time secret and the page shows it as
+ * 1. Settings → Computers → Phone starts a pairing: the hub makes a one-time secret and the page shows it as
  *    a QR code, along with the addresses a phone could reach this hub at.
  * 2. The phone scans it, finds an address that answers, and claims the pairing with the secret.
  *    The hub picks a six-digit code and both screens show it.
@@ -136,7 +136,7 @@ export function registerPairingApi(app: FastifyInstance, hub: Hub, h: Helpers) {
   const phone = (req: FastifyRequest, reply: FastifyReply, secret: unknown): Pairing | null => {
     const p = get((req.params as { id: string }).id);
     if (!p || typeof secret !== "string" || !same(secret, p.secret)) {
-      reply.code(404).send({ error: "This code isn't valid anymore. Show a new one in Bubble AI → Settings → Mobile." });
+      reply.code(404).send({ error: "This code isn't valid anymore. Show a new one in Bubble AI → Settings → Computers → Phone." });
       return null;
     }
     return p;

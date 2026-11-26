@@ -8,8 +8,8 @@ const { SETTINGS_PAGES } = await import("../src/router.ts");
 const { FIVE, FIVE_LABEL, ROWS, fivePages, settingsLanding } = await import("../src/views/settings/map.ts");
 
 describe("settings navigation", () => {
-  it("is six pages: You, Agents, Computers, Privacy and data, About, Learn Bubble AI", () => {
-    expect(fivePages(false, FEATURE_PRESETS.everything).map((p) => FIVE_LABEL[p])).toEqual(["You", "Agents", "Computers", "Privacy and data", "About", "Learn Bubble AI"]);
+  it("is seven pages: You, Agents, Mods, Computers, Privacy and data, About, Learn Bubble AI", () => {
+    expect(fivePages(false, FEATURE_PRESETS.everything).map((p) => FIVE_LABEL[p])).toEqual(["You", "Agents", "Mods", "Computers", "Privacy and data", "About", "Learn Bubble AI"]);
   });
 
   it("has a sheet to open for every row that says it opens one, and no others", () => {
@@ -64,6 +64,7 @@ describe("agent page", () => {
       routines: "more",
       connect: "more",
       runs: "more",
+      watches: "more",
       remove: "more",
     });
     expect(agentPlace(null)).toEqual({ group: null, part: null });
@@ -72,7 +73,9 @@ describe("agent page", () => {
   it("opens a part for the tabs that need room, and the group's own rows for the rest", async () => {
     const { agentPlace } = await import("../src/views/AgentSettings.tsx");
     const { AGENT_TABS } = await import("../src/router.ts");
-    expect(AGENT_TABS.filter((t) => agentPlace(t).part)).toEqual(["look", "soul", "instructions", "access", "background", "routines", "connect", "runs", "remove"]);
+    expect(AGENT_TABS.filter((t) => agentPlace(t).part)).toEqual(["look", "soul", "instructions", "access", "background", "routines", "connect", "runs"]);
+    // Remove is a confirm over More, not a page of its own
+    expect(agentPlace("remove")).toEqual({ group: "more", part: null });
     for (const t of AGENT_TABS) expect(agentPlace(t).part ?? t).toBe(t);
   });
 

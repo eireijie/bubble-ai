@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { LAYER } from "./layers.ts";
 import { MotionMark } from "./MotionMark.tsx";
 import { createPortal } from "react-dom";
 import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
@@ -7,8 +8,9 @@ import { harnessLabel, teamIconAgentIds, type Agent, type Approval, type Section
 import { api } from "../api.ts";
 import { useStore, usePrefs, useWaitingOnYou, type ChannelInfo, type ComputerInfo, type LiveRun } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
+import { agentReadiness } from "../devices.ts";
 import { go, href, type Route } from "../router.ts";
-import { openDm } from "../openDm.ts";
+import { openDm, startNewChat } from "../openDm.ts";
 import { AgentAvatar, Menu, cx, clockTime } from "./ui.tsx";
 import { useSheetBackdrop } from "../motion.ts";
 import { ChannelSettings, SectionDialog, leaveChannel, setChannelPrefs } from "./Channels.tsx";
@@ -117,6 +119,13 @@ function storePreviewContext(): PreviewContext {
  * a chat with no messages yet.
  */
 export function chatPreviewLine(c: Chat, live: Record<string, LiveRun>, ctx: PreviewContext = storePreviewContext()): PreviewLine {
+  const line = previewLine(c, live, ctx);
+  // an agent that can't work until you set something up is on Needs you, so its chat is your turn too (its words stay)
+  if (!line.needs && !line.working && c.kind === "dm" && c.agent && !agentReadiness(c.agent, null).ready) return { ...line, needs: true };
+  return line;
+}
+
+function previewLine(c: Chat, live: Record<string, LiveRun>, ctx: PreviewContext): PreviewLine {
   const run = c.channel ? Object.values(live).find((r) => r.channelId === c.channel!.id && (c.kind === "team" || r.agentId === c.agent?.id)) : undefined;
   if (run) {
     const who = c.kind === "team" ? `${ctx.agents.find((a) => a.id === run.agentId)?.name ?? "An agent"} · ` : "";
@@ -278,6 +287,12 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
           <div className="flex flex-col items-center gap-3 px-3 py-6">
             <MotionMark size={40} mood="drift" />
             <p className="text-sm text-muted text-center">{page ? "No agents yet" : "No chats yet. Tap + to start one."}</p>
+            {/* a phone paired before setup was finished: start the first agent from here */}
+            {page && !isGuest && !agents.length && (
+              <a href={href({ view: "welcome", intro: true })} className="btn btn-primary mt-1 h-11 px-5 text-[15px]">
+                Make your first agent
+              </a>
+            )}
           </div>
         )}
         {needle && shown.length === 0 && <p className="px-3 py-2 text-sm text-faint">No chats match.</p>}
@@ -293,13 +308,13 @@ function SearchField({ page, value, onChange }: { page: boolean; value: string; 
   const setPalette = useStore((s) => s.setPalette);
   if (page)
     return (
-      <button type="button" onClick={() => setPalette(true)} className="flex-1 min-w-0 h-11 flex items-center gap-2.5 rounded-full bg-card px-4 text-left text-body text-faint">
+      <button type="button" onClick={() => setPalette(true)} className="flex-1 min-w-0 h-11 flex items-center gap-2.5 rounded-[8px] bg-card px-4 text-left text-body text-faint">
         <Search size={18} strokeWidth={2} className="shrink-0" aria-hidden />
         Search
       </button>
     );
   return (
-    <label className="flex items-center gap-2.5 bg-card text-faint h-9 rounded-full px-3">
+    <label className="flex items-center gap-2.5 bg-card text-faint h-9 rounded-[8px] px-3">
       <Search size={16} strokeWidth={2} className="shrink-0" />
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Search" aria-label="Search chats" className={cx("flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-faint", "text-body")} />
       <kbd className="text-xs font-sans text-faint">⌘K</kbd>
@@ -316,7 +331,7 @@ function NeedsYouCard() {
   if (!first) return null;
   const agent = agents.find((a) => a.id === first.agentId);
   return (
-    <a href={href({ view: "dashboard" })} aria-label={`Needs you, ${count} waiting. ${first.text}`} className="mx-2 mb-2 flex items-center gap-3 rounded-[14px] bg-card px-3.5 py-3 text-left">
+    <a href={href({ view: "dashboard" })} aria-label={`Needs you, ${count} waiting. ${first.text}`} className="mx-2 mb-2 flex items-center gap-3 rounded-[12px] bg-card px-3.5 py-3 text-left">
       {agent && <AgentAvatar agent={agent} size={36} live />}
       <span className="flex-1 min-w-0">
         <span className="line-clamp-2 text-[15px] font-semibold leading-5">{first.text}</span>
@@ -334,7 +349,7 @@ function SectionHeader({ section, count, collapsed, onToggle, onRename, page, ca
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const press = useLongPress((x, y) => canEdit && setMenu({ x, y }));
   return (
-    <div className={cx("flex items-center justify-between text-xs", page ? "mt-2 h-7 px-2 text-muted" : "text-faint font-medium uppercase tracking-wide pt-3.5 pb-1.5 px-3")} onContextMenu={(e) => canEdit && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
+    <div className={cx("press-row flex items-center justify-between text-xs", page ? "mt-2 h-7 px-2 text-muted" : "text-faint font-medium uppercase tracking-wide pt-3.5 pb-1.5 px-3")} onContextMenu={(e) => canEdit && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
       <button onClick={onToggle} aria-expanded={!collapsed} className="flex items-center gap-1.5 min-w-0 h-7 hover:text-ink">
         <ChevronDown size={13} strokeWidth={2.4} className={cx("shrink-0 transition-transform", collapsed && "-rotate-90")} />
         <span className="truncate">{section.name}</span>
@@ -433,7 +448,7 @@ function ChatRow({ chat, page, active, preview, time, onOpen, sections, onNewSec
   );
   const cls = cx("w-full flex items-center text-left transition-colors", page ? "gap-3 px-2 h-[76px] rounded-[12px] active:scale-[0.99] transition-[background-color,transform] duration-150" : "gap-3 px-2.5 py-2.5 rounded-xl min-h-[88px]", active ? "bg-side-active" : "hover:bg-hover");
   return (
-    <div onContextMenu={(e) => chat.channel && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
+    <div className="press-row" onContextMenu={(e) => chat.channel && (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))} {...press}>
       {url ? (
         <a href={url} aria-current={active ? "page" : undefined} className={cls}>
           {inner}
@@ -548,7 +563,7 @@ function ContextMenu({ at, onClose, title, back, children }: { at: { x: number; 
       <div ref={ref} role="menu" style={pos} className="m-menu glass w-72 max-w-[calc(100vw-24px)] rounded-xl p-1.5" >
         <div className="flex items-center gap-2 px-3.5 py-2.5 text-body">
           {back && (
-            <button onClick={back} className="-ml-1 mr-1 size-7 grid place-items-center rounded-full text-muted hover:bg-hover" aria-label="Back">
+            <button onClick={back} className="-ml-1 mr-1 size-7 grid place-items-center rounded-[8px] text-muted hover:bg-hover" aria-label="Back">
               <ChevronDown size={16} className="rotate-90" />
             </button>
           )}
@@ -567,10 +582,10 @@ export function NewChatPicker({ onClose }: { onClose: () => void }) {
   const agents = useStore((s) => s.agents);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    // one agent: no choice to make
+    // one agent: no choice to make, straight to a fresh conversation with it
     if (agents.length === 1) {
       onClose();
-      void openDm(agents[0].id);
+      void startNewChat(agents[0].id);
     }
   }, [agents, onClose]);
   useEffect(() => {
@@ -580,7 +595,7 @@ export function NewChatPicker({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   useSheetBackdrop();
   return createPortal(
-    <div className="m-scrim fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={`m-scrim fixed inset-0 ${LAYER.modal} flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label="New chat" className="m-dialog w-full sm:max-w-sm bg-panel border border-line rounded-t-[16px] sm:rounded-xl shadow-panel max-h-[80vh] overflow-y-auto safe-bottom p-2">
         <div className="flex items-center justify-between px-3.5 pt-3 pb-2">
           <h2 className="t-title">New chat</h2>
@@ -603,7 +618,7 @@ export function NewChatPicker({ onClose }: { onClose: () => void }) {
             onClick={() => {
               setBusy(true);
               onClose();
-              void openDm(a.id);
+              void startNewChat(a.id);
             }}
             className="w-full flex items-center gap-3 px-3.5 min-h-[56px] rounded-2xl text-left hover:bg-hover"
           >

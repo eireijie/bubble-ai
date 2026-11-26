@@ -12,7 +12,7 @@ struct ChangeAuthor {
       return ChangeAuthor(name: agent.name, kind: "agent", agent: agent)
     }
     if author == "Edited in Obsidian" { return ChangeAuthor(name: "Obsidian", kind: "on disk", symbol: "pencil.line") }
-    if author == "Bubble AI" || author == "Warren" { return ChangeAuthor(name: "Bubble AI", symbol: "sparkle") }
+    if author == "Bubble AI" || author == "Warren" { return ChangeAuthor(name: "Bubble AI", symbol: "app.badge") }
     return ChangeAuthor(name: author, kind: "person")
   }
 }
@@ -22,9 +22,28 @@ struct ChangeAvatar: View {
   var body: some View { AuthorAvatar(author: author, size: 28) }
 }
 
+private func noteWords(_ s: String) -> String {
+  let w = s.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
+  return w.prefix(1).uppercased() + w.dropFirst()
+}
+
+/** A note's name in words: "Personality" for SOUL.md, "Research skill" for skills/research/SKILL.md, else the file name without .md. */
 func noteTitle(_ path: String) -> String {
   let name = (path as NSString).lastPathComponent
-  return name.lowercased().hasSuffix(".md") ? String(name.dropLast(3)) : name
+  let base = name.lowercased().hasSuffix(".md") ? String(name.dropLast(3)) : name
+  let folder = ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent
+  switch base.uppercased() {
+  case "SOUL": return "Personality"
+  case "AGENTS", "CLAUDE", "INSTRUCTIONS": return "Instructions"
+  case "USER": return "About you"
+  case "MEMORY": return "Memory"
+  case "IDENTITY": return "Who it is"
+  case "TOOLS": return "Tools"
+  case "HEARTBEAT": return "Check-ins"
+  case "SKILL": return folder.isEmpty ? "Skill" : noteWords(folder) + " skill"
+  case "README", "INDEX": return folder.isEmpty ? "Overview" : noteWords(folder)
+  default: return base
+  }
 }
 
 /** One saved change: who, when, and the notes it touched. */

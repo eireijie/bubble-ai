@@ -1,18 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { chatTint, didThings, inkOn, roundAction } from "./chatTint.ts";
+import { didThings, inkOn, roundAction } from "./chatTint.ts";
 
 describe("chat tint", () => {
   it("picks dark ink on the light ghost colours and white on a dark one", () => {
     for (const c of ["#a98bf5", "#3cc0a6", "#f2a04a", "#6aa2f5", "#ef7fa8"]) expect(inkOn(c)).toBe("#161616");
     expect(inkOn("#2b2f3a")).toBe("#ffffff");
     expect(inkOn("not-a-colour")).toBe("#161616");
-  });
-
-  it("hands the open agent's colour to your bubbles, and leaves a team on the Bubble AI violet", () => {
-    const tint = chatTint("#3cc0a6") as Record<string, string>;
-    expect(tint["--bubble-me"]).toBe("#3cc0a6");
-    expect(tint["--bubble-me-ink"]).toBe("#161616");
-    expect(chatTint(undefined)).toBeUndefined();
   });
 });
 

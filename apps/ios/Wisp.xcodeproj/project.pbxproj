@@ -1359,7 +1359,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wisp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Bubble AI";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Bubble AI uses the camera to scan the pairing code on your computer.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Bubble AI uses the camera to scan the pairing code on your computer and to take photos you send.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Bubble AI connects to Bubble AI on your computer over your own network.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Bubble AI tells your agents when you arrive at or leave a place you added. Never where you are in between.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "When an agent asks where you are, Bubble AI tells it. Only when it asks, never a running track.";
@@ -1409,7 +1409,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wisp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Bubble AI";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Bubble AI uses the camera to scan the pairing code on your computer.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Bubble AI uses the camera to scan the pairing code on your computer and to take photos you send.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Bubble AI connects to Bubble AI on your computer over your own network.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Bubble AI tells your agents when you arrive at or leave a place you added. Never where you are in between.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "When an agent asks where you are, Bubble AI tells it. Only when it asks, never a running track.";

@@ -16,6 +16,7 @@ vi.mock("../src/store.ts", () => ({
 const { MarketplaceView } = await import("../src/views/MarketplaceView.tsx");
 const { AppPage, appLine, connectorLine } = await import("../src/views/AppPages.tsx");
 const { SkillDetail, skillLine } = await import("../src/views/SkillsView.tsx");
+const { ownAppName } = await import("../src/views/ConnectorsView.tsx");
 
 beforeEach(() => {
   vi.stubGlobal("location", new URL("https://wisp.test/"));
@@ -33,8 +34,32 @@ describe("Add: apps, skills and mods on one page", () => {
     expect(html.indexOf('id="add-apps"')).toBeLessThan(html.indexOf('id="add-skills"'));
     expect(html.indexOf('id="add-skills"')).toBeLessThan(html.indexOf('id="add-mods"'));
     expect(html.indexOf('id="add-mods"')).toBeLessThan(html.indexOf("Make or bring your own"));
-    // the old side list, tabs, chips and header buttons are gone
-    for (const gone of ["Marketplace", "Installed", "On your devices", "View all", "Create a skill", "Popular apps"]) expect(html).not.toContain(gone);
+    // tabs, chips and header buttons are gone
+    for (const gone of ["Marketplace", "View all", "Create a skill", "Popular apps"]) expect(html).not.toContain(gone);
+  });
+
+  it("has a side list of sections, each its own address", () => {
+    const html = add();
+    expect(html).toContain('aria-label="Add sections"');
+    for (const [label, to] of [["All", "#/marketplace"], ["Apps", "#/marketplace/apps"], ["Skills", "#/marketplace/skills"], ["On your devices", "#/marketplace/devices"], ["Installed", "#/marketplace/installed"]]) {
+      expect(html).toMatch(new RegExp(`href="${to}"[^>]*>(?:(?!</a>).)*${label}`));
+    }
+    // a guest can't add from a device, so that section isn't offered
+    world.role = "guest";
+    expect(add()).not.toContain('href="#/marketplace/devices"');
+  });
+
+  it("a section shows only its own rows, all of them, with its own search", () => {
+    const apps = add("apps");
+    expect(apps).toContain('id="add-apps"');
+    expect(apps).not.toContain('id="add-skills"');
+    expect(apps).not.toContain('id="add-mods"');
+    expect(apps).not.toContain("Show all");
+    expect(apps).toContain('placeholder="Search apps"');
+    const skills = add("skills");
+    expect(skills).toContain('id="add-skills"');
+    expect(skills).not.toContain('id="add-apps"');
+    expect(add("installed")).toContain('id="add-added"');
   });
 
   it("shows a section only when it has rows", () => {
@@ -54,28 +79,26 @@ describe("Add: apps, skills and mods on one page", () => {
     expect(html).not.toContain("Made by Bubble AI");
   });
 
-  it("shows a few rows of each section and a Show all row", () => {
+  it("shows a few rows of apps and skills with a Show all row, and every mod", () => {
     const html = add();
-    expect(html.match(/Show all/g)?.length).toBeGreaterThanOrEqual(3);
-    // nine mods are listed; five show
+    expect(html.match(/Show all/g)?.length).toBeGreaterThanOrEqual(2);
+    // mods are few and switch core behaviour, so they're never folded away
     expect(html).toContain(FEATURE_INFO.buddy.name);
-    expect(html).not.toContain(FEATURE_INFO.remoteDesktop.name);
+    expect(html).toContain(FEATURE_INFO.remoteDesktop.name);
   });
 
-  it("lists every mod, the ones that are on with a check and the rest with Add; Code stays out while it is on", () => {
+  it("lists every mod, the ones that are on with a check and the rest with Add, Code included", () => {
     const html = add("mods");
     for (const k of ["background", "routines", "teach", "tasks", "buddy", "invite", "remoteDesktop", "storage", "apple"] as const) expect(html).toContain(FEATURE_INFO[k].name);
     expect(html).toContain('aria-label="Add Storage"');
     expect(html).not.toContain('aria-label="Add Tasks board"');
     expect(html).toContain('role="img" aria-label="On"');
-    expect(html).not.toContain(">Code<");
+    expect(html).toContain(">Code<");
     // no description paragraphs here either
     expect(html).not.toContain(FEATURE_INFO.storage.description);
   });
 
-  it("opens an old address with its section showing every row", () => {
-    expect(add("apps").split('id="add-skills"')[0]).not.toContain("Show all");
-    expect(add("skills").split('id="add-skills"')[1].split('id="add-mods"')[0]).not.toContain("Show all");
+  it("All shows a few of each, with Show all", () => {
     expect(add("all").split('id="add-skills"')[0]).toContain("Show all");
   });
 
@@ -157,5 +180,24 @@ describe("a skill's page", () => {
     expect(html).toContain(">Add</button>");
     expect(html).toContain("Skill · by Bubble AI");
     for (const gone of ["Try it", "What it does", "Example", "Read the full instructions"]) expect(html).not.toContain(gone);
+  });
+});
+
+describe("making your own app", () => {
+  it("names it from what was typed, so there's no Name field to fill", () => {
+    const none = { url: "", command: "", args: [] as string[], keys: [] as string[] };
+    expect(ownAppName("mcp-http", { ...none, url: "https://mcp.acme.com/sse" }, [])).toBe("Acme");
+    expect(ownAppName("mcp-stdio", { ...none, command: "npx", args: ["-y", "@acme/mcp-server"] }, [])).toBe("Acme");
+    expect(ownAppName("secret", { ...none, keys: ["STRIPE_API_KEY"] }, [])).toBe("Stripe");
+    expect(ownAppName("mcp-http", none, ["my app"])).toBe("My app 2");
+  });
+});
+
+describe("an app that can't be signed in to yet", () => {
+  it("says Coming soon instead of an Add that fails", () => {
+    const html = renderToStaticMarkup(createElement(AppPage, { app: gmailApp, have: undefined, agents, canEdit: true, signIn: { signIn: false, key: false, soon: true, reason: "Signing in with Google is coming soon." }, ...handlers }));
+    expect(html).toContain("Coming soon");
+    expect(html).not.toContain(">Add</button>");
+    expect(html).not.toContain("Signing in with Google is coming soon.");
   });
 });

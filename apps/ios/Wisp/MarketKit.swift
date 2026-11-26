@@ -60,7 +60,7 @@ struct MarketPill: View {
 
   private var fill: Color {
     switch tone {
-    case .blue: Palette.blue.opacity(0.16)
+    case .blue: Palette.accent.opacity(0.16)
     case .green: Palette.statusOnline.opacity(0.14)
     case .grey: MarketColor.chip
     case .warn: MarketColor.warn.opacity(0.14)
@@ -102,6 +102,8 @@ struct MarketRow<Trailing: View>: View {
   /** where its logo can be loaded from, best first; the symbol stands in until one does */
   var logos: [String] = []
   var tile: CGFloat = 40
+  /** a logo shipped with the app, drawn before any from the hub */
+  var asset: String? = nil
   var title: String
   var subtitle: String?
   var danger = false
@@ -111,7 +113,8 @@ struct MarketRow<Trailing: View>: View {
 
   var body: some View {
     HStack(spacing: 14) {
-      if !logos.isEmpty { AppLogo(sources: logos, symbol: symbol ?? "powerplug", size: tile) }
+      if let asset { Image(asset).resizable().scaledToFit().frame(width: tile * 0.6, height: tile * 0.6).logoTile(tile).accessibilityHidden(true) }
+      else if !logos.isEmpty { AppLogo(sources: logos, symbol: symbol ?? "powerplug", size: tile) }
       else if let symbol { MarketTile(symbol: symbol, size: tile) }
       VStack(alignment: .leading, spacing: 2) {
         Text(title).font(.system(size: 15, weight: .medium)).foregroundStyle(danger ? Palette.red : Palette.text).lineLimit(2).fixedSize(horizontal: false, vertical: true)
@@ -148,7 +151,7 @@ struct MarketToggleRow<Leading: View>: View {
         if let subtitle { Text(subtitle).font(.system(size: 13)).foregroundStyle(Palette.faint).lineLimit(2) }
       }
       Spacer(minLength: 8)
-      Toggle(title, isOn: $isOn).labelsHidden().tint(Palette.blue).disabled(disabled)
+      Toggle(title, isOn: $isOn).labelsHidden().tint(Palette.accent).disabled(disabled)
     }
     .padding(.horizontal, 16).padding(.vertical, 10)
     .frame(minHeight: 64)

@@ -94,7 +94,7 @@ struct AppleApprovalCard: View {
         .focused($focused)
         .padding(.horizontal, 12).padding(.vertical, 9)
         .background(Palette.control, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Palette.blue, lineWidth: 1.5))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Palette.accent, lineWidth: 1.5))
         .accessibilityIdentifier("apple-edit-text")
         .onAppear { focused = true }
         .transition(.opacity)
@@ -103,7 +103,7 @@ struct AppleApprovalCard: View {
         .font(.system(size: 15))
         .foregroundStyle(.white)
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(Palette.blue, in: UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 4, topTrailingRadius: 16, style: .continuous))
+        .background(Palette.accent, in: UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16, bottomTrailingRadius: 4, topTrailingRadius: 16, style: .continuous))
         .padding(.leading, 28)
         .frame(maxWidth: .infinity, alignment: .trailing)
         .transition(.opacity)

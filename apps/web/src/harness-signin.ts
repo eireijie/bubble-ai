@@ -1,3 +1,5 @@
+import { canReadClipboard as canRead, readText } from "./clipboard.ts";
+
 /**
  * What a sign-in printed after a code was sent (its answer, like "Invalid code. Please make sure the
  * full code was copied."): its last line, without the prompt it asks again with. Exported for tests.
@@ -17,14 +19,10 @@ export function pasteHereLine(harness: string, site = "the page"): string {
   return `Sign in on ${site}. It then shows a code and says to paste it into ${harness}: paste it here instead.`;
 }
 
-/** Whether this page may read the clipboard (a secure page in a browser that allows it). */
-export const canReadClipboard = () => typeof navigator !== "undefined" && !!navigator.clipboard?.readText && typeof window !== "undefined" && window.isSecureContext;
+/** Whether this page may read the clipboard (the Android app, or a secure page in a browser that allows it). */
+export const canReadClipboard = canRead;
 
 /** The clipboard's text, trimmed; "" when it's empty or the browser said no. */
 export async function readClipboard(): Promise<string> {
-  try {
-    return (await navigator.clipboard.readText()).trim();
-  } catch {
-    return "";
-  }
+  return ((await readText()) ?? "").trim();
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Terminals, deviceShell, sessionName, vmShell, type Pty, type ShellCommand } from "../src/terminals.ts";
+import { Terminals, deviceShell, sessionName, tmuxSocket, vmShell, type Pty, type ShellCommand } from "../src/terminals.ts";
 
 /** A pretend terminal: records what it was asked, and prints or exits when told to. */
 function fakes() {
@@ -149,12 +149,22 @@ describe("which shell opens", () => {
 
   it("uses tmux on the device when it's there, otherwise the person's shell", () => {
     const env = { SHELL: "/bin/sh" };
-    expect(deviceShell("main", { platform: "linux", env, has: () => true })).toMatchObject({ file: "tmux", args: ["new-session", "-A", "-s", "wisp-main", ";", "set-option", "-t", "wisp-main", "status", "off"] });
+    const end = (name: string) => [";", "set-option", "-t", name, "status", "off", ";", "set-option", "-t", name, "remain-on-exit", "off"];
+    expect(deviceShell("main", { platform: "linux", env, has: () => true, socket: "bubble-ai-x" })).toMatchObject({ file: "tmux", args: ["-L", "bubble-ai-x", "new-session", "-A", "-s", "bubble-main", ...end("bubble-main")] });
     expect(deviceShell("main", { platform: "linux", env, has: () => false })).toMatchObject({ file: "/bin/sh", args: ["-l"] });
     expect(deviceShell("main", { platform: "win32", env, has: () => false }).file).toBe("powershell.exe");
     // an agent's CLI in the pane, through a login shell so it's on PATH, then a shell when it quits
-    expect(deviceShell("codex-1", { platform: "linux", env, has: () => true, launch: "codex" }).args).toEqual(["new-session", "-A", "-s", "wisp-codex-1", "'/bin/sh' -lc 'codex; exec '\\''/bin/sh'\\'' -l'", ";", "set-option", "-t", "wisp-codex-1", "status", "off"]);
+    expect(deviceShell("codex-1", { platform: "linux", env, has: () => true, launch: "codex" }).args).toEqual(["-L", "bubble-ai", "new-session", "-A", "-s", "bubble-codex-1", "'/bin/sh' -lc 'codex; exec '\\''/bin/sh'\\'' -l'", ...end("bubble-codex-1")]);
     expect(deviceShell("codex-1", { platform: "linux", env, has: () => false, launch: "codex" })).toMatchObject({ file: "/bin/sh", args: ["-lc", "codex; exec '/bin/sh' -l"] });
+  });
+
+  it("keeps each install's shells on a tmux server of its own, never the person's default one", () => {
+    expect(tmuxSocket("/home/a/.bubble-ai")).toMatch(/^bubble-ai-[0-9a-f]{10}$/);
+    expect(tmuxSocket("/home/a/.bubble-ai")).toBe(tmuxSocket("/home/a/.bubble-ai/"));
+    expect(tmuxSocket("/home/a/.bubble-ai")).not.toBe(tmuxSocket("/tmp/other-install"));
+    const vm = vmShell({ bin: "docker", name: "wisp-c1", user: "wisp", home: "/home/wisp" }, "main");
+    expect(vm.args.join(" ")).toContain("tmux -L bubble-ai new-session -A -s \"bubble-$1\"");
+    expect(vm.args.join(" ")).not.toContain("wisp-$1");
   });
 
   it("opens a VM's shell as the agent's user, with a terminal", () => {

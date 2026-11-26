@@ -1,6 +1,6 @@
 import { migrateHomes } from "./migrate-home.ts";
 import { migrateServices } from "./migrate-services.ts";
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -17,15 +17,16 @@ import { RemoteDesktopServer, type RemoteDesktopConfig } from "./computers/remot
 import type { RustdeskConfig } from "./rustdesk.ts";
 import { detectRemoteApps } from "./remote-apps.ts";
 import { ScreenLock, type ScreenCode } from "./screen-lock.ts";
-import { TAKEOVER_HARNESSES, Terminals, deviceShell, sessionName, shellQuote, takeoverShell, vmShell } from "./terminals.ts";
+import { TAKEOVER_HARNESSES, Terminals, deviceShell, sessionName, shellQuote, takeoverShell, tmuxSocket, vmShell } from "./terminals.ts";
 import { HarnessLogins } from "./harness-login.ts";
 import { ModelLogins } from "./model-login.ts";
 import { importCodexSignin, SharedSignins } from "./shared-signin.ts";
 import { recipeTag, type DockerVm } from "./computers/docker.ts";
 import { mcpBundle } from "./vm-tools.ts";
-import { NO_NODE, findNpmDir, withDir } from "./npm.ts";
+import { NO_NODE, findNpmDir, harnessPrefix, npmInstall, prefixBin, withDir, withHarnessBin } from "./npm.ts";
 import { discoverAgents, readDiscovered } from "./discover.ts";
 import { agentFolder } from "./agent-dir.ts";
+import { runFailed, withReason } from "./run-failure.ts";
 import { bringBack, mergeBranch, prepareCheckout, prepareClone } from "./git.ts";
 import { AppleBridge } from "./apple/index.ts";
 
@@ -173,6 +174,8 @@ export class NodeDaemon {
     }
     this.cfg = cfg = { ...cfg, hub: normalizeHubUrl(cfg.hub) };
     fs.mkdirSync(cfg.dir, { recursive: true });
+    // harnesses Bubble AI installed: found after the person's own, with the node they run on
+    if (fs.existsSync(harnessPrefix(cfg.dir))) for (const dir of [prefixBin(harnessPrefix(cfg.dir)), findNpmDir()]) if (dir) process.env.PATH = withHarnessBin(dir, process.env.PATH);
     this.sessions = readJson(this.sessionsFile, {});
     this.sessionHarness = readJson(path.join(cfg.dir, "session-harness.json"), {});
     this.agentTokens = readJson(this.tokensFile, {});
@@ -252,7 +255,7 @@ export class NodeDaemon {
       if (computer.kind === "vm" && !vm) throw new Error("this VM isn't on this device");
       await vm?.ready();
       const pane = harness ? await this.terminalLaunch(harness.id, harness.binary, msg.credential, vm, computer.name, msg.harnessOn) : null;
-      const cmd = vm ? vmShell({ bin: vm.engine.bin, name: vm.name, user: vm.user, home: vm.home }, session, pane?.launch) : deviceShell(session, { launch: pane?.launch });
+      const cmd = vm ? vmShell({ bin: vm.engine.bin, name: vm.name, user: vm.user, home: vm.home }, session, pane?.launch) : deviceShell(session, { launch: pane?.launch, socket: tmuxSocket(this.cfg.dir) });
       return { ...cmd, ended: pane?.ended };
     };
     const opening: { end?: boolean; gone?: boolean } = {};
@@ -501,6 +504,8 @@ export class NodeDaemon {
   }
 
   private send(m: NodeToHub) {
+    // every failed run says why, as a code the chat turns into a fix (Install, Sign in, …)
+    if (m.type === "run_failed") m = withReason(m);
     if (this.ws?.readyState === WebSocket.OPEN) return this.ws.send(JSON.stringify(m));
     // a run's outcome must reach the hub, or the agent stays "busy" there; so must a renewed sign-in (the old one
     // is dead once a harness renews it) and a finished model sign-in; everything else is a snapshot the hub asks for again
@@ -532,8 +537,9 @@ export class NodeDaemon {
       this.send({ type: "hello", nodeName: this.cfg.name, agents: agents.map((a) => a.id), version: await version() });
       this.flushOutbox();
       await this.sendCapabilities();
-      // agents work on VMs: have the image here before the first one is needed
-      if (!this.local.paused && !this.cfg.noPrepare) void this.computers.prepareImage(() => void this.sendCapabilities());
+      // a VM lives here: have its image ready before it's needed. None yet: nothing is fetched or
+      // built until one is made and used (an older hub doesn't say, so prepare as before)
+      if (!this.local.paused && !this.cfg.noPrepare && msg.vms !== 0) void this.computers.prepareImage(() => void this.sendCapabilities());
       this.send({ type: "discovered", agents: discoverAgents(this.cfg.discoverHome) });
       await this.sendCatalog();
       void this.sendShelf();
@@ -955,7 +961,13 @@ export class NodeDaemon {
       await reportRenewal();
       // turned away for its own sign-in (not a Models connection's): show it as signed out from now on
       if (!credential && !abort.signal.aborted && signInProblem(agent.harness, message)) this.signInFailed(agent, inside ? run.computer!.id : null);
-      this.send({ type: "run_failed", runId: run.runId, error: message });
+      const failed = runFailed(run.runId, message, agent.harness);
+      this.send(failed);
+      // its program is gone (uninstalled since the list was made): look again, so the hub stops saying it's installed
+      if (failed.reason === "not_installed" && !inside) {
+        this.catalog = null;
+        void this.sendCatalog().catch(() => {});
+      }
       this.log(`@${agent.handle} failed ${run.runId}: ${message}`);
     } finally {
       this.aborts.delete(run.runId);
@@ -1070,27 +1082,14 @@ export class NodeDaemon {
     if (!npmDir) throw new Error(`${NO_NODE}, and ${harnessLabel(id)} is installed with it. Install Node.js from https://nodejs.org, then try again.`);
     const npm = process.platform === "win32" ? "npm.cmd" : path.join(npmDir, "npm");
     const env = withDir(npmDir);
-    this.log(`installing ${harnessLabel(id)} (${pkg})`);
-    const out = await new Promise<{ code: number | null; text: string }>((resolve) => {
-      const child = spawn(npm, ["install", "-g", "--no-audit", "--no-fund", pkg], { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32", env });
-      let text = "";
-      child.stdout.on("data", (d) => (text = (text + d).slice(-8000)));
-      child.stderr.on("data", (d) => (text = (text + d).slice(-8000)));
-      const timer = setTimeout(() => child.kill("SIGKILL"), 15 * 60_000);
-      child.on("error", (e) => (clearTimeout(timer), resolve({ code: -1, text: (e as NodeJS.ErrnoException).code === "ENOENT" ? "ENOENT" : e.message })));
-      child.on("close", (code) => (clearTimeout(timer), resolve({ code, text })));
-    });
-    if (out.code !== 0) {
-      if (out.text === "ENOENT") throw new Error(`${NO_NODE}, and ${harnessLabel(id)} is installed with it. Install Node.js from https://nodejs.org, then try again.`);
-      const last = out.text.trim().split("\n").slice(-6).join("\n");
-      throw new Error(/EACCES|permission denied/i.test(out.text) ? `npm can't write its global folder on ${this.cfg.name} (permission denied). Install it there yourself: npm install -g ${pkg}` : `npm install -g ${pkg} failed:\n${last}`);
-    }
-    // npm's global bin may not be on this process's PATH (a background service starts with a short one)
-    const prefix = await new Promise<string>((resolve) => execFile(npm, ["prefix", "-g"], { env, shell: process.platform === "win32" }, (err, stdout) => resolve(err ? "" : stdout.trim())));
-    const bin = prefix && (process.platform === "win32" ? prefix : path.join(prefix, "bin"));
-    for (const dir of [bin, npmDir]) if (dir && !(process.env.PATH ?? "").split(path.delimiter).includes(dir)) process.env.PATH = `${dir}${path.delimiter}${process.env.PATH ?? ""}`;
+    // into Bubble AI's own folder, never npm's global one (Homebrew's or the system's)
+    const prefix = harnessPrefix(this.cfg.dir);
+    this.log(`installing ${harnessLabel(id)} (${pkg}) into ${prefix}`);
+    const output = await npmInstall({ npm, env, prefix, pkg, label: harnessLabel(id), device: this.cfg.name });
+    // its commands, and the node they run with, after whatever the person has (their own install wins)
+    for (const dir of [prefixBin(prefix), npmDir]) process.env.PATH = withHarnessBin(dir, process.env.PATH);
     this.log(`installed ${harnessLabel(id)}`);
-    return out.text.trim().split("\n").slice(-3).join("\n");
+    return output;
   }
 
   /**

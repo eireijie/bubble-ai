@@ -53,4 +53,29 @@ describe("which harness a new agent starts on", () => {
     store.setNodeCatalog(node, [listed("claude-code", false), listed("codex", false)]);
     expect(agentDefaults(store, ws).harness).toBe("claude-code");
   });
+
+  it("never starts on a harness no device has installed, and prefers the one picked at first-run setup", () => {
+    const { store, ws, node } = setup();
+    store.setNodeCatalog(node, [listed("claude-code", true), listed("codex", true)]);
+    // first-run setup made one on Codex; a later one went on Kimi, which isn't installed anywhere
+    store.createAgent({ workspaceId: ws, handle: "first", name: "First", harness: "codex", nodeId: node });
+    store.db.prepare("UPDATE agents SET created_at = ? WHERE handle = ?").run("2000-01-01T00:00:00.000Z", "first");
+    store.createAgent({ workspaceId: ws, handle: "kim", name: "Kim", harness: "kimi", nodeId: node });
+    expect(agentDefaults(store, ws).harness).toBe("codex");
+    // saved but not installed: an installed, signed-in one instead
+    saveAgentDefaults(store, ws, { harness: "kimi" });
+    expect(["claude-code", "codex"]).toContain(agentDefaults(store, ws).harness);
+  });
+});
+
+describe("where a new agent works", () => {
+  it("works on its device directly once one is connected, else without a computer; never the shared one unasked", () => {
+    const { store, ws } = setup();
+    expect(agentDefaults(store, ws).computer).toBe("device");
+    const empty = new Store(openDb(path.join(fs.mkdtempSync(path.join(os.tmpdir(), "wisp-defaults-")), "hub.sqlite")));
+    const lone = empty.createWorkspace("Org");
+    expect(agentDefaults(empty, lone.id).computer).toBe("none");
+    saveAgentDefaults(store, ws, { computer: "shared" });
+    expect(agentDefaults(store, ws).computer).toBe("shared");
+  });
 });

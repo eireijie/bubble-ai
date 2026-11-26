@@ -47,6 +47,11 @@ describe("app categories", () => {
     expect(appCategory({ name: "Acme", description: "Query your Postgres database" })).toBe("Data");
     expect(appCategory({ name: "Notion" })).toBe("Docs and notes");
     expect(appCategory({ name: "Mystery", description: "" })).toBeNull();
+    expect(appCategory({ name: "Slack", description: "Send messages" })).toBe("Chat");
+    expect(appCategory({ name: "Todoist" })).toBe("Tasks");
+    // words that only look like a category don't count
+    expect(appCategory({ name: "Close", description: "Close deals with customers" })).not.toBe("Sales");
+    expect(appCategory({ name: "Sentry", description: "Look at errors and logs" })).not.toBe("Data");
   });
 });
 

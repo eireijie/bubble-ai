@@ -5,7 +5,7 @@ import net from "node:net";
 import { Duplex } from "node:stream";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ComputerSpec, LoginFillResult, PageElement, RunOutput, VmConfig } from "@bubble-ai/core";
+import { GITHUB_REPO, isTransientError, withRetry, type ComputerSpec, type LoginFillResult, type PageElement, type RunOutput, type VmConfig } from "@bubble-ai/core";
 import { FILL_LOGIN_SCRIPT } from "./fill-login.ts";
 import { ActionError, exec, has, must, type Driver } from "./driver.ts";
 import { X11Driver } from "./x11.ts";
@@ -141,16 +141,22 @@ export function recipeTag(dir = IMAGE_DIR): string {
 
 export const LOCAL_IMAGE = "wisp-computer";
 
-/** Where this copy of Bubble AI's VM images are published: ghcr.io/<owner>/wisp-computer for a GitHub checkout. */
+/**
+ * Where this copy of Bubble AI's VM images are published: ghcr.io/<owner>/wisp-computer for a
+ * GitHub checkout, and Bubble AI's own (vm-image.yml) for an installed copy, which has no .git.
+ * Only an image built from the very same recipe is used (recipeTag).
+ */
 export function publishedImage(repoDir = path.resolve(IMAGE_DIR, "../..")): string | null {
+  const official = `ghcr.io/${GITHUB_REPO.split("/")[0].toLowerCase()}/wisp-computer`;
+  let head: string;
   try {
-    const head = fs.readFileSync(path.join(repoDir, ".git", "config"), "utf8");
-    const url = head.match(/\[remote "origin"\][^[]*?url\s*=\s*(\S+)/)?.[1] ?? "";
-    const owner = url.match(/github\.com[:/]([A-Za-z0-9-]+)\//)?.[1];
-    return owner ? `ghcr.io/${owner.toLowerCase()}/wisp-computer` : null;
+    head = fs.readFileSync(path.join(repoDir, ".git", "config"), "utf8");
   } catch {
-    return null;
+    return official;
   }
+  const url = head.match(/\[remote "origin"\][^[]*?url\s*=\s*(\S+)/)?.[1] ?? "";
+  const owner = url.match(/github\.com[:/]([A-Za-z0-9-]+)\//)?.[1];
+  return owner ? `ghcr.io/${owner.toLowerCase()}/wisp-computer` : null;
 }
 
 const relays = new Map<string, Promise<number>>();
@@ -242,25 +248,132 @@ export function runArgs(spec: ComputerSpec, o: { name: string; volume: string; f
   return args;
 }
 
+/** Thrown to whoever was waiting on a VM image when they gave up on it (the VM was deleted, say). */
+export const IMAGE_CANCELLED = "cancelled: the computer was removed while its image was being set up";
+
+/** Image fetches and builds under way, by engine and tag: one at a time, shared by all who wait on it. */
+interface ImageJob {
+  promise: Promise<string>;
+  waiters: number;
+  abort: AbortController;
+  listeners: Set<(text: string) => void>;
+  last: string | null;
+}
+const imageJobs = new Map<string, ImageJob>();
+
+/** How many image fetches or builds are under way (for tests). */
+export const imageJobsRunning = () => imageJobs.size;
+
+type ImageFetcher = (engine: Engine, local: string, onStatus: (text: string) => void, signal: AbortSignal) => Promise<void>;
+
 /**
  * Make sure the VM image is on this device: the published one built from the same recipe if
  * there is one, otherwise built here from docker/computer (a few minutes, once).
+ *
+ * Only one fetch or build per image runs at a time: a second VM (or the ahead-of-time prepare)
+ * asking meanwhile waits on the same one and hears its steps. `signal` lets a waiter give up (its
+ * VM was deleted); the build itself is stopped once nobody is waiting on it any more.
  */
-export async function ensureImage(engine: Engine, onStatus: (text: string) => void = () => {}): Promise<string> {
-  const tag = recipeTag();
-  const local = `${LOCAL_IMAGE}:${tag}`;
-  if (await imageExists(engine, local)) return local;
+export async function ensureImage(engine: Engine, onStatus: (text: string) => void = () => {}, signal?: AbortSignal, o: { fetch?: ImageFetcher; tag?: string } = {}): Promise<string> {
+  if (signal?.aborted) throw new ActionError(IMAGE_CANCELLED);
+  const local = `${LOCAL_IMAGE}:${o.tag ?? recipeTag()}`;
+  const key = `${engine.bin}\n${local}`;
+  let job = imageJobs.get(key);
+  if (!job) {
+    const abort = new AbortController();
+    const listeners = new Set<(text: string) => void>();
+    const fresh: ImageJob = { waiters: 0, abort, listeners, last: null, promise: Promise.resolve(local) };
+    const tell = (text: string) => {
+      fresh.last = text;
+      for (const l of listeners) l(text);
+    };
+    fresh.promise = (o.fetch ?? fetchImage)(engine, local, tell, abort.signal)
+      .then(() => local)
+      .finally(() => {
+        if (imageJobs.get(key) === fresh) imageJobs.delete(key);
+      });
+    // nobody listening when it fails (everyone gave up): don't surface it as unhandled
+    fresh.promise.catch(() => {});
+    imageJobs.set(key, fresh);
+    job = fresh;
+  } else if (job.last) onStatus(job.last);
+  const j = job;
+  j.waiters++;
+  j.listeners.add(onStatus);
+  return new Promise<string>((resolve, reject) => {
+    let done = false;
+    const leave = () => {
+      if (done) return false;
+      done = true;
+      j.listeners.delete(onStatus);
+      signal?.removeEventListener("abort", onAbort);
+      j.waiters--;
+      return true;
+    };
+    const onAbort = () => {
+      if (!leave()) return;
+      // the last one waiting gave up: stop the build or download
+      if (j.waiters === 0) {
+        j.abort.abort();
+        if (imageJobs.get(key) === j) imageJobs.delete(key);
+      }
+      reject(new ActionError(IMAGE_CANCELLED));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    j.promise.then(
+      (v) => leave() && resolve(v),
+      (e) => leave() && reject(j.abort.signal.aborted ? new ActionError(IMAGE_CANCELLED) : e),
+    );
+  });
+}
+
+/** Fetch the published image, else build it here. */
+async function fetchImage(engine: Engine, local: string, onStatus: (text: string) => void, signal: AbortSignal): Promise<void> {
+  if (await imageExists(engine, local)) return;
+  const tag = local.slice(local.indexOf(":") + 1);
   const published = publishedImage();
   if (published) {
     onStatus("Downloading the VM image (first time only)…");
     const remote = `${published}:${tag}`;
-    const pulled = await exec(engine.bin, engine.kind === "apple" ? ["image", "pull", remote] : ["pull", remote], { timeoutMs: 30 * 60_000 });
-    if (pulled.code === 0 && (await exec(engine.bin, engine.kind === "apple" ? ["image", "tag", remote, local] : ["tag", remote, local], { timeoutMs: 60_000 })).code === 0) return local;
+    const pulled = await exec(engine.bin, engine.kind === "apple" ? ["image", "pull", remote] : ["pull", remote], { timeoutMs: 30 * 60_000, signal });
+    if (signal.aborted) throw new ActionError(IMAGE_CANCELLED);
+    if (pulled.code === 0 && (await exec(engine.bin, engine.kind === "apple" ? ["image", "tag", remote, local] : ["tag", remote, local], { timeoutMs: 60_000 })).code === 0) return;
   }
   if (!fs.existsSync(path.join(IMAGE_DIR, "Dockerfile"))) throw new ActionError(`can't find the VM image recipe at ${IMAGE_DIR}`);
   onStatus("Building the VM image (first time only, a few minutes)…");
-  await must(engine.bin, ["build", "-t", local, IMAGE_DIR], { timeoutMs: 60 * 60_000 });
-  return local;
+  await buildImage(engine, local, IMAGE_DIR, { onStatus, signal });
+}
+
+/** Waits between tries when building the VM image hits a network hiccup (the engine keeps the steps that worked). */
+export const BUILD_RETRY_MS = [10_000, 30_000, 90_000];
+
+/**
+ * The line of a failed build that says why: a network error if there is one (it may be well above
+ * the last line, which only says a step failed), else the last line that reads as an error.
+ */
+export function buildFailure(output: string): string {
+  const lines = output.split("\n").map((l) => l.trim()).filter(Boolean).reverse();
+  const pick = lines.find((l) => isTransientError(l)) ?? lines.find((l) => /error|failed|denied|not found/i.test(l)) ?? lines[0];
+  return (pick ?? "the VM image didn't build").slice(0, 500);
+}
+
+/** Build the VM image, trying again after a network hiccup. Exported for tests. */
+export async function buildImage(engine: Engine, tag: string, dir: string, o: { onStatus?: (text: string) => void; run?: typeof exec; delaysMs?: readonly number[]; sleep?: (ms: number) => Promise<void>; signal?: AbortSignal } = {}): Promise<void> {
+  const run = o.run ?? exec;
+  await withRetry(
+    async () => {
+      if (o.signal?.aborted) throw new ActionError(IMAGE_CANCELLED);
+      const r = await run(engine.bin, ["build", "-t", tag, dir], { timeoutMs: 60 * 60_000, signal: o.signal });
+      if (o.signal?.aborted) throw new ActionError(IMAGE_CANCELLED);
+      if (r.code !== 0) throw new ActionError(buildFailure(`${r.stdout.toString().slice(-4000)}\n${r.stderr}`));
+    },
+    {
+      delaysMs: o.delaysMs ?? BUILD_RETRY_MS,
+      retryable: (err) => !o.signal?.aborted && isTransientError(err instanceof Error ? err.message : String(err)),
+      sleep: o.sleep,
+      onRetry: (_err, attempt) => o.onStatus?.(`Network hiccup while building the VM image. Trying again (${attempt + 1} of ${(o.delaysMs ?? BUILD_RETRY_MS).length + 1})…`),
+    },
+  );
 }
 
 export async function imageExists(engine: Engine, image: string): Promise<boolean> {
@@ -295,6 +408,8 @@ export class DockerVm implements Driver {
   user = "wisp";
   home = VM_HOME;
   private identity: Promise<void> | null = null;
+  /** aborted when it's deleted: a start still getting its image gives up (and the build stops if nobody else waits) */
+  private removed = new AbortController();
   volume: string;
   /** shared with the agents that use this computer: their working folder */
   readonly filesDir: string;
@@ -394,9 +509,10 @@ export class DockerVm implements Driver {
         image = custom;
         if (!(await imageExists(this.engine, image))) {
           this.onStatus(`Pulling ${image}…`);
-          await must(this.bin, this.engine.kind === "apple" ? ["image", "pull", image] : ["pull", image], { timeoutMs: 30 * 60_000 });
+          await withRetry(() => must(this.bin, this.engine.kind === "apple" ? ["image", "pull", image] : ["pull", image], { timeoutMs: 30 * 60_000 }), { delaysMs: BUILD_RETRY_MS });
         }
-      } else image = await ensureImage(this.engine, (text) => this.onStatus(text));
+      } else image = await ensureImage(this.engine, (text) => this.onStatus(text), this.removed.signal);
+      if (this.removed.signal.aborted) throw new ActionError(IMAGE_CANCELLED);
       fs.mkdirSync(this.filesDir, { recursive: true });
       if (this.engine.kind === "apple" && (await exec(this.bin, ["volume", "inspect", this.volume], { timeoutMs: 15_000 })).code !== 0) {
         await must(this.bin, ["volume", "create", this.volume], { timeoutMs: 60_000 });
@@ -406,6 +522,7 @@ export class DockerVm implements Driver {
     }
     // wait for the desktop to come up
     for (let i = 0; i < 90; i++) {
+      if (this.removed.signal.aborted) throw new ActionError(IMAGE_CANCELLED);
       const r = await exec(this.bin, ["exec", "-u", this.user, "-e", `DISPLAY=${DISPLAY}`, this.name, "xdotool", "getdisplaygeometry"], { timeoutMs: 10_000 });
       if (r.code === 0) {
         await exec(this.bin, ["exec", "-i", "-u", "root", this.name, "sh", "-s", "--", vmHostname(this.spec)], { input: NAME_INSIDE_SCRIPT, timeoutMs: 15_000 }).catch(() => {});
@@ -456,6 +573,9 @@ export class DockerVm implements Driver {
   }
 
   async destroy() {
+    // a start still setting up gives up first, so it can't make the container after it's removed
+    this.removed.abort();
+    await this.starting?.catch(() => {});
     await this.resolveIdentity();
     if (this.engine.kind === "apple") {
       await exec(this.bin, ["delete", "--force", this.name], { timeoutMs: 60_000 });

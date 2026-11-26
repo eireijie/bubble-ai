@@ -92,7 +92,7 @@ function Head({ onBack, onNew }: { onBack?: () => void; onNew?: () => void }) {
       )}
       <h1 className="flex-1 truncate text-[22px] md:text-[24px] font-[650] leading-tight tracking-[-0.02em] max-md:text-center">Tasks</h1>
       {onNew ? (
-        <button onClick={onNew} aria-label="New task" title="New task" className="m-press size-11 md:size-[34px] shrink-0 rounded-full grid place-items-center bg-chip text-ink hover:bg-hover outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button onClick={onNew} aria-label="New task" title="New task" className="m-press size-11 md:size-[34px] shrink-0 rounded-[8px] grid place-items-center bg-chip text-ink hover:bg-hover outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Plus size={18} strokeWidth={2} />
         </button>
       ) : (
@@ -252,7 +252,7 @@ function Board({ leadId, onBack }: { leadId: string | null; onBack?: () => void 
       <div className={column()}>
         <Head onBack={onBack} onNew={canNew ? () => useStore.setState({ newTaskOpen: true }) : undefined} />
         {roots.length > 0 && (
-          <label className="mt-4 mx-1.5 flex items-center gap-2 h-9 rounded-full bg-chip px-3 text-muted focus-within:text-ink">
+          <label className="mt-4 mx-1.5 flex items-center gap-2 h-9 rounded-[8px] bg-chip px-3 text-muted focus-within:text-ink">
             <Search size={15} strokeWidth={2} aria-hidden />
             <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search tasks" placeholder="Search tasks" className="flex-1 min-w-0 bg-transparent outline-none text-body text-ink placeholder:text-muted" />
           </label>
@@ -642,7 +642,7 @@ export function NewTask({ onClose, defaultTo }: { onClose: () => void; defaultTo
         {files.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             {files.map((f, i) => (
-              <span key={i} className="inline-flex items-center gap-1 rounded-full bg-chip px-2.5 h-7 text-xs">
+              <span key={i} className="inline-flex items-center gap-1 rounded-[8px] bg-chip px-2.5 h-7 text-xs">
                 {f.name}
                 <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}>
                   <X size={12} />
@@ -652,11 +652,16 @@ export function NewTask({ onClose, defaultTo }: { onClose: () => void; defaultTo
           </div>
         )}
         <div className="flex items-center gap-2">
-          {!solo && (
+          {solo ? (
+            <span aria-label={`Goes to ${who}`} className="inline-flex items-center gap-2 h-9 max-w-[220px] rounded-full border border-line2 pl-1.5 pr-3 text-sm font-medium">
+              <AgentAvatar agent={lead} size={24} interactive={false} />
+              <span className="truncate">{who}</span>
+            </span>
+          ) : (
             <Menu
               up
               trigger={(isOpen, toggle) => (
-                <button type="button" onClick={toggle} aria-expanded={isOpen} aria-haspopup="menu" aria-label={`Goes to ${who}`} className="inline-flex items-center gap-2 h-9 max-w-[220px] rounded-full border border-line2 pl-1.5 pr-2.5 text-sm font-medium hover:bg-hover">
+                <button type="button" onClick={toggle} aria-expanded={isOpen} aria-haspopup="menu" aria-label={`Goes to ${who}`} className="inline-flex items-center gap-2 h-9 max-w-[220px] rounded-[8px] border border-line2 pl-1.5 pr-2.5 text-sm font-medium hover:bg-hover">
                   {team ? <Users size={18} strokeWidth={1.8} className="ml-1 text-muted shrink-0" /> : <AgentAvatar agent={picked ?? lead} size={24} interactive={false} />}
                   <span className="truncate">{who}</span>
                   <ChevronDown size={14} strokeWidth={2} className="text-muted shrink-0" />
@@ -669,7 +674,7 @@ export function NewTask({ onClose, defaultTo }: { onClose: () => void; defaultTo
               ]}
             />
           )}
-          <label className="size-9 shrink-0 grid place-items-center rounded-full text-muted hover:bg-hover hover:text-ink cursor-pointer focus-within:ring-2 focus-within:ring-ring" title="Attach files">
+          <label className="size-9 shrink-0 grid place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink cursor-pointer focus-within:ring-2 focus-within:ring-ring" title="Attach files">
             <Paperclip size={17} strokeWidth={1.8} aria-hidden />
             <input type="file" multiple aria-label="Attach files" className="sr-only" onChange={(e) => setFiles([...files, ...Array.from(e.target.files ?? [])])} />
           </label>

@@ -5,33 +5,34 @@ struct FeaturesView: View {
   @Environment(Store.self) private var store
   @State private var action = FormAction()
   @State private var justAdded: FeatureKey?
-
-  private var on: [FeatureKey] { FeatureKey.allCases.filter { store.features[$0] } }
-  private var off: [FeatureKey] { FeatureKey.allCases.filter { !store.features[$0] } }
+  /** a mod that reaches outside Bubble AI waits for an OK before it turns on (MODS_NEED_OK) */
+  @State private var asking: FeatureKey?
+  static let needOk: Set<FeatureKey> = [.background, .teach, .invite, .remoteDesktop, .storage, .apple]
 
   var body: some View {
     SettingsPage("Mods", id: "mods") {
-      if !on.isEmpty {
-        CardLabel("On")
-        CardGroup { ForEach(on) { row($0) } }.tourTarget("mods-on")
-      }
-      if !off.isEmpty {
-        CardLabel(on.isEmpty ? "Mods" : "More mods")
-        CardGroup { ForEach(off) { row($0) } }.tourTarget("mods-page")
-      }
+      // one list in a fixed order, so a row stays under your finger when you switch it
+      CardGroup { ForEach(FeatureKey.allCases) { row($0) } }.tourTarget("mods-page")
       if !store.isOwner { OwnersOnlyNote() }
       StatusLine(error: action.error)
       if let key = justAdded { CardHint("\(key.name) is on — in \(key.home).") }
     }
     .task { await store.refreshFeatures() }
+    .confirmationDialog(asking.map { "Turn on \($0.name)?" } ?? "", isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } }), titleVisibility: .visible, presenting: asking) { key in
+      Button("Turn on") { set(key, true) }
+    } message: { key in Text(key.detail) }
+  }
+
+  private func set(_ key: FeatureKey, _ on: Bool) {
+    var next = store.features
+    next[key] = on
+    justAdded = on ? key : nil
+    save(next)
   }
 
   private func row(_ key: FeatureKey) -> some View {
     ToggleRow(title: key.name, subtitle: key.detail, symbol: key.symbol, isOn: Binding(get: { store.features[key] }, set: { on in
-      var next = store.features
-      next[key] = on
-      justAdded = on ? key : nil
-      save(next)
+      if on, Self.needOk.contains(key) { asking = key } else { set(key, on) }
     }), id: "feature-\(key.rawValue)")
     .disabled(!store.isOwner || action.busy)
   }
@@ -45,15 +46,15 @@ extension FeatureKey {
   /** where the mod shows up once it is on */
   var home: String {
     switch self {
-    case .background: "each agent's Background tab"
-    case .routines: "each agent's Routines tab"
-    case .teach: "an agent's page, under Teach"
+    case .background: "each agent's page, under Background"
+    case .routines: "each agent's page, under Routines"
+    case .teach: "Computers: open one and tap Teach"
     case .tasks: "Tasks, in More"
     case .buddy: "a small bubble on your desktop"
     case .invite: "Settings, People"
     case .remoteDesktop: "each device's page"
-    case .storage: "Settings, Storage"
-    case .apple: "Settings, Apple"
+    case .storage: "More, under Storage"
+    case .apple: "More, under Apple"
     }
   }
 

@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useStore, type ComputerInfo, type Me } from "../src/store.ts";
 import { ComputerSheet } from "../src/views/DevicePage.tsx";
 import { ComputersView } from "../src/views/ComputersView.tsx";
+import { watchBlock } from "../src/views/computerState.ts";
+import { hasScreen } from "../src/components/Screen.tsx";
 import type { NodeInfo } from "../src/views/deviceBits.tsx";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn(() => new Promise(() => {})), uploadFile: vi.fn() }));
@@ -98,6 +100,52 @@ describe("a computer's sheet", () => {
     const phones = sheet({ key: "phones", kind: "phones" });
     expect(inOrder(phones, ["Paired", "Pair a phone", "Phone sign-ins"])).toBe(true);
     expect(sheet({ key: "c:nope", kind: "gone" })).toContain("That computer is gone.");
+  });
+});
+
+describe("a computer that won't start, or whose screen is off", () => {
+  const EAI = "npm error request to https://registry.npmjs.org/@anthropic-ai%2fclaude-code failed, reason: getaddrinfo EAI_AGAIN registry.npmjs.org";
+  const broken = { ...vm, status: "error", statusText: EAI } as ComputerInfo;
+  /** The button with this text, as it was rendered. */
+  const button = (html: string, text: string) => html.match(new RegExp(`<button[^>]*>${text}</button>`))?.[0] ?? "";
+
+  it("says why in plain words, with Try again, and keeps the device's words under Details", () => {
+    signIn();
+    const html = sheet({ key: "c:desk", kind: "computer", computer: broken });
+    expect(html).toContain("Couldn&#x27;t start");
+    expect(html).toContain("Couldn&#x27;t reach the internet while setting it up.");
+    expect(html).toContain(">Try again<");
+    expect(inOrder(html, ["Details", "EAI_AGAIN"])).toBe(true);
+  });
+
+  it("offers Start for a VM that's off, and says why Watch can't show a screen turned off at its device", () => {
+    signIn();
+    const off = sheet({ key: "c:desk", kind: "computer", computer: vm });
+    expect(off).toContain("Bubble AI computer is off.");
+    expect(button(off, "Start")).toBeTruthy();
+    expect(button(off, "Watch")).not.toContain(' disabled=""');
+
+    const node = mac({ capabilities: { platform: "darwin", arch: "arm64", screen: { ok: false, off: true, detail: "Off" }, vm: { ok: true, detail: "" } } });
+    const screen = { ...vm, id: "scr", kind: "device", name: "This Mac", status: "ready" } as ComputerInfo;
+    for (const target of [{ key: "d:mac", kind: "device" as const, node }, { key: "d:mac", kind: "device" as const, node, screen }]) {
+      const html = sheet(target);
+      expect(html).toContain("This Mac&#x27;s screen is off. Turn it on at This Mac");
+      expect(button(html, "Watch")).toContain(' disabled=""');
+    }
+  });
+
+  it("knows when the live view has nothing to show, and when thumbnails shouldn't ask", () => {
+    expect(watchBlock(vm)).toEqual({ text: "Bubble AI computer is off.", start: true, starting: false });
+    expect(watchBlock({ ...vm, status: "starting", statusText: "Building the VM image…" } as ComputerInfo)?.starting).toBe(true);
+    expect(watchBlock({ ...vm, status: "ready" } as ComputerInfo)).toBeNull();
+    expect(watchBlock(broken)).toBeNull();
+    expect(watchBlock({ ...vm, online: false } as ComputerInfo)).toBeNull();
+    // a VM that isn't up, or a cloud computer that couldn't start: no screenshots to ask for
+    expect(hasScreen({ kind: "vm", status: "error" })).toBe(false);
+    expect(hasScreen({ kind: "vm", status: "stopped" })).toBe(false);
+    expect(hasScreen({ kind: "vm", status: "ready" })).toBe(true);
+    expect(hasScreen({ kind: "orgo", status: "error" })).toBe(false);
+    expect(hasScreen({ kind: "device", status: "ready" })).toBe(true);
   });
 });
 

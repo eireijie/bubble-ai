@@ -111,7 +111,7 @@ struct NoteHistoryView: View {
   var body: some View {
     MemoryScreen(title: tab == 0 ? "History" : "Who wrote what", id: "note-history") {
       HStack(spacing: 0) { tabButton("History", 0); tabButton("Who wrote what", 1) }.padding(4).background(Capsule().fill(Palette.card))
-      Text((path as NSString).lastPathComponent).font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 6)
+      Text(noteTitle(path)).font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 6)
       InlineError(error: action.error)
       if tab == 0 { versions } else { blame }
     }

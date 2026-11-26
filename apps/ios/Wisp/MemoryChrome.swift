@@ -151,7 +151,7 @@ struct RadioMark: View {
   var body: some View {
     ZStack {
       Circle().strokeBorder(on ? Color.clear : Palette.faint, lineWidth: 1.5)
-      if on { Circle().fill(Palette.blue); Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white) }
+      if on { Circle().fill(Palette.accent); Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white) }
     }.frame(width: 26, height: 26)
   }
 }

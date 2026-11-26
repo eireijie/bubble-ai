@@ -1,4 +1,5 @@
 import { shareOrigin, useAccess } from "../access.ts";
+import { LAYER } from "./layers.ts";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -12,31 +13,16 @@ import { agentMood } from "../ghostMood.ts";
 import { EASE, play, useOnChange, usePresence, useSheetBackdrop } from "../motion.ts";
 import { motionReduced } from "../theme.ts";
 import { isTopOverlay, useOverlay } from "../overlays.ts";
+import { copyText } from "../clipboard.ts";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-/** Paperclip's buttons: a filled primary, an outlined default, a bare ghost. */
-/** Buttons (canvas Foundations): ink primary, outlined default, bare ghost, and Bubble AI violet for app-level actions. */
-export function Button({ variant = "default", className, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "primary" | "ghost" | "danger" | "wisp" }) {
-  return (
-    <button
-      {...p}
-      className={cx(
-        "inline-flex items-center justify-center gap-1.5 h-9 text-sm font-medium whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
-        // every button is a capsule, like the iPhone app; the main action is filled
-        "rounded-full",
-        variant === "primary" || variant === "wisp" ? "px-4 font-semibold" : "px-3.5",
-        variant === "primary" && "bg-accent text-accent-ink hover:bg-accent/90",
-        variant === "wisp" && "bg-wisp text-wisp-ink hover:bg-wisp/90",
-        variant === "default" && "border border-line2 bg-panel hover:bg-hover",
-        variant === "ghost" && "text-ink/85 hover:bg-hover hover:text-ink",
-        variant === "danger" && "border border-input text-bad hover:bg-hover",
-        className,
-      )}
-    />
-  );
+/** Buttons (tokens.css): ink primary, outlined secondary, bare ghost, red-text danger, and violet for app-level actions. 8px corners, never a capsule. */
+export function Button({ variant = "default", size, className, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "primary" | "ghost" | "danger" | "wisp"; size?: "sm" | "lg" }) {
+  const look = { default: "btn-secondary", primary: "btn-primary", wisp: "btn-accent", ghost: "btn-ghost", danger: "btn-danger" }[variant];
+  return <button {...p} className={cx("btn", look, size && `btn-${size}`, className)} />;
 }
 
 /**
@@ -52,8 +38,8 @@ export function IconButton({ icon, label, labelAlways, tone = "default", classNa
       aria-label={label}
       {...p}
       className={cx(
-        "inline-flex items-center gap-1.5 h-8 min-w-8 justify-center rounded-full px-1.5 text-xs font-medium whitespace-nowrap text-muted transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-50 disabled:pointer-events-none",
-        labelAlways ? "px-2" : "md:px-2",
+        "inline-flex items-center gap-1.5 h-8 min-w-8 justify-center rounded-[8px] px-1.5 text-[13px] font-medium whitespace-nowrap text-muted transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50 disabled:pointer-events-none",
+        labelAlways ? "px-2.5" : "md:px-2.5",
         tone === "danger" ? "hover:bg-hover hover:text-bad" : "hover:bg-hover hover:text-ink",
         className,
       )}
@@ -65,11 +51,11 @@ export function IconButton({ icon, label, labelAlways, tone = "default", classNa
 }
 
 export function Input({ className, ...p }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...p} className={cx("h-9 w-full rounded-xl border border-input bg-transparent px-3 text-sm outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30", className)} />;
+  return <input {...p} className={cx("h-9 w-full rounded-[8px] border border-input bg-transparent px-3 text-sm outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30", className)} />;
 }
 
 export function Textarea({ className, ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...p} className={cx("w-full rounded-2xl border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30", className)} />;
+  return <textarea {...p} className={cx("w-full rounded-[10px] border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30", className)} />;
 }
 
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
@@ -81,6 +67,9 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
     </label>
   );
 }
+
+/** A phone or tablet: no mouse to hover with. Fields don't take focus on their own there, since that opens the keyboard over the page. */
+export const touchFirst = () => typeof window !== "undefined" && !!window.matchMedia?.("(hover: none), (pointer: coarse)").matches;
 
 export function Modal({ title, onClose, children, wide, drawer = false, headerless = false, className, contentClassName, label }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; drawer?: boolean; headerless?: boolean; className?: string; contentClassName?: string; label?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -102,22 +91,22 @@ export function Modal({ title, onClose, children, wide, drawer = false, headerle
       else if (!e.shiftKey && (document.activeElement === last || !ref.current.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
     };
     window.addEventListener("keydown", k);
-    ref.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+    if (!touchFirst()) ref.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
     if (headerless) ref.current?.focus();
     return () => { window.removeEventListener("keydown", k); previous?.focus(); };
   }, []);
   // on phones the app behind a sheet scales back; the sheet lives in <body> so that scale doesn't touch it
   useSheetBackdrop(!drawer);
   const dialog = (
-    <div className={drawer ? "fixed inset-0 z-50 flex justify-end" : "m-scrim fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)} tabIndex={-1} className={cx(drawer ? "m-drawer w-full max-w-[480px] h-dvh bg-panel border-l border-line overflow-y-auto safe-bottom" : "m-dialog w-full bg-panel border border-line rounded-t-[16px] sm:rounded-3xl shadow-panel max-h-[92vh] overflow-y-auto safe-bottom", !drawer && (wide ? "sm:max-w-2xl" : "sm:max-w-md"), className)}>
-        {!headerless && <div className="flex items-center justify-between px-5 pt-4 pb-2">
+    <div className={cx(drawer ? "fixed inset-0 flex justify-end" : "m-scrim fixed inset-0 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-12", LAYER.modal)} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)} tabIndex={-1} className={cx(drawer ? "m-drawer w-full max-w-[480px] h-dvh bg-panel border-l border-line overflow-y-auto safe-bottom" : "m-dialog w-full bg-panel border border-line rounded-t-[16px] sm:rounded-[16px] shadow-panel max-h-[92vh] overflow-y-auto safe-bottom", !drawer && (wide ? "sm:max-w-2xl" : "sm:max-w-md"), className)}>
+        {!headerless && <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-3 sm:px-8 sm:pt-7">
           {typeof title === "string" ? <h2 className="text-base font-semibold">{title}</h2> : <div className="text-base font-semibold">{title}</div>}
-          <button onClick={onClose} className="size-8 grid place-items-center rounded-full bg-chip hover:bg-hover text-muted" aria-label="Close">
-            <X size={16} strokeWidth={2.5} />
+          <button onClick={onClose} className="ibtn -mr-1.5" aria-label="Close" title="Close (Esc)">
+            <X size={17} strokeWidth={1.8} />
           </button>
         </div>}
-        <div className={cx("px-5 pb-5", contentClassName)}>{children}</div>
+        <div className={cx("px-5 pb-6 sm:px-8 sm:pb-8", contentClassName)}>{children}</div>
       </div>
     </div>
   );
@@ -222,7 +211,7 @@ export function StatusDot({ status, needsSignIn, className }: { status: Agent["s
 export function StatusChip({ status, needsSignIn }: { status: Agent["status"]; needsSignIn?: boolean }) {
   const s = statusLook(status, needsSignIn);
   return (
-    <span className={cx("status-chip inline-flex items-center gap-1.5 rounded-full px-2.5 h-[22px] text-xs font-medium leading-none whitespace-nowrap", status === "offline" && "opacity-70")} style={{ "--sc": s.hue } as CSSProperties}>
+    <span className={cx("status-chip inline-flex items-center gap-1.5 rounded-[6px] px-2 h-[22px] text-xs font-medium leading-none whitespace-nowrap", status === "offline" && "opacity-70")} style={{ "--sc": s.hue } as CSSProperties}>
       {s.dot && <span className={cx("size-1.5 rounded-full", status === "busy" && "animate-pulse")} style={{ background: s.dot }} />}
       {s.label}
     </span>
@@ -297,7 +286,7 @@ export function CopyBlock({ text }: { text: string }) {
   return (
     <div className="relative group">
       <pre className="bg-code rounded-lg p-3 pr-16 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">{text}</pre>
-      <button className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md bg-panel border border-line hover:bg-hover" onClick={() => navigator.clipboard?.writeText(text)}>
+      <button className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md bg-panel border border-line hover:bg-hover" onClick={() => void copyText(text).catch(() => {})}>
         Copy
       </button>
     </div>
@@ -308,7 +297,7 @@ export function Empty({ icon, title, children }: { icon: ReactNode; title: strin
   return (
     <div className="h-full grid place-items-center p-8 text-center">
       <div className="max-w-sm space-y-3">
-        <div className="mx-auto size-14 rounded-xl bg-accent-soft text-accent-text grid place-items-center">{icon}</div>
+        <div className="mx-auto size-12 rounded-[12px] bg-chip text-muted grid place-items-center">{icon}</div>
         <h2 className="text-base font-semibold">{title}</h2>
         <div className="text-sm text-muted space-y-3">{children}</div>
       </div>
@@ -381,10 +370,10 @@ export function Menu({ trigger, items, align = "left", up = false }: { trigger: 
       })}
       {mounted &&
         createPortal(
-          <div ref={menuRef} role="menu" data-closing={closing || undefined} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className="m-menu glass z-[100] min-w-56 rounded-xl p-1.5">
+          <div ref={menuRef} role="menu" data-closing={closing || undefined} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className={cx("m-menu glass min-w-56 rounded-[12px] p-2", LAYER.menu)}>
             {items.map((it, i) =>
               it === "divider" ? (
-                <div key={i} className="-mx-1 my-1 h-px bg-line" />
+                <div key={i} className="-mx-2 my-2 h-px bg-line" />
               ) : (
                 <button
                   key={it.label}
@@ -394,7 +383,7 @@ export function Menu({ trigger, items, align = "left", up = false }: { trigger: 
                     setOpen(false);
                     it.onSelect();
                   }}
-                  className={cx("w-full px-3 py-2 min-h-11 rounded-xl flex items-center gap-3 text-body text-left hover:bg-hover", it.danger && "text-bad")}
+                  className={cx("w-full px-3 py-2 min-h-9 rounded-[8px] flex items-center gap-3 text-[14px] text-left hover:bg-hover", it.danger && "text-bad")}
                 >
                   {it.icon && <span className={cx("shrink-0", !it.danger && "text-muted")}>{it.icon}</span>}
                   <span className="min-w-0 break-words">{it.label}</span>
@@ -437,7 +426,7 @@ export function Pill({ tone = "neutral", children }: { tone?: "neutral" | "ok" |
     accent: "var(--accent)",
   };
   return (
-    <span className="status-chip inline-flex items-center gap-1 rounded-full px-2 h-5 text-[11px] font-medium leading-none whitespace-nowrap" style={{ "--sc": hues[tone] } as CSSProperties}>
+    <span className="status-chip inline-flex items-center gap-1 rounded-[5px] px-1.5 h-5 text-[11px] font-medium leading-none whitespace-nowrap" style={{ "--sc": hues[tone] } as CSSProperties}>
       {children}
     </span>
   );
@@ -494,7 +483,7 @@ export function Popover({ trigger, children, align = "left", up = true, classNam
     <div ref={ref} className={inline ? "relative inline-block" : "relative"}>
       {trigger(open, () => setOpen((o) => !o))}
       {mounted && (
-        <div ref={panel} role="dialog" data-closing={closing || undefined} style={{ transformOrigin: `${up ? "bottom" : "top"} ${align === "right" ? "right" : "left"}`, ...(shift ? { transform: `translateX(${shift}px)` } : null) }} className={cx("m-menu glass absolute z-50 max-w-[calc(100vw-1rem)] rounded-2xl", align === "right" ? "right-0" : "left-0", up ? "bottom-full mb-2" : "top-full mt-2", className)}>
+        <div ref={panel} role="dialog" data-closing={closing || undefined} style={{ transformOrigin: `${up ? "bottom" : "top"} ${align === "right" ? "right" : "left"}`, ...(shift ? { transform: `translateX(${shift}px)` } : null) }} className={cx("m-menu glass absolute z-50 max-w-[calc(100vw-1rem)] rounded-[12px]", align === "right" ? "right-0" : "left-0", up ? "bottom-full mb-2" : "top-full mt-2", className)}>
           {children(() => setOpen(false))}
         </div>
       )}
@@ -544,6 +533,21 @@ export function DeviceInstall({ token, name }: { token: string; name: string }) 
         {os === "windows" && "In PowerShell. It installs Bubble AI in your home folder (offering git and Node with winget) and keeps the device connected whenever you're signed in."}
         {os === "manual" && "Inside the Bubble AI folder on that device. It stays connected until you close the terminal; `bubble-ai service install node` keeps it running."}
       </p>
+    </div>
+  );
+}
+
+/** A problem in plain words, with a tool's raw output folded away under Details. */
+export function Problem({ text, details, className }: { text: string; details?: string | null; className?: string }) {
+  return (
+    <div role="alert" className={cx("space-y-1 text-[13px]", className)}>
+      <p className="text-bad">{text}</p>
+      {details && (
+        <details className="text-xs text-muted">
+          <summary className="cursor-pointer select-none">Details</summary>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px]">{details}</pre>
+        </details>
+      )}
     </div>
   );
 }

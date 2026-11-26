@@ -15,8 +15,6 @@ import { TeamPanel, type TeamSheet } from "./TeamInfo.tsx";
 const NewTeamFlow = lazyView(() => import("../team/Create.tsx").then((m) => m.NewTeamFlow));
 const NewAgentForTeam = lazyView(() => import("../team/NewAgent.tsx").then((m) => m.NewAgentForTeam));
 
-// the same rule as `teamSlug` in team/Create.tsx, kept here so a search doesn't fetch the builder
-const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
 /** A channel's icon: a lock for a private one, a hash otherwise. */
 export function ChannelIcon({ channel, size = 14, className = "text-faint" }: { channel: Pick<ChannelInfo, "private">; size?: number; className?: string }) {
@@ -73,11 +71,12 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
     const needle = q.trim().toLowerCase().replace(/^#/, "");
     return channels
       .filter((c) => (tab === "archived" ? !!c.archivedAt : !c.archivedAt && (tab === "joined" ? c.joined : true)))
-      .filter((c) => !needle || c.name.includes(needle) || c.topic.toLowerCase().includes(needle))
+      .filter((c) => !needle || c.name.toLowerCase().includes(needle) || c.topic.toLowerCase().includes(needle))
       .sort((a, b) => b.memberCount - a.memberCount || a.name.localeCompare(b.name));
   }, [channels, q, tab]);
-  const name = slug(q.replace(/^#/, ""));
-  const exists = channels.some((c) => c.name === name);
+  // the name as typed: a team keeps its capitals and spaces
+  const name = q.trim().replace(/^#\s*/, "").slice(0, 80);
+  const exists = channels.some((c) => c.name.toLowerCase() === name.toLowerCase());
 
   // a dialog opened from the sidebar belongs to the page it was opened on: going elsewhere (a link, the back button) closes it
   useEffect(() => {
@@ -126,7 +125,7 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
           <span className="size-7 rounded-lg bg-panel border border-line grid place-items-center">
             <Plus size={15} />
           </span>
-          {name && !exists ? `Create #${name}` : "Create a new team"}
+          {name && !exists ? `Create ${name}` : "Create a new team"}
         </button>
 
         <div className="rounded-xl border border-line divide-y divide-line max-h-[50vh] overflow-y-auto">
@@ -331,7 +330,7 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
       )}
       {error && <p className="text-sm text-bad">{error}</p>}
       {!!members?.length && (
-        <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+        <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
           {[...agentsIn, ...peopleIn].map((m) => {
             const isMe = m.kind === "user" && m.id === me?.user.id;
             const node = m.kind === "agent" ? nodes.find((n) => n.agentId === m.id) : undefined;
@@ -370,7 +369,7 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
                   </Button>
                 ) : (
                   canManage && (
-                    <button onClick={() => change("DELETE", m)} disabled={busy === `${m.kind}:${m.id}`} className="grid size-8 shrink-0 place-items-center rounded-full text-faint hover:bg-hover hover:text-bad" aria-label={`Remove ${m.name} from ${channel.name}`}>
+                    <button onClick={() => change("DELETE", m)} disabled={busy === `${m.kind}:${m.id}`} className="grid size-8 shrink-0 place-items-center rounded-[8px] text-faint hover:bg-hover hover:text-bad" aria-label={`Remove ${m.name} from ${channel.name}`}>
                       <X size={15} />
                     </button>
                   )
@@ -503,7 +502,7 @@ export function ChannelPins({ channel, onClose }: { channel: ChannelInfo; onClos
   if (!pins) return null;
   if (!pins.length) return <p className="px-1 py-2 text-[13px] text-muted">Nothing pinned</p>;
   return (
-    <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+    <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
       {pins.map((p) => (
         <div key={p.message.id} className="px-3 py-2.5 flex gap-3 items-start">
           <button

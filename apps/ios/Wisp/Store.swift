@@ -162,7 +162,7 @@ final class Store {
   /** A pairing link that opened the app (from the Camera app); the pairing screen picks it up. */
   var pendingPair: PairLink?
 
-  /** Signed in by pairing with Bubble AI on a computer (Settings → Mobile). */
+  /** Signed in by pairing with Bubble AI on a computer (Settings → Computers → Phone). */
   func adopt(hub: URL, token: String, session: URLSession = .shared) async throws {
     do { try persistToken(token) } catch {
       _ = try? await API(base: hub, token: token, session: session).post("/api/auth/logout", Empty())
@@ -236,7 +236,7 @@ final class Store {
   func authenticationExpired(generation: Int) {
     guard generation == session else { return }
     signOut()
-    sessionMessage = "Signed out: sign in again"
+    sessionMessage = "You were signed out. Scan the code again to come back."
   }
 
   func recordSyncError(_ error: Error) {
@@ -535,7 +535,7 @@ final class Store {
     return agents.first { ch.name.contains($0.id) } ?? agents.first { ch.name.localizedCaseInsensitiveContains($0.handle) }
   }
 
-  func title(of ch: Channel) -> String { ch.isDM ? dmAgent(ch)?.name ?? "Direct message" : ch.name }
+  func title(of ch: Channel) -> String { ch.isDM ? dmAgent(ch)?.name ?? "Direct message" : ch.label }
 
   var pendingApprovals: [Approval] { approvals.filter { $0.status == "pending" } }
   var unreadTotal: Int { channels.reduce(0) { $0 + $1.badge } }

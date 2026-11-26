@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { fileBlob } from "../api.ts";
 import { Modal } from "./ui.tsx";
@@ -27,13 +27,45 @@ export async function downloadFile(id: string, name: string, blob?: Blob) {
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-type Loaded = { kind: "image" | "pdf"; url: string; blob: Blob } | { kind: "text"; text: string; cut: boolean; blob: Blob };
+/**
+ * Back (the phone's back button or gesture, the browser's) closes the preview and nothing else:
+ * opening it adds a history entry at the same address, so Back takes that one off and leaves the
+ * chat or thread under it open. Closed some other way, it takes its own entry back off.
+ */
+export function useBackCloses(onClose: () => void) {
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    open++;
+    // a preview that just closed and opened again (React's dev double run) keeps the entry it had
+    if (!history.state?.wispPreview) history.pushState({ ...(history.state ?? {}), wispPreview: true }, "");
+    let popped = false;
+    const onPop = () => {
+      if (history.state?.wispPreview) return;
+      popped = true;
+      close.current();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      open--;
+      window.removeEventListener("popstate", onPop);
+      // closed with X, Escape or a tap outside, and still on its own entry: step back off it
+      setTimeout(() => {
+        if (!open && !popped && history.state?.wispPreview) history.back();
+      }, 0);
+    };
+  }, []);
+}
+let open = 0;
+
+type Loaded ={ kind: "image" | "pdf"; url: string; blob: Blob } | { kind: "text"; text: string; cut: boolean; blob: Blob };
 
 /** A file from a chat, opened: the picture, the PDF or the text, with Download. */
 export function FilePreview({ id, name, onClose }: { id: string; name: string; onClose: () => void }) {
   const [file, setFile] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
+  useBackCloses(onClose);
 
   useEffect(() => {
     let url: string | null = null;
@@ -91,7 +123,7 @@ export function FilePreview({ id, name, onClose }: { id: string; name: string; o
         )}
       </div>
       <div className="mt-4 flex justify-end">
-        <button onClick={() => void save()} disabled={saving || failed} className="h-10 px-4 rounded-full border border-control-line bg-control font-medium hover:bg-hover inline-flex items-center gap-2 disabled:opacity-50">
+        <button onClick={() => void save()} disabled={saving || failed} className="h-10 px-4 rounded-[8px] border border-control-line bg-control font-medium hover:bg-hover inline-flex items-center gap-2 disabled:opacity-50">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Download
         </button>
       </div>

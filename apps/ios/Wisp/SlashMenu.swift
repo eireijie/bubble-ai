@@ -219,7 +219,10 @@ struct SlashMenuView: View {
       }
       .frame(maxHeight: 300)
     }
-    .glass(Corner.card)
+    // solid, so a timestamp or message behind it never shows through
+    .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Palette.card))
+    .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
+    .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
     .accessibilityIdentifier("slash-menu")
   }
 

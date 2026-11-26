@@ -139,7 +139,7 @@ export function AwayFromHome({ onDone }: { onDone?: () => void }) {
             <span className="text-muted">{c.icon}</span>
             <span className="flex-1">
               <span className="font-medium text-sm">{c.title}</span>
-              {c.id === "tailscale" && <span className="ml-2 rounded-full bg-chip px-2 py-0.5 text-xs">Best</span>}
+              {c.id === "tailscale" && <span className="ml-2 rounded-[8px] bg-chip px-2 py-0.5 text-xs">Best</span>}
               {c.body && <span className="block mt-1 text-sm text-muted">{c.body}</span>}
             </span>
             {choice === c.id && <Check size={17} />}

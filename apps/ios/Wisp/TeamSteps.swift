@@ -471,7 +471,8 @@ private struct StepCard: View {
             if !wide { visual(size: 22) }
             Text(who).font(.system(size: 15)).foregroundStyle(problem != nil && agent == nil && step.needsAgent ? Palette.red : Palette.muted).lineLimit(1)
             if step.inputIds.contains(where: { team.number(of: $0) > 0 }) {
-              Text("Uses \(FlowWords.join(step.inputIds.map { team.number(of: $0) }.filter { $0 > 0 }.map(String.init)))")
+              let nums = step.inputIds.map { team.number(of: $0) }.filter { $0 > 0 }
+              Text("After step\(nums.count == 1 ? "" : "s") \(FlowWords.join(nums.map(String.init)))")
                 .font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.muted)
                 .padding(.horizontal, 10).frame(height: 28).background(Capsule().fill(Palette.badge))
                 .lineLimit(1)

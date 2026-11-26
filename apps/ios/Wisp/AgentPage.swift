@@ -26,6 +26,7 @@ struct AgentPage: View {
     ((store.isOwner || current.settings?.createdBy == store.me?.id) && (store.features.invite || store.members.count > 1)) ||
     (device != nil && store.harnessOnDevice(current))
   }
+  @State private var run = RunInfo()
   private var dmChannel: Channel? { store.channels.first { $0.isDM && store.dmAgent($0)?.id == current.id } }
 
   var body: some View {
@@ -35,12 +36,15 @@ struct AgentPage: View {
       } center: {
         EmptyView()
       } trailing: {
-        moreMenu
+        EmptyView()
       }
       ScrollView {
         VStack(spacing: 14) {
           header
           CardGroup {
+            NavigationLink { HarnessPicker(agent: current, info: run).task { if let dm = dmChannel { await run.load(store, agent: current, channel: dm.id, thread: nil) } } } label: {
+              RowLabel(title: "Harness", value: HarnessChoice.label(current.harness), leading: { BrandLogo(id: current.harness, size: 20).frame(width: 24) })
+            }.buttonStyle(.plain).accessibilityIdentifier("agent-harness")
             link("Model", id: "agent-model", icon: "dial.medium", value: AgentLine.model(agent: current, catalog: catalog)) { AgentModelPage(agent: current) }
             if store.canViewComputers {
               link("Computer", id: "agent-computer", icon: "desktopcomputer", value: AgentLine.computer(agent: current, computer: computer, device: store.nodes.first { $0.id == current.nodeId })) { AgentComputerView(agent: current) }
@@ -94,21 +98,6 @@ struct AgentPage: View {
 
   // MARK: top
 
-  private var moreMenu: some View {
-    Menu {
-      Button("Message", systemImage: "bubble.left") { action.run { chat = try await store.dm(with: current) } }
-      if store.canManage {
-        Button("Edit", systemImage: "pencil") { editing = true }
-        Button("Edit look", systemImage: "paintpalette") { editingLook = true }
-        Button("Remove", systemImage: "trash", role: .destructive) { removing = true }
-      }
-    } label: {
-      CircleLabel(symbol: "ellipsis")
-    }
-    .accessibilityLabel("More")
-    .accessibilityIdentifier("agent-more")
-  }
-
   private var header: some View {
     VStack(spacing: 8) {
       AgentAvatar(agent: current, size: 72, showStatus: false, interactive: true)
@@ -142,7 +131,7 @@ struct AgentPage: View {
       })) {
         Text("Notifications").font(.system(size: 15)).foregroundStyle(Palette.text)
       }
-      .tint(Palette.blue)
+      .tint(Palette.accent)
       .padding(.horizontal, 18).frame(minHeight: 60)
       .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
     .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))

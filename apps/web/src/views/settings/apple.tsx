@@ -41,6 +41,30 @@ export function needsPermission(app: AppleApp, level: AppleLevel, status: AppleM
   return needs(app, level).some((k) => status[k] === "denied" || status[k] === "not_asked");
 }
 
+/** How the Mac stands on what an app needs at a level: allowed, needs permission, or can't tell. */
+export function permissionState(app: AppleApp, level: AppleLevel, status: AppleMacStatus | null | undefined): "allowed" | "needed" | "unknown" {
+  const keys = needs(app, level);
+  if (!status || keys.length === 0) return "unknown";
+  if (keys.some((k) => status[k] === "denied" || status[k] === "not_asked")) return "needed";
+  return keys.every((k) => status[k] === "allowed") ? "allowed" : "unknown";
+}
+
+/** The permissions turning an app on to this level still has to ask for, as panes. */
+export function panesToAsk(app: AppleApp, level: AppleLevel, status: AppleMacStatus | null | undefined): Pane[] {
+  return needs(app, level)
+    .filter((k) => !status || status[k] !== "allowed")
+    .map((k) => MAC_PERMISSIONS.find((p) => p.key === k)!.pane);
+}
+
+/** One line for a Mac: which Apple apps it lets Bubble AI use. */
+export function macAllows(status: AppleMacStatus | null | undefined): string {
+  if (!status) return "Permissions not checked yet";
+  const ok = MAC_PERMISSIONS.filter((p) => status[p.key] === "allowed").map((p) => p.name);
+  if (ok.length === 0) return "No Apple apps allowed yet";
+  if (ok.length === MAC_PERMISSIONS.length) return "All Apple apps allowed";
+  return `Allowed: ${ok.join(", ")}`;
+}
+
 /** The Mac that answers, as the hub picks it: the one chosen, else the first online (or only) Mac. */
 export function activeMac(view: AppleView): Mac | null {
   const { macNodeId } = view.settings;
@@ -117,6 +141,23 @@ export function ApplePage() {
     }
   };
 
+  /** Turning an app on asks macOS for what it needs: its own prompt where it has one, else the permissions sheet. */
+  const setLevel = async (app: AppleApp, level: AppleLevel) => {
+    await save({ levels: { [app]: level } });
+    if (!view || APPLE_APP_INFO[app].where !== "mac" || level <= view.settings.levels[app]) return;
+    const m = activeMac(view);
+    if (!m?.online) return;
+    const panes = panesToAsk(app, level, m.status);
+    if (panes.length === 0) return;
+    // Full Disk Access and anything macOS already refused can only be switched on in System Settings
+    if (panes.some((p) => p === "fullDiskAccess" || m.status?.[MAC_PERMISSIONS.find((x) => x.pane === p)!.key] === "denied")) return setSheet(m.nodeId);
+    try {
+      for (const pane of panes) setView(await api<AppleView>("POST", "/api/apple/mac/permission", { pane }));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const pickMac = async (mac: Mac) => {
     await save({ macNodeId: mac.nodeId });
     // the first time a Mac answers, offer to fix whatever it isn't allowed to do yet
@@ -157,14 +198,14 @@ export function ApplePage() {
                   key={m.nodeId}
                   icon={<Laptop size={18} strokeWidth={1.7} />}
                   name={m.name}
-                  sub={used ? "Messages, Contacts, Calendar, Reminders" : "Not used"}
+                  sub={used ? macAllows(m.status) : "Not used"}
                   right={
                     used || !isOwner ? (
                       <Online on={m.online} />
                     ) : (
                       <span className="flex items-center gap-3">
                         <Online on={m.online} />
-                        <button type="button" onClick={() => void pickMac(m)} className="h-7 rounded-full border border-control-line bg-control px-3 text-[13px] font-medium hover:bg-hover" aria-label={`Use ${m.name}`}>
+                        <button type="button" onClick={() => void pickMac(m)} className="h-7 rounded-[8px] border border-control-line bg-control px-3 text-[13px] font-medium hover:bg-hover" aria-label={`Use ${m.name}`}>
                           Use
                         </button>
                       </span>
@@ -190,7 +231,7 @@ export function ApplePage() {
                       ) : (
                         <span className="flex items-center gap-3">
                           <Online on={phoneOnline(p)} />
-                          <button type="button" onClick={() => void save({ iphoneId: p.id })} className="h-7 rounded-full border border-control-line bg-control px-3 text-[13px] font-medium hover:bg-hover" aria-label={`Use ${p.name}`}>
+                          <button type="button" onClick={() => void save({ iphoneId: p.id })} className="h-7 rounded-[8px] border border-control-line bg-control px-3 text-[13px] font-medium hover:bg-hover" aria-label={`Use ${p.name}`}>
                             Use
                           </button>
                         </span>
@@ -209,7 +250,8 @@ export function ApplePage() {
                 const info = APPLE_APP_INFO[app];
                 const level = s.levels[app];
                 const where = info.where === "mac" ? mac : phone;
-                const problem = info.where === "mac" && mac?.online && needsPermission(app, level, mac.status);
+                const state = info.where === "mac" && mac && level > 0 ? permissionState(app, level, mac.status) : null;
+                const problem = state === "needed";
                 return (
                   <div key={app} className="flex flex-wrap items-center gap-x-3 gap-y-2.5 px-3.5 py-3">
                     <AppleIcon app={app} size={36} />
@@ -227,7 +269,7 @@ export function ApplePage() {
                           )}
                         </div>
                       ) : (
-                        <div className="truncate text-[13px] text-muted">{where ? `On ${where.name}` : info.where === "mac" ? (view.macs.length ? "No Mac picked" : "No Mac yet") : "No iPhone yet"}</div>
+                        <div className="truncate text-[13px] text-muted">{!where ? (info.where === "mac" ? (view.macs.length ? "No Mac picked" : "No Mac yet") : "No iPhone yet") : level === 0 ? "Off" : state === "allowed" ? `Allowed on ${where.name}` : state === "unknown" ? `Not checked on ${where.name} yet` : `On ${where.name}`}</div>
                       )}
                     </div>
                     <AppleSeg
@@ -236,7 +278,7 @@ export function ApplePage() {
                       disabled={!isOwner}
                       className="max-sm:w-full"
                       options={info.levels.map((l, i) => [i as AppleLevel, l] as const)}
-                      onChange={(v) => void save({ levels: { [app]: v } })}
+                      onChange={(v) => void setLevel(app, v)}
                     />
                   </div>
                 );
@@ -325,7 +367,7 @@ function Online({ on }: { on: boolean }) {
   return (
     <span className={cx("inline-flex shrink-0 items-center gap-1.5 text-[13px]", on ? "text-ok" : "text-faint")}>
       <span aria-hidden className={cx("size-[7px] rounded-full", on ? "bg-ok" : "bg-faint")} />
-      {on ? "Connected" : "Offline"}
+      {on ? "Online" : "Offline"}
     </span>
   );
 }
@@ -394,7 +436,7 @@ function SpeakUpDialog({ kind, settings: s, isOwner, save, onClose }: { kind: Sp
               <div key={f} className="flex items-center gap-3 px-3.5 py-2">
                 <span className="min-w-0 flex-1 truncate text-[14px]">{f}</span>
                 {isOwner && (
-                  <button type="button" aria-label={`Remove ${f}`} onClick={() => void save({ speakUp: { unansweredFrom: from.filter((x) => x !== f) } })} className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink">
+                  <button type="button" aria-label={`Remove ${f}`} onClick={() => void save({ speakUp: { unansweredFrom: from.filter((x) => x !== f) } })} className="grid size-7 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink">
                     <X size={14} />
                   </button>
                 )}
@@ -429,7 +471,7 @@ function SpeakUpDialog({ kind, settings: s, isOwner, save, onClose }: { kind: Sp
                   <span className="block truncate text-[13px] text-muted">{placeWhen(p)}</span>
                 </span>
                 {isOwner && (
-                  <button type="button" aria-label={`Remove ${p.name}`} onClick={() => void save({ places: s.places.filter((x) => x.id !== p.id) })} className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink">
+                  <button type="button" aria-label={`Remove ${p.name}`} onClick={() => void save({ places: s.places.filter((x) => x.id !== p.id) })} className="grid size-7 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink">
                     <X size={14} />
                   </button>
                 )}
@@ -540,7 +582,7 @@ function SmallButton({ primary, className, ...p }: ButtonHTMLAttributes<HTMLButt
     <button
       type="button"
       {...p}
-      className={cx("h-[34px] whitespace-nowrap rounded-full px-4 text-[13px] font-medium disabled:opacity-50", primary ? "bg-accent px-[18px] text-accent-ink hover:bg-accent/90" : "border border-control-line bg-control hover:bg-hover", className)}
+      className={cx("h-[34px] whitespace-nowrap rounded-[8px] px-4 text-[13px] font-medium disabled:opacity-50", primary ? "bg-accent px-[18px] text-accent-ink hover:bg-accent/90" : "border border-control-line bg-control hover:bg-hover", className)}
     />
   );
 }

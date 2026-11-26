@@ -123,6 +123,35 @@ export function connectorWhere(c: Connector): string {
 
 type Row = { key: string; value: string; saved?: string; field?: CatalogField };
 
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * A name for an app someone brings themselves, from what they typed, so they aren't asked for one:
+ * "https://mcp.acme.com/mcp" is Acme, "npx -y @acme/mcp-server" is Acme, a key ACME_TOKEN is Acme.
+ * Made unique against `taken` (lowercase names) with a number.
+ */
+export function ownAppName(kind: ConnectorKind, o: { url?: string; command?: string; args?: string[]; keys?: string[] }, taken: string[] = []): string {
+  let base = "";
+  if (kind === "mcp-http") {
+    const host = hostOf(o.url?.trim())?.replace(/:\d+$/, "").toLowerCase() ?? "";
+    const labels = host.split(".").filter((l) => !/^(www|mcp|api|app|server)$/i.test(l));
+    base = /^\d/.test(host) || host === "localhost" ? host : ((labels.length > 1 ? labels[labels.length - 2] : labels[0]) ?? "");
+  } else if (kind === "mcp-stdio") {
+    const pkg = [...(o.args ?? [])].reverse().find((a) => a && !a.startsWith("-")) ?? o.command ?? "";
+    const words = (part: string) => part.replace(/^@/, "").replace(/@[\w.^~-]*$/, "").replace(/(^|[-_])(mcp|server)(?=$|[-_])/gi, " ").replace(/[-_]+/g, " ").trim();
+    const parts = pkg.split("/");
+    // "@acme/mcp-server" says nothing after the slash: the scope is the name
+    base = words(parts.pop()!) || (parts.length ? words(parts.pop()!) : "");
+  } else {
+    base = (o.keys?.find((k) => k.trim()) ?? "").replace(/_(API_)?(KEY|TOKEN|SECRET)$/i, "").replace(/_+/g, " ").toLowerCase().trim();
+  }
+  const name = capital(base.replace(/\s+/g, " ").trim()) || (kind === "secret" ? "My key" : "My app");
+  let n = 1;
+  let out = name;
+  while (taken.includes(out.toLowerCase())) out = `${name} ${++n}`;
+  return out;
+}
+
 /**
  * Add your own app, set one up from the catalog, or edit one. Asks for the values it needs and
  * which agents get it (every agent, unless that is switched off).
@@ -166,10 +195,15 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
   const [error, setError] = useState<string | null>(null);
   const custom = !entry;
   const [showAdvanced, setShowAdvanced] = useState(custom);
+  // your own app: only what it needs (its address, program or key); its name, headers and other values wait under More options
+  const own = custom && !existing;
+  const [more, setMore] = useState(false);
+  const autoName = own ? ownAppName(kind, { url, command, args: args.split("\n").map((l) => l.trim()), keys: rows.map((r) => r.key) }, taken) : "";
+  const finalName = name.trim() || autoName;
   const devices = useDevices(10_000);
 
   const blocked = !existing && connectBlocked(agents, agentIds, kind, allAgents);
-  const nameTaken = taken.includes(name.trim().toLowerCase());
+  const nameTaken = !!name.trim() && taken.includes(name.trim().toLowerCase());
   const missing = rows.filter((r) => r.field && !r.field.optional && !r.value.trim() && !r.saved).map((r) => r.field!.label);
   // asked of each chosen agent's device before connecting, so a connector that can't start is caught here, not in a failed run
   const cantStart =
@@ -196,7 +230,7 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
         return i < 0 ? [l, ""] : [l.slice(0, i).trim(), l.slice(i + 1).trim()];
       }),
     );
-    const body: Record<string, unknown> = { name: name.trim(), env, agentIds, allAgents };
+    const body: Record<string, unknown> = { name: finalName, env, agentIds, allAgents };
     if (kind === "mcp-stdio") Object.assign(body, { command: command.trim(), args: lines(args) });
     if (kind === "mcp-http") Object.assign(body, { url: url.trim(), headers: hdrs });
     setBusy(true);
@@ -225,22 +259,24 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
       >
         {top}
 
-        {custom && !existing && (
+        {own && (
           <Seg
             label="Kind"
             value={kind}
             onChange={setKind}
             options={[
-              ["mcp-http", "URL"],
-              ["mcp-stdio", "Command"],
+              ["mcp-http", "Web address"],
+              ["mcp-stdio", "Program"],
               ["secret", "Key"],
             ]}
           />
         )}
 
-        <Labeled label="Name" hint={nameTaken ? <span className="text-bad">You already have an app with this name.</span> : undefined}>
-          {(id) => <TextBox id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required />}
-        </Labeled>
+        {(!own || more) && (
+          <Labeled label="Name" hint={nameTaken ? <span className="text-bad">You already have an app with this name.</span> : undefined}>
+            {(id) => <TextBox id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required={!own} placeholder={autoName || undefined} />}
+          </Labeled>
+        )}
 
         {kind !== "secret" && !showAdvanced && (
           <button type="button" className="px-1 text-[13px] text-muted underline hover:text-ink" onClick={() => setShowAdvanced(true)}>
@@ -251,29 +287,31 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
           <div className="space-y-4">
             {kind === "mcp-stdio" ? (
               <>
-                <Labeled label="Command">
+                <Labeled label={own ? "Program" : "Command"}>
                   {(id) => <TextBox id={id} className="font-mono" value={command} onChange={(e) => setCommand(e.target.value)} placeholder="npx" required readOnly={!custom && !existing} />}
                 </Labeled>
-                <Labeled label="Arguments" hint="One per line.">
+                <Labeled label={own ? "Then" : "Arguments"} hint="One per line.">
                   {(id) => <AreaBox id={id} className="font-mono" rows={3} value={args} onChange={(e) => setArgs(e.target.value)} placeholder={"-y\n@scope/mcp-server"} readOnly={!custom && !existing} />}
                 </Labeled>
               </>
             ) : (
               <>
-                <Labeled label="URL">
+                <Labeled label={own ? "Address" : "URL"}>
                   {(id) => <TextBox id={id} className="font-mono" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/mcp" required readOnly={!custom && !existing} />}
                 </Labeled>
-                <Labeled label="Headers" hint="One per line, as Name: value.">
-                  {(id) => <AreaBox id={id} className="font-mono" rows={2} value={headers} onChange={(e) => setHeaders(e.target.value)} placeholder="Authorization: Bearer {{API_KEY}}" readOnly={!custom && !existing} />}
-                </Labeled>
+                {(!own || more) && (
+                  <Labeled label="Headers" hint="One per line, as Name: value.">
+                    {(id) => <AreaBox id={id} className="font-mono" rows={2} value={headers} onChange={(e) => setHeaders(e.target.value)} placeholder="Authorization: Bearer {{API_KEY}}" readOnly={!custom && !existing} />}
+                  </Labeled>
+                )}
               </>
             )}
           </div>
         )}
 
-        {(rows.length > 0 || kind === "secret" || custom) && (
+        {(own ? kind === "secret" || more : rows.length > 0 || kind === "secret" || custom) && (
           <div className="space-y-3">
-            {rows.some((r) => !r.field) && <Label>{kind === "secret" ? "Values" : "Variables"}</Label>}
+            {rows.some((r) => !r.field) && <Label>{kind === "secret" || own ? "Values" : "Variables"}</Label>}
             {rows.map((r, i) =>
               r.field ? (
                 <Labeled
@@ -310,6 +348,12 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
           </div>
         )}
 
+        {own && !more && (
+          <button type="button" className="px-1 text-[13px] text-muted underline hover:text-ink" onClick={() => setMore(true)}>
+            More options
+          </button>
+        )}
+
         <div className="space-y-2">
           <Label>Who can use it</Label>
           <AgentPicker agents={agents} value={agentIds} onChange={setAgentIds} note={agentNote(kind, command, devices)} unavailable={(a) => !harnessSupportsConnectors(a.harness, kind)} allAgents={{ on: allAgents, onChange: setAllAgents }} />
@@ -327,7 +371,7 @@ export function ConnectorForm({ entry, existing, agents, taken, onClose, onSaved
           </p>
         )}
         <div className="flex justify-end gap-2 pt-1">
-          <Prim type="submit" className="h-11 text-body" disabled={busy || !name.trim() || nameTaken || missing.length > 0 || blocked} title={blocked ? CONNECTOR_HELP : missing.length ? `Needs: ${missing.join(", ")}` : undefined}>
+          <Prim type="submit" className="h-11 text-body" disabled={busy || !finalName || nameTaken || missing.length > 0 || blocked} title={blocked ? CONNECTOR_HELP : missing.length ? `Needs: ${missing.join(", ")}` : undefined}>
             {saveLabel}
           </Prim>
         </div>

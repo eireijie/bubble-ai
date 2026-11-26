@@ -8,17 +8,18 @@ import { motionReduced, useMotionReduced } from "../../theme.ts";
 import { setFeatures, useFeatures } from "../../features.ts";
 import { Bubble } from "../Bubble.tsx";
 import { cx } from "../ui.tsx";
-import { CHAPTERS, bubbleSpot, cardSpot, curveControl, curvePoint, easeInOut, eyebrow, flightMs, stopBody, stopsFor, type Box, type Place, type Stop } from "../../tour.ts";
+import { bubbleSpot, cardSpot, curveControl, curvePoint, easeInOut, flightMs, stopBody, stopTitle, stopsFor, type Box, type Place, type Stop } from "../../tour.ts";
 import { goStop, markSeen, stopTour, useTour, type TourRun } from "./tourRun.ts";
 import "./tour.css";
+import { LAYER } from "../layers.ts";
 
 /**
  * Show me around, running (board 9). The person's agent leaves its chat as a bubble and flies on a
  * curve to each stop, trailing small bubbles, its eyes on where it's going. When the stop is on
  * another page, the page changes under it mid-flight. Where it lands, the real thing is cut out of
- * a dimmed page and a card beside the bubble says what it is: Back, Next, Skip tour, "6 of 25".
+ * a dimmed page and a card beside the bubble says what to do; doing it finishes the stop. Next, Skip tour, "2 of 4".
  *
- * Esc skips, ← and → go back and on. Reduced motion: it fades between stops instead of flying.
+ * Esc skips, ← and → go back and on. Skipping ends it: nothing about the tour stays on screen. Reduced motion: it fades between stops instead of flying.
  * Nothing here runs while the tour is off: the component returns null and holds no listeners.
  */
 export function TourOverlay() {
@@ -67,7 +68,7 @@ function boxOf(el: Element): Box {
 /** The target's box, with the composer's / or @ menu above it when Try it opened one. */
 function shownBox(stop: Stop | null, el: Element): Box {
   const box = boxOf(el);
-  if (stop?.tryIt !== "slash" && stop?.tryIt !== "at") return box;
+  if (stop?.doIt !== "slash" && stop?.doIt !== "at") return box;
   const row = el.closest(".relative");
   const menu = row && [...row.children].find((c) => c !== el && c.getBoundingClientRect().bottom <= box.top + 4 && c.getBoundingClientRect().height > 0);
   if (!menu) return box;
@@ -310,13 +311,30 @@ function Running({ run }: { run: TourRun }) {
     if (landed && cardRef.current) setCardH(cardRef.current.offsetHeight);
   }, [landed, run.i, run.end, tried, features]);
 
-  // Try it, on the real control; and what it changed is put back when the stop is left
+  // Do it, on the real control: the stop finishes itself once it's done, and what it changed is put back when the stop is left
+  const messages = useStore((st) => (run.homeChannel ? st.messages[run.homeChannel] : undefined));
+  const mine = messages?.filter((m) => m.author.kind === "user").length ?? 0;
+  const sentAtLanding = useRef<number | null>(null);
   useEffect(() => {
-    if (!landed || !stop?.tryIt) return;
-    if (stop.tryIt === "yourturn") {
+    sentAtLanding.current = landed && stop?.doIt === "send" ? mine : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [landed, stop]);
+  useEffect(() => {
+    if (sentAtLanding.current !== null && mine > sentAtLanding.current) setTried(true);
+  }, [mine]);
+  useEffect(() => {
+    if (!landed || !stop) return;
+    if (stop.doIt === "click") {
+      const el = shown?.el;
+      if (!el) return;
+      const hit = () => setTried(true);
+      el.addEventListener("click", hit, true);
+      return () => el.removeEventListener("click", hit, true);
+    }
+    if (stop.doIt === "yourturn") {
       const tab = document.querySelector<HTMLElement>('[data-tour="yourturn"]');
       const was = tab?.getAttribute("aria-selected") === "true";
-      const seen = () => setTried(tab?.getAttribute("aria-selected") === "true");
+      const seen = () => tab?.getAttribute("aria-selected") === "true" && setTried(true);
       const mo = tab ? new MutationObserver(seen) : null;
       if (tab) mo!.observe(tab, { attributes: true, attributeFilter: ["aria-selected"] });
       return () => {
@@ -325,25 +343,31 @@ function Running({ run }: { run: TourRun }) {
         if (!was && tab?.isConnected && tab.getAttribute("aria-selected") === "true") tab.parentElement?.querySelector<HTMLElement>('[role="tab"]')?.click();
       };
     }
+    if (stop.doIt !== "slash" && stop.doIt !== "at") return;
     const ta = document.querySelector<HTMLTextAreaElement>('[data-tour="input"] textarea');
     if (!ta) return;
-    const ch = stop.tryIt === "slash" ? "/" : "@";
-    const seen = () => setTried(ta.value.startsWith(ch) || ta.value.includes(` ${ch}`));
+    const ch = stop.doIt === "slash" ? "/" : "@";
+    ta.focus({ preventScroll: true });
+    const seen = () => (ta.value.startsWith(ch) || ta.value.includes(` ${ch}`)) && setTried(true);
     ta.addEventListener("input", seen);
     return () => {
       ta.removeEventListener("input", seen);
       if (ta.isConnected && ta.value === ch) typeInto(ta, "");
     };
+  }, [landed, stop, shown?.el]);
+  // the send stop starts with the box ready to type in
+  useEffect(() => {
+    if (landed && stop?.doIt === "send") document.querySelector<HTMLTextAreaElement>('[data-tour="input"] textarea')?.focus({ preventScroll: true });
   }, [landed, stop]);
-
-  const tryIt = () => {
-    if (!stop?.tryIt) return;
-    if (stop.tryIt === "yourturn") return document.querySelector<HTMLElement>('[data-tour="yourturn"]')?.click();
-    const ta = document.querySelector<HTMLTextAreaElement>('[data-tour="input"] textarea');
-    if (!ta) return;
-    typeInto(ta, stop.tryIt === "slash" ? "/" : "@");
-    ta.focus();
-  };
+  // done: a moment to see the check, then on (the last one ends at once, so what it opened can be used)
+  useEffect(() => {
+    if (!tried || !stop) return;
+    markSeen(stop.id);
+    if (run.i >= stops.length - 1) return void stopTour();
+    const t = setTimeout(() => goStop(run.i + 1), 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tried]);
 
   const next = () => goStop(run.i + 1);
   const back = () => goStop(run.i - 1);
@@ -381,21 +405,19 @@ function Running({ run }: { run: TourRun }) {
       : null;
   const cardStyle: CSSProperties | undefined = card ? { left: card.left, top: card.top, width: card.docked ? view.w - 24 : CARD_W } : undefined;
   const modOff = stop?.mod && !features[stop.mod] ? stop.mod : null;
-  const inCh = stop ? stops.filter((s) => s.ch === stop.ch) : [];
-  const chapterSegs = CHAPTERS.map((_, c) => (stop && c === stop.ch ? "var(--wisp)" : stop && c < stop.ch ? "var(--wisp)" : end ? "var(--wisp)" : "var(--line2)"));
 
   return (
-    <div className="tour fixed inset-0 z-[200]" data-tour-overlay aria-live="polite">
+    <div className={`tour pointer-events-none fixed inset-0 ${LAYER.tour}`} data-tour-overlay aria-live="polite">
       {/* clicks outside the cut-out do nothing; inside it, the real control works */}
       {hole && landed && !end ? (
         <>
-          <div className="fixed left-0 right-0 top-0" style={{ height: Math.max(0, hole.top) }} />
-          <div className="fixed left-0 right-0 bottom-0" style={{ top: hole.top + hole.height }} />
-          <div className="fixed left-0" style={{ top: hole.top, height: hole.height, width: Math.max(0, hole.left) }} />
-          <div className="fixed right-0" style={{ top: hole.top, height: hole.height, left: hole.left + hole.width }} />
+          <div className="pointer-events-auto fixed left-0 right-0 top-0" style={{ height: Math.max(0, hole.top) }} />
+          <div className="pointer-events-auto fixed left-0 right-0 bottom-0" style={{ top: hole.top + hole.height }} />
+          <div className="pointer-events-auto fixed left-0" style={{ top: hole.top, height: hole.height, width: Math.max(0, hole.left) }} />
+          <div className="pointer-events-auto fixed right-0" style={{ top: hole.top, height: hole.height, left: hole.left + hole.width }} />
         </>
       ) : (
-        <div className="fixed inset-0" />
+        <div className="pointer-events-auto fixed inset-0" />
       )}
       <div
         className={cx("tour-spot pointer-events-none fixed rounded-2xl", reduced && "tour-still")}
@@ -413,52 +435,36 @@ function Running({ run }: { run: TourRun }) {
           aria-labelledby="tour-title"
           aria-describedby="tour-body"
           tabIndex={-1}
-          className={cx("tour-card fixed flex flex-col gap-1.5 rounded-[18px] bg-[var(--float,var(--panel))] px-4 pb-3 pt-3.5 text-ink outline-none", !reduced && "m-pop")}
+          className={cx("tour-card pointer-events-auto fixed flex flex-col gap-1.5 rounded-[18px] bg-[var(--float,var(--panel))] px-4 pb-3 pt-3.5 text-ink outline-none", !reduced && "m-pop")}
           style={cardStyle}
         >
           <span className="flex gap-[3px]" aria-hidden>
-            {chapterSegs.map((c, n) => (
-              <span key={n} className="h-[3px] flex-1 rounded-sm transition-colors duration-300" style={{ background: c }} />
+            {stops.map((_, n) => (
+              <span key={n} className="h-[3px] flex-1 rounded-sm transition-colors duration-300" style={{ background: end || n < run.i || (n === run.i && tried) ? "var(--wisp)" : n === run.i ? "color-mix(in srgb, var(--wisp) 45%, transparent)" : "var(--line2)" }} />
             ))}
           </span>
-          <span className="mt-0.5 text-[12px] text-muted">{end ? "Done" : eyebrow(run.i, stops)}</span>
-          <span id="tour-title" className="text-[16px] font-[650] leading-[21px]">
-            {end ? "That's Bubble AI" : stop!.title}
+          <span id="tour-title" className="mt-1.5 flex items-center gap-1.5 text-[16px] font-[650] leading-[21px]">
+            {end ? "That's it" : stopTitle(stop!, agent?.name ?? "")}
+            {tried && <Check size={16} strokeWidth={2.6} className="m-pop text-ok" aria-label="Done" />}
           </span>
           <span id="tour-body" className="text-[14px] leading-5 text-muted">
-            {end ? "Show me around stays in Help and in Settings › Learn Bubble AI." : stopBody(stop!, { fallback: !!shown?.fallback, phone: isPhone() })}
+            {end ? "Show me around stays in Help." : stopBody(stop!, { fallback: !!shown?.fallback, phone: isPhone() })}
           </span>
-          {stop?.tryIt && (
-            <button type="button" onClick={tryIt} className={cx("-mx-1 flex h-7 w-fit items-center gap-1.5 rounded-md px-1 text-left text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/40", tried ? "text-ok" : "text-wisp-strong hover:underline")}>
-              {tried ? (
-                <>
-                  <Check size={14} strokeWidth={2.4} aria-hidden /> That's it.
-                </>
-              ) : (
-                { slash: "Try it: type /", at: "Try it: type @", yourturn: "Try it: open Your turn" }[stop.tryIt]
-              )}
-            </button>
-          )}
           {stop?.mod && (modOff || features[stop.mod]) && <ModSwitch k={stop.mod} owner={owner} on={!!features[stop.mod]} />}
           <div className="mt-1.5 flex items-center gap-1.5">
-            <span className="flex-1 whitespace-nowrap text-[12px] text-muted">{end ? `${stops.length} of ${stops.length}` : `${run.i + 1} of ${stops.length}`}</span>
+            <span className="flex-1 whitespace-nowrap text-[12px] text-muted">{end ? "" : `${run.i + 1} of ${stops.length}`}</span>
             {!end && (
-              <button type="button" onClick={skip} className="h-[34px] rounded-full px-2 text-[14px] text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+              <button type="button" onClick={skip} className="h-8 rounded-lg px-2 text-[13.5px] text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
                 Skip tour
               </button>
             )}
-            {!end && run.i > 0 && (
-              <button type="button" onClick={back} className="h-[34px] rounded-full bg-card px-3 text-[14px] text-ink shadow-[inset_0_0_0_1px_var(--line)] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40">
-                Back
-              </button>
-            )}
-            <button type="button" onClick={end ? skip : next} className="h-[34px] rounded-full bg-ink px-3.5 text-[14px] font-semibold text-panel outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-              {end ? "Done" : run.i === stops.length - 1 ? "Finish" : "Next"}
+            <button type="button" onClick={end ? skip : next} className={cx("h-8 rounded-lg px-3 text-[13.5px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/40", end ? "bg-ink text-panel" : "text-ink shadow-[inset_0_0_0_1px_var(--line2)] hover:bg-hover")}>
+              {end ? "Done" : "Next"}
             </button>
           </div>
         </div>
       )}
-      {!landed && <span className="sr-only">{end ? "Finishing the tour" : `Going to ${stop?.title}, ${inCh.indexOf(stop!) + 1} of ${inCh.length} in ${stop ? CHAPTERS[stop.ch] : ""}`}</span>}
+      {!landed && <span className="sr-only">{end ? "Finishing the tour" : `Going to ${stop ? stopTitle(stop, agent?.name ?? "") : ""}, ${run.i + 1} of ${stops.length}`}</span>}
     </div>
   );
 }

@@ -60,8 +60,8 @@ struct OrgSwitcherSheet: View {
         Text(org.role?.capitalized ?? org.subtitle).font(.system(size: 13)).foregroundStyle(Palette.faint)
       }
       Spacer()
-      if store.isCurrent(org) { Image(systemName: "checkmark").font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.blue) }
-      else if org.unread == true { Circle().fill(Palette.blue).frame(width: 9, height: 9).accessibilityHidden(true) }
+      if store.isCurrent(org) { Image(systemName: "checkmark").font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.accent) }
+      else if org.unread == true { Circle().fill(Palette.accent).frame(width: 9, height: 9).accessibilityHidden(true) }
     }
     .padding(.horizontal, 18).frame(minHeight: 64).contentShape(Rectangle())
   }

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, Laptop, Plus, Smartphone, X } from "lucide-react";
 import { api } from "../api.ts";
-import { useStore } from "../store.ts";
+import { computerProblem } from "@bubble-ai/core";
+import { useStore, type ComputerInfo } from "../store.ts";
 import { href } from "../router.ts";
 import { AddDeviceDialog, type AddStep } from "../components/AddDevice.tsx";
 import { ScreenThumb } from "../components/Screen.tsx";
@@ -37,6 +38,49 @@ export function usePhones(): number {
 export function useAddFlow(): { start: (step?: AddStep) => void; element: ReactNode } {
   const [step, setStep] = useState<AddStep | null>(null);
   return { start: (s = "list") => setStep(s), element: step && <AddDeviceDialog start={step} onClose={() => setStep(null)} /> };
+}
+
+/** Start a VM or cloud computer (it's off, or it couldn't start): the hub starts it and keeps its status. */
+export function startComputer(computerId: string) {
+  return api("POST", `/api/computers/${computerId}/start`);
+}
+
+/**
+ * A VM or cloud computer that couldn't start: why, in plain words, and Try again. The device's
+ * own words are under Details.
+ */
+export function StartProblem({ computer: c, className }: { computer: ComputerInfo; className?: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (c.status !== "error" || c.kind === "device") return null;
+  const retry = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await startComputer(c.id);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div role="alert" className={cx("space-y-1 text-[13px]", className)} data-testid="start-problem">
+      <div className="flex items-center gap-2">
+        <p className="min-w-0 flex-1 text-bad">{computerProblem(c.statusText)}</p>
+        <Button className="h-8! shrink-0" disabled={busy} onClick={() => void retry()}>
+          Try again
+        </Button>
+      </div>
+      {c.statusText && (
+        <details className="text-xs text-muted">
+          <summary className="cursor-pointer select-none">Details</summary>
+          <p className="mt-1 break-words">{c.statusText}</p>
+        </details>
+      )}
+      {error && <p className="text-bad">{error}</p>}
+    </div>
+  );
 }
 
 /** The colour of a status line: amber when it waits on you, red for a problem, quiet otherwise. */
@@ -111,12 +155,13 @@ export function ComputersHome({ nodes, open, children }: { nodes: NodeInfo[] | n
   return (
     <div className="flex min-h-0 flex-1">
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <div data-tour="computers-list" className="mx-auto max-w-[1120px] space-y-5 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-7 md:pt-7">
+        <div data-tour="computers-list" className="mx-auto max-w-[1120px] space-y-5 px-5 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-12 md:pt-10">
           <header className="flex items-center gap-3">
             <h1 className="t-title min-w-0 flex-1 truncate">Computers</h1>
-            <button type="button" onClick={() => add.start()} aria-label="Add a computer or phone" className="m-press grid h-[34px] w-[35px] shrink-0 place-items-center rounded-full bg-side-active text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 max-md:size-11">
+            {/* when there are none, the empty state's own button is the only way in */}
+            {!(nodes && tiles.length === 0) && <button type="button" onClick={() => add.start()} aria-label="Add a computer or phone" className="m-press grid h-[34px] w-[35px] shrink-0 place-items-center rounded-[8px] bg-side-active text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 max-md:size-11">
               <Plus size={16} strokeWidth={1.8} />
-            </button>
+            </button>}
           </header>
           {nodes && tiles.length === 0 ? (
             <div className="flex flex-wrap items-center gap-3 pt-1">

@@ -11,7 +11,8 @@ import { useMemo, useSyncExternalStore } from "react";
  *   #/tasks                          work handed to agents, by status
  *   #/computers[/<id>[/teach/<agentId>]]  devices and their agents' computers, live view, teaching a task
  *   #/computers/d/<nodeId>           one device's page (#/nodes[/<nodeId>] still lands here)
- *   #/marketplace[/<section>]        apps and skills to get, and what devices already have (MARKET_SECTIONS)
+ *   #/marketplace[/<section>][/for/<agentId>]  apps and skills to get, and what devices already have (MARKET_SECTIONS); "for" adds to one agent
+ *   #/marketplace/app/<key>[/for/<agentId>]  one app's page (b:<catalog id>, r:<registry name>, c:<added app id>)
  *   #/connectors, #/skills           older addresses of the marketplace (installed apps, skills)
  *   #/settings[/<page>[/<item>]]     your settings and the organization's (see SETTINGS_PAGES); full window on desktops; <item> opens one thing in a page (a skill)
  *   #/join/<code>                    accept an invite (signed out)
@@ -35,7 +36,7 @@ export type Route =
   | { view: "about" }
   | { view: "tasks" }
   | { view: "computers"; computerId: string | null; teach?: string | null; deviceId?: string | null }
-  | { view: "marketplace"; section?: MarketSection | null }
+  | { view: "marketplace"; section?: MarketSection | null; app?: string | null; /** adding for one agent: what is added goes to it alone */ forAgent?: string | null }
   | { view: "connectors" }
   | { view: "skills" }
   | { view: "settings"; page?: SettingsPage | null; item?: string | null }
@@ -46,11 +47,12 @@ export type Route =
   | { view: "code" }
   | { view: "chats" }
   | { view: "you" }
-  | { view: "more" };
+  | { view: "more" }
+  | { view: "templates" };
 
-export const AGENT_TABS = ["overview", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "remove"] as const;
+export const AGENT_TABS = ["overview", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "watches", "remove"] as const;
 export type AgentTab = (typeof AGENT_TABS)[number];
-export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "general", "access", "agent-defaults", "people", "agents", "harnesses", "memory", "buddy", "logins", "storage", "apple", "apps", "skills", "connections", "data", "updates", "learn"] as const;
+export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "general", "access", "agent-defaults", "people", "agents", "harnesses", "memory", "buddy", "logins", "storage", "apple", "apps", "skills", "connections", "data", "updates", "learn", "mods"] as const;
 export type SettingsPage = (typeof SETTINGS_PAGES)[number];
 /** Settings pages that were merged into another: an old link lands on the page that holds them now. */
 export const SETTINGS_REDIRECTS: Record<string, SettingsPage> = { models: "harnesses", runtimes: "harnesses", computers: "devices", mobile: "devices" };
@@ -83,7 +85,16 @@ export function parseRoute(hash: string): Route {
     case "marketplace":
       // mods have one home now: their own page
       if (parts[1] === "mods") return { view: "mods" };
-      return { view: "marketplace", section: MARKET_SECTIONS.find((x) => x === parts[1]) ?? null };
+    {
+      // "/for/<agentId>" at the end: adding for one agent (on the list and on an app's page)
+      const forAt = parts.length >= 3 && parts[parts.length - 2] === "for" ? parts.length - 2 : -1;
+      const forAgent = forAt > 0 ? parts[forAt + 1] : null;
+      const rest = forAt > 0 ? parts.slice(0, forAt) : parts;
+      const extra = forAgent ? { forAgent } : {};
+      // one app's page; a registry name has slashes in it, so it's encoded as one part
+      if (rest[1] === "app") return rest[2] ? { view: "marketplace", section: null, app: rest.slice(2).join("/"), ...extra } : { view: "marketplace", section: null, ...extra };
+      return { view: "marketplace", section: MARKET_SECTIONS.find((x) => x === rest[1]) ?? null, ...extra };
+    }
     case "connectors":
       return { view: "connectors" };
     case "skills":
@@ -126,6 +137,8 @@ export function parseRoute(hash: string): Route {
       return { view: "you" };
     case "more":
       return { view: "more" };
+    case "templates":
+      return { view: "templates" };
     case "c": {
       const messageIndex = parts[2] === "t" ? 4 : parts[2] === "call" ? 3 : 2;
       const messageId = parts[messageIndex] === "m" ? parts[messageIndex + 1] : undefined;
@@ -145,7 +158,7 @@ export function href(r: Route): string {
     case "dashboard":
       return "#/dashboard";
     case "marketplace":
-      return "#/marketplace" + (r.section && r.section !== "all" ? `/${r.section}` : "");
+      return (r.app ? `#/marketplace/app/${encodeURIComponent(r.app)}` : "#/marketplace" + (r.section && r.section !== "all" ? `/${r.section}` : "")) + (r.forAgent ? `/for/${encodeURIComponent(r.forAgent)}` : "");
     case "connectors":
       return "#/connectors";
     case "skills":
@@ -178,6 +191,8 @@ export function href(r: Route): string {
       return "#/you";
     case "more":
       return "#/more";
+    case "templates":
+      return "#/templates";
     case "chat":
       return r.channelId ? `#/c/${r.channelId}${r.call ? "/call" : r.threadId ? `/t/${r.threadId}` : ""}${r.messageId ? `/m/${encodeURIComponent(r.messageId)}` : ""}` : "#/";
   }

@@ -4,6 +4,7 @@ import { pairingLink } from "../../pairing.ts";
 import { Check, Copy, Smartphone } from "lucide-react";
 import { api } from "../../api.ts";
 import { Button, cx } from "../../components/ui.tsx";
+import { copyText } from "../../clipboard.ts";
 
 type State = "waiting" | "claimed" | "approved" | "rejected" | "expired";
 interface Pairing {
@@ -30,7 +31,7 @@ function reachHint(addresses: string[]): string {
   return "Your phone needs to be on the same Wi-Fi as this computer.";
 }
 
-/** Settings → Mobile: pair the phone app with this Bubble AI by scanning a QR code, then matching a code. */
+/** Settings → Computers → Phone: pair the phone app with this Bubble AI by scanning a QR code, then matching a code. */
 export function PhonePairing({ autoStart = false, compact = false }: { autoStart?: boolean; compact?: boolean }) {
   const [started, setStarted] = useState<Started | null>(null);
   const [pairing, setPairing] = useState<Pairing | null>(null);
@@ -129,7 +130,7 @@ export function PhonePairing({ autoStart = false, compact = false }: { autoStart
     setCopied(false);
     setError(null);
     try {
-      await navigator.clipboard.writeText(started.link);
+      await copyText(started.link);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch (e) {

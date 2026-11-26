@@ -164,6 +164,8 @@
   .seg { position: relative; isolation: isolate; }
   .seg::before { content: ""; position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 5px); border-radius: 7px; background: var(--control); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 0 0 0.5px var(--control-line); transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1); }
   .seg[data-on="yes"]::before { transform: translateX(calc(100% + 4px)); }
+  /* not answered yet: neither answer looks picked */
+  .seg[data-on=""]::before { opacity: 0; }
   #welcome { position: relative; }
   #pick-mark { position: absolute; left: 0; right: 0; border: 1px solid var(--ink); border-radius: 8px; pointer-events: none; transition: top 450ms cubic-bezier(0.22, 1, 0.36, 1), height 450ms cubic-bezier(0.22, 1, 0.36, 1); }
   #welcome .choice[aria-pressed="true"] { border-color: var(--line); }
@@ -228,12 +230,66 @@
     .say, .status-row .dots i, .dot::after, .tag.rec, .plist, .waitbox, .found-token, .digit, .prop, #welcome > *, main > section > *, main > div > section > * { animation: none !important; }
     .w, #fill { transition: opacity 200ms; }
   }
-  @media (max-width: 767px) {
-    body { flex-direction: column; overflow-y: auto; height: auto; min-height: 100vh; --k: 0.55; }
-    #stage { flex: none; height: 240px; }
-    .side { width: 100%; flex: 1; padding: 0; }
-    main { border: 0; padding: 12px 22px 24px; border-radius: 12px 12px 0 0; }
-    .prop, .say { display: none; }
+  /* 2026-11-26: the same look as the app's first run (apps/web/src/views/onboarding/stage.css): one centred
+     column, the bubble above the title, a thin progress line along the top, tiles and ink buttons. The bubble
+     sits where the app's first page puts its own, so the handover reads as one flow. */
+  :root { --wisp: #a98bf5; --top: max(64px, 16vh); --mark: 120px; --mark-k: 0.75; }
+  body { display: block; height: auto; min-height: 100vh; overflow-x: hidden; overflow-y: auto; background: var(--panel); }
+  #stage { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .side { position: relative; z-index: 1; width: auto; padding: calc(var(--top) + var(--mark) + 16px) 24px 64px; display: flex; justify-content: center; }
+  main { flex: none; width: 100%; max-width: 440px; background: none; border: 0; border-radius: 0; padding: 0; overflow: visible; }
+  .top { position: fixed; left: 0; right: 0; top: 0; height: 0; margin: 0; z-index: 10; }
+  .track { position: fixed; left: 0; right: 0; top: 0; height: 2px; border-radius: 0; background: none; }
+  #fill { height: 2px; border-radius: 0; background: var(--wisp); transition: width 700ms cubic-bezier(.65, 0, .25, 1); }
+  #back { position: fixed; left: 16px; top: 16px; width: 34px; height: 34px; border-radius: 8px; border: 0; background: none; box-shadow: none; color: var(--muted); }
+  #back:hover:not(:disabled) { transform: none; background: var(--card); color: var(--ink); }
+  header { margin-bottom: 26px; gap: 0; }
+  h1, section > h2 { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: -0.02em; text-align: center; margin: 0 0 6px; }
+  header p, section > p { font-size: 15px; line-height: 20px; text-align: center; margin: 0 0 22px; }
+  section { flex: none; }
+  .push { flex: none; min-height: 22px; }
+  main > div:not([hidden]):not(.top) { flex: none; }
+  button { height: 40px; font-size: 14px; border-radius: 8px; box-shadow: none; }
+  button:hover:not(:disabled):not(.link) { transform: none; }
+  button.primary { font-weight: 600; }
+  button.primary.wide { width: 100%; max-width: 280px; align-self: center; margin-inline: auto; display: flex; align-items: center; justify-content: center; }
+  button.link { color: var(--muted); height: 36px; font-size: 13.5px; }
+  button.link:hover { color: var(--ink); text-decoration: none; }
+  button.brand { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  /* the start: two tiles side by side, the picked one ringed */
+  #welcome:not([hidden]) { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #welcome > .q, #welcome > .push, #welcome > button.wide, #welcome > .here { grid-column: 1 / -1; }
+  #welcome > button.primary.wide { justify-self: center; width: 100%; max-width: 280px; }
+  #welcome > button.link.wide { justify-self: center; width: auto; }
+  #pick-mark, .choice .why { display: none !important; }
+  .choice .text { margin-top: auto; }
+  .choice strong { min-height: 22px; }
+  .tag.rec, .choice .text .tag.rec { line-height: 16px; color: #fff; }
+  .choice, .choice.primary { flex-direction: column; align-items: flex-start; gap: 12px; min-height: 118px; padding: 14px; border-radius: 12px; border: 0; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line), 0 0 0 0 transparent; }
+  .choice:hover:not(:disabled) { transform: none; background: var(--card); }
+  .choice[aria-pressed="true"], .choice.primary[aria-pressed="true"] { border: 0; box-shadow: inset 0 0 0 2px var(--wisp); background: color-mix(in srgb, var(--wisp) 9%, var(--panel)); }
+  .choice strong { font-size: 15px; font-weight: 600; flex-wrap: wrap; }
+  .choice .text span { font-size: 12.5px; line-height: 16px; }
+  .tag.rec { background: var(--wisp); color: #fff; }
+  .q { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 14px; }
+  .q > p { margin: 0; font-size: 13.5px; }
+  .seg { display: inline-grid; grid-template-columns: auto auto; padding: 2px; border: 0; border-radius: 8px; }
+  .seg::before { top: 2px; bottom: 2px; left: 2px; width: calc(50% - 3px); border-radius: 6px; }
+  .seg[data-on="yes"]::before { transform: translateX(calc(100% + 2px)); }
+  .seg button { height: 28px; padding: 0 12px; font-size: 13px; border-radius: 6px; }
+  /* whether agents may use this computer: one switch, asked once */
+  .here { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 16px 0 0; font-size: 13.5px; color: var(--muted); cursor: pointer; }
+  .here input { appearance: none; width: 34px; height: 20px; flex: none; margin: 0; padding: 0; border: 0; border-radius: 10px; background: var(--off); position: relative; cursor: pointer; transition: background 200ms; }
+  .here input::after { content: ""; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 0.2); transition: transform 220ms cubic-bezier(0.2, 0.9, 0.25, 1.3); }
+  .here input:checked { background: var(--wisp); }
+  .here input:checked::after { transform: translateX(14px); }
+  .provider { border: 0; box-shadow: inset 0 0 0 1px var(--line); background: var(--panel); border-radius: 12px; }
+  .provider .price, .prow .price { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+  .checks, .group, .waitbox, .plan, .fix { border-radius: 12px; }
+  .hint { text-align: center; }
+  @media (max-width: 520px) {
+    :root { --mark: 96px; --mark-k: 0.6; }
+    #welcome:not([hidden]) { grid-template-columns: 1fr; }
   }
   [hidden] { display: none !important; }
 </style>
@@ -248,50 +304,50 @@
   </div>
   <header>
     <div>
-      <h1 id="title">Welcome to Bubble AI</h1>
-      <p id="subtitle">One question, then pick where your agents live.</p>
+      <h1 id="title">Where should your agents live?</h1>
+      <p id="subtitle"></p>
     </div>
   </header>
 
   <div id="welcome" class="choices" hidden>
     <div class="q">
-      <p id="q-on">Is this computer on all day?</p>
+      <p id="q-on">On all day?</p>
       <div class="seg" role="radiogroup" aria-labelledby="q-on">
-        <button type="button" role="radio" data-q="on" data-v="no">No, it sleeps or travels</button>
-        <button type="button" role="radio" data-q="on" data-v="yes">Yes, it stays on</button>
+        <button type="button" role="radio" data-q="on" data-v="no">No</button>
+        <button type="button" role="radio" data-q="on" data-v="yes">Yes</button>
       </div>
     </div>
     <span id="pick-mark" aria-hidden="true"></span>
     <button class="choice" id="pick-cloud" aria-pressed="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.25 4.25 0 0 1-.5 8.5Z"/></svg>
-      <span class="text"><strong>Cloud<span class="tag rec" id="rec-cloud" hidden>Recommended</span></strong><span>Always on, about $24 a month on your own cloud account.</span><span class="why" id="why-cloud" hidden></span></span>
+      <span class="text"><strong>Cloud<span class="tag rec" id="rec-cloud" hidden>Recommended</span></strong><span>Always on · about $24/mo</span><span class="why" id="why-cloud" hidden></span></span>
     </button>
     <button class="choice" id="pick-create" aria-pressed="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 20h20"/></svg>
-      <span class="text"><strong>Self-Host<span class="tag rec" id="rec-self" hidden>Recommended</span></strong><span>Free, on this computer. Agents work while it's awake.</span><span class="why" id="why-self" hidden>Because this computer stays on.</span></span>
+      <span class="text"><strong>Self-Host<span class="tag rec" id="rec-self" hidden>Recommended</span></strong><span>Free · while it's awake</span><span class="why" id="why-self" hidden>Because this computer stays on.</span></span>
     </button>
+    <label class="here"><input type="checkbox" id="use-here" role="switch" checked /><span>Let agents use this computer</span></label>
     <div class="push"></div>
     <button class="primary wide" id="welcome-go">Continue</button>
-    <button class="link wide" id="pick-join">Already have a Bubble AI? Join it</button>
+    <button class="link wide" id="pick-join">Join a Bubble AI I already have</button>
   </div>
 
   <div id="create" hidden>
     <section>
-      <h2>Host the server here</h2>
-      <p>Install the Bubble AI server on this computer. All your devices will connect to it.</p>
+      <h2>The server didn't start</h2>
       <p class="error" id="create-error" hidden></p>
       <pre id="log" hidden></pre>
       <div class="push"></div>
-      <button class="primary wide" id="create-go">Install server</button>
+      <button class="primary wide" id="create-go">Try again</button>
     </section>
   </div>
 
   <section id="installing" hidden>
-    <h2>Installing…</h2>
-    <p>This can take a minute.</p>
+    <h2>Starting your server</h2>
+    <p>About a minute.</p>
     <ul class="checks" role="status">
-      <li><span class="dot ok"></span>Server is in place</li>
-      <li><span class="dot wait"></span>Starting it</li>
+      <li id="inst-1"><span class="dot ok"></span>Server is in place</li>
+      <li id="inst-2"><span class="dot wait"></span>Starting it</li>
     </ul>
   </section>
 
@@ -336,12 +392,12 @@
   <div id="cloud" hidden>
     <section id="cloud-connect">
       <h2>Connect a cloud account</h2>
-      <p>Your server runs in your own account, billed by the hour. Delete it any time.</p>
-      <div class="provider"><span class="plogo" id="p-logo" aria-hidden="true"></span><span class="n" id="p-name"></span><span class="tag" id="p-rec">Recommended</span><button class="link" id="p-change" aria-expanded="false">Change</button></div>
+      <p>Billed by the hour. Delete it any time.</p>
+      <div class="provider"><span class="plogo" id="p-logo" aria-hidden="true"></span><span class="n" id="p-name"></span><span class="tag" id="p-rec">Recommended</span><span class="price" id="p-price"></span><button class="link" id="p-change" aria-expanded="false">Change</button></div>
       <div class="plist" id="p-list" hidden></div>
       <div id="signin-box">
-        <button class="primary wide brand" id="signin-go">Sign in with DigitalOcean</button>
-        <p class="hint" style="text-align:center">New to DigitalOcean? Sign up on the same page. It asks for a card, and new accounts get $5 of credit.</p>
+        <button class="primary wide" id="signin-go">Sign in with DigitalOcean</button>
+        <p class="hint">No account? Sign up on the same page.</p>
       </div>
       <div id="signin-wait" hidden>
         <div class="waitbox" role="status"><span class="dot wait"></span><span>Finish signing in in your browser, then come back here.</span></div>
@@ -396,7 +452,6 @@
 
   <section id="starting" class="center" hidden>
     <h2 id="starting-title">Getting ready…</h2>
-    <p>The first start can take a minute.</p>
   </section>
 
   <section id="unreachable" hidden>
@@ -425,16 +480,17 @@
   const err = (id, msg) => { $(id).hidden = !msg; $(id).textContent = msg || ""; };
 
   // ------------------------------------------------ the question, and the recommended start
-  // On all day: Self-Host is free there and recommended. Otherwise (a laptop, or not sure) Cloud,
-  // because a server never sleeps. Either way this computer joins as a device, its screen off until
-  // someone turns it on there; whether an agent may use it is a switch on that agent, later.
-  const answers = { on: "no" };
+  // Nothing is recommended until "On all day?" is answered. Yes: Self-Host, free there. No: Cloud,
+  // because a server never sleeps. Until then Self-Host (free) is the one picked, with no tag. Either
+  // way this computer joins as a device, its screen off until someone turns it on there; whether an
+  // agent may use it is a switch on that agent, later.
+  const answers = { on: null };
   let picked = null;
-  const recommended = () => (answers.on === "yes" ? "self" : "cloud");
+  const recommended = () => (answers.on === "yes" ? "self" : answers.on === "no" ? "cloud" : null);
   function renderWelcome() {
     document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-checked", String(answers[b.dataset.q] === b.dataset.v)));
     const rec = recommended();
-    const choice = picked || rec;
+    const choice = picked || rec || "self";
     for (const [id, which] of [["cloud", "cloud"], ["self", "self"]]) {
       const tag = $(`rec-${id}`);
       if (tag.hidden !== (rec !== which)) { tag.hidden = rec !== which; tag.style.animation = "none"; void tag.offsetWidth; tag.style.animation = ""; }
@@ -444,7 +500,7 @@
     $("pick-cloud").setAttribute("aria-pressed", String(choice === "cloud"));
     $("pick-create").setAttribute("aria-pressed", String(choice === "self"));
     const seg = document.querySelector(".seg");
-    if (seg) seg.dataset.on = answers.on;
+    if (seg) seg.dataset.on = answers.on ?? "";
     const on = $(choice === "cloud" ? "pick-cloud" : "pick-create");
     // next frame, once the screen is shown and laid out (straight away where there are no frames)
     (window.requestAnimationFrame?.bind(window) ?? ((fn) => fn()))(() => Object.assign($("pick-mark").style, { top: `${on.offsetTop}px`, height: `${on.offsetHeight}px` }));
@@ -459,8 +515,11 @@
   $("pick-cloud").onclick = () => { picked = "cloud"; renderWelcome(); };
   $("pick-create").onclick = () => { picked = "self"; renderWelcome(); };
   $("pick-cloud").ondblclick = () => goCloud();
-  $("pick-create").ondblclick = () => show("create");
-  $("welcome-go").onclick = () => ((picked || recommended()) === "cloud" ? goCloud() : show("create"));
+  $("pick-create").ondblclick = () => startWisp();
+  // Self-Host starts the server straight away: there is nothing to decide on a page of its own
+  $("welcome-go").onclick = () => ((picked || recommended()) === "cloud" ? goCloud() : startWisp());
+  /** Whether this computer joins as a device agents may use: asked once, on the first page (on unless turned off). */
+  const useHere = () => $("use-here").checked !== false;
   renderWelcome();
 
   let computer = "computer";
@@ -531,7 +590,7 @@
   function goJoin() {
     stopJoin();
     $("title").textContent = "Join my Bubble AI";
-    $("subtitle").textContent = "Your other computer is waiting for you.";
+    $("subtitle").textContent = "";
     $("join-go").disabled = $("url").disabled = false;
     err("join-error", "");
     show("join");
@@ -603,8 +662,8 @@
 
   function goWelcome() {
     stopJoin();
-    $("title").textContent = "Welcome to Bubble AI";
-    $("subtitle").textContent = "One question, then pick where your agents live.";
+    $("title").textContent = "Where should your agents live?";
+    $("subtitle").textContent = "";
     show("welcome");
   }
 
@@ -654,8 +713,13 @@
     err("create-error", "");
     $("log").hidden = true;
     show("installing");
-    const r = await setup.create({ device: true });
-    if (r?.ok) return show("ready");
+    const tick = (kind) => { const d = $("inst-2")?.firstChild; if (d) d.className = `dot ${kind}`; };
+    tick("wait");
+    const r = await setup.create({ device: useHere() });
+    if (r?.ok) {
+      tick("ok");
+      return afterServer("Opening your Bubble AI…");
+    }
     show("create");
     err("create-error", r?.error || "The server didn't start.");
     if (r?.log) { $("log").hidden = false; $("log").textContent = r.log; }
@@ -709,6 +773,7 @@
     $("p-name").textContent = prov.name;
     document.querySelectorAll("[data-p-name]").forEach((el) => (el.textContent = prov.name));
     $("p-rec").hidden = prov.id !== providers[0].id;
+    $("p-price").textContent = HOW[prov.id]?.from ? `from ${HOW[prov.id].from}/mo` : "";
     $("signin-box").hidden = !prov.signIn;
     $("signin-wait").hidden = true;
     $("cloud-token-form").hidden = prov.signIn;
@@ -924,7 +989,7 @@
     stopTicker();
     ticker = setInterval(() => renderChecks(), 1000);
     const account = { name: $("cloud-name").value.trim(), email: $("cloud-email").value.trim(), password: $("cloud-password").value };
-    const r = await setup.cloudCreate(prov.id, cloudToken, { type: p?.type, location: p?.location, account, device: true, resume });
+    const r = await setup.cloudCreate(prov.id, cloudToken, { type: p?.type, location: p?.location, account, device: useHere(), resume });
     stopTicker();
     running = false;
     if (r.ok) {
@@ -1032,9 +1097,9 @@
 
     // [x %, y %, scale, mood]
     const SCENE = {
-      welcome: [50, 47, 1, "awake"], create: [50, 42, 0.7, "awake"], installing: [50, 46, 0.92, "working"], ready: [50, 40, 0.78, "done"],
-      join: [50, 47, 0.74, "waiting"], waiting: [50, 47, 0.74, "waiting"], cloud: [50, 56, 0.66, "awake"], "cloud-progress": [50, 56, 0.92, "working"],
-      starting: [50, 46, 0.84, "working"], unreachable: [50, 46, 0.74, "waiting"], "cloud-choose": [50, 56, 0.66, "awake"],
+      welcome: [50, 0, 1, "awake"], create: [50, 0, 1, "awake"], installing: [50, 0, 1, "working"], ready: [50, 0, 1, "done"],
+      join: [50, 0, 1, "waiting"], waiting: [50, 0, 1, "waiting"], cloud: [50, 0, 1, "awake"], "cloud-progress": [50, 0, 1, "working"],
+      starting: [50, 0, 1, "working"], unreachable: [50, 0, 1, "waiting"], "cloud-choose": [50, 0, 1, "awake"],
     };
     const PROGRESS = { welcome: 4, create: 12, installing: 22, ready: 36, cloud: 14, "cloud-choose": 24, "cloud-progress": 34, starting: 40, join: 4, waiting: 4, unreachable: 4 };
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
@@ -1042,8 +1107,6 @@
     const layer = document.createElement("div");
     layer.className = "bgb-layer";
     stage.append(layer);
-    const props = document.createElement("div");
-    stage.append(props);
     const main = document.createElement("div");
     main.className = "w";
     // click it to pop it and spin up a new one; drag it to push the little bubbles about
@@ -1055,8 +1118,9 @@
     m.size = 160;
     M.startBubbles(layer, { max: 8 });
 
-    function place(x, y, k) {
-      Object.assign(main.style, { left: `${x}%`, top: `${y}%`, transform: `translate(-50%, -50%) scale(calc(${k} * var(--k)))` });
+    // above the title, where the app's first page has its own bubble: [scale] only changes, a little
+    function place(_x, _y, k) {
+      Object.assign(main.style, { left: "50%", top: "calc(var(--top) + var(--mark) / 2)", transform: `translate(-50%, -50%) scale(calc(var(--mark-k) * ${k}))` });
     }
 
     let mood = "";
@@ -1086,16 +1150,6 @@
       else start();
     }
 
-    const LAPTOP = '<svg class="prop" style="left:calc(50% - 90px);top:60%" width="180" height="120" viewBox="0 0 90 60" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="6" width="62" height="40" rx="3"/><path d="M4 54h82M14 46l-10 8M76 46l10 8"/></svg>';
-    const CLOUD = '<svg class="prop" style="left:calc(50% - 110px);top:18%" width="220" height="150" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width=".5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 7.5a4.25 4.25 0 0 1-.5 8.5Z"/></svg>';
-    // the host's one line on the first screen: where it will live
-    const say = (cloudy) => `<div class="say" style="left:calc(50% + 70px * var(--k));top:calc(47% - 84px * var(--k))">${cloudy ? "I'll live in the cloud, so I'm always up." : "I'll live right here, on this computer."}</div>`;
-    // a tiny scene for the answer to "on all day?": a moon when it sleeps, a sun when it stays on
-    const SKY = {
-      no: "M15.5 3.5a8.5 8.5 0 1 0 5 13.6A7 7 0 0 1 15.5 3.5z",
-      yes: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8",
-    };
-    const sky = (on) => `<svg class="prop sky" style="left:calc(50% - 118px * var(--k));top:calc(47% - 112px * var(--k))" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${SKY[on] || SKY.no}"/></svg>`;
     const onAnswer = () => document.querySelector(".seg")?.dataset.on || "no";
     let thinking = 0;
     /** the bubble reacts to the answer after a short look up, so it reads as thinking: a happy spin for yes, a sleepy tilt for no */
@@ -1128,7 +1182,7 @@
       last = id;
       lastCloudy = cloudy;
       lastOn = on;
-      props.innerHTML = (id === "create" || id === "ready" || (id === "welcome" && !cloudy) ? LAPTOP : "") + (cloudy ? CLOUD : "") + (id === "welcome" ? say(cloudy) + sky(on) : "");
+      // no props or speech: the bubble alone, like the app's first run
       if (same) {
         if (answered) answerReact(on);
         else M.jolly(m);

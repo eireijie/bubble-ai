@@ -160,7 +160,7 @@ const TONE: Record<Tone, string> = {
 /** A small status pill ("On", "Signed in", "Coming soon"). */
 export function Badge({ tone = "grey", icon, children, title }: { tone?: Tone; icon?: ReactNode; children: ReactNode; title?: string }) {
   return (
-    <span title={title} className={cx("inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-medium", TONE[tone])}>
+    <span title={title} className={cx("inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[6px] px-2.5 text-xs font-medium", TONE[tone])}>
       {icon}
       {children}
     </span>
@@ -195,7 +195,7 @@ export function Seg<T extends string>({ value, options, onChange, label, disable
   return (
     <div role="radiogroup" aria-label={label} className="flex gap-0.5 rounded-full bg-control p-[3px]">
       {options.map(([v, text]) => (
-        <button key={v} type="button" role="radio" aria-checked={value === v} disabled={disabled} onClick={() => onChange(v)} className={cx("h-[38px] flex-1 rounded-full px-3 text-sm font-medium whitespace-nowrap disabled:opacity-50", value === v ? "bg-ink/12 text-ink" : "text-muted hover:text-ink")}>
+        <button key={v} type="button" role="radio" aria-checked={value === v} disabled={disabled} onClick={() => onChange(v)} className={cx("h-[38px] flex-1 rounded-[8px] px-3 text-sm font-medium whitespace-nowrap disabled:opacity-50", value === v ? "bg-ink/12 text-ink" : "text-muted hover:text-ink")}>
           {text}
         </button>
       ))}
@@ -249,17 +249,17 @@ const btn = "inline-flex shrink-0 items-center justify-center gap-2 whitespace-n
 
 /** The one main action: a big filled capsule. */
 export function Prim({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" {...p} className={cx(btn, "h-[50px] rounded-full bg-accent px-6 text-base font-medium text-accent-ink hover:bg-accent/90", className)} />;
+  return <button type="button" {...p} className={cx(btn, "h-[50px] rounded-[8px] bg-accent px-6 text-base font-medium text-accent-ink hover:bg-accent/90", className)} />;
 }
 
 /** A secondary capsule. */
 export function Sec({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" {...p} className={cx(btn, "h-11 rounded-full border border-control-line bg-control px-[18px] text-body hover:bg-hover", className)} />;
+  return <button type="button" {...p} className={cx(btn, "h-11 rounded-[8px] border border-control-line bg-control px-[18px] text-body hover:bg-hover", className)} />;
 }
 
 /** "Add", "Bring in", "Set up": the one action at the end of a row, a hairline pill. */
 export function Add({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" {...p} className={cx("inline-flex h-[30px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-line2 px-3.5 text-[14px] outline-none hover:bg-hover focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50 max-md:h-[34px] max-md:px-4", className)} />;
+  return <button type="button" {...p} className={cx("inline-flex h-[30px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[8px] border border-line2 px-3.5 text-[14px] outline-none hover:bg-hover focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50 max-md:h-[34px] max-md:px-4", className)} />;
 }
 
 /** A round glass button (the circle from the tokens), with a label for screen readers. */
@@ -342,7 +342,7 @@ export function Dlg({ title, sub, onClose, children, wide, footer }: { title: st
 /** A native picker styled as a capsule (a model, a provider, an account). */
 export function Pick({ value, onChange, children, label, disabled, className }: { value: string; onChange: (v: string) => void; children: ReactNode; label: string; disabled?: boolean; className?: string }) {
   return (
-    <select aria-label={label} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={cx("h-10 max-w-[14rem] rounded-full border border-control-line bg-control px-3.5 text-sm text-ink outline-none focus:ring-3 focus:ring-ring/30 disabled:opacity-60", className)}>
+    <select aria-label={label} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={cx("h-10 max-w-[14rem] rounded-[8px] border border-control-line bg-control px-3.5 text-sm text-ink outline-none focus:ring-3 focus:ring-ring/30 disabled:opacity-60", className)}>
       {children}
     </select>
   );
@@ -451,7 +451,7 @@ export function ItemHead({ tile, name, line, children }: { tile: ReactNode; name
 
 /** A card of rows on an item's page. */
 export function Rows({ children }: { children: ReactNode }) {
-  return <div className="divide-y divide-line overflow-hidden rounded-[14px] bg-card">{children}</div>;
+  return <div className="divide-y divide-line overflow-hidden rounded-[12px] bg-card">{children}</div>;
 }
 
 /**
@@ -487,5 +487,5 @@ export function FactRow({ label, value, onClick, href, need, open, wrap }: { lab
 
 /** "Remove", set apart at the bottom of an item's page. */
 export function RemoveBtn({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" {...p} className={cx("inline-flex h-9 items-center rounded-full px-3.5 text-[14px] text-bad outline-none hover:bg-hover focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50", className)} />;
+  return <button type="button" {...p} className={cx("inline-flex h-9 items-center rounded-[8px] px-3.5 text-[14px] text-bad outline-none hover:bg-hover focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50", className)} />;
 }

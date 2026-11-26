@@ -1,4 +1,4 @@
-import { CONNECTOR_CATALOG, zonedParts, type Allowance, type BackgroundSource, type BackgroundUsage, type BackgroundWork, type Followup } from "@bubble-ai/core";
+import { CONNECTOR_CATALOG, runFailureReason, zonedParts, type Allowance, type BackgroundSource, type BackgroundUsage, type BackgroundWork, type Followup } from "@bubble-ai/core";
 import { featureOn } from "./features.ts";
 import type { Hub } from "./hub.ts";
 import { watcherFor } from "./watchers/index.ts";
@@ -40,6 +40,11 @@ export const RETRY_MINUTES = [15, 60];
 export const REST_AFTER_GIVING_UP_MINUTES = 6 * 60;
 /** While a failed check waits for its next try. */
 export const TRYING_AGAIN = "trying again later";
+
+/** 15 → "15 minutes", 60 → "an hour", 120 → "2 hours" */
+export const minutesText = (m: number) => (m % 60 ? `${m} minutes` : m === 60 ? "an hour" : `${m / 60} hours`);
+/** How often, as Settings says it: 15 → "every 15 minutes", 60 → "every hour", 120 → "every 2 hours" */
+export const paceText = (m: number) => (m === 60 ? "every hour" : `every ${minutesText(m)}`);
 /** What a check that didn't report its usage is counted as. */
 export const ESTIMATED_CHECK_TOKENS = 25_000;
 /** What a sort (triage.ts) that didn't report its usage is counted as: a few lines in, one line out, plus the harness's own preamble. */
@@ -308,7 +313,9 @@ export class Background {
     // the plan's limit: its pause holds everything until the reset, and says so itself
     if (limits.reached(agent, at)) return reopen();
     const fails = (this.retry(ws, run.agentId, run.requestedBy)?.fails ?? 0) + 1;
-    const why = this.hub.explainFailure(agent, error, run.requestedBy).trim();
+    // a missing harness or device says so plainly; sign-ins and plan limits have their own fuller words
+    const reason = runFailureReason(agent.harness, error);
+    const why = (reason === "not_installed" || reason === "no_device" ? this.hub.failureWhy(agent, error, reason) : this.hub.explainFailure(agent, error, run.requestedBy)).trim();
     const plain = /[.!?…]$/.test(why) ? why : `${why}.`;
     const channel = store.dmChannel(ws, run.requestedBy, run.agentId);
     const say = (text: string) => {
@@ -320,7 +327,10 @@ export class Background {
       store.setSetting(ws, this.retryKey(run.agentId, run.requestedBy), JSON.stringify({ fails, until: new Date(at.getTime() + minutes * 60_000).toISOString() }));
       reopen();
       // once, on the first failure: the tries after it are silent
-      if (fails === 1) say(`${agent.name} couldn't finish a background check: ${plain} It will try again in ${minutes} minutes; nothing it was looking at is lost.`);
+      // the same pace the person set: a try sooner than the usual check says so
+      const usual = store.background(run.agentId, run.requestedBy)?.everyMinutes ?? 0;
+      const when = minutes < usual ? `in ${minutesText(minutes)}, sooner than its usual check ${paceText(usual)}` : usual && minutes > usual ? `in ${minutesText(minutes)}` : usual ? "at its next check" : `in ${minutesText(minutes)}`;
+      if (fails === 1) say(`${agent.name} couldn't finish a background check: ${plain} It will try again ${when}; nothing it was looking at is lost.`);
       return;
     }
     // given up: what it carried is over, and the person hears what wasn't done
@@ -571,7 +581,9 @@ export class Background {
       // a failed check isn't a look: what it carried is kept for another try, and it doesn't count as quiet
       if (!agent || !run.requestedBy) return this.hub.watches.retry(run.id);
       this.failed({ id: run.id, agentId: run.agentId, requestedBy: run.requestedBy }, carried, error, at);
-      if (store.background(run.agentId, run.requestedBy)) store.setBackground(run.agentId, run.requestedBy, { lastNote: note.trim().slice(0, 2000) });
+      // the note under "Checked …" is the reason in plain words, not the harness's raw error
+      const why = agent ? this.hub.failureWhy(agent, error) : "";
+      if (store.background(run.agentId, run.requestedBy)) store.setBackground(run.agentId, run.requestedBy, { lastNote: (why ? `The check failed: ${why}` : note.trim()).slice(0, 2000) });
       this.hub.broadcast(agent.workspaceId, { type: "background_changed", agentId: agent.id });
       return;
     }

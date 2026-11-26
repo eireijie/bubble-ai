@@ -88,6 +88,16 @@ describe("features", () => {
     hub.store.setSetting(firstOrg, "features", saved);
   });
 
+  it("turns agents working on their own on, once, for a set stored before it was the default", async () => {
+    const saved = hub.store.setting(firstOrg, "features");
+    hub.store.setSetting(firstOrg, "features", JSON.stringify({ ...FEATURE_PRESETS.simple, background: false, routines: false, teach: false }));
+    expect((await api("GET", "/api/features")).data.features).toMatchObject({ background: true, routines: true, teach: true });
+    // turned off afterwards: stays off
+    await api("PUT", "/api/features", { background: false });
+    expect((await api("GET", "/api/features")).data.features.background).toBe(false);
+    hub.store.setSetting(firstOrg, "features", saved);
+  });
+
   it("refuses invites while Invite people is off", async () => {
     const off = await api("POST", "/api/invites", { role: "member" });
     expect(off.status).toBe(403);
@@ -111,6 +121,8 @@ describe("features", () => {
     for (const x of hub.store.activeRuns(agent.id)) hub.cancelRun(x.id);
     // a task waiting on it, so a check has something to look at
     hub.store.db.prepare("INSERT INTO tasks (id, workspace_id, from_kind, from_id, to_agent_id, title, brief, status, created_at, updated_at) VALUES ('t_sched', ?, 'user', ?, ?, 'Watch it', '', 'open', ?, ?)").run(agent.workspaceId, me, agent.id, new Date().toISOString(), new Date().toISOString());
+    // background checks are on by default now; switched off, they hold
+    await api("PUT", "/api/features", { background: false });
     hub.store.setBackground(agent.id, me, { enabled: true });
     hub.background.tick(new Date("2026-10-14T12:00:00Z"));
     expect(hub.store.activeRuns(agent.id)).toHaveLength(0);
@@ -125,18 +137,18 @@ describe("features", () => {
 
 describe("agent defaults", () => {
   it("uses the latest agent's harness until an owner saves defaults, and fills in a new agent with them", async () => {
-    // the "sched" agent above runs the custom harness; no devices, so no VM
-    expect((await api("GET", "/api/settings/agent-defaults")).data).toEqual({ harness: "custom", model: null, computer: "shared", nodeId: null, models: {} });
+    // the "sched" agent above runs the custom harness; no devices, so no computer
+    expect((await api("GET", "/api/settings/agent-defaults")).data).toEqual({ harness: "custom", model: null, computer: "none", nodeId: null, models: {} });
     const sam = await login("sam@example.com");
     expect((await api("PUT", "/api/settings/agent-defaults", { harness: "codex" }, sam)).status).toBe(403);
-    expect((await api("PUT", "/api/settings/agent-defaults", { harness: "codex", model: "gpt-6" })).data).toMatchObject({ harness: "codex", model: "gpt-6", computer: "shared" });
+    expect((await api("PUT", "/api/settings/agent-defaults", { harness: "codex", model: "gpt-6" })).data).toMatchObject({ harness: "codex", model: "gpt-6", computer: "none" });
     expect((await api("PUT", "/api/settings/agent-defaults", { nodeId: "node_nope" })).status).toBe(400);
 
     const a = (await api("POST", "/api/agents", { handle: "dflt", name: "Dflt", useDefaults: true })).data;
     expect(a).toMatchObject({ harness: "codex", model: "gpt-6", computerId: null });
-    // no device yet: it waits for the shared computer rather than working without one
-    expect(a.settings).toMatchObject({ waitsForShared: true, respondTo: "me" });
-    expect(a.settings.headless).toBeUndefined();
+    // no device yet and nothing saved: it works without a computer, so no VM is made until one is asked for
+    expect(a.settings).toMatchObject({ headless: true, respondTo: "me" });
+    expect(a.settings.waitsForShared).toBeUndefined();
     // what you pick wins over the defaults
     expect((await api("POST", "/api/agents", { handle: "picked", name: "Picked", harness: "claude-code", useDefaults: true })).data).toMatchObject({ harness: "claude-code", model: null });
     // without defaults a harness is still needed

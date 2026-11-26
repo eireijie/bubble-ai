@@ -81,7 +81,7 @@ export function MiniChart({ steps, className }: { steps: Omit<TeamStep, "x" | "y
             <div className="flex flex-wrap justify-center gap-2">
               {row.map((s) => (
                 <div key={s.id} className="flex flex-col items-center">
-                  <div className="flex h-9 max-w-[200px] items-center gap-2 rounded-full bg-chip px-3 text-[13px] font-medium">
+                  <div className="flex h-9 max-w-[200px] items-center gap-2 rounded-[8px] bg-chip px-3 text-[13px] font-medium">
                     <span className="text-muted">
                       <KindIcon kind={s.kind === "do" ? "do" : s.kind} size={14} />
                     </span>
@@ -104,7 +104,7 @@ export function MiniChart({ steps, className }: { steps: Omit<TeamStep, "x" | "y
             <div className="flex flex-col gap-2">
               {row.map((s) => (
                 <div key={s.id}>
-                  <div className="flex h-10 max-w-[190px] items-center gap-2 rounded-full bg-chip px-3 text-[13px] font-medium">
+                  <div className="flex h-10 max-w-[190px] items-center gap-2 rounded-[8px] bg-chip px-3 text-[13px] font-medium">
                     <span className="text-muted">
                       <KindIcon kind={s.kind === "do" ? "do" : s.kind} size={14} />
                     </span>

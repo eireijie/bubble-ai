@@ -1,56 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { CHAPTERS, STOPS, TOTAL, bubbleSpot, cardSpot, chapterProgress, cleanSeen, curveControl, curvePoint, eyebrow, flightMs, resumeIndex, resumeLabel, seenCount, stopBody, stopsFor, withSeen } from "./tour.ts";
+import { CHAPTERS, STOPS, TOTAL, bubbleSpot, cardSpot, cleanSeen, curveControl, curvePoint, flightMs, resumeIndex, resumeLabel, seenCount, stopBody, stopTitle, stopsFor, withSeen } from "./tour.ts";
 
 const view = { w: 1440, h: 900 };
 
 describe("Show me around stops", () => {
-  it("is 25 stops in 5 chapters: Talk 5, Hands-off 4, Tools 5, Memory and teams 5, Make it yours 6", () => {
-    expect(TOTAL).toBe(25);
-    expect(CHAPTERS).toEqual(["Talk", "Hands-off", "Tools", "Memory and teams", "Make it yours"]);
-    expect(CHAPTERS.map((_, ch) => STOPS.filter((s) => s.ch === ch).length)).toEqual([5, 4, 5, 5, 6]);
-    // in chapter order, each id once
-    expect(STOPS.map((s) => s.ch)).toEqual([...STOPS.map((s) => s.ch)].sort((a, b) => a - b));
-    expect(new Set(STOPS.map((s) => s.id)).size).toBe(TOTAL);
-  });
-
-  it("points every stop at something, and gives a fallback line only where the last target is a stand-in", () => {
-    for (const s of STOPS) {
-      expect(s.targets.length, s.id).toBeGreaterThan(0);
-      if (s.fallbackBody) expect(s.targets.length, s.id).toBeGreaterThan(1);
-    }
-  });
-
-  it("offers a switch only for the mods that start off, and never teaches the password vault or the Code mod", () => {
-    expect(STOPS.filter((s) => s.mod).map((s) => [s.id, s.mod])).toEqual([
-      ["message-first", "background"],
-      ["schedules", "routines"],
-      ["mods", "tasks"],
+  it("is four stops, each one done for real", () => {
+    expect(TOTAL).toBe(4);
+    expect(CHAPTERS).toEqual(["Show me around"]);
+    expect(STOPS.map((s) => [s.id, s.doIt])).toEqual([
+      ["write", "send"],
+      ["slash", "slash"],
+      ["your-turn", "yourturn"],
+      ["new", "click"],
     ]);
-    const words = STOPS.map((s) => `${s.title} ${s.body} ${s.fallbackBody ?? ""}`).join(" ").toLowerCase();
-    expect(words).not.toMatch(/password vault|code mod|screen watch/);
+    expect(STOPS.every((s) => s.targets.length > 0 && s.title.length <= 24 && s.body.length <= 60)).toBe(true);
+  });
+
+  it("puts the agent's name in the first stop", () => {
+    expect(stopTitle(STOPS[0], "Juno")).toBe("Say hi to Juno");
+    expect(stopTitle(STOPS[0], "")).toBe("Say hi to your agent");
   });
 
   it("leaves guests the stops they can open", () => {
     const g = stopsFor(true);
-    expect(g.length).toBeLessThan(TOTAL);
-    expect(g.every((s) => !s.noGuests)).toBe(true);
-    expect(g.map((s) => s.id)).toContain("write");
-    expect(g.map((s) => s.id)).not.toContain("usage");
+    expect(g.map((s) => s.id)).toEqual(["write", "slash", "your-turn"]);
     expect(stopsFor(false)).toBe(STOPS);
   });
-});
 
-describe("progress", () => {
   it("counts only stops that still exist, once each", () => {
-    expect(cleanSeen(["write", "write", "gone", "attach"])).toEqual(["write", "attach"]);
-    expect(seenCount({ seen: ["write", "attach", "gone"] })).toBe(2);
+    expect(cleanSeen(["write", "write", "gone", "attach"])).toEqual(["write"]);
+    expect(seenCount({ seen: ["write", "slash", "gone"] })).toBe(2);
     expect(seenCount(undefined)).toBe(0);
   });
 
   it("resumes at the first stop not seen, and starts over when all are", () => {
     expect(resumeIndex(undefined)).toBe(0);
-    expect(resumeIndex({ seen: ["write", "attach", "slash"] })).toBe(3);
-    expect(resumeIndex({ seen: ["attach"] })).toBe(0);
+    expect(resumeIndex({ seen: ["write", "slash"] })).toBe(2);
+    expect(resumeIndex({ seen: ["slash"] })).toBe(0);
     expect(resumeIndex({ seen: STOPS.map((s) => s.id) })).toBe(0);
   });
 
@@ -64,43 +50,14 @@ describe("progress", () => {
     const a = withSeen(undefined, "write");
     expect(a).toEqual({ seen: ["write"], started: true });
     expect(withSeen(a, "write")).toBe(a);
-    expect(withSeen(a, "attach")).toEqual({ seen: ["write", "attach"], started: true });
-    // seen but never marked started (an old save): mark it
-    expect(withSeen({ seen: ["write"] }, "write")).toEqual({ seen: ["write"], started: true });
-  });
-
-  it("gives each chapter its first stop and how much is seen", () => {
-    const c = chapterProgress({ seen: ["write", "attach", "your-turn"] });
-    expect(c.map((x) => [x.name, x.first, x.seen, x.total])).toEqual([
-      ["Talk", 0, 2, 5],
-      ["Hands-off", 5, 1, 4],
-      ["Tools", 9, 0, 5],
-      ["Memory and teams", 14, 0, 5],
-      ["Make it yours", 19, 0, 6],
-    ]);
-  });
-
-  it("writes the card's eyebrow", () => {
-    expect(eyebrow(0)).toBe("Chapter 1 of 5 · Talk · 1 of 5");
-    expect(eyebrow(5)).toBe("Chapter 2 of 5 · Hands-off · 1 of 4");
-    expect(eyebrow(24)).toBe("Chapter 5 of 5 · Make it yours · 6 of 6");
+    expect(withSeen(a, "slash")).toEqual({ seen: ["write", "slash"], started: true });
   });
 });
 
 describe("what a stop says", () => {
-  const write = STOPS.find((s) => s.id === "write")!;
-  const pins = STOPS.find((s) => s.id === "pins")!;
-  const computers = STOPS.find((s) => s.id === "computers")!;
-
-  it("uses the fallback line when it points at a stand-in", () => {
-    expect(stopBody(pins, { fallback: true, phone: false })).toBe(pins.fallbackBody);
-    expect(stopBody(pins, { fallback: false, phone: false })).toBe(pins.body);
-  });
-
-  it("says press and hold on phones, and leaves out what phones don't show", () => {
-    expect(stopBody(write, { fallback: false, phone: true })).toContain("Press and hold a message");
-    expect(stopBody(write, { fallback: false, phone: false })).toContain("Right-click a message");
-    expect(stopBody(computers, { fallback: false, phone: true })).not.toContain("dot");
+  it("says press and hold on phones", () => {
+    expect(stopBody({ ...STOPS[0], body: "Right-click it." }, { fallback: false, phone: true })).toBe("Press and hold it.");
+    expect(stopBody(STOPS[0], { fallback: false, phone: false })).toBe(STOPS[0].body);
   });
 });
 

@@ -88,8 +88,8 @@ struct ConnectProviderView: View {
   @ViewBuilder private var signIn: some View {
     VStack(alignment: .leading, spacing: 12) {
       if let login, login.status == "failed" {
-        Text(login.error ?? "The sign-in didn't finish.").font(.system(size: 15)).foregroundStyle(Palette.red)
-        Button("Try again") { self.login = nil; Task { await start() } }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+        Text(login.error ?? "The sign-in didn't finish.").font(.system(size: 15)).foregroundStyle(Palette.text).fixedSize(horizontal: false, vertical: true)
+        MissingHarnessFix(error: login.error ?? "") { self.login = nil; Task { await start() } }
       } else if let login, login.status == "done" {
         Label("Connected", systemImage: "checkmark").font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.statusOnline)
       } else if let login, login.url != nil {
@@ -103,7 +103,7 @@ struct ConnectProviderView: View {
         HStack(spacing: 8) {
           Button { if let u = login.url.flatMap(URL.init(string:)) { openURL(u) } } label: {
             Text("Open \(ModelWords.host(login.url) ?? "the link")").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-              .padding(.horizontal, 12).frame(height: 30).background(Capsule().fill(Palette.blue))
+              .padding(.horizontal, 12).frame(height: 30).background(Capsule().fill(Palette.accent))
           }.buttonStyle(.press).accessibilityIdentifier("login-open")
           if let code = login.code {
             Button {
@@ -124,14 +124,14 @@ struct ConnectProviderView: View {
               .padding(.horizontal, 12).frame(height: 38)
               .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Palette.field))
               .accessibilityIdentifier("login-paste")
-            Button("Connect") { send() }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+            Button("Connect") { send() }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.accent)
               .disabled(pasted.trimmed.isEmpty || action.busy)
           }
         }
         LoginWaiting(text: "Waiting for you to finish…")
       } else if login == nil, !starting, let problem = action.error {
-        Text(problem).font(.system(size: 15)).foregroundStyle(Palette.red).fixedSize(horizontal: false, vertical: true)
-        Button("Try again") { Task { await start() } }.font(.system(size: 13, weight: .semibold)).buttonStyle(.plain).foregroundStyle(Palette.blue)
+        Text(problem).font(.system(size: 15)).foregroundStyle(Palette.text).fixedSize(horizontal: false, vertical: true)
+        MissingHarnessFix(error: problem) { Task { await start() } }
       } else {
         HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Starting the sign-in on your computer…").font(.system(size: 13)).foregroundStyle(Palette.muted) }
       }
@@ -191,7 +191,7 @@ struct ConnectProviderView: View {
             Text(action.busy ? "Checking" : "Connect")
           }
           .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-          .padding(.horizontal, 14).frame(height: 30).background(Capsule().fill(Palette.blue))
+          .padding(.horizontal, 14).frame(height: 30).background(Capsule().fill(Palette.accent))
         }
         .buttonStyle(.press).disabled(key.trimmed.count < 8 || action.busy).opacity(key.trimmed.count < 8 ? 0.4 : 1)
         .accessibilityIdentifier("key-connect")
@@ -268,5 +268,41 @@ struct EffortStyleSegments: View {
     .padding(2)
     .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Palette.control))
     .animation(Motion.pick(Motion.soft, reduceMotion), value: selection)
+  }
+}
+
+/**
+ * After a sign-in that couldn't start because its harness isn't on the computer ("Claude Code isn't
+ * installed on Mac mini"): Install, then the sign-in starts again. Anything else: Try again.
+ */
+struct MissingHarnessFix: View {
+  @Environment(Store.self) private var store
+  var error: String
+  var retry: () -> Void
+  @State private var action = FormAction()
+
+  /** The harness and device a "… isn't installed on …" error names, when both are known here. */
+  static func missing(_ error: String, nodes: [AgentNode]) -> (harness: String, node: AgentNode)? {
+    guard let r = error.range(of: " isn't installed on ") else { return nil }
+    let label = String(error[..<r.lowerBound]).trimmingCharacters(in: .whitespaces)
+    var rest = String(error[r.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+    if let dot = rest.firstIndex(where: { $0 == "." || $0 == "," || $0 == ";" }) { rest = String(rest[..<dot]) }
+    guard let h = HarnessChoice.all.first(where: { label.hasSuffix($0.label) }) else { return nil }
+    guard let node = nodes.first(where: { $0.name == rest }) ?? (nodes.filter(\.usable).count == 1 ? nodes.first(where: \.usable) : nil) else { return nil }
+    return (h.id, node)
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      if let m = Self.missing(error, nodes: store.nodes) {
+        Button(action.busy ? "Installing…" : "Install \(HarnessChoice.label(m.harness))") {
+          action.run { _ = try await store.installHarness(m.harness, node: m.node.id); retry() }
+        }
+        .buttonStyle(FixPill()).disabled(action.busy).accessibilityIdentifier("login-install")
+        InlineError(error: action.error)
+      } else {
+        Button("Try again", action: retry).buttonStyle(FixPill())
+      }
+    }
   }
 }

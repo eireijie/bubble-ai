@@ -7,6 +7,8 @@ import { go, href } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { useStore } from "../store.ts";
 import { AgentAvatar, cx } from "../components/ui.tsx";
+import { useStandingFailures } from "../components/FailedNeed.tsx";
+import { withLastFailure } from "../components/helpChecks.ts";
 
 const ISSUES_URL = `${GITHUB_URL}/issues`;
 
@@ -18,7 +20,11 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
   const agents = useStore((s) => s.agents);
   const devices = useDevices();
   const helper = pickHelper(agents, devices);
-  const checks = helperChecklist(agents, devices);
+  const guest = useStore((s) => s.me?.role === "guest");
+  const [failures] = useStandingFailures(!guest);
+  // what the device lists can be out of date: its last failed reply says what's really wrong
+  const lastFailure = helper ? (failures.find((f) => f.agentId === helper.id)?.part ?? null) : null;
+  const checks = helper ? withLastFailure(helperChecklist(agents, devices), lastFailure, helper) : helperChecklist(agents, devices);
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <header className="mx-auto w-full max-w-xl h-15 shrink-0 px-4 md:px-8 md:mt-8 flex items-center gap-2 safe-top">
@@ -31,7 +37,7 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
       </header>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-xl px-4 md:px-8 pt-2 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-6">
-          <div className="rounded-[14px] bg-card overflow-hidden">
+          <div className="rounded-[12px] bg-card overflow-hidden">
             <button type="button" className={rowClass} onClick={() => (helper ? void openDm(helper.id) : go({ view: "welcome" }))}>
               {helper && <AgentAvatar agent={helper} size={34} />}
               <span className="flex-1 min-w-0 truncate">{helper ? `Ask ${helper.name}` : "Make your agent"}</span>
@@ -43,14 +49,14 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
             <h2 id="help-quiet" className="px-1 text-[13px] font-medium text-muted">
               My agent isn't answering
             </h2>
-            <ul className="rounded-[14px] bg-card divide-y divide-line overflow-hidden" aria-busy={devices === null}>
+            <ul className="rounded-[12px] bg-card divide-y divide-line overflow-hidden" aria-busy={devices === null}>
               {checks.map((c) => (
                 <CheckRow key={c.id} check={c} />
               ))}
             </ul>
           </section>
 
-          <div className="rounded-[14px] bg-card divide-y divide-line overflow-hidden">
+          <div className="rounded-[12px] bg-card divide-y divide-line overflow-hidden">
             <button type="button" className={rowClass} onClick={() => startTour()}>
               <span className="flex-1">Show me around</span>
               <ChevronRight size={15} className="text-muted" aria-hidden />
@@ -84,8 +90,9 @@ function CheckRow({ check }: { check: HelperCheck }) {
       <Icon size={16} className={cx("mt-0.5 shrink-0", tone)} aria-hidden />
       <div className="min-w-0 flex-1 text-sm">
         <div className={check.status === "unknown" ? "text-muted" : undefined}>
-          <span className="sr-only">{word}: </span>
+          {check.status !== "unknown" && <span className="sr-only">{word}: </span>}
           {check.label}
+          {check.status === "unknown" && <span className="text-faint"> · can't tell yet</span>}
         </div>
         {check.status === "bad" && check.fix && <p className="mt-0.5 text-muted">{check.fix}</p>}
         {check.status === "bad" && check.to && (

@@ -13,12 +13,14 @@ import { VoiceValue } from "./voice.tsx";
 import { compact } from "./usage.tsx";
 import { SignOutButton } from "./signout.tsx";
 import { Select, Toggle } from "./parts.tsx";
-import { FiveContext, Group, Note, SRow, Seg, ShowAll } from "./rows.tsx";
+import { FiveContext, Group, Note, SRow, Seg } from "./rows.tsx";
+import { FEATURE_INFO, type FeatureKey } from "@bubble-ai/core";
+import { href } from "../../router.ts";
 
 /**
- * Four of the five settings pages (About is in about.tsx). Each is its default rows in cards, then
- * Show all, then the rest. Which rows are which, their names and their addresses are in map.ts;
- * a row that isn't for this person, or is under a closed Show all, renders nothing.
+ * The settings pages but About (about.tsx). Each is its rows in cards, the first untitled, the rest
+ * under a small title; nothing is folded away. Which rows are which, their names and their
+ * addresses are in map.ts; a row that isn't for this person renders nothing.
  */
 
 // --- You ----------------------------------------------------------------------------------------
@@ -39,10 +41,7 @@ export function YouFive() {
         </SRow>
         <SRow id="notifications" value={<NotifyValue />} />
       </Group>
-      <ShowAll>
-        <SignOutButton className="px-1 h-8 text-sm text-muted hover:text-ink" />
-      </ShowAll>
-      <Group>
+      <Group title="Chat">
         <SRow id="enter">
           <EnterSwitch />
         </SRow>
@@ -53,7 +52,7 @@ export function YouFive() {
           <ToolCallsSeg />
         </SRow>
       </Group>
-      <Group>
+      <Group title="Look">
         <SRow id="theme">
           <ThemeSwatches />
         </SRow>
@@ -64,12 +63,13 @@ export function YouFive() {
           <MotionSwitch />
         </SRow>
       </Group>
-      <Group>
+      <Group title="Extras">
         <SRow id="voice" value={<VoiceValue />} />
         <SRow id="buddy">
           <BuddySwitch />
         </SRow>
       </Group>
+      <SignOutButton className="px-1 h-8 text-sm text-muted hover:text-ink" />
     </>
   );
 }
@@ -141,12 +141,18 @@ export function AgentsFive() {
         <SRow id="learn">
           <Toggle label="Learn skills on their own" on={p?.learnSkills ?? true} disabled={off} onChange={(v) => void save({ learnSkills: v })} />
         </SRow>
-        <SRow id="accounts" value={<AccountsValue />} />
         <SRow id="usage" value={<UsageValue />} />
       </Group>
       {error && <Note bad>{error}</Note>}
-      <ShowAll />
-      <Group>
+      <Group title="AI, apps and skills">
+        <SRow id="accounts" value={<AccountsValue />} />
+        <SRow id="tools" value={<ToolsValue />} />
+        <SRow id="skills" />
+        <SRow id="apps" />
+        <SRow id="logins" value={<LoginsValue />} />
+        <SRow id="outside" value={<McpValue />} />
+      </Group>
+      <Group title="Teamwork and limits">
         <SRow id="lead">
           <LeadSelect />
         </SRow>
@@ -173,13 +179,61 @@ export function AgentsFive() {
           </Select>
         </SRow>
       </Group>
-      <Group>
-        <SRow id="logins" value={<LoginsValue />} />
-        <SRow id="outside" value={<McpValue />} />
-        <SRow id="tools" value={<ToolsValue />} />
-        <SRow id="skills" />
-        <SRow id="apps" />
+    </>
+  );
+}
+
+// --- Mods ---------------------------------------------------------------------------------------
+
+/** A mod's switch; only owners change mods. */
+function ModSwitch({ mod, label }: { mod: FeatureKey; label: string }) {
+  const features = useFeatures();
+  const owner = useStore((s) => s.me?.role) === "owner";
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      {error && <span className="text-xs text-bad">{error}</span>}
+      <Toggle on={features[mod]} label={label} disabled={!owner} onChange={(v) => void setFeatures({ [mod]: v }).then(() => setError(null), (e) => setError((e as Error).message))} />
+    </>
+  );
+}
+
+/**
+ * Every mod, one switch each: what agents do on their own first (on by default), then the extras.
+ * Storage and Apple open their own settings, where they're turned on too.
+ */
+export function ModsFive() {
+  const features = useFeatures();
+  const owner = useStore((s) => s.me?.role) === "owner";
+  const sw = (id: string, mod: FeatureKey) => (
+    <SRow id={id}>
+      <ModSwitch mod={mod} label={FEATURE_INFO[mod].name} />
+    </SRow>
+  );
+  return (
+    <>
+      <Group title="Agents on their own">
+        {sw("mod-background", "background")}
+        {sw("mod-routines", "routines")}
+        {sw("mod-teach", "teach")}
       </Group>
+      <Group title="Extras">
+        <SRow id="mod-tasks">
+          {features.tasks && (
+            <a href={href({ view: "tasks" })} className="text-sm text-muted hover:text-ink">
+              Open
+            </a>
+          )}
+          <ModSwitch mod="tasks" label={FEATURE_INFO.tasks.name} />
+        </SRow>
+        <SRow id="storage" value={features.storage ? "On" : "Off"} />
+        <SRow id="apple" value={features.apple ? "On" : "Off"} />
+        {sw("mod-invite", "invite")}
+        {sw("mod-remote", "remoteDesktop")}
+        {sw("mod-code", "code")}
+        {sw("mod-buddy", "buddy")}
+      </Group>
+      {!owner && <Note>Only owners can change mods.</Note>}
     </>
   );
 }
@@ -224,10 +278,10 @@ export function ComputersFive() {
         </SRow>
       </Group>
       {error && <Note bad>{error}</Note>}
-      <ShowAll />
-      <Group>
+      <Group title="New agents">
         <SRow id="works-on">
-          <Select label="New agents work on" value={d.saved?.computer ?? "shared"} disabled={noDefaults} onChange={(v) => setDefault({ computer: v as AgentDefaults["computer"] })}>
+          <Select label="New agents work on" value={d.saved?.computer ?? "device"} disabled={noDefaults} onChange={(v) => setDefault({ computer: v as AgentDefaults["computer"] })}>
+            <option value="device">Their device directly</option>
             <option value="shared">The shared computer</option>
             <option value="own-vm">Their own computer</option>
             <option value="none">No computer</option>
@@ -248,10 +302,11 @@ export function ComputersFive() {
         <SRow id="pick">
           <PickSwitch />
         </SRow>
-        <SRow id="cloud" value={!s ? "" : s.orgo.configured ? "Connected" : "Not connected"} />
+        {/* Orgo shows once it is set up, or when something sends you here to set it up (a cloud computer asks for its key) */}
+        {(s?.orgo.configured || five.landed === "cloud") && <SRow id="cloud" value={s?.orgo.configured ? "Connected" : "Not connected"} />}
       </Group>
-      {five.showAll && noneCanRun && <Note>None of your devices can run a computer for an agent yet.</Note>}
-      {d.error && five.showAll && <Note bad>{d.error}</Note>}
+      {noneCanRun && (five.landed === "works-on" || five.landed === "works-device") && <Note>None of your devices can run a computer for an agent yet.</Note>}
+      {d.error && <Note bad>{d.error}</Note>}
     </>
   );
 }
@@ -273,8 +328,7 @@ export function PrivacyFive() {
         <SRow id="memory-folder" value={<MemoryFolderValue />} />
         <SRow id="backup" value={<BackupValue />} />
       </Group>
-      <ShowAll />
-      <Group>
+      <Group title="Workspace">
         <SRow id="workspace" value={me.workspace.name} />
         <SRow id="changes" />
         <SRow id="obsidian" />

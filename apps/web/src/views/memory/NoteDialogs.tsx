@@ -101,7 +101,7 @@ export function NewNoteDialog({ initial, initialName = "", folders, onClose, onC
         }}
       >
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Title" aria-label="Title" required autoFocus className={field} />
-        <button type="button" onClick={() => setChoosing(!choosing)} aria-expanded={choosing} aria-label={`Folder: ${words(cleanDir(dir))}. Change`} className="mt-2.5 inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-chip px-3 text-[13px] font-medium hover:bg-hover">
+        <button type="button" onClick={() => setChoosing(!choosing)} aria-expanded={choosing} aria-label={`Folder: ${words(cleanDir(dir))}. Change`} className="mt-2.5 inline-flex h-8 max-w-full items-center gap-1.5 rounded-[8px] bg-chip px-3 text-[13px] font-medium hover:bg-hover">
           <Folder size={14} strokeWidth={1.8} className="shrink-0 text-muted" aria-hidden />
           <span className="truncate">{words(cleanDir(dir))}</span>
           <ChevronDown size={14} className={cx("shrink-0 text-muted", choosing && "rotate-180")} aria-hidden />

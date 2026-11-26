@@ -10,7 +10,7 @@ import { Card, PageHeader, Row, SavedNote, Section, Select, useSavedFlash } from
 export interface AgentDefaults {
   harness: string | null;
   model: string | null;
-  computer: "shared" | "own-vm" | "none";
+  computer: "device" | "shared" | "own-vm" | "none";
   nodeId: string | null;
   /** a default model for each AI tool (harness id to model id) */
   models: Record<string, string>;

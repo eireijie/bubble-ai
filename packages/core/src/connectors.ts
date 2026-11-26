@@ -532,6 +532,8 @@ export interface SignInOption {
   signIn: boolean;
   /** why not, in plain words */
   reason?: string;
+  /** not yet: Bubble AI's own sign-in app with that company isn't made yet (shown as "Coming soon", not as an error) */
+  soon?: boolean;
   /** what signing in lets agents do */
   reads?: string;
   /** a pasted key works instead */

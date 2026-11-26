@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AudioLines, Bell, Building2, CornerDownLeft, FileText, FolderPlus, LogOut, MessageSquare, Minimize2, PanelLeft, Plus, RotateCcw, Search, SquarePen, Users, type LucideIcon } from "lucide-react";
+import { AudioLines, Bell, Building2, CornerDownLeft, FileText, FolderPlus, LogOut, MessageSquare, Minimize2, Monitor, PanelLeft, Plus, RotateCcw, Search, SquarePen, Users, type LucideIcon } from "lucide-react";
 import type { Agent, Channel, Message } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useInboxCount, useStore, useTeams, type ChannelInfo } from "../store.ts";
@@ -15,6 +15,7 @@ import { chatsTarget } from "./Rail.tsx";
 import { Button, Modal, cx } from "./ui.tsx";
 import { findByWords, openSearch, placesFor, wordMatch } from "./searchIndex.ts";
 import { isTopOverlay, toBody, useOverlay } from "../overlays.ts";
+import { LAYER } from "./layers.ts";
 
 export { openSearch };
 
@@ -205,6 +206,7 @@ const media = (query: string) => typeof window !== "undefined" && !!window.match
 function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: After) => void }) {
   const channels = useStore((s) => s.channels);
   const agents = useStore((s) => s.agents);
+  const computers = useStore((s) => s.computers) ?? [];
   const members = useStore((s) => s.members);
   const me = useStore((s) => s.me);
   const teams = useTeams();
@@ -273,6 +275,15 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
     const first = (name: string) => Number(!name.toLowerCase().startsWith(needle));
     out.push(...chats.sort((x, y) => first(x.name) - first(y.name) || Number(y.mine) - Number(x.mine) || y.at - x.at).slice(0, MOST.chats).map((x) => x.row));
 
+    // computers, by their own name or the name of an agent that works on one ("juno" finds Juno's computer)
+    if (!guest)
+      for (const c of computers
+        .filter((c) => has(c.name) || c.agents.some((id) => { const a = agents.find((x) => x.id === id); return !!a && (has(a.name) || has(a.handle)); }))
+        .slice(0, 4)) {
+        const who = c.agents.map((id) => agents.find((a) => a.id === id)?.name).filter(Boolean).join(", ");
+        out.push({ key: `pc:${c.id}`, group: "Computers", icon: line(Monitor), label: c.name, meta: [who, c.online && c.status === "ready" ? "On" : c.status === "stopped" ? "Asleep" : c.online ? null : "Offline"].filter(Boolean).join(" · ") || undefined, run: () => go({ view: "computers", computerId: c.id }) });
+      }
+
     const clock = me?.prefs?.clock ?? "auto";
     const agentName = (id: string) => agents.find((a) => a.id === id)?.name;
     for (const m of (results?.messages ?? []).slice(0, MOST.messages)) {
@@ -334,7 +345,7 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
     ];
     for (const { words: _words, ...row } of findByWords(typed, actions)) out.push(row);
     return out;
-  }, [q, results, channels, agents, members, teams, me, guest, hubOwner, features, waiting, here, onAfter]);
+  }, [q, results, channels, agents, computers, members, teams, me, guest, hubOwner, features, waiting, here, onAfter]);
 
   const id = useRef(Symbol("palette")).current;
   useOverlay(id, "palette");
@@ -360,7 +371,7 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
   let lastGroup: string | null = null;
   // it drops in from the top over a dim (Bubble AI's motion), and is gone at once when closed
   return toBody(
-    <div className="m-palette-scrim fixed inset-0 z-50 flex items-start justify-center bg-black/45 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] md:pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={`m-palette-scrim fixed inset-0 ${LAYER.modal} flex items-start justify-center bg-black/45 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] md:pt-[12vh]`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label="Search everything" className="m-palette-card flex max-h-full w-full max-w-[583px] flex-col overflow-hidden rounded-[18px] border border-line bg-float shadow-float">
         <div className={cx("flex h-[60px] shrink-0 items-center gap-3 pl-5 pr-3 md:pr-5", rows.length > 0 || q.trim() ? "border-b border-line" : "")}>
           <Search size={19} strokeWidth={1.8} className="shrink-0 text-muted" aria-hidden />

@@ -99,8 +99,8 @@ export function OrgList({ onDone, onNewOrg }: { onDone: () => void; onNewOrg?: (
           void join();
         }}
       >
-        <input value={code} onChange={(e) => setCode(e.target.value)} aria-label="Invite link or code" placeholder="https://…/#/join/…" className="flex-1 min-w-0 h-10 rounded-full bg-chip px-4 text-sm outline-none placeholder:text-faint border border-control-line focus:border-ring" />
-        <button disabled={!code.trim() || joining} className="h-10 px-5 rounded-full bg-accent text-accent-ink text-sm font-medium disabled:opacity-50">
+        <input value={code} onChange={(e) => setCode(e.target.value)} aria-label="Invite link or code" placeholder="https://…/#/join/…" className="flex-1 min-w-0 h-10 rounded-[8px] bg-chip px-4 text-sm outline-none placeholder:text-faint border border-control-line focus:border-ring" />
+        <button disabled={!code.trim() || joining} className="h-10 px-5 rounded-[8px] bg-accent text-accent-ink text-sm font-medium disabled:opacity-50">
           {joining ? "Joining…" : "Join"}
         </button>
       </form>

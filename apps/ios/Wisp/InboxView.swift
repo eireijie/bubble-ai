@@ -17,6 +17,7 @@ struct InboxView: View {
   @State private var creating = false
   /** "Not now" on a request to help on a computer: hidden here until the app is reopened; it stays in the chat and on Computers */
   @State private var putOff: Set<String> = []
+  @State private var failures: [StandingFailure] = []
   @State private var action = FormAction()
 
   private var helpWanted: [Computer] {
@@ -24,7 +25,13 @@ struct InboxView: View {
   }
   private func helpKey(_ c: Computer) -> String { "\(c.id):\(c.help?.at ?? "")" }
   private var pending: [Approval] { store.role == "guest" ? [] : store.pendingApprovals }
-  private var needsCount: Int { pending.count + helpWanted.count }
+  private var shownFailures: [StandingFailure] { store.role == "guest" ? [] : failures.filter { f in store.agent(f.agentId)?.status != .busy } }
+  private var needsCount: Int { pending.count + helpWanted.count + shownFailures.count }
+  /** the setup card above says something is left to do, so "All caught up" would be untrue */
+  private var setupPending: Bool {
+    guard store.role != "guest" else { return false }
+    return store.agents.isEmpty || Readiness.checks(agents: store.agents, devices: store.readyDevices).contains { $0.status == .bad }
+  }
   private var canNewTask: Bool { store.canManage && store.features.tasks && !store.agents.isEmpty }
 
   var body: some View {
@@ -49,6 +56,7 @@ struct InboxView: View {
     .background(Palette.ground.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)
     .task { await load() }
+    .task(id: store.agents.map { "\($0.id):\($0.status)" }.joined(separator: ",")) { if store.role != "guest" { failures = await store.standingFailures() } }
     .onChange(of: TourRun.shared.nav, initial: true) { if TourRun.shared.active && TourRun.shared.place == .inbox { mode = .needs } }
     .bubbleRefresh {
       await store.refreshApprovals()
@@ -104,9 +112,17 @@ struct InboxView: View {
         else if a.login != nil { LoginNeedCard(approval: a) }
         else { ApprovalNeedCard(approval: a, openChat: { openApprovalChat(a) }) }
       }
+      ForEach(shownFailures) { f in
+        FailedNeedCard(failure: f, openChat: { openFailureChat(f) }, done: { failures.removeAll { $0.runId == f.runId } })
+      }
     }
     InboxSections(caughtUp: needsCount == 0, open: open)
-    if needsCount == 0 { CaughtUp(compact: others || !store.agents.isEmpty) }
+    if needsCount == 0, store.unreadChats.isEmpty, store.workingAgents.isEmpty, !setupPending { CaughtUp(compact: others || !store.agents.isEmpty) }
+  }
+
+  private func openFailureChat(_ f: StandingFailure) {
+    guard let ch = store.channels.first(where: { $0.id == f.channelId }) else { return }
+    if let t = f.threadId { thread = ThreadRef(channelId: ch.id, rootId: t) } else { chat = ChatTarget(channel: ch, draft: "") }
   }
 
   private func openApprovalChat(_ a: Approval) {
@@ -116,6 +132,7 @@ struct InboxView: View {
 
   /** The pieces the sections show that the app doesn't already keep fresh. */
   private func load() async {
+    if store.role != "guest" { failures = await store.standingFailures() }
     try? await store.refreshOnboarding()
     if store.features.tasks { try? await store.refreshTasks() }
     if store.features.background { try? await store.refreshAllowance() }
@@ -341,5 +358,105 @@ struct HelpNeedCard: View {
     .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
     .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
     .accessibilityElement(children: .contain)
+  }
+}
+
+
+/** A reply that failed and still stands (GET /api/runs/failed): Needs you shows it with its one fix. */
+struct StandingFailure: Decodable, Identifiable, Hashable {
+  var runId: String
+  var agentId: String
+  var channelId: String
+  var threadId: String?
+  var at: String
+  var part: Part
+
+  var id: String { runId }
+
+  struct Part: Decodable, Hashable {
+    var runId: String?
+    var retry: Bool?
+    var fix: String?
+    var reason: String?
+    var why: String?
+    var harness: String?
+    var nodeId: String?
+  }
+
+  var failure: RunFailure {
+    RunFailure(runId: part.runId ?? runId, retry: part.retry ?? false, fix: part.fix, reason: part.reason, why: part.why, harness: part.harness, nodeId: part.nodeId)
+  }
+
+  /** "Ivy couldn't answer. Codex isn't signed in." */
+  static func text(name: String, why: String?) -> String {
+    let w = why?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return w.isEmpty ? "\(name) couldn't answer." : "\(name) couldn't answer. \(w)"
+  }
+}
+
+extension Store {
+  /** Failed replies nobody has fixed yet; empty on a hub that doesn't list them. */
+  func standingFailures() async -> [StandingFailure] {
+    (try? await fetch { try await $0.get("/api/runs/failed", [:]) as [StandingFailure] }) ?? []
+  }
+}
+
+/** One failed reply on Needs you: who and why, the one fix, and the chat it happened in. */
+struct FailedNeedCard: View {
+  @Environment(Store.self) private var store
+  var failure: StandingFailure
+  var openChat: () -> Void
+  var done: () -> Void
+  @State private var action = FormAction()
+
+  private var agent: Agent? { store.agent(failure.agentId) }
+
+  var body: some View {
+    let f = failure.failure
+    VStack(alignment: .leading, spacing: 12) {
+      Button(action: openChat) {
+        NeedHead(agent: agent, title: StandingFailure.text(name: agent?.name ?? "An agent", why: f.why), sub: Wire.date(failure.at).map { $0.formatted(.relative(presentation: .named)) } ?? "")
+      }
+      .buttonStyle(.plain)
+      HStack(spacing: 10) {
+        fix(f)
+        Button("Open chat", action: openChat).buttonStyle(CardPill(tone: .ghost))
+      }
+      if let error = action.error { Text(error).font(.caption).foregroundStyle(Palette.red) }
+    }
+    .padding(16)
+    .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
+    .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("failed-need")
+  }
+
+  @ViewBuilder private func fix(_ f: RunFailure) -> some View {
+    switch f.action {
+    case .install:
+      Button(action.busy ? "Installing…" : "Install") {
+        action.run {
+          guard let harness = f.harness, let node = f.nodeId else { return }
+          _ = try await store.installHarness(harness, node: node)
+          if f.retry { try await store.retryRun(f.runId) }
+          done()
+        }
+      }
+      .buttonStyle(CardPill(tone: .primary)).disabled(action.busy)
+    case .signIn:
+      NavigationLink {
+        if f.fix == "connection" { ModelsSettingsView() }
+        else if f.fix == "computer", let agent { AgentComputerView(agent: agent) }
+        else { HarnessesView() }
+      } label: { Text("Sign in") }
+      .buttonStyle(CardPill(tone: .primary))
+    case .device:
+      if let agent { NavigationLink { AgentComputerView(agent: agent) } label: { Text("Choose device") }.buttonStyle(CardPill(tone: .primary)) }
+    case .retry:
+      Button("Try again") { action.run { try await store.retryRun(f.runId); done() } }
+        .buttonStyle(CardPill(tone: .primary)).disabled(action.busy)
+    case .none:
+      EmptyView()
+    }
   }
 }

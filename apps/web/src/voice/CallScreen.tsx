@@ -10,7 +10,7 @@ import { familyColor } from "../ghostFamily.ts";
 import { VoiceCall, INITIAL_CALL, type CallState } from "./call.ts";
 import { callFacts, type CallFacts } from "./facts.ts";
 import { callPrefs, setCallPrefs, SPEEDS, speedLabel, useCallPrefs } from "./prefs.ts";
-import { NEEDS_KEY_BROWSER, NEEDS_KEY_DESKTOP } from "./engine.ts";
+import { MIC_NEEDS_SECURE, NEEDS_KEY_BROWSER, NEEDS_KEY_DESKTOP, micAvailable } from "./engine.ts";
 import { createListener, createSpeaker, effectiveListen, inDesktopApp, type VoiceSettings, type VoiceSpeaker } from "./providers.ts";
 import "./voice.css";
 
@@ -28,7 +28,7 @@ export function micHelp(agentName: string, desktop = inDesktopApp()): string {
 }
 
 /** When no listening engine works, the card says what to set up instead of blaming the microphone. */
-export const micCardText = (agentName: string, error: string) => (error === NEEDS_KEY_DESKTOP || error === NEEDS_KEY_BROWSER ? error : micHelp(agentName));
+export const micCardText = (agentName: string, error: string) => (error === NEEDS_KEY_DESKTOP || error === NEEDS_KEY_BROWSER || error === MIC_NEEDS_SECURE ? error : micHelp(agentName));
 
 /** In the desktop app, ask the computer for the microphone, or open its Microphone settings when it was already refused. */
 async function askForMicrophone() {
@@ -41,7 +41,8 @@ async function askForMicrophone() {
   } catch { /* the call tries the microphone again either way */ }
 }
 
-export function CallScreen({ agent, channelId, onClose }: { agent: Agent; channelId: string; onClose(record?: CallRecord): void }) {
+/** `mention`: a team call, where each thing said is addressed to the agent by its handle so it answers. */
+export function CallScreen({ agent, channelId, mention = false, onClose }: { agent: Agent; channelId: string; mention?: boolean; onClose(record?: CallRecord): void }) {
   const [state, setState] = useState(INITIAL_CALL);
   const [seconds, setSeconds] = useState(0);
   const [attempt, setAttempt] = useState(0);
@@ -53,6 +54,8 @@ export function CallScreen({ agent, channelId, onClose }: { agent: Agent; channe
   const offline = agent.status === "offline";
   useEffect(() => {
     setState(INITIAL_CALL); setSeconds(0);
+    // plain http (the phone apps on a home network) has no microphone at all: say so instead of trying
+    if (!micAvailable()) { setState({ ...INITIAL_CALL, error: MIC_NEEDS_SECURE, needsMic: true, phase: "error" }); return; }
     if (offline) return;
     let disposed = false;
     const unsubscribe = observeEvents((e) => call.current?.event(e));
@@ -70,7 +73,7 @@ export function CallScreen({ agent, channelId, onClose }: { agent: Agent; channe
         agentId: agent.id, channelId, cloudListening: effectiveListen(settings) === "openai",
         listener: (cb) => createListener(settings, cb, () => callPrefs().language),
         speaker,
-        send: (body) => api("POST", `/api/channels/${channelId}/messages`, { body, voice: true }),
+        send: (body) => api("POST", `/api/channels/${channelId}/messages`, { body: mention ? `@${agent.handle} ${body}` : body, voice: true }),
         update: setState,
         messages: () => useStore.getState().messages[channelId] ?? [],
         refresh: () => useStore.getState().loadChannel(channelId),
@@ -79,7 +82,7 @@ export function CallScreen({ agent, channelId, onClose }: { agent: Agent; channe
       if (useStore.getState().connected) await session.start(); else session.disconnect();
     }).catch((e) => { if (!disposed) setState((s) => ({ ...s, error: e.message })); });
     return () => { disposed = true; unsubscribe(); call.current?.stop(); call.current = null; };
-  }, [agent.id, channelId, offline, attempt]);
+  }, [agent.id, channelId, offline, attempt, mention]);
   useEffect(() => {
     const startedAt = state.startedAt;
     if (startedAt === null || offline) return;
@@ -133,7 +136,7 @@ export function CallCard({ agent, state, facts, lines, transcript, onMute, onRet
   // with the transcript off, what it is doing ("Reading main.ts") takes the status line
   const status = [state.muted ? "Muted" : offline ? `${agent.name} is asleep` : phase === "speaking" ? `${agent.name} is talking` : (!transcript && activity) || label, timer].filter(Boolean).join(" · ");
   return (
-    <section className="call-card absolute left-1/2 top-[58px] z-30 w-[min(400px,calc(100%-24px))] -translate-x-1/2 overflow-hidden rounded-[22px] border border-line2 bg-float shadow-float" aria-label={`Call with ${agent.name}`}>
+    <section className="call-card absolute left-1/2 top-[calc(4.75rem+env(safe-area-inset-top))] md:top-[58px] z-30 w-[min(400px,calc(100%-24px))] -translate-x-1/2 overflow-hidden rounded-[16px] border border-line2 bg-float shadow-float" aria-label={`Call with ${agent.name}`}>
       <div className={cx("flex h-[72px] items-center gap-2.5 pl-3 pr-3.5", quiet && "call-muted")}>
         <Ghost look={look} size={44} mood={offline ? "asleep" : phase === "working" || phase === "thinking" || phase === "speaking" ? "working" : "awake"} label="" seed={agent.handle} />
         <span className="flex min-w-0 flex-1 flex-col">
@@ -150,8 +153,8 @@ export function CallCard({ agent, state, facts, lines, transcript, onMute, onRet
         <div className="flex flex-col gap-2.5 border-t border-line px-3.5 py-3 text-[13px] leading-5 text-muted" role="alert">
           {micTrouble ? <p>{micCardText(agent.name, state.error)}</p> : failed ? <p>{state.error || "Couldn't connect just yet."}</p> : <p>On hold. The reply will be in chat.</p>}
           <span className="flex gap-2">
-            <button type="button" onClick={onRetry} className="h-8 rounded-full bg-ink px-3.5 text-[13px] font-semibold text-panel">{paused ? "Resume" : "Try again"}</button>
-            {failed && <a href="#/settings/voice" onClick={onEnd} className="inline-flex h-8 items-center gap-1 rounded-full border border-line2 px-3.5 text-[13px] text-ink">Voice settings<ChevronRight size={14} aria-hidden /></a>}
+            {state.error !== MIC_NEEDS_SECURE && <button type="button" onClick={onRetry} className="h-8 rounded-[8px] bg-ink px-3.5 text-[13px] font-semibold text-panel">{paused ? "Resume" : "Try again"}</button>}
+            {failed && <a href="#/settings/voice" onClick={onEnd} className="inline-flex h-8 items-center gap-1 rounded-[8px] border border-line2 px-3.5 text-[13px] text-ink">Voice settings<ChevronRight size={14} aria-hidden /></a>}
           </span>
         </div>
       )}

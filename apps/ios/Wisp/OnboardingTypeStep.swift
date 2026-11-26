@@ -1,265 +1,351 @@
 import SwiftUI
 
-/**
- * First-run page 1: "What should your first agent do?" More than one kind can be picked; each
- * brings the apps it starts with, merged into one sheet where every app is one row with one
- * button. The agent reads them once, before its hello, and changes nothing without a yes.
- * Skipping is always there, and the hello works with nothing connected.
- */
-struct OnboardingTypeStep: View {
-  @Environment(Store.self) private var store
-  @Environment(HostStage.self) private var stage
-  var workspaceId: String
-  var onContinue: () -> Void
-  var onClose: () -> Void
-  @State private var types: [String] = []
-  @State private var other = ""
-  @State private var sheet = false
-  @State private var loaded = false
-  @FocusState private var otherFocused: Bool
+// The first run's pages after "Which AI app" and before it (2026-11-26 canvas, iPhone board), each
+// on the one stage (OnboardingFlow): How it starts (Simple or Advanced, each shown as the same small
+// loop as the desktop), Make it yours (what it helps with, how it talks, when it checks in, with the
+// message it would send on top so each pick lands), and Connect (only apps that can connect from
+// here right now, each with its own sign-in or, for an Apple app on your Mac, Allow).
+
+// MARK: - How it starts
+
+struct OnboardingStartStep: View {
+  var name: String
+  @Binding var path: SetupPath
+  var onNext: () -> Void
   @ReduceMotion private var reduceMotion
 
-  private var apps: [StartApp] { OnboardingCatalog.apps(for: types, other: other, onMac: store.onAMac) }
-  private var ready: [StartApp] { apps.filter { $0.how != .soon } }
-  private var names: [String] { OnboardingCatalog.pickedNames(types, other: other) }
+  var body: some View {
+    ObScreen(top: 64) {
+      VStack(spacing: 14) {
+        ObSlot(size: 64)
+        Text("How should \(name) start?").obTitle()
+        VStack(spacing: 12) {
+          PathTile(on: path == .simple, title: "Simple", sub: "Chat now", id: "simple") { SimpleLoop() } action: { pick(.simple) }
+          PathTile(on: path == .advanced, title: "Advanced", sub: "Goals and apps first", id: "advanced") { AdvancedLoop() } action: { pick(.advanced) }
+        }
+        .padding(.top, 8)
+        .accessibilityElement(children: .contain).accessibilityLabel("How it starts")
+      }
+    } bottom: {
+      Button("Continue", action: onNext).buttonStyle(ObWide()).accessibilityIdentifier("ob-start-next")
+    }
+  }
+
+  private func pick(_ p: SetupPath) {
+    withAnimation(Motion.pick(Motion.pop, reduceMotion)) { path = p }
+  }
+}
+
+/** A start to pick: its loop on the left, its name and a few words on the right. */
+private struct PathTile<Demo: View>: View {
+  var on: Bool
+  var title: String
+  var sub: String
+  var id: String
+  @ViewBuilder var demo: Demo
+  var action: () -> Void
 
   var body: some View {
-    OnboardingPage(step: 1, onClose: onClose) {
-      VStack(alignment: .leading, spacing: 22) {
-        VStack(spacing: 10) {
-          HostGhost(look: OnboardingLook.host, size: 84)
-          Text(names.isEmpty ? "Pick what I'll help with." : names.joined(separator: " · "))
-            .font(.system(size: 13)).foregroundStyle(Palette.muted).multilineTextAlignment(.center).lineLimit(2)
-            .padding(.horizontal, 24)
-            .contentTransition(.opacity)
-            .animation(Motion.pick(Motion.fade, reduceMotion), value: names)
+    Button(action: action) {
+      HStack(spacing: 14) {
+        demo
+          .frame(width: 136, height: 118)
+          .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.field.opacity(0.6)))
+          .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+          .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.text)
+          Text(sub).font(.system(size: 13)).foregroundStyle(Palette.muted)
         }
-        .frame(maxWidth: .infinity).frame(height: 144)
-        .background(RoundedRectangle(cornerRadius: Corner.sheet, style: .continuous).fill(Palette.card))
-        .overlay(RoundedRectangle(cornerRadius: Corner.sheet, style: .continuous).strokeBorder(Palette.cardBorder))
+        Spacer(minLength: 0)
+      }
+      .padding(12)
+      .obTile(on, radius: 20)
+    }
+    .buttonStyle(.pressRow)
+    .accessibilityLabel("\(title). \(sub)")
+    .accessibilityAddTraits(on ? .isSelected : [])
+    .accessibilityIdentifier("ob-path-\(id)")
+  }
+}
 
-        OnboardingHead(title: "What should your first agent do?", sub: "Pick one or more. I'll set up the apps it needs.")
+/** Simple: a chat that just starts, messages coming in. */
+private struct SimpleLoop: View {
+  @ReduceMotion private var reduceMotion
 
-        VStack(spacing: 8) {
-          ForEach(Array(OnboardingCatalog.agentTypes.enumerated()), id: \.element.id) { i, t in
-            TypeChoice(type: t, on: types.contains(t.id)) { toggle(t.id) }.rowEntrance(i)
+  var body: some View {
+    TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { ctx in
+      let t = reduceMotion ? 2.5 : ctx.date.timeIntervalSinceReferenceDate
+      VStack(alignment: .leading, spacing: 8) {
+        msg(t, delay: 0, width: 0.62, me: false)
+        msg(t, delay: 0.9, width: 0.5, me: true)
+        msg(t, delay: 1.8, width: 0.42, me: false)
+      }
+      .padding(12)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+  }
+
+  private func msg(_ t: Double, delay: Double, width: CGFloat, me: Bool) -> some View {
+    let k = reduceMotion ? 1 : obEnvelope(t, delay: delay, rise: (0, 0.08), fall: (0.82, 0.92))
+    return HStack {
+      if me { Spacer(minLength: 0) }
+      Capsule().fill(me ? Palette.text.opacity(0.85) : Palette.card)
+        .overlay(Capsule().strokeBorder(me ? .clear : Palette.hairline))
+        .frame(width: 112 * width, height: 22)
+      if !me { Spacer(minLength: 0) }
+    }
+    .opacity(k).offset(y: (1 - k) * 8)
+  }
+}
+
+/** Advanced: goals get picked, then the apps they need turn on. */
+private struct AdvancedLoop: View {
+  @ReduceMotion private var reduceMotion
+
+  var body: some View {
+    TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { ctx in
+      let t = reduceMotion ? 4 : ctx.date.timeIntervalSinceReferenceDate
+      ZStack(alignment: .topLeading) {
+        VStack(alignment: .leading, spacing: 8) {
+          pick("Research", t, delay: 0)
+          pick("Code", t, delay: 1)
+          pick("Email", t, delay: 2)
+        }
+        VStack(alignment: .trailing, spacing: 8) {
+          on("Notion ✓", t, delay: 3)
+          on("Linear ✓", t, delay: 3.6)
+        }
+        // a row down, beside the short goals: the tile is too narrow for "Research" and an app side by side
+        .padding(.top, 30)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+      }
+      .padding(10)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+  }
+
+  private func chip(_ text: String) -> some View {
+    Text(text).font(.system(size: 11, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+      .padding(.horizontal, 7).frame(height: 22)
+      .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Palette.card))
+  }
+
+  private func pick(_ text: String, _ t: Double, delay: Double) -> some View {
+    let k = reduceMotion ? 1 : obEnvelope(t, delay: delay, rise: (0, 0.1), fall: (0.85, 0.95))
+    return chip(text)
+      .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(k > 0.5 ? ObTint.wisp : Palette.hairline, lineWidth: k > 0.5 ? 1.5 : 1))
+      .opacity(0.35 + 0.65 * k)
+  }
+
+  private func on(_ text: String, _ t: Double, delay: Double) -> some View {
+    let k = reduceMotion ? 1 : obEnvelope(t, delay: delay, rise: (0.02, 0.1), fall: (0.8, 0.9))
+    return chip(text)
+      .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Palette.hairline))
+      .opacity(k).offset(x: (1 - k) * 8)
+  }
+}
+
+// MARK: - Make it yours
+
+struct OnboardingYoursStep: View {
+  var name: String
+  var look: GhostLook
+  @Binding var goals: [String]
+  @Binding var talk: SetupTalk
+  @Binding var checkIn: SetupCheckIn
+  var busy: Bool
+  var onNext: () -> Void
+  @ReduceMotion private var reduceMotion
+
+  private var message: String { SetupGoals.sample(goals, talk: talk, when: checkIn) }
+
+  var body: some View {
+    ObScreen(top: 64) {
+      VStack(alignment: .leading, spacing: 10) {
+        Text("Make \(name) yours").obTitle(24, center: false)
+        // what it would actually send, changing as you pick
+        VStack(alignment: .leading, spacing: 8) {
+          HStack(spacing: 8) {
+            ObSlot(size: 24)
+            Text(name).font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+            Text(checkIn.when).font(.system(size: 12)).foregroundStyle(Palette.faint)
+              .contentTransition(.opacity)
+          }
+          Text(message).font(.system(size: 15)).foregroundStyle(Palette.text)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .background(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 14, bottomTrailingRadius: 14, topTrailingRadius: 14, style: .continuous).fill(Palette.card))
+            .overlay(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 14, bottomTrailingRadius: 14, topTrailingRadius: 14, style: .continuous).strokeBorder(Palette.hairline))
+            .id(message)
+            .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.96, anchor: .topLeading).combined(with: .opacity), removal: .opacity))
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Palette.field.opacity(0.6)))
+        .animation(Motion.pick(Motion.soft, reduceMotion), value: message)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(name) would send: \(message)")
+        .accessibilityIdentifier("ob-yours-preview")
+
+        ObLabel(text: "Help with")
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+          ForEach(SetupGoals.all) { g in
+            let on = goals.contains(g.id)
+            Button { toggle(g.id) } label: {
+              VStack(alignment: .leading, spacing: 0) {
+                Image(systemName: g.symbol).font(.system(size: 16)).foregroundStyle(Palette.text)
+                Spacer(minLength: 0)
+                Text(g.label).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+              }
+              .padding(10)
+              .frame(maxWidth: .infinity, minHeight: 64, maxHeight: 64, alignment: .leading)
+              .overlay(alignment: .topTrailing) {
+                if on {
+                  Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white)
+                    .frame(width: 18, height: 18).background(Circle().fill(ObTint.wisp)).padding(8)
+                    .transition(.scale(scale: 0.4).combined(with: .opacity))
+                }
+              }
+              .obTile(on, radius: 14)
+            }
+            .buttonStyle(.pressRow)
+            .accessibilityLabel(g.label).accessibilityAddTraits(on ? .isSelected : [])
+            .accessibilityIdentifier("ob-goal-\(g.id)")
           }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Kind of agent")
-
-        if types.contains("other") {
-          ObField(placeholder: "In your words, e.g. plan my garden", text: $other, id: "ob-other")
-            .focused($otherFocused)
-            .accessibilityLabel("What it should do, in your words")
-            .obPop()
+        .animation(Motion.pick(Motion.pop, reduceMotion), value: goals)
+        ObLabel(text: "Talks")
+        ObSegmented(label: "Talks", options: SetupTalk.allCases.map { ($0, $0.label) }, selection: $talk)
+        ObLabel(text: "Checks in")
+        ObSegmented(label: "Checks in", options: SetupCheckIn.allCases.map { ($0, $0.label) }, selection: $checkIn)
+      }
+    } bottom: {
+      Button {
+        onNext()
+      } label: {
+        HStack(spacing: 8) {
+          if busy { ProgressView().controlSize(.small).tint(Palette.ground) }
+          Text("Continue")
         }
       }
-      .animation(Motion.pick(Motion.soft, reduceMotion), value: types)
-    } bottom: {
-      Button(ready.isEmpty ? "Continue" : "Set up apps", action: next)
-        .buttonStyle(ObPrimary()).disabled(types.isEmpty).accessibilityIdentifier("ob-type-next")
-      Button("Skip for now", action: skip).buttonStyle(ObQuiet()).accessibilityIdentifier("ob-type-skip")
-    }
-    .sheet(isPresented: $sheet) {
-      AppsSheet(workspaceId: workspaceId, apps: apps, macMissing: OnboardingCatalog.missesMac(types, onMac: store.onAMac)) { connectorIds, appleApps, appNames in
-        save { $0.apps = connectorIds; $0.appleApps = appleApps; $0.appNames = appNames }
-        sheet = false
-        onContinue()
-      }
-      .environment(store).environment(stage)
-    }
-    .task {
-      guard !loaded else { return }
-      loaded = true
-      let saved = OnboardingAnswers.load(workspaceId)
-      types = saved.agentTypes; other = saved.agentOther
-      // Apple apps show only when one of your own devices is a Mac
-      try? await store.refreshNodes()
+      .buttonStyle(ObWide()).disabled(busy).accessibilityIdentifier("ob-yours-next")
     }
   }
 
   private func toggle(_ id: String) {
-    if let i = types.firstIndex(of: id) { types.remove(at: i) } else { types.append(id) }
-    if id == "other", types.contains("other") { otherFocused = true }
-    stage.answer(.nod, reduceMotion: reduceMotion)
-  }
-
-  private func save(_ extra: (inout OnboardingAnswers) -> Void = { _ in }) {
-    OnboardingAnswers.save(workspaceId) {
-      $0.agentTypes = types; $0.agentOther = other.trimmed; $0.typeDone = true
-      extra(&$0)
-    }
-  }
-
-  private func skip() {
-    types = []; other = ""
-    save()
-    onContinue()
-  }
-
-  private func next() {
-    otherFocused = false
-    if !ready.isEmpty { sheet = true; return }
-    save()
-    onContinue()
+    if let i = goals.firstIndex(of: id) { goals.remove(at: i) } else { goals.append(id) }
   }
 }
 
-/** One kind of agent: its line icon, name, what it handles, and the mark that fills when it's picked. */
-private struct TypeChoice: View {
-  var type: AgentType
-  var on: Bool
-  var action: () -> Void
-  @ReduceMotion private var reduceMotion
+// MARK: - Connect
 
-  var body: some View {
-    Button(action: action) {
-      HStack(alignment: .top, spacing: 12) {
-        Image(systemName: type.symbol).font(.system(size: 16, weight: .regular)).foregroundStyle(Palette.text).frame(width: 22, height: 20)
-        VStack(alignment: .leading, spacing: 1) {
-          Text(type.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
-          Text(type.sub).font(.system(size: 13)).foregroundStyle(Palette.muted)
-        }
-        Spacer(minLength: 8)
-        ChoiceMark(on: on).padding(.top, 1)
-      }
-      .padding(.horizontal, 14).padding(.vertical, 12)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Palette.card))
-      .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(on ? Palette.text : Palette.cardBorder, lineWidth: on ? 2 : 1))
-      .contentShape(RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
-    }
-    .buttonStyle(.pressRow)
-    .animation(Motion.pick(Motion.pop, reduceMotion), value: on)
-    .accessibilityLabel("\(type.name). \(type.sub)")
-    .accessibilityAddTraits(on ? .isSelected : [])
-    .accessibilityIdentifier("ob-type-\(type.id)")
-  }
-}
-
-/** Where an app's setup stands in the sheet. */
+/** Where one app's connecting stands. */
 struct AppRowState: Equatable {
-  enum Phase: Equatable { case idle, key, busy, done, failed }
+  enum Phase: Equatable { case idle, busy, done, failed }
   var phase = Phase.idle
   var error: String?
-  /** false: saved, but Bubble AI has no way to try the key */
-  var checked = true
+  /** what to do on the Mac while macOS is being asked (Full Disk Access is a switch, not a prompt) */
+  var hint: String?
 }
 
 /**
- * The apps for the picked kinds, one row each with one button: Allow (an Apple app, macOS asks
- * once on the Mac), Sign in (the hub's sign-in page, in the system's sign-in sheet), Add key (the key goes
- * to Bubble AI, never shown again), or a greyed "Soon".
+ * Connect what it needs: only apps that connect from here right now. A catalog app signs in on its
+ * own page in the system's sign-in sheet (the hub runs the sign-in; the app never sees what's
+ * typed); an Apple app is allowed on your Mac, where macOS asks once. A row says Connected only when
+ * it really is. Nothing is asked for a key here; keys stay in Apps for later.
  */
-struct AppsSheet: View {
+struct OnboardingConnectStep: View {
   @Environment(Store.self) private var store
   @Environment(HostStage.self) private var stage
   var workspaceId: String
+  var agent: Agent
   var apps: [StartApp]
-  var macMissing: Bool
-  var onDone: (_ connectorIds: [String], _ appleApps: [String], _ appNames: [String]) -> Void
+  var onDone: () -> Void
   @State private var rows: [String: AppRowState] = [:]
-  @State private var values: [String: [String: String]] = [:]
-  /** which apps sign in from here (asked once; on failure every app falls back to its key) */
-  @State private var options: [String: SignInOption]?
   /** the connector each app made, by app id */
   @State private var made: [String: String] = [:]
-  /** the system's sign-in sheet, while someone is signing in to an app */
   @State private var browser = SignInBrowser()
-  /** the row whose key form opened last */
-  @State private var keyRow: String?
+  /** each Apple app being allowed, so it can be cancelled */
+  @State private var allowing: [String: Task<Void, Never>] = [:]
+  @State private var leaving = false
   @ReduceMotion private var reduceMotion
 
-  private var modes: [String: AppRowMode] { Dictionary(uniqueKeysWithValues: apps.map { ($0.id, AppRows.mode($0, options: options)) }) }
-  /** apps that can't connect from here go last, as Soon */
-  private var shown: [StartApp] { apps.filter { modes[$0.id] != .soon } + apps.filter { modes[$0.id] == .soon } }
-  private var doneIds: [String] { apps.filter { rows[$0.id]?.phase == .done }.map(\.id) }
+  private var done: [StartApp] { apps.filter { rows[$0.id]?.phase == .done } }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      VStack(alignment: .leading, spacing: 3) {
-        Text("Set up apps").font(.system(size: 18, weight: .semibold)).tracking(-0.2).foregroundStyle(Palette.text).accessibilityAddTraits(.isHeader)
-        Text("I only read while we set up. Anything I'd change waits for your yes.").font(.system(size: 13)).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-        if macMissing {
-          Text("Messages, Calendar and Reminders need Bubble AI on a Mac. You can add them later from one.").font(.system(size: 13)).foregroundStyle(Palette.muted)
-            .fixedSize(horizontal: false, vertical: true).padding(.top, 6)
+    ObScreen(top: 64) {
+      VStack(alignment: .leading, spacing: 12) {
+        HStack(spacing: 12) {
+          ObSlot(size: 44)
+          Text("Connect what \(agent.name) needs").obTitle(22, center: false)
         }
-      }
-      .padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 12)
-      ScrollViewReader { proxy in
-        ScrollView {
-          CardGroup {
-            ForEach(shown) { a in
-              AppRow(app: a, mode: modes[a.id] ?? .soon, reason: options?[a.catalogId ?? ""]?.reason, state: rows[a.id] ?? AppRowState(),
-                     values: Binding(get: { values[a.id] ?? [:] }, set: { values[a.id] = $0 }),
-                     onAllow: { Task { await allow(a) } }, onKey: { set(a.id, AppRowState(phase: .key)); keyRow = a.id }, onSave: { Task { await addKey(a) } }, onSignIn: { Task { await signIn(a) } })
-            }
+        Text("\(done.count) of \(apps.count) connected").font(.system(size: 14)).foregroundStyle(Palette.muted)
+          .contentTransition(.numericText()).animation(Motion.pick(Motion.fade, reduceMotion), value: done.count)
+          .accessibilityIdentifier("ob-connect-count")
+        VStack(spacing: 0) {
+          ForEach(Array(apps.enumerated()), id: \.element.id) { i, a in
+            if i > 0 { Rectangle().fill(Palette.separator).frame(height: 1).padding(.leading, 52) }
+            ConnectRow(app: a, state: rows[a.id] ?? AppRowState(), signIn: OnboardingCatalog.connector(a.catalogId)?.signIn != nil,
+                       onGo: { go(a) },
+                       onCancel: { allowing[a.id]?.cancel(); allowing[a.id] = nil; rows[a.id] = AppRowState() })
           }
-          .padding(.horizontal, 20).padding(.bottom, 8)
-          .animation(Motion.pick(Motion.soft, reduceMotion), value: rows)
         }
-        .scrollDismissesKeyboard(.interactively)
-        // a key form opens with the keyboard: bring it to the middle of what's left, so the field and Connect stay in view
-        .task(id: keyRow) {
-          guard let keyRow else { return }
-          try? await Task.sleep(for: .milliseconds(350))
-          if !Task.isCancelled { withAnimation(Motion.pick(Motion.soft, reduceMotion)) { proxy.scrollTo(AppRow.formId(keyRow), anchor: .center) } }
-        }
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.card))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Palette.hairline))
+        .animation(Motion.pick(Motion.soft, reduceMotion), value: rows)
       }
-      HStack(spacing: 4) {
-        Button(OnboardingCatalog.sheetCta(doneIds.count), action: finish).buttonStyle(ObPrimary()).disabled(doneIds.isEmpty)
-          .contentTransition(.opacity).animation(Motion.pick(Motion.fade, reduceMotion), value: doneIds.count)
-          .accessibilityIdentifier("ob-apps-continue")
-        Button("Skip for now", action: finish).buttonStyle(ObQuiet()).accessibilityIdentifier("ob-apps-skip")
-        Spacer(minLength: 0)
+    } bottom: {
+      if done.isEmpty {
+        Button("Skip for now") { finish() }.buttonStyle(ObQuiet()).disabled(leaving).accessibilityIdentifier("ob-connect-skip")
       }
-      .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 12)
+      Button("Continue") { finish() }.buttonStyle(ObWide()).disabled(done.isEmpty || leaving).accessibilityIdentifier("ob-connect-next")
     }
-    .background(Palette.sheet.ignoresSafeArea())
-    .presentationDetents([.large])
-    .presentationDragIndicator(.visible)
-    .presentationCornerRadius(Corner.sheet)
-    .task {
-      async let asked: [String: SignInOption]? = try? await store.signInOptions()
-      await restore()
-      options = await asked ?? [:]
-    }
-    .accessibilityIdentifier("ob-apps-sheet")
+    .task { await restore() }
   }
 
-  private func set(_ id: String, _ state: AppRowState) { rows[id] = state }
+  private func go(_ a: StartApp) {
+    if a.how == .mac { allowing[a.id] = Task { await allow(a) } } else { Task { await signIn(a) } }
+  }
 
-  /** Apps connected on an earlier visit to this sheet stay connected. */
+  /** Apps connected on an earlier visit stay connected. */
   private func restore() async {
     let prior = OnboardingAnswers.load(workspaceId)
-    for a in apps { if let apple = a.apple, prior.appleApps.contains(apple.rawValue), rows[a.id] == nil { set(a.id, AppRowState(phase: .done)) } }
+    for a in apps { if let apple = a.apple, prior.appleApps.contains(apple.rawValue), rows[a.id] == nil { rows[a.id] = AppRowState(phase: .done) } }
     guard !prior.apps.isEmpty else { return }
     try? await store.refreshConnectors()
     for a in apps {
-      guard let c = store.connectors.first(where: { prior.apps.contains($0.id) && $0.catalogId == a.catalogId }), rows[a.id] == nil else { continue }
+      guard let c = store.connectors.first(where: { prior.apps.contains($0.id) && $0.catalogId == a.catalogId && $0.auth?.signedIn != false }), rows[a.id] == nil else { continue }
       made[a.id] = c.id
-      set(a.id, AppRowState(phase: .done))
+      rows[a.id] = AppRowState(phase: .done)
     }
   }
 
+  /** The agent gets what got connected, then its chat. */
   private func finish() {
+    guard !leaving else { return }
+    leaving = true
     let connected = apps.filter { rows[$0.id]?.phase == .done && made[$0.id] != nil }
+    let ids = connected.compactMap { made[$0.id] }
     let apple = apps.filter { rows[$0.id]?.phase == .done }.compactMap { $0.apple?.rawValue }
-    onDone(connected.compactMap { made[$0.id] }, apple, connected.map(\.name))
+    OnboardingAnswers.save(workspaceId) { $0.apps = ids; $0.appNames = connected.map(\.name); $0.appleApps = apple }
+    Task {
+      if !ids.isEmpty {
+        try? await store.refreshConnectors()
+        await AddAgent.giveAppsAndSkills(to: agent, apps: Set(ids), skills: [], store: store)
+      }
+      onDone()
+    }
   }
 
   // MARK: sign in
 
-  /** One click: the hub makes the connectors and hands back its sign-in page, which opens in the system's sign-in sheet. */
+  /** One tap: the hub makes the connector and hands back its sign-in page, which opens in the system's sign-in sheet. */
   private func signIn(_ a: StartApp) async {
-    let group = AppRows.signInGroup(a, apps: apps, modes: modes) { rows[$0]?.phase == .done }
-    // a key form's keyboard would sit under the sign-in sheet
-    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    for g in group { set(g.id, AppRowState(phase: .busy)) }
+    guard let catalogId = a.catalogId else { return }
+    rows[a.id] = AppRowState(phase: .busy)
     do {
-      // agents get them when the first one is made, like keys added here
-      let start = try await store.connectApps(group.compactMap(\.catalogId))
+      let start = try await store.connectApps([catalogId])
       var error: String?
       if let page = BrowserPage(start.url) {
         browser.open(page.url)
@@ -268,22 +354,22 @@ struct AppsSheet: View {
       } else if start.url != nil {
         error = "\(a.name) sent back a sign-in page this phone can't open."
       }
-      for g in group {
-        let c = store.connectors.first { c in start.connectors.contains { $0.id == c.id } && c.catalogId == g.catalogId } ?? start.connectors.first { $0.catalogId == g.catalogId }
-        if error == nil, let c {
-          made[g.id] = c.id
-          set(g.id, AppRowState(phase: .done))
-        } else {
-          set(g.id, AppRowState(phase: .failed, error: error ?? "\(g.name) didn't connect. Try again."))
-        }
+      let c = store.connectors.first { c in start.connectors.contains { $0.id == c.id } && c.catalogId == catalogId } ?? start.connectors.first { $0.catalogId == catalogId }
+      if error == nil, let c {
+        made[a.id] = c.id
+        rows[a.id] = AppRowState(phase: .done)
+        stage.react(.grab)
+      } else {
+        // a connector left half made would sit in Apps saying it's off
+        for c in start.connectors where c.auth?.signedIn != true { try? await store.deleteConnector(c.id) }
+        rows[a.id] = AppRowState(phase: .failed, error: error ?? "\(a.name) didn't connect. Try again.")
       }
-      if error == nil { stage.react(.grab) }
     } catch {
-      for g in group { set(g.id, AppRowState(phase: .failed, error: error.localizedDescription)) }
+      rows[a.id] = AppRowState(phase: .failed, error: error.localizedDescription)
     }
   }
 
-  /** Look at the connectors until each is signed in, one says why it isn't, the person closes the page, or time runs out. nil: signed in. */
+  /** Look at the connectors until each is signed in, one says why it isn't, the sheet is closed, or time runs out. nil: signed in. */
   private func waitForSignIn(_ ids: [String]) async -> String? {
     let until = Date().addingTimeInterval(5 * 60)
     var closedChecks = 0
@@ -294,7 +380,7 @@ struct AppsSheet: View {
       let last = store.connectors.filter { ids.contains($0.id) }
       if !last.isEmpty, last.allSatisfy({ $0.auth?.signedIn == true }) { return nil }
       if let failed = last.first(where: { $0.auth?.error != nil }) { return failed.auth?.error }
-      // the page was closed: look once more (the hub may just have finished), then stop waiting
+      // the sheet was closed: look once more (the hub may just have finished), then stop waiting
       if browser.closed {
         closedChecks += 1
         if closedChecks >= 2 { break }
@@ -303,50 +389,14 @@ struct AppsSheet: View {
     return "The sign-in didn't finish. Try again."
   }
 
-  // MARK: a key
-
-  private func addKey(_ a: StartApp) async {
-    guard let entry = OnboardingCatalog.connector(a.catalogId) else { return set(a.id, AppRowState(phase: .failed, error: "\(a.name) isn't in this Bubble AI's catalog.")) }
-    let env = (values[a.id] ?? [:]).mapValues(\.trimmed).filter { !$0.value.isEmpty }
-    if let missing = AppRows.missing(entry, values: env) { return set(a.id, AppRowState(phase: .key, error: missing)) }
-    set(a.id, AppRowState(phase: .busy))
-    var created: String?
-    do {
-      var body: Fields = ["kind": AnyEncodable(entry.kind), "name": AnyEncodable(entry.name), "catalogId": AnyEncodable(entry.id), "env": AnyEncodable(env), "agentIds": AnyEncodable([String]())]
-      if entry.kind == "mcp-stdio" { body["command"] = AnyEncodable(entry.command ?? ""); body["args"] = AnyEncodable(entry.args ?? []) }
-      if entry.kind == "mcp-http" { body["url"] = AnyEncodable(entry.url ?? ""); body["headers"] = AnyEncodable(entry.headers ?? [:]) }
-      let id: String
-      do {
-        id = try await store.saveConnector(nil, body).id
-        created = id
-      } catch let clash as API.Failure where clash.status == 409 {
-        // already connected under this name: give it the new key
-        try await store.refreshConnectors()
-        guard let have = store.connectors.first(where: { $0.name == entry.name }) else { throw clash }
-        id = try await store.saveConnector(have.id, ["env": AnyEncodable(env)]).id
-      }
-      // one read to check the key works (only for apps Bubble AI can read itself)
-      let check = await store.checkConnector(id)
-      if !check.ok {
-        if let created { try? await store.deleteConnector(created) }
-        throw API.Failure(status: 0, message: check.error ?? "\(a.name) didn't accept that key.")
-      }
-      made[a.id] = id
-      values[a.id] = [:]
-      set(a.id, AppRowState(phase: .done, checked: check.checked != false))
-      stage.react(.grab)
-    } catch {
-      set(a.id, AppRowState(phase: .key, error: error.localizedDescription))
-    }
-  }
-
   // MARK: an Apple app
 
   /** The Apple mod reads the app on your Mac; macOS asks there, once. Allowing an app here adds the mod, reading only that app. */
   private func allow(_ a: StartApp) async {
     guard let app = a.apple else { return }
-    set(a.id, AppRowState(phase: .busy))
+    rows[a.id] = AppRowState(phase: .busy)
     func fail(_ message: String) -> API.Failure { API.Failure(status: 0, message: message) }
+    var turnedOn = false
     do {
       let fresh = !store.features.apple
       if fresh {
@@ -354,13 +404,15 @@ struct AppsSheet: View {
         var next = store.features
         next.apple = true
         try await store.setFeatures(next)
+        turnedOn = true
       }
       await store.refreshApple()
       let mine = Set(store.nodes.filter { $0.mine == true }.map(\.id))
       guard let mac = store.apple?.macs.first(where: { $0.online && mine.contains($0.nodeId) }) ?? store.apple?.macs.first(where: \.online) else {
         throw fail("Bubble AI can't reach your Mac right now. Open Bubble AI on it, then try again.")
       }
-      var levels: [String: Int] = fresh ? ["messages": 0, "contacts": 0, "calendar": 0, "reminders": 0] : [:]
+      // only the app asked for: everything else (Location too) stays off
+      var levels: [String: Int] = fresh ? ["messages": 0, "contacts": 0, "calendar": 0, "reminders": 0, "location": 0] : [:]
       levels[app.rawValue] = 1
       _ = try await store.saveApple(AppleSettingsPatch(macNodeId: mac.nodeId, levels: levels))
       let pane = OnboardingCatalog.applePermission(app)
@@ -377,6 +429,7 @@ struct AppsSheet: View {
       if await status() != "allowed" {
         // macOS shows its own prompt on the Mac (or its System Settings pane for Full Disk Access)
         _ = try? await store.fetch { try await $0.raw("POST", "/api/apple/mac/permission", body: ["pane": pane]) }
+        rows[a.id] = AppRowState(phase: .busy, hint: pane == "fullDiskAccess" ? "On \(mac.name), turn on Bubble AI in System Settings › Privacy & Security › Full Disk Access." : "Answer the prompt on \(mac.name).")
         let until = Date().addingTimeInterval(120)
         while true {
           try await Task.sleep(for: .milliseconds(1500))
@@ -388,121 +441,81 @@ struct AppsSheet: View {
         }
       }
       OnboardingAnswers.save(workspaceId) { if !$0.appleApps.contains(app.rawValue) { $0.appleApps.append(app.rawValue) } }
-      set(a.id, AppRowState(phase: .done))
+      rows[a.id] = AppRowState(phase: .done)
       stage.react(.grab)
     } catch {
-      set(a.id, AppRowState(phase: .failed, error: error.localizedDescription))
+      // given up or cancelled: the mod this turned on goes back off, so nothing stays on that wasn't allowed
+      if turnedOn, store.role == "owner", OnboardingAnswers.load(workspaceId).appleApps.isEmpty {
+        // its own task: a cancelled one would cancel this request too
+        Task { @MainActor in
+          var next = store.features
+          next.apple = false
+          try? await store.setFeatures(next)
+        }
+      }
+      if error is CancellationError || Task.isCancelled { rows[a.id] = AppRowState(); return }
+      rows[a.id] = AppRowState(phase: .failed, error: error.localizedDescription)
     }
   }
 }
 
-/** One app: its icon, name and what it reads, and the one thing to press. A key row opens a small form under it. */
-struct AppRow: View {
+/** One app: its logo, name and what it reads, and the one thing to press, then Connected. */
+private struct ConnectRow: View {
   var app: StartApp
-  var mode: AppRowMode
-  var reason: String?
   var state: AppRowState
-  @Binding var values: [String: String]
-  var onAllow: () -> Void
-  var onKey: () -> Void
-  var onSave: () -> Void
-  var onSignIn: () -> Void
-  @FocusState private var focused: String?
+  var signIn: Bool
+  var onGo: () -> Void
+  var onCancel: () -> Void
 
-  /** where the sheet scrolls to when this row's key form opens */
-  static func formId(_ appId: String) -> String { "key-form-\(appId)" }
-
-  private var entry: AppConnector? { OnboardingCatalog.connector(app.catalogId) }
-  private var fields: [ConnectorField] { (entry?.fields ?? []).filter { $0.optional != true } }
-  private var soon: Bool { mode == .soon }
-  /** can sign in, but this row has a key too (Slack, GitHub, Notion, Linear, Vercel) */
-  private var keyToo: Bool { mode == .signIn && !fields.isEmpty }
+  private var mac: Bool { app.how == .mac }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(spacing: 12) {
-        Image(systemName: app.symbol).font(.system(size: 16)).foregroundStyle(Palette.muted).frame(width: 22)
+        AppLogo(sources: AppLogo.byName(app.apple.map { "Apple \($0.name)" } ?? app.name), symbol: app.symbol, size: 28)
         VStack(alignment: .leading, spacing: 1) {
-          Text(app.name).font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.text)
-          Text(app.what).font(.system(size: 13)).foregroundStyle(Palette.muted).lineLimit(1)
+          Text(app.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
+          Text(app.what).font(.system(size: 12)).foregroundStyle(Palette.muted).lineLimit(1)
         }
         Spacer(minLength: 8)
         control
       }
-      .frame(minHeight: 36)
-      if state.phase == .key { keyForm.padding(.top, 10).padding(.leading, 34).id(Self.formId(app.id)).obPop() }
+      .frame(minHeight: 46)
+      if state.phase == .busy, let hint = state.hint {
+        Text(hint).font(.system(size: 13)).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+          .padding(.top, 6).padding(.leading, 40).accessibilityIdentifier("ob-app-\(app.id)-hint")
+      }
       if state.phase == .failed, let error = state.error {
         Text(error).font(.system(size: 13)).foregroundStyle(Palette.red).fixedSize(horizontal: false, vertical: true)
-          .padding(.top, 6).padding(.leading, 34).accessibilityLabel("Error: \(error)")
-      }
-      if keyToo, state.phase == .failed {
-        Button("Use a key instead", action: onKey).font(.system(size: 13)).foregroundStyle(Palette.muted).buttonStyle(.plain)
-          .padding(.top, 4).padding(.leading, 34)
+          .padding(.top, 6).padding(.leading, 40).accessibilityLabel("Error: \(error)")
       }
     }
-    .padding(.horizontal, 14).padding(.vertical, 11)
-    .opacity(soon ? 0.55 : 1)
+    .padding(.horizontal, 14).padding(.vertical, 12)
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("ob-app-\(app.id)")
   }
 
   @ViewBuilder private var control: some View {
-    if soon {
-      Text("Soon").font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.faint).accessibilityHint(reason ?? "")
-    } else if mode == .loading {
-      ProgressView().controlSize(.small).accessibilityLabel("Checking")
-    } else {
-      switch state.phase {
-      case .done:
-        HStack(spacing: 4) {
-          DrawnCheck(size: 15, color: Palette.text)
-          Text(app.how == .mac ? "Allowed" : state.checked ? "Connected" : "Added").font(.system(size: 13)).foregroundStyle(Palette.muted)
-        }
-      case .busy:
-        HStack(spacing: 6) {
-          ProgressView().controlSize(.small)
-          Text(app.how == .mac ? "Asking macOS" : mode == .signIn ? "Signing in" : "Checking").font(.system(size: 13)).foregroundStyle(Palette.muted)
-        }
-      case .key:
-        EmptyView()
-      case .idle, .failed:
-        Button(app.how == .mac || mode == .signIn ? (state.phase == .failed ? "Try again" : app.how == .mac ? "Allow" : "Sign in") : "Add key",
-               action: app.how == .mac ? onAllow : mode == .signIn ? onSignIn : onKey)
-          .buttonStyle(ObOutline(height: 32))
-          .accessibilityIdentifier("ob-app-\(app.id)-action")
+    switch state.phase {
+    case .done:
+      HStack(spacing: 4) {
+        DrawnCheck(size: 15)
+        Text(mac ? "Allowed" : "Connected").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.statusOnlineText)
       }
+      .accessibilityElement(children: .combine)
+    case .busy:
+      HStack(spacing: 6) {
+        ProgressView().controlSize(.small)
+        Text(mac ? "Asking macOS" : "Signing in").font(.system(size: 13)).foregroundStyle(Palette.muted)
+        if mac {
+          Button("Cancel", action: onCancel).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text).buttonStyle(.plain)
+            .padding(.leading, 4).accessibilityIdentifier("ob-app-\(app.id)-cancel")
+        }
+      }
+    case .idle, .failed:
+      Button(state.phase == .failed ? "Try again" : mac ? "Allow" : "Connect", action: onGo)
+        .buttonStyle(ObPrimary(height: 34))
+        .accessibilityIdentifier("ob-app-\(app.id)-action")
     }
-  }
-
-  private var keyForm: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      ForEach(fields) { f in
-        Group {
-          if f.secret == true {
-            SecureField(f.placeholder ?? f.label, text: Binding(get: { values[f.key] ?? "" }, set: { values[f.key] = $0 })).textContentType(.password)
-          } else {
-            TextField(f.placeholder ?? f.label, text: Binding(get: { values[f.key] ?? "" }, set: { values[f.key] = $0 }))
-          }
-        }
-        .font(.system(size: 15)).textInputAutocapitalization(.never).autocorrectionDisabled()
-        .padding(.horizontal, 14).frame(height: 40)
-        .background(RoundedRectangle(cornerRadius: Corner.tile, style: .continuous).fill(Palette.control))
-        .overlay(RoundedRectangle(cornerRadius: Corner.tile, style: .continuous).strokeBorder(Palette.hairline))
-        .focused($focused, equals: f.key)
-        .submitLabel(.done).onSubmit(onSave)
-        .accessibilityLabel("\(app.name) \(f.label)")
-      }
-      if let error = state.error {
-        Text(error).font(.system(size: 13)).foregroundStyle(Palette.red).fixedSize(horizontal: false, vertical: true).accessibilityLabel("Error: \(error)")
-      }
-      HStack(spacing: 12) {
-        Button("Connect", action: onSave).buttonStyle(ObPrimary(height: 32)).accessibilityIdentifier("ob-app-\(app.id)-connect")
-        if let link = entry?.fields?.compactMap(\.link).first.flatMap(URL.init(string:)) {
-          Link("Get a key ›", destination: link).font(.system(size: 13)).foregroundStyle(Palette.muted)
-        }
-      }
-      Text("Paste it, or fill it from your password manager. Bubble AI keeps it and never shows it again.").font(.system(size: 12)).foregroundStyle(Palette.faint).fixedSize(horizontal: false, vertical: true)
-    }
-    .onAppear { focused = fields.first?.key }
   }
 }

@@ -211,15 +211,15 @@ export function AppleApprovalCard({ approval, className }: { approval: Approval;
             <p className="text-[13px] text-muted">Waiting for an owner to answer.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={busy || !draftOk} onClick={() => void decide(true)} className="h-9 min-w-24 flex-1 rounded-full bg-accent px-4 text-[14px] font-medium text-accent-ink disabled:opacity-50">
+              <button type="button" disabled={busy || !draftOk} onClick={() => void decide(true)} className="h-9 min-w-24 flex-1 rounded-[8px] bg-accent px-4 text-[14px] font-medium text-accent-ink disabled:opacity-50">
                 {req.yes}
               </button>
               {editable && (
-                <button type="button" disabled={busy} onClick={() => setDraft(draft === null ? (original ?? "") : null)} className="h-9 rounded-full border border-control-line bg-control px-4 text-[14px] font-medium disabled:opacity-50">
+                <button type="button" disabled={busy} onClick={() => setDraft(draft === null ? (original ?? "") : null)} className="h-9 rounded-[8px] border border-control-line bg-control px-4 text-[14px] font-medium disabled:opacity-50">
                   {draft === null ? "Edit" : "Cancel"}
                 </button>
               )}
-              <button type="button" disabled={busy} onClick={() => void decide(false)} className="h-9 rounded-full border border-control-line bg-control px-4 text-[14px] font-medium disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={() => void decide(false)} className="h-9 rounded-[8px] border border-control-line bg-control px-4 text-[14px] font-medium disabled:opacity-50">
                 {req.no}
               </button>
             </div>

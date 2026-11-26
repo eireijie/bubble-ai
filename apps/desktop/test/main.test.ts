@@ -247,6 +247,29 @@ describe("desktop device status", () => {
     expect(f.executeJavaScript).toHaveBeenCalledWith('location.hash = "#/dashboard"');
   });
 
+  it("has one Go item per page (Devices lives in Computers)", () => {
+    const f = fixture();
+    const labels = f.main.appMenu().find((i: any) => i.label === "Go").submenu.map((i: any) => i.label).filter(Boolean);
+    expect(labels).not.toContain("Devices");
+    expect(labels).toContain("Computers");
+  });
+
+  it("forgets a window the page closed and opens Bubble AI again in a new one", async () => {
+    const f = fixture(false, { mode: "remote", hubUrl: "https://hub", device: false });
+    await f.ready();
+    await vi.waitFor(() => expect(f.windows[0].loadURL).toHaveBeenCalledWith("https://hub/"));
+    // window.close() from the page: the window is destroyed without a "close" event
+    Object.assign(f.windows[0], { isDestroyed: () => true });
+    f.windows[0].webContents.getURL = () => { throw new Error("Object has been destroyed"); };
+    f.windows[0].emit("closed");
+    await expect(f.main.readDeviceStatus()).resolves.toBe(false);
+    expect(() => f.main.trayMenu()).not.toThrow();
+    f.app.emit("activate");
+    expect(f.windows).toHaveLength(2);
+    expect(f.windows[1].loadURL).toHaveBeenCalledWith("https://hub/");
+    expect(f.windows[1].show).toHaveBeenCalled();
+  });
+
   it("restores the pending cloud card at startup without exposing the saved key", async () => {
     const f = fixture(true);
     await f.ready();

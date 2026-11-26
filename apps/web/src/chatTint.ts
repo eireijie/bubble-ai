@@ -1,18 +1,8 @@
-import type { CSSProperties } from "react";
-
 /** Ink that reads on a flat colour: near-black on the light ghost colours, white on a dark one. */
 export function inkOn(color: string): string {
   const n = /^#[0-9a-fA-F]{6}$/.test(color) ? parseInt(color.slice(1), 16) : 0xffffff;
   const light = (((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255;
   return light > 0.5 ? "#161616" : "#ffffff";
-}
-
-/**
- * The open agent's colour tints its chat: your bubbles and the composer's round button
- * (`--bubble-me`, `--bubble-me-ink`). A team chat passes no colour and keeps the Bubble AI violet.
- */
-export function chatTint(color: string | undefined): CSSProperties | undefined {
-  return color ? ({ "--bubble-me": color, "--bubble-me-ink": inkOn(color) } as CSSProperties) : undefined;
 }
 
 /** What the composer's one round button does right now. */

@@ -76,6 +76,13 @@ describe("native desk buddy", () => {
     expect(f.win.destroy).toHaveBeenCalled();
   });
 
+  it("leaves the tray's Desk buddy menu out while the mod is off (the page sends no agents)", () => {
+    const f = fixture();
+    expect(f.buddy.menu().visible).toBe(true);
+    f.send(f.main, "agents", [], null);
+    expect(f.buddy.menu().visible).toBe(false);
+  });
+
   it("persists fullscreen visibility and recreates the macOS window with the chosen level and type", () => {
     const f = fixture();
     const toggle = () => f.buddy.menu().submenu.find((i: any) => i.label === "Show over fullscreen apps");

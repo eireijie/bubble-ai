@@ -80,7 +80,7 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
             {shown.map((a) => {
               const line = agentListLine(a, devices, Object.values(live).find((r) => r.agentId === a.id));
               return (
-                <li key={a.id} className="group relative flex h-[76px] items-center gap-3 rounded-[14px] px-2 transition-colors duration-150 hover:bg-side-active">
+                <li key={a.id} className="group relative flex h-[76px] items-center gap-3 rounded-[12px] px-2 transition-colors duration-150 hover:bg-side-active">
                   <button type="button" onClick={() => void openDm(a.id)} aria-label={`Message ${a.name}`} className="flex min-w-0 flex-1 items-center gap-3.5 text-left after:absolute after:inset-0 after:rounded-[12px]">
                     <AgentAvatar agent={a} size={58} live />
                     <span className="min-w-0 flex-1">
@@ -107,9 +107,14 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
           {agents.length > 0 && shown.length === 0 && <p className="px-2 py-3 text-[13px] text-muted">No matches</p>}
           {agents.length === 0 && <p className="px-2 py-3 text-[13px] text-muted">No agents yet</p>}
           {canEdit && (
-            <button type="button" onClick={() => setBringing(true)} className="mt-3 inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">
-              Bring in an agent
-            </button>
+            <div className="mt-3 flex flex-wrap gap-x-1">
+              <a href={href({ view: "templates" })} className="inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">
+                Start from a template
+              </a>
+              <button type="button" onClick={() => setBringing(true)} className="inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">
+                Bring in an agent
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -5,6 +5,7 @@ import { api, getToken, ApiError } from "../api.ts";
 import type { ComputerInfo } from "../store.ts";
 import type { DeviceInfo } from "../devices.ts";
 import { Button, Textarea, cx } from "./ui.tsx";
+import { copyText, readText } from "../clipboard.ts";
 
 /**
  * Keeping a computer in step with the device you're on: its clipboard, its files, and what you
@@ -109,7 +110,7 @@ function localPaste(): Promise<string | null> {
     };
     const timer = setTimeout(() => {
       document.removeEventListener("paste", onPaste, true);
-      navigator.clipboard?.readText().then(resolve, () => resolve(null)) ?? resolve(null);
+      void readText().then(resolve);
     }, 200);
     document.addEventListener("paste", onPaste, { capture: true, once: true });
   });
@@ -155,7 +156,7 @@ export function useClipboardSync(c: ComputerInfo, active: boolean, platform: Rem
       const { text } = await api<{ text: string }>("GET", `/api/computers/${c.id}/clipboard`);
       if (!text || text === known.current) return;
       known.current = text;
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       flash("Copied to this device too");
     } catch {
       // the copy still happened on the computer; this device's clipboard just didn't get it
@@ -249,7 +250,7 @@ export function ClipboardPanel({ computer: c, mine, platform, onClose }: { compu
     });
   const copyHere = () =>
     run("copy", async () => {
-      await navigator.clipboard.writeText(remote ?? "");
+      await copyText(remote ?? "");
       return "Copied to this device";
     });
 
@@ -386,7 +387,7 @@ export function FilesPanel({ computer: c, onClose, refresh, onSent }: { computer
       <PanelHead title={`Files on ${c.name}`} onClose={onClose} />
       <div className="flex flex-wrap gap-1">
         {shortcuts.map((s) => (
-          <button key={s.path} onClick={() => load(s.path)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-line text-xs hover:bg-hover">
+          <button key={s.path} onClick={() => load(s.path)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-[8px] border border-line text-xs hover:bg-hover">
             {s.icon} {s.label}
           </button>
         ))}

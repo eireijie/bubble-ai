@@ -59,6 +59,10 @@ private struct Running: View {
   @State private var modError: String?
   /** Your turn was already picked before Try it, so it stays picked after */
   @State private var filterBefore: String?
+  /** how many messages you had sent in the chat when the Say hi stop landed */
+  @State private var sentBefore: Int?
+  /** the tap count when the Make another stop landed */
+  @State private var tapsBefore = 0
   @AppStorage("wisp.chats.filter", store: WispPreferences.standard) private var chatsFilter = "all"
 
   private var stops: [Tour.Stop] { run.stops }
@@ -82,11 +86,25 @@ private struct Running: View {
     .onChange(of: landed) { updatePassThrough() }
     .onChange(of: hole) { updatePassThrough() }
     .onChange(of: cardFrame) { updatePassThrough() }
+    // doing the thing finishes the stop: a beat to see the check, then on to the next
+    .task(id: DoneKey(i: run.i, done: landed && tried)) {
+      guard landed, tried, let stop, !run.end else { return }
+      tour.markSeen(stop.id)
+      UIAccessibility.post(notification: .announcement, argument: "Done")
+      try? await Task.sleep(for: .milliseconds(stop.doIt == .tap ? 450 : 1000))
+      if !Task.isCancelled, tour.run?.i == run.i { tour.next() }
+    }
     .onAppear { startAtHome() }
     .onDisappear { leaveTryIt(); window.passThrough = nil }
   }
 
   private struct StepKey: Equatable { var i: Int; var end: Bool }
+  private struct DoneKey: Equatable { var i: Int; var done: Bool }
+
+  private func mine(_ channelId: String?) -> Int {
+    guard let channelId else { return 0 }
+    return (store.messages[channelId] ?? []).filter { $0.author.kind == .user }.count
+  }
 
   // MARK: drawing
 
@@ -158,37 +176,37 @@ private struct Running: View {
     let top = dock == .top
     let modOff = stop?.mod.map { !store.features[$0] } ?? false
     return VStack(alignment: .leading, spacing: 5) {
+      // one dot per stop: done ones full, this one half until it's done
       HStack(spacing: 3) {
-        ForEach(0..<Tour.chapters.count, id: \.self) { c in
-          Capsule().fill(run.end || (stop.map { c <= $0.ch } ?? false) ? Palette.mine : Palette.hairline).frame(height: 3)
+        ForEach(stops.indices, id: \.self) { n in
+          Capsule().fill(run.end || n < run.i || (n == run.i && tried) ? Palette.mine : n == run.i ? Palette.mine.opacity(0.45) : Palette.hairline)
+            .frame(height: 3)
         }
       }
+      .animation(.easeOut(duration: 0.3), value: tried)
       .accessibilityHidden(true)
-      Text(run.end ? "Done" : Tour.eyebrow(run.i, stops)).font(.system(size: 12)).foregroundStyle(Palette.muted).padding(.top, 2)
-      Text(run.end ? "That's Bubble AI" : stop?.title ?? "").font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.text)
-        .accessibilityAddTraits(.isHeader)
-      Text(run.end ? "Show me around stays in Help and in Settings › Learn Bubble AI." : stop.map { Tour.body($0, fallback: fallback) } ?? "")
+      HStack(spacing: 6) {
+        Text(run.end ? "That's it" : stop.map { Tour.title($0, agent: agent?.name) } ?? "").font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.text)
+          .accessibilityAddTraits(.isHeader)
+        if tried { DrawnCheck(size: 17, color: ok).accessibilityLabel("Done") }
+      }
+      .padding(.top, 6)
+      Text(run.end ? "Show me around stays in Help." : stop.map { Tour.body($0, fallback: fallback) } ?? "")
         .font(.system(size: 15)).lineSpacing(3).foregroundStyle(Palette.muted)
         .fixedSize(horizontal: false, vertical: true)
-      if let t = stop?.tryIt { tryButton(t) }
       if let k = stop?.mod, modOff || store.features[k] { modSwitch(k) }
       HStack(spacing: 6) {
-        Text(run.end ? "\(stops.count) of \(stops.count)" : "\(run.i + 1) of \(stops.count)")
+        Text(run.end ? "" : Tour.counter(run.i, stops))
           .font(.system(size: 12)).foregroundStyle(Palette.muted).frame(maxWidth: .infinity, alignment: .leading)
         if !run.end {
           Button("Skip tour") { tour.stop() }
             .font(.system(size: 14)).foregroundStyle(Palette.muted).padding(.horizontal, 8).frame(height: 34)
             .buttonStyle(.press).accessibilityIdentifier("tour-skip")
         }
-        if !run.end && run.i > 0 {
-          Button("Back") { tour.back() }
-            .font(.system(size: 14)).foregroundStyle(Palette.text).padding(.horizontal, 14).frame(height: 34)
-            .background(Capsule().fill(Palette.sheet).overlay(Capsule().strokeBorder(Palette.hairline)))
-            .buttonStyle(.press).accessibilityIdentifier("tour-back")
-        }
-        Button(run.end ? "Done" : run.i == stops.count - 1 ? "Finish" : "Next") { tour.next() }
-          .font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.ground).padding(.horizontal, 16).frame(height: 34)
-          .background(Capsule().fill(Palette.text))
+        Button(run.end ? "Done" : "Next") { tour.next() }
+          .font(.system(size: 14, weight: run.end ? .semibold : .medium)).foregroundStyle(run.end ? Palette.ground : Palette.text)
+          .padding(.horizontal, 16).frame(height: 34)
+          .background(Capsule().fill(run.end ? Palette.text : Palette.sheet).overlay(Capsule().strokeBorder(run.end ? .clear : Palette.hairline)))
           .buttonStyle(.press).accessibilityIdentifier("tour-next")
       }
       .padding(.top, 6)
@@ -208,35 +226,17 @@ private struct Running: View {
   }
 
   private var cardFill: Color { scheme == .dark ? Color(hex: 0x1F1F1F) : .white }
-  private var strong: Color { Color(light: 0x7A5BDC, dark: 0xBBA5FA) }
   private var ok: Color { Color(light: 0x1A7F37, dark: 0x30D158) }
 
+  /** Has the stop's thing been done, for real? */
   private var tried: Bool {
-    guard let t = stop?.tryIt else { return false }
-    switch t {
-    case .yourturn: return chatsFilter == "turn"
+    guard let stop, !run.end else { return false }
+    switch stop.doIt {
+    case .send: return sentBefore.map { mine(run.homeChannel) > $0 } ?? false
     case .slash: return tour.composerText.hasPrefix("/") || tour.composerText.contains(" /")
-    case .at: return tour.composerText.hasPrefix("@") || tour.composerText.contains(" @")
+    case .yourturn: return chatsFilter == "turn" && filterBefore != "turn"
+    case .tap: return tour.holeTaps > tapsBefore
     }
-  }
-
-  private func tryButton(_ t: Tour.TryIt) -> some View {
-    Button {
-      switch t {
-      case .yourturn: chatsFilter = "turn"
-      case .slash, .at: if let ch = run.homeChannel { tour.type(t == .slash ? "/" : "@", in: ch, focus: true) }
-      }
-    } label: {
-      if tried {
-        Label("That's it.", systemImage: "checkmark").foregroundStyle(ok)
-      } else {
-        Text(Tour.tryLabel(t)).foregroundStyle(strong)
-      }
-    }
-    .font(.system(size: 13, weight: .semibold))
-    .frame(height: 28)
-    .buttonStyle(.plain)
-    .accessibilityIdentifier("tour-try")
   }
 
   /** A mod that starts off: the card offers it, and only the owner turns it on. */
@@ -261,7 +261,7 @@ private struct Running: View {
         }
       })) { Text("\(name) mod") }
         .labelsHidden()
-        .tint(Palette.blue)
+        .tint(Palette.accent)
         .disabled(!owner || modBusy)
     }
     .padding(.horizontal, 12).padding(.vertical, 8)
@@ -342,10 +342,21 @@ private struct Running: View {
       await fly(to: CGPoint(x: screen.midX, y: screen.height * 0.45))
     }
     guard !Task.isCancelled else { return }
-    if stop.tryIt == .yourturn { filterBefore = chatsFilter }
+    // what's there now, so only what you do from here finishes the stop
+    switch stop.doIt {
+    case .yourturn:
+      filterBefore = chatsFilter
+      if chatsFilter == "turn" { chatsFilter = "all"; filterBefore = "all" }
+    case .send:
+      sentBefore = mine(run.homeChannel)
+      // the box is ready to type in
+      if let ch = run.homeChannel { tour.type(tour.composerText, in: ch, focus: true) }
+    case .slash: break
+    case .tap: tapsBefore = tour.holeTaps
+    }
     withAnimation(.easeOut(duration: 0.25)) { landed = true }
     tour.markSeen(stop.id)
-    UIAccessibility.post(notification: .screenChanged, argument: "\(stop.title). \(Tour.body(stop, fallback: fallback))")
+    UIAccessibility.post(notification: .screenChanged, argument: "\(Tour.title(stop, agent: agent?.name)). \(Tour.body(stop, fallback: fallback))")
   }
 
   /** The control with a little room around it, kept inside the screen so its ring shows whole. */

@@ -7,6 +7,7 @@ import { PROVIDERS, connectWays, siteName } from "../models.ts";
 import { cx } from "./ui.tsx";
 import { SegBar } from "./RunParts.tsx";
 import { canReadClipboard, pasteHereLine, readClipboard } from "../harness-signin.ts";
+import { copyText } from "../clipboard.ts";
 
 /**
  * Connect a model once: a sign-in (one of the person's devices runs the provider's own sign-in and
@@ -116,7 +117,7 @@ function SignIn({ provider, big, onDone, onKey }: { provider: ModelProvider; big
   const copy = async () => {
     if (!login?.code) return;
     try {
-      await navigator.clipboard.writeText(login.code);
+      await copyText(login.code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {}

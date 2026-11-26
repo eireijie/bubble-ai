@@ -24,7 +24,17 @@ export interface DeviceInfo {
   agents: string[];
   capabilities?: DeviceCapabilities | null;
   discovered?: DiscoveredAgent[];
-  harnesses?: { id: string; version: string | null; accounts?: Record<string, boolean | null>; agentAccounts?: Record<string, string> }[];
+  harnesses?: {
+    id: string;
+    version: string | null;
+    accounts?: Record<string, boolean | null>;
+    agentAccounts?: Record<string, string>;
+    /** the models and efforts it offers there (new agents pick from these) */
+    models?: { id: string; label: string; efforts?: string[]; defaultEffort?: string }[];
+    efforts?: string[];
+    defaultModel?: string;
+    defaultEffort?: string;
+  }[];
   /** what's signed in inside each of its VMs (computer id → harness → signed in) */
   vmSignIns?: Record<string, Record<string, boolean | null>>;
   /** the Bubble AI version it runs */
@@ -164,6 +174,32 @@ function joinNames(names: string[]): string {
   return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
+/**
+ * Where an agent's own computer (a VM) goes: the device its current computer or its AI is on when
+ * that one can run VMs, else the first connected device that can. Otherwise why not, in plain
+ * words, and the one thing that fixes it.
+ */
+export function ownComputerPlace(preferred: (string | null | undefined)[], devices: DeviceInfo[]): { nodeId: string } | { problem: string; fix: string | null } {
+  const can = (d: DeviceInfo | undefined) => !!d?.online && !!d.capabilities?.vm.ok;
+  for (const id of preferred) if (id && can(devices.find((d) => d.id === id))) return { nodeId: id };
+  const any = devices.find((d) => can(d) && d.mine) ?? devices.find(can);
+  if (any) return { nodeId: any.id };
+  const near = devices.find((d) => preferred.includes(d.id)) ?? devices.find((d) => d.mine) ?? devices[0];
+  if (!near) return { problem: "Connect a computer first.", fix: null };
+  if (!near.online) return { problem: `${near.name} is offline.`, fix: `Open Bubble AI on ${near.name}.` };
+  return { problem: `${near.name} can't run its own computer yet.`, fix: vmFix(near.capabilities?.vm.detail, near.name) };
+}
+
+/** The one step that lets a device run VMs, from what it said is missing. */
+export function vmFix(detail: string | undefined, name: string): string {
+  const d = detail ?? "";
+  if (/container system start/.test(d)) return `On ${name}, run: container system start`;
+  if (/podman machine start/.test(d)) return `On ${name}, run: podman machine start`;
+  if (/Docker is installed but not running/i.test(d)) return `Start Docker Desktop, OrbStack or Colima on ${name}.`;
+  if (/bubble-ai setup/.test(d)) return `On ${name}, run: bubble-ai setup`;
+  return `Install Docker on ${name}.`;
+}
+
 /** Why no device can run VMs right now, or undefined when one can. Unknown (offline, not reported yet) is never "not installed". */
 export function vmAvailabilityNote(devices: DeviceInfo[]): string | undefined {
   if (devices.some((d) => d.capabilities?.vm.ok)) return undefined;
@@ -176,4 +212,15 @@ export function vmAvailabilityNote(devices: DeviceInfo[]): string | undefined {
   const refused = online.find((d) => d.capabilities && !d.capabilities.vm.ok);
   if (refused) return refused.capabilities!.vm.detail ? `${refused.name}: ${refused.capabilities!.vm.detail}` : "None of your devices can run VMs yet: install Docker on one.";
   return `Checking what ${joinNames(online.map((d) => d.name))} can run…`;
+}
+
+/**
+ * How many machines are on, for the sidebar's Computers row: every connected device (paused ones
+ * aside), plus agent computers (VMs, cloud) that are running. A device's own screen is that device,
+ * so it isn't counted twice. Before the device list has loaded, devices with a screen stand in.
+ */
+export function machinesOn(devices: Pick<DeviceInfo, "online" | "paused">[] | null, computers: Pick<ComputerInfo, "kind" | "online" | "status" | "paused">[]): number {
+  const own = devices ? devices.filter((d) => d.online && !d.paused).length : computers.filter((c) => c.kind === "device" && c.online && !c.paused).length;
+  const vms = computers.filter((c) => c.kind !== "device" && c.online && !c.paused && (c.status === "ready" || c.status === "starting")).length;
+  return own + vms;
 }

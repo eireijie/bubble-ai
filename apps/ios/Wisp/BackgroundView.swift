@@ -127,7 +127,7 @@ struct BackgroundView: View {
   }
 
   private func trackRow(_ row: Loops.TrackRow, chevron: Bool = true) -> some View {
-    let tint = row.onPerson ? Palette.statusNeeds : Palette.blue
+    let tint = row.onPerson ? Palette.statusNeeds : Palette.accent
     return HStack(spacing: 12) {
       Image(systemName: row.onPerson ? "bubble.left" : "clock")
         .font(.system(size: 13, weight: .medium)).foregroundStyle(tint)

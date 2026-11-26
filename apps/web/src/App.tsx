@@ -20,7 +20,7 @@ import { DashboardView } from "./views/DashboardView.tsx";
 import { primeTasks } from "./notifications.ts";
 import { Loader, cx } from "./components/ui.tsx";
 import { enterDeskPane, enterPane, staggerRows, usePresence } from "./motion.ts";
-import { setupProgress, useDismissed, useOnboarding } from "./onboarding.ts";
+import { noteAppPage, setupProgress, useDismissed, useOnboarding } from "./onboarding.ts";
 import { useFeatures } from "./features.ts";
 import { useDesktopAgents } from "./desktop.ts";
 import { lazyView, preloadViews, type LazyView } from "./lazy.tsx";
@@ -42,6 +42,7 @@ const NewTask = lazyView(() => import("./views/TasksView.tsx").then((m) => m.New
 const CodeView = lazyView(() => import("./views/CodeView.tsx").then((m) => m.CodeView));
 const MarketplaceView = lazyView(() => import("./views/MarketplaceView.tsx").then((m) => m.MarketplaceView));
 const HelpView = lazyView(() => import("./views/HelpView.tsx").then((m) => m.HelpView));
+const TemplatesView = lazyView(() => import("./views/TemplatesView.tsx").then((m) => m.TemplatesView));
 const BuddyView = lazyView(() => import("./views/BuddyView.tsx").then((m) => m.BuddyView));
 const AuthorizeView = lazyView(() => import("./views/AuthorizeView.tsx").then((m) => m.AuthorizeView));
 
@@ -51,7 +52,7 @@ function viewFor(route: Route): Pick<LazyView<object>, "preload"> | null {
   const views: Partial<Record<Route["view"], Pick<LazyView<object>, "preload">>> = {
     more: MorePage, vault: VaultView, agents: AgentsView, you: YouPage, settings: SettingsView, welcome: WelcomeView, here: HereView, about: AboutView,
     computers: ComputersView, tasks: TasksView, code: CodeView, marketplace: MarketplaceView, connectors: MarketplaceView, skills: MarketplaceView, mods: MarketplaceView,
-    help: HelpView, buddy: BuddyView, authorize: AuthorizeView,
+    help: HelpView, buddy: BuddyView, authorize: AuthorizeView, templates: TemplatesView,
   };
   return views[route.view] ?? null;
 }
@@ -60,7 +61,8 @@ export function App() {
   const route = useRoute();
   // a page's file arrives behind the same ghost the app starts with (the desk buddy's window stays clear)
   return (
-    <Suspense fallback={route.view === "buddy" ? null : <Loader />}>
+    // before anyone is signed in (straight from the desktop's setup page) the page just stays clear: no bubble pops in and out
+    <Suspense fallback={route.view === "buddy" ? null : getToken() ? <Loader /> : <div className="h-full w-full bg-panel" />}>
       <Routed route={route} />
     </Suspense>
   );
@@ -157,7 +159,8 @@ function Workspace() {
   const newTaskOpen = useStore((s) => s.newTaskOpen);
   const newChatOpen = useStore((s) => s.newChatOpen);
   const channelBrowser = useStore((s) => s.channelBrowser);
-  const loaded = useStore((s) => s.channels.length > 0);
+  // the first load is in (me, chats and agents arrive together)
+  const loaded = useStore((s) => !!s.me);
   const waiting = useInboxCount();
   const asked = routeForRole(useRoute(), me?.role);
   const phone = useIsPhone();
@@ -220,13 +223,16 @@ function Workspace() {
 
   useEffect(() => {
     if (route.view === "chat") rememberChat(route.channelId);
-  }, [route]);
+    // the first run, opened from inside the app, has a Back to where it was opened from
+    if (asked.view !== "welcome") noteAppPage(location.hash);
+  }, [route, asked]);
 
   // the phone-only pages have desktop equivalents, and the bare root is the chats list on phones
   useEffect(() => {
     // the bare root on desktops: what needs you when something does, else the chat you were last in
-    // (replace, so Back doesn't bounce here again)
-    if (!phone && route.view === "chat" && !route.channelId) {
+    // (replace, so Back doesn't bounce here again). Only once the chats are in: deciding before that
+    // always landed on Needs you (the desktop app opens on the bare root, so it always did)
+    if (!phone && loaded && route.view === "chat" && !route.channelId) {
       const newest = waiting > 0 ? null : newestChat();
       location.replace(newest ? href({ view: "chat", channelId: newest, threadId: null }) : href({ view: "dashboard" }));
     }
@@ -267,7 +273,7 @@ function Workspace() {
       case "dashboard":
         return <DashboardView onBack={phone ? toChats : undefined} />;
       case "marketplace":
-        return <MarketplaceView section={route.section ?? "all"} onBack={phone ? toYou : undefined} />;
+        return <MarketplaceView section={route.section ?? "all"} app={route.app ?? null} forAgent={route.forAgent ?? null} onBack={phone ? toYou : undefined} />;
       // older addresses: a sign-in coming back lands on what's installed
       case "connectors":
         return <MarketplaceView section={new URLSearchParams(location.search).has("signin") ? "installed" : "apps"} onBack={phone ? toYou : undefined} />;
@@ -282,12 +288,15 @@ function Workspace() {
       case "agents":
         // one agent's page has its own Back to the list
         return route.agentId ? <AgentsView agentId={route.agentId} tab={route.tab ?? null} /> : backBar(<AgentsView agentId={route.agentId} tab={route.tab ?? null} />);
+      case "templates":
+        return backBar(<TemplatesView />, true, { view: "agents", agentId: null });
       case "about":
         return <AboutView onBack={phone ? toYou : undefined} />;
       case "tasks":
         return <TasksView onBack={phone ? toYou : undefined} />;
       case "code":
-        return backBar(<CodeView />, false);
+        // its Back sits in Code's own bar, beside the pill, so there is no empty row above it
+        return <CodeView back={phone ? href({ view: "you" }) : undefined} />;
       case "computers": {
         const computers = (
           <div data-tour="computers-page" className="contents">
@@ -315,7 +324,8 @@ function Workspace() {
   };
   const view = viewFor(route);
   // a page whose file isn't in yet (only in the app's first moments) holds its place, empty, until it is
-  const page = <Suspense fallback={<div className="flex-1 min-h-0" />}>{view}</Suspense>;
+  // the first run covers the whole window from its first frame: the workspace never shows under it while it loads
+  const page = <Suspense fallback={route.view === "welcome" ? <div className="fixed inset-0 z-40 bg-panel" /> : <div className="flex-1 min-h-0" />}>{view}</Suspense>;
   if (chatOpen) heldChat.current = page;
   const chatLayer = chatOpen || chatPresence.mounted;
   // the pop-up keeps what it showed while it closes

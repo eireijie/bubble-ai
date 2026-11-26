@@ -63,8 +63,9 @@ export type AppleSettings = z.infer<typeof AppleSettings>;
 
 export const APPLE_DEFAULTS: AppleSettings = {
   macNodeId: null,
-  levels: { messages: 1, contacts: 1, calendar: 1, reminders: 1, location: 1 },
-  allAgents: true,
+  // nothing until the person turns an app on and picks agents: macOS asks for each app as it's turned on
+  levels: { messages: 0, contacts: 0, calendar: 0, reminders: 0, location: 0 },
+  allAgents: false,
   agentIds: [],
   // off until the person turns it on: it puts the last words of other people's texts in front of agents
   speakUp: { unanswered: false, unansweredFrom: [], calendar: true, reminders: true, places: true },

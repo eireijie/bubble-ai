@@ -106,6 +106,58 @@ final class GhostTests: XCTestCase {
     XCTAssertEqual(back.bubble, "drop")
   }
 
+  func testOldLooksWearNothingAndSmallBubblesKeepJustEyes() throws {
+    // saved before parts came back: plain eyes, nothing worn, the usual float, whatever the old fields say
+    let old = GhostLook(color: "#6cc4ff", eyes: "big", mouth: "smile", hat: "tophat", accessory: "bowtie", motion: "bounce")
+    XCTAssertEqual(BubbleWorn(old), .plain)
+    XCTAssertEqual(BubbleWorn(nil), .plain)
+    var look = old
+    look.parts = true
+    let worn = BubbleWorn(look)
+    XCTAssertEqual([worn.eyes, worn.mouth, worn.hat, worn.accessory, worn.motion], ["big", "smile", "tophat", "bowtie", "bounce"])
+    XCTAssertTrue(worn.hatted)
+    XCTAssertEqual(worn.sized(22).mouth, "none")
+    XCTAssertEqual(worn.sized(22).hat, "tophat")
+    XCTAssertEqual(worn.sized(18), BubbleWorn(GhostLook(color: "#6cc4ff", eyes: "big", motion: "bounce", parts: true)))
+    // idle eyes never rest dead ahead, whatever the eye style
+    for seed in ["a", "b", "rex", "ivy", "agt_1"] { XCTAssertNotEqual(BubblePainter.rest(seed).x, 0) }
+  }
+
+  func testRenderWornParts() throws {
+    let looks: [(String, String, String, String)] = [
+      ("big", "smile", "tophat", "glasses"), ("sparkle", "cat", "crown", "bowtie"), ("happy", "open", "party", "scarf"),
+      ("wink", "tongue", "propeller", "tie"), ("dots", "fangs", "witch", "sunglasses"), ("big", "smile", "headphones", "monocle"),
+      ("sparkle", "none", "bow", "mustache"), ("dots", "smile", "halo", "none"), ("big", "none", "flower", "none"),
+      ("dots", "none", "beanie", "none"),
+    ]
+    for dark in [false, true] {
+      let gallery = VStack(spacing: 10) {
+        HStack {
+          ForEach(Array(looks.enumerated()), id: \.offset) { i, l in
+            self.sample(GhostLook(color: BubbleColors.all[i % BubbleColors.all.count].hex, eyes: l.0, mouth: l.1, hat: l.2, accessory: l.3,
+                                  bubble: BubbleForm.allCases[i % BubbleForm.allCases.count].rawValue, parts: true), mood: .awake, dark: dark)
+          }
+        }
+        HStack {
+          ForEach(BubbleForm.allCases) { shape in
+            self.sample(GhostLook(color: "#6cc4ff", eyes: "big", mouth: "smile", hat: "tophat", accessory: "bowtie", bubble: shape.rawValue, parts: true), mood: .awake, dark: dark)
+          }
+        }
+      }.padding(20).background(dark ? Color.black : .white)
+      let renderer = ImageRenderer(content: gallery)
+      renderer.scale = 2
+      let image = try XCTUnwrap(renderer.uiImage)
+      let attachment = XCTAttachment(image: image)
+      attachment.name = "Bubbles wearing parts (\(dark ? "dark" : "light"))"
+      attachment.lifetime = .keepAlways
+      add(attachment)
+      if let dir = ProcessInfo.processInfo.environment["BUBBLE_RENDER_DIR"] {
+        try? image.pngData()?.write(to: URL(fileURLWithPath: dir).appendingPathComponent("worn-\(dark ? "dark" : "light").png"))
+      }
+      XCTAssertGreaterThan(image.size.width, 500)
+    }
+  }
+
   func testRenderEveryShapeAndMood() throws {
     for dark in [false, true] {
       let gallery = VStack(spacing: 10) {
@@ -237,7 +289,7 @@ final class GhostTests: XCTestCase {
     Canvas { context, _ in
       var c = context
       c.translateBy(x: 14, y: 14)
-      BubblePainter(shape: BubbleForm(look), color: BubbleColors.color(look, seed: "warren"), mood: mood, size: 70, dark: dark, time: 0.5, animated: true, gaze: nil, spin: nil, ground: dark ? .black : .white).draw(c)
+      BubblePainter(shape: BubbleForm(look), color: BubbleColors.color(look, seed: "warren"), mood: mood, size: 70, dark: dark, time: 0.5, animated: true, gaze: nil, spin: nil, ground: dark ? .black : .white, worn: BubbleWorn(look).sized(70)).draw(c)
     }.frame(width: 98, height: 98)
   }
 }

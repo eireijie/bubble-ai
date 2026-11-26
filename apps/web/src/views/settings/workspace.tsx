@@ -7,7 +7,7 @@ import { useStore, useTeams } from "../../store.ts";
 import { href } from "../../router.ts";
 import { originReach, shareOrigin, useAccess } from "../../access.ts";
 import { deleteOrg, listOrgs, type Org } from "../../orgs.ts";
-import { AgentAvatar, Button, CopyBlock, Field, IconButton, Input, Menu, Modal, Pill, UserAvatar, cx, timeAgo } from "../../components/ui.tsx";
+import { AgentAvatar, Button, CopyBlock, Field, IconButton, Input, Menu, Modal, Pill, UserAvatar, cx, timeAgo, touchFirst } from "../../components/ui.tsx";
 import { LEVEL_LABEL, folderPaths, pathLabel, subjectLabel } from "../../components/AccessDialog.tsx";
 import { Card, Row, SavedNote, Section, Select, Toggle, useSavedFlash } from "./parts.tsx";
 
@@ -781,6 +781,8 @@ export function BackupValue() {
   return <>{info ? `${info.notes} notes · ${info.files} files` : ""}</>;
 }
 
+const count = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
 /** Back up: where everything is kept, and copies to download. */
 export function DataPage() {
   const isOwner = useIsOwner();
@@ -814,9 +816,23 @@ export function DataPage() {
   const isLocal = isLocalOnlyHost(host);
   const where = isLocal ? "this computer" : `the computer at ${host}`;
   const memoryElsewhere = !!(info && memoryPath && !isInside(memoryPath, info.dataDir));
+  // a phone can't copy the folder: it's on the computer Bubble AI runs on, so it only gets the downloads
+  const phone = touchFirst();
   return (
     <div className="space-y-4">
-      {isOwner && info && (
+      {isOwner && info && phone && (
+        <>
+          <Card>
+            <Row label="Inside">
+              <span className="text-muted">
+                {[count(info.notes, "note"), count(info.messages, "message"), count(info.files, "file"), count(info.agents, "agent")].join(" · ")}
+              </span>
+            </Row>
+          </Card>
+          <p className="px-1 text-[13px] text-muted">Your data lives on the computer Bubble AI runs on. Copy its folder there for a full backup, or download copies here.</p>
+        </>
+      )}
+      {isOwner && info && !phone && (
         <>
           <Card>
             <Row label="Folder">
@@ -827,7 +843,7 @@ export function DataPage() {
             </div>
             <Row label="Inside">
               <span className="text-muted">
-                {info.notes} notes · {info.messages} messages · {info.files} files · {info.agents} agents
+                {[count(info.notes, "note"), count(info.messages, "message"), count(info.files, "file"), count(info.agents, "agent")].join(" · ")}
               </span>
             </Row>
           </Card>

@@ -55,6 +55,10 @@ final class HostStage {
   /** the look-up before a reaction to an answer: long enough to read as thinking, short enough not to wait on */
   static let think: Duration = .milliseconds(320)
 
+  /** where each page wants the travelling bubble, in the stage's space, by page id (ObSlot) */
+  private(set) var slots: [String: CGRect] = [:]
+  func setSlot(_ page: String, _ rect: CGRect) { if slots[page] != rect { slots[page] = rect } }
+
   func react(_ kind: HostReaction) {
     self.kind = kind
     beat += 1
@@ -419,4 +423,172 @@ struct BrowserPage: Identifiable, Equatable {
     guard let address, let url = URL(string: address), ["https", "http"].contains(url.scheme ?? "") else { return nil }
     self.url = url
   }
+}
+
+// MARK: - The one stage (2026-11-26 canvas, iPhone board)
+
+private struct ObPageKey: EnvironmentKey { static let defaultValue = "" }
+extension EnvironmentValues {
+  /** the page this view is on, so its ObSlot tells the stage where the bubble goes on that page */
+  var obPage: String {
+    get { self[ObPageKey.self] }
+    set { self[ObPageKey.self] = newValue }
+  }
+}
+
+/** The stage's coordinate space: slots are measured in it and the bubble is drawn in it. */
+enum ObStage { static let space = "ob-stage" }
+
+/**
+ * Where the stage's one bubble sits on this page, at this size. The bubble itself isn't here: it
+ * travels from the last page's slot to this one and resizes on the way (OnboardingFlow).
+ */
+struct ObSlot: View {
+  @Environment(HostStage.self) private var stage
+  @Environment(\.obPage) private var page
+  var size: CGFloat
+
+  var body: some View {
+    Color.clear.frame(width: size, height: size)
+      .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(ObStage.space)) } action: { stage.setSlot(page, $0) }
+      .accessibilityHidden(true)
+  }
+}
+
+/** A page on the stage: what scrolls, then its buttons pinned at the bottom. The top leaves room for Back. */
+struct ObScreen<Content: View, Bottom: View>: View {
+  var top: CGFloat = 64
+  var focus: String? = nil
+  @ViewBuilder var content: Content
+  @ViewBuilder var bottom: Bottom
+  @ReduceMotion private var reduceMotion
+
+  var body: some View {
+    VStack(spacing: 0) {
+      ScrollViewReader { proxy in
+        ScrollView {
+          content
+            .padding(.horizontal, 20).padding(.top, top).padding(.bottom, 20)
+            .frame(maxWidth: 520)
+            .frame(maxWidth: .infinity)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .scrollBounceBehavior(.basedOnSize)
+        .onChange(of: focus) { _, new in
+          guard new != nil else { return }
+          withAnimation(Motion.pick(Motion.soft, reduceMotion)) { proxy.scrollTo(OnboardingFocus.id, anchor: .bottom) }
+        }
+      }
+      VStack(spacing: 2) { bottom }
+        .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 8)
+        .frame(maxWidth: 520)
+        .frame(maxWidth: .infinity)
+    }
+  }
+}
+
+/** The page's one big button: full width, 50pt, ink. */
+struct ObWide: ButtonStyle {
+  @Environment(\.isEnabled) private var enabled
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.ground).lineLimit(1)
+      .frame(maxWidth: .infinity).frame(height: 50)
+      .background(Capsule().fill(Palette.text))
+      .opacity(enabled ? 1 : 0.35)
+      .contentShape(Capsule())
+      .pressFeedback(configuration.isPressed, scale: 0.97)
+  }
+}
+
+/** The wisp colour the first run picks things out with. */
+enum ObTint {
+  static let wisp = Color(hex: 0xA98BF5)
+  static let fill = Color(hex: 0xA98BF5).opacity(0.14)
+}
+
+/** A tile that can be picked: a hairline, or the wisp ring and tint when it is. */
+struct ObTileBack: ViewModifier {
+  var on: Bool
+  var radius: CGFloat = 16
+
+  func body(content: Content) -> some View {
+    content
+      .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(on ? ObTint.fill : Palette.card))
+      .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(on ? ObTint.wisp : Palette.hairline, lineWidth: on ? 2 : 1))
+      .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+  }
+}
+
+extension View {
+  func obTile(_ on: Bool, radius: CGFloat = 16) -> some View { modifier(ObTileBack(on: on, radius: radius)) }
+
+  /** A page title: big and tight. */
+  func obTitle(_ size: CGFloat = 24, center: Bool = true) -> some View {
+    font(.system(size: size, weight: .bold)).tracking(-0.4).foregroundStyle(Palette.text)
+      .multilineTextAlignment(center ? .center : .leading)
+      .fixedSize(horizontal: false, vertical: true)
+      .accessibilityAddTraits(.isHeader)
+  }
+}
+
+/** A small label over a group of choices. */
+struct ObLabel: View {
+  var text: String
+  var body: some View {
+    Text(text).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.muted)
+      .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
+  }
+}
+
+/** Three choices in a row, the picked one raised (Talks, Checks in). */
+struct ObSegmented<T: Hashable>: View {
+  var label: String
+  var options: [(T, String)]
+  @Binding var selection: T
+  @Namespace private var pill
+  @ReduceMotion private var reduceMotion
+
+  var body: some View {
+    HStack(spacing: 4) {
+      ForEach(options, id: \.0) { value, text in
+        let on = selection == value
+        Button { withAnimation(Motion.pick(Motion.soft, reduceMotion)) { selection = value } } label: {
+          Text(text).font(.system(size: 13, weight: .semibold)).foregroundStyle(on ? Palette.text : Palette.muted)
+            .frame(maxWidth: .infinity).frame(height: 32)
+            .background {
+              if on {
+                RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Palette.control)
+                  .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Palette.hairline))
+                  .shadow(color: .black.opacity(0.06), radius: 1, y: 1)
+                  .matchedGeometryEffect(id: "pill", in: pill)
+              }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(text)
+        .accessibilityAddTraits(on ? .isSelected : [])
+      }
+    }
+    .padding(4)
+    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.field))
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(label)
+  }
+}
+
+/**
+ * A loop's envelope: 0 before `rise`, up to 1 across it, 1 until `fall`, back to 0 across it. `t`
+ * is seconds into a loop of `period`, shifted by `delay` (the web's CSS keyframes, as numbers).
+ */
+func obEnvelope(_ t: Double, period: Double = 6, delay: Double = 0, rise: (Double, Double), fall: (Double, Double)) -> Double {
+  var k = (t - delay).truncatingRemainder(dividingBy: period) / period
+  if k < 0 { k += 1 }
+  if k < rise.0 { return 0 }
+  if k < rise.1 { return (k - rise.0) / max(0.0001, rise.1 - rise.0) }
+  if k < fall.0 { return 1 }
+  if k < fall.1 { return 1 - (k - fall.0) / max(0.0001, fall.1 - fall.0) }
+  return 0
 }

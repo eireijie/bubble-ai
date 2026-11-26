@@ -121,6 +121,11 @@ describe("device pages", () => {
 
   it("sends the old Marketplace Agents address to All", () => {
     expect(router.parseRoute("#/marketplace/agents")).toEqual({ view: "marketplace", section: null });
+    // an app's own page, and back
+    expect(router.parseRoute("#/marketplace/app/b%3Agmail")).toEqual({ view: "marketplace", section: null, app: "b:gmail" });
+    expect(router.parseRoute("#/marketplace/app/r%3Aio.github%2Fnotion")).toEqual({ view: "marketplace", section: null, app: "r:io.github/notion" });
+    expect(router.href({ view: "marketplace", section: null, app: "b:gmail" })).toBe("#/marketplace/app/b%3Agmail");
+    expect(router.href({ view: "marketplace", section: "apps" })).toBe("#/marketplace/apps");
     expect(router.parseRoute("#/marketplace/mods")).toEqual({ view: "mods" });
     expect(router.parseRoute("#/more")).toEqual({ view: "more" });
   });

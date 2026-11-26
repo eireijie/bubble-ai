@@ -26,3 +26,4 @@ export * from "./watches.ts";
 export * from "./conversations.ts";
 export * from "./outside.ts";
 export * from "./usage-limits.ts";
+export * from "./role-phrase.ts";

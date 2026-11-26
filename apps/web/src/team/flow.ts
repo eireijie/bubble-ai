@@ -624,3 +624,40 @@ export function leadOf(team: ChannelTeam, agents: Pick<Agent, "id">[], fallback?
   const has = (id: string | null | undefined) => !!id && agents.some((a) => a.id === id);
   return has(onTeam) ? onTeam! : has(fallback) ? fallback! : (agents[0]?.id ?? null);
 }
+
+/**
+ * The agents a new step goes to first: the picked lead, then the rest picked for the team, then
+ * everyone else. So "+" on a new team's empty canvas gives the step to the agent the person picked,
+ * not to whoever happens to be first in the workspace.
+ */
+export function castFor<A extends { id: string }>(agents: A[], leadId: string | null | undefined, pool?: string[]): A[] {
+  const order = [...(leadId ? [leadId] : []), ...(pool ?? [])];
+  const first = order.map((id) => agents.find((a) => a.id === id)).filter((a): a is A => !!a);
+  return [...new Set([...first, ...agents])];
+}
+
+/**
+ * Who "Tell … how the team should work" asks: the lead marked on the chart, else the agent the
+ * person picked to lead (it stays, whatever agent a new step went to), else the first agent on
+ * the chart, else the workspace's lead.
+ */
+export function builderLead(team: ChannelTeam, agents: Pick<Agent, "id">[], leadId: string | null | undefined, workspaceLead: string | null | undefined): string | null {
+  const has = (id: string | null | undefined) => !!id && agents.some((a) => a.id === id);
+  const marked = team.nodes.find((n) => n.lead)?.agentId;
+  if (has(marked)) return marked!;
+  if (has(leadId)) return leadId!;
+  return leadOf(team, agents, workspaceLead);
+}
+
+/** A new team's first chart: one step for each agent picked for it, in the order picked, the first leading. */
+export function seedTeam(team: ChannelTeam, picked: string[]): ChannelTeam {
+  if (stepsOf(team).length || !picked.length) return team;
+  let next = team;
+  let prev: string | null = null;
+  for (const agentId of picked) {
+    const made = addStep(next, "agent", prev ? { after: prev } : {}, [{ id: agentId }]);
+    next = { ...made.team, steps: (made.team.steps ?? []).map((s) => (s.id === made.id ? { ...s, agentId } : s)) as typeof made.team.steps };
+    prev = made.id;
+  }
+  return withChart(relayout(next));
+}

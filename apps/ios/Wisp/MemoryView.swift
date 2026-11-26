@@ -83,7 +83,7 @@ struct MemoryFolderView: View {
   }
   private func noteRow(_ note: MemoryNote) -> some View {
     NavigationLink { NoteView(path: note.path) } label: {
-      RowLabel(title: (note.path as NSString).lastPathComponent, subtitle: note.updatedText.map { "Edited \($0)" } ?? note.snippet.map { $0.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression) }) {
+      RowLabel(title: noteTitle(note.path), subtitle: note.updatedText.map { "Edited \($0)" } ?? note.snippet.map { $0.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression) }) {
         Image(systemName: "doc.text").font(.system(size: 18)).foregroundStyle(Palette.muted)
       }
     }.buttonStyle(.plain).accessibilityIdentifier("note-row")
@@ -139,7 +139,7 @@ struct NoteView: View {
           let who = displayAuthor(author, store: store)
           HStack(spacing: 8) {
             AuthorAvatar(author: who, size: 26)
-            Text("Written by \(who.name)" + (note.editedAt.flatMap(relative).map { " · edited \($0)" } ?? "")).font(.system(size: 15)).foregroundStyle(Palette.muted)
+            Text(who.name + (note.editedAt.flatMap(relative).map { " · edited \($0)" } ?? "")).font(.system(size: 15)).foregroundStyle(Palette.muted)
           }.padding(.horizontal, 6)
         }
         tagRow(note)
@@ -190,7 +190,7 @@ struct NoteView: View {
     }
     .overlay {
       if deleting {
-        ConfirmCard(symbol: "trash", title: "Delete this note?", message: "\((path as NSString).lastPathComponent) will be removed from memory. Anything that links to it will point nowhere. You can bring it back from History.", confirm: "Delete note", cancel: "Keep it", busy: action.busy, onConfirm: {
+        ConfirmCard(symbol: "trash", title: "Delete this note?", message: "\(noteTitle(path)) will be removed from memory. Anything that links to it will point nowhere. You can bring it back from History.", confirm: "Delete note", cancel: "Keep it", busy: action.busy, onConfirm: {
           action.run {
             removingNote = true
             do { try await store.deleteNote(path); deleting = false; dismiss() }
@@ -246,7 +246,7 @@ struct NoteView: View {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 8) {
           ForEach(tags, id: \.self) { TagChip(text: $0) }
-          if let type { TagChip(text: type.capitalizedFirst, tint: graph?.nodes.first { $0.id == path }?.graphKind.color(dark: scheme == .dark) ?? Palette.blue) }
+          if let type { TagChip(text: type.capitalizedFirst, tint: graph?.nodes.first { $0.id == path }?.graphKind.color(dark: scheme == .dark) ?? Palette.accent) }
         }.padding(.horizontal, 6)
       }
     }
@@ -296,7 +296,7 @@ struct NoteActionsSheet: View {
   var body: some View {
     VStack(spacing: 12) {
       CardGroup {
-        Text((path as NSString).lastPathComponent).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.faint).padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 6).frame(maxWidth: .infinity, alignment: .leading)
+        Text(noteTitle(path)).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.faint).padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 6).frame(maxWidth: .infinity, alignment: .leading)
         if canEdit { row("Rename", "pencil", .rename); row("Move to another folder", "folder.badge.gearshape", .move) }
         row("Who can see this note", "lock", .access)
         row("Open in Obsidian", "arrow.up.right.square", .obsidian)
@@ -336,7 +336,7 @@ struct NoteEditor: View {
         Button { dismiss() } label: { Text("Cancel").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).padding(.horizontal, 20).frame(height: 44).background(Capsule().fill(Palette.control)).overlay(Capsule().strokeBorder(Palette.hairline)) }
           .buttonStyle(.plain).disabled(action.busy)
         Spacer()
-        Text((path as NSString).lastPathComponent).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+        Text(noteTitle(path)).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
         Spacer()
         Button(action: save) { Text(action.busy ? "Saving…" : "Save").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.sheet).padding(.horizontal, 22).frame(height: 44).background(Capsule().fill(Palette.text)).opacity(valid && !action.busy ? 1 : 0.4) }
           .buttonStyle(.plain).disabled(!valid || action.busy).accessibilityIdentifier("save-note")
@@ -461,7 +461,7 @@ struct MoveNoteView: View {
   private func folderRow(_ folder: String, subtitle: String?, choose: String?) -> some View {
     Button { if let choose { target = choose; useOther = false } } label: {
       RowLabel(title: pretty(folder), subtitle: subtitle, chevron: choose != nil && target != choose) {
-        Image(systemName: target == choose && choose != nil ? "checkmark.circle.fill" : "folder").font(.system(size: 18)).foregroundStyle(target == choose && choose != nil ? Palette.blue : Palette.muted)
+        Image(systemName: target == choose && choose != nil ? "checkmark.circle.fill" : "folder").font(.system(size: 18)).foregroundStyle(target == choose && choose != nil ? Palette.accent : Palette.muted)
       }
     }.buttonStyle(.plain).disabled(choose == nil)
   }

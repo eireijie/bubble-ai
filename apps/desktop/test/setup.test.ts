@@ -83,24 +83,27 @@ describe("Bubble AI first launch", () => {
     for (const [name, text] of Object.entries(files)) expect(readFileSync(new URL(`../src/${name}`, import.meta.url), "utf8"), `${name} is out of date: run node apps/desktop/scripts/build-mark-motion.mjs`).toBe(text);
   });
 
-  it("goes from Self-Host through installing to Continue, which opens the server", async () => {
+  it("goes from Self-Host straight into starting the server, then opens it", async () => {
     const f = fixture({});
     await new Promise((resolve) => setImmediate(resolve));
     expect(f.element("welcome").hidden).toBe(false);
-    // a desktop that stays on: Self-Host is recommended, and Continue goes there
+    // a desktop that stays on: Self-Host is recommended, and Continue starts it (no page of its own)
     f.element("pick-create").onclick();
-    f.element("welcome-go").onclick();
-    expect(f.element("create").hidden).toBe(false);
-    expect(f.setup.create).not.toHaveBeenCalled();
-    const installing = f.element("create-go").onclick();
+    const installing = f.element("welcome-go").onclick();
     expect(f.element("installing").hidden).toBe(false);
     await installing;
     expect(f.setup.create).toHaveBeenCalledWith({ device: true });
-    expect(f.element("ready").hidden).toBe(false);
-    expect(f.setup.open).not.toHaveBeenCalled();
-    await f.element("ready-go").onclick();
     expect(f.setup.open).toHaveBeenCalledOnce();
     expect(f.element("starting").hidden).toBe(false);
+  });
+
+  it("asks once whether agents may use this computer, and passes the answer on", async () => {
+    const f = fixture({});
+    await new Promise((resolve) => setImmediate(resolve));
+    f.element("use-here").checked = false;
+    f.element("pick-create").onclick();
+    await f.element("welcome-go").onclick();
+    expect(f.setup.create).toHaveBeenCalledWith({ device: false });
   });
 
   it("goes back to Self-Host with the reason when the server doesn't start", async () => {
@@ -232,17 +235,17 @@ describe("Back and Escape", () => {
     expect(f.element("join").hidden).toBe(false);
   });
 
-  it("Self-Host goes back to the first page, and Escape while installing does nothing", async () => {
+  it("Escape while the server starts does nothing; after it fails, Escape goes back to the first page", async () => {
     const f = fixture({});
+    f.setup.create.mockResolvedValueOnce({ ok: false, error: "The server didn't start." });
     f.element("pick-create").onclick();
-    f.element("welcome-go").onclick();
-    f.esc();
-    expect(f.element("welcome").hidden).toBe(false);
-    f.element("pick-create").onclick();
-    f.element("welcome-go").onclick();
-    f.element("create-go").onclick();
+    const starting = f.element("welcome-go").onclick();
     f.esc();
     expect(f.element("installing").hidden).toBe(false);
+    await starting;
+    expect(f.element("create").hidden).toBe(false);
+    f.esc();
+    expect(f.element("welcome").hidden).toBe(false);
   });
 
   it("ignores Escape while an input method is composing", async () => {

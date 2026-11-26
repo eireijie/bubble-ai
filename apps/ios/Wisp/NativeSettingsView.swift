@@ -10,54 +10,56 @@ struct NativeSettingsView: View {
     SettingsPage("Settings", id: "settings") {
       CardLabel("You")
       CardGroup {
-        NavigationLink { ProfileSettingsView() } label: { RowLabel(title: "Profile") }.accessibilityIdentifier("settings-profile")
-        NavigationLink { NotificationSettingsView() } label: { RowLabel(title: "Notifications") }.accessibilityIdentifier("settings-notifications")
-        NavigationLink { AppearanceSettingsView() } label: { RowLabel(title: "Appearance") }.accessibilityIdentifier("settings-appearance")
-        NavigationLink { PreferencesView() } label: { RowLabel(title: "App behavior") }.accessibilityIdentifier("settings-behavior")
-        if !guest { NavigationLink { VoiceSettingsView() } label: { RowLabel(title: "Voice") }.accessibilityIdentifier("settings-voice") }
-        if !guest { NavigationLink { DeskBuddySettingsView() } label: { RowLabel(title: "Desk buddy") }.accessibilityIdentifier("settings-buddy") }
-        NavigationLink { SecuritySettingsView() } label: { RowLabel(title: "Security") }.accessibilityIdentifier("settings-security")
+        NavigationLink { ProfileSettingsView() } label: { RowLabel(title: "Profile", leading: { rowIcon("person.crop.circle") }) }.accessibilityIdentifier("settings-profile")
+        NavigationLink { NotificationSettingsView() } label: { RowLabel(title: "Notifications", leading: { rowIcon("bell") }) }.accessibilityIdentifier("settings-notifications")
+        NavigationLink { AppearanceSettingsView() } label: { RowLabel(title: "Appearance", leading: { rowIcon("circle.lefthalf.filled") }) }.accessibilityIdentifier("settings-appearance")
+        NavigationLink { PreferencesView() } label: { RowLabel(title: "App behavior", leading: { rowIcon("switch.2") }) }.accessibilityIdentifier("settings-behavior")
+        if !guest { NavigationLink { VoiceSettingsView() } label: { RowLabel(title: "Voice", leading: { rowIcon("waveform") }) }.accessibilityIdentifier("settings-voice") }
+        if !guest { NavigationLink { DeskBuddySettingsView() } label: { RowLabel(title: "Desk buddy", leading: { rowIcon("desktopcomputer") }) }.accessibilityIdentifier("settings-buddy") }
+        NavigationLink { SecuritySettingsView() } label: { RowLabel(title: "Security", leading: { rowIcon("lock") }) }.accessibilityIdentifier("settings-security")
       }
       if !guest {
         CardLabel("Workspace")
         CardGroup {
-          NavigationLink { WorkspaceSettingsView() } label: { RowLabel(title: "Workspace") }.accessibilityIdentifier("settings-workspace")
+          NavigationLink { WorkspaceSettingsView() } label: { RowLabel(title: "Workspace", leading: { rowIcon("building.2") }) }.accessibilityIdentifier("settings-workspace")
           if store.features.invite || store.members.count > 1 {
-            NavigationLink { PeopleSettingsView() } label: { RowLabel(title: "People") }.accessibilityIdentifier("settings-people")
+            NavigationLink { PeopleSettingsView() } label: { RowLabel(title: "People", leading: { rowIcon("person.2") }) }.accessibilityIdentifier("settings-people")
           }
-          NavigationLink { UsageView() } label: { RowLabel(title: "Usage") }.accessibilityIdentifier("settings-usage")
+          NavigationLink { UsageView() } label: { RowLabel(title: "Usage", leading: { rowIcon("chart.bar") }) }.accessibilityIdentifier("settings-usage")
         }
       }
       if store.canManage {
         CardLabel("Agents")
         CardGroup {
-          NavigationLink { AgentPolicyView() } label: { RowLabel(title: "Permissions") }.accessibilityIdentifier("settings-agents")
-          NavigationLink { AgentDefaultsView() } label: { RowLabel(title: "Agent defaults") }.accessibilityIdentifier("settings-agent-defaults")
-          NavigationLink { ConnectionsSettingsView() } label: { RowLabel(title: "Outside agents") }.accessibilityIdentifier("settings-connections")
-          NavigationLink { MemoryStorageView() } label: { RowLabel(title: "Memory storage") }.accessibilityIdentifier("settings-memory-storage")
-          NavigationLink { AISettingsView() } label: { RowLabel(title: "AI") }.accessibilityIdentifier("settings-ai")
-          NavigationLink { SkillsView() } label: { RowLabel(title: "Skills") }.accessibilityIdentifier("settings-skills")
-          NavigationLink { LoginsView() } label: { RowLabel(title: "Logins") }.accessibilityIdentifier("settings-logins")
+          NavigationLink { AgentPolicyView() } label: { RowLabel(title: "Permissions", leading: { rowIcon("hand.raised") }) }.accessibilityIdentifier("settings-agents")
+          NavigationLink { AgentDefaultsView() } label: { RowLabel(title: "Agent defaults", leading: { rowIcon("slider.horizontal.3") }) }.accessibilityIdentifier("settings-agent-defaults")
+          NavigationLink { ConnectionsSettingsView() } label: { RowLabel(title: "Outside agents", leading: { rowIcon("arrow.down.left.circle") }) }.accessibilityIdentifier("settings-connections")
+          NavigationLink { MemoryStorageView() } label: { RowLabel(title: "Memory storage", leading: { rowIcon("internaldrive") }) }.accessibilityIdentifier("settings-memory-storage")
+          NavigationLink { HarnessesView() } label: { RowLabel(title: "Harnesses", leading: { rowIcon("terminal") }) }.accessibilityIdentifier("ai-harnesses")
+          NavigationLink { ModelsSettingsView() } label: { RowLabel(title: "Models", leading: { rowIcon("cpu") }) }.accessibilityIdentifier("ai-models")
+          NavigationLink { SkillsView() } label: { RowLabel(title: "Skills", leading: { rowIcon("bolt") }) }.accessibilityIdentifier("settings-skills")
+          NavigationLink { LoginsView() } label: { RowLabel(title: "Logins", leading: { rowIcon("key") }) }.accessibilityIdentifier("settings-logins")
           if store.features.storage {
-            NavigationLink { StorageView() } label: { RowLabel(title: "Storage") }.accessibilityIdentifier("settings-storage")
+            NavigationLink { StorageView() } label: { RowLabel(title: "Storage", leading: { rowIcon("externaldrive") }) }.accessibilityIdentifier("settings-storage")
           }
           if store.features.apple {
-            NavigationLink { AppleView() } label: { RowLabel(title: "Apple") }.accessibilityIdentifier("settings-apple")
+            NavigationLink { AppleView() } label: { RowLabel(title: "Apple", leading: { rowIcon("applelogo") }) }.accessibilityIdentifier("settings-apple")
           }
         }
       }
       if !guest {
         CardLabel("Devices")
         CardGroup {
-          NavigationLink { ComputersAndDevicesSettingsView() } label: { RowLabel(title: "Computers and devices") }.accessibilityIdentifier("settings-computers")
-          NavigationLink { DevicesSettingsView() } label: { RowLabel(title: "Away from home") }.accessibilityIdentifier("settings-devices")
-          Button { store.route = .inbox } label: { RowLabel(title: "Approvals") }.buttonStyle(.plain).accessibilityIdentifier("settings-approvals")
+          NavigationLink { ComputersAndDevicesSettingsView() } label: { RowLabel(title: "Computers and devices", leading: { rowIcon("laptopcomputer") }) }.accessibilityIdentifier("settings-computers")
+          NavigationLink { DevicesSettingsView() } label: { RowLabel(title: "Away from home", leading: { rowIcon("globe") }) }.accessibilityIdentifier("settings-devices")
+          NavigationLink { AgentRuntimesView() } label: { RowLabel(title: "Harness setup", leading: { rowIcon("wrench.and.screwdriver") }) }.accessibilityIdentifier("ai-runtimes")
+          Button { store.route = .inbox } label: { RowLabel(title: "Approvals", leading: { rowIcon("checkmark.seal") }) }.buttonStyle(.plain).accessibilityIdentifier("settings-approvals")
         }
       }
       CardLabel("More")
       CardGroup {
-        if !guest { NavigationLink { DataExportView() } label: { RowLabel(title: "Data") }.accessibilityIdentifier("settings-data") }
-        NavigationLink { UpdatesView() } label: { RowLabel(title: "About") }.accessibilityIdentifier("settings-about")
+        if !guest { NavigationLink { DataExportView() } label: { RowLabel(title: "Data", leading: { rowIcon("square.and.arrow.down") }) }.accessibilityIdentifier("settings-data") }
+        NavigationLink { UpdatesView() } label: { RowLabel(title: "About", leading: { rowIcon("info.circle") }) }.accessibilityIdentifier("settings-about")
       }
     }
   }
@@ -176,7 +178,7 @@ struct DeleteOrgView: View {
   }
 }
 
-/** Settings → Mobile (set-Mobile.dc.html): pair another phone with this Bubble AI by scanning a QR code, then matching a code. */
+/** Settings → Computers → Phone (set-Mobile.dc.html): pair another phone with this Bubble AI by scanning a QR code, then matching a code. */
 struct MobileSettingsView: View {
   @Environment(Store.self) private var store
   @State private var started: Started?

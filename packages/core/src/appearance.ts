@@ -94,6 +94,12 @@ export interface GhostAppearance {
   motion: GhostMotion;
   /** the bubble's shape; unset = "round" */
   bubble?: BubbleShape;
+  /**
+   * true once eyes, mouth, hat, accessory and motion were picked for the bubble (2026-11-26). Looks
+   * saved before that (and ghosts' leftovers) show plain eyes, no mouth and nothing worn, so nobody's
+   * agent suddenly grows a hat.
+   */
+  parts?: boolean;
 }
 
 function hash(str: string): number {
@@ -132,4 +138,29 @@ export function defaultAppearance(seed: string): GhostAppearance {
 /** A random look, for the editor's shuffle button. */
 export function randomAppearance(): GhostAppearance {
   return { ...defaultAppearance(Math.random().toString(36)), hat: GHOST_HATS[Math.floor(Math.random() * GHOST_HATS.length)] };
+}
+
+/**
+ * A new agent's bubble: round (the owner's default shape), one of the bubble colours, plain eyes, no
+ * mouth and nothing worn. `random` is for tests.
+ */
+export function newBubbleLook(random: () => number = Math.random): GhostAppearance {
+  const color = BUBBLE_COLORS[Math.floor(random() * BUBBLE_COLORS.length) % BUBBLE_COLORS.length].hex;
+  return { shape: "round", color, eyes: "dots", mouth: "none", cheeks: false, hat: "none", accessory: "none", motion: "float", bubble: "round", parts: true };
+}
+
+/**
+ * Shuffle for bubbles: any shape and colour, eyes mostly plain, and now and then a hat or something
+ * to wear. Never a mouth (the owner's call, 2026-11-25); one can still be picked by hand.
+ */
+export function shuffleBubbleLook(random: () => number = Math.random): GhostAppearance {
+  const pick = <T>(list: readonly T[]) => list[Math.floor(random() * list.length) % list.length];
+  return {
+    ...newBubbleLook(random),
+    color: pick(BUBBLE_COLORS).hex,
+    bubble: pick(BUBBLE_SHAPES),
+    eyes: random() < 0.6 ? "dots" : pick(GHOST_EYES),
+    hat: random() < 0.3 ? pick(GHOST_HATS.filter((h) => h !== "none")) : "none",
+    accessory: random() < 0.25 ? pick(GHOST_ACCESSORIES.filter((a) => a !== "none" && a !== "mustache")) : "none",
+  };
 }

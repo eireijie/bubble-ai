@@ -65,7 +65,8 @@ export function goStop(i: number) {
   const run = useTour.getState().run;
   if (!run) return;
   const n = stopsFor(guest()).length;
-  if (i >= n) useTour.setState({ run: { ...run, end: true } });
+  // past the last stop it just ends: no closing card to dismiss
+  if (i >= n) useTour.setState({ run: null });
   else useTour.setState({ run: { ...run, i: Math.max(0, i), end: false } });
 }
 

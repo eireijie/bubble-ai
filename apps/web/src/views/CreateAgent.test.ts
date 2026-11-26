@@ -5,7 +5,7 @@ import { useStore, type ComputerInfo } from "../store.ts";
 import { resolveComputer } from "../agentComputer.ts";
 import { Composer } from "./ChannelView.tsx";
 import { AgentDetail, mergeSavedFields, type NodeInfo } from "./AgentSettings.tsx";
-import { AGENT_NAMES, CreateAgent, ImportAgent, autoHandle, nameProblem, suggestName } from "./CreateAgent.tsx";
+import { AGENT_NAMES, CreateAgent, ImportAgent, autoHandle, nameProblem, sampleGreeting, suggestName } from "./CreateAgent.tsx";
 import { openDm } from "../openDm.ts";
 import { setChannelPrefs } from "../components/Channels.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
@@ -116,7 +116,8 @@ const device = (id: string, role: NodeInfo["role"] = "vms"): NodeInfo => ({ id, 
 const computer = { id: "desk", name: "Desk", nodeId: "node", kind: "vm", online: true, transport: "vnc", agents: [], workspaceId: "ws", config: {}, status: "ready", statusText: "", controller: null, help: null, createdAt: "2026-01-01", ownerId: null, paused: false, activity: null } as unknown as ComputerInfo;
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubGlobal("window", Object.assign(new EventTarget(), { matchMedia: () => ({ matches: true }) }));
+  // a desktop-wide window (phone widths are tried on their own below); other media queries match
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { matchMedia: (q: string) => ({ matches: !/max-width/.test(q) }) }));
   vi.stubGlobal("document", Object.assign(new EventTarget(), { visibilityState: "visible" }));
   vi.stubGlobal("location", { protocol: "http:", host: "localhost", href: "http://localhost/#/agents/a/instructions", origin: "http://localhost", pathname: "/", search: "", hash: "#/agents/a/instructions" });
   vi.stubGlobal("alert", vi.fn());
@@ -404,24 +405,30 @@ describe("new agent sheet", () => {
     expect(nameProblem("Nova", "nova-two", [nova])).toBeNull();
   });
 
-  it("opens with only a ghost, a suggested name and Create, and makes it on your defaults", async () => {
+  it("opens with everything filled in, and one tap on Create makes it on your defaults", async () => {
     useStore.setState({ agents: [nova] });
     hub();
     const close = vi.fn();
     const m = mount(() => CreateAgent({ nodes: [device("node")], onClose: close }));
     await tick();
-    const suggested = field(m.render(), "Name").props.value as string;
+    m.render();
+    const suggested = field(m.tree, "Name").props.value as string;
     expect(AGENT_NAMES).toContain(suggested);
     expect(suggested).not.toBe("Nova");
-    expect(find(m.tree, (el) => el.props.children === "It says hello and sets itself up in the chat.")).toBeDefined();
-    // everything else stays folded until More options
-    for (const label of ["Handle", "What it does", "Instructions", "AI and computer"]) expect(field(m.tree, label)).toBeUndefined();
+    // every choice is in view, nothing folded away
+    for (const label of ["Handle", "What it does", "Instructions", "AI", "Effort", "Start from"]) expect(field(m.tree, label)).toBeDefined();
+    expect(named(m.tree, "PlacePicker").props.value).toEqual({ kind: "auto" });
+    expect(named(m.tree, "LookOptions")).toBeDefined();
+    expect(textButton(m, "More options")).toBeUndefined();
+    // the defaults' AI is the one picked
+    expect(find(m.tree, (el) => el.props.role === "radio" && el.props["aria-checked"] === true && el.props.children?.[1]?.props?.children?.[0]?.props?.children === "Codex")).toBeDefined();
     expect(createButton(m).props.disabled).toBe(false);
     submit(m);
     await tick();
     expect(creates()).toHaveLength(1);
     const body = creates()[0][2] as any;
     expect(body).toMatchObject({ name: suggested, handle: suggested.toLowerCase(), instructions: "", useDefaults: true, settings: { appearance: named(m.tree, "Ghost").props.look } });
+    expect(body.settings.appearance).toMatchObject({ bubble: "round", parts: true, mouth: "none", hat: "none" });
     expect(body).not.toHaveProperty("harness");
     expect(body).not.toHaveProperty("computerId");
     // then straight to its chat, where it says hello
@@ -429,7 +436,13 @@ describe("new agent sheet", () => {
     expect(openDm).toHaveBeenCalledWith("new");
   });
 
-  it("gives the ghost another look on a click", async () => {
+  it("shows what it will say first, and changes it as things are picked", () => {
+    expect(sampleGreeting({ name: "Nova", role: "", apps: [], instructions: "" })).toBe("Hi, I'm Nova. What should I start on?");
+    expect(sampleGreeting({ name: "Nova", role: "Keep my days on track.", apps: ["Gmail", "Slack"], instructions: "Be brief" })).toBe("Hi, I'm Nova. I'm here to keep your days on track. I can use Gmail and Slack. I've read your instructions. What should I start on?");
+    expect(sampleGreeting({ name: "", role: "", apps: ["A", "B", "C", "D", "E"], instructions: "" })).toContain("I can use A, B and C and 2 more.");
+  });
+
+  it("gives the bubble another look on a click, and the look editor's picks go with it", async () => {
     hub();
     const random = vi.spyOn(Math, "random").mockReturnValue(0.05);
     const m = mount(() => CreateAgent({ nodes: [], onClose() {} }));
@@ -438,10 +451,45 @@ describe("new agent sheet", () => {
     random.mockReturnValue(0.95);
     field(m.tree, "Change its look").props.onClick();
     const after = named(m.render(), "Ghost").props.look;
-    expect(after.hat).not.toBe(before.hat);
+    expect(after.bubble).not.toBe(before.bubble);
+    // a hat picked in the look's options
+    named(m.render(), "LookOptions").props.onChange({ ...after, hat: "crown" });
+    const worn = named(m.render(), "Ghost").props.look;
+    expect(worn.hat).toBe("crown");
     submit(m);
     await tick();
-    expect(creates()[0][2]).toMatchObject({ settings: { appearance: after } });
+    expect(creates()[0][2]).toMatchObject({ settings: { appearance: worn } });
+  });
+
+  it("on a phone, puts the name and what it does first: its look is a small preview that opens the editor", async () => {
+    vi.stubGlobal("window", Object.assign(new EventTarget(), { matchMedia: () => ({ matches: true }) }));
+    hub();
+    const m = mount(() => CreateAgent({ nodes: [], onClose() {} }));
+    await tick();
+    const tree = m.render();
+    expect(named(tree, "LookOptions")).toBeUndefined();
+    expect(named(tree, "Ghost").props.size).toBeLessThan(100);
+    expect(field(tree, "What it does")).toBeDefined();
+    field(tree, "Change its look").props.onClick();
+    expect(named(m.render(), "LookEditorScreen")).toBeDefined();
+  });
+
+  it("marks an AI that isn't installed on the device, and installs it from there", async () => {
+    const mac = { ...device("mac"), harnesses: [{ id: "codex", accounts: { default: true } }] } as unknown as NodeInfo;
+    hub();
+    const m = mount(() => CreateAgent({ nodes: [mac], onClose() {} }));
+    await tick();
+    const tile = (id: string) => find(m.render(), (e) => e.props?.role === "radio" && (e as unknown as { key: string }).key === id);
+    const says = (e: El | undefined, text: string) => !!e && !!find(e.props.children, (x) => x.props?.children === text);
+    expect(says(tile("kimi"), "Not installed")).toBe(true);
+    expect(says(tile("codex"), "Not installed")).toBe(false);
+    tile("kimi")!.props.onClick();
+    const install = find(m.render(), (e) => e.type?.name === "Button" && Array.isArray(e.props.children) && e.props.children.includes("Install"));
+    expect(install).toBeDefined();
+    vi.mocked(api).mockImplementation(async () => ({}));
+    install!.props.onClick();
+    await tick();
+    expect(vi.mocked(api).mock.calls).toContainEqual(["POST", "/api/nodes/mac/install", { harness: "kimi" }]);
   });
 
   it("silently takes a free handle when the name's own is in use, and stops a name another agent has", async () => {
@@ -480,23 +528,15 @@ describe("new agent sheet", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it("More options unfolds the old fields, checks a typed handle, and sends what was filled in", async () => {
+  it("sends what was filled in: handle, role, instructions, AI, effort, computer, apps and skills", async () => {
     useStore.setState({ agents: [nova] });
     hub((method, path) => {
-      if (path === "/api/connectors") return [{ id: "mail", name: "Mail", allAgents: false }];
+      if (path === "/api/connectors") return [{ id: "mail", name: "Mail", allAgents: false, catalogId: "gmail" }];
       if (path === "/api/skills") return [{ id: "sk", name: "Charts", description: "", allAgents: false }];
     });
     const m = mount(() => CreateAgent({ nodes: [device("node")], onClose() {} }));
     await tick();
-    const more = textButton(m, "More options");
-    expect(more.props["aria-expanded"]).toBe(false);
-    more.props.onClick();
-    // unfolding asks for the apps and skills to offer
     m.render();
-    await tick();
-    expect(textButton(m, "Fewer options").props["aria-expanded"]).toBe(true);
-    for (const text of ["Edit look", "Bring one in"]) expect(textButton(m, text)).toBeDefined();
-    expect(find(m.tree, (el) => el.props.role === "radiogroup" && el.props["aria-label"] === "AI and computer")).toBeDefined();
     // handle rules: tidied as typed, and one line under it when another agent has it
     field(m.tree, "Handle").props.onChange({ target: { value: "9 Nova!" } });
     expect(field(m.render(), "Handle").props.value).toBe("nova-");
@@ -505,20 +545,38 @@ describe("new agent sheet", () => {
     field(m.tree, "Handle").props.onChange({ target: { value: "scout" } });
     expect(alertLine(m)).toBeUndefined();
     field(m.render(), "Name").props.onChange({ target: { value: "Scout" } });
+    // a template fills in what it does and turns on its apps that are here
+    find(m.render(), (el) => el.props.role === "radio" && el.props["aria-checked"] === false && find(el.props.children, (c) => c.props.children === "Work") !== undefined)!.props.onClick();
+    expect(field(m.render(), "What it does").props.value).toBe("Keep work moving");
+    expect(find(m.tree, (el) => el.type.name === "Chip" && el.props.children === "Mail")!.props.on).toBe(true);
     field(m.render(), "What it does").props.onChange({ target: { value: "Finds things" } });
     field(m.render(), "Instructions").props.onChange({ target: { value: "Look twice." } });
-    find(m.render(), (el) => el.type.name === "Chip" && el.props.children === "Mail")!.props.onClick();
     find(m.render(), (el) => el.type.name === "Chip" && el.props.children === "Charts")!.props.onClick();
-    // Customize: pick the AI here (these tests run in Advanced, so where it works is picked too)
-    find(m.render(), (el) => el.props.role === "radio" && el.props.children === "Customize")!.props.onClick();
-    find(m.render(), (el) => el.type === "select" && el.props.value === "codex")!.props.onChange({ target: { value: "claude-code" } });
-    named(m.render(), "ComputerPicker").props.onChange({ kind: "headless" });
+    // pick the AI and its effort here
+    find(m.render(), (el) => el.props.role === "radio" && find(el.props.children, (c) => c.props.children === "Claude Code") !== undefined)!.props.onClick();
+    find(m.render(), (el) => el.props.role === "radio" && el.props.children === "High")!.props.onClick();
+    named(m.render(), "PlacePicker").props.onChange({ kind: "headless" });
     submit(m);
     await tick();
-    expect(creates()[0][2]).toMatchObject({ name: "Scout", handle: "scout", instructions: "Look twice.", harness: "claude-code", nodeId: "node", computerId: null, settings: { role: "Finds things", headless: true } });
+    expect(creates()[0][2]).toMatchObject({ name: "Scout", handle: "scout", instructions: "Look twice.", harness: "claude-code", nodeId: "node", computerId: null, settings: { role: "Finds things", headless: true, effort: "high" } });
     expect(creates()[0][2]).not.toHaveProperty("useDefaults");
     expect(api).toHaveBeenCalledWith("PUT", "/api/connectors/mail/agents/new");
     expect(api).toHaveBeenCalledWith("PUT", "/api/skills/sk/agents/new");
+  });
+
+  it("an AI picked on Automatic goes with your defaults; a template from the Templates page starts filled in", async () => {
+    hub((method, path) => {
+      if (path === "/api/connectors") return [{ id: "gh", name: "GitHub", allAgents: false, catalogId: "github" }];
+    });
+    const m = mount(() => CreateAgent({ nodes: [device("node")], onClose() {}, template: "code" }));
+    await tick();
+    m.render();
+    expect(field(m.tree, "What it does").props.value).toBe("Help with my code");
+    expect(find(m.tree, (el) => el.type.name === "Chip" && el.props.children === "GitHub")!.props.on).toBe(true);
+    find(m.render(), (el) => el.props.role === "radio" && find(el.props.children, (c) => c.props.children === "Claude Code") !== undefined)!.props.onClick();
+    submit(m);
+    await tick();
+    expect(creates()[0][2]).toMatchObject({ useDefaults: true, harness: "claude-code", settings: { role: "Help with my code" } });
   });
 
   it("keeps the ways to bring an agent in: invite by token, or find one on a device", async () => {
@@ -527,7 +585,6 @@ describe("new agent sheet", () => {
     });
     const m = mount(() => CreateAgent({ nodes: [device("node")], onClose() {} }));
     await tick();
-    textButton(m, "More options").props.onClick();
     textButton(m, "Bring one in").props.onClick();
     const choice = (text: string) => find(m.render(), (el) => el.type === "button" && !!find(el.props.children, (c) => c.props.children === text))!;
     choice("Find on a device").props.onClick();
@@ -535,7 +592,7 @@ describe("new agent sheet", () => {
     // "Invite instead" from there lands on the invitation form, with the harness picker open
     named(m.tree, "ImportAgent").props.onInvite();
     expect(named(m.render(), "HarnessGrid")).toBeDefined();
-    expect(find(m.tree, (el) => el.props.children === "It joins with an invitation.")).toBeDefined();
+    expect(find(m.tree, (el) => el.type === "h1" && el.props.children === "Invite an agent")).toBeDefined();
     submit(m);
     await tick();
     expect(creates()[0][2]).toMatchObject({ nodeId: null, computerId: null });

@@ -11,9 +11,9 @@ import { SuggestionBanner } from "../SuggestionBanner.tsx";
 /**
  * Right after the first run (2026-11-25 "Bubble AI, bubbles", board 6), in the new agent's chat.
  * Advanced: the agent says what got done ("Great! I can see all that you've done.", which apps are
- * connected and which are still off), then Show me around starts on its own (board 9: 25 stops,
- * Skip tour any time; components/tour). Simple: one quiet line that apps can be added anytime,
- * and the tour waits for its "Show me around" button. It all goes away once the person writes
+ * connected and which are still off). Simple: one quiet line that apps can be added anytime. Then,
+ * either way, Show me around starts on its own: four things to do for real, Skip tour any time
+ * (components/tour), and once skipped it's gone. It all goes away once the person writes
  * their first message. Nothing here is sent to the hub; the tour's progress is (UserPrefs.learn).
  */
 
@@ -65,7 +65,7 @@ export function SetupTour({ agent, channelId }: { agent: Agent; channelId: strin
   // ends (or is skipped) it says it's ready. A tour already started (on another device) isn't repeated
   const running = useTour((s) => !!s.run);
   const learnStarted = useStore((s) => !!s.me?.prefs.learn?.started);
-  const auto = !!state && state.agentId === agent.id && !spoke && state.path === "advanced" && state.stage === "ask";
+  const auto = !!state && state.agentId === agent.id && !spoke && state.stage === "ask";
   useEffect(() => {
     if (!auto) return;
     if (learnStarted) return void set({ ...state!, stage: "done" });

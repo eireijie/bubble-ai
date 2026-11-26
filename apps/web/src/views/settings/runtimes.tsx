@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import { HARNESSES, harnessInfo, harnessLabel, type HarnessInfo } from "@bubble-ai/core";
-import { api } from "../../api.ts";
+import { api, errorDetails } from "../../api.ts";
 import { usableDevices, useDevices, type DeviceInfo } from "../../devices.ts";
 import { href } from "../../router.ts";
-import { CopyBlock, Menu } from "../../components/ui.tsx";
+import { CopyBlock, Menu, Problem } from "../../components/ui.tsx";
 import { Add, Badge, Dlg, Item, Label, Panel, Pick, Prim, Sec, Tile } from "../../components/MarketParts.tsx";
 import { PageHeader } from "./parts.tsx";
 import { HarnessLogo } from "../../components/HarnessLogo.tsx";
+import { copyText } from "../../clipboard.ts";
 
 /** A harness on a neutral tile with its brand mark (a plain line icon when Bubble AI has none). */
 function Mark({ id }: { id: string }) {
@@ -27,7 +28,7 @@ async function checkAgain(deviceId: string) {
 /** Install a harness on a device through Bubble AI (npm ones), or show how to do it by hand. */
 function useInstall(device: DeviceInfo | undefined) {
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; details: string | null } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   useEffect(() => setNote(null), [device?.id]);
   const install = async (h: HarnessInfo) => {
@@ -39,7 +40,7 @@ function useInstall(device: DeviceInfo | undefined) {
       await api("POST", `/api/nodes/${device.id}/install`, { harness: h.id });
       setNote(`${h.label} is installed on ${device.name}. Sign it in before agents use it.`);
     } catch (e) {
-      setError((e as Error).message);
+      setError({ text: (e as Error).message, details: errorDetails(e) });
     } finally {
       setBusy(null);
     }
@@ -60,7 +61,7 @@ export function RuntimeRow({ h, device, version, busy, onInstall, onHowTo }: { h
         ready ? (
           <Badge tone="green">Installed</Badge>
         ) : npm && device.mine ? (
-          <Add onClick={onInstall} disabled={busy || !device.online} title={device.online ? `npm install -g ${h.install!.npm}` : `${device.name} is offline`}>
+          <Add onClick={onInstall} disabled={busy || !device.online} title={device.online ? undefined : `${device.name} is offline`}>
             {busy ? (
               <>
                 <Loader2 size={14} className="animate-spin" /> Installing…
@@ -94,7 +95,7 @@ export function InstallHarness({ device, onClose }: { device: DeviceInfo; onClos
         ))}
       </Panel>
       {note && <p className="rounded-2xl bg-ok/10 px-4 py-3 text-sm text-ok">{note}</p>}
-      {error && <p className="whitespace-pre-wrap text-sm text-bad">{error}</p>}
+      {error && <Problem text={error.text} details={error.details} />}
       <button
         type="button"
         className="inline-flex items-center gap-1.5 px-1 text-sm text-muted hover:text-ink disabled:opacity-50"
@@ -178,7 +179,7 @@ export function RuntimesPage() {
               <RefreshCw size={15} className={checking ? "animate-spin" : undefined} /> Check again
             </Sec>
           </div>
-          {(error || checkError) && <p className="whitespace-pre-wrap text-sm text-bad">{error ?? checkError}</p>}
+          {error ? <Problem text={error.text} details={error.details} /> : checkError && <p className="whitespace-pre-wrap text-sm text-bad">{checkError}</p>}
           {note && <p className="rounded-2xl bg-ok/10 px-4 py-3 text-sm text-ok">{note}</p>}
           <section className="space-y-2">
             <Label>On this device</Label>
@@ -192,12 +193,12 @@ export function RuntimesPage() {
                   <Menu
                     align="right"
                     trigger={(_o, t) => (
-                      <button onClick={t} className="mr-3 grid size-9 place-items-center rounded-full text-muted hover:bg-hover" aria-label={`More for ${h.label}`} title={`More for ${h.label}`}>
+                      <button onClick={t} className="mr-3 grid size-9 place-items-center rounded-[8px] text-muted hover:bg-hover" aria-label={`More for ${h.label}`} title={`More for ${h.label}`}>
                         <MoreHorizontal size={16} />
                       </button>
                     )}
                     items={[
-                      ...(h.login ? [{ label: `Copy sign-in command: ${h.login}`, icon: <Copy size={14} />, onSelect: () => void navigator.clipboard?.writeText(h.login!.replace(/ \(.*\)$/, "")) }] : []),
+                      ...(h.login ? [{ label: `Copy sign-in command: ${h.login}`, icon: <Copy size={14} />, onSelect: () => void copyText(h.login!.replace(/ \(.*\)$/, "")) }] : []),
                       { label: "How to install", onSelect: () => setHowTo(h) },
                     ]}
                   />

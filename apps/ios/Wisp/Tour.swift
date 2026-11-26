@@ -2,15 +2,17 @@ import CoreGraphics
 import Foundation
 
 /**
- * Show me around on the iPhone (2026-11-25 "Bubble AI, bubbles", board 11): the same 25 stops in 5
- * chapters as the web (apps/web/src/tour.ts), with the same titles and words. Each stop says where
- * it is on the phone and which real control it points at (`.tourTarget(_:)` names). This file is
- * the list and the arithmetic over it, with no views, so it can be tested; TourRun.swift runs it
- * and TourOverlay.swift draws it. Progress is kept on the hub (UserPrefs.learn), so the desktop and
- * the phone show the same seen stops.
+ * Show me around on the iPhone (2026-11-26 canvas "Bubble AI onboarding flow", Tour board): the
+ * same four stops as the web (apps/web/src/tour.ts), and at each one you do the thing for real:
+ * say hi to your agent, type /, open Your turn, make another. The stop finishes itself when you've
+ * done it. Each stop says where it is on the phone and which real control it points at
+ * (`.tourTarget(_:)` names). This file is the list and the arithmetic over it, with no views, so it
+ * can be tested; TourRun.swift runs it and TourOverlay.swift draws it. Progress is kept on the hub
+ * (UserPrefs.learn), so the desktop and the phone show the same seen stops.
  */
 enum Tour {
-  static let chapters = ["Talk", "Hands-off", "Tools", "Memory and teams", "Make it yours"]
+  /** One chapter now: the stops are few enough to show as one row of dots. */
+  static let chapters = ["Show me around"]
 
   /** Where a stop is on the phone. */
   enum Place: Equatable, Hashable {
@@ -54,12 +56,14 @@ enum Tour {
     var inSettings: Bool { self == .settings || self == .usage || self == .ai }
   }
 
-  enum TryIt: String { case slash, at, yourturn }
+  /** What finishes a stop: sending a message, typing /, opening Your turn, or a tap on the control. */
+  enum DoIt: String { case send, slash, yourturn, tap }
 
   struct Stop: Identifiable, Equatable {
     var id: String
-    /** chapter, 0 to 4 */
-    var ch: Int
+    /** chapter (always 0 now) */
+    var ch: Int = 0
+    /** what to do; {agent} is the agent's name */
     var title: String
     var body: String
     var place: Place
@@ -69,7 +73,7 @@ enum Tour {
     var fallbackBody: String? = nil
     /** said instead of `body` in the phone app, where the web's words point at something it doesn't have */
     var phoneBody: String? = nil
-    var tryIt: TryIt? = nil
+    var doIt: DoIt
     /** a mod this stop belongs to; when it's off the card offers a switch (never turned on for you) */
     var mod: FeatureKey? = nil
     /** guests can't use it, so they skip it */
@@ -77,37 +81,16 @@ enum Tour {
   }
 
   static let stops: [Stop] = [
-    // Talk
-    Stop(id: "write", ch: 0, title: "Write here", body: "Tell any agent what to do, in plain words. Right-click a message to reply in a thread or edit it.", place: .chat, targets: ["composer"]),
-    Stop(id: "attach", ch: 0, title: "Add things", body: "Attach photos and files from +.", place: .chat, targets: ["attach"]),
-    Stop(id: "slash", ch: 0, title: "/ commands", body: "Type / for quick commands: new chat, stop, switch model.", place: .chat, targets: ["composer"], tryIt: .slash),
-    Stop(id: "mention", ch: 0, title: "@ mentions", body: "Type @ to ask another agent. In a team chat, it picks who answers.", place: .chat, targets: ["composer"], tryIt: .at),
-    Stop(id: "call", ch: 0, title: "Calls", body: "Call any agent and just talk. Notes land in the chat after.", place: .chat, targets: ["call", "chat-more"]),
-    // Hands-off
-    Stop(id: "your-turn", ch: 1, title: "Your turn", body: "Chats waiting on you land here. Orange means your turn, blue means unread.", place: .chats, targets: ["yourturn"], tryIt: .yourturn),
-    Stop(id: "message-first", ch: 1, title: "They message first", body: "Agents check your apps on their own and message you when something needs you.", place: .chats, targets: ["needs-row", "chat-row"], fallbackBody: "Agents check your apps on their own. When something needs you, their chat moves up here with an orange dot.", mod: .background),
-    Stop(id: "approvals", ch: 1, title: "Approvals", body: "Before sending, paying or deleting anything, agents ask. Their questions wait here: Allow or Not now.", place: .inbox, targets: ["needs-you", "inbox-page"]),
-    Stop(id: "usage", ch: 1, title: "Usage and limits", body: "See what agents used, and set a daily limit for work they do on their own.", place: .usage, targets: ["usage-page"], noGuests: true),
-    // Tools
-    Stop(id: "apps", ch: 2, title: "Apps", body: "Connect the apps agents use. Sign-ins go through your password manager.", place: .marketplace, targets: ["market-apps", "market-page"], noGuests: true),
-    Stop(id: "skills", ch: 2, title: "Skills", body: "Jobs agents know how to do. Add them here, or do a task once on a computer and the agent saves it as a skill.", place: .marketplace, targets: ["market-skills", "market-page"], noGuests: true),
-    Stop(id: "computers", ch: 2, title: "Computers", body: "Agents work on their own computer, so yours stays free. The dot says how many are on.", place: .computers, targets: ["computers-page"], phoneBody: "Agents work on their own computer, so yours stays free.", noGuests: true),
-    Stop(id: "your-computers", ch: 2, title: "Your computers", body: "Watch live or take over. Agents can use your own computers too, only if you say so.", place: .computers, targets: ["computers-list", "computers-page"], noGuests: true),
-    Stop(id: "phone", ch: 2, title: "Your phone", body: "Scan this with the Bubble AI phone app. Same agents, same chats, approvals on the go.", place: .settings, targets: ["notifications"], phoneBody: "You're in the Bubble AI phone app. Same agents, same chats. Turn on notifications for approvals on the go.", noGuests: true),
-    // Memory and teams
-    Stop(id: "vault", ch: 3, title: "Memory vault", body: "Notes agents keep about you and your work.", place: .more, targets: ["more-memory"]),
-    Stop(id: "notes", ch: 3, title: "Read every note", body: "Fix or delete anything. Every agent reads these, so you only say it once.", place: .memory, targets: ["memory-page", "memory-search"]),
-    Stop(id: "new", ch: 3, title: "New", body: "Make an agent, a team or a section.", place: .chats, targets: ["new"], noGuests: true),
-    Stop(id: "teams", ch: 3, title: "Teams", body: "A team is a flow chart of who does what. Name it and pick its agents, then draw it, or describe it and an agent draws it.", place: .newTeam, targets: ["new-team"], noGuests: true),
-    Stop(id: "schedules", ch: 3, title: "Schedules", body: "Add a Schedule box to a team's flow chart and the team starts on its own.", place: .team, targets: ["team-pill", "new"], fallbackBody: "Make a team, then add a Schedule box to its flow chart and it starts on its own.", mod: .routines, noGuests: true),
-    // Make it yours
-    Stop(id: "pins", ch: 4, title: "Pins", body: "Pin up to 9 agents and teams. Right-click any row to pin it.", place: .chats, targets: ["pins", "chat-row"], fallbackBody: "Right-click any row to pin it. Up to 9 agents and teams sit up here."),
-    Stop(id: "sections", ch: 4, title: "Sections", body: "Your own groups. Drag rows in, fold away the ones you don't need.", place: .chats, targets: ["sections", "new-section"], phoneBody: "Your own groups. Press and hold a row to move it in, fold away the ones you don't need."),
-    Stop(id: "agent-page", ch: 4, title: "Agent page", body: "Click an agent's name for its page: look, apps, and what it asks first.", place: .chat, targets: ["agent-pill"]),
-    Stop(id: "ai", ch: 4, title: "What runs your agents", body: "Each agent runs on an AI you already use, like Claude Code or Codex. Sign in once.", place: .ai, targets: ["ai-page"], noGuests: true),
-    Stop(id: "mods", ch: 4, title: "Mods", body: "Whole extra features, like Tasks, Apple and Storage. Off until you want them.", place: .mods, targets: ["mods-page", "mods-on"], mod: .tasks, noGuests: true),
-    Stop(id: "settings", ch: 4, title: "Settings", body: "Everything else. Show me around lives here too, under Learn Bubble AI, and in Help.", place: .settings, targets: ["learn-row", "settings-page"]),
+    Stop(id: "write", title: "Say hi to {agent}", body: "Type anything and press Return.", place: .chat, targets: ["composer"], phoneBody: "Type anything and send it.", doIt: .send),
+    Stop(id: "slash", title: "Type /", body: "Quick commands: new chat, stop, switch model.", place: .chat, targets: ["composer"], doIt: .slash),
+    Stop(id: "your-turn", title: "Open Your turn", body: "Chats waiting on you land here.", place: .chats, targets: ["yourturn"], doIt: .yourturn),
+    Stop(id: "new", title: "Make another", body: "Another agent, or a team of them.", place: .chats, targets: ["new"], doIt: .tap, noGuests: true),
   ]
+
+  /** A stop's title with the agent's name in it. */
+  static func title(_ stop: Stop, agent: String?) -> String {
+    stop.title.replacingOccurrences(of: "{agent}", with: agent?.isEmpty == false ? agent! : "your agent")
+  }
 
   static var total: Int { stops.count }
 
@@ -152,13 +135,8 @@ enum Tour {
     }
   }
 
-  /** "Chapter 2 of 5 · Hands-off · 1 of 4" */
-  static func eyebrow(_ i: Int, _ list: [Stop] = stops) -> String {
-    let s = list[i]
-    let inCh = list.filter { $0.ch == s.ch }
-    let n = (inCh.firstIndex { $0.id == s.id } ?? 0) + 1
-    return "Chapter \(s.ch + 1) of \(chapters.count) · \(chapters[s.ch]) · \(n) of \(inCh.count)"
-  }
+  /** "2 of 4": the step counter under the card */
+  static func counter(_ i: Int, _ list: [Stop] = stops) -> String { "\(min(i + 1, list.count)) of \(list.count)" }
 
   /** The button that starts the tour: never started, part way, or all seen. */
   static func resumeLabel(_ p: LearnProgress?, _ list: [Stop] = stops) -> String {
@@ -190,14 +168,6 @@ enum Tour {
   static func body(_ stop: Stop, fallback: Bool) -> String {
     let text = fallback && stop.fallbackBody != nil ? stop.fallbackBody! : stop.phoneBody ?? stop.body
     return text.replacingOccurrences(of: "Right-click", with: "Press and hold").replacingOccurrences(of: "Click", with: "Tap")
-  }
-
-  static func tryLabel(_ t: TryIt) -> String {
-    switch t {
-    case .slash: "Try it: type /"
-    case .at: "Try it: type @"
-    case .yourturn: "Try it: tap Your turn"
-    }
   }
 
   // MARK: the flight

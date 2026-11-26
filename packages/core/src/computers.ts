@@ -462,3 +462,65 @@ export function x11Key(key: string): string {
 export function x11Combo(c: KeyCombo): string {
   return [...c.mods.map((m) => (m === "meta" ? "super" : m)), x11Key(c.key)].join("+");
 }
+
+// --- starting computers: what's worth trying again, and what went wrong in plain words ---------------
+
+/**
+ * Network hiccups that pass on their own: a DNS lookup that failed for a moment (EAI_AGAIN, the
+ * usual one inside a VM engine), a reset or timed-out connection, a registry that was briefly busy.
+ */
+const TRANSIENT = [
+  /EAI_AGAIN/,
+  /ENOTFOUND/,
+  /ETIMEDOUT|ESOCKETTIMEDOUT|ERR_SOCKET_TIMEOUT/,
+  /ECONNRESET|ECONNREFUSED|ECONNABORTED|EPIPE/,
+  /ENETUNREACH|EHOSTUNREACH|ENETDOWN/,
+  /temporary failure in name resolution/i,
+  /could not resolve host|name or service not known|no such host/i,
+  /i\/o timeout|tls handshake timeout|context deadline exceeded/i,
+  /connection (reset|refused|timed out)|network is unreachable|socket hang up/i,
+  /unexpected EOF/i,
+  /\b(429|502|503|504)\b|too many requests|service unavailable|bad gateway|gateway time-?out/i,
+  /fetch failed|network ?error/i,
+  /the device disconnected/i,
+];
+
+/** Is this error a network hiccup that's worth trying again after a moment? */
+export function isTransientError(message: string | null | undefined): boolean {
+  return !!message && TRANSIENT.some((p) => p.test(message));
+}
+
+/**
+ * Run `fn`, and run it again after each of `delaysMs` while it fails with an error `retryable`
+ * says is worth another go (network hiccups, by default). The last error is thrown.
+ */
+export async function withRetry<T>(
+  fn: (attempt: number) => Promise<T>,
+  opts: { delaysMs: readonly number[]; retryable?: (err: unknown) => boolean; onRetry?: (err: unknown, attempt: number, delayMs: number) => void; sleep?: (ms: number) => Promise<void> },
+): Promise<T> {
+  const retryable = opts.retryable ?? ((err: unknown) => isTransientError(err instanceof Error ? err.message : String(err)));
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (err) {
+      const delay = opts.delaysMs[attempt];
+      if (delay === undefined || !retryable(err)) throw err;
+      opts.onRetry?.(err, attempt + 1, delay);
+      await sleep(delay);
+    }
+  }
+}
+
+/** Why a computer couldn't start, in a few plain words, from the raw error its device sent. */
+export function computerProblem(raw: string | null | undefined): string {
+  const t = raw ?? "";
+  if (isTransientError(t)) return "Couldn't reach the internet while setting it up.";
+  if (/no space left|disk (is )?full|ENOSPC/i.test(t)) return "Its device is out of disk space.";
+  if (/out of memory|OOM|cannot allocate memory|exit code:? 137/i.test(t)) return "Its device ran out of memory.";
+  if (/can't run VMs|not running|cannot connect to the docker daemon|is the docker daemon running|container system start|podman machine start/i.test(t)) return "The VM engine on its device isn't running.";
+  if (/offline|isn't connected|disconnected/i.test(t)) return "Its device is offline.";
+  if (/didn't come up|desktop didn't/i.test(t)) return "It started, but its screen didn't come up.";
+  if (/orgo api key/i.test(t)) return "Add an Orgo API key in Settings first.";
+  return "It couldn't start.";
+}

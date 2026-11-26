@@ -85,6 +85,8 @@ export class Vault {
   private gitQueue: Promise<unknown> = Promise.resolve();
   /** notes Bubble AI is in the middle of saving: the watcher must not mistake them for outside edits */
   private pending = new Map<string, number>();
+  /** told after Bubble AI itself saves, moves or deletes notes (watch() hears outside edits only through these) */
+  private saved = new Set<() => void>();
   /** the commit the search index is up to date with */
   private indexedHead: string | null = null;
   private authored = new Map<string, string>();
@@ -599,8 +601,18 @@ export class Vault {
     } catch {} // not supported here: the timer still catches everything
     const poll = setInterval(run, opts.intervalMs ?? 30_000);
     poll.unref();
+    // saves made through Bubble AI are indexed as they happen, so the disk sync never counts them:
+    // say so here too, or open apps keep showing the old notes (the memory count went stale)
+    let savedTimer: NodeJS.Timeout | undefined;
+    const onSaved = () => {
+      clearTimeout(savedTimer);
+      savedTimer = setTimeout(() => !stopped && opts.onChange?.(1), opts.debounceMs ?? 1000);
+    };
+    this.saved.add(onSaved);
     return () => {
       stopped = true;
+      this.saved.delete(onSaved);
+      clearTimeout(savedTimer);
       clearTimeout(timer);
       clearInterval(poll);
       watcher?.close();
@@ -693,7 +705,9 @@ export class Vault {
   private async saving<T>(paths: string[], fn: () => Promise<T>): Promise<T> {
     for (const p of paths) this.pending.set(p, (this.pending.get(p) ?? 0) + 1);
     try {
-      return await fn();
+      const result = await fn();
+      for (const on of this.saved) on();
+      return result;
     } finally {
       for (const p of paths) {
         const n = (this.pending.get(p) ?? 1) - 1;

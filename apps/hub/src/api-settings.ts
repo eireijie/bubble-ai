@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { MAX_PINS, harnessInfo, type UserPrefs } from "@bubble-ai/core";
+import { MAX_PINS, harnessInfo, splitDetails, type UserPrefs } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { bearer, hashPassword, issueToken, revokeSubjectTokens, verifyPassword } from "./auth.ts";
 import { ComputerError } from "./computers.ts";
@@ -477,7 +477,11 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     try {
       return await hub.computers.nodeRequest(n.id, (requestId) => ({ type: "install_harness", requestId, harness: body.harness }), 16 * 60_000);
     } catch (err) {
-      if (err instanceof ComputerError) return reply.code(err.status).send({ error: err.message });
+      // plain words for everyone; npm's own output only under Details
+      if (err instanceof ComputerError) {
+        const { text, details } = splitDetails(err.message);
+        return reply.code(err.status).send({ error: text, ...(details ? { details } : {}) });
+      }
       throw err;
     }
   });

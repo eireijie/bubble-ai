@@ -36,7 +36,7 @@ function Sample({ template }: { template: TeamTemplate }) {
             {!you && <SeedGhost seed={line.who} size={26} />}
             <div className={cx("max-w-[80%]", you && "text-right")}>
               {!you && <div className="px-2 pb-0.5 text-[12px] text-faint">{line.who}</div>}
-              <div className={cx("inline-block rounded-[14px] px-3.5 py-2 text-left text-[14px] leading-snug", you ? "bg-badge text-badge-ink" : "bg-chip")}>{line.text}</div>
+              <div className={cx("inline-block rounded-[12px] px-3.5 py-2 text-left text-[14px] leading-snug", you ? "bg-badge text-badge-ink" : "bg-chip")}>{line.text}</div>
             </div>
           </div>
         );
@@ -49,11 +49,11 @@ function Sample({ template }: { template: TeamTemplate }) {
 function Detail({ template, own, onDelete }: { template: TeamTemplate; own: boolean; onDelete: () => void }) {
   return (
     <div className="min-w-0 flex-1 space-y-4">
-      <div className="rounded-[14px] bg-card px-4 py-3" aria-label="Who hands to whom">
+      <div className="rounded-[12px] bg-card px-4 py-3" aria-label="Who hands to whom">
         <MiniChart steps={template.steps} />
       </div>
       {!!template.sample?.length && (
-        <div className="rounded-[14px] bg-card p-4" aria-label="How a request goes">
+        <div className="rounded-[12px] bg-card p-4" aria-label="How a request goes">
           <Sample template={template} />
         </div>
       )}
@@ -79,7 +79,7 @@ export function TemplateBrowser({ title = "Templates", onClose, onUse }: { title
         <div role="listbox" aria-label="Templates" className={phone ? "-mx-5 flex gap-1.5 overflow-x-auto px-5" : "w-[260px] shrink-0 space-y-0.5"}>
           {all.map((t, i) =>
             phone ? (
-              <button key={t.id} type="button" role="option" aria-selected={i === page} onClick={() => setPage(i)} className={cx("h-9 shrink-0 rounded-full px-3.5 text-[13px] font-medium", i === page ? "bg-side-active" : "border border-line")}>
+              <button key={t.id} type="button" role="option" aria-selected={i === page} onClick={() => setPage(i)} className={cx("h-9 shrink-0 rounded-[8px] px-3.5 text-[13px] font-medium", i === page ? "bg-side-active" : "border border-line")}>
                 {t.name}
               </button>
             ) : (

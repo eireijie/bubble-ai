@@ -63,7 +63,7 @@ struct TeamInfoPage: View {
         .disabled(!editable)
         .accessibilityLabel("Change team icon")
         VStack(alignment: .leading, spacing: 0) {
-          Text(current.name).font(.system(size: 19, weight: .semibold)).lineLimit(1)
+          Text(current.label).font(.system(size: 19, weight: .semibold)).lineLimit(1)
           Text(count).font(.system(size: 13)).foregroundStyle(Palette.muted)
         }
         Spacer()
@@ -74,7 +74,7 @@ struct TeamInfoPage: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 22) {
           HStack(spacing: 10) {
-            quick("bell", "Notify") { notify = true }
+            quick(current.notify == "mute" ? "bell.slash" : "bell", current.notify == "mute" ? "Muted" : "Notify") { notify = true }
             quick("pin", "Pins") { withAnimation { scroll.scrollTo("team-pins", anchor: .top) } }
             quick("gauge.with.dots.needle.33percent", "Context") { context = true }
           }
@@ -120,7 +120,7 @@ struct TeamInfoPage: View {
   }
 
   private var confirmTitle: String {
-    "\(confirm == "delete" ? "Delete" : confirm == "archive" ? "Archive" : "Leave") \(current.name)?"
+    "\(confirm == "delete" ? "Delete" : confirm == "archive" ? "Archive" : "Leave") \(current.label)?"
   }
 
   private func quick(_ symbol: String, _ label: String, _ run: @escaping () -> Void) -> some View {
@@ -154,7 +154,6 @@ struct TeamInfoPage: View {
         NavigationLink { ChannelTeamScreen(channel: current) } label: {
           RowLabel(title: "How the team works", subtitle: works) { Image(systemName: "point.3.connected.trianglepath.dotted").foregroundStyle(Palette.muted).frame(width: 26) }
         }.buttonStyle(.plain)
-        Button { notify = true } label: { RowLabel(title: "Notifications", subtitle: notifyLabel) }.buttonStyle(.plain)
         RowLabel(title: "Answers without an @mention", subtitle: team == nil ? (store.agent(current.settings?.defaultAgentId ?? "")?.name ?? "Nobody (@mention an agent)") : ChannelTeam.list(team!.leads.compactMap { store.agent($0)?.name }), chevron: false)
       }
       NavigationLink { ChannelDetails(channel: current) } label: {
@@ -205,7 +204,7 @@ struct TeamInfoPage: View {
         }
         if store.canManage {
           Button { adding = true } label: {
-            RowLabel(title: "Add people or agents") { Image(systemName: "person.badge.plus").foregroundStyle(Palette.muted).frame(width: 34) }
+            RowLabel(title: "Add people") { Image(systemName: "person.badge.plus").foregroundStyle(Palette.muted).frame(width: 34) }
           }.buttonStyle(.plain)
         }
       }

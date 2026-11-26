@@ -61,7 +61,7 @@ Bubble AI for iPhone and iPad is in testing on TestFlight; the public link is co
 
 Download **[Bubble-AI-android.apk](https://github.com/eireijie/bubble-ai/releases/latest/download/Bubble-AI-android.apk)** on your phone and open it. Android asks once to allow installs from your browser. It's a preview, not on Google Play yet.
 
-Pair either phone in **Settings → Mobile** by scanning the QR code. Any phone can also open Bubble AI in the browser and add it to the home screen.
+Pair either phone in **Settings → Computers → Phone** by scanning the QR code. Any phone can also open Bubble AI in the browser and add it to the home screen.
 
 ## What it does
 

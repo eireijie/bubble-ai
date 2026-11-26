@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#000000</color>
-    <color name="ink">#F5F5F7</color>
-    <color name="muted">#9A9AA5</color>
+    <!-- the web app's dark surfaces (apps/web/src/index.css) -->
+    <color name="bg">#121212</color>
+    <color name="ink">#F5F5F5</color>
+    <color name="muted">#A3A3A3</color>
+    <color name="line">#24FFFFFF</color>
+    <color name="card">#1B1B1B</color>
+    <color name="float_bg">#1F1F1F</color>
     <color name="bad">#FF6B60</color>
-    <color name="on_ink">#000000</color>
+    <color name="on_ink">#121212</color>
+    <color name="accent">#BBA5FA</color>
 </resources>

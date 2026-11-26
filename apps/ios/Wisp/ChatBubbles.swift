@@ -40,7 +40,7 @@ struct BubbleShape: Shape {
   var mine: Bool
   var tail = false
   func path(in rect: CGRect) -> Path {
-    var p = RoundedRectangle(cornerRadius: min(18, rect.height / 2), style: .continuous).path(in: rect)
+    let p = RoundedRectangle(cornerRadius: min(18, rect.height / 2), style: .continuous).path(in: rect)
     guard tail else { return p }
     var t = Path()
     let x = rect.maxX, y = rect.maxY
@@ -50,8 +50,8 @@ struct BubbleShape: Shape {
     t.addQuadCurve(to: CGPoint(x: x - 16, y: y - 3), control: CGPoint(x: x - 5, y: y + 1))
     t.closeSubpath()
     if !mine { t = t.applying(CGAffineTransform(translationX: rect.minX + rect.maxX, y: 0).scaledBy(x: -1, y: 1)) }
-    p.addPath(t)
-    return p
+    // a true union: the mirrored tail winds the other way, and a plain addPath would cut a notch where they overlap
+    return p.union(t)
   }
 }
 
@@ -67,7 +67,7 @@ struct Bubble<Content: View>: View {
       .padding(.horizontal, 13)
       .padding(.vertical, 8)
       .foregroundStyle(side == .mine ? Palette.mineInk : Palette.text)
-      .tint(side == .mine ? Palette.mineInk : Palette.blue)
+      .tint(side == .mine ? Palette.mineInk : Palette.accent)
       .background(BubbleShape(mine: side == .mine, tail: tail).fill(side == .mine ? Palette.mine : Palette.bubble))
   }
 }

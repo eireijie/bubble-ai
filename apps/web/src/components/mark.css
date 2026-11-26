@@ -17,7 +17,8 @@
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
 .mk-hl { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(ellipse 20% 9% at 32% 18%, rgb(255 255 255 / var(--mk-hl)), rgb(255 255 255 / 0)); }
 .mk-small .mk-hl { display: none; }
-.mk-eyes { position: absolute; inset: 0; transition: transform .22s cubic-bezier(.2, .8, .3, 1); }
+/* at rest the eyes look a little to the side, never straight at you */
+.mk-eyes { position: absolute; inset: 0; translate: 6% -2.5%; transition: transform .22s cubic-bezier(.2, .8, .3, 1), translate .4s cubic-bezier(.2, .8, .3, 1); }
 .mk-e { position: absolute; top: 29%; width: 17%; height: 33.5%; border-radius: 50%; background: var(--mk-eye); }
 .mk-e:first-child { left: 30%; }
 .mk-e:last-child { left: 61%; }

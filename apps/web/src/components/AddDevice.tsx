@@ -4,6 +4,7 @@ import {
   Download,
   Laptop,
   Monitor,
+  Server,
   RefreshCw,
   ShieldCheck,
   Smartphone,
@@ -24,7 +25,7 @@ import { unavailable } from "../join.ts";
 import { useStore } from "../store.ts";
 import { canApproveJoin } from "../join.ts";
 import { PhonePairing } from "../views/settings/mobile.tsx";
-import { Button, CopyBlock, Modal } from "./ui.tsx";
+import { Button, CopyBlock, Modal, touchFirst } from "./ui.tsx";
 
 /** Today's steps for a phone and for another computer. `only` shows one of the two. */
 export function AddDeviceContent({ phone = true, only }: { phone?: boolean; only?: "phone" | "computer" }) {
@@ -164,27 +165,33 @@ export function AddDeviceContent({ phone = true, only }: { phone?: boolean; only
   );
 }
 
-/** The dialog that makes an agent's computer: loaded when "This computer" or "A cloud computer" is picked. */
+/** The dialog that makes an agent's computer: loaded when "This computer", "A Linux computer" or "A cloud computer" is picked. */
 const AddComputer = lazy(() => import("../views/ComputersView.tsx").then((m) => ({ default: m.AddComputer })));
 
 /** Where the Add dialog is: the list of what can be added, or one thing's steps. */
-export type AddStep = "list" | "here" | "computer" | "phone" | "cloud";
+export type AddStep = "list" | "here" | "linux" | "computer" | "phone" | "cloud";
 
 const ADD_ROWS: { step: Exclude<AddStep, "list">; label: string; icon: ReactNode }[] = [
   { step: "here", label: "This computer", icon: <Laptop size={18} strokeWidth={1.8} /> },
+  { step: "linux", label: "A Linux computer", icon: <Server size={18} strokeWidth={1.8} /> },
   { step: "computer", label: "Another computer", icon: <Monitor size={18} strokeWidth={1.8} /> },
   { step: "phone", label: "A phone", icon: <Smartphone size={18} strokeWidth={1.8} /> },
   { step: "cloud", label: "A cloud computer", icon: <Cloud size={18} strokeWidth={1.8} /> },
 ];
 
 /**
- * Add: one list of what can be added, each row leading to its steps. This computer and a cloud
- * computer make a computer for agents; another computer joins this Bubble AI; a phone pairs.
+ * Add: one list of what can be added, each row leading to its steps. This computer, a Linux
+ * computer (a VM on one of your devices) and a cloud computer make a computer for agents; another
+ * computer joins this Bubble AI; a phone pairs.
  */
 export function AddDeviceDialog({ onClose, start = "list" }: { onClose: () => void; start?: AddStep }) {
   const [step, setStep] = useState<AddStep>(start);
   const devices = useDevices();
-  if (step === "here" || step === "cloud")
+  const computers = useStore((s) => s.computers);
+  // "This computer" is your own screen: once each of your devices has its screen added, there is nothing left to add there
+  const mine = (devices ?? []).filter((d) => d.mine);
+  const screenAdded = mine.length > 0 && mine.every((d) => computers.some((c) => c.kind === "device" && c.nodeId === d.id));
+  if (step === "here" || step === "linux" || step === "cloud")
     return (
       <Suspense fallback={null}>
         <AddComputer devices={devices ?? []} only={step} onClose={onClose} onCreated={(c) => (onClose(), go({ view: "computers", computerId: c.id }))} />
@@ -193,8 +200,9 @@ export function AddDeviceDialog({ onClose, start = "list" }: { onClose: () => vo
   if (step === "list")
     return (
       <Modal title="Add" onClose={onClose}>
-        <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
-          {ADD_ROWS.map((r) => (
+        <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
+          {/* a phone can't run agents itself: no "This computer" there, nor once it is added; the rest add one that can */}
+          {ADD_ROWS.filter((r) => r.step !== "here" || (!touchFirst() && !screenAdded)).map((r) => (
             <button key={r.step} type="button" onClick={() => setStep(r.step)} className="flex h-[51px] w-full items-center gap-3 px-3.5 text-left text-[14px] font-medium hover:bg-hover">
               <span className="shrink-0 text-muted">{r.icon}</span>
               {r.label}

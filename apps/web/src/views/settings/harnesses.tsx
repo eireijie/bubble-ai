@@ -14,6 +14,7 @@ import { Badge, Circle, Dlg, Item, Label, Panel, Pick, Prim, Sec, Seg, Switch, T
 import { AgentPicker } from "../../components/ShopParts.tsx";
 import { InstallHarness } from "./runtimes.tsx";
 import { canReadClipboard, readClipboard, replyAfter } from "../../harness-signin.ts";
+import { copyText } from "../../clipboard.ts";
 
 export interface HarnessesResponse {
   device: { id: string; name: string };
@@ -431,7 +432,7 @@ function ItemRow({ item, note, busy, onToggle, onShare }: { item: HarnessSetting
       right={
         <>
           {onShare && (
-            <button type="button" onClick={onShare} className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] text-muted hover:bg-hover hover:text-ink" aria-label={`Share ${item.name}`}>
+            <button type="button" onClick={onShare} className="inline-flex h-8 items-center gap-1.5 rounded-[8px] px-3 text-[13px] text-muted hover:bg-hover hover:text-ink" aria-label={`Share ${item.name}`}>
               <Share2 size={14} /> Share
             </button>
           )}
@@ -471,7 +472,7 @@ function AskBox({ agent, harness, device }: { agent: HarnessesResponse["agents"]
   };
   return (
     <div>
-      <form onSubmit={send} className="flex items-center gap-2 rounded-full border border-control-line bg-control py-1.5 pl-4 pr-1.5">
+      <form onSubmit={send} className="flex items-center gap-2 rounded-[8px] border border-control-line bg-control py-1.5 pl-4 pr-1.5">
         <label htmlFor="harness-ask" className="sr-only">
           Ask {agent.name} to change {harness}
         </label>
@@ -735,7 +736,7 @@ export function HarnessSignIn({ device, settings, account, onClose, onDone }: { 
                 </p>
               ),
               running.url ? (
-                <a href={running.url} target="_blank" rel="noreferrer" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-control-line bg-control px-[18px] text-body font-medium hover:bg-hover">
+                <a href={running.url} target="_blank" rel="noreferrer" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[8px] border border-control-line bg-control px-[18px] text-body font-medium hover:bg-hover">
                   Open <ExternalLink size={14} />
                 </a>
               ) : undefined,
@@ -745,7 +746,7 @@ export function HarnessSignIn({ device, settings, account, onClose, onDone }: { 
                 2,
                 "Enter this code there",
                 <div className="font-mono text-2xl font-medium tracking-wider">{running.code}</div>,
-                <Circle label="Copy code" onClick={() => void navigator.clipboard?.writeText(running.code!)}>
+                <Circle label="Copy code" onClick={() => void copyText(running.code!)}>
                   <Copy size={17} />
                 </Circle>,
               )}

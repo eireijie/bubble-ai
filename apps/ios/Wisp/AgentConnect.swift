@@ -19,7 +19,7 @@ struct ConnectionInstructions: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
-      CardCaption("On the agent's computer, install Bubble AI from its repository and run npm install && npm link to get wisp-mcp. Then add this to its MCP settings and restart the session.")
+      CardCaption("Paste this into the agent's MCP settings, then restart it.")
       Segments(options: ConnectionFormat.allCases.map { ($0, $0.label) }, selection: $format, id: "connect-format")
       AgentCodeCard(text: config, copied: $copied)
       CardCaption("This contains the agent's connection token. Copy it before leaving; you can make a new one under Connect via MCP.")

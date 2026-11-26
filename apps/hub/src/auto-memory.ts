@@ -325,7 +325,12 @@ export class AutoMemory {
       const hints = await vault.hints(p, note.content, inScope);
       if (n.links === 0) {
         const links = [...new Set([...hints.linkable, ...hints.similar.map((s) => `[[${s.path.split("/").pop()!.replace(/\.md$/i, "")}]]`)])].slice(0, 3);
-        if (links.length) await vault.write(p, `${note.content.replace(/\s+$/, "")}\n\nRelated: ${links.join(", ")}\n`, { name: "Bubble AI", email: "wisp@localhost" }, `Tidy: link ${p} to related notes`);
+        if (links.length) {
+          // a "Related:" line doesn't change who wrote the note: the tidy is credited to its last writer when that was an agent
+          const last = (await vault.history(p, 1).catch(() => []))[0]?.author ?? "";
+          const by = /^@[\w-]+$/.test(last) ? { name: last, email: `${last.slice(1)}@agents.wisp` } : { name: "Bubble AI", email: "wisp@localhost" };
+          await vault.write(p, `${note.content.replace(/\s+$/, "")}\n\nRelated: ${links.join(", ")}\n`, by, `Tidy: link ${p} to related notes`);
+        }
       }
       // the agent that owns the folder merges, and only notes it can edit
       const owner = scope.startsWith("agents/") ? scope.split("/")[1] : null;

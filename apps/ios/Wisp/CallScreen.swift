@@ -309,12 +309,16 @@ struct CallScreen: View {
       ZStack {
         Palette.ground.ignoresSafeArea()
         VStack(spacing: 0) {
-          HStack { CallCircle(symbol: "chevron.up", label: "Shrink call into the chat", id: "call-shrink", size: 44) { call.expanded = false }; Spacer() }
-            .padding(.horizontal, 18).padding(.top, 8)
           hero(facts)
           if call.settingsOpen { settings.padding(.horizontal, 18).padding(.top, 18).transition(.opacity) }
           content(facts)
           controls(facts)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        // the shrink button sits in the safe area, never under the status bar however tall the rest grows
+        .safeAreaInset(edge: .top, spacing: 0) {
+          HStack { CallCircle(symbol: "chevron.down", label: "Shrink call into the chat", id: "call-shrink", size: 44) { call.expanded = false }; Spacer() }
+            .padding(.horizontal, 18).padding(.top, 8)
         }
       }
       .toolbar(.hidden, for: .navigationBar)

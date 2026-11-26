@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@bubble-ai/core";
+import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, runFailureReason, runFailureLine, type RunFailureReason, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@bubble-ai/core";
 import { id } from "./auth.ts";
 import { Computers } from "./computers.ts";
 import { Terminals } from "./terminals.ts";
@@ -38,7 +38,7 @@ import { foldTeams } from "./fold-teams.ts";
 import { TeamFlows } from "./team-flows.ts";
 import type { RunKind, Store } from "./store.ts";
 import { guestEvent } from "./guest-computers.ts";
-import { adoptShared } from "./shared-computer.ts";
+import { adoptShared, mayShareOnDemand, placeWaitingAgents } from "./shared-computer.ts";
 import { DeviceUse } from "./device-use.ts";
 
 const CONTEXT_MESSAGES = 20;
@@ -606,7 +606,8 @@ export class Hub {
     this.nodes.get(nodeId)?.socket.close(4000, "replaced by a newer connection");
     const conn = { socket, nodeId, workspaceId };
     this.nodes.set(nodeId, conn);
-    this.send(conn, { type: "welcome", nodeId });
+    // how many VMs it hosts: with none, it doesn't fetch or build the VM image ahead of time
+    this.send(conn, { type: "welcome", nodeId, vms: this.store.computersOnNode(nodeId).filter((c) => c.kind === "vm").length });
 
     socket.on("message", (raw, isBinary) => {
       if (this.closed) return;
@@ -644,6 +645,8 @@ export class Hub {
       case "hello": {
         store.touchNode(conn.nodeId, msg.nodeName);
         this.updates.deviceConnected(conn.nodeId, msg.version);
+        // agents made before any device could run them (first-run setup) get this one; their queued work goes below
+        if (placeWaitingAgents(this, conn.workspaceId, conn.nodeId).length && store.nodeCapabilities(conn.nodeId)?.vm.ok) adoptShared(this, conn.workspaceId);
         for (const a of store.agentsOnNode(conn.nodeId)) this.broadcast(conn.workspaceId, { type: "agent_status", agentId: a.id, status: this.agentStatus(a) });
         for (const r of store.queuedRunsForNode(conn.nodeId)) this.dispatchRun(r.id);
         this.computers.nodeBack(conn.nodeId);
@@ -683,8 +686,7 @@ export class Hub {
       case "computer_status": {
         const c = store.computer(msg.computerId);
         if (!c || c.nodeId !== conn.nodeId) return;
-        store.updateComputer(c.id, { status: msg.status, statusText: msg.text || (msg.status === "stopped" ? "Off. It starts when it's needed." : "") });
-        this.computers.changed(c.id);
+        this.computers.onStatus(c.id, msg.status, msg.text);
         return;
       }
       case "screen_frame": {
@@ -795,7 +797,7 @@ export class Hub {
         // but a cancelled run's harness has stopped now, so its connection is free
         if (!run) return;
         if (run.status !== "running") return this.releaseConnection(run.id);
-        this.finishRun(conn.workspaceId, run, msg.type === "run_done" ? { finalText: msg.finalText } : { error: msg.error });
+        this.finishRun(conn.workspaceId, run, msg.type === "run_done" ? { finalText: msg.finalText } : { error: msg.error, ...(msg.reason ? { reason: msg.reason } : {}) });
         return;
       }
       case "git_done": {
@@ -813,7 +815,7 @@ export class Hub {
    * A run ended: post its reply (or a "Run failed" line), free the agent, and move on whatever
    * waited on it (a discussion, a task). Used for the device's report and for failures on the hub.
    */
-  private finishRun(workspaceId: string, run: NonNullable<ReturnType<Store["run"]>>, result: { finalText: string } | { error: string }) {
+  private finishRun(workspaceId: string, run: NonNullable<ReturnType<Store["run"]>>, result: { finalText: string } | { error: string; reason?: RunFailureReason }) {
     const { store } = this;
     // a connection that failed to sign in says so on Settings → Models; one that worked clears that
     const cid = this.connectionRuns.get(run.id);
@@ -915,8 +917,8 @@ export class Hub {
       store.setRunStatus(run.id, "failed", result.error);
       const text = agent ? this.explainFailure(agent, result.error, run.requestedBy) : result.error;
       if (!gone) {
-        const fix = agent ? this.failureFix(agent, result.error) : undefined;
-        this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body: "", parts: [...live.parts, { type: "status", text: `Run failed: ${text}` }, ...(result.error === "cancelled" ? [] : [{ type: "run_failed" as const, runId: run.id, retry: !!run.triggerMessageId && !run.discussionId, ...(fix ? { fix } : {}) }])], hop: run.hop + 1, route: false, conversationId: this.chatOfRun(run) });
+        const failed = agent ? this.failurePart(agent, run, result) : { type: "run_failed" as const, runId: run.id, retry: !!run.triggerMessageId && !run.discussionId };
+        this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body: "", parts: [...live.parts, { type: "status", text: `Run failed: ${text}` }, ...(result.error === "cancelled" ? [] : [failed])], hop: run.hop + 1, route: false, conversationId: this.chatOfRun(run) });
         failTaskOfRun(this, run, text);
         // setup's scripted questions wait: the person sees the failure and its Try again first
       }
@@ -964,13 +966,49 @@ export class Hub {
   /** A failure in plain words when it's a known one (a harness that needs signing in again), else as reported. */
   explainFailure(agent: Pick<Agent, "harness" | "nodeId"> & Partial<Pick<Agent, "workspaceId" | "settings">>, error: string, userId: string | null = null): string {
     const problem = signInProblem(agent.harness, error);
-    // the plan's limit, in plain words with when it's back; else the error as the harness gave it
-    if (!problem) return this.limits.explain(agent, error, userId) ?? plainFailure(error);
+    const device = agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
+    // the plan's limit, in plain words with when it's back; else the error as the harness gave it (a missing AI tool by name)
+    if (!problem) return this.limits.explain(agent, error, userId) ?? plainFailure(error, agent.harness, device);
     // on a connection, it's the connection that needs signing in again, not the device
     const conn = agent.settings?.connectionId ? this.models.row(agent.settings.connectionId) : undefined;
     if (conn && credentialSupport(agent.harness, conn.provider, conn.kind)) return `The ${providerLabel(conn.provider)} ${conn.kind === "oauth" ? "sign-in" : "key"} "${conn.label}" stopped working (${error.slice(0, 200)}). Connect it again in Settings → Models.`;
-    const device = agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
     return problem.explain(device ?? "its device");
+  }
+
+  /**
+   * The run_failed part under a failed reply: why in one short line (the device's reason code, or
+   * worked out here for devices that send none) and the one fix: Install, Sign in, Choose device,
+   * or Try again.
+   */
+  failurePart(agent: Pick<Agent, "harness" | "computerId" | "settings" | "nodeId">, run: { id: string; triggerMessageId: string | null; discussionId?: string | null }, result: { error: string; reason?: RunFailureReason }): Extract<MessagePart, { type: "run_failed" }> {
+    const reason = result.reason ?? runFailureReason(agent.harness, result.error);
+    const retry = !!run.triggerMessageId && !run.discussionId;
+    const inVm = agent.settings.runIn === "computer" && !!agent.computerId;
+    const base = { type: "run_failed" as const, runId: run.id, retry, reason };
+    const why = this.failureWhy(agent, result.error, reason);
+    if (reason === "error") return why ? { ...base, why } : base;
+    if (reason === "not_installed") {
+      // Bubble AI installs it with the device's own recipe when it can (npm); a computer's image is set up differently
+      const canInstall = !inVm && !!agent.nodeId && !!harnessInfo(agent.harness)?.install?.npm;
+      return { ...base, why, ...(canInstall ? { fix: "install" as const, harness: agent.harness, nodeId: agent.nodeId! } : {}) };
+    }
+    if (reason === "signed_out") return { ...base, why, fix: this.failureFix(agent, result.error) ?? (inVm ? "computer" : "signin") };
+    if (reason === "no_device") return { ...base, why, fix: "device" };
+    return { ...base, why };
+  }
+
+  /**
+   * Why a run failed, in one short plain line: "Claude Code isn't installed on Mac mini." for a
+   * known reason, else the harness's own first sentence, cut short ("" when it said nothing useful).
+   */
+  failureWhy(agent: Pick<Agent, "harness" | "computerId" | "settings" | "nodeId">, error: string, reason: RunFailureReason = runFailureReason(agent.harness, error)): string {
+    const inVm = agent.settings.runIn === "computer" && !!agent.computerId;
+    const device = inVm ? this.store.computer(agent.computerId!)?.name : agent.nodeId ? this.store.node(agent.nodeId)?.name : undefined;
+    if (reason !== "error") return runFailureLine(reason, agent.harness, device);
+    const first = plainFailure(error).split(/\n|(?<=[.!?])\s/)[0]?.trim() ?? "";
+    if (!first || /^(cancelled|stopped)/i.test(first)) return "";
+    const line = first.length > 140 ? `${first.slice(0, 139).trimEnd()}…` : first;
+    return /[.!?…]$/.test(line) ? line : `${line}.`;
   }
 
   /** What fixes a failed run, when a person has to sign something in first. */
@@ -1408,6 +1446,11 @@ export class Hub {
     if (held?.userId !== userId) this.broadcast(agent.workspaceId, { type: "keyboard", agentId: agent.id, userId });
   }
 
+  /** Send an agent's queued runs, oldest first (it got a device, say). Ones that still can't go keep waiting. */
+  dispatchQueued(agentId: string) {
+    for (const q of this.store.activeRuns(agentId)) if (this.store.run(q.id)?.status === "queued") this.dispatchRun(q.id);
+  }
+
   /** The agent has its keyboard back: what waited for it runs now. */
   handBackKeyboard(agentId: string) {
     const held = this.keyboard.get(agentId);
@@ -1706,6 +1749,9 @@ export class Hub {
   computerSection(agentId: string): string {
     const agent = this.store.agent(agentId);
     const c: Computer | undefined = agent?.computerId ? this.store.computer(agent.computerId) : undefined;
+    // none yet: one is made the first time a task needs a screen (shared-computer.ts)
+    if (agent && !c && mayShareOnDemand(this, agent.id))
+      return `\n## A computer when you need one\nYou work on ${agent.nodeId ? (this.store.node(agent.nodeId)?.name ?? "your device") : "your device"} directly, with no screen of your own. When a task really needs one (a website to click through, an app to open), use computer_screenshot and the other computer tools: Bubble AI starts the workspace's shared computer for you (the first time takes a few minutes). Don't for anything your shell and files can do.`;
     if (!agent || !c) return "";
     const node = c.nodeId ? this.store.node(c.nodeId) : undefined;
     const caps = c.nodeId ? this.store.nodeCapabilities(c.nodeId) : null;

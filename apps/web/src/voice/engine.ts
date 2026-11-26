@@ -19,6 +19,10 @@ export interface ListenPlan {
 
 export const NEEDS_KEY_DESKTOP = "Bubble AI can't hear you yet. Add your OpenAI key in Settings → Voice so calls can listen.";
 export const NEEDS_KEY_BROWSER = "This browser can't listen on its own. Add your OpenAI key in Settings → Voice, or open Bubble AI in Chrome or Safari.";
+/** No microphone at all: the page is on plain http (the phone apps on a home network), where browsers turn it off. */
+export const MIC_NEEDS_SECURE = "The microphone only works over a secure (https) link, and this one is plain http. Chat still works.";
+/** Whether this page can reach a microphone at all. */
+export const micAvailable = () => typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
 
 export function planListening({ chosen, desktop, recognition, hasKey }: ListenInput): ListenPlan {
   const device = !desktop && recognition;

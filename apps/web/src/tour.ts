@@ -2,13 +2,17 @@ import type { FeatureKey, LearnProgress } from "@bubble-ai/core";
 import type { Route } from "./router.ts";
 
 /**
- * Show me around (2026-11-25 "Bubble AI, bubbles", boards 9 and 10): 25 stops in 5 chapters. The
- * person's agent flies to the real thing on each stop, the rest of the page dims, and a short card
- * says what it is. This file is the list of stops and the arithmetic over them, with no React, so
- * it can be tested. The overlay that runs it is components/tour/TourOverlay.tsx.
+ * Show me around (2026-11-26 canvas "Bubble AI onboarding flow", Tour board): four stops, and at
+ * each one you do the thing for real: write to your agent, open the / commands, open Your turn,
+ * make another agent or team. The agent's bubble flies to the real control, the rest of the page
+ * dims, a short card says what to do, and the stop finishes itself when you've done it. Skipping
+ * ends it, and nothing about it stays on screen; it is in Help and Settings to start again.
+ * This file is the list of stops and the arithmetic over them, with no React, so it can be tested.
+ * The overlay that runs it is components/tour/TourOverlay.tsx.
  */
 
-export const CHAPTERS = ["Talk", "Hands-off", "Tools", "Memory and teams", "Make it yours"] as const;
+/** One chapter now: the stops are few enough to show as one row of dots. */
+export const CHAPTERS = ["Show me around"] as const;
 
 /**
  * Where a stop is.
@@ -20,12 +24,16 @@ export const CHAPTERS = ["Talk", "Hands-off", "Tools", "Memory and teams", "Make
  */
 export type Place = "chat" | "side" | "newTeam" | "team" | Route;
 
-export type TryIt = "slash" | "at" | "yourturn";
+/** What finishes a stop: sending a message, typing /, opening Your turn, or a click on the target. */
+export type DoIt = "send" | "slash" | "at" | "yourturn" | "click";
+/** @deprecated the old name */
+export type TryIt = DoIt;
 
 export interface Stop {
   id: string;
-  /** chapter, 0 to 4 */
+  /** chapter (always 0 now) */
   ch: number;
+  /** what to do; {agent} is the agent's name */
   title: string;
   body: string;
   place: Place;
@@ -39,8 +47,10 @@ export interface Stop {
   phoneBody?: string;
   /** where the bubble sits beside its target, when there's room */
   side?: "right" | "left" | "top" | "bottom";
-  /** a "Try it" on the real control */
-  tryIt?: TryIt;
+  /** what you do to finish it */
+  doIt: DoIt;
+  /** @deprecated: every stop is hands-on now (doIt) */
+  tryIt?: DoIt;
   /** a mod this stop belongs to; when it's off the card offers a switch (it is never turned on for you) */
   mod?: FeatureKey;
   /** guests can't use it, so they skip it */
@@ -50,37 +60,16 @@ export interface Stop {
 const t = (name: string) => `[data-tour="${name}"]`;
 
 export const STOPS: Stop[] = [
-  // Talk
-  { id: "write", ch: 0, place: "chat", targets: [t("input")], side: "top", title: "Write here", body: "Tell any agent what to do, in plain words. Right-click a message to reply in a thread or edit it." },
-  { id: "attach", ch: 0, place: "chat", targets: [t("attach")], side: "top", title: "Add things", body: "Attach photos and files from +." },
-  { id: "slash", ch: 0, place: "chat", targets: [t("input")], side: "top", tryIt: "slash", title: "/ commands", body: "Type / for quick commands: new chat, stop, switch model." },
-  { id: "mention", ch: 0, place: "chat", targets: [t("input")], side: "top", tryIt: "at", title: "@ mentions", body: "Type @ to ask another agent. In a team chat, it picks who answers." },
-  { id: "call", ch: 0, place: "chat", targets: [t("call"), t("send")], side: "left", title: "Calls", body: "Call any agent and just talk. Notes land in the chat after." },
-  // Hands-off
-  { id: "your-turn", ch: 1, place: "side", phonePlace: { view: "chats" }, targets: [t("yourturn")], side: "right", tryIt: "yourturn", title: "Your turn", body: "Chats waiting on you land here. Orange means your turn, blue means unread." },
-  { id: "message-first", ch: 1, place: "side", phonePlace: { view: "chats" }, targets: ["[data-needs]", t("chat-row")], side: "right", mod: "background", title: "They message first", body: "Agents check your apps on their own and message you when something needs you.", fallbackBody: "Agents check your apps on their own. When something needs you, their chat moves up here with an orange dot." },
-  { id: "approvals", ch: 1, place: { view: "dashboard" }, targets: [t("needs-you")], side: "right", title: "Approvals", body: "Before sending, paying or deleting anything, agents ask. Their questions wait here: Allow or Not now." },
-  { id: "usage", ch: 1, place: { view: "settings", page: "usage" }, targets: [t("settings-sheet")], side: "left", noGuests: true, title: "Usage and limits", body: "See what agents used, and set a daily limit for work they do on their own." },
-  // Tools
-  { id: "apps", ch: 2, place: { view: "marketplace" }, targets: ["#add-apps"], side: "left", noGuests: true, title: "Apps", body: "Connect the apps agents use. Sign-ins go through your password manager." },
-  { id: "skills", ch: 2, place: { view: "marketplace" }, targets: ["#add-skills"], side: "left", noGuests: true, title: "Skills", body: "Jobs agents know how to do. Add them here, or do a task once on a computer and the agent saves it as a skill." },
-  { id: "computers", ch: 2, place: "side", phonePlace: { view: "computers", computerId: null }, targets: [t("computers"), t("computers-list"), t("computers-page")], side: "top", noGuests: true, title: "Computers", body: "Agents work on their own computer, so yours stays free. The dot says how many are on.", phoneBody: "Agents work on their own computer, so yours stays free." },
-  { id: "your-computers", ch: 2, place: { view: "computers", computerId: null }, targets: [t("computers-list"), t("computers-page")], side: "left", noGuests: true, title: "Your computers", body: "Watch live or take over. Agents can use your own computers too, only if you say so." },
-  { id: "phone", ch: 2, place: { view: "settings", page: "devices", item: "phone" }, targets: [t("settings-sheet")], side: "left", noGuests: true, title: "Your phone", body: "Scan this with the Bubble AI phone app. Same agents, same chats, approvals on the go." },
-  // Memory and teams
-  { id: "vault", ch: 3, place: "side", phonePlace: { view: "vault", path: null }, targets: [t("vault"), t("vault-list"), t("vault-page")], side: "top", title: "Memory vault", body: "Notes agents keep about you and your work." },
-  { id: "notes", ch: 3, place: { view: "vault", path: null }, targets: [t("vault-list"), t("vault-page")], side: "left", title: "Read every note", body: "Fix or delete anything. Every agent reads these, so you only say it once." },
-  { id: "new", ch: 3, place: "side", phonePlace: { view: "chats" }, targets: [t("new")], side: "right", noGuests: true, title: "New", body: "Make an agent, a team or a section." },
-  { id: "teams", ch: 3, place: "newTeam", targets: ['[role="dialog"][aria-label="New team"]'], side: "right", noGuests: true, title: "Teams", body: "A team is a flow chart of who does what. Name it and pick its agents, then draw it, or describe it and an agent draws it." },
-  { id: "schedules", ch: 3, place: "team", targets: ['[aria-label^="Schedule,"]', t("team-pill"), t("new")], side: "bottom", mod: "routines", noGuests: true, title: "Schedules", body: "Add a Schedule box to a team's flow chart and the team starts on its own.", fallbackBody: "Make a team, then add a Schedule box to its flow chart and it starts on its own." },
-  // Make it yours
-  { id: "pins", ch: 4, place: "side", phonePlace: { view: "chats" }, targets: [t("pins"), t("chat-row")], side: "right", title: "Pins", body: "Pin up to 9 agents and teams. Right-click any row to pin it.", fallbackBody: "Right-click any row to pin it. Up to 9 agents and teams sit up here." },
-  { id: "sections", ch: 4, place: "side", phonePlace: { view: "chats" }, targets: [t("sections")], side: "right", title: "Sections", body: "Your own groups. Drag rows in, fold away the ones you don't need." },
-  { id: "agent-page", ch: 4, place: "chat", targets: [".agent-pill"], side: "bottom", title: "Agent page", body: "Click an agent's name for its page: look, apps, and what it asks first." },
-  { id: "ai", ch: 4, place: { view: "settings", page: "harnesses", item: "accounts" }, targets: [t("settings-sheet")], side: "left", noGuests: true, title: "What runs your agents", body: "Each agent runs on an AI you already use, like Claude Code or Codex. Sign in once." },
-  { id: "mods", ch: 4, place: { view: "mods" }, targets: ["#add-mods"], side: "left", mod: "tasks", noGuests: true, title: "Mods", body: "Whole extra features, like Tasks, Apple and Storage. Off until you want them." },
-  { id: "settings", ch: 4, place: "side", phonePlace: { view: "settings", page: null }, targets: [t("you"), t("settings-home"), t("settings-page")], side: "top", title: "Settings", body: "Everything else. Show me around lives here too, under Learn Bubble AI, and in Help." },
+  { id: "write", ch: 0, place: "chat", targets: [t("input")], side: "top", doIt: "send", title: "Say hi to {agent}", body: "Type anything and press Return." },
+  { id: "slash", ch: 0, place: "chat", targets: [t("input")], side: "top", doIt: "slash", title: "Type /", body: "Quick commands: new chat, stop, switch model." },
+  { id: "your-turn", ch: 0, place: "side", phonePlace: { view: "chats" }, targets: [t("yourturn")], side: "right", doIt: "yourturn", title: "Open Your turn", body: "Chats waiting on you land here." },
+  { id: "new", ch: 0, place: "side", phonePlace: { view: "chats" }, targets: [t("new")], side: "right", doIt: "click", noGuests: true, title: "Make another", body: "Another agent, or a team of them." },
 ];
+
+/** A stop's title with the agent's name in it. */
+export function stopTitle(stop: Pick<Stop, "title">, agent: string): string {
+  return stop.title.replace("{agent}", agent || "your agent");
+}
 
 export const TOTAL = STOPS.length;
 

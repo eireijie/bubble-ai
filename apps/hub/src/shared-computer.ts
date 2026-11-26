@@ -1,12 +1,14 @@
-import type { Computer } from "@bubble-ai/core";
+import { harnessInfo, type Computer } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 import type { Store } from "./store.ts";
 
 /**
- * Where agents work by default (Simple): one Linux computer the workspace's agents share, so a site
- * signed into once is signed in for all of them and a file one saves the others can open. Its record
- * is made with the first agent; the computer itself is only made the first time an agent needs it,
- * and it stops when idle (computers.ts). Agents' AI tools run on the same device, beside it.
+ * One Linux computer the workspace's agents can share, so a site signed into once is signed in for
+ * all of them and a file one saves the others can open. New agents don't get it by default: they
+ * work on their device directly (agent-defaults.ts). Its record is made only when an agent is put on
+ * it (a person picks it, or the defaults say so) or an agent's task needs a screen (shareOnDemand);
+ * the computer itself is only built the first time it's used, and it stops when idle (computers.ts).
+ * Agents' AI tools run on the same device, beside it.
  */
 
 /** The workspace's shared computer. */
@@ -77,13 +79,37 @@ export function sharedComputer(hub: Hub, workspaceId: string, create = true): Co
 }
 
 /**
- * Where a new agent of an owner's works, in Simple: on the shared computer, with its AI tool on the
- * same device (beside the computer, so chat never waits for it). Before any device can run a
- * computer: on the home device, with none yet (adoptShared gives it one later).
+ * Where a new agent put on the shared computer works: on it, with its AI tool on the same device
+ * (beside the computer, so chat never waits for it). Before any device can run a computer: on the
+ * home device, with none yet (adoptShared gives it one later). Only for agents explicitly put on
+ * the shared computer; it makes the computer's record (off), never starts it.
  */
 export function simplePlacement(hub: Hub, workspaceId: string): { nodeId: string | null; computerId: string | null; waits: boolean } {
   const shared = sharedComputer(hub, workspaceId);
   return shared ? { nodeId: shared.nodeId, computerId: shared.id, waits: false } : { nodeId: homeDevice(hub.store, workspaceId), computerId: null, waits: true };
+}
+
+/**
+ * A device connected: agents made before there was any device to run them (first-run setup makes
+ * one before the person's computer joins) get it, when it's their maker's or open to them. Only
+ * agents still waiting (waitsForShared, no device), not headless ones or ones that connect from
+ * outside (MCP). Returns the agents it placed; their queued work can go now.
+ */
+export function placeWaitingAgents(hub: Hub, workspaceId: string, nodeId: string): string[] {
+  const { store } = hub;
+  const node = store.node(nodeId);
+  if (!node || node.workspaceId !== workspaceId) return [];
+  const placed: string[] = [];
+  for (const a of store.agents(workspaceId)) {
+    if (a.nodeId || !(a.settings.waitsForDevice || (a.settings.waitsForShared && !a.settings.headless))) continue;
+    if (harnessInfo(a.harness)?.protocol === "mcp") continue;
+    const maker = a.settings.createdBy ?? null;
+    if (node.ownerId && !node.shared && node.ownerId !== maker) continue;
+    store.updateAgent(a.id, { nodeId, ...(a.settings.waitsForDevice ? { settings: { ...a.settings, waitsForDevice: undefined } } : {}) });
+    placed.push(a.id);
+  }
+  if (placed.length) hub.broadcast(workspaceId, { type: "agents_changed" });
+  return placed;
 }
 
 /** Set once an organization's agents from before the shared computer were moved onto it. */
@@ -135,4 +161,33 @@ export function keepDeviceScreens(hub: Hub, workspaceId: string): string[] {
     kept.push(a.id);
   }
   return kept;
+}
+
+/**
+ * An agent with no computer whose task needs a screen (it called a computer tool): in Simple, an
+ * owner's agent gets the shared computer, made now if there isn't one, when it's on the same device
+ * as its AI tool. Null when it can't (Advanced, a member's agent, set to work without a computer,
+ * or no device here can run one): the caller says it has no computer.
+ */
+export function shareOnDemand(hub: Hub, agentId: string): Computer | null {
+  const { store } = hub;
+  const a = store.agent(agentId);
+  if (!a || !mayShareOnDemand(hub, a.id)) return null;
+  const shared = sharedComputer(hub, a.workspaceId);
+  if (!shared || !a.nodeId || shared.nodeId !== a.nodeId) return null;
+  store.updateAgent(a.id, { computerId: shared.id, settings: { ...a.settings, waitsForShared: undefined } });
+  hub.broadcast(a.workspaceId, { type: "agents_changed" });
+  return store.computer(shared.id) ?? null;
+}
+
+/** Could shareOnDemand give this agent the shared computer? Makes nothing. */
+export function mayShareOnDemand(hub: Hub, agentId: string): boolean {
+  const { store } = hub;
+  const a = store.agent(agentId);
+  if (!a || a.computerId || a.settings.headless || !a.nodeId || advancedOn(store, a.workspaceId)) return false;
+  if (harnessInfo(a.harness)?.protocol === "mcp") return false;
+  const maker = a.settings.createdBy;
+  if (maker && store.role(a.workspaceId, maker) !== "owner") return false;
+  const known = sharedComputer(hub, a.workspaceId, false);
+  return (known ? known.nodeId : sharedHost(store, a.workspaceId)) === a.nodeId;
 }

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { memoryPrompt, parseMemoryAnswer } from "@bubble-ai/core/src/memory-import.ts";
 import { api } from "./api.ts";
 import { FACT_GROUPS, NOTE_OF_GROUP, SCAN_PARTS, factsFromAnswer, loadAnswers, saveAnswers, type Fact, type ScanPart } from "./onboardingV3.ts";
+import { copyText } from "./clipboard.ts";
 
 /**
  * Onboarding v3, page 3, in the background: "Look around this Mac" and the memory import keep
@@ -122,7 +123,7 @@ export async function copyQuestion(): Promise<boolean> {
   link ??= await api<{ id: string; url: string }>("POST", "/api/memory-links").catch(() => null);
   let ok = true;
   try {
-    await navigator.clipboard.writeText(memoryPrompt(link?.url));
+    await copyText(memoryPrompt(link?.url));
   } catch {
     ok = false;
   }

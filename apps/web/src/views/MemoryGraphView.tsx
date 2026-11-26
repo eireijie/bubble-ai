@@ -197,7 +197,7 @@ export function MemoryGraphView({
 
         {/* the picked note */}
         {picked && (
-          <div className="absolute left-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 md:right-auto md:w-80 rounded-[14px] glass p-3.5">
+          <div className="absolute left-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 md:right-auto md:w-80 rounded-[12px] glass p-3.5">
             <div className="flex items-start gap-2">
               <span className="mt-1.5 size-2.5 rounded-full shrink-0" style={{ background: kindColor(picked.kind) }} />
               <div className="flex-1 min-w-0">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Camera, ChevronLeft, ChevronRight, ClipboardList, Cloud, FolderOpen, Keyboard, Laptop, Loader2, Monitor, MoreHorizontal, Server, Upload, Video, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ClipboardList, Cloud, FolderOpen, Keyboard, Laptop, Loader2, Monitor, MonitorOff, MoreHorizontal, Server, Upload, Video, X } from "lucide-react";
 import { type Agent, type PageElement } from "@bubble-ai/core";
 import { api, uploadFile } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
@@ -7,14 +7,14 @@ import { go, href } from "../router.ts";
 import { useFeature } from "../features.ts";
 import { isTopOverlay, useOverlay } from "../overlays.ts";
 import { osName, usableDevices, vmAvailabilityNote, type DeviceInfo } from "../devices.ts";
-import { ComputersHome, toneText, useNodes, useTileStatus } from "./ComputersParts.tsx";
+import { ComputersHome, StartProblem, startComputer, toneText, useNodes, useTileStatus } from "./ComputersParts.tsx";
 import { ComputerSheet } from "./DevicePage.tsx";
 import { LiveScreen, ScreenThumb, WorkingBadge, type LiveScreenHandle, type ScreenInput } from "../components/Screen.tsx";
 import { ClipboardPanel, FilesPanel, remotePlatform, saveScreenshot, sendFiles, useClipboardSync } from "../components/ComputerSync.tsx";
 import { AgentAvatar, Button, Field, Input, Menu, Modal, Pill, Textarea, cx } from "../components/ui.tsx";
 
 export { computerState, useComputerState, KIND_ICON, stateColor, activityDot } from "./computerState.ts";
-import { useComputerState, stateColor, isWatchHash, sheetTarget, watchHref } from "./computerState.ts";
+import { useComputerState, stateColor, isWatchHash, sheetTarget, watchBlock, watchHref } from "./computerState.ts";
 
 const onHash = (on: () => void) => {
   window.addEventListener("hashchange", on);
@@ -74,9 +74,13 @@ export function orgoStatus(orgo: { configured: boolean } | null): "checking" | "
   return orgo === null ? "checking" : orgo.configured ? "ready" : "needs-key";
 }
 
-/** What the dialog starts on: a cloud computer when that is all it offers, else the agent's own desktop when a device can run one. */
-export function startKind(only: "here" | "cloud" | undefined, usable: DeviceInfo[]): Kind | null {
+/** What the Add list's row narrowed the dialog to: this computer (its screen or a desktop on it), a Linux computer, or a cloud computer. */
+export type AddOnly = "here" | "linux" | "cloud";
+
+/** What the dialog starts on: a cloud computer when that is all it offers, a Linux computer when asked for one, else the agent's own desktop when a device can run one. */
+export function startKind(only: AddOnly | undefined, usable: DeviceInfo[]): Kind | null {
   if (only === "cloud") return "orgo";
+  if (only === "linux") return "vm";
   return usable.some((d) => d.capabilities?.vm.ok) ? "vm" : null;
 }
 
@@ -85,7 +89,7 @@ export function startKind(only: "here" | "cloud" | undefined, usable: DeviceInfo
  * a cloud computer. Where it lives, its name and its size are filled in; Change opens them.
  * `only` narrows it to what the Add list's row was: this computer, or a cloud computer.
  */
-export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, defaultName, only }: { devices: DeviceInfo[]; onClose: () => void; onCreated: (c: ComputerInfo) => void; nodeId?: string | null; defaultName?: string; only?: "here" | "cloud" }) {
+export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, defaultName, only }: { devices: DeviceInfo[]; onClose: () => void; onCreated: (c: ComputerInfo) => void; nodeId?: string | null; defaultName?: string; only?: AddOnly }) {
   const usable = usableDevices(devices);
   const [picked, setPicked] = useState<Kind | null>(null);
   const kind = picked ?? startKind(only, usable);
@@ -107,7 +111,7 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
   const nodeId = has(pickedNode) ? pickedNode! : has(preferNode) ? preferNode! : ((kind === "vm" ? choices.find((d) => d.online && d.capabilities?.vm.ok) : undefined) ?? choices.find((d) => d.online) ?? choices[0])?.id ?? "";
   const device = choices.find((d) => d.id === nodeId);
   const orgoState = orgoStatus(orgo);
-  const fallbackName = kind === "vm" ? `${device?.name ?? "VM"} desktop` : kind === "orgo" ? "Cloud computer" : (device?.name ?? "");
+  const fallbackName = kind === "vm" ? (only === "linux" ? "Linux computer" : `${device?.name ?? "VM"} desktop`) : kind === "orgo" ? "Cloud computer" : (device?.name ?? "");
 
   const create = async () => {
     if (kind === "orgo" && orgoState !== "ready") return;
@@ -132,7 +136,7 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
   };
 
   const option = (k: Kind, icon: ReactNode, title: string, note?: string, disabled?: boolean) => (
-    <button key={k} type="button" role="radio" aria-checked={kind === k} disabled={disabled} onClick={() => setPicked(k)} className={cx("flex min-h-[51px] w-full items-center gap-3 rounded-[14px] border px-3.5 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60", kind === k ? "border-ink bg-card" : cx("border-line", !disabled && "hover:bg-hover"))}>
+    <button key={k} type="button" role="radio" aria-checked={kind === k} disabled={disabled} onClick={() => setPicked(k)} className={cx("flex min-h-[51px] w-full items-center gap-3 rounded-[12px] border px-3.5 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60", kind === k ? "border-ink bg-card" : cx("border-line", !disabled && "hover:bg-hover"))}>
       <span className="shrink-0 text-muted">{icon}</span>
       <span className="min-w-0">
         <span className="block text-[14px] font-medium">{title}</span>
@@ -143,14 +147,14 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
 
   // what stands in the way, only when something does
   const caps = kind && kind !== "orgo" ? device?.capabilities : undefined;
-  const problem = !caps ? null : kind === "vm" ? (caps.vm.ok ? null : caps.vm.detail) : caps.screen.off ? `${device!.name}'s screen is off. Turn it on at that computer.` : caps.screen.ok ? null : caps.screen.detail;
+  const problem = !caps ? (only === "linux" && !usable.length ? "Add a computer that can run it first." : null) : kind === "vm" ? (caps.vm.ok ? null : caps.vm.detail) : caps.screen.off ? `${device!.name}'s screen is off. Turn it on at that computer.` : caps.screen.ok ? null : caps.screen.detail;
   const sized = (kind === "vm" || kind === "orgo") && !existing.trim();
   const summary = !kind ? null : kind === "orgo" ? [name || fallbackName, existing.trim() ? "One you have" : SIZE_LABEL[size], "Orgo"].join(" · ") : device ? [kind === "vm" ? name || fallbackName : null, kind === "vm" ? SIZE_LABEL[size] : null, `On ${device.name}`].filter(Boolean).join(" · ") : null;
 
   return (
-    <Modal title={only === "cloud" ? "A cloud computer" : only === "here" ? "This computer" : "Add a computer"} onClose={onClose}>
+    <Modal title={only === "cloud" ? "A cloud computer" : only === "here" ? "This computer" : only === "linux" ? "A Linux computer" : "Add a computer"} onClose={onClose}>
       <div className="space-y-4">
-        {only !== "cloud" && (
+        {only !== "cloud" && only !== "linux" && (
           <div role="radiogroup" aria-label="What to add" className="space-y-2">
             {option("vm", <Monitor size={18} strokeWidth={1.8} />, "Its own desktop", vmAvailabilityNote(usable))}
             {mineOnly.length > 0 && option("device", <Laptop size={18} strokeWidth={1.8} />, "My screen")}
@@ -158,10 +162,10 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
           </div>
         )}
         {only === "cloud" && orgoState === "checking" && <p className="text-sm text-muted">Checking…</p>}
-        {only !== "here" && orgoState === "needs-key" && (
+        {(only === "cloud" || !only) && orgoState === "needs-key" && (
           <p className="text-sm text-warn">
             Add your Orgo API key first.{" "}
-            <a href={href({ view: "settings", page: "devices" })} onClick={onClose} className="underline text-accent-text">
+            <a href={href({ view: "settings", page: "devices", item: "cloud" })} onClick={onClose} className="underline text-accent-text">
               Open settings
             </a>
           </p>
@@ -223,6 +227,37 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
 
 // --- one computer, live ---------------------------------------------------------------------------------
 
+/** In place of the live screen when it can't show: why, and Start when that's what it takes. */
+function ScreenBlocked({ computer: c, block, canStart }: { computer: ComputerInfo; block: ReturnType<typeof watchBlock>; canStart: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const start = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await startComputer(c.id);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-white/70" data-testid="screen-blocked">
+      <div className="max-w-sm space-y-3">
+        {block?.starting ? <Loader2 size={22} className="mx-auto animate-spin opacity-70" /> : <MonitorOff size={22} className="mx-auto opacity-70" />}
+        {block && <p>{block.text}</p>}
+        {block?.start && canStart && (
+          <button type="button" disabled={busy} onClick={() => void start()} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/20 px-3 hover:bg-white/10 disabled:opacity-50">
+            {busy && <Loader2 size={14} className="animate-spin" />} Start
+          </button>
+        )}
+        {error && <p className="text-bad">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
 /**
  * A computer's live view: the screen gets the whole area. One slim row above it: Back, the
  * computer's name, what the agent is doing, Take over or Hand back, and one "…" for Clipboard,
@@ -250,6 +285,10 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
   const own = c.kind === "device" ? device : undefined;
   const name = own?.name ?? c.name;
   const status = useTileStatus({ kind: c.kind === "orgo" ? "cloud" : c.kind, device: own, computer: c });
+  // the screen can't show: a device's own screen turned off there, or a VM that's off or starting
+  const block = watchBlock(c, own);
+  // nothing to take over or send files to until its screen is there
+  const up = !block && !(c.kind !== "device" && c.status === "error");
 
   const control = async (take: boolean) => {
     setBusy(true);
@@ -274,9 +313,9 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
     if (teacher && c.online && !c.controller) control(true);
   }, [teacher?.id, c.online]);
 
-  const canControl = canEdit && c.online && !c.paused;
+  const canControl = canEdit && c.online && !c.paused && up;
   // moving files and clipboard text doesn't need control, only a computer that's there
-  const canTransfer = canEdit && c.online && !c.paused;
+  const canTransfer = canEdit && c.online && !c.paused && up;
   const platform = remotePlatform(c, devices);
   const sync = useClipboardSync(c, mine && !teacher, platform);
   const toggle = (p: NonNullable<typeof panel>) => setPanel((cur) => (cur === p ? null : p));
@@ -305,7 +344,7 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
   const tools = [
     ...(canTransfer ? [{ label: "Clipboard", icon: <ClipboardList size={16} />, onSelect: () => toggle("clipboard") }, { label: "Files", icon: <FolderOpen size={16} />, onSelect: () => toggle("files") }] : []),
     ...(mine ? [{ label: "Keys", icon: <Keyboard size={16} />, onSelect: () => setKeys((k) => !k) }] : []),
-    ...(c.online && !c.paused ? [{ label: "Screenshot", icon: <Camera size={16} />, onSelect: () => void saveScreenshot(c).catch((e) => setError(e.message)) }] : []),
+    ...(c.online && !c.paused && up ? [{ label: "Screenshot", icon: <Camera size={16} />, onSelect: () => void saveScreenshot(c).catch((e) => setError(e.message)) }] : []),
     ...(teachOn && canControl && agents.length > 0 ? [{ label: "Teach a task", icon: <Video size={16} />, onSelect: startTeach }] : []),
   ];
 
@@ -352,7 +391,7 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
       )}
 
       {error && <p className="shrink-0 mx-3 mb-2 text-sm text-bad">{error}</p>}
-      {c.status === "error" && c.statusText && <p className="shrink-0 mx-3 mb-2 text-sm text-bad">{c.statusText}</p>}
+      {c.kind === "device" ? c.status === "error" && c.statusText && <p className="shrink-0 mx-3 mb-2 text-sm text-bad">{c.statusText}</p> : <StartProblem computer={c} className="shrink-0 mx-3 mb-2" />}
 
       {/* the panels and Keys sit beside the screen (not inside its keyboard capture), so local copy and paste in them stays local */}
       <div className="relative flex-1 min-h-0 overflow-hidden bg-black">
@@ -372,6 +411,9 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
             void dropOnScreen([...e.dataTransfer.files]);
           }}
         >
+          {!up ? (
+            <ScreenBlocked computer={c} block={block} canStart={canEdit} />
+          ) : (
           <LiveScreen
             ref={screen}
             computer={c}
@@ -387,13 +429,14 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
               void api("POST", `/api/computers/${c.id}/control`, { take: true }).catch(() => {});
             }}
           />
+          )}
 
           {/* the amber frame says the desk is yours */}
           {mine && <div className="absolute inset-0 z-10 border-2 border-st-needs pointer-events-none" data-testid="control-frame" />}
 
           {dropping && (
             <div className="absolute inset-0 z-30 border-2 border-dashed border-info bg-info/15 grid place-items-center pointer-events-none">
-              <span className="inline-flex items-center gap-2 rounded-full bg-black/70 text-white px-4 h-10 text-sm font-medium">
+              <span className="inline-flex items-center gap-2 rounded-[8px] bg-black/70 text-white px-4 h-10 text-sm font-medium">
                 <Upload size={16} /> Drop to send
               </span>
             </div>
@@ -401,7 +444,7 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
         </div>
 
         {sync.note && (
-          <span className="absolute left-1/2 top-2 z-20 max-w-[90%] -translate-x-1/2 truncate rounded-full bg-black/70 px-3 py-1 text-xs text-white pointer-events-none" role="status">
+          <span className="absolute left-1/2 top-2 z-20 max-w-[90%] -translate-x-1/2 truncate rounded-[8px] bg-black/70 px-3 py-1 text-xs text-white pointer-events-none" role="status">
             {sync.note}
           </span>
         )}

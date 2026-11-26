@@ -32,9 +32,10 @@ extension View {
   }
 
   /** The light surface a pill (name, tab bar) sits on. */
-  @ViewBuilder func glassPill() -> some View {
+  // inside a Button pass interactive: false: interactive glass takes the first tap for itself, so the button needed two
+  @ViewBuilder func glassPill(interactive: Bool = true) -> some View {
     if #available(iOS 26, *) {
-      self.glassEffect(.regular.interactive(), in: .capsule)
+      self.glassEffect(interactive ? .regular.interactive() : .regular, in: .capsule)
     } else {
       self.background(Capsule().fill(Palette.control)).overlay(Capsule().strokeBorder(Palette.hairline))
     }
@@ -94,13 +95,30 @@ struct TopBar<Leading: View, Center: View, Trailing: View>: View {
 
   var body: some View {
     ZStack {
-      // centred between the buttons; when the right side holds several buttons the left keeps just its one, so the name still gets room
-      center.padding(.leading, inset <= 64 ? inset : 52).padding(.trailing, inset).frame(maxWidth: .infinity)
+      // centred on the screen: the same room kept clear on both sides, however many buttons the right side holds
+      center.padding(.horizontal, inset).frame(maxWidth: .infinity)
       HStack { leading; Spacer(minLength: 0); trailing }
     }
     .padding(.horizontal, 18)
     .padding(.top, 8)
     .padding(.bottom, 8)
+  }
+}
+
+/**
+ * What sits behind a chat's top bar: a blur of the page that fades out at its bottom edge, so
+ * messages scrolled up under it soften instead of running through the name.
+ */
+struct HeaderBackdrop: View {
+  var body: some View {
+    ZStack {
+      Rectangle().fill(.ultraThinMaterial)
+      Palette.ground.opacity(0.72)
+    }
+    .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.72), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+    .padding(.bottom, -16)
+    .ignoresSafeArea(edges: .top)
+    .allowsHitTesting(false)
   }
 }
 
@@ -116,7 +134,7 @@ struct NamePill<Icon: View>: View {
     }
     .padding(.leading, 12).padding(.trailing, 18)
     .frame(height: 44)
-    .glassPill()
+    .glassPill(interactive: false)
     .contentShape(Capsule())
   }
 }

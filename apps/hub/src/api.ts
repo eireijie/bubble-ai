@@ -81,8 +81,8 @@ import { DRAFT_TITLE, registerTeamDraftApi } from "./team-drafts.ts";
 import { registerRemoteMcp } from "./remote-mcp.ts";
 import { agentPolicy } from "./policy.ts";
 import { FEATURE_PRESET, createOrganization, registerOrgApi } from "./api-orgs.ts";
-import { agentDefaults } from "./agent-defaults.ts";
-import { advancedOn, simplePlacement } from "./shared-computer.ts";
+import { agentDefaults, newAgentComputer } from "./agent-defaults.ts";
+import { simplePlacement } from "./shared-computer.ts";
 import { spawnRight } from "./spawn.ts";
 import { greetNewAgent, registerSetupApi } from "./greeting.ts";
 import { registerOnboardingApi } from "./api-onboarding.ts";
@@ -101,7 +101,13 @@ export interface Caller {
 }
 
 const HANDLE = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/, "lowercase letters, digits and dashes; must start with a letter");
-const CHANNEL_NAME = z.string().regex(/^[a-z0-9][a-z0-9-_]{0,79}$/, "lowercase, no spaces");
+/** A team's name as the person typed it ("Release crew"): one line, no ":" (chats with an agent use it), not starting with # or @. Older names are slugs, which still fit. */
+const CHANNEL_NAME = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .regex(/^[^#@:\s][^:\r\n]*$/, "a name on one line, without a colon");
 /** One emoji (or a short emoji sequence); no text, markup or whitespace. */
 const EMOJI = z
   .string()
@@ -124,6 +130,7 @@ const APPEARANCE = z
     accessory: z.enum(GHOST_ACCESSORIES),
     motion: z.enum(GHOST_MOTIONS),
     bubble: z.enum(BUBBLE_SHAPES).optional(),
+    parts: z.boolean().optional(),
   })
   .strict();
 const SETTINGS = z
@@ -723,7 +730,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     // a chat with an agent can only be filed in a section (the chats list's Move to section); nothing else about it changes
     if (ch.kind !== "channel" && (Object.keys(body).some((k) => k !== "sectionId") || !store.isMember(ch.id, c.actor))) return reply.code(404).send({ error: "channel not found" });
     if (body.sectionId && store.section(body.sectionId)?.workspaceId !== c.workspaceId) return reply.code(400).send({ error: "unknown section" });
-    if (body.name && body.name !== ch.name && store.channelByName(c.workspaceId, body.name)) return reply.code(409).send({ error: "channel exists" });
+    // a name in another case is the same name: fine for this team ("release crew" to "Release crew"), taken for another
+    if (body.name && body.name !== ch.name && (store.channelByName(c.workspaceId, body.name)?.id ?? ch.id) !== ch.id) return reply.code(409).send({ error: "channel exists" });
     if (body.name && body.name !== ch.name && ch.name === "general") return reply.code(409).send({ error: "#general can't be renamed: everyone in the workspace lands there" });
     if (body.settings?.team && hasSteps(ch.settings.team) && body.settings.team.roles === undefined && body.settings.team.steps === undefined) {
       // an app that only draws the chart can move people around it, not change who's on the team
@@ -1129,6 +1137,18 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   });
 
   /** Ask again after a failed run. Goes through the same "who can ask it" rules as a new message. */
+  /** Replies that failed in the last two days and still stand, each with why and its one fix (for Needs you). */
+  app.get("/api/runs/failed", async (req, reply) => {
+    const c = need(req, reply, { notGuest: true });
+    if (!c || c.actor.kind !== "user") return [];
+    const since = new Date(Date.now() - 48 * 3_600_000).toISOString();
+    return store.standingFailures(c.workspaceId, c.actor.id, since).flatMap((r) => {
+      const agent = store.agent(r.agentId);
+      if (!agent || !channelVisible(c, r.channelId)) return [];
+      return [{ runId: r.id, agentId: r.agentId, channelId: r.channelId, threadId: r.threadId, at: r.createdAt, part: hub.failurePart(agent, r, { error: r.error }) }];
+    });
+  });
+
   app.post("/api/runs/:id/retry", async (req, reply) => {
     const c = need(req, reply, { notGuest: true });
     if (!c) return;
@@ -1193,9 +1213,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       ...(body.role.trim() ? { role: body.role.trim() } : {}),
     };
     let computerId: string | null = null;
-    // the shared computer when it's for an owner's work (Simple, or Advanced's default); else its own
+    // what the defaults say (its device directly, unless an owner picked otherwise); the shared
+    // computer only for an owner's work, a member's gets its own
     const forOwner = !!requester && store.role(c.workspaceId, requester) === "owner";
-    const choice = !advancedOn(store, c.workspaceId) ? (forOwner ? "shared" : "own-vm") : defaults.computer === "shared" && !forOwner ? "own-vm" : defaults.computer;
+    const choice = newAgentComputer(defaults.computer, forOwner);
     if (choice === "shared") {
       const placed = simplePlacement(hub, c.workspaceId);
       if (placed.computerId) {
@@ -1265,16 +1286,19 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     );
     if (!body) return;
     const { useDefaults, greet, ...fields } = body;
+    // set to work without a device by whoever made it: it doesn't wait for one
+    const askedHeadless = !!body.settings?.headless;
     const defaults = useDefaults ? agentDefaults(store, c.workspaceId) : null;
     if (defaults) {
       fields.harness ??= defaults.harness ?? undefined;
       if (fields.model === undefined) fields.model = defaults.models[fields.harness ?? ""] ?? (fields.harness === defaults.harness ? defaults.model : undefined);
       if (fields.nodeId === undefined && defaults.nodeId && canUseDevice(c, defaults.nodeId)) fields.nodeId = defaults.nodeId;
     }
-    // where it works: in Simple an owner's agent goes on the shared computer, with its AI tool beside it
-    // (a member's gets a computer of its own, so it never has the owner's sign-ins); Advanced follows the defaults
+    // where it works: what the defaults say, which is its device directly unless an owner picked
+    // otherwise. The shared computer (only when picked) is for an owner's agents, with its AI tool
+    // beside it; a member's gets a computer of its own, so it never has the owner's sign-ins.
     const isOwner = c.viewer.role === "owner";
-    const computerChoice = !defaults ? null : !advancedOn(store, c.workspaceId) ? (isOwner ? "shared" : "own-vm") : defaults.computer === "shared" && !isOwner ? "own-vm" : defaults.computer;
+    const computerChoice = !defaults ? null : newAgentComputer(defaults.computer, isOwner);
     let placedComputer: string | null | undefined;
     if (computerChoice === "shared" && fields.computerId === undefined) {
       const placed = simplePlacement(hub, c.workspaceId);
@@ -1312,6 +1336,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
         computerId = comp.id;
         body.settings = { runIn: "computer", ...body.settings };
       } else if (computerChoice === "none") body.settings = { headless: true, ...body.settings };
+      // no device yet (first-run setup, before the person's computer joins): it gets the first one it can use
+      if (!fields.nodeId && computerChoice !== "shared" && !askedHeadless) body.settings = { ...body.settings, waitsForDevice: true } as typeof body.settings;
     }
     const created = store.createAgent({ ...fields, harness, computerId, workspaceId: c.workspaceId });
     const agent = store.updateAgent(created.id, { settings: body.settings })!;
@@ -1409,6 +1435,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (body.computerId) body.settings = { ...body.settings, headless: false };
     const updated = store.updateAgent(agent.id, body)!;
     hub.broadcast(c.workspaceId, { type: "agents_changed" });
+    // work that waited for a device goes now that it has one
+    if (moved && updated.nodeId) hub.dispatchQueued(updated.id);
     return agentView(updated);
   });
 
@@ -1562,7 +1590,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       remoteDesktop: n.ownerId === c.actor.id ? store.nodeRemoteDesktop(n.id) : null,
       // what else lives on someone's device is theirs to see
       discovered: n.ownerId === c.actor.id || n.shared ? store.nodeDiscovered(n.id) : [],
-      harnesses: store.nodeCatalog(n.id).map((h) => ({ id: h.harness, version: h.version, accounts: h.accounts, agentAccounts: h.agentAccounts })),
+      harnesses: store.nodeCatalog(n.id).map((h) => ({ id: h.harness, version: h.version, accounts: h.accounts, agentAccounts: h.agentAccounts, models: h.models.map((m) => ({ id: m.id, label: m.label, efforts: m.efforts, defaultEffort: m.defaultEffort })), efforts: h.efforts, defaultModel: h.defaultModel, defaultEffort: h.defaultEffort })),
       // what's signed in inside each of its VMs (computer id → harness → signed in)
       vmSignIns: Object.fromEntries(store.computersOnNode(n.id).flatMap((vm) => { const list = vm.kind === "vm" ? store.computerCatalog(n.id, vm.id) : null; return list ? [[vm.id, Object.fromEntries(list.map((h) => [h.harness, h.accounts?.default ?? null]))]] : []; })),
       version: hub.updates.deviceVersion(n.id),
@@ -1710,7 +1738,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       channelId: o.channelId,
       threadId: o.threadId ?? null,
       author: o.author,
-      body: `@${o.target.handle} New task **${task.title}**\n\n${task.brief}`,
+      // a one-line task is its title: the brief isn't said a second time
+      body: `@${o.target.handle} New task **${task.title}**${task.brief.trim() && task.brief.trim() !== task.title.trim() ? `\n\n${task.brief}` : ""}`,
       parts: [{ type: "task" as const, taskId: task.id }, ...files.map((f) => ({ type: "file" as const, fileId: f!.id, name: f!.name }))],
       hop: o.hop,
       replyInThread: true,

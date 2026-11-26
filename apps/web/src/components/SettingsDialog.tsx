@@ -1,4 +1,5 @@
 import { createContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { LAYER } from "./layers.ts";
 import { X } from "lucide-react";
 import { cx } from "./ui.tsx";
 
@@ -50,7 +51,7 @@ export function SettingsDialog({ label, closing, onClose, children }: { label: s
   }, []);
   return (
     <div
-      className="settings-pop fixed inset-0 z-[60] grid place-items-center p-6"
+      className={cx("settings-pop fixed inset-0 grid place-items-center p-6 md:p-12", LAYER.settings)}
       data-state={closing ? "out" : "in"}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !closing) onClose();
@@ -62,10 +63,10 @@ export function SettingsDialog({ label, closing, onClose, children }: { label: s
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={cx("settings-pop-panel relative flex h-[min(800px,calc(100vh-48px))] w-[min(1100px,calc(100vw-48px))] flex-col overflow-hidden rounded-[22px] border border-line bg-panel shadow-float outline-none", closing && "pointer-events-none")}
+        className={cx("settings-pop-panel relative flex h-[min(800px,calc(100vh-96px))] w-[min(1100px,calc(100vw-96px))] flex-col overflow-hidden rounded-[16px] border border-line bg-panel shadow-float outline-none", closing && "pointer-events-none")}
       >
-        <button type="button" onClick={onClose} aria-label="Close" title="Close (Esc)" className="absolute right-3.5 top-3.5 z-20 grid size-10 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
-          <X size={20} strokeWidth={1.9} />
+        <button type="button" onClick={onClose} aria-label="Close" title="Close (Esc)" className="absolute right-6 top-6 z-20 grid size-8 place-items-center rounded-[8px] text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+          <X size={18} strokeWidth={1.8} />
         </button>
         <SettingsDialogContext.Provider value={{ close: onClose }}>{children}</SettingsDialogContext.Provider>
       </div>

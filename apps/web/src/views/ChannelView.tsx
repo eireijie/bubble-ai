@@ -2,8 +2,8 @@ import { Suspense, createContext, memo, useCallback, useContext, useEffect, useL
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { SquarePen, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Phone } from "lucide-react";
-import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
+import { SquarePen, Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { SCHEDULE_MARK, teamOf, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
@@ -11,22 +11,23 @@ import { go, href, type Route } from "../router.ts";
 import type { TaskRow } from "./TasksView.tsx";
 import { renderMarkdown, renderMessage } from "../markdown.ts";
 import { lazyView } from "../lazy.tsx";
-import { ChannelSettings, landingChannel, setArchived, type ChannelSettingsTab } from "../components/Channels.tsx";
+import { ChannelSettings, landingChannel, setArchived, setChannelPrefs, type ChannelSettingsTab } from "../components/Channels.tsx";
+import { ChatSearch } from "../components/ChatSearch.tsx";
 import { ChatAvatar } from "../components/ChatList.tsx";
-import { prettyModel, tokens, useAgentContext } from "../models.ts";
+import { prettyModel, runLine, tokens, useAgentContext } from "../models.ts";
 import { DiscussionCard } from "../components/Discussion.tsx";
 import { ApprovalCard, ChangeCard, ChatCard, ComputerPart, RoutineChip } from "../components/AgentCards.tsx";
 import { AppleReadLines } from "../components/AppleParts.tsx";
 import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
-import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, agentColor, clockTime, cx } from "../components/ui.tsx";
+import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, clockTime, cx } from "../components/ui.tsx";
 import { AgentPill } from "../components/AgentPill.tsx";
 import { BannerSlot } from "../components/SuggestionBanner.tsx";
 import { linkPreviews, type LinkPreview } from "../linkPreview.ts";
 import type { CallRecord } from "../voice/CallScreen.tsx";
 import { takeDraft } from "../draft.ts";
-import { chatTint, didThings, roundAction } from "../chatTint.ts";
-import { AgentPanel, type AgentPanelTab } from "../components/AgentPanel.tsx";
+import { didThings, roundAction } from "../chatTint.ts";
+import { AgentPanel, panelSheet, type AgentPanelTab } from "../components/AgentPanel.tsx";
 import { slashEnterAction } from "../slashCommand.ts";
 import { slashQuery, useAgentCommands, useSlashMenu, type SlashItem } from "../components/SlashMenu.tsx";
 import { ActivityPill, stopRuns } from "../components/ActivityPill.tsx";
@@ -37,12 +38,12 @@ import { useChangedSinceMount, useFreshIds } from "../motion.ts";
 import { TeamInfo, type InfoTab } from "../components/TeamInfo.tsx";
 import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
-import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
+import { SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
-import { HelpMenu, LearnHeader } from "../components/tour/Learn.tsx";
 import { SetupTour } from "../components/onboarding/SetupTour.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
 import { GhostLanding, useFirstHelloHtml } from "../components/onboarding/FirstHello.tsx";
+import { RunFailed } from "../components/RunFailed.tsx";
 
 /** What's open in the pane beside the chat (a thread comes from the route instead). */
 type Side = { kind: "agent"; agentId: string; tab: AgentPanelTab } | { kind: "info"; tab: InfoTab };
@@ -50,57 +51,6 @@ type Side = { kind: "agent"; agentId: string; tab: AgentPanelTab } | { kind: "in
 /** The DM's own agent panel stays open across DMs once you open it. */
 // a call's screen is only needed while a call is on: a file of its own (lazy.tsx)
 const CallScreen = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallScreen));
-
-/** A reply that failed: one muted line, "Couldn't finish." (click it for why), Try again, and the sign-in when that's the cause. */
-function RunFailedActions({ part, agentId, detail }: { part: Extract<MessagePart, { type: "run_failed" }>; agentId?: string; detail?: string }) {
-  const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [more, setMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const retry = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api("POST", `/api/runs/${part.runId}/retry`);
-      setSent(true);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  // the agent still can't answer for want of a sign-in: open that sign-in right here
-  const signIn = useStore((s) => (agentId && (part.fix === "signin" || part.fix === "computer") ? s.agents.find((a) => a.id === agentId)?.signIn : null));
-  const to = part.fix === "computer" && agentId ? href({ view: "agents", agentId, tab: "computer" }) : part.fix === "connection" ? href({ view: "settings", page: "harnesses" }) : part.fix === "signin" ? href({ view: "settings", page: "harnesses" }) : null;
-  if (sent) return <div className="mt-1 px-1 text-[14px] text-muted">Trying again…</div>;
-  const link = "font-medium text-ink hover:underline disabled:opacity-50";
-  return (
-    <div className="mt-1 px-1 text-[14px] leading-5 text-muted">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {detail ? (
-          <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="hover:text-ink">
-            Couldn't finish.
-          </button>
-        ) : (
-          <span>Couldn't finish.</span>
-        )}
-        {part.retry && (
-          <button type="button" disabled={busy} onClick={() => void retry()} className={link}>
-            Try again
-          </button>
-        )}
-        {signIn && <HarnessSignInButton signIn={signIn} agentId={agentId} />}
-        {to && !signIn && (
-          <a href={to} className={link}>
-            Sign in
-          </a>
-        )}
-        {error && <span className="text-xs text-bad">{error}</span>}
-      </div>
-      {more && detail && <p className="mt-1 whitespace-pre-wrap text-xs">{detail}</p>}
-    </div>
-  );
-}
 
 function storedDmPanel(): AgentPanelTab | null {
   try {
@@ -120,6 +70,14 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const names = useNames();
   const [calling, setCalling] = useState(!!route.call);
   const [bannerSlot, setBannerSlot] = useState<HTMLDivElement | null>(null);
+  // how tall the suggestion floating under the header is, so the first message (or date) starts below it
+  const [bannerH, setBannerH] = useState(0);
+  useEffect(() => {
+    if (!bannerSlot || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setBannerH(bannerSlot.childElementCount ? Math.ceil(bannerSlot.getBoundingClientRect().height) : 0));
+    ro.observe(bannerSlot);
+    return () => ro.disconnect();
+  }, [bannerSlot]);
   // the record a finished call leaves in the chat
   const [callRecord, setCallRecord] = useState<(CallRecord & { channelId: string }) | null>(null);
   useEffect(() => { setCalling(!!route.call); }, [route.channelId, route.call]);
@@ -134,7 +92,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
     // remembered only where the panel sits beside the chat: on a phone it would cover the chat it belongs to
     const beside = typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches;
     const tab = dmAgentId && beside ? storedDmPanel() : null;
-    setSideState(dmAgentId && tab ? { kind: "agent", agentId: dmAgentId, tab: "details" } : null);
+    // the remembered sheet comes back (its computer, say); an agent without a computer opens on itself
+    const hasComputer = !!useStore.getState().agents.find((a) => a.id === dmAgentId)?.computerId;
+    const sheet = panelSheet(tab);
+    setSideState(dmAgentId && tab ? { kind: "agent", agentId: dmAgentId, tab: sheet === "computer" && !hasComputer ? "details" : sheet } : null);
   }, [channel?.id, dmAgentId]);
   const setSide = (next: Side | null) => {
     setSideState(next);
@@ -145,6 +106,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
       else if (!next) localStorage.removeItem("wisp.agentPanel");
     } catch {}
   };
+  // a thread takes the pane's space: the pane closes (its remembered sheet stays for the next DM), so closing the thread leaves just the chat
+  useEffect(() => {
+    if (route.threadId) setSideState(null);
+  }, [route.threadId]);
   /** Open a pane; a thread that's open closes first, since they share the space. */
   const openSide = (next: Side) => {
     if (route.threadId && channel) go({ view: "chat", channelId: channel.id, threadId: null });
@@ -194,16 +159,18 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
 
   const dmAgent = dmAgentId ? names.agent(dmAgentId) : undefined;
   const sideAgent = !route.threadId && side?.kind === "agent" ? names.agent(side.agentId) : undefined;
+  // who a call reaches: the DM's agent, or in a team its lead (the first agent when none leads)
+  const callee = dmAgent ?? (channel.kind === "channel" ? names.agent(teamOf(channel)?.leadId ?? channel.agentIds?.[0] ?? "") : undefined);
   const dmPanel = sideAgent && dmAgent && sideAgent.id === dmAgent.id ? (side as Extract<Side, { kind: "agent" }>).tab : null;
   const infoOpen = side?.kind === "info" && !route.threadId && channel.kind === "channel";
 
   return (
-    // the open agent's colour tints its chat: your bubbles and the round button (a team keeps the Bubble AI violet)
-    <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
+    // your bubbles are the Bubble AI violet in every chat, the same as on the iPhone and Android
+    <div className="flex-1 min-h-0 flex">
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         <BannerSlot.Provider value={bannerSlot}>
         {/* only the name pill, centred: it opens the panel that holds everything else */}
-        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
+        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] pt-[env(safe-area-inset-top)] md:pt-4 md:pb-1 grid grid-cols-[1fr_auto_1fr] items-center gap-2 box-content">
           <div className="flex items-center">
             {onBack && (
               <span className="md:hidden">
@@ -213,8 +180,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
               </span>
             )}
             {/* round new-chat button in the top-left corner (desktop; phones keep Back there) */}
-            <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
-              <SquarePen size={16} strokeWidth={1.8} />
+            <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="m-press hidden size-[34px] place-items-center rounded-[8px] text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
+              <SquarePen size={17} strokeWidth={1.7} />
             </button>
           </div>
           {dmAgent ? (
@@ -228,36 +195,40 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <TeamPill channel={channel} open={infoOpen} onClick={toggleInfo} />
           )}
           <div className="flex items-center justify-end gap-2">
-            <LearnHeader />
-            <HelpMenu />
+            {/* calls start from the composer's round button; Help and the tour live in the account menu */}
             {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
-            {/* round floating call button in the top corner */}
-            {dmAgent && !calling && (
-              <button type="button" data-tour="call" onClick={() => setCalling(true)} aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`} className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
-                <Phone size={17} strokeWidth={1.8} />
+            {/* --- DM header tools: model line, computer, ⋯ (app-look) --- */}
+            {dmAgent && <DmModelLine agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
+            {dmAgent?.computerId && (
+              <button type="button" onClick={() => (dmPanel === "computer" ? setSide(null) : openAgent(dmAgent.id, "computer"))} aria-pressed={dmPanel === "computer"} className={cx("circle max-md:hidden", dmPanel === "computer" && "bg-hover text-ink")} aria-label={`${dmAgent.name}'s computer`} title={`${dmAgent.name}'s computer`}>
+                <Monitor size={18} strokeWidth={1.8} />
               </button>
             )}
+            {dmAgent && <DmMore agent={dmAgent} channel={channel} onOpen={(tab) => openAgent(dmAgent.id, tab)} />}
+            {/* --- end DM header tools --- */}
           </div>
         </header>
-        {/* one suggested step sits here, under the header, in its own space (SuggestionBanner) */}
-        <div ref={setBannerSlot} className="relative z-20 flex shrink-0 flex-col items-center gap-2 px-4 pb-2 empty:hidden" />
+        {/* one suggested step floats here, just under the header, over the messages: coming or going it never moves them (SuggestionBanner) */}
+        <div className="relative z-20 h-0 shrink-0">
+          <div ref={setBannerSlot} className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 px-4 empty:hidden" />
+        </div>
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
-          <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!dmAgent} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
+          <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!callee} topRoom={bannerH} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
         {!channel.archivedAt && dmFull?.signIn && <SignInNeededBar agent={dmFull} />}
         {!channel.archivedAt && dmFull && <SetupTour key={channel.id} agent={dmFull} channelId={channel.id} />}
         {!channel.archivedAt && dmFull && <FirstChatExtras agent={dmFull} channelId={channel.id} workspaceId={channel.workspaceId} />}
-        {callRecord && callRecord.channelId === channel.id && dmAgent && !calling && <CallRecordCard agent={dmAgent} record={callRecord} onHide={() => setCallRecord(null)} />}
-        {calling && dmAgent && (
+        {callRecord && callRecord.channelId === channel.id && callee && !calling && <CallRecordCard agent={callee} record={callRecord} onHide={() => setCallRecord(null)} />}
+        {calling && callee && (
           <Suspense fallback={null}>
-            <CallScreen key={`${channel.id}:${dmAgent.id}`} agent={dmAgent} channelId={channel.id} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
+            <CallScreen key={`${channel.id}:${callee.id}`} agent={callee} channelId={channel.id} mention={!dmAgent} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
           </Suspense>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={dmAgent && !calling ? () => setCalling(true) : undefined} /></div>}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={callee && !calling ? () => setCalling(true) : undefined} callName={callee?.name} /></div>}
         </BannerSlot.Provider>
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
-      {sideAgent && side?.kind === "agent" && <AgentPanel key={sideAgent.id} agent={sideAgent} channelId={channel.id} tab={side.tab} inDm={sideAgent.id === dmAgent?.id} onClose={() => setSide(null)} />}
+      {sideAgent && side?.kind === "agent" && <AgentPanel key={sideAgent.id} agent={sideAgent} channelId={channel.id} tab={side.tab} inDm={sideAgent.id === dmAgent?.id} onClose={() => setSide(null)} onSheet={(tab) => setSide({ kind: "agent", agentId: sideAgent.id, tab })} />}
       {infoOpen && side?.kind === "info" && (
         // the team's info keeps its place and content, at the panel's 310 px
         <div className="contents lg:[&>aside]:w-[310px]! [&>aside>[role=separator]]:hidden!">
@@ -274,12 +245,12 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
   const m = Math.floor(record.seconds / 60);
   const length = `${String(m).padStart(2, "0")}:${String(record.seconds % 60).padStart(2, "0")}`;
   return (
-    <div className="shrink-0 px-3 md:px-5 w-full max-w-3xl md:max-w-[840px] mx-auto">
+    <div className="shrink-0 px-4 md:px-11 w-full max-w-3xl md:max-w-[808px] mx-auto">
       <section className="call-record overflow-hidden rounded-[18px] border border-line bg-card" aria-label={`Call with ${agent.name}`}>
         <div className="flex h-11 items-center gap-2 border-b border-line pl-3.5 pr-2 text-[14px] text-muted">
           <AudioLines size={15} strokeWidth={1.7} aria-hidden />
           <span className="flex-1 truncate">Call with {agent.name} · {length}</span>
-          <button type="button" onClick={onHide} aria-label="Hide" title="Hide" className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink"><X size={14} strokeWidth={1.8} /></button>
+          <button type="button" onClick={onHide} aria-label="Hide" title="Hide" className="grid size-7 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink"><X size={14} strokeWidth={1.8} /></button>
         </div>
         {record.lines.length > 0 && (
           <div className="flex max-h-48 flex-col gap-2 overflow-y-auto px-3.5 py-3">
@@ -296,13 +267,58 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
 /** A team's name in a pill at the top of its chat, with its agents' ghosts; opens its info page. */
 function TeamPill({ channel, open, onClick }: { channel: ChannelInfo; open: boolean; onClick: () => void }) {
   return (
-    <button data-tour="team-pill" onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-12 max-w-[min(22rem,60vw)] rounded-full pl-2 pr-5 inline-flex items-center gap-2.5 text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
+    <button data-tour="team-pill" onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-12 max-w-[min(22rem,60vw)] rounded-[8px] pl-2 pr-5 inline-flex items-center gap-2.5 text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
       <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={34} />
       <span className="min-w-0 truncate font-semibold">{channel.name}</span>
       {channel.archivedAt && <span className="shrink-0 text-xs text-muted">Archived</span>}
     </button>
   );
 }
+
+// --- DM header tools (app-look) ----------------------------------------------------------------
+
+/** How the DM's agent runs, in one faint line beside the ⋯ ("Codex · GPT-6.1 · High"); opens Thinks with. Wide windows only. */
+function DmModelLine({ agentId, channelId, onOpen }: { agentId: string; channelId: string; onOpen: () => void }) {
+  const { ctx, models } = useAgentContext(agentId, channelId);
+  if (!ctx) return null;
+  const line = runLine(ctx, models);
+  return (
+    <button type="button" onClick={onOpen} title="Harness, model and effort" className="hidden h-8 max-w-[220px] items-center truncate rounded-[8px] px-2 text-[13px] text-faint outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40 lg:inline-flex">
+      <span className="truncate">{line}</span>
+    </button>
+  );
+}
+
+/**
+ * The DM's "…", the same five on every app: About, Asks first, its computer (when it has one), Search
+ * in chat, Mute. Each says the name of the page it opens. Calls are in the composer, help in the account menu.
+ */
+function DmMore({ agent, channel, onOpen }: { agent: Agent; channel: ChannelInfo; onOpen: (tab: AgentPanelTab) => void }) {
+  const icon = { size: 17, strokeWidth: 1.8 };
+  const [searching, setSearching] = useState(false);
+  const muted = channel.notify === "mute";
+  return (
+    <>
+      <Menu
+        align="right"
+        trigger={(open, toggle) => (
+          <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="menu" className="circle" aria-label="More" title="More">
+            <MoreHorizontal size={19} strokeWidth={1.8} />
+          </button>
+        )}
+        items={[
+          { label: `About ${agent.name}`, icon: <Info {...icon} />, onSelect: () => onOpen("details") },
+          { label: "Asks first", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
+          ...(agent.computerId ? [{ label: `${agent.name}'s computer`, icon: <Monitor {...icon} />, onSelect: () => onOpen("computer") }] : []),
+          { label: "Search in chat", icon: <Search {...icon} />, onSelect: () => setSearching(true) },
+          { label: muted ? "Unmute" : "Mute", icon: muted ? <Bell {...icon} /> : <BellOff {...icon} />, onSelect: () => void setChannelPrefs(channel, { notify: muted ? "default" : "mute" }) },
+        ]}
+      />
+      {searching && <ChatSearch channelId={channel.id} onClose={() => setSearching(false)} />}
+    </>
+  );
+}
+// --- end DM header tools --------------------------------------------------------------------------
 
 /** Past this share of its context window a conversation is nearly full (where the context ring used to turn red). */
 const NEARLY_FULL = 85;
@@ -337,7 +353,7 @@ function ArchivedBar({ channel }: { channel: ChannelInfo }) {
           <span className="block text-body font-medium">Archived</span>
         </span>
         {canManage && (
-          <button className="h-10 rounded-full bg-accent px-4 text-sm font-medium text-accent-ink" onClick={() => setArchived(channel, false).catch((e) => setError((e as Error).message))}>
+          <button className="h-10 rounded-[8px] bg-accent px-4 text-sm font-medium text-accent-ink" onClick={() => setArchived(channel, false).catch((e) => setError((e as Error).message))}>
             Unarchive
           </button>
         )}
@@ -375,7 +391,7 @@ function ContextCard({ usage }: { usage: ContextUsage | null }) {
       )}
       <p className="mt-2 text-[14px] text-muted">{used !== null ? `${tokens(used)}${window ? ` of ${tokens(window)}` : ""} used. Older messages are summarized when it fills up.` : "This shows up after its first reply here."}</p>
       {shrink && used !== null && (
-        <button className="mt-2.5 h-10 rounded-full border border-control-line bg-control px-4 text-sm font-medium" onClick={run}>
+        <button className="mt-2.5 h-10 rounded-[8px] border border-control-line bg-control px-4 text-sm font-medium" onClick={run}>
           {shrink.name === "compact" ? "Compact" : "Compress"}
         </button>
       )}
@@ -442,7 +458,7 @@ function useMessageHistory(channelId: string, threadId: string | undefined, mess
   return { controls, error, prepended };
 }
 
-function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, calling }: { messageId?: string; channel: ChannelInfo; readMark: string | null; onAddAgent: () => void; onMembers: () => void; /** a call is on: leave room at the top for its bar, so it never covers the first message */ calling?: boolean }) {
+function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, calling, topRoom = 0 }: { messageId?: string; channel: ChannelInfo; readMark: string | null; onAddAgent: () => void; onMembers: () => void; /** a call is on: leave room at the top for its bar, so it never covers the first message */ calling?: boolean; /** px a suggestion floating under the header covers: the top of the list starts below it */ topRoom?: number }) {
   const messages = useStore((s) => s.messages[channel.id]);
   const replyCounts = useStore((s) => s.replyCounts);
   const me = useStore((s) => s.me);
@@ -459,11 +475,21 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
   const runs = useLiveRuns((r) => r.channelId === channel.id && !r.threadId);
   const working = useWorkingByThread(channel.id);
 
-  // first message from someone else after where you'd read up to
+  // what was already here when the chat opened: a reply that arrives while you watch isn't "new"
+  const seenAtOpen = useRef<{ channelId: string; ids: Set<string> } | null>(null);
+  if (messages && seenAtOpen.current?.channelId !== channel.id) seenAtOpen.current = { channelId: channel.id, ids: new Set(messages.map((m) => m.id)) };
+  // first message from someone else after where you'd read up to, and before anything you said since
   const firstNew = useMemo(() => {
     if (!messages || !readMark) return null;
-    return messages.find((m) => m.createdAt > readMark && m.author.id !== me?.user.id && m.author.id !== "system")?.id ?? null;
-  }, [messages, readMark, me]);
+    const there = seenAtOpen.current?.channelId === channel.id ? seenAtOpen.current.ids : null;
+    for (const m of messages) {
+      if (m.createdAt <= readMark || m.author.id === "system") continue;
+      if (m.author.id === me?.user.id) return null;
+      if (there && !there.has(m.id)) return null;
+      return m.id;
+    }
+    return null;
+  }, [messages, readMark, me, channel.id]);
 
   // where each message sits among its neighbours (a new chat, a time above it, grouped with the one before,
   // last of its group): worked out when the messages change, not again for every word of a reply
@@ -536,6 +562,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
       <div
         ref={ref}
         className={cx("h-full overflow-y-auto overscroll-x-none pb-2", calling ? "pt-[84px]" : "pt-2")}
+        style={!calling && topRoom ? { paddingTop: topRoom + 8 } : undefined}
         onScroll={(e) => {
           const el = e.currentTarget;
           const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -543,7 +570,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
           if (bottom) setNewSince(0);
         }}
       >
-        <div className="mx-auto w-full max-w-3xl md:max-w-[840px]">
+        <div className="mx-auto w-full max-w-3xl md:max-w-[808px] md:px-6">
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
@@ -574,7 +601,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
             ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
             setNewSince(0);
           }}
-          className="glass absolute bottom-3 left-1/2 -translate-x-1/2 h-9 px-3.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 hover:bg-hover"
+          className="glass absolute bottom-3 left-1/2 -translate-x-1/2 h-9 px-3.5 rounded-[8px] text-xs font-medium inline-flex items-center gap-1.5 hover:bg-hover"
         >
           <ArrowDown size={13} /> {newSince > 0 ? `${newSince} new ${newSince === 1 ? "message" : "messages"}` : "Jump to latest"}
         </button>
@@ -715,13 +742,32 @@ function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo
     ...(!channel.archivedAt ? [{ icon: <Paperclip size={18} />, title: "Add files", onClick: () => window.dispatchEvent(new CustomEvent(COMPOSER_ATTACH, { detail: channel.id })) }] : []),
     ...(invite && canManage ? [{ icon: <UserPlus size={18} />, title: "Invite people", onClick: onMembers }] : []),
   ];
+  // who's on it, leads first, with the role each has on the chart
+  const team = teamOf(channel);
+  const crew = (team?.members.length ? [...team.members].sort((x, y) => Number(y.lead) - Number(x.lead)).map((m) => ({ id: m.agentId, role: m.lead ? "Leads" : m.role })) : (channel.agentIds ?? []).map((id) => ({ id, role: "" })))
+    .map((m) => ({ ...m, agent: names.agent(m.id) }))
+    .filter((m): m is typeof m & { agent: Agent } => !!m.agent);
+  const first = team?.leadId ? names.agent(team.leadId)?.name : undefined;
   return (
     <div className="px-6 pb-6 pt-8 flex flex-col items-center text-center">
       <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={64} />
       <h2 className="mt-3 t-title">{channel.name}</h2>
       {channel.topic && <p className="mt-1 max-w-sm text-body text-muted">{channel.topic}</p>}
-      {cards.length > 0 && (
-        <div className="mt-5 w-full max-w-xs overflow-hidden rounded-[14px] bg-card divide-y divide-line text-left">
+      {crew.length > 0 && (
+        <ul aria-label="On this team" className="mt-5 w-full max-w-xs overflow-hidden rounded-[12px] bg-card divide-y divide-line text-left">
+          {crew.slice(0, 6).map((m) => (
+            <li key={m.id} className="flex h-[52px] items-center gap-3 px-3.5">
+              <AgentAvatar agent={m.agent} size={30} live />
+              <span className="min-w-0 flex-1 truncate text-body font-medium">{m.agent.name}</span>
+              {m.role && <span className="max-w-[45%] shrink-0 truncate text-[13px] text-muted">{m.role}</span>}
+            </li>
+          ))}
+          {crew.length > 6 && <li className="flex h-[40px] items-center px-3.5 text-[13px] text-muted">and {crew.length - 6} more</li>}
+        </ul>
+      )}
+      {first && !channel.archivedAt && <p className="mt-2 max-w-xs text-[13px] text-muted">{first} answers first and hands work on.</p>}
+      {cards.length > 0 && !channel.agentIds?.length && (
+        <div className="mt-5 w-full max-w-xs overflow-hidden rounded-[12px] bg-card divide-y divide-line text-left">
           {cards.map((c) => (
             <button key={c.title} type="button" onClick={c.onClick} className="flex h-[46px] w-full items-center gap-3 px-3.5 text-left hover:bg-hover">
               <span className="shrink-0 text-muted">{c.icon}</span>
@@ -793,7 +839,7 @@ function SystemItem({ m, replies, onReplies, working = [] }: { m: Message; repli
 function ScheduleRow({ m, replies, onReplies }: { m: Message; replies?: number; onReplies?: () => void }) {
   return (
     <div className="flex gap-3 px-5 py-2" data-message-id={m.id}>
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-chip text-muted">
+      <span className="grid size-8 shrink-0 place-items-center rounded-[8px] bg-chip text-muted">
         <Clock size={16} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
@@ -845,7 +891,7 @@ function HandoffRow({ m, taskId, replies, working, onOpen }: { m: Message; taskI
       <button
         onClick={onOpen}
         title={task?.title}
-        className="inline-flex max-w-full items-center gap-2 h-9 rounded-full border border-control-line bg-control pl-3 pr-3.5 text-[14px] hover:bg-hover"
+        className="inline-flex max-w-full items-center gap-2 h-9 rounded-[8px] border border-control-line bg-control pl-3 pr-3.5 text-[14px] hover:bg-hover"
       >
         <ChevronRight size={14} className="shrink-0 text-muted" />
         <span className="truncate">
@@ -932,7 +978,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         openMenu({ x: e.clientX, y: e.clientY });
       }}
       onWheel={swipe.handlers.onWheel}
-      className={cx("msg-press relative px-3 md:px-5 flex items-end gap-2 rounded-lg transition-colors", mine ? "justify-end" : "justify-start", last ? "pb-1.5" : "pb-[3px]", !grouped && "pt-1", m.reactions?.some((r) => r.actors.length) && "pt-3.5")}
+      className={cx("msg-press relative px-3 md:px-5 flex items-end gap-2 rounded-lg transition-colors", mine ? "justify-end" : "justify-start", last ? "pb-1.5" : "pb-[3px]", !grouped && "pt-2.5", m.reactions?.some((r) => r.actors.length) && "pt-3.5")}
     >
       {showAvatar && (
         <div className="w-8 shrink-0 self-end">
@@ -1026,7 +1072,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         {!m.deletedAt &&
           cards.map((c) => (
             <a key={c.url} href={c.url} target="_blank" rel="noreferrer" className="mt-1 flex w-full max-w-sm items-center gap-3 rounded-3xl bg-card px-3.5 py-2.5 hover:bg-hover">
-              <span className="size-9 rounded-full bg-chip grid place-items-center text-muted">{c.kind === "PR" ? <GitPullRequest size={16} /> : <CircleDot size={16} />}</span>
+              <span className="size-9 rounded-[8px] bg-chip grid place-items-center text-muted">{c.kind === "PR" ? <GitPullRequest size={16} /> : <CircleDot size={16} />}</span>
               <span className="min-w-0">
                 <span className="block text-[11px] text-muted">GitHub · {c.kind === "PR" ? "Pull request" : "Issue"}</span>
                 <span className="block text-sm font-medium truncate">
@@ -1045,7 +1091,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         {(!!replies || working.length > 0) && onReplies && !inThread && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {!!replies && (
-              <button onClick={onReplies} className="h-8 px-3 rounded-full border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
+              <button onClick={onReplies} className="h-8 px-3 rounded-[8px] border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
                 <MessageSquare size={13} /> {replies} {replies === 1 ? "reply" : "replies"} <ChevronRight size={13} className="text-muted" />
               </button>
             )}
@@ -1053,7 +1099,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           </div>
         )}
         {(!!replies || working.length > 0) && onReplies && inThread && (
-          <button onClick={onReplies} className="mt-1 h-8 px-3 rounded-full border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
+          <button onClick={onReplies} className="mt-1 h-8 px-3 rounded-[8px] border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
             <MessageSquare size={13} /> {replies ? `${replies} ${replies === 1 ? "reply" : "replies"}` : "Working"} <ChevronRight size={13} className="text-muted" />
           </button>
         )}
@@ -1138,7 +1184,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
       {parts.map((p, i) => p.type === "computer" && <ComputerPart key={`c${i}`} computerId={p.computerId} request={p.request} agentName={agentName} />)}
       {parts.map((p) => p.type === "approval" && <ApprovalCard key={p.approvalId} id={p.approvalId} />)}
       {parts.map((p) => p.type === "routine" && <RoutineChip key={p.routineId} id={p.routineId} />)}
-      {parts.map((p) => p.type === "task" && <TaskChip key={p.taskId} id={p.taskId} />)}
+      {parts.map((p) => p.type === "task" && <TaskChip key={p.taskId} id={p.taskId} body={body} />)}
       {parts.map((p, i) => p.type === "context" && <ContextCard key={`x${i}`} usage={p.usage} />)}
       {parts.map((p) => p.type === "change" && <ChangeCard key={p.changeId} id={p.changeId} fallback={body} />)}
       {parts.map((p, i) => p.type === "notice" && <div key={`n${i}`} className="mt-1 px-1 text-xs text-muted whitespace-pre-wrap">{p.text}</div>)}
@@ -1158,7 +1204,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
             <div key={i} className={cx("mt-1 px-1", s.text === "Voice message" ? "text-[11px] text-faint inline-flex items-center gap-1" : "text-sm text-bad")}>{s.text === "Voice message" && <Mic size={11} />}{s.text.replace(/`/g, "")}</div>
           )),
       )}
-      {parts.map((p) => p.type === "run_failed" && <RunFailedActions key={p.runId} part={p} agentId={agentId} detail={why} />)}
+      {parts.map((p) => p.type === "run_failed" && <RunFailed key={p.runId} part={p} agentId={agentId} detail={why} />)}
       {did > 0 && (
         <div className="mt-1 w-full max-w-md">
           <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex items-center gap-1 rounded-md px-1 text-xs leading-5 text-muted hover:text-ink">
@@ -1170,7 +1216,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
               <SkillLines parts={parts} />
               <Remembered saved={saved} />
               {shown.length > 0 && (
-                <div className="mt-1.5 overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+                <div className="mt-1.5 overflow-hidden rounded-[12px] bg-card divide-y divide-line">
                   {/* one line of what it did, like "Searched the web · read 6 pages"; then each tool call */}
                   <div className="px-4 py-2 text-[14px] font-medium text-muted">{summary}</div>
                   {shown.map(
@@ -1382,9 +1428,11 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
         {history.controls}
         {removed && <p role="status" className="px-5 py-2 text-xs text-muted">This message was deleted.</p>}
         {gone && <p role="status" className="px-5 py-6 text-sm text-muted text-center">This thread isn't here any more.</p>}
-        {!removed && root && (handoff && handoff.type === "task" ? <HandoffBrief m={root} taskId={handoff.taskId} /> : <ThreadRoot m={root} composerThread={rootId} />)}
-        {!gone && (
-          <div className="flex items-center gap-3 px-5 py-2 text-[14px] text-muted">
+        {/* the message it started from, as a bubble like the chat's own */}
+        {!removed && root && (handoff && handoff.type === "task" ? <HandoffBrief m={root} taskId={handoff.taskId} /> : <ThreadRow m={root} channelId={channelId} rootId={rootId} stamp grouped={false} last working={NO_RUNS} />)}
+        {!gone && !(replies && replies.length === 0 && !history.error) && (
+          <div className="flex items-center gap-3 px-5 py-2 text-[13px] text-muted">
+            <span className="h-px flex-1 bg-line" />
             {history.error ? "" : replies ? `${replies.length} ${replies.length === 1 ? "reply" : "replies"}` : "Loading…"}
             <span className="h-px flex-1 bg-line" />
           </div>
@@ -1405,18 +1453,22 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
 
 function ThreadHeader({ channelId, parent, onBack, onClose }: { channelId: string; parent: string | null; onBack: () => void; onClose: () => void }) {
   const channel = useStore((s) => s.channels.find((c) => c.id === channelId));
+  const dmAgent = useStore((s) => (channel?.kind === "dm" ? s.agents.find((a) => channel.name.endsWith(`:${a.id}`)) : undefined));
+  const who = channel ? (channel.kind === "dm" ? `with ${dmAgent?.name ?? "your agent"}` : `in ${channel.name}`) : null;
+  // centred, as the chat's own header is: who it's with, and that it's a thread
   return (
-    <header className="h-[4.5rem] shrink-0 px-3 flex items-center gap-2 border-b border-line safe-top box-content">
-      <span className={cx(!parent && "lg:hidden")}>
+    <header className="h-[4.5rem] shrink-0 px-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-line safe-top box-content">
+      <span className={cx("justify-self-start", !parent && "lg:invisible")}>
         <button onClick={onBack} className="circle circle-sm" aria-label={parent ? "Back to the thread it came from" : "Back"} title={parent ? "Back to the thread it came from" : undefined}>
           <ChevronLeft size={20} />
         </button>
       </span>
-      <div className="min-w-0 flex-1 px-1">
-        <div className="truncate text-body font-medium leading-tight">{parent ? "Sub-thread" : "Thread"}</div>
-        {channel && <div className="truncate text-[14px] text-muted">{channel.kind === "dm" ? "Chat" : channel.name}</div>}
+      <div className="flex min-w-0 flex-col items-center text-center">
+        {dmAgent && <AgentAvatar agent={dmAgent} size={28} interactive={false} />}
+        <div className="mt-0.5 max-w-[60vw] truncate text-[13px] font-semibold leading-tight">{who ?? (parent ? "Sub-thread" : "Thread")}</div>
+        {who && <div className="text-[12px] leading-tight text-muted">{parent ? "Sub-thread" : "Thread"}</div>}
       </div>
-      <span className="max-lg:hidden">
+      <span className="justify-self-end max-lg:invisible">
         <button onClick={onClose} className="circle circle-sm" aria-label="Close thread">
           <X size={18} />
         </button>
@@ -1482,44 +1534,6 @@ function HandoffBrief({ m, taskId }: { m: Message; taskId: string }) {
 }
 
 /** The first message of a thread, on a card at the top of it. */
-function ThreadRoot({ m }: { m: Message; composerThread?: string }) {
-  const { clock } = usePrefs();
-  const names = useNames();
-  const handles = useHandleNames();
-  const colors = useHandleColors();
-  const html = useMemo(() => (m.body ? renderMessage(m.body, { handles, colors }) : ""), [m.body, handles, colors]);
-  const meId = useStore((s) => s.me?.user.id);
-  const agent = m.author.kind === "agent" ? names.agent(m.author.id) : undefined;
-  const mine = m.author.kind === "user" && m.author.id === meId;
-  const name = mine ? "You" : agent ? agent.name : (names.member(m.author.id)?.name ?? "Someone");
-  return (
-    <div className="px-3 pb-1" data-message-id={m.id}>
-      <div className="rounded-3xl bg-card px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          {agent ? <AgentAvatar agent={agent} size={24} interactive={false} /> : <UserAvatar name={names.member(m.author.id)?.name ?? name} size={24} />}
-          <span className="text-[14px] font-medium">{name}</span>
-          <span className="text-[14px] text-faint">{clockTime(m.createdAt, clock)}</span>
-        </div>
-        {m.deletedAt ? (
-          <div className="mt-2 text-body italic text-muted">This message was deleted.</div>
-        ) : (
-          <>
-            {m.parts.some((p) => p.type === "apple_read") && (
-              <div className="mt-2">
-                <AppleReadLines parts={m.parts} />
-              </div>
-            )}
-            {html && <div className="prose-w mt-2 text-body" dangerouslySetInnerHTML={{ __html: html }} />}
-            <CardAuthor.Provider value={m.author.kind === "agent" ? { agentId: m.author.id, channelId: m.channelId, threadId: m.threadId } : null}>
-              <Parts parts={m.parts} body={m.body} agentName={agent?.name} agentId={agent?.id} />
-            </CardAuthor.Provider>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /** Who's working in a thread (or a sub-thread of it), on the thread's row: their ghosts and "Ada is working". */
 function ThreadWork({ runs, threadId, onClick }: { runs: LiveRun[]; threadId: string; onClick: () => void }) {
   const names = useNames();
@@ -1529,7 +1543,7 @@ function ThreadWork({ runs, threadId, onClick }: { runs: LiveRun[]; threadId: st
   const deeper = runs.every((r) => r.threadId !== threadId);
   const who = agents.length === 1 ? agents[0].name : agents.length === 2 ? `${agents[0].name} and ${agents[1].name}` : `${agents[0].name} and ${agents.length - 1} more`;
   return (
-    <button onClick={onClick} className="h-8 pl-1.5 pr-3 rounded-full bg-chip hover:bg-hover text-[14px] inline-flex items-center gap-1.5" title={deeper ? "Working in a sub-thread" : "Working in this thread"}>
+    <button onClick={onClick} className="h-8 pl-1.5 pr-3 rounded-[8px] bg-chip hover:bg-hover text-[14px] inline-flex items-center gap-1.5" title={deeper ? "Working in a sub-thread" : "Working in this thread"}>
       <span className="flex">
         {agents.slice(0, 3).map((a, i) => (
           <span key={a.id} className={cx("rounded-full ring-2 ring-chip", i > 0 && "-ml-1.5")}>
@@ -1560,8 +1574,8 @@ function taskState(t: TaskRow): { label: string; tone: "neutral" | "info" | "ok"
   return { label: "To do", tone: "neutral" };
 }
 
-/** A task an agent mentions: title, who has it, where it stands, and a way into Tasks. */
-function TaskChip({ id }: { id: string }) {
+/** A task an agent mentions: title, who has it, where it stands, and a way into Tasks. The title is left off when the message already says it ("New task **Title**"). */
+function TaskChip({ id, body }: { id: string; body?: string }) {
   const agents = useStore((s) => s.agents);
   const task = useTask(id);
   if (!task) return null;
@@ -1570,7 +1584,7 @@ function TaskChip({ id }: { id: string }) {
   return (
     <a href={href({ view: "tasks" })} className="block">
       <ChatCard icon={<ListChecks size={13} />} label="Task" className="hover:bg-hover">
-        <div className="mt-2 text-body font-medium leading-snug">{task.title}</div>
+        {!body?.includes(task.title) && <div className="mt-2 text-body font-medium leading-snug">{task.title}</div>}
         <div className="mt-2 flex items-center gap-2">
           <Pill tone={st.tone}>{st.label}</Pill>
           {agent && (
@@ -1591,6 +1605,24 @@ interface ReplyTarget {
   id: string;
   name: string;
   snippet: string;
+}
+
+/** Pictures attached in this window, shown small on their chips without fetching them back. */
+const chipThumbs = new Map<string, string>();
+
+/** An attached file's chip icon: the picture itself for an image, else a file. */
+function ChipThumb({ id, name }: { id: string; name: string }) {
+  const image = fileKind(name) === "image";
+  const [url, setUrl] = useState(() => chipThumbs.get(id) ?? null);
+  useEffect(() => {
+    if (!image || url) return;
+    let live = true;
+    fileUrl(id).then((u) => (live ? (chipThumbs.set(id, u), setUrl(u)) : URL.revokeObjectURL(u)), () => {});
+    return () => void (live = false);
+  }, [id, image, url]);
+  if (image && url) return <img src={url} alt="" className="size-7 shrink-0 rounded-[7px] object-cover" />;
+  if (image) return <span className="size-7 shrink-0 rounded-[7px] bg-chip" aria-hidden />;
+  return <FileText size={15} className="shrink-0 text-muted" />;
 }
 
 interface ComposerDraft {
@@ -1699,7 +1731,7 @@ function useDictation(onText: (text: string) => void, resetKey = "") {
   return { supported: !!Ctor, on, toggle };
 }
 
-export function Composer({ channelId, threadId, agentId, placeholder, onDetails, onCall }: { channelId: string; threadId?: string; agentId?: string; placeholder: string; onDetails?: (agentId: string) => void; onCall?: () => void }) {
+export function Composer({ channelId, threadId, agentId, placeholder, onDetails, onCall, callName }: { channelId: string; threadId?: string; agentId?: string; placeholder: string; onDetails?: (agentId: string) => void; onCall?: () => void; callName?: string }) {
   const { sendWith } = usePrefs();
   const agents = useStore((s) => s.agents);
   const canEdit = useStore((s) => s.me?.role !== "guest");
@@ -1853,6 +1885,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
     try {
       for (const f of selected) {
         const up = await uploadFile(f, channelId);
+        if (f.type?.startsWith("image/") && typeof URL.createObjectURL === "function") chipThumbs.set(up.id, URL.createObjectURL(f));
         const mine = added[done++];
         updateDraft((d) => ({ ...d, pending: d.pending.filter((p) => p.key !== mine.key), files: [...d.files, { id: up.id, name: up.name, size: up.size ?? f.size }] }));
       }
@@ -1886,7 +1919,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
     clearTimeout(hold.current.timer);
     if (hold.current.held && dictation.on) dictation.toggle();
   };
-  const name = dmAgent?.name ?? "agent";
+  const name = callName ?? dmAgent?.name ?? "agent";
   const round = {
     send: { label: "Send", title: undefined, icon: <ArrowUp size={19} strokeWidth={2.5} /> },
     stop: { label: "Stop", title: "Stop", icon: <Square size={13} fill="currentColor" /> },
@@ -1897,7 +1930,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   // the icon pops in when what you've typed swaps it (not when the composer first opens)
   const swapped = useChangedSinceMount(action);
   return (
-    <div className="shrink-0 px-3 md:px-5 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-3xl md:max-w-[840px] mx-auto flex flex-col">
+    <div className="shrink-0 px-4 md:px-11 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-3xl md:max-w-[808px] mx-auto flex flex-col">
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       {/* who's working here and on what, in one line; it opens their panel */}
@@ -1907,13 +1940,13 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
         </div>
       )}
       {replyTo && (
-        <div className="mb-2 flex items-center gap-3 rounded-[14px] bg-card pl-4 pr-1.5 py-1.5">
+        <div className="mb-2 flex items-center gap-3 rounded-[12px] bg-card pl-4 pr-1.5 py-1.5">
           <CornerUpLeft size={15} className="shrink-0 text-muted" />
           <div className="min-w-0 flex-1 border-l-2 border-accent pl-2.5 leading-tight">
             <div className="text-[14px] font-medium">Replying to {replyTo.name}</div>
             <div className="truncate text-[14px] text-muted">{replyTo.snippet}</div>
           </div>
-          <button onClick={() => updateDraft((d) => ({ ...d, replyTo: null }))} className="size-9 shrink-0 rounded-full grid place-items-center text-muted hover:bg-hover hover:text-ink" aria-label="Cancel reply">
+          <button onClick={() => updateDraft((d) => ({ ...d, replyTo: null }))} className="size-9 shrink-0 rounded-[8px] grid place-items-center text-muted hover:bg-hover hover:text-ink" aria-label="Cancel reply">
             <X size={16} />
           </button>
         </div>
@@ -1921,10 +1954,10 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
       {(files.length > 0 || uploading > 0) && (
         <div className="mb-2 flex flex-wrap gap-2">
           {files.map((f) => (
-            <span key={f.id} className="flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card pl-3 pr-1" title={fileSize(f.size) || undefined}>
-              <FileText size={15} className="shrink-0 text-muted" />
+            <span key={f.id} className={cx("flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card pr-1", fileKind(f.name) === "image" ? "pl-1" : "pl-3")} title={fileSize(f.size) || undefined}>
+              <ChipThumb id={f.id} name={f.name} />
               <span className="min-w-0 truncate text-[14px] font-medium">{f.name}</span>
-              <button onClick={() => setFiles(files.filter((x) => x.id !== f.id))} aria-label={`Remove ${f.name}`} className="size-7 shrink-0 rounded-full grid place-items-center text-muted hover:bg-hover">
+              <button onClick={() => setFiles(files.filter((x) => x.id !== f.id))} aria-label={`Remove ${f.name}`} className="size-7 shrink-0 rounded-[8px] grid place-items-center text-muted hover:bg-hover">
                 <X size={14} />
               </button>
             </span>
@@ -1940,7 +1973,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
       <div className="relative" onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), attach(e.dataTransfer.files))}>
         {slash.open && !suggestions.length && slash.render(pickCommand)}
         {suggestions.length > 0 && (
-          <div className="glass absolute bottom-full mb-2 left-0 w-80 max-w-full rounded-[14px] p-1.5 z-10" role="listbox" aria-label="Mention an agent">
+          <div className="glass absolute bottom-full mb-2 left-0 w-80 max-w-full rounded-[12px] p-1.5 z-10" role="listbox" aria-label="Mention an agent">
             {suggestions.map((a, i) => {
               const node = channel?.settings.team?.nodes.find((n) => n.agentId === a.id);
               return (
@@ -1970,7 +2003,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
         <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2", tall && "gap-y-1.5")}>
           <span className={cx("col-start-1 shrink-0", tall ? "row-start-2" : "row-start-1")}>
             <Popover
-              className="w-60 p-1.5 !rounded-[14px]"
+              className="w-60 p-1.5 !rounded-[12px]"
               trigger={(open, toggle) => (
                 <button type="button" data-tour="attach" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-[42px] rounded-full grid place-items-center bg-[var(--bubble-them)] text-ink hover:bg-hover", open && "bg-hover")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
@@ -1982,8 +2015,6 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                   <ComposerMenuItem icon={<Camera size={18} />} label="Photos" onClick={() => (close(), photoInput.current?.click())} />
                   <ComposerMenuItem icon={<Paperclip size={18} />} label="Files" onClick={() => (close(), fileInput.current?.click())} />
                   {channel?.kind !== "dm" && <ComposerMenuItem icon={<AtSign size={18} />} label="Mention an agent" onClick={() => (close(), insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@"))} />}
-                  {/* the round button dictates while it's held; this is the same thing for a keyboard */}
-                  {dictation.supported && <ComposerMenuItem icon={<Mic size={18} />} label={dictation.on ? "Stop dictating" : "Dictate"} onClick={() => (close(), dictation.toggle())} />}
                 </div>
               )}
             </Popover>

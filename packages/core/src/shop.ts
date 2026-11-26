@@ -79,19 +79,25 @@ export function entryLogos(e: Pick<MarketplaceEntry, "icon" | "name" | "brand" |
 
 // --- app categories ----------------------------------------------------------------------------
 
-export const APP_CATEGORIES = ["Email and calendar", "Developer", "Docs and notes", "Design", "Sales", "Finance", "Research", "Data", "Automation"] as const;
+export const APP_CATEGORIES = ["Email and calendar", "Chat", "Tasks", "Developer", "Docs and notes", "Design", "Sales", "Finance", "Research", "Data", "Automation"] as const;
 export type AppCategory = (typeof APP_CATEGORIES)[number];
 
+/**
+ * Words that put an app on a shelf. Only words that say what the app is: a description that
+ * mentions "customers", "pages" or "agents" in passing says nothing about its shelf.
+ */
 const CATEGORY_WORDS: [AppCategory, RegExp][] = [
-  ["Email and calendar", /\b(e-?mail|gmail|outlook|inbox|calendar|meetings?|schedul\w*|zoom|calendly)\b/i],
-  ["Design", /\b(figma|canva|design|webflow|wix|framer|sketch|image|video|sanity|cms)\b/i],
-  ["Finance", /\b(payments?|stripe|paypal|invoice\w*|billing|accounting|bank\w*|quickbooks|xero|finance)\b/i],
-  ["Sales", /\b(crm|sales|leads?|hubspot|salesforce|pipedrive|close|deals?|marketing|customers?|pandadoc|proposals?)\b/i],
-  ["Docs and notes", /\b(notion|docs?|documents?|notes?|wiki|confluence|knowledge|pages|drive|files?)\b/i],
-  ["Developer", /\b(github|gitlab|git|code|deploy\w*|vercel|cloudflare|issues?|pull requests?|ci|sentry|errors?|logs?|monitoring|grafana|pagerduty|linear|jira|playwright|browser|api testing|postman)\b/i],
+  ["Email and calendar", /\b(e-?mail|gmail|outlook|inbox|calendars?|meetings?|zoom|calendly|imap|caldav)\b/i],
+  ["Chat", /\b(slack|discord|telegram|whatsapp|microsoft teams|sms|chat|messag(es|ing))\b/i],
+  ["Tasks", /\b(todoist|asana|trello|monday\.com|clickup|to-?dos?|task (lists?|manag\w*)|project management)\b/i],
+  ["Design", /\b(figma|canva|design|webflow|wix|framer|sketch|images?|videos?|sanity|cms|speech|voice|audio|music)\b/i],
+  ["Finance", /\b(payments?|stripe|paypal|invoic\w*|billing|accounting|banking|quickbooks|xero|finance)\b/i],
+  ["Sales", /\b(crm|sales|leads|hubspot|salesforce|pipedrive|marketing|pandadoc|proposals?)\b/i],
+  ["Docs and notes", /\b(notion|docs|documents?|notes|wiki|confluence|knowledge base|google drive|dropbox)\b/i],
+  ["Developer", /\b(github|gitlab|git|code|deploy\w*|vercel|cloudflare|pull requests?|sentry|monitoring|grafana|pagerduty|linear|jira|playwright|api testing|postman|developers?)\b/i],
   ["Data", /\b(database|sql|postgres\w*|supabase|neon|mongo\w*|redis|analytics|amplitude|warehouse|airtable|spreadsheets?|sheets)\b/i],
-  ["Research", /\b(search|research|web|scrap\w*|crawl\w*|perplexity|exa|papers?|news)\b/i],
-  ["Automation", /\b(zapier|automat\w*|workflows?|n8n|make\.com|agents?)\b/i],
+  ["Research", /\b(search|research|scrap\w*|crawl\w*|perplexity|exa|papers?|news)\b/i],
+  ["Automation", /\b(zapier|automat\w*|workflows?|n8n|make\.com)\b/i],
 ];
 
 /** A shelf for an app, from its name first and then what it says it does. */

@@ -225,7 +225,7 @@ struct MessageMenuOverlay: View {
         } label: {
           Text(t.emoji).font(.system(size: 21))
             .frame(width: Self.tapSize, height: Self.tapSize)
-            .background(Circle().fill(mine.contains(t.emoji) ? Palette.blue.opacity(0.28) : .clear))
+            .background(Circle().fill(mine.contains(t.emoji) ? Palette.accent.opacity(0.28) : .clear))
             .contentShape(Circle())
         }
         .buttonStyle(.press)
@@ -331,7 +331,7 @@ struct ReactionBadges: View {
           }
           .padding(.horizontal, 6)
           .frame(minWidth: 28, minHeight: 28)
-          .background(Capsule().fill(mine ? Palette.blue.opacity(0.22) : Color.clear).background(Capsule().fill(Palette.control)))
+          .background(Capsule().fill(mine ? Palette.accent.opacity(0.22) : Color.clear).background(Capsule().fill(Palette.control)))
           .overlay(Capsule().strokeBorder(Palette.ground, lineWidth: 2))
           .contentShape(Capsule())
         }
@@ -430,7 +430,7 @@ struct SwipeThreadIcon: View {
       .font(.system(size: 14, weight: .semibold))
       .foregroundStyle(armed ? Color.white : Palette.muted)
       .frame(width: 32, height: 32)
-      .background(Circle().fill(armed ? Palette.blue : Palette.hairline))
+      .background(Circle().fill(armed ? Palette.accent : Palette.hairline))
       .scaleEffect(0.6 + 0.4 * p)
       .opacity(p)
       .animation(.easeOut(duration: 0.15), value: armed)

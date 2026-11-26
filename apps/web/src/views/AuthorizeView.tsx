@@ -71,7 +71,8 @@ export function AuthorizeView({ requestId }: { requestId: string }) {
       <AuthPage themeToggle={false}>
         <AuthHero title="This request expired">Go back to the app and try connecting again.</AuthHero>
         <div className="mt-9">
-          <AuthButton onClick={() => (window.history.length > 1 ? window.history.back() : window.close())}>Close</AuthButton>
+          {/* the desktop app's window is Bubble AI itself: closing it from here would take the whole app away */}
+          <AuthButton onClick={() => (window.history.length > 1 ? window.history.back() : window.wispDesktop ? location.replace("#/") : window.close())}>Close</AuthButton>
         </div>
       </AuthPage>
     );

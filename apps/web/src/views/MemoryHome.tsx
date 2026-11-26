@@ -259,7 +259,7 @@ export function MemoryHome({
             className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted"
           />
           {query && (
-            <button className="grid size-6 shrink-0 place-items-center rounded-full text-muted hover:text-ink" onClick={() => setQuery("")} aria-label="Clear search">
+            <button className="grid size-6 shrink-0 place-items-center rounded-[8px] text-muted hover:text-ink" onClick={() => setQuery("")} aria-label="Clear search">
               <X size={15} />
             </button>
           )}

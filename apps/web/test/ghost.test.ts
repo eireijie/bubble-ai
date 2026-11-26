@@ -14,8 +14,8 @@ vi.mock("../src/theme.ts", () => ({ useMotionReduced: () => motion.reduced, moti
 afterEach(() => { motion.reduced = false; vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("work moods", () => {
-  const agent = { id: "agent", computerId: "computer", status: "busy" as const };
-  const computer = { id: "computer", status: "error" } as Computer;
+  const agent = { id: "agent", computerId: "computer", status: "busy" as const, settings: { runIn: "computer" as const } };
+  const computer = { id: "computer", kind: "vm", status: "error" } as Computer;
   const pending = { id: "approval", agentId: agent.id, status: "pending" } as Approval;
 
   it("shows the current work, request, or computer failure and clears resolved signals", () => {
@@ -30,6 +30,14 @@ describe("work moods", () => {
     expect(agentMood({ ...agent, status: "offline" }, { approval: pending }, [computer])).toBe("asleep");
     expect(agentMood(agent, { approval: pending }, [{ ...computer, paused: true }])).toBe("asleep");
     expect(agentMood({ ...agent, id: "other", computerId: null }, { approval: pending }, [computer])).toBe("working");
+  });
+
+  it("only looks troubled when a broken computer blocks the agent's work", () => {
+    // its AI tool runs on the device: it keeps chatting while the (shared) computer is broken
+    expect(agentMood({ ...agent, settings: {} }, {}, [computer])).toBe("working");
+    expect(agentMood({ ...agent, status: "online", settings: { runIn: "device" } }, {}, [computer])).toBe("awake");
+    // its AI tool runs inside that VM: nothing works until it starts
+    expect(agentMood({ ...agent, status: "online" }, {}, [computer])).toBe("error");
   });
 });
 

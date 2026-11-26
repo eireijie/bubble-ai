@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, ChevronRight, Copy, Download, ExternalLink, Link2, MoreHorizontal, Plus, RefreshCw, Smartphone } from "lucide-react";
 import { HARNESSES, OwnRemoteDesktop, REMOTE_APPS, REMOTE_APP_IDS, formatRustdeskId, harnessLabel, remoteDesktopLink, runsInVm, type Actor, type Agent, type DeviceRole, type HarnessInfo, type RemoteApp } from "@bubble-ai/core";
-import { api } from "../api.ts";
+import { api, errorDetails } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";
 import { isSharedComputer, useDevices } from "../devices.ts";
@@ -10,12 +10,13 @@ import { CreateAgent } from "./CreateAgent.tsx";
 import { HowToInstall } from "./settings/runtimes.tsx";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { Toggle } from "./settings/parts.tsx";
-import { SheetHead, TilePicture, toneText, useAddFlow, usePhones, useTileStatus } from "./ComputersParts.tsx";
-import { ASK_LEVELS, activityDot, askLevel, screenSwitch, sizeLine, updateExists, watchHref, type HubVersion, type SheetTarget } from "./computerState.ts";
+import { SheetHead, StartProblem, TilePicture, startComputer, toneText, useAddFlow, usePhones, useTileStatus } from "./ComputersParts.tsx";
+import { ASK_LEVELS, activityDot, askLevel, screenOffText, screenSwitch, sizeLine, updateExists, watchBlock, watchHref, type HubVersion, type SheetTarget } from "./computerState.ts";
 import { connectionLine, type NodeInfo } from "./deviceBits.tsx";
-import { AgentAvatar, Button, CopyBlock, Field, Input, Menu, Modal, cx, timeAgo } from "../components/ui.tsx";
+import { AgentAvatar, Button, CopyBlock, Field, Input, Menu, Modal, Problem, cx, timeAgo } from "../components/ui.tsx";
+import { copyText } from "../clipboard.ts";
 
-const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+const CARD = "overflow-hidden rounded-[12px] bg-card divide-y divide-line";
 const ROW = "flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px]";
 
 /** A row that opens something (a sheet in place, another computer: it has a chevron), or does something right away (`act`: no chevron). */
@@ -106,8 +107,10 @@ function Sheet({ node: n, computer: c, host, refresh }: { node?: NodeInfo; compu
     }
   };
 
+  // why Watch can't show the screen right now: a device's screen turned off there, or a VM that's off
+  const block = c ? watchBlock(c, n) : n?.mine && n.online && !n.paused && n.capabilities?.screen.off ? { text: screenOffText(n.name), start: false, starting: false } : null;
   // a device's screen becomes a computer the first time someone watches it
-  const screenReady = c ? c.online && !c.paused : !!n?.mine && n.online && !n.paused && !!n.capabilities?.screen.ok;
+  const screenReady = (c ? c.online && !c.paused : !!n?.mine && n.online && !n.paused && !!n.capabilities?.screen.ok) && !(block && !block.start && !block.starting);
   const open = async (take: boolean) => {
     const comp = c ?? (await api<ComputerInfo>("POST", "/api/computers", { kind: "device", nodeId: n!.id }));
     if (!c) await useStore.getState().refreshComputers();
@@ -168,7 +171,7 @@ function Sheet({ node: n, computer: c, host, refresh }: { node?: NodeInfo; compu
               )}
             </div>
             {n?.update?.message && n.update.state !== "idle" && <p className={cx("px-0.5 text-[13px] whitespace-pre-wrap", n.update.state === "failed" ? "text-bad" : "text-muted")}>{n.update.message}</p>}
-            {c?.status === "error" && c.statusText && <p className="px-0.5 text-[13px] text-bad">{c.statusText}</p>}
+            {c && c.kind !== "device" ? <StartProblem computer={c} className="px-0.5" /> : c?.status === "error" && c.statusText && <p className="px-0.5 text-[13px] text-bad">{c.statusText}</p>}
             <div className="flex gap-2">
               <Button variant="primary" className="flex-1" disabled={busy || !screenReady} onClick={() => void run(() => open(false))}>
                 Watch
@@ -184,6 +187,16 @@ function Sheet({ node: n, computer: c, host, refresh }: { node?: NodeInfo; compu
               {n && <Row label="Ask me" value={ask?.level ? ASK_LEVELS.find((l) => l.id === ask.level)!.label : "Not used yet"} onClick={() => setSub("ask")} />}
               <Row label="More" onClick={() => setSub("more")} />
             </div>
+            {block && !block.starting && (
+              <p className="px-1 text-[13px] text-muted" data-testid="watch-block">
+                {block.text}{" "}
+                {block.start && canEdit && (
+                  <button type="button" disabled={busy} onClick={() => void run(() => startComputer(c!.id))} className="font-medium text-ink underline underline-offset-2 disabled:opacity-50">
+                    Start
+                  </button>
+                )}
+              </p>
+            )}
             {sw.there && <p className="px-1 text-[13px] text-muted">Set on this computer.</p>}
             {error && (
               <p role="alert" className="px-1 text-[13px] text-bad">
@@ -366,7 +379,8 @@ function ComputerMore({ computer: c, host, open }: { computer: ComputerInfo; hos
   const [error, setError] = useState<string | null>(null);
   const canEdit = me.role !== "guest";
   const canRemove = c.kind === "device" ? c.ownerId === me.user.id : c.kind === "vm" ? me.role === "owner" || !!host?.mine : true;
-  const stopped = c.status === "stopped";
+  // off, or it couldn't start: Start (Try again); otherwise Stop
+  const startable = c.status === "stopped" || c.status === "error";
   const size = sizeLine(c);
   const forget = async () => {
     const what = c.kind === "vm" ? "Its VM and everything on it are deleted." : c.kind === "orgo" ? "The Orgo computer is deleted too." : "Agents won't be able to use this device's screen.";
@@ -385,7 +399,7 @@ function ComputerMore({ computer: c, host, open }: { computer: ComputerInfo; hos
         {host && <Row label="Runs on" value={host.name} href={href({ view: "computers", computerId: null, deviceId: host.id })} />}
         {size && <Fact label="Size" value={size} />}
         {agents.length > 0 && <Fact label="Used by" value={agents.map((a) => a.name).join(", ")} />}
-        {c.kind !== "device" && canEdit && <Row act label={stopped ? "Start" : "Stop"} onClick={() => void api("POST", `/api/computers/${c.id}/${stopped ? "start" : "stop"}`).catch((e) => setError((e as Error).message))} />}
+        {c.kind !== "device" && canEdit && <Row act label={c.status === "error" ? "Try again" : startable ? "Start" : "Stop"} onClick={() => void api("POST", `/api/computers/${c.id}/${startable ? "start" : "stop"}`).catch((e) => setError((e as Error).message))} />}
         <Row label="Activity" onClick={() => open("activity")} />
         {canEdit && <Row label="Rename" onClick={() => setRenaming(true)} />}
       </div>
@@ -462,7 +476,7 @@ function ActivityLog({ computer: c }: { computer: ComputerInfo }) {
 /** The AI tools this device can run, with Install for the ones Bubble AI can install, and how to sign each in. */
 function Harnesses({ node: n }: { node: NodeInfo }) {
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; details: string | null } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [howTo, setHowTo] = useState<HarnessInfo | null>(null);
   const [checking, setChecking] = useState(false);
@@ -476,20 +490,20 @@ function Harnesses({ node: n }: { node: NodeInfo }) {
       await api("POST", `/api/nodes/${n.id}/install`, { harness: h.id });
       setNote(`${h.label} is installed. Sign it in on ${n.name}: ${h.login ?? h.binary}`);
     } catch (e) {
-      setError((e as Error).message);
+      setError({ text: (e as Error).message, details: errorDetails(e) });
     } finally {
       setBusy(null);
     }
   };
   const refresh = async () => {
     setChecking(true);
-    await api("POST", `/api/nodes/${n.id}/refresh`).catch((e) => setError((e as Error).message));
+    await api("POST", `/api/nodes/${n.id}/refresh`).catch((e) => setError({ text: (e as Error).message, details: null }));
     await new Promise((r) => setTimeout(r, 2500));
     setChecking(false);
   };
   return (
     <div className="space-y-3">
-      {error && <p className="px-1 text-[13px] text-bad whitespace-pre-wrap">{error}</p>}
+      {error && <Problem className="px-1" text={error.text} details={error.details} />}
       {note && <p className="rounded-[10px] bg-ok/10 px-3 py-2 text-[13px] text-ok">{note}</p>}
       <div className={CARD}>
         {list.map((h) => {
@@ -663,7 +677,7 @@ function RemoteDesktop({ node: n, onChange }: { node: NodeInfo; onChange: () => 
     if (confirm(`Stop showing ${own ? REMOTE_APPS[own.app].label : "this app"} here? The app itself isn't changed.`)) void save(null).catch((e) => alert((e as Error).message));
   };
   return (
-    <section className="rounded-[14px] bg-card p-3.5">
+    <section className="rounded-[12px] bg-card p-3.5">
       {rustdesk && <RemoteRow label="RustDesk" value={formatRustdeskId(rustdesk.id)} copy={rustdesk.id} link={`rustdesk://${encodeURIComponent(rustdesk.id)}`} />}
       {own && !editing && <RemoteRow label={own.app === "other" && own.name ? own.name : REMOTE_APPS[own.app].label} value={REMOTE_APPS[own.app].field === "id" ? formatRustdeskId(own.value) : own.value} copy={own.value} link={remoteDesktopLink(own)} onChange={() => setEditing(true)} onRemove={remove} />}
       {editing ? (
@@ -707,7 +721,7 @@ function RemoteDesktop({ node: n, onChange }: { node: NodeInfo; onChange: () => 
 function RemoteRow({ label, value, copy, link, onChange, onRemove }: { label: string; value: string; copy: string; link: string | null; onChange?: () => void; onRemove?: () => void }) {
   const [copied, setCopied] = useState(false);
   const doCopy = async () => {
-    await navigator.clipboard.writeText(copy).catch(() => {});
+    await copyText(copy).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -722,7 +736,7 @@ function RemoteRow({ label, value, copy, link, onChange, onRemove }: { label: st
           {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? "Copied" : "Copy"}
         </Button>
         {link && (
-          <a href={link} target={link.startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-accent text-accent-ink text-sm font-medium whitespace-nowrap hover:bg-accent/90">
+          <a href={link} target={link.startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-[8px] bg-accent text-accent-ink text-sm font-medium whitespace-nowrap hover:bg-accent/90">
             <ExternalLink size={15} /> Open
           </a>
         )}

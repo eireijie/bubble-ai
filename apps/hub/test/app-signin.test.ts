@@ -87,7 +87,7 @@ describe("which apps can sign in from here", () => {
     expect(here.github).toMatchObject({ signIn: true, key: true });
     // the relay has no Slack app yet
     expect(here.slack.signIn).toBe(false);
-    expect(here.slack.reason).toMatch(/Slack isn't set up/);
+    expect(here.slack.reason).toMatch(/Signing in with Slack is coming soon/);
     // MCP sign-ins come back to this computer fine
     expect(here.notion.signIn).toBe(true);
     expect(here.vercel.signIn).toBe(true);

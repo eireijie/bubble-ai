@@ -46,6 +46,9 @@ export function neighbourhood(graph: GraphData, id: string, depth = 1): GraphDat
   return { nodes: graph.nodes.filter((n) => keep.has(n.id)), edges: graph.edges.filter((e) => keep.has(e.source) && keep.has(e.target)) };
 }
 
+/** Up to this many notes, the full map names every one, linked or not, so none goes unseen. */
+const SMALL_GRAPH = 40;
+
 type SimNode = SimulationNodeDatum & { id: string; n: GraphNode; r: number };
 type SimLink = { source: SimNode; target: SimNode };
 type Colors = Record<GraphKind | "ink" | "muted" | "faint" | "accent" | "panel", string>;
@@ -188,12 +191,24 @@ export function MemoryGraph({
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.lineJoin = "round";
-      for (const sn of st.nodes) {
+      // names never sit on top of each other: the one in focus, the open one and the best-linked go first,
+      // and a name that would overlap one already drawn waits for a hover or a closer zoom
+      const placed: [number, number, number, number][] = [];
+      const lineH = (fontPx + 2) / k;
+      const order = [...st.nodes].sort((a, b) => rank(b) - rank(a));
+      function rank(sn: SimNode) {
+        return (sn.id === focusId ? 4e6 : 0) + (sn.id === st.active ? 2e6 : 0) + (st.hubs.has(sn.id) ? 1e6 : 0) + sn.n.links;
+      }
+      for (const sn of order) {
         // the small map names the open note and its best-linked neighbours; hover names the rest
-        const show = props.current.variant === "local" ? (lit ? lit.has(sn.id) : sn.id === st.active || st.hubs.has(sn.id)) : lit ? lit.has(sn.id) : k > 1.5 || (st.hubs.has(sn.id) && k > 0.45);
+        const show = props.current.variant === "local" ? (lit ? lit.has(sn.id) : sn.id === st.active || st.hubs.has(sn.id)) : lit ? lit.has(sn.id) : k > 1.5 || (st.nodes.length <= SMALL_GRAPH && k > 0.45) || (st.hubs.has(sn.id) && k > 0.45);
         if (!show) continue;
         const text = sn.n.title.length > 28 ? sn.n.title.slice(0, 27) + "…" : sn.n.title;
         const ly = sn.y! + sn.r + 3 / k;
+        const half = ctx.measureText(text).width / 2 + 2 / k;
+        const box: [number, number, number, number] = [sn.x! - half, ly, sn.x! + half, ly + lineH];
+        if (sn.id !== focusId && sn.id !== st.active && placed.some((b) => b[0] < box[2] && box[0] < b[2] && b[1] < box[3] && box[1] < b[3])) continue;
+        placed.push(box);
         ctx.globalAlpha = lit && !lit.has(sn.id) ? 0.25 : 1;
         ctx.strokeStyle = c.panel;
         ctx.lineWidth = 3.5 / k;
@@ -269,7 +284,8 @@ export function MemoryGraph({
     const sim = forceSimulation<SimNode>(nodes)
       .force("link", forceLink<SimNode, SimLink>(links).distance((l) => (local ? 54 : 34) + (l.source.r + l.target.r) * 1.5))
       .force("charge", forceManyBody<SimNode>().strength(local ? -260 : -150).distanceMax(local ? 300 : 520))
-      .force("collide", forceCollide<SimNode>((d) => d.r + (local ? 14 : 4)))
+      // a small graph names every note, so its notes keep room for their names between them
+      .force("collide", forceCollide<SimNode>((d) => d.r + (local ? 14 : nodes.length <= SMALL_GRAPH ? 22 : 4)))
       // notes with no links drift off forever without a firmer pull to the middle
       .force("x", forceX<SimNode>(0).strength((d) => (near.has(d.id) ? (local ? 0.09 : 0.05) : 0.2)))
       .force("y", forceY<SimNode>(0).strength((d) => (near.has(d.id) ? (local ? 0.09 : 0.05) : 0.2)))

@@ -16,7 +16,7 @@ import { StepForm, stepHeading } from "./StepForm.tsx";
 import { TemplateBrowser } from "./Templates.tsx";
 import { useIsPhone } from "./parts.tsx";
 import { CreateAgentContext, NewAgentForTeam } from "./NewAgent.tsx";
-import { addStep, castFrom, changeRequest, fillTemplate, leadOf, relayout, removingStep, isStepDeleteKey, stepById, stepNeedsConfirm, stepProblems, teamFromSteps, updating, withChart, type AddAt, type AddKind } from "./flow.ts";
+import { addStep, builderLead, castFor, castFrom, changeRequest, fillTemplate, relayout, removingStep, isStepDeleteKey, stepById, stepNeedsConfirm, stepProblems, teamFromSteps, updating, withChart, type AddAt, type AddKind } from "./flow.ts";
 
 export interface BuilderProps {
   team: ChannelTeam;
@@ -96,7 +96,8 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
   const open = (id: string | null) => (phone ? setEditing(id) : setSel(id));
 
   const add = (kind: AddKind, at: AddAt) => {
-    const made = addStep(team, kind, at, agents);
+    // the picked lead and the team's agents first, so a step on an empty canvas goes to one of them
+    const made = addStep(team, kind, at, castFor(agents, leadId, pool));
     commit(made.team);
     setAdding(null);
     // the first step on an empty canvas: the view was fitted to nothing, so fit it again
@@ -153,7 +154,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
       .then((r) => setWorkspaceLead(r.lead))
       .catch(() => {});
   }, []);
-  const lead = agents.find((a) => a.id === (leadPick ?? leadOf(team, agents, leadId ?? workspaceLead)));
+  const lead = agents.find((a) => a.id === (leadPick ?? builderLead(team, agents, leadId, workspaceLead)));
   const lines = useFlowLines(team);
   const [text, setText] = useState("");
   const [drawing, setDrawing] = useState(false);
@@ -192,8 +193,11 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
     }
   };
 
+  // why Done waits, said beside it (the steps' own problems already show in the banner over the chart)
+  const reason = !ready && !saving && !drawing && !(steps.length > 0 && problems.lines.length > 0) ? problem : null;
+
   const banner = (error || (problems.lines.length > 0 && steps.length > 0)) && (
-    <p role="alert" aria-label="Problems" className="mx-auto w-fit max-w-full rounded-full bg-bad/12 px-3.5 py-1.5 text-center text-[13px] text-bad">
+    <p role="alert" aria-label="Problems" className="mx-auto w-fit max-w-full rounded-[8px] bg-bad/12 px-3.5 py-1.5 text-center text-[13px] text-bad">
       {error ?? problems.lines[0]}
       {!error && problems.lines.length > 1 && ` (and ${problems.lines.length - 1} more)`}
     </p>
@@ -227,16 +231,26 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
           <ChevronLeft size={19} />
         </button>
         <h1 className={cx("min-w-0 flex-1 truncate text-[15px] font-semibold", phone ? "text-center" : "pl-1")}>{name}</h1>
+        {reason && !phone && (
+          <span role="status" className="max-w-[18rem] truncate text-[13px] text-muted">
+            {reason}
+          </span>
+        )}
         {menu}
         <Button type="button" variant="primary" onClick={onDone} disabled={!ready || saving || drawing} title={problem ?? undefined} className="shrink-0 px-4">
           {saving ? <Loader2 size={15} className="animate-spin" aria-label="Saving" /> : doneLabel}
         </Button>
       </header>
+      {reason && phone && (
+        <p role="status" className="-mt-1 shrink-0 px-4 pb-1.5 text-center text-[13px] text-muted">
+          {reason}
+        </p>
+      )}
 
       <div className="relative flex min-h-0 flex-1">
         {phone ? (
           <div className="min-w-0 flex-1 overflow-y-auto">
-            {steps.length === 0 ? <div className="relative h-full">{empty}</div> : <PhoneFlow team={team} problems={problems.byStep} working={working} banner={banner ? <div className="mb-4 w-full">{banner}</div> : null} onOpen={open} onHold={setHolding} onAdd={setAdding} />}
+            {steps.length === 0 ? <div className="relative h-full">{empty}</div> : <PhoneFlow team={team} problems={problems.byStep} working={working} banner={banner ? <div className="mb-4 w-full">{banner}</div> : null} onOpen={open} onHold={setHolding} onAdd={setAdding} onSchedule={() => add("schedule", {})} />}
           </div>
         ) : (
           <>
@@ -297,7 +311,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
         {steps.length === 0 && lead && !drawing && (
           <div className="flex flex-wrap justify-center gap-1.5" role="group" aria-label="Try">
             {TRIES.map((t) => (
-              <button key={t} type="button" onClick={() => setText(t)} className="h-8 rounded-full border border-line px-3 text-[13px] text-muted hover:bg-hover hover:text-ink">
+              <button key={t} type="button" onClick={() => setText(t)} className="h-8 rounded-[8px] border border-line px-3 text-[13px] text-muted hover:bg-hover hover:text-ink">
                 {t}
               </button>
             ))}
@@ -396,11 +410,11 @@ function EmptyState({ onAdd, onTemplates, onTemplate }: { onAdd: () => void; onT
         </button>
         <div className="flex flex-wrap justify-center gap-1.5">
           {TEAM_TEMPLATES.slice(0, 3).map((t) => (
-            <button key={t.id} type="button" onClick={() => onTemplate(t)} title={t.blurb} className="h-8 rounded-full border border-line bg-panel px-3 text-[13px] hover:bg-hover">
+            <button key={t.id} type="button" onClick={() => onTemplate(t)} title={t.blurb} className="h-8 rounded-[8px] border border-line bg-panel px-3 text-[13px] hover:bg-hover">
               {t.name}
             </button>
           ))}
-          <button type="button" onClick={onTemplates} className="h-8 rounded-full px-2.5 text-[13px] text-muted hover:text-ink">
+          <button type="button" onClick={onTemplates} className="h-8 rounded-[8px] px-2.5 text-[13px] text-muted hover:text-ink">
             Templates
           </button>
         </div>
