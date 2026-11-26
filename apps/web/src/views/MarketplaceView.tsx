@@ -70,6 +70,7 @@ import { CatalogIcon } from "../components/ShopParts.tsx";
 import { ConnectorForm, registryCatalog } from "./ConnectorsView.tsx";
 import { AppPage, ConnectSignIn, type AppItem } from "./AppPages.tsx";
 import { SkillDetail, SkillEditor, SkillShare, StoreSkillDetail, skillOrigin, type Open } from "./SkillsView.tsx";
+import { LAYER } from "../components/layers.ts";
 
 const HARNESS_NAMES: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", hermes: "Hermes" };
 const harnessName = (h: string) => HARNESS_NAMES[h] ?? h;
@@ -1009,7 +1010,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
         />
       )}
       {modOn && (
-        <div role="status" className="m-toast glass fixed bottom-6 right-6 z-[110] flex w-[320px] items-center gap-2.5 rounded-[18px] py-3 pl-4 pr-3 max-md:inset-x-[18px] max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:right-auto max-md:w-auto">
+        <div role="status" className={`m-toast glass fixed bottom-6 right-6 ${LAYER.toast} flex w-[320px] items-center gap-2.5 rounded-[18px] py-3 pl-4 pr-3 max-md:inset-x-[18px] max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:right-auto max-md:w-auto`}>
           <span className="min-w-0 flex-1">
             <span className="block text-[14px] font-medium">{FEATURE_INFO[modOn].name} on</span>
             <span className="block truncate text-[13px] text-muted">{modWhere(modOn)}</span>

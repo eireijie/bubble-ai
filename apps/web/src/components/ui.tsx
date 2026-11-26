@@ -366,7 +366,7 @@ export function Menu({ trigger, items, align = "left", up = false }: { trigger: 
       })}
       {mounted &&
         createPortal(
-          <div ref={menuRef} role="menu" data-closing={closing || undefined} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className="m-menu glass z-[100] min-w-56 rounded-[12px] p-2">
+          <div ref={menuRef} role="menu" data-closing={closing || undefined} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className={cx("m-menu glass min-w-56 rounded-[12px] p-2", LAYER.menu)}>
             {items.map((it, i) =>
               it === "divider" ? (
                 <div key={i} className="-mx-2 my-2 h-px bg-line" />

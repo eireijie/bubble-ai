@@ -152,7 +152,7 @@ export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = fal
             <div className={CARD}>
               <PanelRow label="Apps" href={page("apps")} />
               <PanelRow label="Skills" href={page("skills")} />
-              <PanelRow label="Add" href={`#/marketplace/for/${encodeURIComponent(agent.id)}`} />
+              <PanelRow label="Add" href={href({ view: "marketplace", forAgent: agent.id })} />
             </div>
           )}
           {sheet === "asks" && (

@@ -7,6 +7,7 @@ import { go, href } from "../router.ts";
 import { AgentAvatar, Menu, cx, timeAgo } from "./ui.tsx";
 import { AppleApprovalCard } from "./AppleParts.tsx";
 import { PickTime, changeFollowup, reminderTimes, whenText } from "./Loops.tsx";
+import { LAYER } from "./layers.ts";
 
 /** The small grey heading over a group, with a count or a link on the right. */
 export function SectionHead({ title, right, needs }: { title: string; right?: ReactNode; needs?: boolean }) {
@@ -313,7 +314,7 @@ export function ConfirmDialog({ title, body, confirm, keep = "Keep reviewing", d
     return () => window.removeEventListener("keydown", k, true);
   }, [onClose]);
   return (
-    <div className="m-scrim fixed inset-0 z-[70] bg-black/55 flex items-end md:items-center justify-center p-3 pb-6 md:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={`m-scrim fixed inset-0 ${LAYER.modal} bg-black/55 flex items-end md:items-center justify-center p-3 pb-6 md:p-4`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="alertdialog" aria-modal="true" aria-label={title} className="m-dialog w-full max-w-[420px] rounded-xl bg-card border border-line shadow-panel px-5 pt-[22px] pb-3.5 flex flex-col gap-3">
         <h2 className="t-title">{title}</h2>
         <p className="text-body leading-snug text-muted">{body}</p>

@@ -11,6 +11,7 @@ import { cx } from "../ui.tsx";
 import { bubbleSpot, cardSpot, curveControl, curvePoint, easeInOut, flightMs, stopBody, stopTitle, stopsFor, type Box, type Place, type Stop } from "../../tour.ts";
 import { goStop, markSeen, stopTour, useTour, type TourRun } from "./tourRun.ts";
 import "./tour.css";
+import { LAYER } from "../layers.ts";
 
 /**
  * Show me around, running (board 9). The person's agent leaves its chat as a bubble and flies on a
@@ -406,7 +407,7 @@ function Running({ run }: { run: TourRun }) {
   const modOff = stop?.mod && !features[stop.mod] ? stop.mod : null;
 
   return (
-    <div className="tour pointer-events-none fixed inset-0 z-[200]" data-tour-overlay aria-live="polite">
+    <div className={`tour pointer-events-none fixed inset-0 ${LAYER.tour}`} data-tour-overlay aria-live="polite">
       {/* clicks outside the cut-out do nothing; inside it, the real control works */}
       {hole && landed && !end ? (
         <>

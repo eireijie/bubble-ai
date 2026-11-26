@@ -37,7 +37,7 @@ import { useChangedSinceMount, useFreshIds } from "../motion.ts";
 import { TeamInfo, type InfoTab } from "../components/TeamInfo.tsx";
 import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
-import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
+import { SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
 import { SetupTour } from "../components/onboarding/SetupTour.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
@@ -50,57 +50,6 @@ type Side = { kind: "agent"; agentId: string; tab: AgentPanelTab } | { kind: "in
 /** The DM's own agent panel stays open across DMs once you open it. */
 // a call's screen is only needed while a call is on: a file of its own (lazy.tsx)
 const CallScreen = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallScreen));
-
-/** A reply that failed: one muted line, "Couldn't finish." (click it for why), Try again, and the sign-in when that's the cause. */
-function RunFailedActions({ part, agentId, detail }: { part: Extract<MessagePart, { type: "run_failed" }>; agentId?: string; detail?: string }) {
-  const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [more, setMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const retry = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api("POST", `/api/runs/${part.runId}/retry`);
-      setSent(true);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  // the agent still can't answer for want of a sign-in: open that sign-in right here
-  const signIn = useStore((s) => (agentId && (part.fix === "signin" || part.fix === "computer") ? s.agents.find((a) => a.id === agentId)?.signIn : null));
-  const to = part.fix === "computer" && agentId ? href({ view: "agents", agentId, tab: "computer" }) : part.fix === "connection" ? href({ view: "settings", page: "harnesses" }) : part.fix === "signin" ? href({ view: "settings", page: "harnesses" }) : null;
-  if (sent) return <div className="mt-1 px-1 text-[14px] text-muted">Trying again…</div>;
-  const link = "font-medium text-ink hover:underline disabled:opacity-50";
-  return (
-    <div className="mt-1 px-1 text-[14px] leading-5 text-muted">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {detail ? (
-          <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="hover:text-ink">
-            Couldn't finish.
-          </button>
-        ) : (
-          <span>Couldn't finish.</span>
-        )}
-        {part.retry && (
-          <button type="button" disabled={busy} onClick={() => void retry()} className={link}>
-            Try again
-          </button>
-        )}
-        {signIn && <HarnessSignInButton signIn={signIn} agentId={agentId} />}
-        {to && !signIn && (
-          <a href={to} className={link}>
-            Sign in
-          </a>
-        )}
-        {error && <span className="text-xs text-bad">{error}</span>}
-      </div>
-      {more && detail && <p className="mt-1 whitespace-pre-wrap text-xs">{detail}</p>}
-    </div>
-  );
-}
 
 function storedDmPanel(): AgentPanelTab | null {
   try {
