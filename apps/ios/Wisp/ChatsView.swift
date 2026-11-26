@@ -191,7 +191,6 @@ struct ChatsView: View {
           } else {
             Button("Browse teams", systemImage: "magnifyingglass") { sheet = "browse" }
           }
-          if !guest { Button("New section", systemImage: "folder.badge.plus") { newSection() } }
         } label: { CircleLabel(symbol: "plus", size: 38, weight: .regular) }
           .accessibilityLabel("New chat, agent or team").accessibilityIdentifier("new-menu")
           .tourTarget("new")
@@ -670,8 +669,8 @@ struct ChatRow<Menu: View>: View {
       HStack(spacing: 12) {
         ChatAvatar(entry: entry, size: 48)
           .overlay(alignment: .topTrailing) {
-            if unread && !needsTeam {
-              Circle().fill(Color(hex: 0x0A84FF)).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
+            if unread && !needsTeam && entry.badge == 0 {
+              Circle().fill(Palette.accent).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
             } else if needsTeam {
               Circle().fill(Color(hex: 0xFF9F0A)).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
             }
@@ -792,7 +791,7 @@ struct ChatRow<Menu: View>: View {
       }
     }
     switch entry.kind {
-    case .agent(let a): return a.settings?.description.flatMap { $0.isEmpty ? nil : $0 } ?? "@\(a.handle)"
+    case .agent(let a): return a.settings?.description.flatMap { $0.isEmpty ? nil : $0 } ?? a.settings?.role.flatMap { $0.isEmpty ? nil : $0 } ?? "No messages yet"
     case .team(let c):
       if let leads = c.leadLine(agents: store.agents) { return leads }
       return c.topic.isEmpty ? "No messages yet" : c.topic
