@@ -38,6 +38,7 @@ import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
 import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
+import { HelpMenu, LearnHeader } from "../components/tour/Learn.tsx";
 import { SetupTour } from "../components/onboarding/SetupTour.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
 import { GhostLanding, useFirstHelloHtml } from "../components/onboarding/FirstHello.tsx";
@@ -223,10 +224,12 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <TeamPill channel={channel} open={infoOpen} onClick={toggleInfo} />
           )}
           <div className="flex items-center justify-end gap-2">
+            <LearnHeader />
+            <HelpMenu />
             {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
             {/* round floating call button in the top corner */}
             {dmAgent && !calling && (
-              <button type="button" onClick={() => setCalling(true)} aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`} className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
+              <button type="button" data-tour="call" onClick={() => setCalling(true)} aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`} className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
                 <Phone size={17} strokeWidth={1.8} />
               </button>
             )}
@@ -289,7 +292,7 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
 /** A team's name in a pill at the top of its chat, with its agents' ghosts; opens its info page. */
 function TeamPill({ channel, open, onClick }: { channel: ChannelInfo; open: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-12 max-w-[min(22rem,60vw)] rounded-full pl-2 pr-5 inline-flex items-center gap-2.5 text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
+    <button data-tour="team-pill" onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-12 max-w-[min(22rem,60vw)] rounded-full pl-2 pr-5 inline-flex items-center gap-2.5 text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
       <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={34} />
       <span className="min-w-0 truncate font-semibold">{channel.name}</span>
       {channel.archivedAt && <span className="shrink-0 text-xs text-muted">Archived</span>}
@@ -1952,7 +1955,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             <Popover
               className="w-60 p-1.5 !rounded-[14px]"
               trigger={(open, toggle) => (
-                <button type="button" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-[42px] rounded-full grid place-items-center bg-[var(--bubble-them)] text-ink hover:bg-hover", open && "bg-hover")}>
+                <button type="button" data-tour="attach" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-[42px] rounded-full grid place-items-center bg-[var(--bubble-them)] text-ink hover:bg-hover", open && "bg-hover")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
                 </button>
               )}
@@ -1968,7 +1971,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
               )}
             </Popover>
           </span>
-          <div className={cx("flex min-h-[42px] min-w-0 items-end rounded-[21px] border border-transparent bg-[var(--bubble-them)] pl-4 pr-1.5 focus-within:border-line2 row-start-1", tall ? "col-span-3 col-start-1" : "col-start-2")}>
+          <div data-tour="input" className={cx("flex min-h-[42px] min-w-0 items-end rounded-[21px] border border-transparent bg-[var(--bubble-them)] pl-4 pr-1.5 focus-within:border-line2 row-start-1", tall ? "col-span-3 col-start-1" : "col-start-2")}>
           <textarea
             ref={ta}
             rows={1}
@@ -2021,6 +2024,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
               if (hold.current.held) return void (hold.current.held = false);
               return act();
             }}
+            data-tour="send"
             onPointerDown={holdStart}
             onPointerUp={holdEnd}
             onPointerLeave={holdEnd}

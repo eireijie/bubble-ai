@@ -80,7 +80,8 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
       hidden: z.array(key).max(2000).optional(),
       unread: z.array(key).max(2000).optional(),
     });
-    const body = parse(z.object({ sendWith: z.enum(["enter", "mod-enter"]), clock: z.enum(["auto", "12h", "24h"]), toolCalls: z.enum(["collapsed", "expanded", "hidden"]), experience: z.enum(["simple", "advanced"]), sidebar }).partial(), req.body, reply);
+    const learn = z.object({ seen: z.array(z.string().regex(/^[a-z0-9-]{1,40}$/)).max(100), started: z.boolean().optional() });
+    const body = parse(z.object({ sendWith: z.enum(["enter", "mod-enter"]), clock: z.enum(["auto", "12h", "24h"]), toolCalls: z.enum(["collapsed", "expanded", "hidden"]), experience: z.enum(["simple", "advanced"]), sidebar, learn }).partial(), req.body, reply);
     if (!body) return;
     return store.setPrefs(c.actor.id, { ...store.prefs(c.actor.id), ...body } as UserPrefs);
   });

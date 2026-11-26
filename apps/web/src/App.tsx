@@ -15,6 +15,7 @@ import { ChannelView } from "./views/ChannelView.tsx";
 import { logout } from "./logout.ts";
 import { JoinApproval } from "./components/JoinApproval.tsx";
 import { HelpPopup } from "./components/HelpPopup.tsx";
+import { TourOverlay } from "./components/tour/TourOverlay.tsx";
 import { DashboardView } from "./views/DashboardView.tsx";
 import { primeTasks } from "./notifications.ts";
 import { Loader, cx } from "./components/ui.tsx";
@@ -273,7 +274,11 @@ function Workspace() {
       case "skills":
         return <MarketplaceView section="skills" onBack={phone ? toYou : undefined} />;
       case "vault":
-        return <VaultView path={route.path} onBack={phone ? toYou : undefined} />;
+        return (
+          <div data-tour="vault-page" className="contents">
+            <VaultView path={route.path} onBack={phone ? toYou : undefined} />
+          </div>
+        );
       case "agents":
         // one agent's page has its own Back to the list
         return route.agentId ? <AgentsView agentId={route.agentId} tab={route.tab ?? null} /> : backBar(<AgentsView agentId={route.agentId} tab={route.tab ?? null} />);
@@ -284,7 +289,11 @@ function Workspace() {
       case "code":
         return backBar(<CodeView />, false);
       case "computers": {
-        const computers = <ComputersView computerId={route.computerId} teach={route.teach ?? null} deviceId={route.deviceId ?? null} />;
+        const computers = (
+          <div data-tour="computers-page" className="contents">
+            <ComputersView computerId={route.computerId} teach={route.teach ?? null} deviceId={route.deviceId ?? null} />
+          </div>
+        );
         // one computer or device has its own Back to the list
         return route.computerId || route.deviceId ? computers : backBar(computers);
       }
@@ -324,6 +333,7 @@ function Workspace() {
       <CommandPalette />
       <JoinApproval />
       <HelpPopup />
+      <TourOverlay />
       <UpdatedBanner phone={phone} />
       {newChatOpen && <NewChatPicker onClose={() => useStore.setState({ newChatOpen: false })} />}
       {newTaskOpen && (

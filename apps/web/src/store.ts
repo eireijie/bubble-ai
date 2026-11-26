@@ -172,7 +172,7 @@ interface State {
 const readTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /** Your preferences (Settings → Preferences), with defaults. */
-export function usePrefs(): Required<Omit<UserPrefs, "sidebar">> {
+export function usePrefs(): Required<Omit<UserPrefs, "sidebar" | "learn">> {
   const p = useStore((s) => s.me?.prefs);
   return { sendWith: p?.sendWith ?? "enter", clock: p?.clock ?? "auto", toolCalls: p?.toolCalls ?? "collapsed", experience: p?.experience ?? "advanced" };
 }

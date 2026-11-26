@@ -50,7 +50,7 @@ export type Route =
 
 export const AGENT_TABS = ["overview", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "remove"] as const;
 export type AgentTab = (typeof AGENT_TABS)[number];
-export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "general", "access", "agent-defaults", "people", "agents", "harnesses", "memory", "buddy", "logins", "storage", "apple", "apps", "skills", "connections", "data", "updates"] as const;
+export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "general", "access", "agent-defaults", "people", "agents", "harnesses", "memory", "buddy", "logins", "storage", "apple", "apps", "skills", "connections", "data", "updates", "learn"] as const;
 export type SettingsPage = (typeof SETTINGS_PAGES)[number];
 /** Settings pages that were merged into another: an old link lands on the page that holds them now. */
 export const SETTINGS_REDIRECTS: Record<string, SettingsPage> = { models: "harnesses", runtimes: "harnesses", computers: "devices", mobile: "devices" };

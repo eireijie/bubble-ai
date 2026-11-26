@@ -243,7 +243,7 @@ export function MemoryHome({
   const empty = (text: string) => <p className="border-t border-line px-1.5 py-4 text-[13px] text-muted">{text}</p>;
   return (
     <div className="h-full overflow-y-auto">
-      <div className={cx(pageCol, "pb-[max(1.5rem,env(safe-area-inset-bottom))]")}>
+      <div data-tour="vault-list" className={cx(pageCol, "pb-[max(1.5rem,env(safe-area-inset-bottom))]")}>
         {head()}
         <div className="mb-3 flex h-12 items-center gap-2.5 rounded-[20px] bg-chip px-4 focus-within:ring-2 focus-within:ring-ring/30">
           <Search size={16} className="shrink-0 text-muted" aria-hidden />

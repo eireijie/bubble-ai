@@ -47,22 +47,14 @@ export function cronLine(schedule: string | null): string {
 
 export function HereView({ agentId }: { agentId?: string | null }) {
   const me = useStore((s) => s.me)!;
-  const agents = useStore((s) => s.agents);
-  const agent: Agent | undefined = useMemo(() => {
-    if (agentId) return agents.find((a) => a.id === agentId);
-    const mine = agents.filter((a) => a.settings.setup?.userId === me.user.id);
-    return mine.sort((a, b) => Date.parse(b.settings.setup!.startedAt) - Date.parse(a.settings.setup!.startedAt))[0] ?? agents[0];
-  }, [agentId, agents, me.user.id]);
+  const agent = useSetupAgent(agentId);
   const features = useFeatures();
   const ready = useReadyChecklist();
-  const access = useAccess();
   const owner = me.role === "owner";
   const guest = me.role === "guest";
 
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const [watches, setWatches] = useState<WatchRow[] | null>(null);
-  const [sheet, setSheet] = useState<"phone" | "know" | null>(null);
-  const [copied, setCopied] = useState(false);
   // mods that were on when the page opened: undoing one keeps its row, as "Undone"
   const [mods] = useState<FeatureKey[]>(() => FEATURE_KEYS.filter((k) => features[k] && !FEATURE_PRESETS.simple[k]));
 
@@ -76,21 +68,6 @@ export function HereView({ agentId }: { agentId?: string | null }) {
   useEffect(() => {
     if (ready.workspaceId && !ready.started) setReadyItem(ready.workspaceId, "started", true);
   }, [ready.workspaceId, ready.started]);
-
-  const open = (id: ReadyItem) => {
-    const to = ASK_OPENS[id];
-    setReadyItem(ready.workspaceId, id, true);
-    if (typeof to === "string") setSheet(to);
-    else go(to);
-  };
-  // away from home: once it is on, the row is the address your devices connect to, with Copy
-  const away = !!access && awayEnabled(access);
-  const address = serverAddress(access)?.url ?? null;
-  const copy = () => {
-    if (!address) return;
-    void navigator.clipboard?.writeText(address);
-    setCopied(true);
-  };
 
   const rows: Row[] = [];
   for (const r of routines ?? []) {
@@ -131,32 +108,9 @@ export function HereView({ agentId }: { agentId?: string | null }) {
     <div className="flex-1 overflow-y-auto bg-panel">
       <div className="mx-auto w-full max-w-xl px-4 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-8 md:pt-12">
         <h1 className="text-[24px] leading-[30px] font-[650] tracking-[-0.015em] text-ink">Setup</h1>
-        <ul className="mt-5 overflow-hidden rounded-[14px] bg-card divide-y divide-line" aria-label="To finish">
-          {ready.items.map((t) => {
-            const on = t.id === "away" && away;
-            return (
-              <li key={t.id} className="flex min-h-14 items-center gap-3 px-4 py-2.5">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-chip text-ink">{TODO_ICON[t.id]}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="truncate text-[14px] font-medium text-ink">{t.label}</span>
-                    {(t.done || on) && <Check size={14} strokeWidth={2.4} className="shrink-0 text-ok" aria-label="Done" />}
-                  </div>
-                  {t.id === "away" && address && <div className="truncate font-mono text-[12px] leading-5 text-muted">{address}</div>}
-                </div>
-                {on ? (
-                  <button type="button" className={pill} onClick={copy}>
-                    {copied ? "Copied" : "Copy"}
-                  </button>
-                ) : (
-                  <button type="button" className={pill} onClick={() => open(t.id)}>
-                    {t.button}
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <div className="mt-5">
+          <FinishSetupList agent={agent} />
+        </div>
 
         {(rows.length > 0 || plan) && (
           <>
@@ -191,9 +145,79 @@ export function HereView({ agentId }: { agentId?: string | null }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The agent setup made last (the person's own), else the first. */
+function useSetupAgent(agentId?: string | null): Agent | undefined {
+  const me = useStore((s) => s.me)!;
+  const agents = useStore((s) => s.agents);
+  return useMemo(() => {
+    if (agentId) return agents.find((a) => a.id === agentId);
+    const mine = agents.filter((a) => a.settings.setup?.userId === me.user.id);
+    return mine.sort((a, b) => Date.parse(b.settings.setup!.startedAt) - Date.parse(a.settings.setup!.startedAt))[0] ?? agents[0];
+  }, [agentId, agents, me.user.id]);
+}
+
+/**
+ * What the first run no longer asks (phone, apps, away from home, getting to know you), each one
+ * line and one button. It lives in Settings › Learn Wisp, and at the top of this page.
+ */
+export function FinishSetupList({ agent: given }: { agent?: Agent }) {
+  const me = useStore((s) => s.me)!;
+  const fallback = useSetupAgent();
+  const agent = given ?? fallback;
+  const ready = useReadyChecklist();
+  const access = useAccess();
+  const [sheet, setSheet] = useState<"phone" | "know" | null>(null);
+  const [copied, setCopied] = useState(false);
+  const open = (id: ReadyItem) => {
+    const to = ASK_OPENS[id];
+    setReadyItem(ready.workspaceId, id, true);
+    if (typeof to === "string") setSheet(to);
+    else go(to);
+  };
+  // away from home: once it is on, the row is the address your devices connect to, with Copy
+  const away = !!access && awayEnabled(access);
+  const address = serverAddress(access)?.url ?? null;
+  const copy = () => {
+    if (!address) return;
+    void navigator.clipboard?.writeText(address);
+    setCopied(true);
+  };
+  if (me.role === "guest") return null;
+  return (
+    <>
+      <ul className="overflow-hidden rounded-[14px] bg-card divide-y divide-line" aria-label="To finish">
+        {ready.items.map((t) => {
+          const on = t.id === "away" && away;
+          return (
+            <li key={t.id} className="flex min-h-14 items-center gap-3 px-4 py-2.5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-chip text-ink">{TODO_ICON[t.id]}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="truncate text-[14px] font-medium text-ink">{t.label}</span>
+                  {(t.done || on) && <Check size={14} strokeWidth={2.4} className="shrink-0 text-ok" aria-label="Done" />}
+                </div>
+                {t.id === "away" && address && <div className="truncate font-mono text-[12px] leading-5 text-muted">{address}</div>}
+              </div>
+              {on ? (
+                <button type="button" className={pill} onClick={copy}>
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              ) : (
+                <button type="button" className={pill} onClick={() => open(t.id)}>
+                  {t.button}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
       {sheet === "phone" && <PhoneSheet onClose={() => setSheet(null)} />}
       {sheet === "know" && agent && <KnowSheet agent={agent} workspaceId={me.workspace.id} onClose={() => setSheet(null)} />}
-    </div>
+    </>
   );
 }
 

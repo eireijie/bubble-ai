@@ -207,6 +207,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const pins = placed.pins.map((k) => byKey.get(k)!).filter(Boolean);
   const pinGrid = pins.length > 0 && (
     <div
+      data-tour="pins"
       aria-label="Pinned"
       role="list"
       className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-1 rounded-[14px] px-0.5 pb-3 pt-1", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
@@ -279,6 +280,8 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           {...dragProps(c)}
           aria-label={label}
           aria-current={isActive ? "page" : undefined}
+          data-tour="chat-row"
+          data-needs={line?.needs ? "" : undefined}
           className={cx("group/row flex w-full items-center gap-3 rounded-[14px] pl-2.5 pr-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on bg-[#7a5bdc] text-white" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
           style={{ height: rowH }}
         >
@@ -366,7 +369,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
       {pinGrid}
       <div role="tablist" aria-label="Show" className={cx("mb-1.5 grid shrink-0 grid-cols-2 rounded-[12px] bg-side-active p-[3px]", phone ? "mx-3 h-[38px]" : "mx-1 h-9")}>
         {(["all", "turn"] as const).map((f) => (
-          <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} className={cx("rounded-[9px] text-center outline-none transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", phone ? "text-[15px]" : "text-[14px]", filter === f ? "bg-panel font-semibold text-ink shadow-[0_1px_3px_rgba(0,0,0,.12)]" : "text-muted hover:text-ink")}>
+          <button key={f} type="button" role="tab" data-tour={f === "turn" ? "yourturn" : undefined} aria-selected={filter === f} onClick={() => setFilter(f)} className={cx("rounded-[9px] text-center outline-none transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", phone ? "text-[15px]" : "text-[14px]", filter === f ? "bg-panel font-semibold text-ink shadow-[0_1px_3px_rgba(0,0,0,.12)]" : "text-muted hover:text-ink")}>
             {f === "all" ? "All" : "Your turn"}
             {f === "turn" && waiting.length > 0 && <span className="ml-1 font-bold text-[#b25e00] dark:text-[#ff9f0a]">{waiting.length}</span>}
           </button>
@@ -378,7 +381,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           <p className="px-3.5 pb-1.5 pt-2.5 text-[13px] text-muted">{turnRows.length ? "Everyone else is under All." : "Nobody is waiting on you."}</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-0.5">
+        <div data-tour="sections" className="flex flex-col gap-0.5">
           {shownSections.map(sectionBlock)}
           {!guest && (
             <button type="button" onClick={() => doNewSection()} className="flex h-[34px] items-center gap-2 rounded-[10px] px-2.5 text-[13px] text-muted outline-none hover:bg-side-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">

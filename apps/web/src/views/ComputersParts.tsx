@@ -111,7 +111,7 @@ export function ComputersHome({ nodes, open, children }: { nodes: NodeInfo[] | n
   return (
     <div className="flex min-h-0 flex-1">
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1120px] space-y-5 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-7 md:pt-7">
+        <div data-tour="computers-list" className="mx-auto max-w-[1120px] space-y-5 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-7 md:pt-7">
           <header className="flex items-center gap-3">
             <h1 className="t-title min-w-0 flex-1 truncate">Computers</h1>
             <button type="button" onClick={() => add.start()} aria-label="Add a computer or phone" className="m-press grid h-[34px] w-[35px] shrink-0 place-items-center rounded-full bg-side-active text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 max-md:size-11">

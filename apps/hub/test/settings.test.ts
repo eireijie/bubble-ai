@@ -66,6 +66,10 @@ describe("your settings", () => {
     expect((await api("PATCH", "/api/me", { timezone: "Mars/Olympus" })).status).toBe(400);
     expect((await api("PUT", "/api/me/prefs", { sendWith: "mod-enter", clock: "24h" })).data).toEqual({ sendWith: "mod-enter", clock: "24h", experience: "simple" });
     expect((await api("GET", "/api/me")).data.prefs).toEqual({ sendWith: "mod-enter", clock: "24h", experience: "simple" });
+    // Show me around: which stops were seen, kept with the other preferences so every device agrees
+    expect((await api("PUT", "/api/me/prefs", { learn: { seen: ["write", "attach"], started: true } })).data.learn).toEqual({ seen: ["write", "attach"], started: true });
+    expect((await api("GET", "/api/me")).data.prefs).toMatchObject({ clock: "24h", learn: { seen: ["write", "attach"], started: true } });
+    expect((await api("PUT", "/api/me/prefs", { learn: { seen: ["Not an id!"] } })).status).toBe(400);
 
     const agent = (await api("POST", "/api/agents", { handle: "atlas", name: "Atlas", harness: "custom" })).data;
     const general = (await api<any[]>("GET", "/api/channels")).data.find((c) => c.name === "general");

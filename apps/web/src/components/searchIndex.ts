@@ -34,7 +34,7 @@ export interface Place {
 /** A place in Settings: one of its five pages (by the route that opens it), or one row. */
 const settings = (to: { page: SettingsPage; item?: string }, label: string, words: string, more: Pick<Place, "noGuests" | "feature"> = {}): Place => ({ key: `settings:${to.page}${to.item ? `/${to.item}` : ""}`, label, words, icon: SlidersHorizontal, to: { view: "settings", ...to }, where: "Settings", ...more });
 
-const PAGE_WORDS: Record<Five, string> = { you: "profile account me", agents: "agent settings permissions defaults", computers: "devices settings", privacy: "security data", about: "version" };
+const PAGE_WORDS: Record<Five, string> = { you: "profile account me", agents: "agent settings permissions defaults", computers: "devices settings", privacy: "security data", about: "version", learn: "tour show me around guide getting started finish setup" };
 
 /** Settings' five pages, then every row on them by its name (settings/map.ts), so search reaches a setting wherever it sits. */
 const SETTINGS_PLACES: Place[] = [
