@@ -39,7 +39,7 @@ import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
 import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
-import { HelpMenu, LearnHeader } from "../components/tour/Learn.tsx";
+import { HelpMenu } from "../components/tour/Learn.tsx";
 import { SetupTour } from "../components/onboarding/SetupTour.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
 import { GhostLanding, useFirstHelloHtml } from "../components/onboarding/FirstHello.tsx";
@@ -228,7 +228,6 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <TeamPill channel={channel} open={infoOpen} onClick={toggleInfo} />
           )}
           <div className="flex items-center justify-end gap-2">
-            <LearnHeader />
             <HelpMenu />
             {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
             {/* round floating call button in the top corner */}

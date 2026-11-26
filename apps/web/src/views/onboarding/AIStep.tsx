@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
+import { Check, Loader2 } from "lucide-react";
 import { HARNESSES, MODEL_PROVIDER_INFO, harnessLabel, type HarnessSettings, type ModelConnection, type ModelProvider } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { unavailable } from "../../join.ts";
 import { ConnectModel } from "../../components/ConnectModel.tsx";
 import { HarnessLogo } from "../../components/HarnessLogo.tsx";
-import { HOST_LOOK, HostGhost, hostReact } from "../../components/onboarding/HostGhost.tsx";
-import { SetupLink, SetupProblem, SetupShell, SetupTitle } from "../../components/SetupShell.tsx";
+import { SetupProblem } from "../../components/SetupShell.tsx";
+import { BubbleSlot } from "./Stage.tsx";
 import { canUse, readyConnection, signInProvider, useConnections } from "../../models.ts";
 import type { DeviceInfo } from "../../devices.ts";
 import type { HarnessesResponse, HarnessSignIn as HarnessSignInDialog } from "../settings/harnesses.tsx";
@@ -81,27 +81,30 @@ export async function checkAI(
   return live() ? { ok: false, problem: `${label} took too long to start.` } : null;
 }
 
-type Row = "claude" | "chatgpt" | "grok";
-const ROWS: { id: Row; provider: ModelProvider; harness: string }[] = [
-  { id: "claude", provider: "anthropic", harness: "claude-code" },
-  { id: "chatgpt", provider: "openai", harness: "codex" },
-  { id: "grok", provider: "xai", harness: "hermes" },
+/** The three apps most people already use, shown big; Hermes runs any of the big model companies. */
+const FEATURED: { harness: string; sub: string; provider?: ModelProvider }[] = [
+  { harness: "claude-code", sub: "Claude", provider: "anthropic" },
+  { harness: "codex", sub: "ChatGPT", provider: "openai" },
+  { harness: "hermes", sub: "Claude, ChatGPT, Grok, Gemini" },
 ];
-type Open = Row | "else" | "key" | null;
+/** What Hermes can think with: each is a sign-in or a key Bubble AI keeps. */
+const HERMES_MODELS: ModelProvider[] = ["anthropic", "openai", "xai", "google", "openrouter"];
 type Phase = "idle" | "checking" | "failed";
 
 /**
- * The first run's third screen: what the agent thinks with. Claude, ChatGPT and Grok each open
- * their sign-in (one already signed in on the person's computer is used as it is); "Something
- * else" holds an API key, the other agents and "Set up later". Picking one points the agent at it
- * and waits until it has really answered: only then does its chat open. A sign-in that fails says
- * why in one line and stays here.
+ * "Which AI app runs it?": every app an agent can run on, all at once, each with its own logo; the
+ * three most people use are big. Picking one opens what it needs right under it: Claude Code and
+ * Codex sign in through Bubble AI (or use the sign-in already on the computer), Hermes picks which
+ * company's model it thinks with, the rest install and sign in on the computer. Then the agent is
+ * pointed at it and its chat opens only once it has really answered. A failure says why in one line
+ * and stays here. "Set up later" goes on without it.
  */
-export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; device: DeviceInfo | undefined; onDone: (channelId: string | null) => void; onBack?: () => void }) {
+export function AIStep({ agentId, device, onDone, onBusy }: { agentId: string; device: DeviceInfo | undefined; onDone: (channelId: string | null) => void; onBack?: () => void; onBusy?: (busy: boolean) => void }) {
   const agent = useStore((s) => s.agents.find((a) => a.id === agentId));
   const { connections, support, reload } = useConnections();
   const found = foundOn(device, connections ?? []);
-  const [open, setOpen] = useState<Open>(null);
+  const [sel, setSel] = useState<string | null>(null);
+  const [model, setModel] = useState<ModelProvider>("anthropic");
   const [phase, setPhase] = useState<Phase>("idle");
   const [stage, setStage] = useState<"install" | "signin" | "hello" | "opening">("signin");
   const [harness, setHarness] = useState(found?.harness ?? "claude-code");
@@ -121,13 +124,15 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
     };
   }, []);
   const name = agent?.name ?? "your agent";
+  const checking = phase === "checking";
+  useEffect(() => onBusy?.(checking), [checking]); // eslint-disable-line react-hooks/exhaustive-deps
+  // leaving this page (its chat opened, or Set up later) is never left looking busy
+  useEffect(() => () => onBusy?.(false), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fail = (text: string, re?: string) => {
     setResign(re ?? null);
     setProblem(text);
     setPhase("failed");
-    // back to the choices, so a sign-in panel doesn't start itself again under the message
-    setOpen(null);
   };
 
   /** The agent's chat, once it has one (its hello starts it). */
@@ -152,7 +157,6 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
     setProblem(null);
     setResign(null);
     setLast(() => () => void tryIt(h, connectionId));
-    hostReact("nod");
     try {
       const st = useStore.getState();
       const a = st.agents.find((x) => x.id === agentId);
@@ -162,7 +166,6 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
       const r = await checkAI({ agentId, harness: h, connectionId, deviceName: device.name }, live, (s) => live() && setStage(s));
       if (!r || !live()) return;
       if (!r.ok) return fail(r.problem, r.resign);
-      hostReact("hop");
       setStage("opening");
       const channelId = await chatOf();
       if (live()) onDone(channelId);
@@ -186,9 +189,10 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
     }
   };
 
-  const pick = (o: Open) => {
+  const pick = (h: string) => {
+    if (checking) return;
     run.current++;
-    setOpen(o);
+    setSel((s) => (s === h ? null : h));
     setPhase("idle");
     setProblem(null);
   };
@@ -220,20 +224,19 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
     }
   };
 
-  /** A key or sign-in from "API key": which harness runs it depends on whose it is. */
-  const connected = async (connectionId: string | null) => {
+  /** A key or sign-in made on Hermes's model picker: Hermes runs it unless it can't. */
+  const connected = async (connectionId: string | null, h: string) => {
     reload();
     const all = await api<{ connections: ModelConnection[] }>("GET", "/api/model-connections").catch(() => null);
     const c = connectionId ? all?.connections.find((x) => x.id === connectionId) : undefined;
-    if (c) return void tryIt(harnessFor(c.provider, c.kind, support), c.id);
-    // it said done without naming the connection: use whatever is ready now
+    if (c) return void tryIt(canUse(support, h, { provider: c.provider, kind: c.kind }) ? h : harnessFor(c.provider, c.kind, support), c.id);
     const ready = foundOn(device, all?.connections ?? []);
     if (ready) return void tryIt(ready.harness, ready.connectionId);
     fail("That didn't connect. Try again.");
   };
 
   /** Sign in again where this AI signs in: Claude and ChatGPT through Bubble AI, the rest on the computer. */
-  const signInAgain = (h: string) => (h === "claude-code" ? pick("claude") : h === "codex" ? pick("chatgpt") : void deviceHarness(h));
+  const signInAgain = (h: string) => (h === "claude-code" || h === "codex" || h === "hermes" ? (setSel(h), setPhase("idle"), setProblem(null)) : void deviceHarness(h));
 
   /** "Set up later": the agent stays as it is and says hello anyway (the hub's plain one, saying what it still needs). */
   const later = async () => {
@@ -247,97 +250,89 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
     if (alive.current) onDone(channelId);
   };
 
-  const others = HARNESSES.filter((h) => h.protocol !== "mcp" && !ROWS.some((r) => r.harness === h.id));
-  const signedInOn = (id: string) => device?.harnesses?.find((x) => x.id === id)?.accounts?.default === true;
-  const row = ROWS.find((r) => r.id === open);
-  const checking = phase === "checking";
-  const back = open && !checking ? () => pick(open === "key" ? "else" : null) : onBack;
+  const rest = HARNESSES.filter((h) => h.protocol !== "mcp" && !FEATURED.some((f) => f.harness === h.id));
+  const signedIn = (id: string) => !!foundOn(device, connections ?? [], id);
+  const feat = FEATURED.find((f) => f.harness === sel);
 
   return (
-    <SetupShell
-      at={3}
-      onBack={checking || leaving ? null : back}
-      foot={
-        leaving ? undefined : checking || open === "else" ? (
-          // also while it's being tried (that can take minutes): nobody waits here unless they want to
-          <SetupLink onClick={() => void later()}>Set up later</SetupLink>
-        ) : open ? undefined : (
-          <>
-            <SetupLink onClick={() => pick("else")}>Something else</SetupLink>
-            {/* a sign-in that failed never ends setup by itself: this is the way on without it */}
-            {phase === "failed" && <SetupLink onClick={() => void later()}>Set up later</SetupLink>}
-          </>
-        )
-      }
-    >
-      <HostGhost look={agent?.settings.appearance ?? HOST_LOOK} size={56} mood={checking ? "working" : "awake"} />
-      <SetupTitle>What should {name} think with?</SetupTitle>
-      <p className="text-muted pb-2">Sign in once. Every agent can use it.</p>
-
-      {checking && (
-        <p className="flex items-center gap-2.5" role="status">
-          <Loader2 size={16} className="animate-spin text-muted" aria-hidden />
-          {stage === "install" ? `Installing ${harnessLabel(harness)}` : stage === "signin" ? `Signing in to ${harnessLabel(harness)}` : stage === "hello" ? `${name} is saying hello` : "Opening"}
-        </p>
-      )}
-
-      {phase === "failed" && (
-        <div className="flex flex-col items-start gap-2 pb-1">
-          <SetupProblem>{problem ?? "That didn't work."}</SetupProblem>
-          <button type="button" className="h-9 px-4 rounded-full border border-line2 text-[13px] font-medium hover:bg-hover" onClick={() => (resign ? signInAgain(resign) : last ? last() : pick(null))}>
-            {resign ? "Sign in again" : "Try again"}
+    <div className="flex w-full max-w-[640px] flex-col items-center">
+      <BubbleSlot size={72} />
+      <h1 className="ob-title mt-4">Which AI app runs {name}?</h1>
+      <div role="radiogroup" aria-label="AI app" className="mt-7 grid w-full grid-cols-3 gap-2">
+        {FEATURED.map((f) => (
+          <button key={f.harness} type="button" role="radio" aria-checked={sel === f.harness} disabled={checking && harness !== f.harness} onClick={() => pick(f.harness)} className="ob-tile flex min-h-[104px] flex-col items-start gap-2.5 p-3.5 disabled:opacity-40">
+            <HarnessLogo harness={f.harness} size={28} />
+            <span>
+              <span className="block text-[15px] font-semibold">{harnessLabel(f.harness)}</span>
+              <span className="block text-[12.5px] leading-4 text-muted">{f.sub}</span>
+            </span>
+            {signedIn(f.harness) && <SignedDot />}
           </button>
-        </div>
-      )}
+        ))}
+      </div>
+      <div role="radiogroup" aria-label="More AI apps" className="mt-2 grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
+        {rest.map((h) => (
+          <button key={h.id} type="button" role="radio" aria-checked={sel === h.id} disabled={checking && harness !== h.id} onClick={() => pick(h.id)} className="ob-tile flex h-11 items-center gap-2.5 px-3 disabled:opacity-40">
+            <HarnessLogo harness={h.id} size={18} />
+            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{h.label}</span>
+            {signedIn(h.id) && <SignedDot />}
+          </button>
+        ))}
+      </div>
 
-      {!checking && !open && (
-        <Card>
-          {/* another AI already signed in on the person's computer goes first */}
-          {found && !ROWS.some((r) => r.harness === found.harness) && (
-            <Line onClick={() => void takeFound(found)} logo={found.harness} word="Signed in">
-              {harnessLabel(found.harness)}
-            </Line>
-          )}
-          {ROWS.map((r) => {
-            const here = foundOn(device, connections ?? [], r.harness);
-            return (
-              <Line key={r.id} onClick={() => (here ? void takeFound(here) : pick(r.id))} word={here ? "Signed in" : undefined}>
-                {MODEL_PROVIDER_INFO[r.provider].label}
-              </Line>
-            );
-          })}
-        </Card>
-      )}
-
-      {!checking && row && (
-        <Panel title={MODEL_PROVIDER_INFO[row.provider].label}>
-          {/* Claude's sign-in runs `claude setup-token` in a terminal on the device, which Windows can't do yet */}
-          {row.id === "claude" && device?.capabilities?.platform === "win32" && <p className="text-[13px] leading-5 text-muted">Not on Windows yet. Use an API key.</p>}
-          <ConnectModel key={row.provider} provider={row.provider} onDone={(cid) => (reload(), void tryIt(row.harness, cid))} />
-        </Panel>
-      )}
-
-      {!checking && open === "key" && (
-        <Panel title="API key">
-          <ConnectModel onDone={(cid) => void connected(cid)} />
-        </Panel>
-      )}
-
-      {!checking && open === "else" && (
-        <Card>
-          <Line onClick={() => pick("key")}>API key</Line>
-          {others.map((h) => (
-            <Line key={h.id} onClick={() => void deviceHarness(h.id)} logo={h.id} word={found?.harness === h.id || signedInOn(h.id) ? "Signed in" : undefined}>
-              {h.label}
-            </Line>
-          ))}
-        </Card>
-      )}
+      {/* what the picked app needs, opened right under the apps */}
+      <div className="mt-5 w-full">
+        {checking ? (
+          <p className="ob-panel flex items-center justify-center gap-2.5 text-[14px]" role="status">
+            <Loader2 size={16} className="animate-spin text-muted" aria-hidden />
+            {stage === "install" ? `Installing ${harnessLabel(harness)}` : stage === "signin" ? `Signing in to ${harnessLabel(harness)}` : stage === "hello" ? `${name} is saying hello` : "Opening"}
+          </p>
+        ) : phase === "failed" ? (
+          <div className="ob-panel flex flex-col items-center gap-2.5 text-center">
+            <SetupProblem>{problem ?? "That didn't work."}</SetupProblem>
+            <button type="button" className="h-8 rounded-lg px-3.5 text-[13.5px] font-medium shadow-[inset_0_0_0_1px_var(--line2)] hover:bg-hover" onClick={() => (resign ? signInAgain(resign) : last ? last() : setPhase("idle"))}>
+              {resign ? "Sign in again" : "Try again"}
+            </button>
+          </div>
+        ) : sel ? (
+          <section key={sel} className="ob-panel rounded-xl bg-card p-4" aria-label={harnessLabel(sel)}>
+            {sel === "hermes" ? (
+              <div className="flex flex-col gap-3">
+                <div role="radiogroup" aria-label="Model" className="ob-seg flex-wrap">
+                  {HERMES_MODELS.map((p) => (
+                    <button key={p} type="button" role="radio" aria-checked={model === p} onClick={() => setModel(p)}>
+                      {MODEL_PROVIDER_INFO[p].label}
+                    </button>
+                  ))}
+                </div>
+                <ConnectModel key={model} provider={model} onDone={(cid) => void connected(cid, "hermes")} />
+              </div>
+            ) : feat?.provider ? (
+              signedIn(sel) ? (
+                <UseIt label={harnessLabel(sel)} onClick={() => void takeFound(foundOn(device, connections ?? [], sel))} />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {/* Claude's sign-in runs `claude setup-token` in a terminal on the device, which Windows can't do yet */}
+                  {sel === "claude-code" && device?.capabilities?.platform === "win32" && <p className="text-[13px] leading-5 text-muted">Not on Windows yet. Use an API key.</p>}
+                  <ConnectModel key={feat.provider} provider={feat.provider} onDone={(cid) => (reload(), void tryIt(sel, cid))} />
+                </div>
+              )
+            ) : (
+              <UseIt label={harnessLabel(sel)} verb={signedIn(sel) ? "Use" : "Set up"} where={signedIn(sel) ? undefined : device?.name} onClick={() => void deviceHarness(sel)} />
+            )}
+          </section>
+        ) : null}
+      </div>
 
       {!device && !checking && (
-        <p className="text-[13px] text-muted" role="status">
+        <p className="mt-3 text-[13px] text-muted" role="status">
           Waiting for a computer to connect
         </p>
+      )}
+      {!leaving && (
+        <button type="button" onClick={() => void later()} className="ob-quiet mt-6">
+          Set up later
+        </button>
       )}
 
       {dialog && (
@@ -353,36 +348,27 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
           }}
         />
       )}
-    </SetupShell>
+    </div>
   );
 }
 
-/** A grouped list of rows on a card. */
-function Card({ children }: { children: ReactNode }) {
-  return <div className="shrink-0 rounded-[14px] bg-card overflow-hidden divide-y divide-line">{children}</div>;
-}
-
-/** One thing to pick: its name, and a chevron or one status word. */
-function Line({ children, onClick, word, logo }: { children: ReactNode; onClick: () => void; word?: string; logo?: string }) {
+/** Signed in already, on a tile's corner. */
+function SignedDot() {
   return (
-    <button type="button" onClick={onClick} className="w-full min-h-12 px-4 flex items-center gap-3 text-left hover:bg-hover outline-none focus-visible:bg-hover">
-      {logo && (
-        <span className="shrink-0 size-[18px] grid place-items-center" aria-hidden>
-          <HarnessLogo harness={logo} size={18} />
-        </span>
-      )}
-      <span className="flex-1 min-w-0 truncate text-[15px] font-semibold">{children}</span>
-      {word ? <span className="text-[13px] text-muted">{word}</span> : <ChevronRight size={15} className="text-muted" aria-hidden />}
-    </button>
+    <span className="absolute right-2.5 top-2.5 grid size-[16px] place-items-center rounded-full bg-ok text-white" title="Signed in" aria-label="Signed in">
+      <Check size={10} strokeWidth={3.4} aria-hidden />
+    </span>
   );
 }
 
-/** One choice opened in place: its name, then its sign-in. */
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+/** One button for an app that's ready or installs on the computer. */
+function UseIt({ label, verb = "Use", where, onClick }: { label: string; verb?: string; where?: string; onClick: () => void }) {
   return (
-    <section className="flex flex-col gap-3" aria-label={title}>
-      <h2 className="text-[15px] font-semibold">{title}</h2>
-      {children}
-    </section>
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[13.5px] text-muted">{where ? `Installs and signs in on ${where}` : "Signed in"}</span>
+      <button type="button" onClick={onClick} className="ob-primary h-9 px-4">
+        {verb} {label}
+      </button>
+    </div>
   );
 }

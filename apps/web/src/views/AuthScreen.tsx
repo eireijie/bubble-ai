@@ -142,9 +142,8 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
   }
   if (needsSetup === null) {
     return (
-      <AuthPage themeToggle={false}>
-        <AuthHero title="Connecting…" />
-      </AuthPage>
+      // a quick check usually answers at once: the page stays clear, and only says Connecting… if it's slow
+      <SlowConnecting />
     );
   }
   // an invite that doesn't work
@@ -266,5 +265,21 @@ function Meter({ strength, short }: { strength: number; short: boolean }) {
       </span>
       {short && <span className="text-[12px] text-muted">Too short</span>}
     </span>
+  );
+}
+
+/** "Connecting…", only once the check has taken more than a moment, so a quick one never flashes a card. */
+function SlowConnecting() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+  return slow ? (
+    <AuthPage themeToggle={false}>
+      <AuthHero title="Connecting…" />
+    </AuthPage>
+  ) : (
+    <div className="h-full w-full bg-panel" />
   );
 }

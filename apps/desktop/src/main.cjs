@@ -256,7 +256,19 @@ function openHub(url, route = "") {
   hubOrigin = new URL(url).origin;
   buddy.connect(hubOrigin);
   if (!win) createWindow();
-  win.loadURL(hubOrigin + "/" + route);
+  const target = hubOrigin + "/" + route;
+  // leaving the setup page: its card fades out first (the page waits out its own fade), so the app
+  // arrives on a clean page instead of a cut
+  const w = win;
+  if (w.webContents.getURL().startsWith("file:"))
+    Promise.resolve(
+      w.webContents.executeJavaScript(
+        `document.documentElement.style.transition = "opacity .28s ease"; document.documentElement.style.opacity = "0"; new Promise((r) => setTimeout(r, 300))`,
+      ),
+    )
+      .catch(() => {})
+      .then(() => w === win && !w.isDestroyed?.() && w.loadURL(target));
+  else w.loadURL(target);
   if (pendingPairing && startupComplete) showPairing();
   refresh();
 }

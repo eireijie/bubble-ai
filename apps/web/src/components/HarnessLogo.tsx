@@ -8,7 +8,8 @@ const LOGOS: Record<string, { file: string; mono?: boolean }> = {
   hermes: { file: "hermesagent", mono: true },
   opencode: { file: "opencode", mono: true },
   goose: { file: "goose", mono: true },
-  kimi: { file: "kimi-color" },
+  // its main shape is white (made for dark tiles): drawn in the ink colour so it shows on light ones too
+  kimi: { file: "kimi-color", mono: true },
   qwen: { file: "qwen-color" },
   openclaw: { file: "openclaw-color" },
   grok: { file: "grok", mono: true },

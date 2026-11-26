@@ -60,7 +60,8 @@ export function App() {
   const route = useRoute();
   // a page's file arrives behind the same ghost the app starts with (the desk buddy's window stays clear)
   return (
-    <Suspense fallback={route.view === "buddy" ? null : <Loader />}>
+    // before anyone is signed in (straight from the desktop's setup page) the page just stays clear: no bubble pops in and out
+    <Suspense fallback={route.view === "buddy" ? null : getToken() ? <Loader /> : <div className="h-full w-full bg-panel" />}>
       <Routed route={route} />
     </Suspense>
   );
@@ -315,7 +316,8 @@ function Workspace() {
   };
   const view = viewFor(route);
   // a page whose file isn't in yet (only in the app's first moments) holds its place, empty, until it is
-  const page = <Suspense fallback={<div className="flex-1 min-h-0" />}>{view}</Suspense>;
+  // the first run covers the whole window from its first frame: the workspace never shows under it while it loads
+  const page = <Suspense fallback={route.view === "welcome" ? <div className="fixed inset-0 z-40 bg-panel" /> : <div className="flex-1 min-h-0" />}>{view}</Suspense>;
   if (chatOpen) heldChat.current = page;
   const chatLayer = chatOpen || chatPresence.mounted;
   // the pop-up keeps what it showed while it closes

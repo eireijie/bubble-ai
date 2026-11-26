@@ -1,3 +1,4 @@
+import { HARNESSES } from "@bubble-ai/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -6,6 +7,7 @@ import { api } from "../api.ts";
 import { askableOn, finishedSteps, firstRunAgent, makeFirstAgent, NO_NODE, welcomeScreen } from "./WelcomeView.tsx";
 import { AgentStep, JOBS, nextLook, saveNamedAgent, shapeOf, suggestedName } from "./onboarding/AgentStep.tsx";
 import { AIStep, checkAI, foundOn } from "./onboarding/AIStep.tsx";
+import { sampleMessage } from "./onboarding/BubbleSetup.tsx";
 import { lookOf, pointAgentAt } from "./onboarding/firstAgent.ts";
 import { TRACK } from "../components/SetupShell.tsx";
 import { devicesLine, serverAddress, stepsFinished } from "../onboarding.ts";
@@ -60,24 +62,24 @@ describe("the first run is three screens", () => {
     expect(devicesLine(null)).not.toMatch(/Say hi/);
     expect(devicesLine("Juno")).toBe("Say hi to Juno from your phone too.");
   });
-  it("Your agent: the bubble to click, a name already filled in, Advanced or Simple, one button", () => {
-    const html = renderToStaticMarkup(createElement(AgentStep, { workspaceId: "w1", person: "Sam Rivera", device, onContinue: () => {}, path: "advanced", onPath: () => {} }));
-    expect(html).toContain('aria-label="Change its colour"');
+  it("Your agent: a name already filled in, six colours, one button", () => {
+    const look = lookOf("#a59bff", "classic");
+    const html = renderToStaticMarkup(createElement(AgentStep, { workspaceId: "w1", person: "Sam Rivera", device, look, onLook: () => {}, onContinue: () => {} }));
     expect(html).toContain('value="Juno"');
-    expect(html).toContain("How should Juno start?");
-    expect(html).toMatch(/role="radio" aria-checked="true"[^>]*>.*Advanced/);
-    expect(html).toContain(">Simple<");
+    expect(html).toContain('data-ob-slot="176"');
+    expect((html.match(/class="ob-swatch"/g) ?? []).length).toBe(6);
     expect(html).toContain("Continue");
-    expect(html).toContain('class="bub ');
+    expect(html).not.toMatch(/Advanced|Simple/);
   });
-  it("Its AI: Claude, ChatGPT and Grok, and one quiet way to everything else", () => {
+  it("Which AI app: every harness at once, each with its logo, and the three big ones first", () => {
     useStore.setState({ agents: [juno] });
     const html = renderToStaticMarkup(createElement(AIStep, { agentId: "a1", device, onDone: () => {} }));
-    expect(html).toContain("Step 3 of 3: Its AI");
-    expect(html).toContain("What should Juno think with?");
-    expect(html).toContain("Sign in once. Every agent can use it.");
-    for (const row of ["Claude", "ChatGPT", "Grok", "Something else"]) expect(html).toContain(`>${row}<`);
-    expect(html).not.toMatch(/Set up later|API key|Continue/);
+    expect(html).toContain("Which AI app runs Juno?");
+    for (const h of HARNESSES.filter((x) => x.protocol !== "mcp")) expect(html).toContain(`>${h.label}<`);
+    expect(html.indexOf(">Claude Code<")).toBeLessThan(html.indexOf(">Gemini CLI<"));
+    expect(html).toContain("Claude, ChatGPT, Grok, Gemini");
+    expect(html).not.toMatch(/Something else|Step 3 of 3/);
+    expect(html).toContain("Set up later");
     useStore.setState({ agents: [] });
   });
   it("suggests a name that isn't the person's own or taken, and jobs to pick from", () => {
@@ -288,5 +290,13 @@ describe("making an agent on a device", () => {
     vi.mocked(api).mockReset().mockResolvedValue({});
     await makeFirstAgent(device, "kimi", "Atlas", [], []);
     expect(api).toHaveBeenNthCalledWith(1, "POST", "/api/nodes/mac/install", { harness: "kimi" });
+  });
+});
+
+describe("Make it yours: the preview message", () => {
+  it("starts a sentence after Morning. and keeps the goal news in order", () => {
+    expect(sampleMessage(["cal", "code"], "balanced", "morning")).toMatch(/^Morning\. [A-Z]/);
+    expect(sampleMessage(["cal"], "brief", "needed")).toMatch(/^Heads up: [a-z]/);
+    expect(sampleMessage([], "detailed", "evening")).toBe("Today's wrap-up: Nothing needs you yet.");
   });
 });

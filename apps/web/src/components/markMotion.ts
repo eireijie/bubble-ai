@@ -311,6 +311,7 @@ export function drifter(m: MarkParts): () => void {
     // the eyes rest glancing right, so they have more room to the left
     const x = Math.max(-0.15, Math.min(0.08, dx * k * 0.15)) * m.size;
     const y = Math.max(-0.1, Math.min(0.1, dy * k * 0.1)) * m.size;
+    m.eyes.style.translate = "0 0";
     m.eyes.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   };
   const move = (ev: PointerEvent) => {
@@ -319,7 +320,7 @@ export function drifter(m: MarkParts): () => void {
     pending = ev;
     frame ||= requestAnimationFrame(look);
   };
-  const leave = () => (m.eyes.style.transform = "");
+  const leave = () => ((m.eyes.style.transform = ""), (m.eyes.style.translate = ""));
   document.addEventListener("pointermove", move, { passive: true });
   document.documentElement.addEventListener("pointerleave", leave);
   wake();
@@ -330,5 +331,6 @@ export function drifter(m: MarkParts): () => void {
     clearTimeout(check);
     loop?.cancel();
     m.eyes.style.transform = "";
+    m.eyes.style.translate = "";
   };
 }

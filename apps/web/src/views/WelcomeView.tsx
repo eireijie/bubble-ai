@@ -6,15 +6,19 @@ import { useStore } from "../store.ts";
 import { go } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { loadAnswers, saveAnswers } from "../onboardingV3.ts";
-import { AgentStep } from "./onboarding/AgentStep.tsx";
-import { Ghost } from "../components/Ghost.tsx";
+import type { GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
+import { api } from "../api.ts";
+import { FAMILY_COLORS } from "../ghostFamily.ts";
+import { AgentStep, nextLook } from "./onboarding/AgentStep.tsx";
 import { AIStep } from "./onboarding/AIStep.tsx";
-import { GoalsStep, RecsStep, type SetupPath } from "./onboarding/BubbleSetup.tsx";
+import { ConnectStep, SETUP_GOALS, StartStep, YoursStep, yoursInstructions, type CheckIn, type SetupPath, type Talk } from "./onboarding/BubbleSetup.tsx";
+import { lookOf } from "./onboarding/firstAgent.ts";
+import { Stage } from "./onboarding/Stage.tsx";
 import { startSetupTour, type SetupTourState } from "../components/onboarding/SetupTour.tsx";
 export { askableOn, makeFirstAgent, NO_NODE } from "./onboarding/firstAgent.ts";
 
 /** The first run's screens after the account ("You", which AuthScreen shows before anyone is signed in). */
-export type WelcomeScreen = "agent" | "ai" | "goals" | "recs";
+export type WelcomeScreen = "agent" | "start" | "ai" | "goals" | "recs";
 
 /**
  * The agent this first run is about: the one it made (remembered in this browser), else, coming
@@ -40,11 +44,13 @@ export function finishedSteps(hasAgent: boolean): StepId[] {
   return hasAgent ? ["anywhere", "address", ...stepsFinished(true)] : [];
 }
 
+/** The pages in order, for the progress line and which way a page slides. */
+const ORDER: WelcomeScreen[] = ["agent", "start", "ai", "goals", "recs"];
+
 /**
- * The first run after the account: your agent, then its AI, then its chat. The agent is made when
- * "Your agent" is continued, so it exists whatever happens on "Its AI". Everything else setup used
- * to ask (phone, apps, away from home, getting to know you) is asked in that chat, and listed on
- * "Finish setup".
+ * The first run after the account, all on one stage (Stage.tsx) that never unmounts: Your agent →
+ * How it starts → Which AI app, then for Advanced, Make it yours → Connect, then its chat. The
+ * agent is made when "Your agent" is continued, so it exists whatever happens next.
  */
 export function WelcomeView({ intro }: { intro?: boolean }) {
   const me = useStore((s) => s.me)!;
@@ -57,6 +63,12 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const agent = firstRunAgent(agentId, agents, me.user.id);
   const [wanted, setWanted] = useState<WelcomeScreen | null>(null);
   const screen = welcomeScreen(wanted, { intro, hasAgent: !!agent });
+  const [dir, setDir] = useState<1 | -1>(1);
+  const goTo = (s: WelcomeScreen) => (setDir(ORDER.indexOf(s) >= ORDER.indexOf(screen) ? 1 : -1), setWanted(s));
+  const [look, setLook] = useState<GhostAppearance>(() => agent?.settings.appearance ?? { ...lookOf(FAMILY_COLORS[0], "classic"), bubble: "round" });
+  const [name, setName] = useState(agent?.name ?? "");
+  const called = agent?.name ?? (name || "your agent");
+  const [busy, setBusy] = useState(false);
 
   const finish = (channelId: string | null) => {
     for (const step of finishedSteps(!!agent)) completeSetupStep(ws, step);
@@ -70,28 +82,43 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
 
   const [path, setPathState] = useState<SetupPath>(() => loadAnswers(ws).path ?? "advanced");
   const setPath = (p: SetupPath) => (setPathState(p), saveAnswers(ws, { path: p }));
-  const [goals, setGoalsState] = useState<string[]>(() => loadAnswers(ws).setupGoals ?? ["inbox", "cal"]);
+  const [goals, setGoalsState] = useState<string[]>(() => (loadAnswers(ws).setupGoals ?? ["inbox", "cal"]).filter((g) => SETUP_GOALS.some((x) => x.id === g)));
   const setGoals = (g: string[]) => (setGoalsState(g), saveAnswers(ws, { setupGoals: g }));
-  // the chat the AI step opened, kept while Advanced asks its goals and apps
+  const [talk, setTalk] = useState<Talk>("balanced");
+  const [when, setWhen] = useState<CheckIn>("morning");
+  // the chat the AI step opened, kept while Advanced asks the rest
   const [chatId, setChatId] = useState<string | null>(null);
   const toChat = (tour: Omit<SetupTourState, "agentId">) => {
     if (agent) startSetupTour({ agentId: agent.id, ...tour });
     finish(chatId);
   };
+  const saveYours = async () => {
+    if (!agent) return goTo("recs");
+    setBusy(true);
+    await api("PATCH", `/api/agents/${agent.id}`, { instructions: yoursInstructions(agent.name, me.user.name, goals, talk, when) }).catch(() => {});
+    setBusy(false);
+    goTo("recs");
+  };
 
-  const top = agent ? <Ghost look={agent.settings.appearance} seed={agent.id} size={72} label="" ambient /> : null;
-  if (screen === "goals" && agent) return <GoalsStep bubble={top} name={agent.name} picked={goals} onPicked={setGoals} onBack={() => setWanted("ai")} onNext={() => setWanted("recs")} />;
-  if (screen === "recs" && agent) return <RecsStep bubble={top} goals={goals} onBack={() => setWanted("goals")} onNext={(on, off) => toChat({ path: "advanced", on, off })} />;
-  if (screen === "ai" && agent)
-    return (
+  const steps = path === "advanced" ? ORDER : ORDER.slice(0, 3);
+  const at = Math.max(0, steps.indexOf(screen));
+  const back: Partial<Record<WelcomeScreen, WelcomeScreen>> = { start: "agent", ai: "start", goals: "ai", recs: "goals" };
+  const onBack = busy || (screen === "ai" && chatId) ? null : back[screen] ? () => goTo(back[screen]!) : null;
+
+  let page;
+  if (screen === "goals" && agent) page = <YoursStep look={agent.settings.appearance} seed={agent.id} name={called} goals={goals} onGoals={setGoals} talk={talk} onTalk={setTalk} when={when} onWhen={setWhen} onNext={() => void saveYours()} busy={busy} />;
+  else if (screen === "recs" && agent) page = <ConnectStep name={called} goals={goals} onNext={(on, off) => toChat({ path: "advanced", on, off })} />;
+  else if (screen === "start" && agent) page = <StartStep name={called} path={path} onPath={setPath} onNext={() => goTo("ai")} />;
+  else if (screen === "ai" && agent)
+    page = (
       <AIStep
         key={agent.id}
         agentId={agent.id}
         device={device}
-        onBack={() => setWanted("agent")}
+        onBusy={setBusy}
         onDone={(channelId) => {
           setChatId(channelId);
-          if (path === "advanced") setWanted("goals");
+          if (path === "advanced") goTo("goals");
           else {
             startSetupTour({ agentId: agent.id, path: "simple", on: [], off: [] });
             finish(channelId);
@@ -99,21 +126,38 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
         }}
       />
     );
+  else
+    page = (
+      <AgentStep
+        workspaceId={ws}
+        person={me.user.name}
+        device={device}
+        existing={agent}
+        look={look}
+        onLook={setLook}
+        onContinue={(id, n) => {
+          saveAnswers(ws, { agentId: id });
+          setAgentId(id);
+          setName(n);
+          goTo("start");
+        }}
+        // only offered after the hub wouldn't make the agent: leave, with the agent step still open
+        onLeave={() => finish(null)}
+      />
+    );
+
   return (
-    <AgentStep
-      workspaceId={ws}
-      person={me.user.name}
-      device={device}
-      existing={agent}
-      onContinue={(id) => {
-        saveAnswers(ws, { agentId: id });
-        setAgentId(id);
-        setWanted("ai");
-      }}
-      // only offered after the hub wouldn't make the agent: leave, with the agent step still open
-      onLeave={() => finish(null)}
-      path={path}
-      onPath={setPath}
-    />
+    <Stage
+      page={screen}
+      dir={dir}
+      look={screen === "agent" ? look : (agent?.settings.appearance ?? look)}
+      seed={agent?.id}
+      mood={busy ? "working" : "awake"}
+      progress={(at + 1) / (steps.length + 1)}
+      onBack={onBack}
+      onBubble={screen === "agent" ? () => setLook((l) => nextLook(l)) : undefined}
+    >
+      {page}
+    </Stage>
   );
 }
