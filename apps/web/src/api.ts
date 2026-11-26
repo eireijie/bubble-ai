@@ -21,10 +21,15 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** A tool's raw output behind the plain message, for Details. */
+    readonly details: string | null = null,
   ) {
     super(message);
   }
 }
+
+/** An error's raw output for Details, when it has one. */
+export const errorDetails = (e: unknown): string | null => (e instanceof ApiError ? e.details : null);
 
 export async function api<T = any>(method: string, path: string, body?: unknown, init: { headers?: Record<string, string>; raw?: BodyInit } = {}): Promise<T> {
   const token = getToken();
@@ -49,7 +54,7 @@ export async function api<T = any>(method: string, path: string, body?: unknown,
     setToken(null);
     location.reload();
   }
-  if (!res.ok) throw new ApiError(data?.error ?? res.statusText, res.status);
+  if (!res.ok) throw new ApiError(data?.error ?? res.statusText, res.status, typeof data?.details === "string" ? data.details : null);
   return data as T;
 }
 

@@ -547,3 +547,18 @@ export function DeviceInstall({ token, name }: { token: string; name: string }) 
     </div>
   );
 }
+
+/** A problem in plain words, with a tool's raw output folded away under Details. */
+export function Problem({ text, details, className }: { text: string; details?: string | null; className?: string }) {
+  return (
+    <div role="alert" className={cx("space-y-1 text-[13px]", className)}>
+      <p className="text-bad">{text}</p>
+      {details && (
+        <details className="text-xs text-muted">
+          <summary className="cursor-pointer select-none">Details</summary>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px]">{details}</pre>
+        </details>
+      )}
+    </div>
+  );
+}

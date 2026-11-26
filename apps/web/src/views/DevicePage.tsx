@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, ChevronRight, Copy, Download, ExternalLink, Link2, MoreHorizontal, Plus, RefreshCw, Smartphone } from "lucide-react";
 import { HARNESSES, OwnRemoteDesktop, REMOTE_APPS, REMOTE_APP_IDS, formatRustdeskId, harnessLabel, remoteDesktopLink, runsInVm, type Actor, type Agent, type DeviceRole, type HarnessInfo, type RemoteApp } from "@bubble-ai/core";
-import { api } from "../api.ts";
+import { api, errorDetails } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";
 import { isSharedComputer, useDevices } from "../devices.ts";
@@ -13,7 +13,7 @@ import { Toggle } from "./settings/parts.tsx";
 import { SheetHead, StartProblem, TilePicture, startComputer, toneText, useAddFlow, usePhones, useTileStatus } from "./ComputersParts.tsx";
 import { ASK_LEVELS, activityDot, askLevel, screenOffText, screenSwitch, sizeLine, updateExists, watchBlock, watchHref, type HubVersion, type SheetTarget } from "./computerState.ts";
 import { connectionLine, type NodeInfo } from "./deviceBits.tsx";
-import { AgentAvatar, Button, CopyBlock, Field, Input, Menu, Modal, cx, timeAgo } from "../components/ui.tsx";
+import { AgentAvatar, Button, CopyBlock, Field, Input, Menu, Modal, Problem, cx, timeAgo } from "../components/ui.tsx";
 
 const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
 const ROW = "flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px]";
@@ -475,7 +475,7 @@ function ActivityLog({ computer: c }: { computer: ComputerInfo }) {
 /** The AI tools this device can run, with Install for the ones Bubble AI can install, and how to sign each in. */
 function Harnesses({ node: n }: { node: NodeInfo }) {
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; details: string | null } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [howTo, setHowTo] = useState<HarnessInfo | null>(null);
   const [checking, setChecking] = useState(false);
@@ -489,20 +489,20 @@ function Harnesses({ node: n }: { node: NodeInfo }) {
       await api("POST", `/api/nodes/${n.id}/install`, { harness: h.id });
       setNote(`${h.label} is installed. Sign it in on ${n.name}: ${h.login ?? h.binary}`);
     } catch (e) {
-      setError((e as Error).message);
+      setError({ text: (e as Error).message, details: errorDetails(e) });
     } finally {
       setBusy(null);
     }
   };
   const refresh = async () => {
     setChecking(true);
-    await api("POST", `/api/nodes/${n.id}/refresh`).catch((e) => setError((e as Error).message));
+    await api("POST", `/api/nodes/${n.id}/refresh`).catch((e) => setError({ text: (e as Error).message, details: null }));
     await new Promise((r) => setTimeout(r, 2500));
     setChecking(false);
   };
   return (
     <div className="space-y-3">
-      {error && <p className="px-1 text-[13px] text-bad whitespace-pre-wrap">{error}</p>}
+      {error && <Problem className="px-1" text={error.text} details={error.details} />}
       {note && <p className="rounded-[10px] bg-ok/10 px-3 py-2 text-[13px] text-ok">{note}</p>}
       <div className={CARD}>
         {list.map((h) => {

@@ -26,7 +26,7 @@ export interface HarnessInfo {
   login?: string;
   /**
    * How to install it on a device. `npm` packages Bubble AI can install itself when the device's owner
-   * presses Install (the device runs `npm install -g <npm>`; the hub only names the harness).
+   * presses Install (the device installs <npm> into its own Bubble AI folder; the hub only names the harness).
    * Others show `command` to copy, or `docs`.
    */
   install?: { npm?: string; command?: string; docs?: string };
@@ -123,4 +123,19 @@ export function accountsSignedIn(accounts: Record<string, boolean | null> | unde
   const v = Object.values(accounts ?? {});
   if (v.some((x) => x === true)) return true;
   return v.length && v.every((x) => x === false) ? false : null;
+}
+
+/** Between an error's plain words and the raw log behind them (a tool's output), when both travel as one message. */
+export const DETAILS_MARK = "\n\n--- details ---\n";
+
+/** One message carrying plain words for people and, after DETAILS_MARK, the raw log for Details. */
+export function withDetails(text: string, details: string | null | undefined): string {
+  const raw = details?.trim();
+  return raw ? `${text}${DETAILS_MARK}${raw}` : text;
+}
+
+/** Split a message made by withDetails back into its plain words and raw log. */
+export function splitDetails(message: string): { text: string; details: string | null } {
+  const at = message.indexOf(DETAILS_MARK);
+  return at < 0 ? { text: message, details: null } : { text: message.slice(0, at), details: message.slice(at + DETAILS_MARK.length) || null };
 }
