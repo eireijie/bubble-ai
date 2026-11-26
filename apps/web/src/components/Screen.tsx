@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { KeyRound, Loader2, MonitorOff, Power, RefreshCw } from "lucide-react";
-import type { ComputerAction, RecordedStep } from "@wisp/core";
+import type { ComputerAction, RecordedStep } from "@bubble-ai/core";
 import { ApiError, api, getToken } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { cx } from "./ui.tsx";
@@ -201,7 +201,7 @@ export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScree
           setState(e.detail?.clean ? "closed" : "error");
           if (!e.detail?.clean) setError("The connection to the screen dropped.");
         });
-        r.addEventListener("credentialsrequired", () => !disposed && (setState("error"), setError("The screen asked for a password Wisp doesn't have.")));
+        r.addEventListener("credentialsrequired", () => !disposed && (setState("error"), setError("The screen asked for a password Bubble AI doesn't have.")));
         r.addEventListener("securityfailure", (e: any) => !disposed && (setState("error"), setError(`The screen refused the connection: ${e.detail?.reason ?? "security failure"}`)));
         rfb.current = r;
       } else {

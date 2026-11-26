@@ -10,7 +10,7 @@ function storage(entries: Record<string, string> = {}) {
 }
 
 describe("storage rename before startup", () => {
-  it("preserves sessions, preferences and drafts in both stores without overwriting Wisp choices", () => {
+  it("preserves sessions, preferences and drafts in both stores without overwriting Bubble AI choices", () => {
     const localStorage = storage({ "warren.token": "session", "warren.mode": "dark", "warren.theme": "iris", "wisp.theme": "mint", unrelated: "keep", "warrenish.key": "keep too" });
     const sessionStorage = storage({ "warren.draft": "unsent message" });
     const window = { localStorage, sessionStorage };
@@ -37,7 +37,7 @@ describe("storage rename before startup", () => {
 });
 
 describe("service worker cache migration", () => {
-  it("deletes old Warren and obsolete Wisp caches while retaining unrelated caches", async () => {
+  it("deletes old Warren and obsolete Bubble AI caches while retaining unrelated caches", async () => {
     const handlers = new Map<string, (event: unknown) => void>();
     const deleted: string[] = [];
     const code = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");

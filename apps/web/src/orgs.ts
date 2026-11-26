@@ -10,7 +10,7 @@ export interface Org {
   current: boolean;
   /** something new there since you last looked (best effort) */
   unread: boolean;
-  /** you own it, it isn't the first organization on this Wisp, and you're in another one */
+  /** you own it, it isn't the first organization on this Bubble AI, and you're in another one */
   canDelete?: boolean;
 }
 

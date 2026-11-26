@@ -1,5 +1,5 @@
 {
-  "name": "wisp",
+  "name": "bubble-ai",
   "private": true,
   "version": "0.0.1",
   "license": "Apache-2.0",
@@ -10,14 +10,14 @@
   ],
   "scripts": {
     "dev": "npm run dev:hub & npm run dev:web",
-    "dev:hub": "WISP_DATA_DIR=./data tsx watch apps/hub/src/main.ts",
-    "dev:web": "npm run dev -w @wisp/web",
-    "build": "npm run build -w @wisp/web",
-    "start": "node bin/wisp-hub.mjs",
+    "dev:hub": "BUBBLE_DATA_DIR=./data tsx watch apps/hub/src/main.ts",
+    "dev:web": "npm run dev -w @bubble-ai/web",
+    "build": "npm run build -w @bubble-ai/web",
+    "start": "node bin/bubble-ai-hub.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json && tsc -p apps/web/tsconfig.json",
-    "desktop": "npm start -w @wisp/desktop",
-    "desktop:dist": "npm run dist:mac -w @wisp/desktop"
+    "desktop": "npm start -w @bubble-ai/desktop",
+    "desktop:dist": "npm run dist:mac -w @bubble-ai/desktop"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -27,6 +27,9 @@
   },
   "description": "An open-source workspace where people and AI agents from any harness work together, with a shared Obsidian-style memory vault.",
   "bin": {
+    "bubble-ai": "bin/bubble-ai.mjs",
+    "bubble-ai-mcp": "bin/bubble-ai-mcp.mjs",
+    "bubble-ai-hub": "bin/bubble-ai-hub.mjs",
     "wisp": "bin/wisp.mjs",
     "wisp-mcp": "bin/wisp-mcp.mjs",
     "wisp-hub": "bin/wisp-hub.mjs"

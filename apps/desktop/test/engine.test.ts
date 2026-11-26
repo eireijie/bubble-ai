@@ -13,7 +13,7 @@ const refused = () => Object.assign(new TypeError("fetch failed"), { cause: { co
 const json = (body: unknown, status = 200) => ({ ok: status < 400, status, json: async () => body });
 
 describe("server addresses", () => {
-  it("tries plain HTTP first on a home network, and Wisp's port when none is given", () => {
+  it("tries plain HTTP first on a home network, and Bubble AI's port when none is given", () => {
     expect(engine.candidates("192.168.1.20")).toEqual(["http://192.168.1.20", "https://192.168.1.20", "http://192.168.1.20:4747"]);
     expect(engine.candidates("homeserver:4747/")).toEqual(["http://homeserver:4747", "https://homeserver:4747"]);
   });
@@ -26,7 +26,7 @@ describe("server addresses", () => {
 });
 
 describe("testing a server before joining", () => {
-  it("joins the first address where a Wisp answers", async () => {
+  it("joins the first address where a Bubble AI answers", async () => {
     const tried: string[] = [];
     const r = await engine.testHub("192.168.1.20", {
       fetchImpl: async (url: URL) => {
@@ -40,10 +40,10 @@ describe("testing a server before joining", () => {
     expect(r.checks.every((c: { ok: boolean }) => c.ok)).toBe(true);
   });
 
-  it("says when something answers that isn't Wisp", async () => {
+  it("says when something answers that isn't Bubble AI", async () => {
     const r = await engine.testHub("https://example.com", { fetchImpl: async () => json("<html>", 404) });
     expect(r).toMatchObject({ ok: false, url: "https://example.com" });
-    expect(r.error).toMatch(/isn't a Wisp server/);
+    expect(r.error).toMatch(/isn't a Bubble AI server/);
   });
 
   it("says why nothing answered", async () => {
@@ -64,11 +64,11 @@ describe("testing a server before joining", () => {
 });
 
 describe("the processes the app runs", () => {
-  /** A pretend Wisp whose `wisp.mjs` stays up until it's told to stop. */
+  /** A pretend Bubble AI whose `bubble-ai.mjs` stays up until it's told to stop. */
   const fakeWisp = () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-child-"));
     fs.mkdirSync(path.join(dir, "bin"));
-    fs.writeFileSync(path.join(dir, "bin", "wisp.mjs"), "process.on('SIGTERM', () => setTimeout(() => process.exit(0), 300)); setInterval(() => {}, 1000);\n");
+    fs.writeFileSync(path.join(dir, "bin", "bubble-ai.mjs"), "process.on('SIGTERM', () => setTimeout(() => process.exit(0), 300)); setInterval(() => {}, 1000);\n");
     return dir;
   };
   const until = async (ok: () => boolean, ms = 5000) => {
@@ -120,7 +120,7 @@ describe("the processes the app runs", () => {
 
   it("leaves a process alone when its saved id now belongs to something else", async () => {
     const dir = fakeWisp();
-    fs.writeFileSync(path.join(dir, "device.pid"), String(process.ppid)); // alive, but not a Wisp device
+    fs.writeFileSync(path.join(dir, "device.pid"), String(process.ppid)); // alive, but not a Bubble AI device
     const child = new engine.Child("device", dir, () => {});
     child.start(process.execPath, dir, ["node", "start"]);
     expect(child.running()).toBe(true); // started at once: nothing to stop first
@@ -142,13 +142,13 @@ describe("hub identification", () => {
     expect(r).toMatchObject({ ok: true, url: "https://wisp.example.com" });
   });
 
-  it("reports the non-Wisp response when the remaining candidates are unreachable", async () => {
+  it("reports the non-Bubble AI response when the remaining candidates are unreachable", async () => {
     const r = await engine.testHub("home", { fetchImpl: async (url: URL) => {
       if (url.protocol === "https:") return json({ unrelated: true });
       throw refused();
     } });
     expect(r).toMatchObject({ ok: false, url: "https://home" });
-    expect(r.error).toMatch(/isn't a Wisp server/);
+    expect(r.error).toMatch(/isn't a Bubble AI server/);
   });
 
   it("requires a boolean needsSetup on startup, including hubs that are already set up", async () => {
@@ -169,7 +169,7 @@ describe("installed services", () => {
     const require = createRequire(filename);
     const module = { exports: {} as typeof engine };
     runInNewContext(readFileSync(filename, "utf8"), { module, __dirname: path.dirname(filename), URL, AbortSignal,
-      process: { ...process, platform, getuid: () => uid, env: { WISP_NODE_DIR: dir } },
+      process: { ...process, platform, getuid: () => uid, env: { BUBBLE_NODE_DIR: dir } },
       require: (name: string) => name === "node:child_process" ? { execFile } : require(name),
     });
     return { engine: module.exports, execFile };
@@ -244,8 +244,8 @@ describe("device status without a session", () => {
       for (const event of [
         "[wisp] disconnected (1006); retrying in 1s",
         "[wisp] connection error: socket closed",
-        "[wisp] hub rejected the node token. Create a new node in Wisp",
-        "[wisp] another `wisp node start` is running with this device's token",
+        "[wisp] hub rejected the node token. Create a new node in Bubble AI",
+        "[wisp] another `bubble-ai node start` is running with this device's token",
         "--- 2026-10-23T12:00:00Z starting node start",
       ]) {
         fs.writeFileSync(log, connected + event + "\n");
@@ -263,19 +263,19 @@ describe("device status without a session", () => {
   });
 });
 
-describe("a new Wisp's setup code", () => {
-  it("reads it from this computer's Wisp data, and only something that looks like a code", () => {
+describe("a new Bubble AI's setup code", () => {
+  it("reads it from this computer's Bubble AI data, and only something that looks like a code", () => {
     const data = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-setup-code-"));
-    const before = process.env.WISP_DATA_DIR;
-    process.env.WISP_DATA_DIR = data;
+    const before = process.env.BUBBLE_DATA_DIR;
+    process.env.BUBBLE_DATA_DIR = data;
     try {
       fs.writeFileSync(path.join(data, "setup-code"), "k7qm-29xd-hp4c\n");
       expect(engine.localSetupCode()).toBe("k7qm-29xd-hp4c");
       fs.writeFileSync(path.join(data, "setup-code"), "<script>\n");
       expect(engine.localSetupCode()).not.toBe("<script>");
     } finally {
-      if (before === undefined) delete process.env.WISP_DATA_DIR;
-      else process.env.WISP_DATA_DIR = before;
+      if (before === undefined) delete process.env.BUBBLE_DATA_DIR;
+      else process.env.BUBBLE_DATA_DIR = before;
       fs.rmSync(data, { recursive: true, force: true });
     }
   });

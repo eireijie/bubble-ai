@@ -6,7 +6,7 @@ export function isLegacyMcp(value: unknown): boolean {
   const s = asObject(value);
   return [s.command, ...(Array.isArray(s.args) ? s.args : [])].some((v) => typeof v === "string" && /(?:^|[/\\])(?:warren|wisp)-mcp\.mjs$/.test(v));
 }
-const rewrite = (v: unknown): unknown => typeof v === "string" ? v.replace(/warren-mcp\.mjs/g, "wisp-mcp.mjs") : Array.isArray(v) ? v.map(rewrite) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, rewrite(x)])) : v;
+const rewrite = (v: unknown): unknown => typeof v === "string" ? v.replace(/warren-mcp\.mjs/g, "bubble-ai-mcp.mjs") : Array.isArray(v) ? v.map(rewrite) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, rewrite(x)])) : v;
 
 /** Used whenever settings are saved: remove the stale entry or rename it if it's the only one. */
 export function migrateMcpConfig(text: string, harness: string): string {
@@ -23,7 +23,7 @@ export function migrateMcpConfig(text: string, harness: string): string {
       if (hasNew) lines.splice(table.line, end - table.line);
       else {
         lines[table.line] = lines[table.line].replace(/warren/, "wisp");
-        for (let line = table.line + 1; line < end; line++) lines[line] = lines[line].replace(/warren-mcp\.mjs/g, "wisp-mcp.mjs");
+        for (let line = table.line + 1; line < end; line++) lines[line] = lines[line].replace(/warren-mcp\.mjs/g, "bubble-ai-mcp.mjs");
       }
     }
     return lines.join("\n");
@@ -40,7 +40,7 @@ export function migrateMcpConfig(text: string, harness: string): string {
     let end = start + 1;
     while (end < lines.length && (!lines[end].trim() || /^\s*#/.test(lines[end]) || /^ {3,}/.test(lines[end]))) end++;
     if (servers.wisp) lines.splice(start, end - start);
-    else for (let i = start; i < end; i++) lines[i] = lines[i].replace(i === start ? /warren/ : /warren-mcp\.mjs/g, i === start ? "wisp" : "wisp-mcp.mjs");
+    else for (let i = start; i < end; i++) lines[i] = lines[i].replace(i === start ? /warren/ : /warren-mcp\.mjs/g, i === start ? "wisp" : "bubble-ai-mcp.mjs");
     return lines.join("\n");
   }
   // Plain JSON harnesses keep servers in one of these well-known containers.

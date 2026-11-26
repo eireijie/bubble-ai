@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CONNECTOR_CATALOG, FEATURE_INFO, SKILL_CATALOG, type Agent, type Skill } from "@wisp/core";
+import { CONNECTOR_CATALOG, FEATURE_INFO, SKILL_CATALOG, type Agent, type Skill } from "@bubble-ai/core";
 
 /** Who is looking and which mods are on; each test sets what it needs. */
 const world = vi.hoisted(() => ({ role: "owner", features: {} as Record<string, boolean> }));
@@ -49,9 +49,9 @@ describe("Add: apps, skills and mods on one page", () => {
     const github = CONNECTOR_CATALOG.find((c) => c.id === "github")!;
     expect(html).toContain('aria-label="Add GitHub"');
     expect(html).not.toContain(github.description);
-    expect(html).not.toContain("On Wisp&#x27;s list");
+    expect(html).not.toContain("On Bubble AI&#x27;s list");
     expect(html).not.toContain(SKILL_CATALOG[0].description);
-    expect(html).not.toContain("Made by Wisp");
+    expect(html).not.toContain("Made by Bubble AI");
   });
 
   it("shows a few rows of each section and a Show all row", () => {
@@ -92,14 +92,14 @@ describe("Add: apps, skills and mods on one page", () => {
 
 const agents = [{ id: "a1", name: "Juno", handle: "juno", harness: "claude-code", status: "idle", settings: {} }] as unknown as Agent[];
 const gmail = CONNECTOR_CATALOG.find((c) => c.id === "gmail")!;
-const gmailApp = { key: "b:gmail", name: "Gmail", description: gmail.description, category: "Email and calendar" as const, who: "Wisp", builtIn: gmail };
+const gmailApp = { key: "b:gmail", name: "Gmail", description: gmail.description, category: "Email and calendar" as const, who: "Bubble AI", builtIn: gmail };
 const connector = (o: object) => ({ id: "c1", workspaceId: "w", name: "Gmail", kind: "mcp-http", catalogId: "gmail", command: null, args: [], url: "https://gmailmcp.googleapis.com/mcp/v1", headers: {}, env: {}, enabled: true, auth: { required: true, signedIn: true, error: null }, agentIds: [], allAgents: true, createdBy: "me", createdAt: "2026-11-22T12:00:00Z", ...o }) as never;
 const handlers = { onAdd: () => {}, onChanged: () => {}, onSignIn: () => {}, onSignOut: () => {}, onEdit: () => {}, onToggle: () => {}, onRemove: () => {} };
 
 describe("an app's page", () => {
   it("says what it is and who made it in one line", () => {
     expect(appLine(gmailApp)).toBe("Email and calendar · by Google");
-    expect(appLine({ key: "b:git", name: "Git", description: "", category: "Developer", who: "Wisp", builtIn: CONNECTOR_CATALOG.find((c) => c.id === "git")! })).toBe("Developer");
+    expect(appLine({ key: "b:git", name: "Git", description: "", category: "Developer", who: "Bubble AI", builtIn: CONNECTOR_CATALOG.find((c) => c.id === "git")! })).toBe("Developer");
     expect(connectorLine({ catalogId: "device:n1:codex:github" })).toBe("App · from Codex");
     expect(connectorLine({ catalogId: null })).toBe("Your own app");
   });
@@ -155,7 +155,7 @@ describe("a skill's page", () => {
   it("offers one Add for a library skill", () => {
     const html = renderToStaticMarkup(createElement(SkillDetail, { open: { entry: SKILL_CATALOG[0] }, agents, canEdit: true, onInstall: () => {}, onEdit: () => {}, onChanged: () => {}, onGone: () => {}, onShare: () => {} }));
     expect(html).toContain(">Add</button>");
-    expect(html).toContain("Skill · by Wisp");
+    expect(html).toContain("Skill · by Bubble AI");
     for (const gone of ["Try it", "What it does", "Example", "Read the full instructions"]) expect(html).not.toContain(gone);
   });
 });

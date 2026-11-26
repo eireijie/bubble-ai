@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { ComputerAction, DEVICE_HARNESS, FileName, MAX_TRANSFER_BYTES, HARNESS_IDS, parseCron, runsInVm, soulPath, soulTemplate, type Computer, type DiscoveredAgent, type FileData, type FolderListing, type RecordedStep } from "@wisp/core";
+import { ComputerAction, DEVICE_HARNESS, FileName, MAX_TRANSFER_BYTES, HARNESS_IDS, parseCron, runsInVm, soulPath, soulTemplate, type Computer, type DiscoveredAgent, type FileData, type FolderListing, type RecordedStep } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { ComputerError } from "./computers.ts";
 import { decideModsApproval } from "./api-background.ts";
@@ -27,7 +27,7 @@ interface Helpers {
 }
 
 const NAME = z.string().trim().min(1).max(80);
-/** A screen's code, passed straight to its device to check; Wisp never keeps it. */
+/** A screen's code, passed straight to its device to check; Bubble AI never keeps it. */
 const SCREEN_CODE = z.string().min(1).max(200);
 const TIMEZONE = z.string().max(64).refine((tz) => {
   try {
@@ -64,7 +64,7 @@ const STEP = z.object({
     .optional(),
 });
 
-const WISP = { name: "Wisp", email: "wisp@localhost" };
+const WISP = { name: "Bubble AI", email: "wisp@localhost" };
 
 /**
  * Routes for computers (devices' screens, VMs, Orgo), approvals, routines, harness settings and
@@ -158,7 +158,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
       const owner = node.ownerId ? (store.user(node.ownerId)?.name ?? "its owner") : "its owner";
       if (body.kind === "device") {
         if (node.ownerId !== c.actor.id) return reply.code(403).send({ error: `${node.name} is ${owner}'s device; only ${owner} can use its screen` });
-        if (caps?.screen.off) return reply.code(400).send({ error: `${node.name}'s screen is off. Turn it on at the device itself: \`wisp node screen on\`` });
+        if (caps?.screen.off) return reply.code(400).send({ error: `${node.name}'s screen is off. Turn it on at the device itself: \`bubble-ai node screen on\`` });
         // one computer per device screen; asking again returns it
         const existing = store.computersOnNode(node.id).find((x) => x.kind === "device");
         if (existing) return computers.view(existing);
@@ -321,7 +321,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (!comp) return reply.code(404).send({ error: "computer not found" });
     const action = parse(ComputerAction, (req.body as { action?: unknown })?.action, reply);
     if (!action) return;
-    if (action.action === "fill_login") return reply.code(403).send({ error: "Wisp fills logins itself, from the password manager" });
+    if (action.action === "fill_login") return reply.code(403).send({ error: "Bubble AI fills logins itself, from the password manager" });
     try {
       return await computers.act(comp, action, c.actor);
     } catch (err) {
@@ -477,7 +477,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     const agent = store.agent(c.actor.id);
     const comp = agent?.computerId ? store.computer(agent.computerId) : undefined;
     if (!comp) {
-      reply.code(404).send({ error: "you don't have a computer; a person can give you one on your page in Wisp (Agents → Computer)" });
+      reply.code(404).send({ error: "you don't have a computer; a person can give you one on your page in Bubble AI (Agents → Computer)" });
       return null;
     }
     return comp;
@@ -502,7 +502,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     const action = parse(ComputerAction, (req.body as { action?: unknown })?.action, reply);
     if (!action) return;
     if (["destroy", "stop", "signin", "fill_login"].includes(action.action))
-      return reply.code(403).send({ error: action.action === "signin" ? "people sign harnesses in; use computer_ask_human" : action.action === "fill_login" ? "use login_fill: Wisp fills logins from the password manager" : "only people can stop or remove a computer" });
+      return reply.code(403).send({ error: action.action === "signin" ? "people sign harnesses in; use computer_ask_human" : action.action === "fill_login" ? "use login_fill: Bubble AI fills logins from the password manager" : "only people can stop or remove a computer" });
     const extra = parse(z.object({ on: z.string().trim().min(1).max(100).optional(), why: z.string().max(2000).optional() }), { on: (req.body as { on?: unknown })?.on, why: (req.body as { why?: unknown })?.why }, reply);
     if (!extra) return;
     try {
@@ -783,7 +783,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
 
   // --- settings -------------------------------------------------------------------------------
 
-  /** Simple (agents share one computer, Wisp places them) or Advanced, and the shared computer if there is one. */
+  /** Simple (agents share one computer, Bubble AI places them) or Advanced, and the shared computer if there is one. */
   const placement = (workspaceId: string) => ({ advanced: advancedOn(store, workspaceId), sharedComputerId: sharedComputer(hub, workspaceId, false)?.id ?? null });
 
   /** The workspace's shared computer, made (off, as a record) if there isn't one yet: owners' agents switch to it. */
@@ -791,7 +791,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     const c = need(req, reply, { owner: true });
     if (!c) return;
     const shared = sharedComputer(hub, c.workspaceId);
-    if (!shared) return reply.code(409).send({ error: "None of your devices can run a computer yet. Wisp sets one up once a device can (it needs Docker, or Apple's container on a Mac)." });
+    if (!shared) return reply.code(409).send({ error: "None of your devices can run a computer yet. Bubble AI sets one up once a device can (it needs Docker, or Apple's container on a Mac)." });
     return computers.view(shared);
   });
 
@@ -848,7 +848,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     return { ok: true };
   });
 
-  /** Make a Wisp agent from one that already exists on a device: its soul, instructions and notes come along. */
+  /** Make a Bubble AI agent from one that already exists on a device: its soul, instructions and notes come along. */
   app.post("/api/agents/import", async (req, reply) => {
     const c = need(req, reply, { member: true });
     if (!c) return;

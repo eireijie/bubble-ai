@@ -1,11 +1,11 @@
 import SwiftUI
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 /**
- * Chat against a real, seeded hub (skipped without WISP_HUB and WISP_TOKEN): the cards, files,
+ * Chat against a real, seeded hub (skipped without BUBBLE_HUB and BUBBLE_TOKEN): the cards, files,
  * edits and deletes from here and from elsewhere, an upload, and the open thread refreshing after the
- * hub restarts. With WISP_SHOTS set, it saves what the screens looked like there.
+ * hub restarts. With BUBBLE_SHOTS set, it saves what the screens looked like there.
  */
 @MainActor
 final class LiveHubChatTests: XCTestCase {
@@ -17,7 +17,7 @@ final class LiveHubChatTests: XCTestCase {
     let environment = ProcessInfo.processInfo.environment
     guard let address = envVar("HUB", in: environment), let hub = URL(string: address), address.hasPrefix("http"),
           let token = envVar("TOKEN", in: environment), !token.isEmpty, !token.hasPrefix("$(") else {
-      throw XCTSkip("Set WISP_HUB and WISP_TOKEN, pointing at a seeded hub.")
+      throw XCTSkip("Set BUBBLE_HUB and BUBBLE_TOKEN, pointing at a seeded hub.")
     }
     self.hub = hub; self.token = token
     let store = Store(loadSession: false)

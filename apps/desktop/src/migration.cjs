@@ -25,9 +25,20 @@ function createMigration({ fs = nativeFs, home = os.homedir(), appData, platform
     return a.isFile() && b.isFile() && a.size === b.size && fs.readFileSync(from).equals(fs.readFileSync(to));
   }
 
+  // Same marker as the CLI's migrate-home.ts: it lets either side finish an alias that a stopped move left out.
+  const MARKER = ".moved-from";
   function move(from, to, alias = false) {
-    if (exists(to) || !exists(from) || fs.lstatSync(from).isSymbolicLink()) return false;
+    if (exists(to)) {
+      const marker = path.join(to, MARKER);
+      if (alias && !exists(from) && exists(marker)) {
+        if (fs.readFileSync(marker, "utf8").trim() === from) fs.symlinkSync(to, from, platform === "win32" ? "junction" : "dir");
+        fs.rmSync(marker, { force: true });
+      }
+      return false;
+    }
+    if (!exists(from) || fs.lstatSync(from).isSymbolicLink()) return false;
     fs.mkdirSync(path.dirname(to), { recursive: true });
+    if (alias) fs.writeFileSync(path.join(from, MARKER), from);
     try { fs.renameSync(from, to); }
     catch (err) {
       if (err.code !== "EXDEV") throw err;
@@ -40,10 +51,14 @@ function createMigration({ fs = nativeFs, home = os.homedir(), appData, platform
         fs.rmSync(from, { recursive: true });
       } catch (copyError) {
         fs.rmSync(staging, { recursive: true, force: true });
+        if (alias) fs.rmSync(path.join(from, MARKER), { force: true });
         throw copyError;
       }
     }
-    if (alias) fs.symlinkSync(to, from, platform === "win32" ? "junction" : "dir");
+    if (alias) {
+      fs.symlinkSync(to, from, platform === "win32" ? "junction" : "dir");
+      fs.rmSync(path.join(to, MARKER), { force: true });
+    }
     record(`Moved ${from} to ${to}${alias ? " (old path kept as a symlink)" : ""}`);
     return true;
   }
@@ -59,7 +74,7 @@ function createMigration({ fs = nativeFs, home = os.homedir(), appData, platform
       try { original = fs.readFileSync(file, "utf8"); config = JSON.parse(original); }
       catch (err) { if (err instanceof SyntaxError) continue; throw err; }
       const rewrite = (value) => {
-        if (typeof value === "string") return path.isAbsolute(value) || path.win32.isAbsolute(value) ? value.replace(/([/\\])\.warren(?=[/\\]|$)/g, "$1.wisp") : value;
+        if (typeof value === "string") return path.isAbsolute(value) || path.win32.isAbsolute(value) ? value.replace(/([/\\])\.(?:warren|wisp)(?=[/\\]|$)/g, "$1.bubble-ai") : value;
         if (Array.isArray(value)) return value.map(rewrite);
         if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, rewrite(v)]));
         return value;
@@ -79,13 +94,18 @@ function createMigration({ fs = nativeFs, home = os.homedir(), appData, platform
   }
 
   function prepare() {
-    const userData = appData && path.join(appData, "Wisp");
+    // The app's own folder was "Warren", then "Wisp"; the newest one that exists moves, and a folder
+    // left over beside an already-moved one stays where it is.
+    const userData = appData && path.join(appData, "Bubble AI");
     if (userData) {
-      move(path.join(appData, "Warren"), userData);
+      move(path.join(appData, "Wisp"), userData) || move(path.join(appData, "Warren"), userData);
       rewriteConfigs(userData);
     }
-    const nodeDir = path.join(home, ".wisp");
-    move(path.join(home, ".warren"), nodeDir, true);
+    // ~/.warren became ~/.wisp, which becomes ~/.bubble-ai; each old name stays as an alias.
+    const nodeDir = path.join(home, ".bubble-ai");
+    // Once ~/.bubble-ai exists, older homes left beside it stay exactly as they are.
+    if (!exists(nodeDir)) move(path.join(home, ".warren"), path.join(home, ".wisp"), true);
+    move(path.join(home, ".wisp"), nodeDir, true);
     // Also retry config rewrites after an interrupted prior migration.
     rewriteConfigs(nodeDir);
     return { userData, actions: [...actions] };
@@ -105,15 +125,16 @@ function createMigration({ fs = nativeFs, home = os.homedir(), appData, platform
   async function migrateServices(runtime) {
     if (!(await hasLegacyServices())) return [];
     runtime = typeof runtime === "function" ? runtime() : runtime;
-    if (!runtime || runtime.problem) throw new Error(runtime?.problem || "Wisp's CLI is missing; service migration cannot run.");
+    if (!runtime || runtime.problem) throw new Error(runtime?.problem || "Bubble AI's CLI is missing; service migration cannot run.");
     // The node CLI owns stop/remove/install and preserves the old service's settings.
-    const result = await runner(runtime.node, [path.join(runtime.wispDir, "bin", "wisp.mjs"), "migrate", "--json"], {
+    const cli = ["bubble-ai.mjs", "wisp.mjs"].map((name) => path.join(runtime.wispDir, "bin", name)).find((file) => exists(file)) ?? path.join(runtime.wispDir, "bin", "bubble-ai.mjs");
+    const result = await runner(runtime.node, [cli, "migrate", "--json"], {
       cwd: runtime.wispDir, env: { ...process.env, ...runtime.env, HOME: home, ...(platform === "win32" ? { USERPROFILE: home } : {}) },
       timeout: 120_000, windowsHide: true, maxBuffer: 4 * 1024 * 1024,
     });
     const stdout = typeof result === "string" ? result : result.stdout || "";
     const resultJson = stdout.trim() ? JSON.parse(stdout) : [];
-    record("Migrated legacy services with wisp migrate --json");
+    record("Migrated legacy services with bubble-ai migrate --json");
     return resultJson;
   }
   return { prepare, hasLegacyServices, migrateServices };

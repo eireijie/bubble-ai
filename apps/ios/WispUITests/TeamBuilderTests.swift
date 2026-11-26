@@ -3,7 +3,7 @@ import XCTest
 /**
  * The team flowchart builder: make a team (name, start choice, templates, an agent builds it), draw
  * parallel steps, edit a step, read how it works. Runs against a hub that serves teams with steps
- * (set WISP_HUB and WISP_TOKEN); set WISP_SHOTS to a folder to also save screenshots there.
+ * (set BUBBLE_HUB and BUBBLE_TOKEN); set BUBBLE_SHOTS to a folder to also save screenshots there.
  */
 @MainActor
 final class TeamBuilderTests: XCTestCase {
@@ -15,7 +15,7 @@ final class TeamBuilderTests: XCTestCase {
     let screenshot = app.screenshot()
     let image = XCTAttachment(screenshot: screenshot)
     image.name = name; image.lifetime = .keepAlways; add(image)
-    if let folder = ProcessInfo.processInfo.environment["WISP_SHOTS"], !folder.isEmpty {
+    if let folder = ProcessInfo.processInfo.environment["BUBBLE_SHOTS"], !folder.isEmpty {
       try? screenshot.pngRepresentation.write(to: URL(fileURLWithPath: folder).appendingPathComponent("ios-\(name).png"))
     }
   }
@@ -24,11 +24,11 @@ final class TeamBuilderTests: XCTestCase {
     let environment = ProcessInfo.processInfo.environment
     guard let hub = envVar("HUB", in: environment), hub.hasPrefix("http"),
           let token = envVar("TOKEN", in: environment), !token.isEmpty else {
-      throw XCTSkip("Set WISP_HUB and WISP_TOKEN, pointing at a hub with teams that have steps.")
+      throw XCTSkip("Set BUBBLE_HUB and BUBBLE_TOKEN, pointing at a hub with teams that have steps.")
     }
     continueAfterFailure = false
-    app.launchEnvironment["WISP_HUB"] = hub
-    app.launchEnvironment["WISP_TOKEN"] = token
+    app.launchEnvironment["BUBBLE_HUB"] = hub
+    app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
     XCTAssertTrue(app.tabBars.firstMatch.buttons["Chats"].waitForExistence(timeout: 30))
   }

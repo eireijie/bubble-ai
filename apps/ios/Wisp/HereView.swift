@@ -1,8 +1,8 @@
 import SwiftUI
 
 /**
- * "Here's your Wisp": what setup really turned on, read from the hub, ticking in one by one. Each
- * row can be undone where Wisp has a way to (routines and watches pause, mods turn off); what
+ * "Here's your Bubble AI": what setup really turned on, read from the hub, ticking in one by one. Each
+ * row can be undone where Bubble AI has a way to (routines and watches pause, mods turn off); what
  * isn't ready says so with the one step that fixes it. Below, "When you're ready", which stays in
  * More as "Finish setup" until it's done.
  */
@@ -64,7 +64,7 @@ struct HereView: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 0) {
           HostGhost(look: agent?.settings?.appearance ?? OnboardingLook.host, size: 64, mood: filling ? .working : .awake, happy: !filling)
-          Text("Here's your Wisp, \(first).").font(.system(size: 22, weight: .semibold)).tracking(-0.4).foregroundStyle(Palette.text)
+          Text("Here's your Bubble AI, \(first).").font(.system(size: 22, weight: .semibold)).tracking(-0.4).foregroundStyle(Palette.text)
             .fixedSize(horizontal: false, vertical: true).padding(.top, 16).accessibilityAddTraits(.isHeader)
           Text("I set this up from your answers. Undo anything.").font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.top, 4)
           if readyTotal > 0 {
@@ -83,8 +83,8 @@ struct HereView: View {
           }
           ready.padding(.top, 28)
           VStack(alignment: .leading, spacing: 8) {
-            Text("Thanks for trying Wisp. Your agents will get things wrong sometimes. Tell them, and they'll remember.").font(.system(size: 15)).foregroundStyle(Palette.text).fixedSize(horizontal: false, vertical: true)
-            Text("The Wisp team").font(.system(size: 13)).foregroundStyle(Palette.muted)
+            Text("Thanks for trying Bubble AI. Your agents will get things wrong sometimes. Tell them, and they'll remember.").font(.system(size: 15)).foregroundStyle(Palette.text).fixedSize(horizontal: false, vertical: true)
+            Text("The Bubble AI team").font(.system(size: 13)).foregroundStyle(Palette.muted)
           }
           .padding(16).frame(maxWidth: .infinity, alignment: .leading)
           .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
@@ -171,7 +171,7 @@ struct HereView: View {
     let status = store.notificationStatus
     let on = store.pushAvailable && [.authorized, .provisional, .ephemeral].contains(status)
     rows.append(Row(id: "notif", symbol: "bell", title: "Notifications",
-                    sub: on ? "On. Only when something's done or needs a yes." : !store.pushAvailable ? "Your Wisp isn't set up to send them yet." : status == .denied ? "Off for Wisp." : "I'll ask after my first finished job.",
+                    sub: on ? "On. Only when something's done or needs a yes." : !store.pushAvailable ? "Your Bubble AI isn't set up to send them yet." : status == .denied ? "Off for Bubble AI." : "I'll ask after my first finished job.",
                     pending: !on,
                     action: store.pushAvailable && status == .denied ? ("Open the switch", { if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) } }) : nil))
     if let agent { rows.append(Row(id: "calls", symbol: "phone", title: "Calls", sub: "Ready. Call \(agent.name) from the top of its chat.")) }

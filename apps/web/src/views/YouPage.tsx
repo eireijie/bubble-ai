@@ -120,7 +120,7 @@ export function YouPage() {
             </span>
           </a>
         </header>
-        {card(places.map((p) => row(p.icon, p.label, href(p.to))), "Your Wisp")}
+        {card(places.map((p) => row(p.icon, p.label, href(p.to))), "Your Bubble AI")}
         {card(
           <>
             {!isGuest && (

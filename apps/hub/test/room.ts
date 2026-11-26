@@ -1,4 +1,4 @@
-import type { Actor, Channel, ChannelSettings } from "@wisp/core";
+import type { Actor, Channel, ChannelSettings } from "@bubble-ai/core";
 import type { Hub } from "../src/hub.ts";
 
 /**

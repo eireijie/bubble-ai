@@ -2,8 +2,8 @@ import { shareOrigin, useAccess } from "../access.ts";
 import { useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { type Agent } from "@wisp/core";
-import { defaultAppearance } from "@wisp/core/src/appearance.ts";
+import { type Agent } from "@bubble-ai/core";
+import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { Ghost, type GhostMood } from "./Ghost.tsx";
 import { familyColor } from "../ghostFamily.ts";
 import { useStore } from "../store.ts";
@@ -17,7 +17,7 @@ export function cx(...c: (string | false | null | undefined)[]) {
 }
 
 /** Paperclip's buttons: a filled primary, an outlined default, a bare ghost. */
-/** Buttons (canvas Foundations): ink primary, outlined default, bare ghost, and Wisp violet for app-level actions. */
+/** Buttons (canvas Foundations): ink primary, outlined default, bare ghost, and Bubble AI violet for app-level actions. */
 export function Button({ variant = "default", className, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "primary" | "ghost" | "danger" | "wisp" }) {
   return (
     <button
@@ -123,7 +123,7 @@ export function Modal({ title, onClose, children, wide, drawer = false, headerle
   return typeof document === "undefined" ? dialog : createPortal(dialog, document.body);
 }
 
-export { harnessLabel } from "@wisp/core";
+export { harnessLabel } from "@bubble-ai/core";
 
 type AgentLike = { name: string; handle?: string; settings?: Agent["settings"] };
 
@@ -228,7 +228,7 @@ export function StatusChip({ status, needsSignIn }: { status: Agent["status"]; n
   );
 }
 
-/** Wisp's mark: a bubble outline with two eyes. `draw` animates it drawing itself (the loading state). */
+/** Bubble AI's mark: a bubble outline with two eyes. `draw` animates it drawing itself (the loading state). */
 export function GhostMark({ size = 20, draw, className }: { size?: number; draw?: boolean; className?: string }) {
   return (
     <svg viewBox="0 0 120 120" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={draw ? 4.5 : 9} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
@@ -467,9 +467,9 @@ export function Popover({ trigger, children, align = "left", up = true, classNam
 }
 
 /**
- * The one-line command that installs Wisp on a device and connects it, served by this hub
+ * The one-line command that installs Bubble AI on a device and connects it, served by this hub
  * (GET /install.sh, /install.ps1), with a tab per OS and the manual command for a device that
- * already has Wisp.
+ * already has Bubble AI.
  */
 export function DeviceInstall({ token, name }: { token: string; name: string }) {
   const windowsGuess = /Windows/.test(navigator.userAgent);
@@ -481,12 +481,12 @@ export function DeviceInstall({ token, name }: { token: string; name: string }) 
   const commands = {
     unix: `curl -fsSL ${hub}/install.sh | bash -s -- --hub ${hub} --token ${token} --name ${sh(name)}`,
     windows: `& ([scriptblock]::Create((irm ${hub}/install.ps1))) -Hub ${hub} -Token ${token} -Name ${pwsh(name)}`,
-    manual: `wisp node start --hub ${hub} --token ${token} --name ${sh(name)}`,
+    manual: `bubble-ai node start --hub ${hub} --token ${token} --name ${sh(name)}`,
   };
   const tabs = [
     ["unix", "Mac or Linux"],
     ["windows", "Windows"],
-    ["manual", "Wisp already installed"],
+    ["manual", "Bubble AI already installed"],
   ] as const;
   return (
     <div className="space-y-2">
@@ -504,9 +504,9 @@ export function DeviceInstall({ token, name }: { token: string; name: string }) 
       </div>
       <CopyBlock text={commands[os]} />
       <p className="text-xs text-muted">
-        {os === "unix" && "In Terminal. It installs Wisp in ~/wisp (it needs git and Node 22+, and offers Node with Homebrew on a Mac), checks for a VM engine, and keeps the device connected from then on."}
-        {os === "windows" && "In PowerShell. It installs Wisp in your home folder (offering git and Node with winget) and keeps the device connected whenever you're signed in."}
-        {os === "manual" && "Inside the Wisp folder on that device. It stays connected until you close the terminal; `wisp service install node` keeps it running."}
+        {os === "unix" && "In Terminal. It installs Bubble AI in ~/bubble-ai (it needs git and Node 22+, and offers Node with Homebrew on a Mac), checks for a VM engine, and keeps the device connected from then on."}
+        {os === "windows" && "In PowerShell. It installs Bubble AI in your home folder (offering git and Node with winget) and keeps the device connected whenever you're signed in."}
+        {os === "manual" && "Inside the Bubble AI folder on that device. It stays connected until you close the terminal; `bubble-ai service install node` keeps it running."}
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Blocks, Check, Clock, Eye, LayoutGrid, Smartphone, UserRound, Wifi, X } from "lucide-react";
-import { FEATURE_INFO, FEATURE_PRESETS, FEATURE_KEYS, type Agent, type FeatureKey, type Routine } from "@wisp/core";
+import { FEATURE_INFO, FEATURE_PRESETS, FEATURE_KEYS, type Agent, type FeatureKey, type Routine } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go } from "../router.ts";
@@ -162,7 +162,7 @@ function useSetupAgent(agentId?: string | null): Agent | undefined {
 
 /**
  * What the first run no longer asks (phone, apps, away from home, getting to know you), each one
- * line and one button. It lives in Settings › Learn Wisp, and at the top of this page.
+ * line and one button. It lives in Settings › Learn Bubble AI, and at the top of this page.
  */
 export function FinishSetupList({ agent: given }: { agent?: Agent }) {
   const me = useStore((s) => s.me)!;

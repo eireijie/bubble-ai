@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { WATCH_SERVICES, type Watch } from "@wisp/core";
+import { WATCH_SERVICES, type Watch } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import type { Hub } from "./hub.ts";
 

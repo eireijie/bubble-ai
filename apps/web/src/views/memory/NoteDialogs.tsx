@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Check, ChevronDown, Folder, Trash2 } from "lucide-react";
-import { personDir, type AccessRule } from "@wisp/core";
+import { personDir, type AccessRule } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { Cards, ConfirmCard, MemoryDialog, Radio, field, pillPrimary, noteName, useFolderLabel, folderSteps } from "./parts.tsx";

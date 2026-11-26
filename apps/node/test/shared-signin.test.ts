@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { NodeToHub } from "@wisp/core";
+import type { NodeToHub } from "@bubble-ai/core";
 import { importCodexSignin, SharedSignins } from "../src/shared-signin.ts";
 
 const dirs: string[] = [];

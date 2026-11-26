@@ -1,5 +1,5 @@
 name: App release
-# Push a tag like desktop-v0.2.0 to build Wisp for Mac (Apple silicon and Intel), Windows,
+# Push a tag like desktop-v0.2.0 to build Bubble AI for Mac (Apple silicon and Intel), Windows,
 # Linux and Android and attach the builds to a GitHub release, marked latest. Installed apps find it there and update
 # themselves (apps/desktop/src/updater.cjs). The file names never change between versions, so
 # The repository's releases/latest/download/<name> URL always links the newest one.
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Wisp desktop ${GITHUB_REF_NAME#desktop-v}" --generate-notes --verify-tag --latest
+      - run: gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Bubble AI desktop ${GITHUB_REF_NAME#desktop-v}" --generate-notes --verify-tag --latest
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -30,13 +30,13 @@ jobs:
           - os: macos-15
             dist: --mac --arm64
           # Intel Macs, built on Apple silicon (GitHub's Intel runners never started): the bundled
-          # native modules are fetched for x64 (WISP_BUNDLE_ARCH) and electron-builder packs an x64 app
+          # native modules are fetched for x64 (BUBBLE_BUNDLE_ARCH) and electron-builder packs an x64 app
           - os: macos-15
             dist: --mac --x64
             arch: x64
-          # installs to %LOCALAPPDATA%\Programs\Wisp (a per-user installer names its folder after the package)
+          # installs to %LOCALAPPDATA%\Programs\Bubble AI (a per-user installer names its folder after the package)
           - os: windows-latest
-            dist: --win --x64 -c.extraMetadata.name=Wisp
+            dist: --win --x64 "-c.extraMetadata.name=Bubble AI"
           - os: ubuntu-latest
             dist: --linux --x64
     runs-on: ${{ matrix.os }}
@@ -48,11 +48,11 @@ jobs:
           cache: npm
       - run: npm ci
       # the app's version comes from the tag
-      - run: npm version "${GITHUB_REF_NAME#desktop-v}" --no-git-tag-version --allow-same-version -w @wisp/desktop
+      - run: npm version "${GITHUB_REF_NAME#desktop-v}" --no-git-tag-version --allow-same-version -w @bubble-ai/desktop
         shell: bash
-      - run: npm run bundle -w @wisp/desktop
+      - run: npm run bundle -w @bubble-ai/desktop
         env:
-          WISP_BUNDLE_ARCH: ${{ matrix.arch }}
+          BUBBLE_BUNDLE_ARCH: ${{ matrix.arch }}
       - run: |
           # Only Macs get these, and only when set: electron-builder would read CSC_LINK as a Windows certificate too
           if [ "$RUNNER_OS" = "macOS" ] && [ -n "$MAC_CERT" ]; then
@@ -77,7 +77,12 @@ jobs:
           xcrun stapler validate "$app"
         env:
           MAC_CERT: ${{ secrets.MAC_CERT_P12_BASE64 }}
-      - run: gh release upload "$GITHUB_REF_NAME" apps/desktop/dist/Wisp-* --clobber
+      # Wisp apps from before the rename look for Wisp-* files (and old download links point at them),
+      # so every build goes up under both names. Drop the Wisp-* copies once few Wisp installs are left.
+      - run: |
+          cd apps/desktop/dist
+          for f in Bubble-AI-*; do [ -f "$f" ] && cp "$f" "Wisp-${f#Bubble-AI-}"; done
+          gh release upload "$GITHUB_REF_NAME" Bubble-AI-* Wisp-* --clobber
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -96,8 +101,9 @@ jobs:
           V="${GITHUB_REF_NAME#desktop-v}"
           IFS=. read -r MA MI PA <<< "$V"
           ./gradlew assembleRelease -PversionName="$V" -PversionCode=$((MA * 10000 + MI * 100 + PA))
-          cp app/build/outputs/apk/release/app-release.apk Wisp-android.apk
+          cp app/build/outputs/apk/release/app-release.apk Bubble-AI-android.apk
+          cp Bubble-AI-android.apk Wisp-android.apk
         working-directory: apps/android
-      - run: gh release upload "$GITHUB_REF_NAME" apps/android/Wisp-android.apk --clobber
+      - run: gh release upload "$GITHUB_REF_NAME" apps/android/Bubble-AI-android.apk apps/android/Wisp-android.apk --clobber
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Agent, AgentSettings } from "@wisp/core";
+import type { Agent, AgentSettings } from "@bubble-ai/core";
 import { Play, Square } from "lucide-react";
 import { api } from "../api.ts";
 import { MoreOptions } from "../components/MoreOptions.tsx";

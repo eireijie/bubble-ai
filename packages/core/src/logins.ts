@@ -1,9 +1,9 @@
 /**
- * Logins agents use from the person's own password manager. Wisp never stores a password: it
+ * Logins agents use from the person's own password manager. Bubble AI never stores a password: it
  * reads one at the moment of filling and hands it straight to the agent's computer.
  */
 
-/** The password managers Wisp can read logins from. */
+/** The password managers Bubble AI can read logins from. */
 export type LoginSourceKind = "1password";
 
 export const LOGIN_SOURCE_LABEL: Record<LoginSourceKind, string> = { "1password": "1Password" };

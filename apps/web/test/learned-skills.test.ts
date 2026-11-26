@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Agent, AgentCommand, MessagePart, Skill } from "@wisp/core";
+import type { Agent, AgentCommand, MessagePart, Skill } from "@bubble-ai/core";
 
 const storeListeners = vi.hoisted(() => [] as ((s: any, prev: any) => void)[]);
 vi.mock("../src/api.ts", () => ({ api: vi.fn() }));
@@ -57,7 +57,7 @@ describe("skill lines in Settings → Skills", () => {
   it("says where it came from", () => {
     expect(skillByline(skill({}), agents)).toBe("Ghosty · Oct 29");
     expect(skillByline(skill({ source: "catalog", catalogId: "anthropic:docx" }), agents)).toBe("Anthropic");
-    expect(skillByline(skill({ source: "catalog", catalogId: "meal-plan" }), agents)).toBe("Wisp");
+    expect(skillByline(skill({ source: "catalog", catalogId: "meal-plan" }), agents)).toBe("Bubble AI");
     expect(skillByline(skill({ source: "catalog", catalogId: "device:n1:codex:humanizer" }), agents, (id) => (id === "n1" ? "your Mac" : undefined))).toBe("Imported from your Mac");
     expect(skillByline(skill({ source: "custom" }), agents)).toBe("Made here");
   });
@@ -107,11 +107,11 @@ describe("the / menu", () => {
   const cmd = (name: string, o: Partial<AgentCommand> = {}): AgentCommand => ({ name, description: "", kind: "command", via: "raw", group: "harness", ...o }) as AgentCommand;
   const rows = (list: AgentCommand[], a: Agent = ghosty) => list.map((command) => ({ agent: a, command }));
 
-  it("orders sections Wisp, learned, harness, skills", () => {
+  it("orders sections Bubble AI, learned, harness, skills", () => {
     const list = rows([cmd("model", { kind: "wisp", via: "wisp", group: "wisp" }), cmd("docx", { kind: "wisp-skill", via: "prompt", group: "skill" }), cmd("review"), cmd("order-pizza", { kind: "wisp-skill", group: "learned", learnedBy: "Ghosty", isNew: true })]);
     const ordered = orderSlashRows(list);
     expect(ordered.map((r) => r.command.name)).toEqual(["model", "order-pizza", "review", "docx"]);
-    expect(ordered.map((r) => slashSection(r).label)).toEqual(["Wisp", "Learned by Ghosty", "Codex", "Skills"]);
+    expect(ordered.map((r) => slashSection(r).label)).toEqual(["Bubble AI", "Learned by Ghosty", "Codex", "Skills"]);
   });
 
   it("puts names that start with what was typed first, inside each section", () => {

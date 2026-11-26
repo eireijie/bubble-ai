@@ -1,4 +1,4 @@
-# Install Wisp without questions: irm https://raw.githubusercontent.com/eireijie/wisp/main/install.ps1 | iex
+# Install Bubble AI without questions: irm https://raw.githubusercontent.com/eireijie/bubble-ai/main/install.ps1 | iex
 # Join: & ([scriptblock]::Create((irm <origin>/install.ps1))) join [invite-link]
 param(
   [Parameter(Position=0)][string]$Command = "",
@@ -7,17 +7,20 @@ param(
   [string]$Hub = "",
   [string]$Token = "",
   [string]$Name = "",
-  [string]$Dir = $(if (Test-Path Env:WISP_DIR) { $env:WISP_DIR } elseif (Test-Path Env:WARREN_DIR) { $env:WARREN_DIR } else { Join-Path $HOME "wisp" }),
+  [string]$Dir = $(if (Test-Path Env:BUBBLE_DIR) { $env:BUBBLE_DIR } elseif (Test-Path Env:WISP_DIR) { $env:WISP_DIR } elseif (Test-Path Env:WARREN_DIR) { $env:WARREN_DIR } else { Join-Path $HOME "bubble-ai" }),
   [switch]$Yes,
   [switch]$NoService,
   [switch]$NoDevice,
   [switch]$NoOpen
 )
 $ErrorActionPreference = "Stop"
-$GitHubRepo = "eireijie/wisp"
-$Repo = if (Test-Path Env:WISP_REPO) { $env:WISP_REPO } elseif (Test-Path Env:WARREN_REPO) { $env:WARREN_REPO } else { "https://github.com/$GitHubRepo.git" }
-# Reuse the old checkout when no directory was chosen.
-if (-not $PSBoundParameters.ContainsKey("Dir") -and -not (Test-Path Env:WISP_DIR) -and -not (Test-Path Env:WARREN_DIR) -and -not (Test-Path $Dir) -and (Test-Path (Join-Path $HOME "warren/.git"))) { $Dir = Join-Path $HOME "warren" }
+$GitHubRepo = "eireijie/bubble-ai"
+$Repo = if (Test-Path Env:BUBBLE_REPO) { $env:BUBBLE_REPO } elseif (Test-Path Env:WISP_REPO) { $env:WISP_REPO } elseif (Test-Path Env:WARREN_REPO) { $env:WARREN_REPO } else { "https://github.com/$GitHubRepo.git" }
+# Reuse an older checkout (from before the renames) when no directory was chosen.
+if (-not $PSBoundParameters.ContainsKey("Dir") -and -not (Test-Path Env:BUBBLE_DIR) -and -not (Test-Path Env:WISP_DIR) -and -not (Test-Path Env:WARREN_DIR) -and -not (Test-Path $Dir)) {
+  if (Test-Path (Join-Path $HOME "wisp/.git")) { $Dir = Join-Path $HOME "wisp" }
+  elseif (Test-Path (Join-Path $HOME "warren/.git")) { $Dir = Join-Path $HOME "warren" }
+}
 $Check = [char]0x2713
 $Work = [char]0x25cc
 $Arrow = [char]0x2192
@@ -26,12 +29,16 @@ if ($Command -and $Command -ne "join") { Fail "Usage: install.ps1 [join [invite-
 $Mode = if ($Command -eq "join") { "join" } elseif ($HubServer) { "hub" } elseif ($Hub) { "device" } else { "hub" }
 if ($Hub -match '/join/[^/]+/?$') { $Mode = "join"; $Invite = $Hub }
 if ($Mode -eq "device" -and (-not $Hub -or -not $Token)) { Fail "Use join [invite-link], or provide both -Hub and -Token." }
-Write-Host "Wisp"
+Write-Host "Bubble AI"
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Fail "Install Git, then run this installer again." }
-$State = Join-Path $HOME ".wisp"
-# An older Warren home moves to ~\.wisp with `wisp migrate` below; until then it stays in use.
-$OldState = Join-Path $HOME ".warren"
-if (-not (Test-Path $State) -and (Test-Path $OldState) -and -not ((Get-Item $OldState -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { $State = $OldState }
+$State = Join-Path $HOME ".bubble-ai"
+# An older Wisp or Warren home moves to ~\.bubble-ai with `bubble-ai migrate` below; until then it stays in use.
+$OldState = $State
+foreach ($Older in @(".wisp", ".warren")) {
+  $Candidate = Join-Path $HOME $Older
+  if (-not (Test-Path $State) -and $OldState -eq $State -and (Test-Path $Candidate) -and -not ((Get-Item $Candidate -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { $OldState = $Candidate }
+}
+$State = $OldState
 $Runtime = Join-Path $State "runtime\node"
 $Log = Join-Path $State "install.log"
 New-Item -ItemType Directory -Path $State -Force | Out-Null
@@ -45,7 +52,7 @@ function Quiet($exe, [string[]]$Arguments) {
     & $exe @Arguments >> $Log 2>&1
     $Code = $LASTEXITCODE
   } finally { $ErrorActionPreference = $Previous }
-  if ($Code -ne 0) { Fail "Couldn't finish getting ready; check $Log and run wisp doctor." }
+  if ($Code -ne 0) { Fail "Couldn't finish getting ready; check $Log and run bubble-ai doctor." }
 }
 function NodeMajor($exe) {
   try { return [int](& $exe -p "process.versions.node.split('.')[0]" 2>$null) } catch { return 0 }
@@ -94,16 +101,16 @@ else {
 Push-Location $Dir
 try {
   $Dir = (Get-Location).Path
-  Write-Host "$Work Getting Wisp ready..."
+  Write-Host "$Work Getting Bubble AI ready..."
   Quiet $Npm @("ci", "--no-audit", "--no-fund", "--loglevel=error")
   Quiet $Npm @("ci", "--prefix", "bin", "--no-audit", "--no-fund", "--loglevel=error")
   if ($Mode -eq "hub") { Quiet $Npm @("run", "build", "--silent") }
-  Write-Host "$Check Downloaded Wisp"
-  # Move an older Warren home and services to Wisp before starting anything under the new name.
-  Quiet $Node @((Join-Path $Dir "bin\wisp.mjs"), "migrate")
-  if ($State -eq $OldState -and (Test-Path (Join-Path $HOME ".wisp"))) {
-    if ($Node.StartsWith($OldState + "\")) { $Node = (Join-Path $HOME ".wisp") + $Node.Substring($OldState.Length) }
-    $State = Join-Path $HOME ".wisp"
+  Write-Host "$Check Downloaded Bubble AI"
+  # Move an older Warren home and services to Bubble AI before starting anything under the new name.
+  Quiet $Node @((Join-Path $Dir "bin\bubble-ai.mjs"), "migrate")
+  if ($State -ne (Join-Path $HOME ".bubble-ai") -and (Test-Path (Join-Path $HOME ".bubble-ai"))) {
+    if ($Node.StartsWith($OldState + "\")) { $Node = (Join-Path $HOME ".bubble-ai") + $Node.Substring($OldState.Length) }
+    $State = Join-Path $HOME ".bubble-ai"
     $Log = Join-Path $State "install.log"
   }
   $Bin = Join-Path $HOME ".local\bin"
@@ -115,8 +122,9 @@ try {
       Remove-Item $OldEntry, (Join-Path $Bin "$Old.cmd") -Force -ErrorAction SilentlyContinue
     }
   }
-  foreach ($Alias in @("wisp", "wisp-mcp", "wisp-hub")) {
-    $Script = Join-Path $Dir "bin\$Alias.mjs"
+  # bubble-ai is the command now; wisp stays as another name for it
+  foreach ($Alias in @("bubble-ai", "bubble-ai-mcp", "bubble-ai-hub", "wisp", "wisp-mcp", "wisp-hub")) {
+    $Script = Join-Path $Dir ("bin\" + ($Alias -replace '^wisp', 'bubble-ai') + ".mjs")
     # A distinct helper name avoids PowerShell selecting a script blocked by its execution policy.
     # An ASCII trampoline preserves Unicode paths through a UTF-8 PowerShell wrapper.
     $NodeLiteral = "'" + $Node.Replace("'", "''") + "'"
@@ -128,7 +136,7 @@ try {
   if ($Bin -notin ($UserPath -split ';')) { [Environment]::SetEnvironmentVariable("Path", "$Bin;$UserPath", "User") }
   $env:Path = "$Bin;" + $env:Path
   # Invoke the selected runtime directly so the current PowerShell also works before PATH refresh.
-  $Cli = Join-Path $Dir "bin\wisp.mjs"
+  $Cli = Join-Path $Dir "bin\bubble-ai.mjs"
   if ($Mode -eq "join") {
     $JoinArgs = @($Cli, "join")
     if ($Invite) { $JoinArgs += $Invite }
@@ -137,7 +145,7 @@ try {
     & $Node @JoinArgs
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
   } elseif ($Mode -eq "device") {
-    if ($NoService) { Write-Host "$Check Installed Wisp; use the existing connection flags with wisp node start" }
+    if ($NoService) { Write-Host "$Check Installed Bubble AI; use the existing connection flags with bubble-ai node start" }
     else {
       $Connect = @($Cli, "service", "install", "node", "--hub", $Hub, "--token", $Token)
       if ($Name) { $Connect += @("--name", $Name) }
@@ -145,7 +153,7 @@ try {
       Write-Host "$Check This computer joined"
     }
   } elseif ($NoService) {
-    Write-Host "$Check Installed Wisp; start it with: wisp service install hub"
+    Write-Host "$Check Installed Bubble AI; start it with: bubble-ai service install hub"
   } else {
     Quiet $Node @($Cli, "service", "install", "hub")
     $Port = $null
@@ -155,8 +163,8 @@ try {
     foreach ($i in 1..30) {
       try { Invoke-WebRequest "http://127.0.0.1:$Port/healthz" -UseBasicParsing -TimeoutSec 2 | Out-Null; $Up = $true; break } catch { Start-Sleep -Seconds 1 }
     }
-    if (-not $Up) { Fail "Wisp did not start; run wisp doctor." }
-    Write-Host "$Check Started Wisp (starts again when you log in)"
+    if (-not $Up) { Fail "Bubble AI did not start; run bubble-ai doctor." }
+    Write-Host "$Check Started Bubble AI (starts again when you log in)"
     try { & $Node $Cli "setup-code" 2>$null | Where-Object { $_ -notmatch "already has an owner" } | ForEach-Object { Write-Host $_ } } catch {}
     if (-not $NoDevice) {
       $LocalArgs = @($Cli, "service", "install", "node", "--local")
@@ -166,12 +174,12 @@ try {
     }
     $Apps = @("claude", "codex", "gemini", "hermes", "kimi", "qwen") | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue }
     if ($Apps) { Write-Host "$Check Found agent apps: $($Apps -join ', ')" }
-    else { Write-Host "$Work Agent apps can be added in Wisp" }
+    else { Write-Host "$Work Agent apps can be added in Bubble AI" }
     if ((Get-Command tailscale -ErrorAction SilentlyContinue) -or (Test-Path "$env:ProgramFiles\Tailscale\tailscale.exe")) { Write-Host "$Check Found Tailscale" }
-    Write-Host "Opening Wisp in your browser... http://localhost:$Port"
+    Write-Host "Opening Bubble AI in your browser... http://localhost:$Port"
     if (-not $NoOpen) { Start-Process "http://localhost:$Port" }
   }
-  Write-Host "Other computers $Arrow Install Wisp there, then run wisp join"
-  Write-Host "Phones $Arrow Open Add a device in Wisp and scan the code"
-  Write-Host "Stuck? $Arrow wisp doctor"
+  Write-Host "Other computers $Arrow Install Bubble AI there, then run bubble-ai join"
+  Write-Host "Phones $Arrow Open Add a device in Bubble AI and scan the code"
+  Write-Host "Stuck? $Arrow bubble-ai doctor"
 } finally { Pop-Location }

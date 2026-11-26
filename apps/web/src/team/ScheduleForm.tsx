@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
-import { describeCron, nextRun, type ChannelTeam, type TeamStep } from "@wisp/core";
+import { describeCron, nextRun, type ChannelTeam, type TeamStep } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { cx } from "../components/ui.tsx";

@@ -18,14 +18,14 @@ struct HelpView: View {
   static let glossary: [(term: String, meaning: String)] = [
     ("Agent", "An AI agent you give work to, like a teammate. It has a name, remembers things, and works on a device."),
     ("Harness", "The AI program an agent runs on, like Claude Code or Codex. You pick it once when you make an agent."),
-    ("Device", "A computer of yours with Wisp installed. Agents do their work there."),
+    ("Device", "A computer of yours with Bubble AI installed. Agents do their work there."),
     ("Computer", "A desktop an agent can see and use, either a virtual one on your device or your own screen."),
-    ("Memory", "Notes Wisp keeps about you and your work, so agents don't need to be told twice. You can read and fix them."),
+    ("Memory", "Notes Bubble AI keeps about you and your work, so agents don't need to be told twice. You can read and fix them."),
     ("Skill", "Something an agent has learned how to do, like a recipe it can follow again."),
     ("Routine", "A job an agent does on its own, on a schedule or when something happens."),
     ("Team", "A group of agents that work on something together. Each team has its own, in the team's details."),
-    ("Connected app", "A service you link to Wisp, like Gmail, so agents can use it for you."),
-    ("Connection code (token)", "A one-time code that links a computer to this Wisp. It's shown once when you add a device."),
+    ("Connected app", "A service you link to Bubble AI, like Gmail, so agents can use it for you."),
+    ("Connection code (token)", "A one-time code that links a computer to this Bubble AI. It's shown once when you add a device."),
     ("AI tokens", "How AI services measure and charge for work: more text, more tokens."),
   ]
 
@@ -58,7 +58,7 @@ struct HelpView: View {
         if let next {
           if next.id == "agent", store.canManage { Button("Next: make an agent") { addingAgent = true }.buttonStyle(.pill(.primary)) }
           if next.id == "device" { Button { store.route = .device(id: nil) } label: { Text("Next: see computers").frame(maxWidth: .infinity) }.buttonStyle(.pill(.primary)) }
-          if next.id == "anywhere", store.isOwner { NavigationLink { AccessView() } label: { Text("Next: use Wisp away from home").frame(maxWidth: .infinity) }.buttonStyle(.pill(.primary)) }
+          if next.id == "anywhere", store.isOwner { NavigationLink { AccessView() } label: { Text("Next: use Bubble AI away from home").frame(maxWidth: .infinity) }.buttonStyle(.pill(.primary)) }
         }
       }
       .padding(18).frame(maxWidth: .infinity, alignment: .leading)
@@ -69,7 +69,7 @@ struct HelpView: View {
         ForEach(Readiness.checks(agents: store.agents, devices: devices)) { ReadinessCheckRow(check: $0, store: store, makeHelper: { addingAgent = true }) }
       }
       CardGroup {
-        NavigationLink { HelpExamplesView() } label: { RowLabel(title: "What can Wisp do?") }.accessibilityIdentifier("help-examples")
+        NavigationLink { HelpExamplesView() } label: { RowLabel(title: "What can Bubble AI do?") }.accessibilityIdentifier("help-examples")
         NavigationLink { HelpWordsView() } label: { RowLabel(title: "Words you'll see") }.accessibilityIdentifier("help-words")
         if let url = URL(string: "\(WispRepo.url)/issues") {
           Link(destination: url) { RowLabel(title: "Report a problem", chevron: false) }.accessibilityIdentifier("help-report")
@@ -87,13 +87,13 @@ struct HelpView: View {
   static func steps(hasHelper: Bool, hasDevice: Bool, reachable: Bool?) -> [Step] {
     [Step(id: "agent", title: "Make your first agent", done: hasHelper),
      Step(id: "device", title: "Connect a computer for it to work on", done: hasDevice),
-     Step(id: "anywhere", title: "Use Wisp away from home", done: reachable != false)]
+     Step(id: "anywhere", title: "Use Bubble AI away from home", done: reachable != false)]
   }
 }
 
 struct HelpExamplesView: View {
   var body: some View {
-    SettingsPage("What can Wisp do?", id: "help-examples-page") {
+    SettingsPage("What can Bubble AI do?", id: "help-examples-page") {
       BulletsCard(points: HelpView.examples)
     }
   }

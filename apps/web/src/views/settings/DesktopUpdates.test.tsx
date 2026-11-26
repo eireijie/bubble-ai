@@ -9,7 +9,7 @@ vi.mock("./parts.tsx", () => ({ Card: () => null, Row: () => null }));
 
 describe("desktop update wording", () => {
   it("says what to do once an update is downloaded", () => {
-    expect(describeUpdate(u("ready", "0.0.7")).hint).toMatch(/Restart Wisp/);
+    expect(describeUpdate(u("ready", "0.0.7")).hint).toMatch(/Restart Bubble AI/);
   });
   it("says the version when up to date", () => {
     expect(describeUpdate(u("current")).hint).toContain("0.0.6");

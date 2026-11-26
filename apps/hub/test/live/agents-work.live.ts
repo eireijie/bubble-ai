@@ -7,7 +7,7 @@
  *   LIVE_HARNESS=claude-code LIVE_MODEL=haiku npx tsx …             # another harness signed in on this computer
  *   LIVE_GITHUB_TOKEN=$(gh auth token) npx tsx … connector          # a real connector's watch, read-only
  *
- * It starts a hub in a throwaway folder (never ~/.wisp), a device on this computer that runs the
+ * It starts a hub in a throwaway folder (never ~/.bubble-ai), a device on this computer that runs the
  * harness with its own sign-in here, and plays each scenario without a person answering: the script
  * only changes what the agent watches, lets time pass (by making things due), and presses Approve
  * once. For each scenario it prints whether it worked, how long it took, and the model calls and
@@ -16,8 +16,8 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { TeamFlow, TeamStep } from "@wisp/core";
-import { deviceAdapters } from "@wisp/adapters";
+import type { TeamFlow, TeamStep } from "@bubble-ai/core";
+import { deviceAdapters } from "@bubble-ai/adapters";
 import { NodeDaemon } from "../../../node/src/daemon.ts";
 import { buildHub } from "../../src/app.ts";
 import type { Hub } from "../../src/hub.ts";
@@ -148,7 +148,7 @@ async function watchScenario(notes: string[]) {
   hub.store.setBackground(a.id, me, { enabled: true, everyMinutes: 180, quietStart: "00:00", quietEnd: "00:00", focus: "Releases of the Lab app. Tell me when a release has a breaking change and what I need to do about it. Nothing else about releases matters to me.", nextAt: new Date(Date.now() + 6 * 3_600_000).toISOString() });
   const w = await hub.watches.create({ workspaceId: ws, userId: me, agentIds: [a.id], service: "browser", config: { url: PAGE, lookFor: "new releases with breaking changes" }, createdBy: me });
   if ("error" in w) throw new Error(w.error);
-  notes.push(`watch started; Wisp reads the page itself: ${hub.watches.readsPage(w.id)}`);
+  notes.push(`watch started; Bubble AI reads the page itself: ${hub.watches.readsPage(w.id)}`);
 
   // 1. nothing changed: no model call
   let since = mark();

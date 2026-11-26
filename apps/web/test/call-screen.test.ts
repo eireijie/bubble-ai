@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { callFacts } from "../src/voice/facts.ts";
 import { INITIAL_CALL, callPhase, type CallState } from "../src/voice/call.ts";
 import { clock, phaseLabel } from "../src/voice/prefs.ts";

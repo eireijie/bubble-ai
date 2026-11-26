@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronRight, Plus, Zap } from "lucide-react";
-import { harnessLabel, providerLabel, type Agent, type ConnectionModel, type ModelConnection } from "@wisp/core";
+import { harnessLabel, providerLabel, type Agent, type ConnectionModel, type ModelConnection } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { href } from "../router.ts";

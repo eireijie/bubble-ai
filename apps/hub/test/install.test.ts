@@ -27,7 +27,7 @@ describe("installers", () => {
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text.startsWith("#!/usr/bin/env bash")).toBe(true);
-    expect(text).toContain('WISP_REPO="${WISP_REPO-${WARREN_REPO-https://');
+    expect(text).toContain('BUBBLE_REPO="${BUBBLE_REPO-${WISP_REPO-${WARREN_REPO-https://');
   });
 
   it("serves install.ps1", async () => {

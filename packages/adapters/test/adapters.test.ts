@@ -157,7 +157,7 @@ describe("token usage", () => {
 });
 
 describe("claude env", () => {
-  it("turns off Claude Code's device-local auto memory so memory lives in Wisp", () => {
+  it("turns off Claude Code's device-local auto memory so memory lives in Bubble AI", () => {
     expect(claudeEnv({ prompt: "", cwd: "/", env: { A: "1" } })).toEqual({ MCP_TIMEOUT: "180000", A: "1", CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" });
   });
 
@@ -183,7 +183,7 @@ import fsp from "node:fs/promises";
 import { RunFiles, claudeMcpConfig, runJsonl } from "../src/index.ts";
 
 describe("secrets stay off the command line", () => {
-  const mcp = { command: "node", args: ["wisp-mcp.mjs"], env: { WISP_URL: "http://hub", WISP_TOKEN: "wr_agent_secret" } };
+  const mcp = { command: "node", args: ["bubble-ai-mcp.mjs"], env: { BUBBLE_URL: "http://hub", BUBBLE_TOKEN: "wr_agent_secret" } };
 
   it("claude gets its MCP config (tokens and all) as a private file", async () => {
     const input = { prompt: "", cwd: "/", mcp };
@@ -194,7 +194,7 @@ describe("secrets stay off the command line", () => {
       expect(a[a.indexOf("--mcp-config") + 1]).toBe(file.path);
       expect(a[a.indexOf("--allowedTools") + 1]).toBe("mcp__wisp");
       expect(a.join(" ")).not.toContain("wr_agent_secret");
-      expect(JSON.parse(fs.readFileSync(file.path, "utf8")).mcpServers.wisp.env.WISP_TOKEN).toBe("wr_agent_secret");
+      expect(JSON.parse(fs.readFileSync(file.path, "utf8")).mcpServers.wisp.env.BUBBLE_TOKEN).toBe("wr_agent_secret");
       if (process.platform !== "win32") expect((await fsp.stat(file.path)).mode & 0o777).toBe(0o600);
     } finally {
       await files.cleanup();
@@ -314,7 +314,7 @@ describe("harness commands on the device", () => {
   it("reads an ACP agent's announced commands", async () => {
     const { acpCommands } = await import("../src/acp.ts");
     expect(acpCommands([{ name: "tools", description: "List tools", input: { hint: "name" } }, { name: "" }])).toEqual([{ name: "tools", description: "List tools", hint: "name", kind: "command", via: "raw", builtIn: true }]);
-    // commands Wisp has its own of, or that need a running turn, are left out of chat
+    // commands Bubble AI has its own of, or that need a running turn, are left out of chat
     expect(acpCommands(["help", "reset", "compress", "model", "context", "steer", "queue", "version"].map((name) => ({ name }))).map((c) => c.name)).toEqual(["help", "version"]);
     expect(acpCommands(null)).toEqual([]);
   });

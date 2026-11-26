@@ -16,7 +16,7 @@ const MIME: Record<"image" | "pdf", (name: string) => string> = {
 /** Save a file the browser's way. */
 export async function downloadFile(id: string, name: string, blob?: Blob) {
   const b = blob ?? (await fileBlob(id));
-  // plain bytes, so nothing in it can run as part of Wisp's page
+  // plain bytes, so nothing in it can run as part of Bubble AI's page
   const url = URL.createObjectURL(new Blob([b], { type: "application/octet-stream" }));
   const a = document.createElement("a");
   a.href = url;

@@ -47,7 +47,7 @@ export const github: Watcher = {
   needs: [["GITHUB_TOKEN"]],
   watches: "notifications: reviews asked of the person, mentions, assignments, replies and failed checks",
   howToConnect:
-    "Use the GitHub connector's token. A classic token with the notifications and repo scopes sees everything the person is notified about (github.com/settings/tokens/new?scopes=notifications,repo&description=Wisp); a fine-grained token only sees issues and pull requests that involve them.",
+    "Use the GitHub connector's token. A classic token with the notifications and repo scopes sees everything the person is notified about (github.com/settings/tokens/new?scopes=notifications,repo&description=Bubble AI); a fine-grained token only sees issues and pull requests that involve them.",
   everyMinutes: 5,
   minMinutes: 2,
   async poll(ctx) {

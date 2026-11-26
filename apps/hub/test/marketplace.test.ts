@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { marketplaceEntry, rankMarketplace, type RegistryServer } from "@wisp/core";
+import { marketplaceEntry, rankMarketplace, type RegistryServer } from "@bubble-ai/core";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 
@@ -132,7 +132,7 @@ describe("signing in to a remote connector", () => {
 describe("the marketplace", () => {
   const notion: RegistryServer = { name: "com.notion/mcp", description: "Official Notion MCP server", version: "1.0.1", remotes: [{ type: "streamable-http", url: "https://mcp.notion.com/mcp" }, { type: "sse", url: "https://mcp.notion.com/sse" }] };
 
-  it("turns registry servers into connectors Wisp can add", () => {
+  it("turns registry servers into connectors Bubble AI can add", () => {
     const e = marketplaceEntry(notion)!;
     expect(e).toMatchObject({ id: "com.notion/mcp", name: "Notion", publisher: "notion.com", verified: true });
     expect(e.installs).toEqual([{ kind: "mcp-http", label: "Remote", url: "https://mcp.notion.com/mcp", headers: {}, fields: [] }]);

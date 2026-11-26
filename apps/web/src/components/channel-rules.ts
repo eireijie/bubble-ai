@@ -1,4 +1,4 @@
-import type { ChannelSettings } from "@wisp/core";
+import type { ChannelSettings } from "@bubble-ai/core";
 
 /** The part of a channel's settings the Agents form owns. The team's flow is saved by the builder, so this form never sends it back. */
 export type AgentRules = Pick<ChannelSettings, "defaultAgentId" | "replyInThread" | "instructions">;

@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import type { Duplex } from "node:stream";
-import { AGENT_SCREEN, MAX_TRANSFER_BYTES, parseKeys, toScreen, type ComputerAction, type FileData, type KeyCombo, type LoginFillResult, type PageElement, type RunOutput, type Screenshot } from "@wisp/core";
+import { AGENT_SCREEN, MAX_TRANSFER_BYTES, parseKeys, toScreen, type ComputerAction, type FileData, type KeyCombo, type LoginFillResult, type PageElement, type RunOutput, type Screenshot } from "@bubble-ai/core";
 import type { Clipboard, Files } from "./transfer.ts";
 
 export interface Size {
@@ -108,13 +108,13 @@ export async function perform(driver: Driver, a: ComputerAction): Promise<unknow
       await driver.open(a.target);
       return { ok: true };
     case "run":
-      if (!driver.run) throw new ActionError(`${driver.label} doesn't take shell commands from Wisp; use your own shell tool`);
+      if (!driver.run) throw new ActionError(`${driver.label} doesn't take shell commands from Bubble AI; use your own shell tool`);
       return driver.run(a.command, a.timeout ?? 120);
     case "start":
       await driver.start?.();
       return driver.status ? driver.status() : { status: "ready", detail: "" };
     case "stop":
-      if (!driver.stop) throw new ActionError(`${driver.label} can't be stopped from Wisp`);
+      if (!driver.stop) throw new ActionError(`${driver.label} can't be stopped from Bubble AI`);
       await driver.stop();
       return { ok: true };
     case "destroy":

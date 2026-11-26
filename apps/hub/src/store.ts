@@ -1,4 +1,4 @@
-import { channelTeams, chartFromSteps, cleanRulePath, hasSteps, isGraphTeam, migrateTeam, parseSubjectKey, subjectKey, teamOf, type AccessRule, type Actor, type Agent, type AgentSettings, type Approval, type Channel, type ChannelNotify, type ChannelSettings, DEFAULT_CHANNEL_SETTINGS, type Computer, type ComputerConfig, type ComputerKind, type ComputerStatus, type ContextUsage, type DeviceCapabilities, type Discussion, type DiscoveredAgent, type HarnessCatalog, type Team, type HarnessId, type MemoryLevel, type Message, type MessagePart, type Reaction, type Role, type Routine, type Section, type Subject, type User, type UserPrefs, type DeviceRole, type OwnRemoteDesktop, type BackgroundWork, type Followup, type Change, type ChatLoop, conversationFor, CACHED_INPUT_WEIGHT, spentTokens } from "@wisp/core";
+import { channelTeams, chartFromSteps, cleanRulePath, hasSteps, isGraphTeam, migrateTeam, parseSubjectKey, subjectKey, teamOf, type AccessRule, type Actor, type Agent, type AgentSettings, type Approval, type Channel, type ChannelNotify, type ChannelSettings, DEFAULT_CHANNEL_SETTINGS, type Computer, type ComputerConfig, type ComputerKind, type ComputerStatus, type ContextUsage, type DeviceCapabilities, type Discussion, type DiscoveredAgent, type HarnessCatalog, type Team, type HarnessId, type MemoryLevel, type Message, type MessagePart, type Reaction, type Role, type Routine, type Section, type Subject, type User, type UserPrefs, type DeviceRole, type OwnRemoteDesktop, type BackgroundWork, type Followup, type Change, type ChatLoop, conversationFor, CACHED_INPUT_WEIGHT, spentTokens } from "@bubble-ai/core";
 import { id, now } from "./auth.ts";
 import type { Db } from "./db.ts";
 
@@ -875,7 +875,7 @@ export class Store {
     return this.withReplyQuote(contextId ? { ...msg, contextId } : msg);
   }
 
-  /** The latest top-level message someone wrote in a channel (not Wisp's own notices): where its current chat stands. */
+  /** The latest top-level message someone wrote in a channel (not Bubble AI's own notices): where its current chat stands. */
   latestWritten(channelId: string): { id: string; createdAt: string; authorId: string; conversationId: string | null } | undefined {
     const r = this.db.prepare("SELECT id, created_at, author_id, conversation_id FROM messages WHERE channel_id = ? AND thread_id IS NULL AND author_id != 'system' ORDER BY created_at DESC, rowid DESC LIMIT 1").get(channelId) as { id: string; created_at: string; author_id: string; conversation_id: string | null } | undefined;
     return r && { id: r.id, createdAt: r.created_at, authorId: r.author_id, conversationId: r.conversation_id };

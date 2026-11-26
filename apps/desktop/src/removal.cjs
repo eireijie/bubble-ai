@@ -1,4 +1,4 @@
-// Remove Wisp from this computer, the same way uninstall.sh and the README's Windows steps do
+// Remove Bubble AI from this computer, the same way uninstall.sh and the README's Windows steps do
 // (test/removal.test.ts runs the script and this against the same folders so they can't drift).
 // Nothing here takes a path from a page: main.cjs passes tick-box ids, the plan is made here, and
 // every path goes through guard() before anything deletes it.
@@ -13,10 +13,11 @@ const LIST = {
   scheduledTasks: ["Wisp hub", "Wisp node", "Warren hub", "Warren node"],
   vm: /^(wisp|warren)-cmp_/,
   image: /(^|\/)(wisp|warren)-computer$/,
-  products: ["Wisp", "Warren"],
-  commands: ["wisp", "wisp-hub", "wisp-mcp", "warren", "warren-hub", "warren-mcp"],
-  stateDirs: [".wisp", ".warren"],
-  installDirs: ["wisp", "warren"],
+  // the app's own names, newest first, with the id its bundle has: Bubble AI, then Wisp and Warren from before the renames
+  products: [["Bubble AI", "bubbleai"], ["Wisp", "wisp"], ["Warren", "warren"]],
+  commands: ["bubble-ai", "bubble-ai-hub", "bubble-ai-mcp", "wisp", "wisp-hub", "wisp-mcp", "warren", "warren-hub", "warren-mcp"],
+  stateDirs: [".bubble-ai", ".wisp", ".warren"],
+  installDirs: ["bubble-ai", "wisp", "warren"],
   systemDirs: ["/var/lib/wisp", "/var/lib/warren", "/opt/wisp", "/opt/warren"],
   systemUnitDir: "/etc/systemd/system",
 };
@@ -30,13 +31,12 @@ const realRun = (env) => (bin, args, timeout = 60_000) =>
     });
   });
 
-/** Every place Wisp can be on this computer; `root` only moves the system folders, for tests. */
+/** Every place Bubble AI can be on this computer; `root` only moves the system folders, for tests. */
 function locations({ platform, home, appData, root = "" }) {
   const p = platform === "win32" ? nodePath.win32 : nodePath.posix;
   const sys = (file) => (root ? p.join(root, file) : file);
   const inHome = (...parts) => p.join(home, ...parts);
-  const appFiles = LIST.products.flatMap((product) => {
-    const id = product.toLowerCase();
+  const appFiles = LIST.products.flatMap(([product, id]) => {
     if (platform !== "darwin") return [p.join(appData, product)];
     return [p.join(appData, product), inHome("Library/Logs", product), inHome("Library/Preferences", `ai.${id}.desktop.plist`), inHome("Library/Caches", `ai.${id}.desktop`), inHome("Library/Saved Application State", `ai.${id}.desktop.savedState`)];
   });
@@ -45,13 +45,13 @@ function locations({ platform, home, appData, root = "" }) {
     launchAgents: LIST.launchAgents.map((name) => ({ name, file: inHome("Library/LaunchAgents", `${name}.plist`) })),
     userUnits: LIST.systemdUnits.map((name) => ({ name, file: inHome(".config/systemd/user", `${name}.service`) })),
     systemUnits: LIST.systemdUnits.map((name) => ({ name, file: p.join(sys(LIST.systemUnitDir), `${name}.service`) })),
-    bundles: platform === "darwin" ? LIST.products.flatMap((product) => [p.join(sys("/Applications"), `${product}.app`), inHome("Applications", `${product}.app`)]) : [],
+    bundles: platform === "darwin" ? LIST.products.flatMap(([product]) => [p.join(sys("/Applications"), `${product}.app`), inHome("Applications", `${product}.app`)]) : [],
     appFiles,
     commands: LIST.commands.flatMap((name) => (platform === "win32" ? [inHome(".local/bin", `${name}.cmd`), inHome(".local/bin", `${name}-entry.ps1`)] : [inHome(".local/bin", name)])),
     stateDirs: LIST.stateDirs.map((name) => inHome(name)),
     installDirs: LIST.installDirs.map((name) => inHome(name)),
     systemDirs: LIST.systemDirs.map(sys),
-    report: inHome("Wisp removal report.txt"),
+    report: inHome("Bubble AI removal report.txt"),
   };
 }
 
@@ -60,13 +60,13 @@ const qp = (s) => `'${String(s).replace(/'/g, "''")}'`;
 
 /** The helper that finishes after the app has quit. It only gets paths guard() has passed. */
 function helperScript({ platform, pid, paths, uninstaller = null, failures = [], report }) {
-  const ok = "Wisp is removed from this computer.";
+  const ok = "Bubble AI is removed from this computer.";
   if (platform === "win32") {
     return [
       `$fail = New-Object System.Collections.ArrayList`,
       ...failures.map((f) => `[void]$fail.Add(${qp(f)})`),
       `try { Wait-Process -Id ${Number(pid)} -Timeout 60 -ErrorAction SilentlyContinue } catch {}`,
-      ...(uninstaller ? [`try { Start-Process -Wait -FilePath ${qp(uninstaller)} -ArgumentList '/S' } catch { [void]$fail.Add('Uninstall Wisp in Settings > Apps.') }`] : []),
+      ...(uninstaller ? [`try { Start-Process -Wait -FilePath ${qp(uninstaller)} -ArgumentList '/S' } catch { [void]$fail.Add('Uninstall Bubble AI in Settings > Apps.') }`] : []),
       `foreach ($path in @(${paths.map(qp).join(", ")})) {`,
       `  if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue }`,
       `  if (Test-Path -LiteralPath $path) { [void]$fail.Add("Couldn't delete $path") }`,
@@ -74,16 +74,16 @@ function helperScript({ platform, pid, paths, uninstaller = null, failures = [],
       `Add-Type -AssemblyName System.Windows.Forms`,
       `if ($fail.Count -eq 0) { $message = ${qp(ok)} } else {`,
       `  $fail | Set-Content -LiteralPath ${qp(report)}`,
-      `  $message = "Wisp is removed, except for:\`n\`n" + ($fail -join "\`n") + "\`n\`nThis list is saved in " + ${qp(report)}`,
+      `  $message = "Bubble AI is removed, except for:\`n\`n" + ($fail -join "\`n") + "\`n\`nThis list is saved in " + ${qp(report)}`,
       `}`,
-      `[void][System.Windows.Forms.MessageBox]::Show($message, 'Wisp')`,
+      `[void][System.Windows.Forms.MessageBox]::Show($message, 'Bubble AI')`,
       `Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue`,
       ``,
     ].join("\r\n");
   }
   const dialog = platform === "darwin"
-    ? `osascript -e 'on run argv' -e 'display dialog (item 1 of argv) with title "Wisp" buttons {"OK"} default button 1' -e 'end run' "$message" >/dev/null 2>&1`
-    : `if command -v zenity >/dev/null 2>&1; then zenity --info --title=Wisp --text="$message"; elif command -v kdialog >/dev/null 2>&1; then kdialog --title Wisp --msgbox "$message"; elif command -v notify-send >/dev/null 2>&1; then notify-send Wisp "$message"; fi`;
+    ? `osascript -e 'on run argv' -e 'display dialog (item 1 of argv) with title "Bubble AI" buttons {"OK"} default button 1' -e 'end run' "$message" >/dev/null 2>&1`
+    : `if command -v zenity >/dev/null 2>&1; then zenity --info --title=Bubble AI --text="$message"; elif command -v kdialog >/dev/null 2>&1; then kdialog --title Bubble AI --msgbox "$message"; elif command -v notify-send >/dev/null 2>&1; then notify-send Bubble AI "$message"; fi`;
   return [
     `#!/bin/sh`,
     `fail=""`,
@@ -94,7 +94,7 @@ function helperScript({ platform, pid, paths, uninstaller = null, failures = [],
     ...paths.map((path) => `remove ${q(path)}`),
     `if [ -z "$fail" ]; then message=${q(ok)}; else`,
     `  printf '%b' "$fail" > ${q(report)}`,
-    `  message="$(printf 'Wisp is removed, except for:\n\n%bThis list is saved in %s' "$fail" ${q(report)})"`,
+    `  message="$(printf 'Bubble AI is removed, except for:\n\n%bThis list is saved in %s' "$fail" ${q(report)})"`,
     `fi`,
     dialog,
     `rm -f -- "$0"`,
@@ -119,35 +119,34 @@ function createRemoval({
   const isDir = (file) => !!lstat(file)?.isDirectory();
   const under = (child, parent) => child.startsWith(parent + p.sep);
 
-  /** Wisp's own checkout, as uninstall.sh decides it: never some other folder that's called wisp. */
+  /** Bubble AI's own checkout, as uninstall.sh decides it: never some other folder that's called wisp. */
   const isCheckout = (dir) => {
-    try { return ["wisp", "warren"].includes(JSON.parse(fs.readFileSync(p.join(dir, "package.json"), "utf8")).name); } catch { return false; }
+    try { return ["bubble-ai", "wisp", "warren"].includes(JSON.parse(fs.readFileSync(p.join(dir, "package.json"), "utf8")).name); } catch { return false; }
   };
   const isWispBundle = (bundle) => {
-    try { return /ai\.(wisp|warren)\.desktop/.test(fs.readFileSync(p.join(bundle, "Contents/Info.plist"), "latin1")); } catch { return false; }
+    try { return /ai\.(bubbleai|wisp|warren)\.desktop/.test(fs.readFileSync(p.join(bundle, "Contents/Info.plist"), "latin1")); } catch { return false; }
   };
 
   // ------------------------------------------------------------- the running copy of the app
 
   const runningBundle = () => {
     if (!packaged || platform !== "darwin") return null;
-    // electron-builder names the bundle wisp.app
-    const m = execPath.match(/^(.*\/(?:wisp|warren)\.app)\/Contents\/MacOS\/[^/]+$/i);
+    // electron-builder names the bundle after the product (Bubble AI.app; Wisp.app or Warren.app before the renames)
+    const m = execPath.match(/^(.*\/(?:bubble ai|wisp|warren)\.app)\/Contents\/MacOS\/[^/]+$/i);
     if (!m || m[1].startsWith("/Volumes/") || m[1].includes("/AppTranslocation/")) return null;
     return m[1];
   };
-  const runningAppImage = () => (packaged && platform === "linux" && appImage && /^wisp[^/]*\.appimage$/i.test(p.basename(appImage)) ? appImage : null);
+  const runningAppImage = () => (packaged && platform === "linux" && appImage && /^(bubble[- ]?ai|wisp)[^/]*\.appimage$/i.test(p.basename(appImage)) ? appImage : null);
   const uninstaller = () => {
     if (!packaged || platform !== "win32") return null;
-    const file = p.join(p.dirname(execPath), "Uninstall Wisp.exe");
-    return exists(file) ? file : null;
+    return ["Uninstall Bubble AI.exe", "Uninstall Wisp.exe"].map((name) => p.join(p.dirname(execPath), name)).find(exists) ?? null;
   };
 
   // ------------------------------------------------------------- the allow-list
 
   const exact = () => new Set([...at.launchAgents.map((s) => s.file), ...at.userUnits.map((s) => s.file), ...at.bundles, ...at.appFiles, ...at.commands, ...at.stateDirs, ...at.installDirs, ...[runningBundle(), runningAppImage()].filter(Boolean)]);
 
-  /** Throws unless `target` is one of Wisp's own places (or inside ~/.wisp or a Wisp checkout). */
+  /** Throws unless `target` is one of Bubble AI's own places (or inside ~/.bubble-ai or a Bubble AI checkout). */
   function guard(target) {
     const stop = (why) => { throw new Error(`Refused to delete ${target}: ${why}`); };
     if (typeof target !== "string" || !p.isAbsolute(target) || p.normalize(target) !== target) stop("not a plain full path");
@@ -158,14 +157,14 @@ function createRemoval({
         if (isLink(up)) stop("it's reached through a link");
         if (up === folder) break;
       }
-    } else if (!exact().has(target)) stop("it isn't on Wisp's list");
+    } else if (!exact().has(target)) stop("it isn't on Bubble AI's list");
     if (isLink(target)) return target; // the link goes, whatever it points at stays
     const checkout = at.installDirs.includes(target) ? target : at.installDirs.includes(folder) ? folder : null;
-    if (checkout && !isCheckout(checkout)) stop("it isn't a Wisp folder");
+    if (checkout && !isCheckout(checkout)) stop("it isn't a Bubble AI folder");
     if (at.bundles.includes(target) || target === runningBundle()) {
-      if (exists(target) && !isWispBundle(target)) stop("it isn't the Wisp app");
+      if (exists(target) && !isWispBundle(target)) stop("it isn't the Bubble AI app");
     }
-    if (at.commands.includes(target) && platform !== "win32" && exists(target)) stop("Wisp's commands are links, and this isn't one");
+    if (at.commands.includes(target) && platform !== "win32" && exists(target)) stop("Bubble AI's commands are links, and this isn't one");
     return target;
   }
 
@@ -245,14 +244,15 @@ function createRemoval({
 
   const tailscaleBins = () => {
     if (root) return ["tailscale"]; // a test only ever uses its stand-in on PATH
-    if (env.WISP_TAILSCALE) return [env.WISP_TAILSCALE];
+    const tailscale = env.BUBBLE_TAILSCALE ?? env.WISP_TAILSCALE;
+    if (tailscale) return [tailscale];
     if (platform === "darwin") return ["tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale", "/opt/homebrew/bin/tailscale", "/usr/local/bin/tailscale"];
     if (platform === "win32") return ["tailscale", "C:\\Program Files\\Tailscale\\tailscale.exe"];
     return ["tailscale", "/usr/bin/tailscale", "/usr/local/bin/tailscale", "/usr/sbin/tailscale"];
   };
   const json = (out) => { try { return JSON.parse(out.slice(out.indexOf("{"))); } catch { return null; } };
 
-  /** Whether Tailscale sends this computer's https://<name> root to this hub: that alone is Wisp's. */
+  /** Whether Tailscale sends this computer's https://<name> root to this hub: that alone is Bubble AI's. */
   async function readTailscale() {
     for (const bin of tailscaleBins()) {
       const status = json((await run(bin, ["status", "--json"], 8000)).stdout);
@@ -297,7 +297,7 @@ function createRemoval({
     const commands = at.commands.filter((file) => (platform === "win32" ? exists(file) : isLink(file)));
     const states = at.stateDirs.filter(exists);
     const installs = at.installDirs.filter((dir) => exists(dir) && (isLink(dir) || isCheckout(dir)));
-    // on a Mac's usual disk /Applications/Wisp.app and /Applications/wisp.app are one folder
+    // on a Mac's usual disk /Applications/Bubble AI.app and /Applications/wisp.app are one folder
     const bundles = [...new Map([...at.bundles, runningBundle()].filter(Boolean).map((b) => [b.toLowerCase(), b])).values()].filter((b) => exists(b) && allowed(b));
     const appFiles = at.appFiles.filter(exists);
     const image = runningAppImage();
@@ -318,23 +318,23 @@ function createRemoval({
     if (vmCount) add("vms", "lost", `Agent computers · ${vmCount}`, `Everything on them${legacy ? `, including ${legacy} with old warren names` : ""}`);
     if (services.length) add("services", "rest", "Services", `${services.map((s) => s.name).join(", ")}, started at login`);
     if (images.container.length + images.docker.length) add("image", "rest", "VM image", "wisp-computer, a few GB");
-    if (bundles.length || appFiles.length || image || removeApp) add("app", "rest", "Wisp app and its settings", `${[...bundles, image, removeApp && p.dirname(removeApp)].filter(Boolean).map(short).join(", ") || "Settings only"}, finishes after Wisp closes`);
+    if (bundles.length || appFiles.length || image || removeApp) add("app", "rest", "Bubble AI app and its settings", `${[...bundles, image, removeApp && p.dirname(removeApp)].filter(Boolean).map(short).join(", ") || "Settings only"}, finishes after Bubble AI closes`);
     if (commands.length) add("commands", "rest", "Commands", `${[...new Set(commands.map((f) => p.basename(f).replace(/(\.cmd|-entry\.ps1)$/, "")))].join(", ")} in ~/.local/bin`);
     if (states.length) add("state", "rest", "Device settings and agents' folders", states.map(short).join(", "), ["services"]);
-    if (installs.length) add("install", "rest", "Wisp folder", installs.map(short).join(", "), ["services"]);
+    if (installs.length) add("install", "rest", "Bubble AI folder", installs.map(short).join(", "), ["services"]);
 
     const manual = [];
     if (systemUnits.length) manual.push({ label: `System services: ${systemUnits.map((s) => s.name).join(", ")}`, command: systemUnits.map((s) => `sudo systemctl disable --now ${s.name} && sudo rm -f ${s.file}`).join(" && ") });
     for (const dir of at.systemDirs.filter(isDir)) manual.push({ label: dir, command: `${exists(p.join(dir, "compose.yaml")) ? `sudo docker compose -f ${dir}/compose.yaml down && ` : ""}sudo rm -rf ${dir}` });
     if (packaged && platform === "darwin" && !runningBundle()) manual.push({ label: "This copy of the app", command: "Quit it, then drag it to the Trash." });
     if (packaged && platform === "linux" && !image) manual.push({ label: "The app", command: "sudo apt remove wisp, or delete your AppImage" });
-    if (packaged && platform === "win32" && !removeApp) manual.push({ label: "The app", command: "Uninstall Wisp in Settings > Apps" });
+    if (packaged && platform === "win32" && !removeApp) manual.push({ label: "The app", command: "Uninstall Bubble AI in Settings > Apps" });
 
     const tailscale = await readTailscale();
     const kept = ["Tailscale itself", "Apple container or Docker", "your agent apps"];
     if (hub.memoryPath && ![...states, ...installs].some((dir) => hub.memoryPath === dir || under(hub.memoryPath, dir))) kept.push(`your memory folder at ${short(hub.memoryPath)}`);
     if (hub.dataDir && !data.includes(hub.dataDir) && !data.some((dir) => under(hub.dataDir, dir))) kept.push(`the data folder at ${short(hub.dataDir)}`);
-    if (hub.wispDir && !installs.includes(hub.wispDir)) kept.push(`the Wisp folder at ${short(hub.wispDir)}`);
+    if (hub.wispDir && !installs.includes(hub.wispDir)) kept.push(`the Bubble AI folder at ${short(hub.wispDir)}`);
 
     // the hub goes with its service, or with the app when the app is what runs it
     const hubService = services.some((s) => /^(ai\.(wisp|warren)\.hub|wisp|warren|(Wisp|Warren) hub)$/.test(s.name));
@@ -424,7 +424,7 @@ function createRemoval({
     if (picked.has("install")) await step("install", `Deleting ${names(plan.installs)}…`, `${names(plan.installs)} deleted`, () => each(plan.installs, (dir) => removeExcept(dir, keepIn(dir))));
     const app = picked.has("app");
     const failures = steps.filter((s) => s.state === "failed").flatMap((s) => s.detail.split("\n"));
-    if (app) { steps.push({ id: "app", label: "App and its settings: after Wisp closes", state: "later", detail: "" }); onStep([...steps]); }
+    if (app) { steps.push({ id: "app", label: "App and its settings: after Bubble AI closes", state: "later", detail: "" }); onStep([...steps]); }
     plan.finish = app ? { paths: [...plan.bundles, ...(plan.image ? [plan.image] : []), ...plan.appFiles], uninstaller: plan.removeApp, failures } : null;
     return { steps, app, setupGone: picked.has("data") || picked.has("state") || picked.has("install") };
   }
@@ -448,16 +448,16 @@ function createRemoval({
   /** Where a backup can't go: it would be deleted with the rest. */
   function backupProblem(dest) {
     const places = [...at.stateDirs, ...at.installDirs, ...at.bundles, ...at.appFiles];
-    return places.some((place) => dest === place || under(dest, place)) ? "Choose a folder Wisp isn't about to remove." : null;
+    return places.some((place) => dest === place || under(dest, place)) ? "Choose a folder Bubble AI isn't about to remove." : null;
   }
 
-  /** Copy the hub's data folder to <dest>/Wisp backup <day>; `snapshot` copies a database a running hub has open. */
+  /** Copy the hub's data folder to <dest>/Bubble AI backup <day>; `snapshot` copies a database a running hub has open. */
   async function backup(dest, snapshot, day = new Date().toISOString().slice(0, 10)) {
     const problem = backupProblem(dest);
     if (problem) throw new Error(problem);
     if (!plan?.data.length) throw new Error("There's nothing to back up.");
-    let out = p.join(dest, `Wisp backup ${day}`);
-    for (let n = 2; exists(out); n++) out = p.join(dest, `Wisp backup ${day} ${n}`);
+    let out = p.join(dest, `Bubble AI backup ${day}`);
+    for (let n = 2; exists(out); n++) out = p.join(dest, `Bubble AI backup ${day} ${n}`);
     for (const [i, source] of plan.data.entries()) {
       const to = plan.data.length > 1 ? p.join(out, String(i + 1)) : out;
       fs.mkdirSync(to, { recursive: true });

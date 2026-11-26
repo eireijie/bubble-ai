@@ -218,7 +218,7 @@ struct ConfirmCard: View {
   }
 }
 
-/** An author: an agent's ghost, a person's initials, Obsidian or Wisp. */
+/** An author: an agent's ghost, a person's initials, Obsidian or Bubble AI. */
 struct AuthorAvatar: View {
   var author: ChangeAuthor
   var size: CGFloat = 40

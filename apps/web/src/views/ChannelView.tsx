@@ -2,7 +2,7 @@ import { Suspense, createContext, memo, useCallback, useContext, useEffect, useL
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
 import { SquarePen, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Phone } from "lucide-react";
-import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@wisp/core";
+import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
@@ -194,7 +194,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const infoOpen = side?.kind === "info" && !route.threadId && channel.kind === "channel";
 
   return (
-    // the open agent's colour tints its chat: your bubbles and the round button (a team keeps the Wisp violet)
+    // the open agent's colour tints its chat: your bubbles and the round button (a team keeps the Bubble AI violet)
     <div className="flex-1 min-h-0 flex" style={chatTint(dmAgent ? agentColor(dmAgent) : undefined)}>
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         <BannerSlot.Provider value={bannerSlot}>
@@ -755,14 +755,14 @@ function mergeTouch(a: Partial<Record<"onTouchStart" | "onTouchMove" | "onTouchE
 
 // --- one message --------------------------------------------------------------------------------
 
-/** A hand-off, a note from Wisp, or a person's or agent's message. */
+/** A hand-off, a note from Bubble AI, or a person's or agent's message. */
 function MessageItem(props: { m: Message; grouped?: boolean; last?: boolean; replies?: number; onReplies?: () => void; inThread?: boolean; composerThread?: string; working?: LiveRun[] }) {
   return props.m.author.id === "system" ? <SystemItem {...props} /> : <PersonMessage {...props} />;
 }
 
 function SystemItem({ m, replies, onReplies, working = [] }: { m: Message; replies?: number; onReplies?: () => void; working?: LiveRun[] }) {
   const task = m.parts.find((p) => p.type === "task");
-  // a step Wisp handed out: a row that opens the work in its own sub-thread
+  // a step Bubble AI handed out: a row that opens the work in its own sub-thread
   if (task && task.type === "task") return <HandoffRow m={m} taskId={task.taskId} replies={replies} working={working} onOpen={onReplies} />;
   if (m.parts.some((p) => p.type === "status" && p.text === SCHEDULE_MARK)) return <ScheduleRow m={m} replies={replies} onReplies={onReplies} />;
   return (

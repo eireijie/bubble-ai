@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Allowance, Change } from "@wisp/core";
+import type { Allowance, Change } from "@bubble-ai/core";
 import { api } from "./api.ts";
 import { useStore } from "./store.ts";
 

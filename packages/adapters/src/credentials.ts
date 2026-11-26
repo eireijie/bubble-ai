@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { credentialSupport, harnessLabel, hermesProvider, providerLabel, withArticle, type ConnectionSecret, type RunCredential } from "@wisp/core";
+import { credentialSupport, harnessLabel, hermesProvider, providerLabel, withArticle, type ConnectionSecret, type RunCredential } from "@bubble-ai/core";
 import { yamlSetScalar } from "./harness-formats.ts";
 
 /**
@@ -147,7 +147,7 @@ export async function prepareCredential(harness: string, cred: RunCredential, at
     let sent: Record<string, any> | null = null;
     let renewedHere = false;
     if (cred.kind === "oauth" && cred.provider !== "anthropic") {
-      const entry = cred.provider === "openai" ? hermesEntryFromCodex(s.auth) : s.pool ? { id: "wisp", label: "Wisp", auth_type: "oauth", priority: 0, source: "manual:device_code", ...s.pool } : null;
+      const entry = cred.provider === "openai" ? hermesEntryFromCodex(s.auth) : s.pool ? { id: "wisp", label: "Bubble AI", auth_type: "oauth", priority: 0, source: "manual:device_code", ...s.pool } : null;
       if (!entry?.refresh_token) throw new Error(`the ${providerLabel(cred.provider)} connection has no sign-in; connect it again in Settings → Models`);
       const onDisk = parseJson(await at.fs.read(authFile));
       const local = onDisk?.credential_pool?.[provider]?.[0];
@@ -207,7 +207,7 @@ function newer(a: unknown, b: unknown): boolean {
 export function hermesEntryFromCodex(auth: Record<string, unknown> | undefined): Record<string, unknown> | null {
   const t = auth ? tokensOf(auth) : {};
   if (!t.access_token || !t.refresh_token) return null;
-  return { id: "wisp", label: "Wisp", auth_type: "oauth", priority: 0, source: "manual:device_code", access_token: t.access_token, refresh_token: t.refresh_token, base_url: HERMES_CODEX_URL, last_refresh: auth?.last_refresh ?? null };
+  return { id: "wisp", label: "Bubble AI", auth_type: "oauth", priority: 0, source: "manual:device_code", access_token: t.access_token, refresh_token: t.refresh_token, base_url: HERMES_CODEX_URL, last_refresh: auth?.last_refresh ?? null };
 }
 
 /** Hermes's renewed tokens back in Codex's auth.json shape, keeping what Hermes doesn't track (the id token, account). Exported for tests. */

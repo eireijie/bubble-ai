@@ -1,9 +1,9 @@
-import { LOGIN_SOURCE_LABEL, siteMatches, siteOf, type Agent, type Approval, type LoginFillResult, type LoginRequest, type LoginSourceKind, type LoginSummary } from "@wisp/core";
+import { LOGIN_SOURCE_LABEL, siteMatches, siteOf, type Agent, type Approval, type LoginFillResult, type LoginRequest, type LoginSourceKind, type LoginSummary } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 
 /**
  * Agents signing in to websites with logins from the person's password manager (Settings →
- * Logins). Wisp keeps only the manager's access token: each password is read at the moment it's
+ * Logins). Bubble AI keeps only the manager's access token: each password is read at the moment it's
  * filled, goes straight to the agent's computer, and is put into the page there only if the page
  * is on the login's site. The agent hears "filled", never the password.
  */
@@ -18,7 +18,7 @@ export interface SourceLogin {
 
 /** One password manager, opened with its token. */
 export interface LoginSource {
-  /** the vault Wisp reads from */
+  /** the vault Bubble AI reads from */
   vaultName: string;
   list(): Promise<SourceLogin[]>;
   secret(itemId: string): Promise<{ username: string; password: string; otp?: string }>;
@@ -56,7 +56,7 @@ export const openOnePassword: LoginSourceOpener = async (_kind, token) => {
   const sdk = await import("@1password/sdk");
   let client: Awaited<ReturnType<typeof sdk.createClient>>;
   try {
-    client = await sdk.createClient({ auth: token, integrationName: "Wisp", integrationVersion: "1.0.0" });
+    client = await sdk.createClient({ auth: token, integrationName: "Bubble AI", integrationVersion: "1.0.0" });
   } catch (err) {
     throw new LoginError(`1Password didn't accept that token: ${(err as Error).message}`);
   }
@@ -266,6 +266,6 @@ function say(login: LoginSummary, r: LoginFillResult): string {
   if (r.wrongSite) return `Nothing was filled: the page open is on ${r.wrongSite}, not ${login.site}. Open ${login.site}'s sign-in page and call login_fill again.`;
   if (!r.filled.length) return `Nothing was filled: ${r.problem ?? "no sign-in boxes on the page"}. Open ${login.site}'s sign-in page and call login_fill again.`;
   const what = r.filled.length === 1 && r.filled[0] === "username" ? `filled the ${login.title} username${r.submitted ? " and went on" : ""}; if a password page comes next, call login_fill again` : `filled the ${login.title} login (${r.filled.join(", ")})${r.submitted ? " and pressed sign in" : ""}`;
-  if (r.cleared) return `Wisp ${what}, but ${r.submitted ? "the page didn't move on" : r.problem ?? "nothing pressed sign in"}, so Wisp took the password back out. Take a screenshot: if it shows why, fix that and call login_fill again; otherwise use computer_ask_human.`;
-  return `Wisp ${what}. Take a screenshot to check it worked.`;
+  if (r.cleared) return `Bubble AI ${what}, but ${r.submitted ? "the page didn't move on" : r.problem ?? "nothing pressed sign in"}, so Bubble AI took the password back out. Take a screenshot: if it shows why, fix that and call login_fill again; otherwise use computer_ask_human.`;
+  return `Bubble AI ${what}. Take a screenshot to check it worked.`;
 }

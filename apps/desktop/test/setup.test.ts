@@ -12,7 +12,7 @@ function fixture(state: Record<string, any> = { step: "cloud", server: { id: 42,
     return elements.get(id)!;
   };
   const setup = {
-    cancelJoin: vi.fn(), discover: vi.fn(async () => ({ ok: true, wisps: [] })),
+    cancelJoin: vi.fn(), discover: vi.fn(async () => ({ ok: true, bubbles: [] })),
     requestJoin: vi.fn(async () => ({ ok: true, code: "482913", host: "mac.local", expiresAt: new Date(Date.now() + 600000).toISOString() })),
     pollJoin: vi.fn(async (): Promise<any> => ({ ok: true, status: "pending" })),
     create: vi.fn(async (): Promise<any> => ({ ok: true })), open: vi.fn(),
@@ -67,8 +67,8 @@ describe("resuming cloud setup after relaunch", () => {
   });
 });
 
-describe("Wisp first launch", () => {
-  it("draws six wisps from its own shapes, five crew each on their own clock", () => {
+describe("Bubble AI first launch", () => {
+  it("draws six bubbles from its own shapes, five crew each on their own clock", () => {
     const html = readFileSync(new URL("../src/setup.html", import.meta.url), "utf8");
     const stage = html.match(/<script>[\s\S]*?<\/script>\s*<script>([\s\S]*?)<\/script>/)![1];
     const crew = stage.match(/const CREW = \[([\s\S]*?)\n\s*\];/)![1];
@@ -113,7 +113,7 @@ describe("Wisp first launch", () => {
     f.element("pick-join").onclick();
     await new Promise((resolve) => setImmediate(resolve));
     expect(f.setup.discover).toHaveBeenCalledOnce();
-    expect(f.element("discovery-status").textContent).toContain("No Wisps found");
+    expect(f.element("discovery-status").textContent).toContain("No Bubbles found");
     f.element("url").value = "https://wisp.example/join/invite";
     f.element("join-form").onsubmit({ preventDefault() {} });
     await new Promise((resolve) => setImmediate(resolve));

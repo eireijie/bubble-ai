@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { WispClient } from "@wisp/sdk";
+import { WispClient } from "@bubble-ai/sdk";
 import { buildHub } from "../src/app.ts";
 import { ESTIMATED_CHECK_TOKENS, startOfDay } from "../src/background.ts";
 import type { Hub } from "../src/hub.ts";

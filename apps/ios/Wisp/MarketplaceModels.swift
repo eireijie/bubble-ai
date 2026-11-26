@@ -59,25 +59,25 @@ enum MarketText {
       : "Your agents will be able to use \(e.name) through this connection: read and act on what this app allows."
     switch t.kind {
     case .unverified:
-      return ConnectSummary(can: can, runBy: "Run by \(publisher), not by the app's maker or Wisp.", caution: "Nobody has confirmed who they are. Only connect if you trust them.")
+      return ConnectSummary(can: can, runBy: "Run by \(publisher), not by the app's maker or Bubble AI.", caution: "Nobody has confirmed who they are. Only connect if you trust them.")
     case .maker:
-      return ConnectSummary(can: can, runBy: "Made and run by \(t.text.replacingOccurrences(of: "Made by ", with: "")) (\(e.domain ?? publisher)), not by Wisp.", caution: nil)
+      return ConnectSummary(can: can, runBy: "Made and run by \(t.text.replacingOccurrences(of: "Made by ", with: "")) (\(e.domain ?? publisher)), not by Bubble AI.", caution: nil)
     case .verified:
       let who = e.domain.map { "\(publisher) (\($0))" } ?? publisher
-      return ConnectSummary(can: can, runBy: "Run by \(who), not by Wisp. The registry confirmed who they are; that doesn't mean \(e.name)'s own maker endorses it.", caution: nil)
+      return ConnectSummary(can: can, runBy: "Run by \(who), not by Bubble AI. The registry confirmed who they are; that doesn't mean \(e.name)'s own maker endorses it.", caution: nil)
     }
   }
 
-  /** "Before you connect" for an app on Wisp's own list. */
+  /** "Before you connect" for an app on Bubble AI's own list. */
   static func summary(builtIn c: AppConnector) -> ConnectSummary {
     let host = c.url.flatMap { URL(string: $0)?.host }
     switch c.kind {
     case "secret":
-      return ConnectSummary(can: "Your agents get the key you enter, so they can use \(c.name) with it.", runBy: "Wisp keeps the key and gives it only to the agents you pick.", caution: nil)
+      return ConnectSummary(can: "Your agents get the key you enter, so they can use \(c.name) with it.", runBy: "Bubble AI keeps the key and gives it only to the agents you pick.", caution: nil)
     case "mcp-http":
-      return ConnectSummary(can: "Your agents will be able to use \(c.name) through this connection: read and act on what this app allows.", runBy: "On Wisp's list of well-known apps. It connects to \(host ?? "the app's own address"), not to a server run by Wisp.", caution: nil)
+      return ConnectSummary(can: "Your agents will be able to use \(c.name) through this connection: read and act on what this app allows.", runBy: "On Bubble AI's list of well-known apps. It connects to \(host ?? "the app's own address"), not to a server run by Bubble AI.", caution: nil)
     default:
-      return ConnectSummary(can: "Your agents will be able to use \(c.name) through this connection: read and act on what this app allows.", runBy: "On Wisp's list of well-known apps. It runs as a program on the agent's own computer.", caution: nil)
+      return ConnectSummary(can: "Your agents will be able to use \(c.name) through this connection: read and act on what this app allows.", runBy: "On Bubble AI's list of well-known apps. It runs as a program on the agent's own computer.", caution: nil)
     }
   }
 

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { RunCredential } from "@wisp/core";
+import type { RunCredential } from "@bubble-ai/core";
 import { claudePlan, codexArgs, codexConnectionArgs, codexPlan, codexUsageFromRollout, localCredentialFs, prepareCredential, runCodexHome, setupTokenFrom } from "../src/index.ts";
 import { codexAuthFromHermes, hermesEntryFromCodex, type CredentialFs } from "../src/credentials.ts";
 

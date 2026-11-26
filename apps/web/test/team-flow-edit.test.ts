@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TEAM_TEMPLATES, describeFlow, stepPrompt, stepsProblem, type ChannelTeam, type TeamFlow, type TeamStep } from "@wisp/core";
+import { TEAM_TEMPLATES, describeFlow, stepPrompt, stepsProblem, type ChannelTeam, type TeamFlow, type TeamStep } from "@bubble-ai/core";
 import { ADD_KINDS, addStep, lanesOf, prepareTeam, waitingLanes, connecting, disconnecting, emptyTeam, fillTemplate, fromCanvas, inputIds, movingAfter, numberOf, relayout, removingStep, retype, rowInputs, insertingBetween, settingInputs, stepProblems, stepRows, toCanvas, updating } from "../src/team/flow.ts";
 
 const agents = [

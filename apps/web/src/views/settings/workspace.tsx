@@ -1,7 +1,7 @@
 import { isLocalOnlyHost } from "../../loopback.ts";
 import { useEffect, useState } from "react";
 import { Download, KeyRound, Link2, MoreHorizontal, Pin, Plus, Trash2, UserMinus } from "lucide-react";
-import type { AccessRule, Agent, MemoryLevel, Subject } from "@wisp/core";
+import type { AccessRule, Agent, MemoryLevel, Subject } from "@bubble-ai/core";
 import { api, getToken } from "../../api.ts";
 import { useStore, useTeams } from "../../store.ts";
 import { href } from "../../router.ts";
@@ -79,7 +79,7 @@ function DeleteOrgSection() {
           <Trash2 size={14} /> Delete {current.name}
         </Button>
       ) : (
-        <p className="px-1 text-sm text-muted">{orgs.length > 1 ? "This is the first workspace on this Wisp, so it can't be deleted." : "This is your only workspace. Make or join another one before deleting it."}</p>
+        <p className="px-1 text-sm text-muted">{orgs.length > 1 ? "This is the first workspace on this Bubble AI, so it can't be deleted." : "This is your only workspace. Make or join another one before deleting it."}</p>
       )}
       {open && <DeleteOrg org={current} onClose={() => setOpen(false)} />}
     </div>
@@ -425,7 +425,7 @@ export function AskBeforePage() {
   );
 }
 
-/** Who takes tasks nobody assigned: pick one, or leave it to Wisp (a team's lead, else the first agent). */
+/** Who takes tasks nobody assigned: pick one, or leave it to Bubble AI (a team's lead, else the first agent). */
 export function LeadSelect() {
   const isOwner = useIsOwner();
   const agents = useStore((s) => s.agents);
@@ -679,7 +679,7 @@ export function OrgoPage() {
               {s?.orgo.configured ? "Replace" : "Connect"}
             </Button>
             {s?.orgo.configured && (
-              <Button type="button" variant="danger" disabled={busy} onClick={() => confirm("Disconnect Orgo? Cloud computers stop working in Wisp until you add a key again.") && put({ orgoApiKey: null })}>
+              <Button type="button" variant="danger" disabled={busy} onClick={() => confirm("Disconnect Orgo? Cloud computers stop working in Bubble AI until you add a key again.") && put({ orgoApiKey: null })}>
                 Disconnect
               </Button>
             )}
@@ -838,7 +838,7 @@ export function DataPage() {
             </div>
           )}
           {/* the two sentences that keep a copy whole */}
-          <p className="px-1 text-[13px] text-muted">Quit Wisp before you copy the folder, so the copy is complete. To restore, quit Wisp and put the folder back in the same place.</p>
+          <p className="px-1 text-[13px] text-muted">Quit Bubble AI before you copy the folder, so the copy is complete. To restore, quit Bubble AI and put the folder back in the same place.</p>
         </>
       )}
       {error && <p className="px-1 text-sm text-bad">{error}</p>}

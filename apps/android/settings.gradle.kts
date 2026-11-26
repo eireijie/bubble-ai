@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "Wisp"
+rootProject.name = "Bubble AI"
 include(":app")

@@ -1,6 +1,6 @@
 /**
  * Large link cards under a message (2026-11-25, Messages-style): media on top, then a title and the
- * domain. The hub keeps no link-preview data and Wisp fetches nothing for this, so the card is built
+ * domain. The hub keeps no link-preview data and Bubble AI fetches nothing for this, so the card is built
  * from the link itself: a picture link shows the picture, anything else a plain title and domain.
  * GitHub pull requests and issues keep their own small card, so they're left out here.
  */
@@ -38,7 +38,7 @@ export function linkPreviews(body: string | undefined): LinkPreview[] {
     } catch {
       continue;
     }
-    // links into Wisp itself and to this machine aren't worth a card
+    // links into Bubble AI itself and to this machine aren't worth a card
     if (u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hash.startsWith("#/")) continue;
     out.push({ url: raw, domain: u.hostname.replace(/^www\./, ""), title: titleFromUrl(u), ...(IMAGE.test(u.pathname) ? { image: raw } : {}) });
     if (out.length === 2) break;

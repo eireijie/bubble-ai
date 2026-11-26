@@ -1,7 +1,7 @@
 import SwiftUI
 
 /**
- * Wisp's look on the phone: dark first with matching light colors, the system font, 12pt cards, glass circle buttons and pill buttons. Liquid Glass floats over content on iOS 26 and
+ * Bubble AI's look on the phone: dark first with matching light colors, the system font, 12pt cards, glass circle buttons and pill buttons. Liquid Glass floats over content on iOS 26 and
  * later (frosted material before). The colors come from the approved design (Palette below).
  */
 enum Corner {
@@ -49,7 +49,7 @@ enum Palette {
   /** the 1px edge on cards and panels */
   static let cardBorder = Color(light: 0x000000, lightAlpha: 0.08, dark: 0xFFFFFF, darkAlpha: 0.08)
   static let blue = Color(hex: 0x0A84FF)
-  /** your own message bubbles: Wisp violet with dark words (web --bubble-me) */
+  /** your own message bubbles: Bubble AI violet with dark words (web --bubble-me) */
   static let mine = Color(hex: 0xA98BF5)
   static let mineInk = Color(hex: 0x161616)
   static let red = Color(light: 0xD92D3A, dark: 0xFF6B6B)

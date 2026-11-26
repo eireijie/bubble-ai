@@ -2,7 +2,7 @@ import type { CatalogField, ConnectorKind } from "./connectors.ts";
 
 /**
  * The connector marketplace: MCP servers from the official MCP Registry
- * (registry.modelcontextprotocol.io), turned into connectors Wisp can add. The registry is open
+ * (registry.modelcontextprotocol.io), turned into connectors Bubble AI can add. The registry is open
  * and large (tens of thousands of servers), so the hub searches it live, drops what can't work
  * here (paid-per-call settlement, unknown package types), and ranks verified publishers first.
  */
@@ -96,7 +96,7 @@ const HOSTING = ["vercel.app", "netlify.app", "supabase.co", "workers.dev", "pag
 /** Hosts that publish other people's servers: their names aren't the publisher's own domain. */
 const AGGREGATORS = ["smithery.ai", "mcparmory.com", "pulsemcp.com", "mintmcp.com", "waystation.ai", "pipeworx.io", "a2awire.com", "composio.dev", "glama.ai"];
 
-/** A placeholder in the registry's style (`{api_key}`) becomes Wisp's (`{{API_KEY}}`). */
+/** A placeholder in the registry's style (`{api_key}`) becomes Bubble AI's (`{{API_KEY}}`). */
 const KEY = (s: string) => s.replace(/[^A-Za-z0-9_]/g, "_").toUpperCase();
 const templ = (s: string) => s.replace(/\{([A-Za-z_][A-Za-z0-9_-]*)\}/g, (_m, k: string) => `{{${KEY(k)}}}`);
 const placeholders = (s: string) => [...s.matchAll(/\{([A-Za-z_][A-Za-z0-9_-]*)\}/g)].map((m) => m[1]);
@@ -191,7 +191,7 @@ export function plainAppBlurb(text: string): string {
   return said.charAt(0).toUpperCase() + said.slice(1);
 }
 
-/** A registry server as Wisp shows it, or null when there's no way to add it here. */
+/** A registry server as Bubble AI shows it, or null when there's no way to add it here. */
 export function marketplaceEntry(s: RegistryServer, status = "active"): MarketplaceEntry | null {
   if (status !== "active") return null;
   const installs = [...(s.remotes ?? []).map(remoteInstall), ...(s.packages ?? []).map(packageInstall)].filter((x): x is MarketplaceInstall => !!x);

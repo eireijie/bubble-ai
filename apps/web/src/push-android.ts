@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "./api.ts";
 
 /**
- * Push in Wisp's Android app. Its web view can't do Web Push, so the app does push itself
+ * Push in Bubble AI's Android app. Its web view can't do Web Push, so the app does push itself
  * (Firebase Cloud Messaging) and tells the page through the `WispAndroid` bridge it exposes.
  * Everything here is false/empty in a normal browser.
  */

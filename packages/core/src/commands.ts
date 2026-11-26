@@ -2,11 +2,11 @@ import type { CommandOption } from "./types.ts";
 
 /**
  * "/" commands in chat. Each agent offers its harness's own commands and skills (reported by its
- * device in the harness catalog), the Wisp skills it has, and a few Wisp answers itself.
+ * device in the harness catalog), the Bubble AI skills it has, and a few Bubble AI answers itself.
  */
 
-/** Commands Wisp answers itself, for every agent, without waking it. */
-export const WISP_COMMANDS: { name: string; description: string }[] = [
+/** Commands Bubble AI answers itself, for every agent, without waking it. */
+export const BUBBLE_COMMANDS: { name: string; description: string }[] = [
   { name: "context", description: "See how full this conversation is" },
   { name: "compact", description: "Shrink this conversation so it can keep going" },
   { name: "new", description: "Start a fresh conversation" },
@@ -18,7 +18,7 @@ export const WISP_COMMANDS: { name: string; description: string }[] = [
 
 /**
  * How /compact runs in a harness. Claude Code and Hermes compact their own session when sent their
- * command headless; `codex exec` and the rest have no commands, so Wisp asks for a summary and
+ * command headless; `codex exec` and the rest have no commands, so Bubble AI asks for a summary and
  * carries it into a new conversation.
  */
 export function compactPlan(harness: string): { via: "native"; command: string } | { via: "summary" } {
@@ -53,10 +53,10 @@ export interface AgentCommand {
   name: string;
   description?: string;
   hint?: string;
-  /** "wisp": answered by Wisp; "command"/"skill": the harness's own; "wisp-skill": a skill installed through Wisp */
+  /** "wisp": answered by Bubble AI; "command"/"skill": the harness's own; "wisp-skill": a skill installed through Bubble AI */
   kind: "wisp" | "command" | "skill" | "wisp-skill";
   via: "wisp" | "raw" | "prompt";
-  /** the menu's section: skills agents learned, the harness's own, Wisp's commands, other Wisp skills */
+  /** the menu's section: skills agents learned, the harness's own, Bubble AI's commands, other Bubble AI skills */
   group: "learned" | "harness" | "wisp" | "skill";
   /** learned in the last 7 days: the menu shows "new" */
   isNew?: boolean;
@@ -64,7 +64,7 @@ export interface AgentCommand {
   learnedBy?: string;
 }
 
-/** A Wisp skill as the "/" menu needs it; `learnedBy` (the agent's name) marks one an agent learned. */
+/** A Bubble AI skill as the "/" menu needs it; `learnedBy` (the agent's name) marks one an agent learned. */
 export interface CommandSkill {
   slug: string;
   description: string;
@@ -76,12 +76,12 @@ export interface CommandSkill {
 const NEW_FOR_MS = 7 * 24 * 3600_000;
 
 /**
- * Everything an agent offers after "/", in the menu's order: Wisp's commands, skills agents learned, the
- * harness's own (only its built-ins unless `ownPlugins`), then other Wisp skills. Wisp's commands keep their names; a learned skill
- * wins over a same-named harness entry (it's the agent's own way), and a harness entry over a Wisp skill.
+ * Everything an agent offers after "/", in the menu's order: Bubble AI's commands, skills agents learned, the
+ * harness's own (only its built-ins unless `ownPlugins`), then other Bubble AI skills. Bubble AI's commands keep their names; a learned skill
+ * wins over a same-named harness entry (it's the agent's own way), and a harness entry over a Bubble AI skill.
  */
 export function agentCommands(harness: CommandOption[] | undefined, wispSkills: CommandSkill[], now = Date.now(), ownPlugins = false): AgentCommand[] {
-  const taken = new Set(WISP_COMMANDS.map((c) => c.name));
+  const taken = new Set(BUBBLE_COMMANDS.map((c) => c.name));
   const learned: AgentCommand[] = [];
   for (const s of wispSkills) {
     if (s.learnedBy === undefined || taken.has(s.slug)) continue;
@@ -98,7 +98,7 @@ export function agentCommands(harness: CommandOption[] | undefined, wispSkills: 
     const { builtIn: _b, ...rest } = c;
     own.push({ ...rest, group: "harness" });
   }
-  const wisp: AgentCommand[] = WISP_COMMANDS.map((c) => ({ ...c, kind: "wisp", via: "wisp", group: "wisp" }));
+  const wisp: AgentCommand[] = BUBBLE_COMMANDS.map((c) => ({ ...c, kind: "wisp", via: "wisp", group: "wisp" }));
   const skills: AgentCommand[] = [];
   for (const s of wispSkills) {
     if (s.learnedBy !== undefined || taken.has(s.slug)) continue;

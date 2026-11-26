@@ -121,7 +121,7 @@ struct AgentModelMore: View {
       if !known {
         FieldCard(label: "Model id", text: $id, prompt: "sol-6.1-preview", lowercase: true)
           .accessibilityIdentifier("model-id")
-        CardCaption("Use the exact id your harness expects. Wisp passes it through unchanged.")
+        CardCaption("Use the exact id your harness expects. Bubble AI passes it through unchanged.")
       }
       PillButton(title: "Save", busy: action.busy, id: "model-save") {
         action.run {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createElement as h, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FEATURE_PRESETS } from "@wisp/core";
+import { FEATURE_PRESETS } from "@bubble-ai/core";
 import type { FiveState } from "./rows.tsx";
 
 // the shared UI parts read browser state when their module loads; a row doesn't need it

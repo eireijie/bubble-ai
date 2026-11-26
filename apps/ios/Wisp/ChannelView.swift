@@ -317,7 +317,7 @@ struct ArchivedBar: View {
 /**
  * A thread. Any reply in it can start a thread of its own (a sub-thread), which shows its reply
  * count and who's working in it; a sub-thread links back up to the thread it came from. A step
- * Wisp handed out opens as its own thread, headed "Handed to Pappy".
+ * Bubble AI handed out opens as its own thread, headed "Handed to Pappy".
  */
 struct ThreadView: View {
   @Environment(Store.self) private var store

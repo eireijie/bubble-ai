@@ -1,22 +1,22 @@
-import { envVar } from "@wisp/core";
+import { envVar } from "@bubble-ai/core";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Updating a Wisp install in place. Hubs and devices both run from a git checkout of the
- * Wisp repo, so an update is: fast-forward to what's on GitHub, install dependencies if they
+ * Updating a Bubble AI install in place. Hubs and devices both run from a git checkout of the
+ * Bubble AI repo, so an update is: fast-forward to what's on GitHub, install dependencies if they
  * changed, rebuild the web app if this checkout serves one, then write a marker file. Every
- * Wisp process running from the checkout watches that marker and restarts itself (through
+ * Bubble AI process running from the checkout watches that marker and restarts itself (through
  * bin/keeper.mjs), so the CLI, the hub's Update button and a device's Update button all end the
  * same way.
  */
 
-/** Exit code a Wisp process uses to ask bin/keeper.mjs to start it again. Keep in sync there. */
+/** Exit code a Bubble AI process uses to ask bin/keeper.mjs to start it again. Keep in sync there. */
 export const RESTART_CODE = 75;
 
-/** The Wisp checkout this code runs from. */
+/** The Bubble AI checkout this code runs from. */
 export const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
 /** Written at the end of every update; running hubs and devices restart when it changes. */
@@ -68,7 +68,7 @@ function isCheckout(root: string) {
   return fs.existsSync(path.join(root, ".git"));
 }
 
-/** The copy inside the desktop app (see apps/desktop/scripts/bundle-wisp.mjs), which updates with the app. */
+/** The copy inside the desktop app (see apps/desktop/scripts/bundle-bubble-ai.mjs), which updates with the app. */
 function isBundled(root: string) {
   try {
     return JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).name === "wisp-runtime";
@@ -95,10 +95,10 @@ export async function checkForUpdate(root = REPO_ROOT, opts: { fetch?: boolean; 
   if (!isCheckout(root)) {
     return result({
       reason: isBundled(root)
-        ? "This copy came with the Wisp app, which updates itself. To check now, choose Check for Updates in the app's menu on that computer."
+        ? "This copy came with the Bubble AI app, which updates itself. To check now, choose Check for Updates in the app's menu on that computer."
         : fs.existsSync("/.dockerenv")
-        ? "This hub runs in Docker. To update it, run `git pull && docker compose up -d --build` in the folder you cloned Wisp into."
-        : "This copy of Wisp isn't a git checkout, so it can't update itself. Clone it with git to get updates.",
+        ? "This hub runs in Docker. To update it, run `git pull && docker compose up -d --build` in the folder you cloned Bubble AI into."
+        : "This copy of Bubble AI isn't a git checkout, so it can't update itself. Clone it with git to get updates.",
     });
   }
   try {

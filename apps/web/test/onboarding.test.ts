@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { completeSetupStep, devicesLine, helperChecklist, homeReadiness, isLocalOnlyHost, nextStep, savedSetup, setupProgress, stepsDone, stepsFinished, type OnboardingState } from "../src/onboarding.ts";
 
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false }));

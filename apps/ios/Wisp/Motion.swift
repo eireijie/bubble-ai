@@ -20,7 +20,7 @@ enum Motion {
   static func pick(_ animation: Animation, _ reduceMotion: Bool) -> Animation { reduceMotion ? reduced : animation }
 }
 
-/** Whether motion is off: iOS's Reduce Motion or Wisp's own setting (Settings > Appearance). Read it as `@ReduceMotion private var reduceMotion`. */
+/** Whether motion is off: iOS's Reduce Motion or Bubble AI's own setting (Settings > Appearance). Read it as `@ReduceMotion private var reduceMotion`. */
 @MainActor @propertyWrapper
 struct ReduceMotion: DynamicProperty {
   @Environment(\.accessibilityReduceMotion) private var system

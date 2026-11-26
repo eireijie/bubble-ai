@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { UnauthorizedError, type OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { OAuthClientInformationMixed, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { WispClient } from "@wisp/sdk";
+import { WispClient } from "@bubble-ai/sdk";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 import { makeRoomFor } from "./room.ts";

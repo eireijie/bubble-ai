@@ -87,7 +87,7 @@ export const AppleMacStatus = z.object({
   reminders: ApplePermission,
   /** Messages has an account signed in on this Mac */
   messagesSignedIn: z.boolean().optional(),
-  /** the app macOS lists in System Settings for these permissions ("Wisp", "Terminal") */
+  /** the app macOS lists in System Settings for these permissions ("Bubble AI", "Terminal") */
   grantTo: z.string().max(300).optional(),
 });
 export type AppleMacStatus = z.infer<typeof AppleMacStatus>;
@@ -103,7 +103,7 @@ export const AppleOp = z.discriminatedUnion("op", [
   z.object({ op: z.literal("status") }),
   /** ask macOS for one permission (shows its prompt) or open its System Settings pane */
   z.object({ op: z.literal("request_permission"), pane: z.enum(APPLE_SETTINGS_PANES) }),
-  /** the real app icons in color, read from the Mac's own apps (Wisp ships none): app → base64 PNG, 180×180, padding trimmed */
+  /** the real app icons in color, read from the Mac's own apps (Bubble AI ships none): app → base64 PNG, 180×180, padding trimmed */
   z.object({ op: z.literal("icons") }),
   /** recent conversations, newest first */
   z.object({ op: z.literal("messages_recent"), limit: limit(50) }),

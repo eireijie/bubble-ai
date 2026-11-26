@@ -12,7 +12,7 @@ import { buildHub } from "../src/app.ts";
 let dir: string;
 let app: FastifyInstance;
 const script = `console.log(${JSON.stringify("wisp ".repeat(800))});\n`;
-const page = `<!doctype html><title>Wisp</title>${"<p>hello</p>".repeat(200)}`;
+const page = `<!doctype html><title>Bubble AI</title>${"<p>hello</p>".repeat(200)}`;
 
 beforeAll(async () => {
   dir = await fs.mkdtemp(path.join(os.tmpdir(), "wisp-web-files-"));

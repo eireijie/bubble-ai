@@ -7,7 +7,7 @@ struct ConnectStart: Decodable {
   var connectors: [AppConnector]
 }
 
-/** Whether an app's key works (POST /api/connectors/:id/check); apps Wisp can't read itself aren't checked. */
+/** Whether an app's key works (POST /api/connectors/:id/check); apps Bubble AI can't read itself aren't checked. */
 struct ConnectorCheck: Decodable {
   var ok: Bool
   var checked: Bool?
@@ -20,7 +20,7 @@ struct AgentHarnessStatus: Decodable {
   var inComputer: Bool?
 }
 
-/** A watch on a connected app (GET /api/watches), as Here's your Wisp lists it. */
+/** A watch on a connected app (GET /api/watches), as Here's your Bubble AI lists it. */
 struct AppWatch: Decodable, Identifiable {
   var id: String
   var label: String
@@ -29,13 +29,13 @@ struct AppWatch: Decodable, Identifiable {
 }
 
 extension Store {
-  /** The address this phone reaches Wisp at: where a sign-in page sends the person back to. */
+  /** The address this phone reaches Bubble AI at: where a sign-in page sends the person back to. */
   var hubOrigin: String? {
     guard let base = api?.base, let scheme = base.scheme, let host = base.host else { return nil }
     return "\(scheme)://\(host)\(base.port.map { ":\($0)" } ?? "")"
   }
 
-  /** Which catalog apps can sign in from where this phone reaches Wisp, and why not where they can't. */
+  /** Which catalog apps can sign in from where this phone reaches Bubble AI, and why not where they can't. */
   func signInOptions() async throws -> [String: SignInOption] {
     guard let origin = hubOrigin else { return [:] }
     return try await fetch { try await $0.get("/api/connectors/sign-in", ["origin": origin]) }
@@ -43,11 +43,11 @@ extension Store {
 
   /**
    * Connect catalog apps by signing in: the hub makes the connectors and hands back its sign-in
-   * page, which the app opens in the system browser sheet. Wisp's hub does the sign-in; the app
+   * page, which the app opens in the system browser sheet. Bubble AI's hub does the sign-in; the app
    * never sees a password or a token. Several apps from one company share one sign-in.
    */
   func connectApps(_ catalogIds: [String]) async throws -> ConnectStart {
-    guard let origin = hubOrigin else { throw API.Failure(status: 0, message: "Wisp isn't connected.") }
+    guard let origin = hubOrigin else { throw API.Failure(status: 0, message: "Bubble AI isn't connected.") }
     let body: Fields = ["catalogIds": AnyEncodable(catalogIds), "origin": AnyEncodable(origin), "returnTo": AnyEncodable("close"), "agentIds": AnyEncodable([String]())]
     let start: ConnectStart = try await fetch { try await $0.post("/api/connectors/connect", body) }
     try? await refreshConnectors()

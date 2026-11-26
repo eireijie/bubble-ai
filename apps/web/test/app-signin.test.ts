@@ -39,10 +39,10 @@ describe("connectApps", () => {
   });
 
   it("closes the tab and says why when the hub can't start it", async () => {
-    vi.mocked(api).mockRejectedValue(new Error("Signing in with Google isn't set up for Wisp yet."));
+    vi.mocked(api).mockRejectedValue(new Error("Signing in with Google isn't set up for Bubble AI yet."));
     const r = await connectApps(["gmail"]);
     expect(tab.close).toHaveBeenCalled();
-    expect(r).toEqual({ ok: false, error: "Signing in with Google isn't set up for Wisp yet.", connectors: [] });
+    expect(r).toEqual({ ok: false, error: "Signing in with Google isn't set up for Bubble AI yet.", connectors: [] });
   });
 
   it("stops at a cancelled sign-in, or when time runs out", async () => {
@@ -55,7 +55,7 @@ describe("connectApps", () => {
 
 describe("howToSignIn", () => {
   it("says what signing in allows, or why it can't and what to do instead", () => {
-    expect(howToSignIn("Gmail", { signIn: true, reads: "Reads and searches your email", key: false })).toBe("A page opens in your browser to sign in to Gmail. Wisp never sees your password.");
-    expect(howToSignIn("Notion", { signIn: false, reason: "Notion only signs in when Wisp is open over https or on this computer.", key: true })).toBe("Notion only signs in when Wisp is open over https or on this computer. You can use a key instead.");
+    expect(howToSignIn("Gmail", { signIn: true, reads: "Reads and searches your email", key: false })).toBe("A page opens in your browser to sign in to Gmail. Bubble AI never sees your password.");
+    expect(howToSignIn("Notion", { signIn: false, reason: "Notion only signs in when Bubble AI is open over https or on this computer.", key: true })).toBe("Notion only signs in when Bubble AI is open over https or on this computer. You can use a key instead.");
   });
 });

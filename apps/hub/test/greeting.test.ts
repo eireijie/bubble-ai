@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
@@ -28,7 +28,7 @@ const fake: HarnessAdapter = {
   async run(input, onEvent) {
     calls.push(input);
     onEvent({ type: "session", id: `sess-${calls.length}` });
-    const agent = new WispClient({ url: input.mcp!.env.WISP_URL, token: input.mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: input.mcp!.env.BUBBLE_URL, token: input.mcp!.env.BUBBLE_TOKEN });
     return { finalText: await onReply(agent, input), sessionId: `sess-${calls.length}` };
   },
 };
@@ -201,7 +201,7 @@ describe("a new agent speaks first", () => {
     expect(await recordSetupStep(hub, hub.store.agent(id)!, { watch: [ads] }, bot)).toEqual({ error: expect.stringMatching(/ask them first/) });
     expect(hub.watches.list(ws, { agentId: id })).toEqual([]);
 
-    // a browser watch needs a computer: Wisp says why instead of pretending
+    // a browser watch needs a computer: Bubble AI says why instead of pretending
     const yes = hub.postMessage({ channelId: dmOf(id).id, author: { kind: "user", id: me }, body: "Yes, watch them", route: false });
     let r = await recordSetupStep(hub, hub.store.agent(id)!, { watch: [ads] }, yes);
     expect(r).toMatchObject({ watched: [{ label: "Google Ads", watching: false, why: expect.stringMatching(/needs its own computer/) }] });
@@ -247,7 +247,7 @@ describe("a new agent speaks first", () => {
     const dm = dmOf(id).id;
     const failure = () => hub.store.messages(dm).filter((m) => m.parts.some((p) => p.type === "run_failed"));
     await waitFor(() => (failure().length ? true : undefined));
-    // no "Which accounts…" from Wisp on the agent's behalf, and the step isn't marked answered
+    // no "Which accounts…" from Bubble AI on the agent's behalf, and the step isn't marked answered
     expect(said(id).map((m) => m.body)).not.toContain("Which accounts should I work with? For example Google, Meta or Instagram.");
     expect(setupOf(id).steps.goal).toBeUndefined();
     // Try again works: the old failure line and its button go away
@@ -288,7 +288,7 @@ describe("a new agent speaks first", () => {
     expect(prompt).toContain("## Getting to know Me");
   });
 
-  it("asks for a sign-in first when Wisp knows the harness isn't signed in, with no error", async () => {
+  it("asks for a sign-in first when Bubble AI knows the harness isn't signed in, with no error", async () => {
     const catalog = hub.store.nodeCatalog(nodeId);
     hub.store.db.prepare("UPDATE nodes SET catalog_json = ? WHERE id = ?").run(JSON.stringify([...catalog.filter((h) => h.harness !== "claude-code"), { ...(catalog.find((h) => h.harness === "claude-code") ?? { harness: "claude-code", models: [] }), accounts: { default: false } }]), nodeId);
     const id = await make("hal");
@@ -357,7 +357,7 @@ describe("a new agent speaks first", () => {
 });
 
 describe("a hello while the plan is used up", () => {
-  it("is Wisp's plain one, without a run that would only fail", async () => {
+  it("is Bubble AI's plain one, without a run that would only fail", async () => {
     const make = async (handle: string) => {
       const id = (await owner.request<{ id: string }>("POST", "/api/agents", { handle, name: handle, harness: "claude-code", nodeId, greet: "later" })).id;
       await waitFor(async () => (await owner.agents()).find((a) => a.id === id && a.status === "online"));

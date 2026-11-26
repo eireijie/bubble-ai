@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Phone } from "lucide-react";
-import { defaultAppearance } from "@wisp/core/src/appearance.ts";
+import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api, connectEvents, getToken } from "../api.ts";
 import { buddyNoticeWithRoot, completedTasks, unlessMuted, type BuddyNotice, type BuddyTask } from "../buddy.ts";
 import type { BuddySettings } from "../desktop.ts";
@@ -247,7 +247,7 @@ export function BuddyView() {
       <button
         data-buddy-hit
         className="buddy-ghost"
-        aria-label={`Open ${agent?.name ?? "Wisp"}${connected ? "" : " (hub offline)"}`}
+        aria-label={`Open ${agent?.name ?? "Bubble AI"}${connected ? "" : " (hub offline)"}`}
         onPointerDown={startDrag}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}

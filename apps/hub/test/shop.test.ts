@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { RegistryServer } from "@wisp/core";
+import type { RegistryServer } from "@bubble-ai/core";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 
@@ -171,7 +171,7 @@ describe("what your devices already have", () => {
     expect((await api("GET", "/api/shelf", undefined, other)).data).toEqual([]);
   });
 
-  it("brings a device's skill into Wisp and shares it with agents", async () => {
+  it("brings a device's skill into Bubble AI and shares it with agents", async () => {
     const asked: unknown[] = [];
     const real = hub.computers.nodeRequest.bind(hub.computers);
     hub.computers.nodeRequest = async (id, build) => {

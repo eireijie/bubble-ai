@@ -7,7 +7,7 @@ import { Bonjour } from "bonjour-service";
 import { advertiseWisp, stableHubId } from "../src/discovery.ts";
 
 afterEach(() => vi.useRealTimers());
-describe("Wisp LAN discovery", () => {
+describe("Bubble AI LAN discovery", () => {
   it("advertises the shared contract, updates its name and cleans up", async () => {
     vi.useFakeTimers();
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-discovery-"));
@@ -20,8 +20,8 @@ describe("Wisp LAN discovery", () => {
       const stop = advertiseWisp(dir, 4747, () => name, undefined, () => ({ publish, destroy, unpublishAll }) as unknown as Bonjour);
       const id = stableHubId(dir);
       expect(stableHubId(dir)).toBe(id);
-      expect(publish).toHaveBeenCalledWith({ name: `Wisp-${id}`, type: "wisp", protocol: "tcp", port: 4747, txt: { v: "1", id, name: "Your Wisp", host: os.hostname() } });
-      name = "Yug's Wisp";
+      expect(publish).toHaveBeenCalledWith({ name: `Bubble AI-${id}`, type: "wisp", protocol: "tcp", port: 4747, txt: { v: "1", id, name: "Your Bubble AI", host: os.hostname() } });
+      name = "Yug's Bubble AI";
       vi.advanceTimersByTime(4000);
       expect(published[0].stop).toHaveBeenCalledOnce();
       expect(published[0].destroyed).toBe(true);

@@ -3,20 +3,20 @@ import os from "node:os";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { WispClient } from "@wisp/sdk";
-import { SETTINGS_HARNESSES, SETUP_STEPS, WATCH_SERVICES, frameOutside, type Screenshot } from "@wisp/core";
+import { WispClient } from "@bubble-ai/sdk";
+import { SETTINGS_HARNESSES, SETUP_STEPS, WATCH_SERVICES, frameOutside, type Screenshot } from "@bubble-ai/core";
 
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
 const text = (t: string): { content: Content[] } => ({ content: [{ type: "text" as const, text: t }] });
 const json = (v: unknown) => text(JSON.stringify(v, null, 2));
 
 /**
- * The Wisp MCP server: gives any MCP-capable harness (Claude Code, Codex,
+ * The Bubble AI MCP server: gives any MCP-capable harness (Claude Code, Codex,
  * Kimi, Hermes, OpenClaw, ...) chat, task, memory-vault and file tools.
  */
 export async function createWispMcp(client: WispClient, opts: { localFiles?: boolean } = {}) {
   const me = await client.me();
-  if (me.kind !== "agent" || !me.agent) throw new Error("wisp-mcp needs an agent token (or a node token with WISP_AGENT)");
+  if (me.kind !== "agent" || !me.agent) throw new Error("wisp-mcp needs an agent token (or a node token with BUBBLE_AGENT)");
   const self = me.agent;
   const myDir = `agents/${self.id}`;
 
@@ -45,7 +45,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
   const server = new McpServer(
     { name: "wisp", version: "0.0.1" },
     {
-      instructions: `You are @${self.handle} in the Wisp "${me.workspace.name}". Use these tools to talk with people and other agents, delegate work, and keep long-term memory. Your private memory folder is "me/" (${myDir}/); "shared/" is visible to every agent, and people may give you access to other folders. Search memory before answering questions about past work, and write down durable facts, decisions and results. Before saving anything, read your memory skill (me/skills/memory/SKILL.md) and follow it: search first and update rather than duplicate, one idea per note, link related notes with [[wikilinks]], never save secrets. Facts about a person (a preference, a plan, something they did, a small detail) go in memory_remember. To hand a note to another agent, share it with memory_share.${startup ? `\n\n${startup}` : ""}`,
+      instructions: `You are @${self.handle} in the Bubble AI "${me.workspace.name}". Use these tools to talk with people and other agents, delegate work, and keep long-term memory. Your private memory folder is "me/" (${myDir}/); "shared/" is visible to every agent, and people may give you access to other folders. Search memory before answering questions about past work, and write down durable facts, decisions and results. Before saving anything, read your memory skill (me/skills/memory/SKILL.md) and follow it: search first and update rather than duplicate, one idea per note, link related notes with [[wikilinks]], never save secrets. Facts about a person (a preference, a plan, something they did, a small detail) go in memory_remember. To hand a note to another agent, share it with memory_share.${startup ? `\n\n${startup}` : ""}`,
     },
   );
 
@@ -54,7 +54,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
   server.registerTool(
     "chat_send",
     {
-      description: "Post a message to a Wisp channel (by name, e.g. 'launch'). @mention another agent's handle to wake it up.",
+      description: "Post a message to a Bubble AI channel (by name, e.g. 'launch'). @mention another agent's handle to wake it up.",
       inputSchema: { channel: z.string(), message: z.string(), thread_id: z.string().optional(), file_ids: z.array(z.string()).optional() },
     },
     safe(async ({ channel, message, thread_id, file_ids }) => {
@@ -116,7 +116,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "team_setup",
     {
       description:
-        "Set up how a channel's team works, when a person describes it (\"Opus plans, GPT challenges it until it approves, then Opus hands out the work\"). Give each role a name, a description every agent on the team will read, and the agent who fills it; then the steps in order. A new message in the channel goes through the steps: Wisp hands each step to its role's agent. Kinds: do (does it, passes the result on), review (approves, or sends it back to an earlier step, up to max_rounds before asking a person), hand_out (splits the work into pieces for hand_to roles; review_by checks each piece), ask (a person approves it from the Inbox; send_back_to is where changes go). Replaces the channel's roles and steps. Only the workspace's lead or the channel's lead can.",
+        "Set up how a channel's team works, when a person describes it (\"Opus plans, GPT challenges it until it approves, then Opus hands out the work\"). Give each role a name, a description every agent on the team will read, and the agent who fills it; then the steps in order. A new message in the channel goes through the steps: Bubble AI hands each step to its role's agent. Kinds: do (does it, passes the result on), review (approves, or sends it back to an earlier step, up to max_rounds before asking a person), hand_out (splits the work into pieces for hand_to roles; review_by checks each piece), ask (a person approves it from the Inbox; send_back_to is where changes go). Replaces the channel's roles and steps. Only the workspace's lead or the channel's lead can.",
       inputSchema: {
         channel: z.string().describe("e.g. #launch-site"),
         schedules: z
@@ -343,7 +343,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
         text: z.string(),
         file_ids: z.array(z.string()).optional(),
         replies: z.array(z.string()).optional().describe("2–4 quick answers they can tap, a few words each, under 40 characters (\"Sent it\", \"Tomorrow\"), when they'd answer in a word"),
-        about: z.string().optional().describe("a short key for what this is about (\"notion:<page id>\", \"essay-due-friday\"), so you only raise it once: if they don't answer, Wisp won't let you raise the same key again"),
+        about: z.string().optional().describe("a short key for what this is about (\"notion:<page id>\", \"essay-due-friday\"), so you only raise it once: if they don't answer, Bubble AI won't let you raise the same key again"),
       },
     },
     safe(async ({ text: t, file_ids, replies, about }) => {
@@ -358,7 +358,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "watch_list",
     {
       description:
-        "See what you watch for the person you work for (apps where Wisp tells you when something changes, and sites you check in your browser), and what else can be watched and how to connect it.",
+        "See what you watch for the person you work for (apps where Bubble AI tells you when something changes, and sites you check in your browser), and what else can be watched and how to connect it.",
       inputSchema: {},
     },
     safe(async () => {
@@ -378,7 +378,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "watch_start",
     {
       description:
-        "Start watching one of the person's apps for them, once they've said yes (\"keep an eye on my Slack\"). Wisp looks for changes on its own, at no token cost, and wakes you with what changed. It uses the key from your connector for that app, or one you give in `key` (ask before making a key for them). For apps with no easy key (Google, Meta, school or bank sites), use service \"browser\" with config.url and config.lookFor: Wisp reads the page itself when it can and wakes you only when it changed; a site behind a sign-in is looked at in your computer's browser. Unless you pass every_minutes, a site is looked at as often as your background checks for them, so you can tell them one number. Tell them what you'll watch, how often (the result says), and that they can stop it any time.",
+        "Start watching one of the person's apps for them, once they've said yes (\"keep an eye on my Slack\"). Bubble AI looks for changes on its own, at no token cost, and wakes you with what changed. It uses the key from your connector for that app, or one you give in `key` (ask before making a key for them). For apps with no easy key (Google, Meta, school or bank sites), use service \"browser\" with config.url and config.lookFor: Bubble AI reads the page itself when it can and wakes you only when it changed; a site behind a sign-in is looked at in your computer's browser. Unless you pass every_minutes, a site is looked at as often as your background checks for them, so you can tell them one number. Tell them what you'll watch, how often (the result says), and that they can stop it any time.",
       inputSchema: {
         service: z.enum(["slack", "github", "notion", "linear", "jira", "stripe", "gdrive", "gmail", "gcal", "browser"]),
         key: z.record(z.string(), z.string()).optional().describe("values for this watch alone, named like the connector's (GITHUB_TOKEN, SLACK_BOT_TOKEN…)"),
@@ -411,7 +411,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "settings_read",
     {
       description:
-        "See how Wisp is set up for the person you work for: your background work for them (on or off, how often, quiet hours, what to keep an eye on), which mods are on, and how much of their daily allowance background work used today. Read it before settings_change.",
+        "See how Bubble AI is set up for the person you work for: your background work for them (on or off, how often, quiet hours, what to keep an eye on), which mods are on, and how much of their daily allowance background work used today. Read it before settings_change.",
       inputSchema: {},
     },
     safe(async () => {
@@ -434,7 +434,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "settings_change",
     {
       description:
-        "Change how Wisp works for the person you work for, when they ask in plain words (\"check less often\", \"don't message me after 10pm\", \"turn on routines\"). Background fields change your own background work for them; mods switch optional parts of Wisp on or off (owners only); turning on a mod that widens your reach (like Apple, Storage or Background agents) posts a card and waits for their OK. Only change what they asked for. They see what changed in your DM with an Undo button, so just confirm in a few words.",
+        "Change how Bubble AI works for the person you work for, when they ask in plain words (\"check less often\", \"don't message me after 10pm\", \"turn on routines\"). Background fields change your own background work for them; mods switch optional parts of Bubble AI on or off (owners only); turning on a mod that widens your reach (like Apple, Storage or Background agents) posts a card and waits for their OK. Only change what they asked for. They see what changed in your DM with an Undo button, so just confirm in a few words.",
       inputSchema: {
         enabled: z.boolean().optional().describe("background work on or off"),
         every_minutes: z.number().int().min(10).max(1440).optional().describe("how often to check, 10–1440 minutes"),
@@ -507,7 +507,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "chat_status",
     {
       description:
-        "Say where your DM with the person you work for stands, when it changes. \"waiting\": the next step is theirs (an answer, something they said they'd do); Wisp checks back for you if they go quiet. \"done\": what they asked for is finished; add did/saved/next only for what your reply doesn't already say (a wrap-up card shows them; lines your reply repeats are dropped). \"open\": anything else. \"closed\": you're dropping it after they didn't answer.",
+        "Say where your DM with the person you work for stands, when it changes. \"waiting\": the next step is theirs (an answer, something they said they'd do); Bubble AI checks back for you if they go quiet. \"done\": what they asked for is finished; add did/saved/next only for what your reply doesn't already say (a wrap-up card shows them; lines your reply repeats are dropped). \"open\": anything else. \"closed\": you're dropping it after they didn't answer.",
       inputSchema: {
         status: z.enum(["open", "waiting", "done", "closed"]),
         summary: z.string().optional().describe("what's open, in their words: \"send Sam the deck\""),
@@ -527,7 +527,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "setup_step",
     {
       description:
-        "During your first chat with the person you work for (Wisp shows the steps under \"Getting to know\"), record each setup step once it's done or skipped, with a one-line summary. role: the job title they agreed you'd take; Wisp makes it your role. accounts: the accounts or sites they named. watch: only in your reply to their yes, the accounts they said you may keep an eye on; Wisp starts a watch for each. done: true when the setup is over.",
+        "During your first chat with the person you work for (Bubble AI shows the steps under \"Getting to know\"), record each setup step once it's done or skipped, with a one-line summary. role: the job title they agreed you'd take; Bubble AI makes it your role. accounts: the accounts or sites they named. watch: only in your reply to their yes, the accounts they said you may keep an eye on; Bubble AI starts a watch for each. done: true when the setup is over.",
       inputSchema: {
         step: z.enum(SETUP_STEPS).optional(),
         summary: z.string().optional().describe("what you learned or did, one line: \"Wants ads and social posts managed\""),
@@ -553,7 +553,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     "approval_request",
     {
       description:
-        "Ask a person's OK before doing something sensitive or hard to undo (sending an email or message outside Wisp, buying something, deleting things, posting publicly). Posts an Approve / Deny card where you're working. End your turn after calling it: you'll be woken with the answer.",
+        "Ask a person's OK before doing something sensitive or hard to undo (sending an email or message outside Bubble AI, buying something, deleting things, posting publicly). Posts an Approve / Deny card where you're working. End your turn after calling it: you'll be woken with the answer.",
       inputSchema: { summary: z.string().describe("what you want to do, in one line"), details: z.string().optional().describe("the draft, the list, or why") },
     },
     safe(async ({ summary, details }) => {
@@ -664,7 +664,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
 
   server.registerTool(
     "file_view",
-    { description: "Look at a Wisp file by id: images are shown to you (e.g. screenshots from a recording), text files are returned as text.", inputSchema: { file_id: z.string() } },
+    { description: "Look at a Bubble AI file by id: images are shown to you (e.g. screenshots from a recording), text files are returned as text.", inputSchema: { file_id: z.string() } },
     safe(async ({ file_id }) => {
       const f = await client.downloadFile(file_id);
       if (/^image\/(png|jpeg|gif|webp)$/.test(f.mime)) return { content: [{ type: "image" as const, data: Buffer.from(f.data).toString("base64"), mimeType: f.mime }, { type: "text" as const, text: f.name }] };
@@ -711,7 +711,7 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
   if (opts.localFiles !== false) {
     server.registerTool(
       "file_download",
-      { description: "Download a Wisp file by id into a local directory.", inputSchema: { file_id: z.string(), dest_dir: z.string().optional() } },
+      { description: "Download a Bubble AI file by id into a local directory.", inputSchema: { file_id: z.string(), dest_dir: z.string().optional() } },
       safe(async ({ file_id, dest_dir }) => {
         const f = await client.downloadFile(file_id);
         const dir = dest_dir ?? process.cwd();
@@ -764,24 +764,24 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     server.registerTool(
       "storage_download",
       {
-        description: `Copy a file from the person's storage into Wisp, so you can attach it to a message (its file id)${opts.localFiles !== false ? " and, with dest_dir, save it on your computer" : ""}.`,
+        description: `Copy a file from the person's storage into Bubble AI, so you can attach it to a message (its file id)${opts.localFiles !== false ? " and, with dest_dir, save it on your computer" : ""}.`,
         inputSchema: { storage: which, path: z.string(), ...(opts.localFiles !== false ? { dest_dir: z.string().optional() } : {}) },
       },
       safe(async ({ storage, path: p, dest_dir }: { storage: string; path: string; dest_dir?: string }) => {
         const f = await client.storageToWisp(storage, p);
-        if (!dest_dir || opts.localFiles === false) return text(`Copied ${f.name} into Wisp as ${f.id} (${f.size} bytes).`);
+        if (!dest_dir || opts.localFiles === false) return text(`Copied ${f.name} into Bubble AI as ${f.id} (${f.size} bytes).`);
         const got = await client.downloadFile(f.id);
         await fs.mkdir(dest_dir, { recursive: true });
         const dest = path.join(dest_dir, path.basename(got.name));
         await fs.writeFile(dest, got.data);
-        return text(`Saved to ${dest} (Wisp file ${f.id}).`);
+        return text(`Saved to ${dest} (Bubble AI file ${f.id}).`);
       }),
     );
 
     server.registerTool(
       "storage_upload",
       {
-        description: `Put a file on the person's storage at a path (its full path, including the file name). Give a Wisp file id${opts.localFiles !== false ? " or a local_path on your computer" : ""}. A person is asked first, unless they said "Always in this folder"; then end your turn.`,
+        description: `Put a file on the person's storage at a path (its full path, including the file name). Give a Bubble AI file id${opts.localFiles !== false ? " or a local_path on your computer" : ""}. A person is asked first, unless they said "Always in this folder"; then end your turn.`,
         inputSchema: { storage: which, path: z.string().describe('e.g. "/Clients/Acme/Q3-report.pdf"'), file_id: z.string().optional(), ...(opts.localFiles !== false ? { local_path: z.string().optional() } : {}) },
       },
       safe(async ({ storage, path: p, file_id, local_path }: { storage: string; path: string; file_id?: string; local_path?: string }) => {
@@ -1035,7 +1035,7 @@ function registerComputerTools(server: McpServer, client: WispClient, own: { nam
       "login_fill",
       {
         description:
-          "Sign in to a website in your computer's browser with a login from the person's password manager. Open the site's sign-in page first, then call this with the site. Wisp fills the boxes and presses sign in; the password isn't given to you, and don't try to read it from the page. The first time, the person may be asked: then end your turn and you'll get a message once they answer. If there's no saved login, use computer_ask_human instead. Never ask for passwords in chat.",
+          "Sign in to a website in your computer's browser with a login from the person's password manager. Open the site's sign-in page first, then call this with the site. Bubble AI fills the boxes and presses sign in; the password isn't given to you, and don't try to read it from the page. The first time, the person may be asked: then end your turn and you'll get a message once they answer. If there's no saved login, use computer_ask_human instead. Never ask for passwords in chat.",
         inputSchema: {
           site: z.string().describe('the website, e.g. "zendesk.com"'),
           account: z.string().optional().describe("which account, when there's more than one login for the site"),
@@ -1067,7 +1067,7 @@ function guessMime(p: string): string {
 /** The hints after a save, in a few short lines ("" when there are none). */
 export function saveHints(r: { similar?: { path: string; title: string }[]; linkable?: string[]; linked?: string[] } | null | undefined): string {
   const out: string[] = [];
-  if (r?.linked?.length) out.push(`It linked to nothing, so Wisp added "Related: ${r.linked.join(", ")}". Change it if a better note fits.`);
+  if (r?.linked?.length) out.push(`It linked to nothing, so Bubble AI added "Related: ${r.linked.join(", ")}". Change it if a better note fits.`);
   if (r?.similar?.length) out.push(`Similar notes (if it's the same idea, merge into one and delete the other):\n${r.similar.map((s) => `- ${s.path} (${s.title})`).join("\n")}`);
   if (r?.linkable?.length) out.push(`Mentions you could link: ${r.linkable.join(", ")}`);
   return out.length ? `\n${out.join("\n")}` : "";

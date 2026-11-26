@@ -73,7 +73,7 @@ struct MarketplaceView: View {
     let fromRegistry = (registry ?? []).map { MarketApp(id: "r:" + $0.id, name: $0.name, detail: $0.description ?? $0.publisher ?? "", registry: $0) }
     let names = Set(fromRegistry.map { Self.squash($0.name) })
     let own = builtIn.filter { !names.contains(Self.squash($0.name)) && match($0.name, $0.description, $0.category) }
-      .map { MarketApp(id: "b:" + $0.id, name: $0.name, detail: $0.description ?? "Wisp", builtIn: $0) }
+      .map { MarketApp(id: "b:" + $0.id, name: $0.name, detail: $0.description ?? "Bubble AI", builtIn: $0) }
     return fromRegistry + own
   }
   private func added(_ a: MarketApp) -> Bool {
@@ -84,7 +84,7 @@ struct MarketplaceView: View {
   // MARK: skills
 
   private var skillItems: [MarketSkill] {
-    library.map { MarketSkill(id: "w:" + $0.id, name: $0.name, detail: $0.description ?? "", who: "Wisp", library: $0) }
+    library.map { MarketSkill(id: "w:" + $0.id, name: $0.name, detail: $0.description ?? "", who: "Bubble AI", library: $0) }
       + (skillList?.skills ?? []).map { MarketSkill(id: "s:" + $0.id, name: $0.name, detail: $0.description, who: $0.source.label, store: $0) }
   }
   private var sources: [String] { ["All"] + Array(NSOrderedSet(array: skillItems.map(\.who))).compactMap { $0 as? String } }
@@ -291,7 +291,7 @@ struct MarketplaceView: View {
           else if let lib = s.library { SkillDetail(skill: lib, library: true) }
           else if let entry = s.store { StoreSkillDetail(skill: entry) }
         } label: {
-          MarketRow(symbol: MarketText.skillSymbol(s.id + " " + s.name), tile: 44, title: s.name, subtitle: s.who == "Wisp" ? "Made by Wisp" : "From \(s.who)", flush: true) {
+          MarketRow(symbol: MarketText.skillSymbol(s.id + " " + s.name), tile: 44, title: s.name, subtitle: s.who == "Bubble AI" ? "Made by Bubble AI" : "From \(s.who)", flush: true) {
             AddLabel(title: installed(s) != nil ? "Added" : s.store?.license.open == false ? "View" : "Add", muted: installed(s) != nil)
           }
         }.buttonStyle(.plain)

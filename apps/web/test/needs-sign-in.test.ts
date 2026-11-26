@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { HarnessSettings } from "@wisp/core";
+import type { HarnessSettings } from "@bubble-ai/core";
 import { signInFor } from "../src/views/needs-sign-in.ts";
 
 const tool = (harness: string, signedIn: boolean | null): HarnessSettings => ({ harness, accounts: [{ isDefault: true, signedIn }] }) as unknown as HarnessSettings;

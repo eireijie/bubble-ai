@@ -2,7 +2,7 @@ import XCTest
 
 /**
  * The foundation: four tabs, the avatar's settings sheet, the + menu, search and a chat's top bar,
- * against WispUITests/Fixtures/hub.py. Set WISP_SHOTS to a folder to also save screenshots there.
+ * against WispUITests/Fixtures/hub.py. Set BUBBLE_SHOTS to a folder to also save screenshots there.
  */
 @MainActor
 final class NavigationTests: XCTestCase {
@@ -12,11 +12,11 @@ final class NavigationTests: XCTestCase {
     let environment = ProcessInfo.processInfo.environment
     guard let hub = envVar("HUB", in: environment), hub.hasPrefix("http"),
           let token = envVar("TOKEN", in: environment), !token.isEmpty, !token.hasPrefix("$(") else {
-      throw XCTSkip("Set WISP_HUB and WISP_TOKEN, pointing at WispUITests/Fixtures/hub.py.")
+      throw XCTSkip("Set BUBBLE_HUB and BUBBLE_TOKEN, pointing at WispUITests/Fixtures/hub.py.")
     }
     continueAfterFailure = false
-    app.launchEnvironment["WISP_HUB"] = hub
-    app.launchEnvironment["WISP_TOKEN"] = token
+    app.launchEnvironment["BUBBLE_HUB"] = hub
+    app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
 
     let bar = app.tabBars.firstMatch
@@ -70,7 +70,7 @@ final class NavigationTests: XCTestCase {
     let screenshot = app.screenshot()
     let image = XCTAttachment(screenshot: screenshot)
     image.name = name; image.lifetime = .keepAlways; add(image)
-    if let folder = ProcessInfo.processInfo.environment["WISP_SHOTS"], !folder.isEmpty {
+    if let folder = ProcessInfo.processInfo.environment["BUBBLE_SHOTS"], !folder.isEmpty {
       try? screenshot.pngRepresentation.write(to: URL(fileURLWithPath: folder).appendingPathComponent("\(name).png"))
     }
   }

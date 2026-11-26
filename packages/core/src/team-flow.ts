@@ -302,7 +302,7 @@ export function scheduleProblem(s: Pick<TeamStep, "schedule" | "timezone" | "pro
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: s.timezone || "UTC" });
   } catch {
-    return "The schedule's time zone isn't one Wisp knows.";
+    return "The schedule's time zone isn't one Bubble AI knows.";
   }
   return null;
 }
@@ -438,7 +438,7 @@ function cycles(steps: TeamStep[], g: StepGraph): string[][] {
 // --- the chart older apps see ---------------------------------------------------------
 
 /**
- * The plain chart a stepped team also keeps, so older apps and the rest of Wisp see who's on it:
+ * The plain chart a stepped team also keeps, so older apps and the rest of Bubble AI see who's on it:
  * the first step's agent leads, everyone else gets work from it.
  */
 export function chartFromSteps(team: Pick<ChannelTeam, "roles" | "steps">, old: ChannelTeamNode[] = []): Pick<ChannelTeam, "nodes" | "edges"> {

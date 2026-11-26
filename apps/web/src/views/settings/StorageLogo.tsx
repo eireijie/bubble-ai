@@ -1,5 +1,5 @@
 import { Server } from "lucide-react";
-import { STORAGE_SERVICES, type StorageService } from "@wisp/core";
+import { STORAGE_SERVICES, type StorageService } from "@bubble-ai/core";
 import { AppTile, Tile } from "../../components/MarketParts.tsx";
 
 /** A service's real logo, or a plain server for "Other server". */

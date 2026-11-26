@@ -1184,7 +1184,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.wisp.WispUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.bubbleai.WispUITests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Wisp;
@@ -1261,7 +1261,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.wisp.WispTests;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.bubbleai.WispTests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Wisp.app/Wisp";
@@ -1346,13 +1346,13 @@
 				DEVELOPMENT_TEAM = 388D9S7Y7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wisp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Wisp;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Wisp uses the camera to scan the pairing code on your computer.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Wisp connects to Wisp on your computer over your own network.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wisp tells your agents when you arrive at or leave a place you added. Never where you are in between.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "When an agent asks where you are, Wisp tells it. Only when it asks, never a running track.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wisp uses the microphone so you can talk with your agents in a voice call.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wisp turns what you say into text so your agent can answer.";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bubble AI";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Bubble AI uses the camera to scan the pairing code on your computer.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Bubble AI connects to Bubble AI on your computer over your own network.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Bubble AI tells your agents when you arrive at or leave a place you added. Never where you are in between.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "When an agent asks where you are, Bubble AI tells it. Only when it asks, never a running track.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Bubble AI uses the microphone so you can talk with your agents in a voice call.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Bubble AI turns what you say into text so your agent can answer.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1361,7 +1361,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.wisp.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.bubbleai.ios;
 				PRODUCT_NAME = Wisp;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1378,7 +1378,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.wisp.WispUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.bubbleai.WispUITests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Wisp;
@@ -1396,13 +1396,13 @@
 				DEVELOPMENT_TEAM = 388D9S7Y7P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wisp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Wisp;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Wisp uses the camera to scan the pairing code on your computer.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Wisp connects to Wisp on your computer over your own network.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wisp tells your agents when you arrive at or leave a place you added. Never where you are in between.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "When an agent asks where you are, Wisp tells it. Only when it asks, never a running track.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wisp uses the microphone so you can talk with your agents in a voice call.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wisp turns what you say into text so your agent can answer.";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bubble AI";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Bubble AI uses the camera to scan the pairing code on your computer.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Bubble AI connects to Bubble AI on your computer over your own network.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Bubble AI tells your agents when you arrive at or leave a place you added. Never where you are in between.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "When an agent asks where you are, Bubble AI tells it. Only when it asks, never a running track.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Bubble AI uses the microphone so you can talk with your agents in a voice call.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Bubble AI turns what you say into text so your agent can answer.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1411,7 +1411,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.wisp.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.bubbleai.ios;
 				PRODUCT_NAME = Wisp;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1428,7 +1428,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = ai.wisp.WispTests;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.bubbleai.WispTests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Wisp.app/Wisp";

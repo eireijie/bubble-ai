@@ -1,4 +1,4 @@
-import type { Agent, Approval, Computer } from "@wisp/core";
+import type { Agent, Approval, Computer } from "@bubble-ai/core";
 import { ComputerError } from "./computers.ts";
 import type { Hub } from "./hub.ts";
 

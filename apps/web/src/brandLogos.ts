@@ -1,8 +1,8 @@
 /**
- * Brand logos bundled with Wisp, so a plugin's tile shows its real logo without a network call.
+ * Brand logos bundled with Bubble AI, so a plugin's tile shows its real logo without a network call.
  * Paths and colours are from Simple Icons 16.38.1 (https://simpleicons.org), released under CC0 1.0
  * (public domain); Slack's mark is from the 2026-11-25 design canvas. The marks themselves remain
- * their owners' trademarks and only name the app they stand for. Wisp's own UI keeps line icons.
+ * their owners' trademarks and only name the app they stand for. Bubble AI's own UI keeps line icons.
  */
 
 export interface BrandLogo {

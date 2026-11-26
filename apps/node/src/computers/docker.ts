@@ -5,7 +5,7 @@ import net from "node:net";
 import { Duplex } from "node:stream";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ComputerSpec, LoginFillResult, PageElement, RunOutput, VmConfig } from "@wisp/core";
+import type { ComputerSpec, LoginFillResult, PageElement, RunOutput, VmConfig } from "@bubble-ai/core";
 import { FILL_LOGIN_SCRIPT } from "./fill-login.ts";
 import { ActionError, exec, has, must, type Driver } from "./driver.ts";
 import { X11Driver } from "./x11.ts";
@@ -119,15 +119,15 @@ export async function detectEngine(prefer?: string): Promise<{ engine: Engine | 
   if (stopped.length) return { engine: null, detail: `${stopped[0]}.` };
   const how =
     process.platform === "darwin"
-      ? "Run `wisp setup` to install Apple's container (free, from Apple), or install OrbStack or Docker Desktop"
+      ? "Run `bubble-ai setup` to install Apple's container (free, from Apple), or install OrbStack or Docker Desktop"
       : process.platform === "win32"
         ? "Install Docker Desktop (it uses WSL 2)"
-        : "Run `wisp setup`, or install Docker Engine or Podman";
+        : "Run `bubble-ai setup`, or install Docker Engine or Podman";
   return { engine: null, detail: `This device can't run VMs yet. ${how}.` };
 }
 
 /**
- * The VM image for this copy of Wisp: named after a hash of its recipe (docker/computer), so a
+ * The VM image for this copy of Bubble AI: named after a hash of its recipe (docker/computer), so a
  * changed recipe means a new image, and a published image is only used when it's built from the
  * same recipe.
  */
@@ -141,7 +141,7 @@ export function recipeTag(dir = IMAGE_DIR): string {
 
 export const LOCAL_IMAGE = "wisp-computer";
 
-/** Where this copy of Wisp's VM images are published: ghcr.io/<owner>/wisp-computer for a GitHub checkout. */
+/** Where this copy of Bubble AI's VM images are published: ghcr.io/<owner>/wisp-computer for a GitHub checkout. */
 export function publishedImage(repoDir = path.resolve(IMAGE_DIR, "../..")): string | null {
   try {
     const head = fs.readFileSync(path.join(repoDir, ".git", "config"), "utf8");
@@ -229,7 +229,7 @@ export function runArgs(spec: ComputerSpec, o: { name: string; volume: string; f
   const resolution = /^\d{3,5}x\d{3,5}$/.test(cfg.resolution ?? "") ? cfg.resolution! : "1280x800";
   const hostname = vmHostname(spec);
   const args = ["run", "-d", "--name", o.name, "--label", `wisp.computer=${spec.id}`, "--shm-size", "1g"];
-  // Apple's container has no hostname or restart policy; Wisp starts a stopped VM when it's next used
+  // Apple's container has no hostname or restart policy; Bubble AI starts a stopped VM when it's next used
   // stopped when idle and started when next needed, so it never comes back on its own (after a reboot, say)
   if (kind !== "apple") args.push("--hostname", hostname, "--restart", "no");
   // the hub, when it runs on this same device (Docker Engine on Linux needs to be told the name)
@@ -544,7 +544,7 @@ export class DockerVm implements Driver {
     await exec(this.bin, ["exec", "-u", this.user, this.name, "rm", "-rf", `/tmp/wisp-run-${safe}`, `/tmp/wisp-run-${safe}.pid`], { timeoutMs: 15_000 });
   }
 
-  /** Put a file in the VM (as wisp), e.g. Wisp's tools for harnesses that run in here. */
+  /** Put a file in the VM (as wisp), e.g. Bubble AI's tools for harnesses that run in here. */
   async writeFile(vmPath: string, content: string | Buffer, mode = "644") {
     await this.ready();
     await must(this.bin, ["exec", "-i", "-u", this.user, this.name, "sh", "-c", writeFileScript(vmPath, mode)], { input: content, timeoutMs: 60_000 });
@@ -553,7 +553,7 @@ export class DockerVm implements Driver {
   /** Remove the folders of model connections not in `keep` (a removed connection's sign-ins and keys). */
   async pruneConnections(keep: string[]) {
     await this.ready();
-    await exec(this.bin, ["exec", "-u", this.user, this.name, "sh", "-c", PRUNE_CONNECTIONS_SCRIPT, "sh", `${this.home}/.wisp/connections`, ...keep], { timeoutMs: 30_000 });
+    await exec(this.bin, ["exec", "-u", this.user, this.name, "sh", "-c", PRUNE_CONNECTIONS_SCRIPT, "sh", `${this.home}/.bubble-ai/connections`, ...keep], { timeoutMs: 30_000 });
   }
 
   /** A file in the VM (as wisp), or null when it isn't there. */

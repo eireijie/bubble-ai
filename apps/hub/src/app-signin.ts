@@ -1,15 +1,15 @@
 import crypto from "node:crypto";
-import { envVar, SIGN_IN_PROVIDERS, type SignInProvider } from "@wisp/core";
+import { envVar, SIGN_IN_PROVIDERS, type SignInProvider } from "@bubble-ai/core";
 import { now } from "./auth.ts";
 import type { Db } from "./db.ts";
 
 /**
- * Signing in to GitHub, Slack and Google through Wisp's own app with each company, for connectors
+ * Signing in to GitHub, Slack and Google through Bubble AI's own app with each company, for connectors
  * whose servers can't register a hub by themselves the way MCP sign-in does.
  *
  * Those companies only send people back to an address registered with the app, and every
  * self-hosted hub has its own address. So unless a hub has its own app for a company
- * (WISP_<COMPANY>_CLIENT_ID and _SECRET), the sign-in goes through the relay on Wisp's website:
+ * (BUBBLE_<COMPANY>_CLIENT_ID and _SECRET), the sign-in goes through the relay on Bubble AI's website:
  *
  *   1. The hub sends the browser to the company's sign-in page, with the relay as the address to
  *      come back to and this hub's address inside `state`.
@@ -23,6 +23,8 @@ import type { Db } from "./db.ts";
  */
 
 export const APP_CALLBACK_PATH = "/api/connectors/app/callback";
+// Still the site's address from before the rename: the GitHub, Slack and Google sign-in apps only send people
+// back to the callback registered with them (docs/sign-in.md). Move it once those apps list the new site too.
 export const DEFAULT_RELAY = "https://wisp-app.pages.dev";
 
 type Row = {
@@ -60,7 +62,7 @@ export class AppSignInError extends Error {
   }
 }
 
-/** The relay URL, or null when this hub was told not to use one (WISP_SIGNIN_RELAY=off). */
+/** The relay URL, or null when this hub was told not to use one (BUBBLE_SIGNIN_RELAY=off). */
 export function relayUrl(): string | null {
   const v = envVar("SIGNIN_RELAY")?.trim();
   if (v === "off" || v === "none") return null;
@@ -129,7 +131,7 @@ export class AppSignIn {
   async available(provider: SignInProvider): Promise<{ ok: true } | { ok: false; reason: string }> {
     if (await this.source(provider)) return { ok: true };
     const name = SIGN_IN_PROVIDERS[provider].name;
-    return { ok: false, reason: relayUrl() ? `Signing in with ${name} isn't set up for Wisp yet.` : `Signing in with ${name} needs Wisp's sign-in service, which this hub has turned off.` };
+    return { ok: false, reason: relayUrl() ? `Signing in with ${name} isn't set up for Bubble AI yet.` : `Signing in with ${name} needs Bubble AI's sign-in service, which this hub has turned off.` };
   }
 
   /**

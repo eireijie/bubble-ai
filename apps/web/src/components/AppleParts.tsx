@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Calendar, Check, Contact, ListChecks, MessageCircle, Navigation, X } from "lucide-react";
-import { type AppleApp, type Approval, type MessagePart } from "@wisp/core";
+import { type AppleApp, type Approval, type MessagePart } from "@bubble-ai/core";
 import { api, getToken, observeEvents } from "../api.ts";
 import { usePrefs, useStore } from "../store.ts";
 import { clockTime, cx } from "./ui.tsx";
@@ -36,7 +36,7 @@ export function appleIconUrl(app: AppleApp): Promise<string | null> {
     p = fetch(`/api/apple/icons/${app}`, { headers: { authorization: `Bearer ${getToken()}` } })
       .then(async (res) => {
         if (!res.ok) return null;
-        // always an image, whatever the response says it is, so nothing else can run on Wisp's origin
+        // always an image, whatever the response says it is, so nothing else can run on Bubble AI's origin
         return URL.createObjectURL(new Blob([await res.blob()], { type: "image/png" }));
       })
       .catch(() => null);

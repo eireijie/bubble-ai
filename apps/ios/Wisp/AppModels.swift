@@ -105,7 +105,7 @@ struct MarketplaceInstall: Decodable {
 enum NativeCatalog {
   static func read<T: Decodable>(_ name: String, as type: T.Type) throws -> T {
     guard let url = Bundle.main.url(forResource: name, withExtension: "json") else {
-      throw API.Failure(status: 0, message: "The app's library is missing. Reinstall Wisp to restore it.")
+      throw API.Failure(status: 0, message: "The app's library is missing. Reinstall Bubble AI to restore it.")
     }
     return try Wire.decoder.decode(type, from: Data(contentsOf: url))
   }

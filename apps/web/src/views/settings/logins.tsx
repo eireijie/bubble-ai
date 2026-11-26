@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Globe, KeyRound, X } from "lucide-react";
-import type { LoginSummary } from "@wisp/core";
+import type { LoginSummary } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { Add, Badge, Dlg, Item, Label, Panel, Prim, Sec, TextBox, Tile } from "../../components/MarketParts.tsx";
@@ -16,7 +16,7 @@ const SERVICE_ACCOUNT_HELP = "https://developer.1password.com/docs/service-accou
 
 /**
  * Settings → Logins: connect a password manager so agents can sign in to websites without ever
- * seeing a password. Wisp stores no passwords; the logins listed here live in the manager.
+ * seeing a password. Bubble AI stores no passwords; the logins listed here live in the manager.
  */
 export function LoginsPage() {
   const isOwner = useStore((s) => s.me)?.role === "owner";

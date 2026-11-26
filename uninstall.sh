@@ -1,29 +1,31 @@
 #!/usr/bin/env bash
-# Remove Wisp from this Mac or Linux computer, to start over or to stop using it.
+# Remove Bubble AI from this Mac or Linux computer, to start over or to stop using it.
 #
 #   Use the uninstall command in README.md
 #   (or, from a clone: bash uninstall.sh)
 #
-# It asks before each step and only touches Wisp's own things:
+# It asks before each step and only touches Bubble AI's own things:
 #   - the hub and device services (started at login)
 #   - agents' VMs (Apple container or Docker, named wisp-cmp_…) and the wisp-computer image
 #   - the desktop app and its settings
-#   - the `wisp` commands in ~/.local/bin
-#   - ~/.wisp (this device's settings and agents' working folders)
-#   - ~/wisp (Wisp itself, and a hub's data: chats, memory, files) — or --dir DIR
-#   - Wisp's own Tailscale address, when the hub goes (only if it points at this hub)
-# Options: --dry-run (only list what it would remove), --yes (don't ask), --dir DIR (where Wisp
-# was installed, default ~/wisp).
+#   - the `bubble-ai` (and older `wisp`) commands in ~/.local/bin
+#   - ~/.bubble-ai, and ~/.wisp from before the rename (this device's settings and agents' working folders)
+#   - ~/bubble-ai, or ~/wisp from before the rename (Bubble AI itself, and a hub's data: chats, memory, files) — or --dir DIR
+#   - Bubble AI's own Tailscale address, when the hub goes (only if it points at this hub)
+# Options: --dry-run (only list what it would remove), --yes (don't ask), --dir DIR (where Bubble AI
+# was installed, default ~/bubble-ai).
 # Nothing else is touched: not Docker or container themselves, not Tailscale, not your agents' CLIs.
 # The desktop app does the same from Settings > Data (apps/desktop/src/removal.cjs); a test keeps them equal.
 set -uo pipefail
 
-GITHUB_REPO="eireijie/wisp"
+GITHUB_REPO="eireijie/bubble-ai"
 # Only tests set this: it moves /Applications, /etc and /var inside a temp folder.
-ROOT="${WISP_UNINSTALL_ROOT:-}"
+ROOT="${BUBBLE_UNINSTALL_ROOT:-}"
 
-DIR="${WISP_DIR-${WARREN_DIR-$HOME/wisp}}"
-if [ -z "${WISP_DIR+x}${WARREN_DIR+x}" ] && [ ! -e "$DIR" ] && [ -d "$HOME/warren/.git" ]; then DIR="$HOME/warren"; fi
+DIR="${BUBBLE_DIR-${WISP_DIR-${WARREN_DIR-$HOME/bubble-ai}}}"
+if [ -z "${BUBBLE_DIR+x}${WISP_DIR+x}${WARREN_DIR+x}" ] && [ ! -e "$DIR" ]; then
+  if [ -d "$HOME/wisp/.git" ]; then DIR="$HOME/wisp"; elif [ -d "$HOME/warren/.git" ]; then DIR="$HOME/warren"; fi
+fi
 YES="" DRY=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -48,7 +50,7 @@ confirm() {
 done_() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 mac() { [ "$(uname)" = Darwin ]; }
 
-bold "Remove Wisp"
+bold "Remove Bubble AI"
 if [ -n "$DRY" ]; then echo "Dry run: listing what it would ask about. Nothing is changed."
 else echo "This asks before each step. Say no to keep something."; fi
 echo
@@ -63,7 +65,7 @@ else
   done
 fi
 # Tailscale keeps serving the address on its own, so it would send visitors to whatever uses this
-# port next. Only the root of https://<this computer> pointing at this hub is Wisp's.
+# port next. Only the root of https://<this computer> pointing at this hub is Bubble AI's.
 hub_port() {
   for f in "$HOME/Library/LaunchAgents/ai.wisp.hub.plist" "$HOME/Library/LaunchAgents/ai.warren.hub.plist" "$HOME/.config/systemd/user/wisp.service" "$HOME/.config/systemd/user/warren.service"; do
     [ -f "$f" ] || continue
@@ -74,8 +76,8 @@ hub_port() {
 }
 tailscale_off() {
   command -v tailscale >/dev/null 2>&1 || return 0
-  command -v python3 >/dev/null 2>&1 || { echo "  If Wisp had a Tailscale address, turn it off: tailscale funnel --https=8443 off; tailscale funnel --https=443 off && tailscale serve --https=443 off"; return 0; }
-  # prints "only" when the address is Wisp's alone, "shared" when other paths use it too
+  command -v python3 >/dev/null 2>&1 || { echo "  If Bubble AI had a Tailscale address, turn it off: tailscale funnel --https=8443 off; tailscale funnel --https=443 off && tailscale serve --https=443 off"; return 0; }
+  # prints "only" when the address is Bubble AI's alone, "shared" when other paths use it too
   how=$(python3 -c '
 import json, re, sys
 def load(s): return json.loads(s[s.index("{"):])
@@ -90,13 +92,13 @@ try:
 except Exception: pass
 ' "$(tailscale status --json 2>/dev/null)" "$(tailscale serve status --json 2>/dev/null)" "$(hub_port)")
   for m in $(printf '%s\n' "$how" | sed -n 's/^door //p'); do tailscale funnel --https=8443 --set-path="$m" off >/dev/null 2>&1; done
-  printf '%s\n' "$how" | grep -q '^door ' && done_ "closed Wisp's address for Grok, ChatGPT and Claude"
+  printf '%s\n' "$how" | grep -q '^door ' && done_ "closed Bubble AI's address for Grok, ChatGPT and Claude"
   case "$(printf '%s\n' "$how" | grep -v '^door ' || true)" in
-    only) tailscale funnel --https=443 off >/dev/null 2>&1; tailscale serve --https=443 off >/dev/null 2>&1; done_ "turned off Wisp's Tailscale address" ;;
-    shared) tailscale serve --https=443 --set-path=/ off >/dev/null 2>&1; done_ "turned off Wisp's Tailscale address; its other paths stay" ;;
+    only) tailscale funnel --https=443 off >/dev/null 2>&1; tailscale serve --https=443 off >/dev/null 2>&1; done_ "turned off Bubble AI's Tailscale address" ;;
+    shared) tailscale serve --https=443 --set-path=/ off >/dev/null 2>&1; done_ "turned off Bubble AI's Tailscale address; its other paths stay" ;;
   esac
 }
-if [ ${#services[@]} -gt 0 ] && confirm "Stop Wisp's services and remove them from startup (${services[*]})?"; then
+if [ ${#services[@]} -gt 0 ] && confirm "Stop Bubble AI's services and remove them from startup (${services[*]})?"; then
   case " ${services[*]} " in *hub*|*" wisp "*|*" warren "*) tailscale_off ;; esac
   if mac; then
     for k in "${services[@]}"; do
@@ -135,7 +137,7 @@ fi
 images=""
 command -v container >/dev/null 2>&1 && container image list 2>/dev/null | grep -Eq '^([^[:space:]]*/)?(wisp|warren)-computer[[:space:]]' && images="container"
 command -v docker >/dev/null 2>&1 && docker images -q '*computer' 2>/dev/null | grep -q . && images="$images docker"
-command -v docker >/dev/null 2>&1 && docker images -q "ghcr.io/${GITHUB_REPO}-computer" 2>/dev/null | grep -q . && images="$images docker"
+command -v docker >/dev/null 2>&1 && docker images -q "ghcr.io/${GITHUB_REPO%/*}/wisp-computer" 2>/dev/null | grep -q . && images="$images docker"
 if [ -n "$images" ] && confirm "Delete the VM image (wisp-computer, a few GB)?"; then
   if [[ "$images" == *container* ]]; then
     container image list 2>/dev/null | awk 'NR > 1 && $1 ~ /(^|\/)(wisp|warren)-computer$/ {print $1":"$2}' | while read -r ref; do container image rm "$ref" >/dev/null 2>&1; done
@@ -150,24 +152,24 @@ fi
 # 3. the desktop app (which runs the hub, when no service does)
 has_hub_service() { case " ${services[*]:-} " in *hub*|*" wisp "*|*" warren "*) return 0 ;; esac; return 1; }
 if mac; then
-  for product in Wisp Warren; do
+  for pair in "Bubble AI:bubbleai" "Wisp:wisp" "Warren:warren"; do
+  product="${pair%%:*}" app_id="${pair##*:}"
   app="$ROOT/Applications/$product.app" data="$HOME/Library/Application Support/$product"
-  if { [ -d "$app" ] || [ -d "$data" ]; } && confirm "Remove the Wisp app and its settings (a server it ran, with its chats and memory, goes too)?"; then
+  if { [ -d "$app" ] || [ -d "$data" ]; } && confirm "Remove the Bubble AI app and its settings (a server it ran, with its chats and memory, goes too)?"; then
     has_hub_service || tailscale_off
     osascript -e "tell application \"$product\" to quit" >/dev/null 2>&1 || true
     sleep 1
-    app_id=$(printf "%s" "$product" | tr '[:upper:]' '[:lower:]')
     rm -rf "$app" "$data" "$HOME/Library/Logs/$product" "$HOME/Library/Preferences/ai.$app_id.desktop.plist" "$HOME/Library/Caches/ai.$app_id.desktop" "$HOME/Library/Saved Application State/ai.$app_id.desktop.savedState"
     done_ "removed the app"
   fi
   done
 else
-  for product in Wisp Warren; do
+  for product in "Bubble AI" Wisp Warren; do
   data="$HOME/.config/$product"
-  if [ -d "$data" ] && confirm "Remove the Wisp app's settings (a server it ran, with its chats and memory, goes too)?"; then
+  if [ -d "$data" ] && confirm "Remove the Bubble AI app's settings (a server it ran, with its chats and memory, goes too)?"; then
     has_hub_service || tailscale_off
     rm -rf "$data"
-    done_ "removed $data (delete the AppImage or run: sudo apt remove wisp, if you installed the .deb)"
+    done_ "removed $data (delete the AppImage or run: sudo apt remove bubble-ai (or wisp, for an older install), if you installed the .deb)"
   fi
   done
 fi
@@ -176,28 +178,29 @@ fi
 
 # 4. the commands
 links=()
-for c in wisp wisp-hub wisp-mcp warren warren-hub warren-mcp; do [ -L "$HOME/.local/bin/$c" ] && links+=("$HOME/.local/bin/$c"); done
-if [ ${#links[@]} -gt 0 ] && confirm "Remove the wisp commands from ~/.local/bin?"; then
+for c in bubble-ai bubble-ai-hub bubble-ai-mcp wisp wisp-hub wisp-mcp warren warren-hub warren-mcp; do [ -L "$HOME/.local/bin/$c" ] && links+=("$HOME/.local/bin/$c"); done
+if [ ${#links[@]} -gt 0 ] && confirm "Remove the bubble-ai commands from ~/.local/bin?"; then
   rm -f "${links[@]}"
   done_ "removed the commands"
 fi
 
 # 5. this device's settings and agents' working folders
-for folder in "$HOME/.wisp" "$HOME/.warren"; do
+for folder in "$HOME/.bubble-ai" "$HOME/.wisp" "$HOME/.warren"; do
   if { [ -e "$folder" ] || [ -L "$folder" ]; } && confirm "Delete $folder (this device's connection and your agents' working folders)?"; then
     rm -rf "$folder"
     done_ "deleted $folder"
   fi
 done
 
-# 6. Wisp itself, and a hub's data
-# (the old ~/warren too, which a current install can have left beside ~/wisp)
+# 6. Bubble AI itself, and a hub's data
+# (the old ~/wisp and ~/warren too, which a current install can have left beside ~/bubble-ai)
 folders=("$DIR")
+[ "$DIR" = "$HOME/wisp" ] || folders+=("$HOME/wisp")
 [ "$DIR" = "$HOME/warren" ] || folders+=("$HOME/warren")
 for folder in "${folders[@]}"; do
-  if [ -d "$folder" ] && [ -f "$folder/package.json" ] && grep -Eq '"name": "(wisp|warren)"' "$folder/package.json"; then
+  if [ -d "$folder" ] && [ -f "$folder/package.json" ] && grep -Eq '"name": "(bubble-ai|wisp|warren)"' "$folder/package.json"; then
     echo
-    echo "$folder is Wisp itself. If this computer ran the hub, its chats, memory and files are in $folder/data."
+    echo "$folder is Bubble AI itself. If this computer ran the hub, its chats, memory and files are in $folder/data."
     if confirm "Delete $folder, including that data?"; then
       rm -rf "$folder"
       done_ "deleted $folder"

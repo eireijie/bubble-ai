@@ -1,7 +1,7 @@
 /**
  * "Bring what your AI already knows": one prompt the person gives the AI they already use
  * (Claude Code, Codex, ChatGPT, Grok…), and the answer it gives back, split into lines the person
- * ticks before Wisp saves them to an agent's notes. Used by first-run setup and Settings › Memory.
+ * ticks before Bubble AI saves them to an agent's notes. Used by first-run setup and Settings › Memory.
  */
 
 /** The headings the prompt asks for, in order. */
@@ -11,7 +11,7 @@ export type MemoryHeading = (typeof MEMORY_HEADINGS)[number];
 /** The prompt, word for word as designed. `link` is the one-time link an agent can post its answer to. */
 export function memoryPrompt(link?: string | null): string {
   return [
-    "I'm moving my work into Wisp, where a team of AI agents will work for me. Hand over everything a new teammate would need to pick up exactly where you left off.",
+    "I'm moving my work into Bubble AI, where a team of AI agents will work for me. Hand over everything a new teammate would need to pick up exactly where you left off.",
     "First, look through everything you can see: your saved memories and custom instructions, project files like CLAUDE.md or AGENTS.md, and our recent conversations.",
     'Then write it in Markdown under these headings, one fact per line starting with "- ":',
     "## About me: name, work, timezone, how I like to be talked to",
@@ -27,7 +27,7 @@ export function memoryPrompt(link?: string | null): string {
     "- Say where each fact came from when you can: (memory), (CLAUDE.md), (chat, Oct 2026).",
     "- Never include passwords, API keys, tokens, card or bank numbers, or private details about other people.",
     "- Skip things older than a year unless they still matter.",
-    link ? `When you're done, send it to this one-time link if you can: ${link} (it works once). Otherwise reply with it and I'll paste it into Wisp.` : "When you're done, reply with it and I'll paste it into Wisp.",
+    link ? `When you're done, send it to this one-time link if you can: ${link} (it works once). Otherwise reply with it and I'll paste it into Bubble AI.` : "When you're done, reply with it and I'll paste it into Bubble AI.",
   ].join("\n");
 }
 
@@ -45,7 +45,7 @@ export interface ParsedMemory {
   dropped: number;
 }
 
-/** Longest answer Wisp reads (a whole chat history pasted by mistake is cut there). */
+/** Longest answer Bubble AI reads (a whole chat history pasted by mistake is cut there). */
 export const MEMORY_ANSWER_MAX = 60_000;
 /** Most lines one import keeps. */
 export const MEMORY_LINES_MAX = 300;

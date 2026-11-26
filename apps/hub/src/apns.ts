@@ -1,17 +1,17 @@
-import { envVar } from "@wisp/core";
+import { envVar } from "@bubble-ai/core";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import http2 from "node:http2";
-import { parseMentions, type ClientEvent, type Message } from "@wisp/core";
+import { parseMentions, type ClientEvent, type Message } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 
 /**
- * Push notifications to Wisp's iOS app through Apple's push service (APNs), so people hear about
+ * Push notifications to Bubble AI's iOS app through Apple's push service (APNs), so people hear about
  * agent replies, @mentions, approvals and "needs you on its computer" while the app is closed.
  *
  * Optional: a hub without an APNs key keeps device tokens but sends nothing. The key is the
  * self-hoster's own (Apple Developer → Keys → a .p8 with Apple Push Notifications), from env vars
- * (WISP_APNS_*) or, if those aren't set, from Settings (an owner's PUT /api/settings/push).
+ * (BUBBLE_APNS_*) or, if those aren't set, from Settings (an owner's PUT /api/settings/push).
  */
 export interface ApnsConfig {
   keyId: string;
@@ -48,7 +48,7 @@ export interface PushResult {
 
 export type PushTransport = (origin: string, path: string, headers: Record<string, string>, body: string) => Promise<PushResult>;
 
-export const DEFAULT_TOPIC = "ai.wisp.ios";
+export const DEFAULT_TOPIC = "ai.bubbleai.ios";
 const SETTING = "push.apns";
 const ORIGINS = { production: "https://api.push.apple.com", sandbox: "https://api.sandbox.push.apple.com" };
 /** APNs refuses provider tokens older than an hour and too-frequent new ones; 50 minutes sits between. */

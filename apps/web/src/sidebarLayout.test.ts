@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PINS, type SidebarLayout } from "@wisp/core";
+import { MAX_PINS, type SidebarLayout } from "@bubble-ai/core";
 import { addSection, baseLayout, clearUnread, deleteSection, forget, hide, markUnread, movePin, moveTo, newSectionName, NONE, pin, pinsFullNotice, placeChats, renameSection, unpin, type LayoutChat } from "./sidebarLayout.ts";
 
 const chat = (key: string, o: Partial<LayoutChat> = {}): LayoutChat => ({ key, name: key, pinned: false, sectionId: null, unread: 0, ...o });

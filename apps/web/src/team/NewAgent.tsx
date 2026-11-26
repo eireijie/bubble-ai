@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { CreateAgent } from "../views/CreateAgent.tsx";
 import { useDevices } from "../devices.ts";
 import { useStore } from "../store.ts";

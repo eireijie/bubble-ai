@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bold, ChevronLeft, ExternalLink, FolderInput, Hash, History, Link2, List, Lock, Pencil, PencilLine, Share2, Trash2, Type, Waypoints, X, MoreHorizontal } from "lucide-react";
-import { type MemoryLevel } from "@wisp/core";
+import { type MemoryLevel } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { go, guardLeaving } from "../../router.ts";

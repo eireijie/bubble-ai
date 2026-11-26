@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { chatgptAccount, type ConnectionSecret, type NodeToHub } from "@wisp/core";
+import { chatgptAccount, type ConnectionSecret, type NodeToHub } from "@bubble-ai/core";
 
 /** Where Codex keeps this device's own sign-in. */
 export function codexAuthFile(env: NodeJS.ProcessEnv = process.env): string {

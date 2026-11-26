@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, ChevronRight, Copy, Download, ExternalLink, Link2, MoreHorizontal, Plus, RefreshCw, Smartphone } from "lucide-react";
-import { HARNESSES, OwnRemoteDesktop, REMOTE_APPS, REMOTE_APP_IDS, formatRustdeskId, harnessLabel, remoteDesktopLink, runsInVm, type Actor, type Agent, type DeviceRole, type HarnessInfo, type RemoteApp } from "@wisp/core";
+import { HARNESSES, OwnRemoteDesktop, REMOTE_APPS, REMOTE_APP_IDS, formatRustdeskId, harnessLabel, remoteDesktopLink, runsInVm, type Actor, type Agent, type DeviceRole, type HarnessInfo, type RemoteApp } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";
@@ -265,7 +265,7 @@ function AskSheet({ node: n }: { node: NodeInfo }) {
 
 const ROLE_LABEL: Record<DeviceRole, string> = { vms: "Runs VMs", screen: "Uses its screen", headless: "Headless" };
 
-/** The hub's own version, to tell whether a device has a newer Wisp to get. Undefined while asking. */
+/** The hub's own version, to tell whether a device has a newer Bubble AI to get. Undefined while asking. */
 function useHubVersion(): HubVersion | null | undefined {
   const [v, setV] = useState<HubVersion | null | undefined>(undefined);
   useEffect(() => {
@@ -332,7 +332,7 @@ function DeviceMore({ node: n, screen, open, refresh }: { node: NodeInfo; screen
         <Row label="Agents" value={agents.map((a) => a.name).join(", ") || "None yet"} onClick={() => open("agents")} />
         {screen && <Row label="Activity" onClick={() => open("activity")} />}
         {n.mine && remoteDesktop && <Row label="Remote desktop" value={way} onClick={() => open("remote")} />}
-        {isOwner && n.online && hub !== undefined && (busyUpdate || updateExists(n, hub)) && <Row act label={busyUpdate ? "Updating…" : "Update Wisp"} onClick={() => void update()} disabled={busyUpdate} />}
+        {isOwner && n.online && hub !== undefined && (busyUpdate || updateExists(n, hub)) && <Row act label={busyUpdate ? "Updating…" : "Update Bubble AI"} onClick={() => void update()} disabled={busyUpdate} />}
       </div>
       {vmNo && n.mine && <p className="px-1 text-[13px] text-muted">{vmNo}</p>}
       {n.mine && (
@@ -459,7 +459,7 @@ function ActivityLog({ computer: c }: { computer: ComputerInfo }) {
   );
 }
 
-/** The AI tools this device can run, with Install for the ones Wisp can install, and how to sign each in. */
+/** The AI tools this device can run, with Install for the ones Bubble AI can install, and how to sign each in. */
 function Harnesses({ node: n }: { node: NodeInfo }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -672,7 +672,7 @@ function RemoteDesktop({ node: n, onChange }: { node: NodeInfo; onChange: () => 
         showRustdesk ? (
           <div className="space-y-2 text-sm">
             <p className="text-muted">Run this on {n.name}.</p>
-            <CopyBlock text="wisp node rustdesk" />
+            <CopyBlock text="bubble-ai node rustdesk" />
             <button className="text-xs text-muted hover:text-ink" onClick={() => setShowRustdesk(false)}>
               Back
             </button>

@@ -1,6 +1,6 @@
-# Wisp website
+# Bubble AI website
 
-Wisp's marketing and docs site: the landing page, Download, Docs, Privacy policy and Terms. It's a static
+Bubble AI's marketing and docs site: the landing page, Download, Docs, Privacy policy and Terms. It's a static
 [Astro](https://astro.build) site that deploys to Cloudflare Pages.
 
 It lives outside `apps/` on purpose: `apps/*` are npm workspaces, and the site keeps its own `package.json` and
@@ -11,21 +11,21 @@ npm install
 npm run dev       # http://localhost:4321, reloads as you edit
 npm run build     # static site in dist/
 npm run preview   # serve dist/ to check the build
-npm run deploy    # build, then upload dist/ to the Cloudflare Pages project "wisp-app"
+npm run deploy    # build, then upload dist/ to the Cloudflare Pages project "bubble-ai"
 ```
 
 `npm run deploy` uses Wrangler, so the first time you'll need `npx wrangler login` (or a `CLOUDFLARE_API_TOKEN`) and a
-Pages project named `wisp-app` (so it lives at wisp-app.pages.dev). Or connect the repo in the Cloudflare dashboard with root directory `site`, build
+Pages project named `bubble-ai` (so it lives at bubble-ai.pages.dev). Or connect the repo in the Cloudflare dashboard with root directory `site`, build
 command `npm run build` and output directory `dist`. Node 22.12 or newer.
 
 ## Where things are
 
 | What | Where |
 | --- | --- |
-| **The domain** | `SITE_URL` in `astro.config.mjs`, the only place it's set. It's `https://wisp-app.pages.dev`, the Cloudflare Pages project `wisp-app` (see `wrangler.toml`); canonical links and social tags follow it. |
+| **The domain** | `SITE_URL` in `astro.config.mjs`, the only place it's set. It's `https://bubble-ai.pages.dev`, the Cloudflare Pages project `bubble-ai` (see `wrangler.toml`); canonical links and social tags follow it. |
 | Contact link (GitHub Issues), download links, install commands, doc order | `src/lib/site.ts` |
 | Pages | `src/pages/` (`index`, `download`, `privacy`, `terms`, `404`, `docs/`) |
-| Look: colors, fonts, shared styles | `src/styles/global.css`, Wisp's Moonlight colors, rounded type (SF Pro Rounded on Apple devices, Nunito self-hosted through Fontsource) and glass, matching the apps |
+| Look: colors, fonts, shared styles | `src/styles/global.css`, Bubble AI's Moonlight colors, rounded type (SF Pro Rounded on Apple devices, Nunito self-hosted through Fontsource) and glass, matching the apps |
 | The ghost | `src/components/Ghost.astro`, the app's classic ghost shape |
 | Icons | `public/` (`favicon.svg`, PNGs made from `apps/desktop/build/icon.png`) |
 
@@ -40,8 +40,8 @@ link plugin so links to it stay on the site).
 ## Downloads
 
 Download buttons use GitHub's `releases/latest/download/<file>` links, so they always point at the newest release as
-long as each release has files with these exact names: `Wisp-mac-arm64.dmg`, `Wisp-mac-x64.dmg`, `Wisp-win-x64.exe`,
-`Wisp-linux-x86_64.AppImage`, `Wisp-linux-amd64.deb` and `Wisp-android.apk`.
+long as each release has files with these exact names: `Bubble-AI-mac-arm64.dmg`, `Bubble-AI-mac-x64.dmg`, `Bubble-AI-win-x64.exe`,
+`Bubble-AI-linux-x86_64.AppImage`, `Bubble-AI-linux-amd64.deb` and `Bubble-AI-android.apk`.
 
 ## Rules for this site
 

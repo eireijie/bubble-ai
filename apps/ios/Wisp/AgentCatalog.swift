@@ -1,6 +1,6 @@
 import Foundation
 
-/** The names and explanations used by Wisp's web app. */
+/** The names and explanations used by Bubble AI's web app. */
 struct HarnessChoice: Identifiable {
   var id: String
   var label: String
@@ -19,8 +19,8 @@ struct HarnessChoice: Identifiable {
     HarnessChoice(id: "qwen", label: "Qwen Code", blurb: "Made by Alibaba. Works with Qwen models.", account: "Sign in with the account Qwen Code asks for on the device.", protocolName: "acp"),
     HarnessChoice(id: "cursor", label: "Cursor", blurb: "Made by Cursor, the code editor company.", account: "Needs a Cursor account, signed in on the device.", protocolName: "acp"),
     HarnessChoice(id: "openclaw", label: "OpenClaw", blurb: "An open-source assistant that runs through its own gateway.", account: "Set up and sign in inside OpenClaw first; its gateway must be running.", protocolName: "acp"),
-    HarnessChoice(id: "grok", label: "Grok", blurb: "Made by xAI. Works with Grok models.", account: "Set up where it already runs. It connects to Wisp through wisp-mcp.", protocolName: "mcp"),
-    HarnessChoice(id: "custom", label: "Custom", blurb: "Your own agent, or one Wisp doesn't list.", account: "Set up where it already runs. It connects to Wisp through the API or wisp-mcp.", protocolName: "mcp")
+    HarnessChoice(id: "grok", label: "Grok", blurb: "Made by xAI. Works with Grok models.", account: "Set up where it already runs. It connects to Bubble AI through wisp-mcp.", protocolName: "mcp"),
+    HarnessChoice(id: "custom", label: "Custom", blurb: "Your own agent, or one Bubble AI doesn't list.", account: "Set up where it already runs. It connects to Bubble AI through the API or wisp-mcp.", protocolName: "mcp")
   ]
 
   static func label(_ id: String) -> String {

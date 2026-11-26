@@ -1,6 +1,6 @@
 import SwiftUI
 
-/** The password manager Wisp is connected to (GET /api/logins). Wisp stores no passwords. */
+/** The password manager Bubble AI is connected to (GET /api/logins). Bubble AI stores no passwords. */
 struct LoginSource: Decodable, Equatable {
   var kind: String
   var label: String
@@ -52,7 +52,7 @@ extension Store {
 
 /**
  * Logins: connect a password manager so agents can sign in to websites without ever seeing a
- * password. Wisp never stores a password; the logins listed here live in the manager.
+ * password. Bubble AI never stores a password; the logins listed here live in the manager.
  */
 struct LoginsView: View {
   @Environment(Store.self) private var store
@@ -64,7 +64,7 @@ struct LoginsView: View {
 
   var body: some View {
     MarketScreen(title: "Logins", screenId: "logins") {
-      Text("Agents sign in to websites through your password manager. Wisp never stores a password.").font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
+      Text("Agents sign in to websites through your password manager. Bubble AI never stores a password.").font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
       if !store.isOwner { MarketNote(text: "Only owners can change these. You can see how they're set.") }
       CardGroup {
         MarketRow(symbol: "key", tile: 50, title: "1Password", subtitle: view?.source != nil ? "Connected" + (connectedBy.map { " by \($0)" } ?? "") : "Paste one token") {
@@ -101,7 +101,7 @@ struct LoginsView: View {
         }
         Text("Every use shows on that computer's activity, like “Nova used the Zendesk login”. Passwords never pass through chat, memory or logs.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
       } else {
-        Text("Make a vault called “Agents” and a service account that can only see it. Wisp also fills in one-time codes saved there.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
+        Text("Make a vault called “Agents” and a service account that can only see it. Bubble AI also fills in one-time codes saved there.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
         MarketNote(text: "No password manager? That's fine. When an agent needs to sign in, its screen pops up and you sign in yourself.")
       }
       InlineError(error: action.error)
@@ -144,7 +144,7 @@ private struct ConnectOnePasswordSheet: View {
         MarketNote(text: "Found the \(found.vaultName) vault · \(found.count) \(found.count == 1 ? "login" : "logins")")
         MarketPrimaryButton(title: "Done") { dismiss(); onDone() }
       } else {
-        Text("Wisp asks 1Password for one login at a time, only after you approve it in Inbox. Nothing is saved in Wisp.").font(.system(size: 15)).foregroundStyle(Palette.text.opacity(0.9)).padding(.horizontal, 4)
+        Text("Bubble AI asks 1Password for one login at a time, only after you approve it in Inbox. Nothing is saved in Bubble AI.").font(.system(size: 15)).foregroundStyle(Palette.text.opacity(0.9)).padding(.horizontal, 4)
         MarketField(label: "Service account token", placeholder: "ops_…", text: $token, secure: true, mono: true, plain: true)
         Button("Where do I find this?") { if let url = URL(string: "https://developer.1password.com/docs/service-accounts/get-started/") { openURL(url) } }.font(.system(size: 13)).padding(.horizontal, 4)
         Text("Make a vault called “Agents” and a service account that can read only that vault, then copy its token.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)

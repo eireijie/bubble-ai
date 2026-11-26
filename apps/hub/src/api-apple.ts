@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { APPLE_APPS, APPLE_SETTINGS_PANES, AppleLocationReport, AppleOp, ApplePlace, ApplePlaceEvent, type AppleApp } from "@wisp/core";
+import { APPLE_APPS, APPLE_SETTINGS_PANES, AppleLocationReport, AppleOp, ApplePlace, ApplePlaceEvent, type AppleApp } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { AppleError, isChange } from "./apple.ts";
 import type { Hub } from "./hub.ts";

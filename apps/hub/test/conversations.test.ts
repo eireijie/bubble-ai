@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import { CONVERSATION_GAP_MS } from "@wisp/core";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import { CONVERSATION_GAP_MS } from "@bubble-ai/core";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import { openDb } from "../src/db.ts";
@@ -28,7 +28,7 @@ const fake: HarnessAdapter = {
   async run(input, onEvent) {
     calls.push(input);
     onEvent({ type: "session", id: `sess-${calls.length}` });
-    const agent = new WispClient({ url: input.mcp!.env.WISP_URL, token: input.mcp!.env.WISP_TOKEN });
+    const agent = new WispClient({ url: input.mcp!.env.BUBBLE_URL, token: input.mcp!.env.BUBBLE_TOKEN });
     const finalText = input.prompt.includes("## Working in the background") ? await onCheck(agent, input) : await onReply(agent, input);
     return { finalText, sessionId: `sess-${calls.length}` };
   },

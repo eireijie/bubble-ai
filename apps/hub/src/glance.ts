@@ -1,4 +1,4 @@
-import { APPLE_APP_INFO, type Agent, type AppleChat, type AppleEvent, type AppleOp, type AppleReminder } from "@wisp/core";
+import { APPLE_APP_INFO, type Agent, type AppleChat, type AppleEvent, type AppleOp, type AppleReminder } from "@bubble-ai/core";
 import { isChange, span, when } from "./apple.ts";
 import type { Hub } from "./hub.ts";
 import { WatchError, WATCHERS, type FoundEvent, type Watcher } from "./watchers/index.ts";
@@ -27,7 +27,7 @@ const LINE_CHARS = 200;
 /** How long one app may take; a slow one is left out. */
 export const GLANCE_TIMEOUT_MS = 10_000;
 
-/** The apps a glance reads; Google's wait for Wisp's own Google sign-in. */
+/** The apps a glance reads; Google's wait for Bubble AI's own Google sign-in. */
 const GLANCE_SERVICES = new Set(["github", "slack", "notion", "linear", "jira", "stripe"]);
 
 /** POSTs the watchers make that only read: Notion's search and Linear's GraphQL queries. */
@@ -48,7 +48,7 @@ export function readOnlyFetch(inner: typeof fetch): typeof fetch {
   return (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url = input instanceof Request ? input.url : String(input);
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
-    if (method !== "GET" && !(method === "POST" && readOnlyPost(url, init?.body))) throw new WatchError("Wisp only reads here.", false);
+    if (method !== "GET" && !(method === "POST" && readOnlyPost(url, init?.body))) throw new WatchError("Bubble AI only reads here.", false);
     return inner(input, init);
   }) as typeof fetch;
 }
@@ -203,7 +203,7 @@ export type CheckResult = { ok: true; checked: boolean } | { ok: false; error: s
 
 /**
  * Does a connector's key work? Its app's watcher signs in the way a first watch would (cursor null,
- * which reads nothing new). Apps Wisp has no watcher for aren't checked.
+ * which reads nothing new). Apps Bubble AI has no watcher for aren't checked.
  */
 export async function checkConnector(hub: Hub, connectorId: string): Promise<CheckResult> {
   const conn = hub.connectors.get(connectorId);
@@ -213,6 +213,6 @@ export async function checkConnector(hub: Hub, connectorId: string): Promise<Che
     await withTimeout(w.poll({ creds: credsOf(hub, conn.id, w), config: {}, cursor: null, fetch: readOnlyFetch(hub.watches.fetch), now: new Date() }), GLANCE_TIMEOUT_MS * 2);
     return { ok: true, checked: true };
   } catch (e) {
-    return { ok: false, error: e instanceof WatchError ? e.message : `Wisp couldn't reach ${w.name}. Check the key and try again.` };
+    return { ok: false, error: e instanceof WatchError ? e.message : `Bubble AI couldn't reach ${w.name}. Check the key and try again.` };
   }
 }

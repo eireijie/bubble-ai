@@ -1,4 +1,4 @@
-import type { Routine } from "@wisp/core";
+import type { Routine } from "@bubble-ai/core";
 import { api } from "./api.ts";
 import { setFeatures } from "./features.ts";
 import { useStore } from "./store.ts";
@@ -7,7 +7,7 @@ import { recommendedSetup } from "./onboardingPlan.ts";
 
 /**
  * The one thing setup offers to turn on for a new agent: a morning routine built from what it does
- * and what Wisp learned about the person's work. Nothing is switched on by itself any more: it is a
+ * and what Bubble AI learned about the person's work. Nothing is switched on by itself any more: it is a
  * row on "Finish setup" with Turn on, and Undo once it is on. Null when there's nothing to build it from.
  */
 export function morningPlan(workspaceId: string, person: string, role: string) {

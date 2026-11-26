@@ -1,4 +1,4 @@
-import { GITHUB_URL } from "@wisp/core";
+import { GITHUB_URL } from "@bubble-ai/core";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleHelp, ExternalLink } from "lucide-react";
 import { startTour } from "../components/tour/tourRun.ts";
 import { helperChecklist, pickHelper, type HelperCheck } from "../onboarding.ts";

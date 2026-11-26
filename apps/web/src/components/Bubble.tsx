@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { BUBBLE_SHAPES, type BubbleShape, type GhostAppearance } from "@wisp/core/src/appearance.ts";
+import { BUBBLE_SHAPES, type BubbleShape, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { useMotionReduced, motionReduced } from "../theme.ts";
 import { useGhostActivity } from "../ghostActivity.ts";
 import { familyColor } from "../ghostFamily.ts";

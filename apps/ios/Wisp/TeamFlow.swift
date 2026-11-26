@@ -500,7 +500,7 @@ extension ChannelTeam {
 
 extension ChannelTeam {
   /**
-   * The plain chart a stepped team also keeps, so older apps and the rest of Wisp see who's on it:
+   * The plain chart a stepped team also keeps, so older apps and the rest of Bubble AI see who's on it:
    * the first step's agent leads, everyone else gets work from it (chartFromSteps).
    */
   func chartFromSteps(old: [Node] = []) -> (nodes: [Node], edges: [Edge]) {

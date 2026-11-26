@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Check, X } from "lucide-react";
-import { workSteps, type Agent, type Approval, type Followup, type TeamStep } from "@wisp/core";
+import { workSteps, type Agent, type Approval, type Followup, type TeamStep } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { usePrefs, useStore, type ComputerInfo, type LiveRun } from "../store.ts";
 import { go, href } from "../router.ts";

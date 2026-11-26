@@ -1,4 +1,4 @@
-# Wisp on every platform (2026-10-25)
+# Bubble AI on every platform (2026-10-25)
 
 ## How each app is built
 
@@ -15,7 +15,7 @@
 
 | Feature | Was | Now |
 |---|---|---|
-| Notifications | Web Push fails in Electron | Web Push isn't offered; notifications arrive while Wisp runs in the menu bar, and clicking one brings the window back |
+| Notifications | Web Push fails in Electron | Web Push isn't offered; notifications arrive while Bubble AI runs in the menu bar, and clicking one brings the window back |
 | Open in Obsidian | `obsidian://` blocked by the window | Handed to the Obsidian app |
 | Voice listening | Browser engine errors in Electron | Not offered; OpenAI listening is used instead |
 
@@ -46,10 +46,10 @@
 - Desktop only: tray, setup window, local hub, this computer as a device, screen code, auto-update, desk buddy window, Dock badge, open a harness's settings file.
 - Phone only: QR pairing, APNs/FCM, Quick Look, paste to and copy from the phone.
 - Not on phones: pairing a phone, first-account setup (both done on a computer).
-- Screen lending: removed from Wisp on purpose.
+- Screen lending: removed from Bubble AI on purpose.
 
 ## Small gaps left
 
-- iPhone: no composer model picker (the agent page has one); search lands on the chat or thread, not the exact message; teach records single taps only; calls pause when Wisp goes to the background.
+- iPhone: no composer model picker (the agent page has one); search lands on the chat or thread, not the exact message; teach records single taps only; calls pause when Bubble AI goes to the background.
 - Android: no per-kind notification switches or launcher badge yet.
 - Nobody pushes "finished task" notifications yet (iPhone shows a local one while open).

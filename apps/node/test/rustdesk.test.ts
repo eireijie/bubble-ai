@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRustdeskId } from "@wisp/core";
+import { formatRustdeskId } from "@bubble-ai/core";
 import { installPlan, parseRustdeskId, rustdeskBinary } from "../src/rustdesk.ts";
 
 describe("RustDesk", () => {

@@ -53,7 +53,7 @@ export interface AppEvent {
   happenedAt: string;
 }
 
-/** What Wisp can watch and how it gets in, for people and for agents setting it up. */
+/** What Bubble AI can watch and how it gets in, for people and for agents setting it up. */
 export interface WatchServiceInfo {
   service: WatchService;
   name: string;
@@ -65,7 +65,7 @@ export interface WatchServiceInfo {
   watches: string;
   everyMinutes: number;
   minMinutes: number;
-  /** false while it needs something Wisp doesn't have yet (Google needs Wisp's own sign-in) */
+  /** false while it needs something Bubble AI doesn't have yet (Google needs Bubble AI's own sign-in) */
   available: boolean;
   unavailableReason: string | null;
 }
@@ -83,7 +83,7 @@ function everyText(minutes: number): string {
 
 /**
  * What a watch may cost a day, so people see it before saying yes. API watches only cost when something
- * changes; so do website watches on a page Wisp can read itself (`readsPage`): it compares the page's
+ * changes; so do website watches on a page Bubble AI can read itself (`readsPage`): it compares the page's
  * text and only wakes the agent when lines were added. Sites behind a sign-in are looked at by the
  * agent on each check.
  */
@@ -92,7 +92,7 @@ export function watchEstimate(service: WatchService, everyMinutes: number, daily
     return { checksPerDay: 0, tokensPerDay: 0, shareOfAllowance: 0, note: `Looking costs nothing. Each batch of changes is one check, about ${EVENT_CHECK_TOKENS / 1000}k tokens.` };
   }
   if (readsPage) {
-    return { checksPerDay: 0, tokensPerDay: 0, shareOfAllowance: 0, note: `Wisp reads the page itself ${everyText(everyMinutes)}, which costs nothing, and wakes the agent only when something on it changed (about ${BROWSER_CHECK_TOKENS / 1000}k tokens each time).` };
+    return { checksPerDay: 0, tokensPerDay: 0, shareOfAllowance: 0, note: `Bubble AI reads the page itself ${everyText(everyMinutes)}, which costs nothing, and wakes the agent only when something on it changed (about ${BROWSER_CHECK_TOKENS / 1000}k tokens each time).` };
   }
   const checksPerDay = Math.max(1, Math.floor((24 * 60) / everyMinutes));
   const tokensPerDay = checksPerDay * BROWSER_CHECK_TOKENS;

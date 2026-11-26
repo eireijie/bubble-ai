@@ -1,14 +1,14 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { formatRustdeskId } from "@wisp/core";
+import { formatRustdeskId } from "@bubble-ai/core";
 import { exec, has } from "./computers/driver.ts";
 import type { SetupIO } from "./computers/remote-desktop.ts";
 
 /**
- * RustDesk, for the person to reach this device from anywhere (an optional add-on). Wisp installs
+ * RustDesk, for the person to reach this device from anywhere (an optional add-on). Bubble AI installs
  * it, asking first, and reads its ID for the device's page. Its password is the person's: they set
- * it in RustDesk and keep it in their password manager, and Wisp never sees it.
+ * it in RustDesk and keep it in their password manager, and Bubble AI never sees it.
  */
 
 export interface RustdeskConfig {
@@ -78,20 +78,20 @@ export async function setUpRustdesk(dir: string, io: SetupIO): Promise<RustdeskC
   if (!(await rustdeskInstalled())) {
     const plan = installPlan(process.platform, process.arch, { brew: await has("brew"), winget: await has("winget"), apt: await has("apt-get") });
     if (plan.kind === "manual") {
-      io.say(`   ${plan.why}, then run \`wisp node rustdesk\` again.`);
+      io.say(`   ${plan.why}, then run \`bubble-ai node rustdesk\` again.`);
       return null;
     }
     io.say("   RustDesk is free, open-source remote desktop. You'll use it to reach this computer from anywhere.");
     if (plan.kind === "run") {
       if (!(await io.ask(`   Install it now with ${plan.label}?`))) return null;
       if (!io.run(plan.cmd, plan.args)) {
-        io.say("   The install didn't finish. Run `wisp node rustdesk` to try again.");
+        io.say("   The install didn't finish. Run `bubble-ai node rustdesk` to try again.");
         return null;
       }
     } else {
       const deb = await latestDeb(plan.arch);
       if (!deb) {
-        io.say("   Couldn't find RustDesk's latest release. Get it from rustdesk.com, then run `wisp node rustdesk` again.");
+        io.say("   Couldn't find RustDesk's latest release. Get it from rustdesk.com, then run `bubble-ai node rustdesk` again.");
         return null;
       }
       const sudo = process.getuid?.() === 0 ? [] : ["sudo"];
@@ -100,19 +100,19 @@ export async function setUpRustdesk(dir: string, io: SetupIO): Promise<RustdeskC
       fs.mkdirSync(dir, { recursive: true });
       const r = await fetch(deb.url).catch(() => null);
       if (!r?.ok) {
-        io.say("   The download didn't finish. Run `wisp node rustdesk` to try again.");
+        io.say("   The download didn't finish. Run `bubble-ai node rustdesk` to try again.");
         return null;
       }
       fs.writeFileSync(file, Buffer.from(await r.arrayBuffer()));
       const ok = sudo.length ? io.run("sudo", ["apt-get", "install", "-y", file]) : io.run("apt-get", ["install", "-y", file]);
       fs.rmSync(file, { force: true });
       if (!ok) {
-        io.say("   RustDesk didn't install. Run `wisp node rustdesk` to try again.");
+        io.say("   RustDesk didn't install. Run `bubble-ai node rustdesk` to try again.");
         return null;
       }
     }
     if (!(await rustdeskInstalled())) {
-      io.say("   RustDesk still isn't where Wisp expects it. Open it once, then run `wisp node rustdesk` again.");
+      io.say("   RustDesk still isn't where Bubble AI expects it. Open it once, then run `bubble-ai node rustdesk` again.");
       return null;
     }
   }
@@ -124,11 +124,11 @@ export async function setUpRustdesk(dir: string, io: SetupIO): Promise<RustdeskC
     if (!id) await new Promise((r) => setTimeout(r, 1000));
   }
   if (!id) {
-    io.say("   RustDesk is installed but hasn't shown an ID yet. Open RustDesk, then run `wisp node rustdesk` again.");
+    io.say("   RustDesk is installed but hasn't shown an ID yet. Open RustDesk, then run `bubble-ai node rustdesk` again.");
     return null;
   }
-  io.say(`   This computer's RustDesk ID is ${formatRustdeskId(id)}. It shows on this device's page in Wisp, for you only.`);
-  io.say("   Now give it a password: in RustDesk, open Settings → Security, unlock it, choose \"Use permanent password\", and save that password in your password manager. Wisp never sees it.");
+  io.say(`   This computer's RustDesk ID is ${formatRustdeskId(id)}. It shows on this device's page in Bubble AI, for you only.`);
+  io.say("   Now give it a password: in RustDesk, open Settings → Security, unlock it, choose \"Use permanent password\", and save that password in your password manager. Bubble AI never sees it.");
   if (process.platform === "darwin") io.say("   On a Mac, RustDesk also asks for Screen Recording and Accessibility in System Settings → Privacy & Security. Allow both.");
   return { id };
 }

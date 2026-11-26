@@ -50,8 +50,8 @@ import {
   credentialSupport,
   harnessLabel,
   providerLabel,
-} from "@wisp/core";
-import { VaultError, notePath } from "@wisp/vault";
+} from "@bubble-ai/core";
+import { VaultError, notePath } from "@bubble-ai/vault";
 import { MEMORY_KINDS } from "./profile.ts";
 import { MAX_ROUNDS } from "./discussions.ts";
 import { bearer, hashPassword, issueToken, resolveToken, revokeSubjectTokens, revokeToken, verifyPassword, type Principal } from "./auth.ts";
@@ -90,7 +90,7 @@ import { workspaceFeatures } from "./features.ts";
 import type { SetupCode } from "./setup-code.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
 
-/** Why an agent's save was refused for holding a secret (Wisp never keeps passwords; logins go through the person's password manager). */
+/** Why an agent's save was refused for holding a secret (Bubble AI never keeps passwords; logins go through the person's password manager). */
 const NO_SECRETS = "Memory can't hold passwords, keys, tokens or card numbers. Write where the secret lives instead (\"the API key is in the GitHub connected app\").";
 
 export interface Caller {
@@ -420,7 +420,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   app.post("/api/setup", async (req, reply) => {
     if (store.userCount() > 0) return reply.code(409).send({ error: "already set up" });
     const body = parse(
-      z.object({ email: z.string().email().max(320), name: z.string().min(1).max(200), password: z.string().min(8).max(1000), workspaceName: z.string().min(1).max(80).default("Your Wisp"), features: FEATURE_PRESET.default("simple"), setupCode: z.string().max(200).optional() }),
+      z.object({ email: z.string().email().max(320), name: z.string().min(1).max(200), password: z.string().min(8).max(1000), workspaceName: z.string().min(1).max(80).default("Your Bubble AI"), features: FEATURE_PRESET.default("simple"), setupCode: z.string().max(200).optional() }),
       req.body,
       reply,
     );
@@ -428,7 +428,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     // a cloud server's app sends its key as a header (docker/cloud-init.yaml)
     const attempt = body.setupCode ?? req.headers["x-wisp-setup-code"] ?? req.headers["x-wisp-setup-key"] ?? req.headers["x-warren-setup-key"];
     if (opts.setupCode && !opts.setupCode.matches(attempt))
-      return reply.code(403).send({ error: attempt ? "That setup code isn't right. Check it on the computer Wisp runs on." : "Enter the setup code from the computer Wisp runs on." });
+      return reply.code(403).send({ error: attempt ? "That setup code isn't right. Check it on the computer Bubble AI runs on." : "Enter the setup code from the computer Bubble AI runs on." });
     const user = store.createUser(body.email, body.name, hashPassword(body.password));
     // the first organization keeps the vault the hub opened at startup
     opts.setupCode?.used();
@@ -489,7 +489,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!c) return;
     const nodes = store.nodes(c.workspaceId);
     const agents = store.agents(c.workspaceId);
-    // the hello Wisp writes for a new agent isn't a reply
+    // the hello Bubble AI writes for a new agent isn't a reply
     const greetings = new Set(agents.map((a) => a.settings.setup?.greetingId).filter(Boolean));
     const firstReply = (
       db
@@ -684,7 +684,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       steps: next.steps ?? cur.steps,
     };
   };
-  /** A stepped team's plain chart always follows its roles, so the rest of Wisp sees who's on it. */
+  /** A stepped team's plain chart always follows its roles, so the rest of Bubble AI sees who's on it. */
   const withChart = <T extends z.infer<typeof CHANNEL_TEAM>>(team: T): T => {
     if (!hasSteps(team)) return team;
     // steps always carry all their arrows (older apps send only `next`), so every app can read them
@@ -1442,7 +1442,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     const deviceOwner = deviceOwnerOf(agent);
     if (deviceOwner && deviceOwner !== c.actor.id) return reply.code(403).send({ error: `@${agent.handle} runs directly on someone's device; only they can connect to it` });
     // the token acts as the agent with all its access, which can be more than this member's own
-    if (!deviceOwner && c.viewer.role !== "owner") return reply.code(403).send({ error: `Only an owner of this Wisp can connect apps to @${agent.handle}.` });
+    if (!deviceOwner && c.viewer.role !== "owner") return reply.code(403).send({ error: `Only an owner of this Bubble AI can connect apps to @${agent.handle}.` });
     const expiresAt = new Date(Date.now() + AGENT_TOKEN_TTL_MS).toISOString();
     return { token: issueToken(db, "agent", agent.id, c.workspaceId, "mcp", c.actor.id, expiresAt), expiresAt };
   });
@@ -2376,7 +2376,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     return { content: await vaultOf(c).readAt(p, q.rev ?? "") };
   });
 
-  /** Pick up edits made outside Wisp (Obsidian, git pull). */
+  /** Pick up edits made outside Bubble AI (Obsidian, git pull). */
   app.post("/api/vault/sync", async (req, reply) => {
     const c = need(req, reply, { user: true });
     if (!c) return;
@@ -2474,7 +2474,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     return { ...result, person: { id: person.id, name: person.name } };
   });
 
-  /** The memory an agent starts with (for MCP sessions that don't get Wisp's prompt). */
+  /** The memory an agent starts with (for MCP sessions that don't get Bubble AI's prompt). */
   app.get("/api/memory/context", async (req, reply) => {
     const c = need(req, reply);
     if (!c) return;
@@ -2656,7 +2656,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!f || f.workspaceId !== c.workspaceId) return reply.code(404).send({ error: "file not found" });
     if (f.channelId && !channelVisible(c, f.channelId)) return reply.code(404).send({ error: "file not found" });
     // The uploader chose this type: only plain media and PDFs show in the browser, and nothing an
-    // upload holds may run as part of Wisp's page (text/xml, for one, can carry a script).
+    // upload holds may run as part of Bubble AI's page (text/xml, for one, can carry a script).
     const inline = INLINE_FILE.test(f.mime);
     reply
       .header("content-type", inline ? f.mime : "application/octet-stream")

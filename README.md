@@ -1,10 +1,10 @@
-<p align="center"><img src="docs/images/banner.png" alt="Wisp: a self-hosted workspace where you and your AI agents work together" width="100%"></p>
+<p align="center"><img src="docs/images/banner.png" alt="Bubble AI: a self-hosted workspace where you and your AI agents work together" width="100%"></p>
 
-# Wisp
+# Bubble AI
 
 A self-hosted workspace where you and your AI agents work together.
 
-[![CI](https://github.com/eireijie/wisp/actions/workflows/ci.yml/badge.svg)](https://github.com/eireijie/wisp/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) · [Download](https://github.com/eireijie/wisp/releases/latest)
+[![CI](https://github.com/eireijie/bubble-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/eireijie/bubble-ai/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) · [Download](https://github.com/eireijie/bubble-ai/releases/latest)
 
 Run agents from different harnesses in teams, give them computers you can watch and take over, and keep their shared memory in a markdown vault. Each agent has a ghost mascot and its own personality; you host the workspace on your own computer or server.
 
@@ -12,91 +12,91 @@ Coming from Warren? See the [migration notes](docs/deploy.md#coming-from-warren)
 
 ## Get started
 
-Wisp has two parts: a **hub** (your workspace: chats, agents, memory and the web app) and **devices** (computers your agents work on). One computer can be both, and that's how most people start.
+Bubble AI has two parts: a **hub** (your workspace: chats, agents, memory and the web app) and **devices** (computers your agents work on). One computer can be both, and that's how most people start.
 
 ### 1. Install
 
 Pick one.
 
-**The desktop app (easiest).** Download it, open it, and choose **Create a server**. It runs Wisp on this computer, makes this computer a device for your agents, and stays in the menu bar.
+**The desktop app (easiest).** Download it, open it, and choose **Create a server**. It runs Bubble AI on this computer, makes this computer a device for your agents, and stays in the menu bar.
 
 | Mac (Apple silicon) | Mac (Intel) | Windows | Linux |
 | --- | --- | --- | --- |
-| [Wisp-mac-arm64.dmg](https://github.com/eireijie/wisp/releases/latest/download/Wisp-mac-arm64.dmg) | [Wisp-mac-x64.dmg](https://github.com/eireijie/wisp/releases/latest/download/Wisp-mac-x64.dmg) | [Wisp-win-x64.exe](https://github.com/eireijie/wisp/releases/latest/download/Wisp-win-x64.exe) | [AppImage](https://github.com/eireijie/wisp/releases/latest/download/Wisp-linux-x86_64.AppImage) · [.deb](https://github.com/eireijie/wisp/releases/latest/download/Wisp-linux-amd64.deb) |
+| [Bubble-AI-mac-arm64.dmg](https://github.com/eireijie/bubble-ai/releases/latest/download/Bubble-AI-mac-arm64.dmg) | [Bubble-AI-mac-x64.dmg](https://github.com/eireijie/bubble-ai/releases/latest/download/Bubble-AI-mac-x64.dmg) | [Bubble-AI-win-x64.exe](https://github.com/eireijie/bubble-ai/releases/latest/download/Bubble-AI-win-x64.exe) | [AppImage](https://github.com/eireijie/bubble-ai/releases/latest/download/Bubble-AI-linux-x86_64.AppImage) · [.deb](https://github.com/eireijie/bubble-ai/releases/latest/download/Bubble-AI-linux-amd64.deb) |
 
-The app isn't signed yet. On a Mac, drag it to Applications and open it. When macOS refuses, go to **System Settings → Privacy & Security** and choose **Open Anyway** (on macOS 14 or older, right-click the app and choose **Open**). On Windows, click **More info → Run anyway**. On Linux, make the AppImage executable (`chmod +x Wisp-linux-x86_64.AppImage`) and run it.
+The app isn't signed yet. On a Mac, drag it to Applications and open it. When macOS refuses, go to **System Settings → Privacy & Security** and choose **Open Anyway** (on macOS 14 or older, right-click the app and choose **Open**). On Windows, click **More info → Run anyway**. On Linux, make the AppImage executable (`chmod +x Bubble-AI-linux-x86_64.AppImage`) and run it.
 
 **One command (for a computer that stays on).** On macOS or Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eireijie/wisp/main/install.sh | bash -s -- --hub-server
+curl -fsSL https://raw.githubusercontent.com/eireijie/bubble-ai/main/install.sh | bash -s -- --hub-server
 ```
 
 On Windows, in PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/eireijie/wisp/main/install.ps1))) -HubServer
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/eireijie/bubble-ai/main/install.ps1))) -HubServer
 ```
 
-It needs git and Node 22 (it offers to install Node with Homebrew or winget), puts Wisp in `~/wisp`, keeps it running from then on, makes this computer a device for your agents, and opens Wisp in your browser at http://localhost:4747. Nothing is installed with sudo.
+It needs git and Node 22 (it offers to install Node with Homebrew or winget), puts Bubble AI in `~/bubble-ai`, keeps it running from then on, makes this computer a device for your agents, and opens Bubble AI in your browser at http://localhost:4747. Nothing is installed with sudo.
 
 **Docker (a server or NAS).**
 
 ```bash
-docker run -d --name wisp -p 4747:4747 -v wisp-data:/data --restart unless-stopped ghcr.io/eireijie/wisp
+docker run -d --name wisp -p 4747:4747 -v wisp-data:/data --restart unless-stopped ghcr.io/eireijie/bubble-ai
 ```
 
 A hub in Docker isn't a device itself; connect a computer for your agents in step 2.
 
 ### 2. Set up in the browser (about five minutes)
 
-Wisp opens on **Set up Wisp**, and **Get started** walks you through the rest:
+Bubble AI opens on **Set up Bubble AI**, and **Get started** walks you through the rest:
 
 1. **Make your account.** You're the owner of your workspace.
-2. **Use Wisp from anywhere.** Wisp checks [Tailscale](https://tailscale.com) (free) on the hub's computer and walks you through it with buttons: install, sign in, turn on. Wisp then has an `https://…ts.net` address that works on your phone and other computers from anywhere, and every link it gives out uses it. Choose **Only on this Wi-Fi for now** to skip it.
-3. **Your device.** With the desktop app or the one-command install, this computer is already connected. Otherwise, download the app on the computer that should run your agents and choose **Join a server**, or copy the command Wisp shows.
-4. **Give agents computers.** Create a VM for your agents, or choose another computer for them. Wisp tells you what's missing; on a Mac with Apple silicon, `wisp setup` installs Apple's `container` for it.
+2. **Use Bubble AI from anywhere.** Bubble AI checks [Tailscale](https://tailscale.com) (free) on the hub's computer and walks you through it with buttons: install, sign in, turn on. Bubble AI then has an `https://…ts.net` address that works on your phone and other computers from anywhere, and every link it gives out uses it. Choose **Only on this Wi-Fi for now** to skip it.
+3. **Your device.** With the desktop app or the one-command install, this computer is already connected. Otherwise, download the app on the computer that should run your agents and choose **Join a server**, or copy the command Bubble AI shows.
+4. **Give agents computers.** Create a VM for your agents, or choose another computer for them. Bubble AI tells you what's missing; on a Mac with Apple silicon, `bubble-ai setup` installs Apple's `container` for it.
 5. **Make your first agent.** Pick Claude Code, Codex, Hermes or another harness, sign it in once, and say hello in its chat.
 
 ### 3. Add more
 
 - **Another computer:** **Devices → Add device**. On the same Wi-Fi it just works; elsewhere, turn on Tailscale in step 2 first.
-- **Your phone:** the [Android app](https://github.com/eireijie/wisp/releases/latest/download/Wisp-android.apk) (preview), or the [iPhone app](apps/ios) built with Xcode for now. Pair it in **Settings → Mobile** by scanning a QR code. Any phone can also open Wisp's address in the browser and add it to the home screen.
+- **Your phone:** the [Android app](https://github.com/eireijie/bubble-ai/releases/latest/download/Bubble-AI-android.apk) (preview), or the [iPhone app](apps/ios) built with Xcode for now. Pair it in **Settings → Mobile** by scanning a QR code. Any phone can also open Bubble AI's address in the browser and add it to the home screen.
 - **A friend:** turn on **Invite people** in **Settings → General → Mods**, then **Settings → People → Create invite link**. If they aren't on your Tailscale, turn on **Let people without Tailscale in** in **Settings → Access** first.
 
-### Start over or remove Wisp
+### Start over or remove Bubble AI
 
-In the desktop app: **Settings → Data → Remove Wisp…**. It lists what's on this computer and lets you keep anything. Without the app:
+In the desktop app: **Settings → Data → Remove Bubble AI…**. It lists what's on this computer and lets you keep anything. Without the app:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eireijie/wisp/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eireijie/bubble-ai/main/uninstall.sh | bash
 ```
 
-To see what it would remove, add `-s -- --dry-run` after `bash`. It asks before each step; a hub’s chats, memory and files are in its data folder (`~/wisp/data` for the installer, `~/.wisp/data` for the desktop app), so keep a backup if you want to retain them.
+To see what it would remove, add `-s -- --dry-run` after `bash`. It asks before each step; a hub’s chats, memory and files are in its data folder (`~/bubble-ai/data` for the installer, `~/wisp/data` from before the rename, `~/.bubble-ai/data` for the desktop app), so keep a backup if you want to retain them.
 
-On Windows: uninstall Wisp in **Settings → Apps**, run `wisp service uninstall hub` and `wisp service uninstall node` (or delete the **Wisp hub** and **Wisp node** tasks in Task Scheduler), then delete `%USERPROFILE%\wisp`, `%USERPROFILE%\.wisp` and `%APPDATA%\Wisp`.
+On Windows: uninstall Bubble AI in **Settings → Apps**, run `bubble-ai service uninstall hub` and `bubble-ai service uninstall node` (or delete the **Wisp hub** and **Wisp node** tasks in Task Scheduler), then delete `%USERPROFILE%\bubble-ai`, `%USERPROFILE%\.bubble-ai` and `%APPDATA%\Bubble AI` (and `%USERPROFILE%\wisp`, `%USERPROFILE%\.wisp` and `%APPDATA%\Wisp` from before the rename).
 
 Having an AI agent install it for you? Point it at [INSTALL.md](INSTALL.md), a step-by-step guide written for agents. For HTTPS, phones and your own domain, see [Deploying](docs/deploy.md). For VMs, your own screen, taking control and teaching tasks, see [Computers](docs/computers.md).
 
 ### From source
 
 ```bash
-git clone https://github.com/eireijie/wisp && cd wisp
+git clone https://github.com/eireijie/bubble-ai && cd wisp
 npm install               # native dependency install scripts are expected
 npm run build
 npm link                  # puts wisp, wisp-mcp and wisp-hub on PATH
-wisp hub start            # data goes to ./data, or WISP_DATA_DIR
+bubble-ai hub start            # data goes to ./data, or BUBBLE_DATA_DIR
 ```
 
-On each device, run `wisp setup`, then use the command from **Devices → Add device → Wisp already installed**. To keep either part running after you close the terminal, use `wisp service install hub` or `wisp service install node`; see [Deploying](docs/deploy.md#keeping-a-device-connected).
+On each device, run `bubble-ai setup`, then use the command from **Devices → Add device → Bubble AI already installed**. To keep either part running after you close the terminal, use `bubble-ai service install hub` or `bubble-ai service install node`; see [Deploying](docs/deploy.md#keeping-a-device-connected).
 
 ### Updating
 
 For a source checkout:
 
 ```bash
-wisp update
-wisp update --check
+bubble-ai update
+bubble-ai update --check
 ```
 
 For desktop apps, Docker and update behavior, see [Updating](docs/deploy.md#updating).
@@ -106,12 +106,12 @@ For desktop apps, Docker and update behavior, see [Updating](docs/deploy.md#upda
 On an agent's page, choose **Create connection token** and copy the MCP configuration for your harness. For example:
 
 ```bash
-claude mcp add wisp --env WISP_URL=http://your-hub:4747 --env WISP_TOKEN=<token> -- wisp-mcp
+claude mcp add bubble-ai --env BUBBLE_URL=http://your-hub:4747 --env BUBBLE_TOKEN=<token> -- wisp-mcp
 ```
 
 That session can chat, delegate tasks, exchange files and use memory as that agent; see [Adding a harness](docs/adapters.md#1-mcp-only-no-code-needed).
 
-## What Wisp does
+## What Bubble AI does
 
 **Agents from any harness.** Claude Code and Codex have native adapters; Hermes, Gemini CLI, OpenCode, Goose, Kimi CLI, Qwen Code, Cursor, OpenClaw and other ACP agents use the Agent Client Protocol adapter. Devices can declare additional ACP harnesses, and MCP clients can join through `wisp-mcp`. [Adding a harness](docs/adapters.md)
 
@@ -121,7 +121,7 @@ That session can chat, delegate tasks, exchange files and use memory as that age
 
 **Works in the background.** Enable **Background** to let an agent check connected apps, its computer, memory and conversations, keep notes between fresh checks, and message you when something needs attention. Set its focus, quiet hours, model and daily limits, inspect token use, and use follow-ups and push notifications for reminders. [Agent tools](docs/adapters.md#1-mcp-only-no-code-needed) · [Phone access](docs/deploy.md#reaching-it-from-your-phone)
 
-**Asks before it acts.** By default, instructions tell agents to ask before sending, spending, deleting, posting, signing up or sharing outside Wisp on their own initiative. Approval cards let you approve or deny with a note, and pending requests appear in the Inbox. [Approval tools](docs/adapters.md#1-mcp-only-no-code-needed)
+**Asks before it acts.** By default, instructions tell agents to ask before sending, spending, deleting, posting, signing up or sharing outside Bubble AI on their own initiative. Approval cards let you approve or deny with a note, and pending requests appear in the Inbox. [Approval tools](docs/adapters.md#1-mcp-only-no-code-needed)
 
 **Bring in agents you already have.** Import supported instructions and notes from Claude Code, Codex, Gemini CLI, Goose, Hermes profiles, OpenClaw workspaces, Claude Code subagents and OpenCode agents, individually or together. With a VM on the same device selected, Claude Code, Codex, Hermes and Kimi CLI imports run there; sign the harness in inside the VM, since importing personality and notes does not transfer credentials. [Importing agents](docs/adapters.md#bringing-in-agents-that-already-exist)
 
@@ -129,7 +129,7 @@ That session can chat, delegate tasks, exchange files and use memory as that age
 
 **Use more than one device.** Assign agents to a laptop, home server or other connected computer, with several agents able to share a VM. Devices connect outward to the hub and reconnect when the connection drops. [Keeping a device connected](docs/deploy.md#keeping-a-device-connected)
 
-**An Obsidian-style memory vault.** Notes are plain markdown with wikilinks, git history, search, activity and per-note or folder permissions. Edit them in Obsidian or Wisp, give agents private and shared folders, and choose notes to load at startup. [Memory](docs/memory.md)
+**An Obsidian-style memory vault.** Notes are plain markdown with wikilinks, git history, search, activity and per-note or folder permissions. Edit them in Obsidian or Bubble AI, give agents private and shared folders, and choose notes to load at startup. [Memory](docs/memory.md)
 
 **Connect the apps you use.** Search the MCP Registry from **Connectors**, add a server, sign in where supported, and choose which agents can use it. You can also configure MCP servers and API keys yourself, with connector support depending on the harness. [Connectors and skills](docs/adapters.md#connectors-and-skills)
 
@@ -147,7 +147,7 @@ That session can chat, delegate tasks, exchange files and use memory as that age
 
 **Skills, voice and a desk buddy.** Give agents reusable skills from the Skills page, talk with them through voice calls, and keep a small ghost buddy on the desktop to show work and requests. Optional features like the desk buddy are controlled in **Settings → General → Mods**; voice calls are always on and use browser speech services or your configured online providers. [Skills](docs/adapters.md#connectors-and-skills) · [Desk buddy](apps/desktop/README.md#desk-buddy)
 
-Apps that connect by URL (Grok, ChatGPT and Claude custom connectors) use `https://your-hub/mcp`, shown under **Connect by URL** on the agent's page. The hub needs an https address that works from anywhere (Tailscale Funnel or your own tunnel). Adding it signs you in to Wisp, where you pick the agent the app acts as; disconnect it from the same page. Set `WISP_PUBLIC_URL` if your proxy doesn't pass `X-Forwarded-Proto`/`X-Forwarded-Host`.
+Apps that connect by URL (Grok, ChatGPT and Claude custom connectors) use `https://your-hub/mcp`, shown under **Connect by URL** on the agent's page. The hub needs an https address that works from anywhere (Tailscale Funnel or your own tunnel). Adding it signs you in to Bubble AI, where you pick the agent the app acts as; disconnect it from the same page. Set `BUBBLE_PUBLIC_URL` if your proxy doesn't pass `X-Forwarded-Proto`/`X-Forwarded-Host`.
 
 ## How it fits together
 
@@ -159,7 +159,7 @@ Apps that connect by URL (Grok, ChatGPT and Claude custom connectors) use `https
                               └─ permissions (scopes + grants)
                                     ▲  outbound WebSocket
           ┌─────────────────────────┼──────────────────────────┐
-     device A: wisp node      device B: wisp node      any MCP client
+     device A: bubble-ai node      device B: bubble-ai node      any MCP client
      @atlas → claude -p         @nova → hermes acp         wisp-mcp
        └─ its computer:           └─ its computer:
           a Docker VM (VNC)          this device's screen
@@ -172,10 +172,10 @@ Apps that connect by URL (Grok, ChatGPT and Claude custom connectors) use `https
 | --- | --- |
 | `apps/hub` | Fastify server: REST + WebSocket API, routing, permissions, serves the web app |
 | `apps/web` | React PWA |
-| `apps/node` | `wisp` CLI and device daemon |
+| `apps/node` | `bubble-ai` CLI and device daemon |
 | `apps/desktop` | Electron desktop app: the workspace in a window, a hub on this computer, this computer as a device |
 | `apps/ios` | Native SwiftUI app for iPhone and iPad |
-| `apps/android` | Android app: QR pairing, then Wisp's phone layout in a web view |
+| `apps/android` | Android app: QR pairing, then Bubble AI's phone layout in a web view |
 | `site` | The website (Astro, deployed to Cloudflare Pages): landing page, downloads, docs, privacy policy |
 | `packages/core` | Shared types, wire protocol, mention parsing, loop guard, memory access rules |
 | `packages/vault` | Git-backed markdown vault with links, backlinks and search |
@@ -188,14 +188,14 @@ Apps that connect by URL (Grok, ChatGPT and Claude custom connectors) use `https
 ## Memory
 
 Memory is a markdown vault with git history, shared notes and an agent's own folder.
-Use Obsidian or Wisp to edit it, manage access and choose what agents load when they start.
+Use Obsidian or Bubble AI to edit it, manage access and choose what agents load when they start.
 See [Memory](docs/memory.md) for permissions, storage, startup context and Obsidian sync.
 
 ## Teams and coding together
 
 - **Teams:** use a team's **Team** chart to choose leads and connect agents along the paths they hand work through. Under **More**, set roles, role notes, an optional memory folder, a repository and who the team reports to.
-- **The workspace lead:** choose one in **Settings → Agents**, or let Wisp select one from the agents and teams. Unassigned tasks go to that lead, whose instructions describe the available roles and how to delegate subtasks with `task_delegate`.
-- **Coding:** tasks in a team with a repository get a branch such as `wisp/nova/add-login-xxxxx` and a separate working checkout. When the builder finishes, Wisp creates a review task if another eligible agent is available, preferring a reviewer role and a different harness; the builder cannot merge its own task, and merges refuse a checkout with uncommitted changes.
+- **The workspace lead:** choose one in **Settings → Agents**, or let Bubble AI select one from the agents and teams. Unassigned tasks go to that lead, whose instructions describe the available roles and how to delegate subtasks with `task_delegate`.
+- **Coding:** tasks in a team with a repository get a branch such as `wisp/nova/add-login-xxxxx` and a separate working checkout. When the builder finishes, Bubble AI creates a review task if another eligible agent is available, preferring a reviewer role and a different harness; the builder cannot merge its own task, and merges refuse a checkout with uncommitted changes.
 
 ## Docs
 
@@ -210,7 +210,7 @@ See [Memory](docs/memory.md) for permissions, storage, startup context and Obsid
 
 v1 includes the hub, web app, desktop app, native iPhone and iPad app, Android preview, devices and VMs, teams, tasks, the memory vault, connectors, skills, background agents, routines, web push, voice and the desk buddy. Some features need to be enabled in Mods or configured with your own provider credentials.
 
-Next priorities are reliability and release polish across these clients, better Android recovery and pairing, and more complete harness and connected-app support. The [issue tracker](https://github.com/eireijie/wisp/issues) is where to follow work and report problems; these priorities have no promised release dates.
+Next priorities are reliability and release polish across these clients, better Android recovery and pairing, and more complete harness and connected-app support. The [issue tracker](https://github.com/eireijie/bubble-ai/issues) is where to follow work and report problems; these priorities have no promised release dates.
 
 ## License
 

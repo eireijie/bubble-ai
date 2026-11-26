@@ -1,5 +1,5 @@
 import { CircleHelp, Compass, ExternalLink, LifeBuoy, Sparkles } from "lucide-react";
-import { GITHUB_URL } from "@wisp/core";
+import { GITHUB_URL } from "@bubble-ai/core";
 import { useStore, usePrefs } from "../../store.ts";
 import { href } from "../../router.ts";
 import { Popover, cx } from "../ui.tsx";
@@ -8,7 +8,7 @@ import { startTour, useTour } from "./tourRun.ts";
 import { FinishSetupList } from "../../views/HereView.tsx";
 
 /**
- * Learn Wisp (board 9): the ring with how much of Show me around you've seen, the Help "?" menu,
+ * Learn Bubble AI (board 9): the ring with how much of Show me around you've seen, the Help "?" menu,
  * Simple's "Show me around" button, and the Settings page with every chapter. They all start the
  * same tour (tourRun.ts).
  */
@@ -59,7 +59,7 @@ function Chapters({ onStart }: { onStart?: () => void }) {
 const roundBtn = "m-press grid size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40";
 
 /**
- * The chat header's top right (desktop): "Learn Wisp 6/25" with the chapters and Resume, or in
+ * The chat header's top right (desktop): "Learn Bubble AI 6/25" with the chapters and Resume, or in
  * Simple, until the tour has been started, a "Show me around" button. Gone once every stop is seen.
  */
 export function LearnHeader() {
@@ -89,11 +89,11 @@ export function LearnHeader() {
             onClick={toggle}
             aria-expanded={open}
             aria-haspopup="dialog"
-            aria-label={`Learn Wisp, ${seen} of ${total} seen`}
+            aria-label={`Learn Bubble AI, ${seen} of ${total} seen`}
             className={cx("m-press flex h-[36px] items-center gap-2 rounded-full bg-[var(--bubble-them)] pl-1.5 pr-3.5 text-[14px] font-semibold text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40", !running && seen > 0 && "learn-pulse")}
           >
             <LearnRing seen={seen} total={total} />
-            Learn Wisp <span className="font-normal text-muted">{seen}/{total}</span>
+            Learn Bubble AI <span className="font-normal text-muted">{seen}/{total}</span>
           </button>
         )}
       >
@@ -116,7 +116,7 @@ export function LearnHeader() {
                 Close
               </button>
             </div>
-            <span className="px-2 pb-1 text-[12px] text-muted">Also in Help and Settings › Learn Wisp.</span>
+            <span className="px-2 pb-1 text-[12px] text-muted">Also in Help and Settings › Learn Bubble AI.</span>
           </div>
         )}
       </Popover>
@@ -161,7 +161,7 @@ export function HelpMenu() {
 }
 
 /**
- * Settings › Learn Wisp: the tour's progress and chapters, then what setup left to do (phone,
+ * Settings › Learn Bubble AI: the tour's progress and chapters, then what setup left to do (phone,
  * apps, away from home, getting to know you), which used to be its own "Finish setup" list.
  */
 export function LearnPage() {

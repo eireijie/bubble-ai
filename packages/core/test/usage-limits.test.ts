@@ -42,7 +42,7 @@ describe("a harness saying its plan is used up", () => {
     expect(limitProblem("You've hit your usage limit. Try again in 6 days 23 hours.", now)).toEqual({ resetsAt: "2026-11-29T14:00:00.000Z" });
   });
 
-  it("leaves other failures alone, Wisp's own limits included", () => {
+  it("leaves other failures alone, Bubble AI's own limits included", () => {
     expect(limitProblem("Failed to authenticate: OAuth session expired and could not be refreshed", now)).toBeNull();
     expect(limitProblem("spawn codex ENOENT", now)).toBeNull();
     expect(limitProblem("channel rate limit reached", now)).toBeNull();

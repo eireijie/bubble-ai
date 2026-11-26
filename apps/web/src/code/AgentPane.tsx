@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { ArrowUp, Keyboard, Square } from "lucide-react";
-import type { Agent, Approval } from "@wisp/core";
+import type { Agent, Approval } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { TerminalPane, type ShellTarget } from "../components/TerminalPane.tsx";
 import { agentColor, cx } from "../components/ui.tsx";

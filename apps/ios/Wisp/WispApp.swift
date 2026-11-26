@@ -41,7 +41,7 @@ struct RootView: View {
       .background(Palette.ground.ignoresSafeArea())
     case .failed(let msg):
       ContentUnavailableView {
-        Label("Can't reach Wisp", systemImage: "wifi.exclamationmark")
+        Label("Can't reach Bubble AI", systemImage: "wifi.exclamationmark")
       } description: {
         Text(msg)
       } actions: {
@@ -56,10 +56,10 @@ struct RootView: View {
           Button("Turn on") { Task { await store.enableNotifications() } }
           Button("Not now", role: .cancel) {}
         } message: {
-          Text("Wisp only sends a note when an agent replies, finishes or needs your OK. You can change this in Settings.")
+          Text("Bubble AI only sends a note when an agent replies, finishes or needs your OK. You can change this in Settings.")
         }
-        // a pairing code scanned while signed in: offer to switch to that Wisp
-        .alert("Pair with another Wisp?", isPresented: Binding(get: { store.pendingPair != nil }, set: { if !$0 { store.pendingPair = nil } })) {
+        // a pairing code scanned while signed in: offer to switch to that Bubble AI
+        .alert("Pair with another Bubble AI?", isPresented: Binding(get: { store.pendingPair != nil }, set: { if !$0 { store.pendingPair = nil } })) {
           Button("Sign out and pair", role: .destructive) {
             let link = store.pendingPair
             store.signOut()
@@ -67,7 +67,7 @@ struct RootView: View {
           }
           Button("Cancel", role: .cancel) { store.pendingPair = nil }
         } message: {
-          Text("You're signed in to \(store.workspace?.name ?? "a Wisp"). Pairing signs you out of it first.")
+          Text("You're signed in to \(store.workspace?.name ?? "a Bubble AI"). Pairing signs you out of it first.")
         }
     }
   }
@@ -81,7 +81,7 @@ struct MainTabs: View {
   @State private var tab = MainTab.chats
   @State private var settings = false
   @State private var orgs = false
-  /** the first run, over everything, when nobody has made an agent on this Wisp yet */
+  /** the first run, over everything, when nobody has made an agent on this Bubble AI yet */
   @State private var onboarding: String?
   /** how many times each tab was picked, so its icon bounces on each pick */
   @State private var picks: [MainTab: Int] = [:]

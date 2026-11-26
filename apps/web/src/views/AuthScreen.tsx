@@ -20,7 +20,7 @@ export function passwordStrength(pw: string): number {
 
 /** An invite link: #/join/<code>. */
 const inviteCode = () => location.hash.match(/^#\/join\/([\w-]+)/)?.[1] ?? null;
-/** The link the desktop app and installer open on a new Wisp: #/setup/<setup code>. */
+/** The link the desktop app and installer open on a new Bubble AI: #/setup/<setup code>. */
 const linkedSetupCode = () => setupCodeFromHash(location.hash);
 
 /** The code in a pasted invite: a link (https://…/#/join/<code>) or just the code itself. */
@@ -30,7 +30,7 @@ export function pastedInviteCode(text: string): string | null {
 }
 
 /**
- * Before you're in: the first run's first screen ("You": make your Wisp), sign in, and joining by
+ * Before you're in: the first run's first screen ("You": make your Bubble AI), sign in, and joining by
  * invite. One calm layout each: the ghost, a title, at most one sentence, the fields, the choices
  * as buttons.
  */
@@ -68,7 +68,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
         setNeedsSetup(r.needsSetup);
         setNeedsCode(!!r.needsCode);
       })
-      .catch(() => setError("Can't reach your Wisp."));
+      .catch(() => setError("Can't reach your Bubble AI."));
   }, [attempt]);
   useEffect(() => {
     if (!code) return;
@@ -86,7 +86,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
     setError(null);
     try {
       const r = needsSetup
-        ? await api<{ token: string }>("POST", "/api/setup", { ...form, workspaceName: `${form.name.trim()}'s Wisp`, features: "simple", setupCode: form.setupCode.trim() || undefined })
+        ? await api<{ token: string }>("POST", "/api/setup", { ...form, workspaceName: `${form.name.trim()}'s Bubble AI`, features: "simple", setupCode: form.setupCode.trim() || undefined })
         : joining
           ? await api<{ token: string }>("POST", "/api/invites/accept", { code, name: form.name, email: form.email, password: form.password })
           : await api<{ token: string }>("POST", "/api/auth/login", { email: form.email, password: form.password });
@@ -114,7 +114,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
   };
   const usePasted = () => {
     const next = pastedInviteCode(pasted);
-    if (!next) return setError("That isn't a Wisp invite link.");
+    if (!next) return setError("That isn't a Bubble AI invite link.");
     setError(null);
     setPasting(false);
     setPasted("");
@@ -122,11 +122,11 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
     setCode(next);
   };
 
-  // can't reach the Wisp at all
+  // can't reach the Bubble AI at all
   if (needsSetup === null && error) {
     return (
       <AuthPage themeToggle={false}>
-        <AuthHero title="Can't reach your Wisp">Check it's running.</AuthHero>
+        <AuthHero title="Can't reach your Bubble AI">Check it's running.</AuthHero>
         <div className="mt-9 flex flex-col items-center gap-1.5">
           <AuthButton
             onClick={() => {
@@ -201,12 +201,12 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
   if (needsSetup) {
     return (
       <SetupShell at={1} onSubmit={() => void submit()} foot={<SetupButton disabled={busy}>Continue</SetupButton>}>
-        <SetupTitle className="pb-3">Make your Wisp</SetupTitle>
+        <SetupTitle className="pb-3">Make your Bubble AI</SetupTitle>
         <input className={setupField} value={form.name} onChange={set("name")} autoComplete="name" placeholder="Your name" aria-label="Your name" autoFocus required />
         {needsCode && !linkedCode && (
           <label className="flex flex-col gap-1.5">
             <input className={setupField} value={form.setupCode} onChange={set("setupCode")} placeholder="Setup code" autoComplete="off" autoCapitalize="none" spellCheck={false} aria-label="Setup code" required />
-            <span className="pl-1 text-[13px] leading-5 text-faint">On the computer Wisp runs on, run wisp setup-code.</span>
+            <span className="pl-1 text-[13px] leading-5 text-faint">On the computer Bubble AI runs on, run bubble-ai setup-code.</span>
           </label>
         )}
         <span className="relative block">
@@ -227,7 +227,7 @@ export function AuthScreen({ onAuthed }: { onAuthed: (token: string) => void }) 
   return (
     <AuthPage themeToggle={false}>
       <form onSubmit={submit} className="flex flex-col">
-        <AuthHero title={joining ? `Join ${invite?.workspace ?? "the workspace"}` : "Sign in to Wisp"}>{joining ? (invite ? `You're invited as ${invite.role === "owner" ? "an owner" : `a ${invite.role}`}.` : "Checking your invite…") : undefined}</AuthHero>
+        <AuthHero title={joining ? `Join ${invite?.workspace ?? "the workspace"}` : "Sign in to Bubble AI"}>{joining ? (invite ? `You're invited as ${invite.role === "owner" ? "an owner" : `a ${invite.role}`}.` : "Checking your invite…") : undefined}</AuthHero>
         <div className="mt-8 flex flex-col gap-3.5">
           {joining && <AuthInput value={form.name} onChange={set("name")} autoComplete="name" placeholder="Your name" aria-label="Your name" required />}
           <AuthInput type="email" value={form.email} onChange={set("email")} autoComplete="email" placeholder="Email" aria-label="Email" required />

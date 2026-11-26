@@ -1,4 +1,4 @@
-import { migrateHome } from "./migrate-home.ts";
+import { migrateHomes } from "./migrate-home.ts";
 import { migrateServices } from "./migrate-services.ts";
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -6,12 +6,12 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
-import { CONNECTOR_CATALOG, HARNESSES, HubToNode, SETTINGS_HARNESSES, VM_HARNESSES, credentialSupport, harnessInfo, harnessLabel, providerLabel, readTunnelFrame, tunnelFrame, withArticle, TERM_PREFIX, type AccessLevel, type HarnessAccountOp, type HarnessSettings, type Agent, type ComputerSpec, type ConnectorSpec, type CommandOption, type HarnessCatalog, type NodeToHub, type RunCredential, type RunRequest, type VmConfig, signInProblem } from "@wisp/core";
-import { HARNESS_SPECS, HarnessAccounts, adapters as builtinAdapters, changeHarnessSettings, deviceAdapters, harnessConfigured, localCredentialFs, loginCommand, prepareCredential, scanShelf, harnessConfigPath, readHarnessSettings, readHarnessSkill, type CatalogPlace, type CredentialFs, type DeviceHarness, type HarnessAdapter, type McpServerSpec, type PreparedCredential, type RunPlace } from "@wisp/adapters";
-import { WispClient, WispError } from "@wisp/sdk";
-import { MEMORY_ANSWER_MAX, memoryPrompt } from "@wisp/core/src/memory-import.ts";
+import { CONNECTOR_CATALOG, HARNESSES, HubToNode, SETTINGS_HARNESSES, VM_HARNESSES, credentialSupport, harnessInfo, harnessLabel, providerLabel, readTunnelFrame, tunnelFrame, withArticle, TERM_PREFIX, type AccessLevel, type HarnessAccountOp, type HarnessSettings, type Agent, type ComputerSpec, type ConnectorSpec, type CommandOption, type HarnessCatalog, type NodeToHub, type RunCredential, type RunRequest, type VmConfig, signInProblem } from "@bubble-ai/core";
+import { HARNESS_SPECS, HarnessAccounts, adapters as builtinAdapters, changeHarnessSettings, deviceAdapters, harnessConfigured, localCredentialFs, loginCommand, prepareCredential, scanShelf, harnessConfigPath, readHarnessSettings, readHarnessSkill, type CatalogPlace, type CredentialFs, type DeviceHarness, type HarnessAdapter, type McpServerSpec, type PreparedCredential, type RunPlace } from "@bubble-ai/adapters";
+import { WispClient, WispError } from "@bubble-ai/sdk";
+import { MEMORY_ANSWER_MAX, memoryPrompt } from "@bubble-ai/core/src/memory-import.ts";
 import { branchDiff, branchFiles, runChecks } from "./review.ts";
-import { runUpdate, version } from "@wisp/update";
+import { runUpdate, version } from "@bubble-ai/update";
 import { ComputerHost, type Tunnel } from "./computers/index.ts";
 import { RemoteDesktopServer, type RemoteDesktopConfig } from "./computers/remote-desktop.ts";
 import type { RustdeskConfig } from "./rustdesk.ts";
@@ -33,8 +33,8 @@ import { AppleBridge } from "./apple/index.ts";
 const SIGN_IN_CHECK_MS = 20_000;
 /** How often a Mac looks again at its Apple permissions (someone may change them in System Settings). */
 const APPLE_CHECK_MS = 60_000;
-const MCP_BIN = fileURLToPath(new URL("../../../bin/wisp-mcp.mjs", import.meta.url));
-const BROWSER_BIN = fileURLToPath(new URL("../../../bin/wisp-browser.mjs", import.meta.url));
+const MCP_BIN = fileURLToPath(new URL("../../../bin/bubble-ai-mcp.mjs", import.meta.url));
+const BROWSER_BIN = fileURLToPath(new URL("../../../bin/bubble-ai-browser.mjs", import.meta.url));
 
 export interface NodeConfig {
   hub: string;
@@ -42,7 +42,7 @@ export interface NodeConfig {
   name: string;
   /** waiting to become a device of the hub on this same computer (`--local`), until it hands over a token */
   local?: boolean;
-  /** the joined Wisp stable id, to find it again on the Wi-Fi when its address changes */
+  /** the joined Bubble AI stable id, to find it again on the Wi-Fi when its address changes */
   hubId?: string;
   dir: string; // state + agent working directories
   /** per-harness extras passed to adapters */
@@ -59,18 +59,18 @@ export interface NodeConfig {
   vmEngine?: string;
   /**
    * Offer this device's own screen to its owner and to agents that run here. Off by default, and
-   * only someone at the device can turn it on (`wisp node screen on`), not the hub.
+   * only someone at the device can turn it on (`bubble-ai node screen on`), not the hub.
    */
   shareScreen?: boolean;
   /** never offer this device's own screen, whatever shareScreen says (older setting) */
   noScreen?: boolean;
-  /** the code (hashed) that opens this screen from Wisp; set at the device, never sent to the hub */
+  /** the code (hashed) that opens this screen from Bubble AI; set at the device, never sent to the hub */
   screenCode?: ScreenCode;
-  /** Remote Desktop: this device's own VNC server for its screen (`wisp node screen remote`) */
+  /** Remote Desktop: this device's own VNC server for its screen (`bubble-ai node screen remote`) */
   remoteDesktop?: RemoteDesktopConfig;
-  /** RustDesk, set up with `wisp node rustdesk`: its ID goes to the hub for the device's owner */
+  /** RustDesk, set up with `bubble-ai node rustdesk`: its ID goes to the hub for the device's owner */
   rustdesk?: RustdeskConfig;
-  /** `wisp node pause`: take no work from the hub (no agent runs, no computer use) until resumed */
+  /** `bubble-ai node pause`: take no work from the hub (no agent runs, no computer use) until resumed */
   paused?: boolean;
   /** where to look for existing agents (default: the home folder); for tests */
   discoverHome?: string;
@@ -105,7 +105,7 @@ export class NodeDaemon {
   private agentTokens: Record<string, string>;
   /** harnesses given by the caller (tests), not read from node.json */
   private fixedRegistry: boolean;
-  /** which version of Wisp's tools each VM has (by container name) */
+  /** which version of Bubble AI's tools each VM has (by container name) */
   private vmTools = new Map<string, string>();
   /** the switches people flip at the device, as last read from node.json (people change them there with the CLI) */
   private local: { shareScreen: boolean; paused: boolean; code?: ScreenCode; remote?: RemoteDesktopConfig; rustdesk?: RustdeskConfig };
@@ -156,7 +156,7 @@ export class NodeDaemon {
   private replaced: number[] = [];
   /** called once the hub turns this device's token down for good (the device was removed, say) */
   onRejected?: () => void;
-  /** asked after a few failed connections: the new address of the Wisp, if it moved */
+  /** asked after a few failed connections: the new address of the Bubble AI, if it moved */
   relocate?: () => Promise<string | null>;
   private failures = 0;
 
@@ -166,8 +166,8 @@ export class NodeDaemon {
     registry?: Record<string, HarnessAdapter>,
     computers?: ComputerHost,
   ) {
-    if ([".wisp", ".warren"].includes(path.basename(cfg.dir))) {
-      const migrated = migrateHome({ home: path.dirname(cfg.dir), log });
+    if ([".bubble-ai", ".wisp", ".warren"].includes(path.basename(cfg.dir))) {
+      const migrated = migrateHomes({ home: path.dirname(cfg.dir), log });
       cfg = { ...cfg, dir: migrated.dir };
       migrateServices({ home: path.dirname(cfg.dir), log });
     }
@@ -245,9 +245,9 @@ export class NodeDaemon {
     const key = msg.takeover ? `take:${msg.takeover.agentId}` : `${computer.kind === "vm" ? "vm" : "dev"}:${computer.id}:${session}`;
     const command = async () => {
       if (msg.takeover) return this.takeoverCommand(msg.takeover);
-      // a harness's CLI in the pane: only ones from Wisp's own list, by name
+      // a harness's CLI in the pane: only ones from Bubble AI's own list, by name
       const harness = msg.launch ? HARNESSES.find((h) => h.id === msg.launch) : undefined;
-      if (msg.launch && !harness) throw new Error(`${msg.launch} isn't a harness Wisp knows`);
+      if (msg.launch && !harness) throw new Error(`${msg.launch} isn't a harness Bubble AI knows`);
       const vm = computer.kind === "vm" ? await this.computers.vm(computer) : null;
       if (computer.kind === "vm" && !vm) throw new Error("this VM isn't on this device");
       await vm?.ready();
@@ -310,7 +310,7 @@ export class NodeDaemon {
     this.keepConnections?.add(id);
     const files = vm ? vmCredentialFs(vm) : localCredentialFs;
     const baseHome = vm ? `${vm.home}/${VM_HARNESS_DIR[harness] ?? ".config"}` : this.accounts.dir(harness, this.accounts.accountOf("", harness));
-    const connectionHome = vm ? `${vm.home}/.wisp/connections/${id}/${harness}` : path.join(this.cfg.dir, "connections", id, harness);
+    const connectionHome = vm ? `${vm.home}/.bubble-ai/connections/${id}/${harness}` : path.join(this.cfg.dir, "connections", id, harness);
     let prepared: PreparedCredential;
     try {
       prepared = await prepareCredential(harness, cred, { fs: files, baseHome, connectionHome });
@@ -340,11 +340,11 @@ export class NodeDaemon {
   /** A code was entered for this screen: tell its owner when it was wrong. */
   private codeResult(r: { ok: boolean; lockedOut?: boolean; triesLeft?: number }) {
     if (r.ok) return;
-    if (r.lockedOut) this.send({ type: "screen_event", alert: true, text: "Too many wrong codes were entered for this screen, so it stopped taking codes for a while. If that wasn't you, change your Wisp password." });
+    if (r.lockedOut) this.send({ type: "screen_event", alert: true, text: "Too many wrong codes were entered for this screen, so it stopped taking codes for a while. If that wasn't you, change your Bubble AI password." });
     else if (r.triesLeft !== undefined) this.send({ type: "screen_event", alert: r.triesLeft <= 2, text: `A wrong code was entered for this screen (${r.triesLeft} ${r.triesLeft === 1 ? "try" : "tries"} left before it locks).` });
   }
 
-  /** Someone ran `wisp node screen …` or `wisp node pause/resume`: apply it now. */
+  /** Someone ran `bubble-ai node screen …` or `bubble-ai node pause/resume`: apply it now. */
   private onLocalChange = () => {
     const before = this.local;
     this.local = this.readLocal();
@@ -363,7 +363,7 @@ export class NodeDaemon {
       return;
     }
     if (this.local.paused && !before.paused) {
-      this.log("paused: stopping agents and computers until `wisp node resume`");
+      this.log("paused: stopping agents and computers until `bubble-ai node resume`");
       for (const a of this.aborts.values()) a.abort("paused");
     }
     if (this.local.paused) this.terminals.killAll();
@@ -372,14 +372,14 @@ export class NodeDaemon {
       this.closeTunnels();
       this.lock.lockAll();
     }
-    if (!before.paused && !this.local.paused) this.log(`this screen is now ${this.local.shareScreen ? "shared with you in Wisp (and agents that run here)" : "off"}`);
+    if (!before.paused && !this.local.paused) this.log(`this screen is now ${this.local.shareScreen ? "shared with you in Bubble AI (and agents that run here)" : "off"}`);
     if (before.paused && !this.local.paused) this.log("resumed");
     void this.sendCapabilities();
   };
 
   private async sendCapabilities() {
     const caps = await this.computers.capabilities();
-    if (!this.local.shareScreen && caps.screen.ok) caps.screen = { ok: false, off: true, detail: "Off. Only someone at this device can turn it on: `wisp node screen on`" };
+    if (!this.local.shareScreen && caps.screen.ok) caps.screen = { ok: false, off: true, detail: "Off. Only someone at this device can turn it on: `bubble-ai node screen on`" };
     else if (caps.screen.ok) {
       if (this.local.remote) caps.screen.remote = true;
       if (this.local.code) caps.screen.code = this.local.code.kind;
@@ -407,7 +407,7 @@ export class NodeDaemon {
     this.stopped = false;
     this.replaced = [];
     fs.watchFile(this.configFile, { interval: 1000 }, this.onLocalChange);
-    if (this.local.paused) this.log("paused: no agent runs or computer use until `wisp node resume`");
+    if (this.local.paused) this.log("paused: no agent runs or computer use until `bubble-ai node resume`");
     this.applyRemoteServer();
     this.connect();
   }
@@ -470,7 +470,7 @@ export class NodeDaemon {
       this.terminals.detachAll();
       if (this.stopped) return;
       if (code === 4401) {
-        this.log("hub rejected the node token. Create a new node in Wisp and run `wisp node start` again.");
+        this.log("hub rejected the node token. Create a new node in Bubble AI and run `bubble-ai node start` again.");
         this.stopped = true;
         this.onRejected?.();
         return;
@@ -479,7 +479,7 @@ export class NodeDaemon {
       if (code === 4000) {
         this.replaced = [...this.replaced.filter((t) => Date.now() - t < 60_000), Date.now()];
         if (this.replaced.length >= 2) {
-          this.log("another `wisp node start` is running with this device's token (the installed service, perhaps: `wisp service status`). This one stops, so the two don't keep replacing each other.");
+          this.log("another `bubble-ai node start` is running with this device's token (the installed service, perhaps: `bubble-ai service status`). This one stops, so the two don't keep replacing each other.");
           this.stopped = true;
           return;
         }
@@ -488,7 +488,7 @@ export class NodeDaemon {
       if (++this.failures % 3 === 0 && this.relocate) {
         void this.relocate().then((url) => {
           if (!url || this.stopped) return;
-          this.log(`your Wisp moved to ${url}; connecting there`);
+          this.log(`your Bubble AI moved to ${url}; connecting there`);
           this.cfg.hub = url;
           this.api = new WispClient({ url, token: this.cfg.token });
           this.backoff = 1000;
@@ -544,11 +544,11 @@ export class NodeDaemon {
         this.appleTimer.unref?.();
       }
     } else if (msg.type === "computer") {
-      if (this.local.paused) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name} is paused; someone at the device has to run \`wisp node resume\`` });
-      if (msg.computer.kind === "device" && !this.local.shareScreen) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name}'s screen is off; only someone at the device can turn it on (\`wisp node screen on\`)` });
-      // an agent running on this device uses its screen without the code, which guards it from Wisp, not from what runs here
+      if (this.local.paused) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name} is paused; someone at the device has to run \`bubble-ai node resume\`` });
+      if (msg.computer.kind === "device" && !this.local.shareScreen) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name}'s screen is off; only someone at the device can turn it on (\`bubble-ai node screen on\`)` });
+      // an agent running on this device uses its screen without the code, which guards it from Bubble AI, not from what runs here
       const here = !!msg.agentId && this.runningHere.has(msg.agentId);
-      if (msg.computer.kind === "device" && msg.action.action !== "status" && !here && !this.lock.open()) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name}'s screen is locked with its code. Its owner opens it by entering the code in Wisp to watch it; agents that run on this device can use it while they work.` });
+      if (msg.computer.kind === "device" && msg.action.action !== "status" && !here && !this.lock.open()) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name}'s screen is locked with its code. Its owner opens it by entering the code in Bubble AI to watch it; agents that run on this device can use it while they work.` });
       this.computers.act(msg.computer, msg.action).then(
         (result) => {
           this.send({ type: "result", requestId: msg.requestId, ok: true, result });
@@ -667,7 +667,7 @@ export class NodeDaemon {
       const agent = readDiscovered(msg.key, this.cfg.discoverHome);
       this.send(agent ? { type: "result", requestId: msg.requestId, ok: true, result: agent } : { type: "result", requestId: msg.requestId, ok: false, error: "that agent isn't on this device anymore" });
     } else if (msg.type === "update") {
-      // finishing writes the update marker, and `wisp node start` restarts once agents are done
+      // finishing writes the update marker, and `bubble-ai node start` restarts once agents are done
       runUpdate(undefined, { log: this.log }).then(
         (result) => this.send({ type: "result", requestId: msg.requestId, ok: true, result }),
         (err) => this.send({ type: "result", requestId: msg.requestId, ok: false, error: (err as Error).message }),
@@ -745,7 +745,7 @@ export class NodeDaemon {
   }
 
   private async execute(run: RunRequest) {
-    // `wisp node pause` while this run waited its turn behind another: it doesn't start either
+    // `bubble-ai node pause` while this run waited its turn behind another: it doesn't start either
     if (this.local.paused) return this.send({ type: "run_failed", runId: run.runId, error: `${this.cfg.name} is paused; ask again once someone resumes it there` });
     if (this.stopped) return this.send({ type: "run_failed", runId: run.runId, error: `${this.cfg.name} was stopped before this run started` });
     let agents: Agent[];
@@ -825,7 +825,7 @@ export class NodeDaemon {
       usedConnection = used;
       try {
         const baseHome = inside ? `${vm!.home}/${VM_HARNESS_DIR[agent.harness] ?? ".config"}` : this.accounts.dir(agent.harness, this.accounts.accountOf(agent.id, agent.harness));
-        const connectionHome = inside ? `${vm!.home}/.wisp/connections/${safeId(run.credential.connectionId)}/${agent.harness}` : path.join(this.cfg.dir, "connections", safeId(run.credential.connectionId), agent.harness);
+        const connectionHome = inside ? `${vm!.home}/.bubble-ai/connections/${safeId(run.credential.connectionId)}/${agent.harness}` : path.join(this.cfg.dir, "connections", safeId(run.credential.connectionId), agent.harness);
         credential = await prepareCredential(agent.harness, run.credential, { fs: inside ? vmCredentialFs(vm!) : localCredentialFs, baseHome, connectionHome });
       } catch (err) {
         this.connectionDone(usedConnection);
@@ -880,7 +880,7 @@ export class NodeDaemon {
           model: run.model ?? agent.model ?? (credential ? run.credential?.model : undefined) ?? null,
           effort: run.effort ?? (run.model ? null : (agent.settings?.effort ?? null)),
           fast: run.model ? false : (agent.settings?.fast ?? false),
-          // off unless the device owner turned it on: the person's own plugins skip Wisp's screen switch and approvals
+          // off unless the device owner turned it on: the person's own plugins skip Bubble AI's screen switch and approvals
           ownPlugins: agent.settings?.ownPlugins === true,
           access,
           sessionId,
@@ -976,7 +976,7 @@ export class NodeDaemon {
 
   /**
    * First-run memory import: run the harness once, read-only, in the owner's home folder, where it
-   * sees their own CLAUDE.md / AGENTS.md and saved memories, with Wisp's memory prompt. Only the
+   * sees their own CLAUDE.md / AGENTS.md and saved memories, with Bubble AI's memory prompt. Only the
    * final answer goes back. On the person's model connection when the hub sent one, else the
    * harness's own sign-in here.
    */
@@ -1059,7 +1059,7 @@ export class NodeDaemon {
   }
 
   /**
-   * Install a harness with this device's own recipe: only npm packages Wisp knows (see
+   * Install a harness with this device's own recipe: only npm packages Bubble AI knows (see
    * HARNESSES[].install), so the hub can name a harness but never choose what runs here.
    */
   private async installHarness(id: string): Promise<string> {
@@ -1100,7 +1100,7 @@ export class NodeDaemon {
   private async harnessSettings(msg: Extract<HubToNode, { type: "harness_settings" | "harness_settings_change" | "harness_skill" | "harness_open_config" | "harness_account" }>) {
     const base = { home: this.cfg.harnessHome };
     const known = (id: string) => {
-      if (!(SETTINGS_HARNESSES as readonly string[]).includes(id)) throw new Error(`Wisp can't change ${harnessLabel(id)}'s settings yet`);
+      if (!(SETTINGS_HARNESSES as readonly string[]).includes(id)) throw new Error(`Bubble AI can't change ${harnessLabel(id)}'s settings yet`);
     };
     // each account is the harness's own folder somewhere else
     const homes = (harness: string, account = "default") => {
@@ -1349,22 +1349,22 @@ export class NodeDaemon {
     return {
       command: process.execPath,
       args: [MCP_BIN],
-      // WISP_RUN: which request its calls belong to, when the agent is answering several at once
-      env: token ? { ...asNode, WISP_URL: this.cfg.hub, WISP_TOKEN: token, WISP_RUN: runId } : { ...asNode, WISP_URL: this.cfg.hub, WISP_TOKEN: this.cfg.token, WISP_AGENT: agentId, WISP_RUN: runId },
+      // BUBBLE_RUN: which request its calls belong to, when the agent is answering several at once
+      env: token ? { ...asNode, BUBBLE_URL: this.cfg.hub, BUBBLE_TOKEN: token, BUBBLE_RUN: runId } : { ...asNode, BUBBLE_URL: this.cfg.hub, BUBBLE_TOKEN: this.cfg.token, BUBBLE_AGENT: agentId, BUBBLE_RUN: runId },
     };
   }
 
-  /** wisp-mcp for a harness inside a VM: Wisp's tools copied into the VM, talking to the hub from in there. */
+  /** wisp-mcp for a harness inside a VM: Bubble AI's tools copied into the VM, talking to the hub from in there. */
   private async vmMcpSpec(agentId: string, runId: string, vm: DockerVm): Promise<McpServerSpec> {
     const token = await this.harnessToken(agentId);
     if (!token) throw new Error("the hub didn't give this agent a token of its own; update the hub");
     const bundle = await mcpBundle();
-    const file = `${vm.home}/.wisp/wisp-mcp.mjs`;
+    const file = `${vm.home}/.bubble-ai/bubble-ai-mcp.mjs`;
     if (this.vmTools.get(vm.name) !== bundle.hash) {
       await vm.writeFile(file, bundle.code);
       this.vmTools.set(vm.name, bundle.hash);
     }
-    return { command: "node", args: [file], env: { WISP_URL: await vm.hubUrl(this.cfg.hub), WISP_TOKEN: token, WISP_RUN: runId } };
+    return { command: "node", args: [file], env: { BUBBLE_URL: await vm.hubUrl(this.cfg.hub), BUBBLE_TOKEN: token, BUBBLE_RUN: runId } };
   }
 
   /**
@@ -1383,7 +1383,7 @@ export class NodeDaemon {
     return {
       command: process.execPath,
       args: [BROWSER_BIN],
-      env: { ...asNode, WISP_URL: this.cfg.hub, WISP_TOKEN: token, WISP_RUN: runId, WISP_BROWSER_CMD: JSON.stringify(direct), WISP_BROWSER_TOOLS: path.join(this.cfg.dir, "computers", `browser-tools-${recipeTag()}.json`) },
+      env: { ...asNode, BUBBLE_URL: this.cfg.hub, BUBBLE_TOKEN: token, BUBBLE_RUN: runId, BUBBLE_BROWSER_CMD: JSON.stringify(direct), BUBBLE_BROWSER_TOOLS: path.join(this.cfg.dir, "computers", `browser-tools-${recipeTag()}.json`) },
     };
   }
 
@@ -1479,7 +1479,7 @@ function writeJson(file: string, value: unknown, mode?: number) {
 /** Plain words for why a device couldn't ask the hub which agents it hosts. */
 export function hubUnreachableMessage(device: string, hub: string, err: unknown): string {
   const status = (err as { status?: number })?.status;
-  if (status === 401 || status === 403) return `${device} isn't signed in to Wisp any more (${hub} turned it away). Pair it again from Computers, then ask again.`;
-  if (typeof status === "number") return `${device} reached Wisp but it answered with an error (${status}: ${(err as Error).message}). Try again in a moment.`;
-  return `${device} couldn't reach Wisp at ${hub}. Check that it's online and the Wisp hub is running, then try again.`;
+  if (status === 401 || status === 403) return `${device} isn't signed in to Bubble AI any more (${hub} turned it away). Pair it again from Computers, then ask again.`;
+  if (typeof status === "number") return `${device} reached Bubble AI but it answered with an error (${status}: ${(err as Error).message}). Try again in a moment.`;
+  return `${device} couldn't reach Bubble AI at ${hub}. Check that it's online and the Bubble AI hub is running, then try again.`;
 }

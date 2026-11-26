@@ -41,7 +41,7 @@ struct PendingShelfItem: Identifiable {
 enum ShelfLogic {
   static func harnessName(_ id: String) -> String { HarnessChoice.all.first { $0.id == id }?.label ?? id }
 
-  /** How a device skill is known to Wisp once it's brought in. */
+  /** How a device skill is known to Bubble AI once it's brought in. */
   static func skillId(_ nodeId: String, _ item: ShelfItem) -> String { "device:\(nodeId):\(item.harness):\(item.skillId)" }
   static func appId(_ nodeId: String, _ item: ShelfItem) -> String { "device:\(nodeId):\(item.harness):\(item.name)" }
 
@@ -70,7 +70,7 @@ enum ShelfLogic {
   /** An app a harness has, as something the connector form can fill in: its keys asked for, or a sign-in. */
   static func connector(_ nodeId: String, _ item: ShelfItem) -> AppConnector {
     func envName(_ s: String) -> String { s.map { $0.isASCII && ($0.isLetter || $0.isNumber) ? $0 : "_" }.map(String.init).joined().uppercased() }
-    // an Authorization header is a login: Wisp signs in itself instead
+    // an Authorization header is a login: Bubble AI signs in itself instead
     let headers = (item.headers ?? []).filter { $0.lowercased() != "authorization" }
     let fields = ((item.secrets ?? []) + headers).map { ConnectorField(key: envName($0), label: $0, secret: true, hint: "Kept on the device; enter it here once.") }
     return AppConnector(
@@ -158,7 +158,7 @@ struct ShelfRow: View {
   var body: some View {
     let have = ShelfLogic.inWisp(device.nodeId, item, skills: store.skills, connectors: store.connectors)
     MarketRow(symbol: item.isSkill ? MarketText.skillSymbol(item.name) : "powerplug", title: item.isSkill ? MarketText.skillTitle(item.name) : item.name, subtitle: ShelfLogic.harnessName(item.harness) + (item.isSkill ? "" : item.readyAsIs ? " · app" : " · app, needs a key")) {
-      if have { MarketPill(text: "In Wisp", tone: .green) }
+      if have { MarketPill(text: "In Bubble AI", tone: .green) }
       else if store.canManage { AddButton(title: "Add", action: onBring) }
     }
   }
@@ -206,7 +206,7 @@ struct BringAllSheet: View {
   private var ready: [PendingShelfItem] { pending.filter { $0.item.isSkill || $0.item.readyAsIs } }
   private var later: [PendingShelfItem] { pending.filter { p in !ready.contains { $0.id == p.id } } }
   var body: some View {
-    MarketSheet(title: "Bring them in", subtitle: ready.isEmpty ? "Each of these needs a key first." : "\(ShelfLogic.summary(ready.map(\.item))) come\(ready.count == 1 ? "s" : "") into Wisp as they are.", busy: busy != nil) {
+    MarketSheet(title: "Bring them in", subtitle: ready.isEmpty ? "Each of these needs a key first." : "\(ShelfLogic.summary(ready.map(\.item))) come\(ready.count == 1 ? "s" : "") into Bubble AI as they are.", busy: busy != nil) {
       if !ready.isEmpty {
         MarketLabel("Share with")
         CardGroup {
@@ -214,7 +214,7 @@ struct BringAllSheet: View {
             MarketToggleRow(title: agent.name, subtitle: "@\(agent.handle)", isOn: Binding(get: { agents.contains(agent.id) }, set: { if $0 { agents.insert(agent.id) } else { agents.remove(agent.id) } }), disabled: busy != nil) { AgentAvatar(agent: agent, size: 30, showStatus: false) }
           }
         }
-        Text("You can give them to more agents later. Apps that need a sign-in ask once, here in Wisp.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
+        Text("You can give them to more agents later. Apps that need a sign-in ask once, here in Bubble AI.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
       }
       if !later.isEmpty {
         MarketLabel("Need a key")

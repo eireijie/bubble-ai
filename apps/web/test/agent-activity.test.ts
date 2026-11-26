@@ -52,6 +52,6 @@ describe("accessScope", () => {
     expect(simple).not.toContain("strictly");
     expect(accessScope("edit", "Nova", at("shared", true))).toContain("~/files/nova");
     expect(accessScope("edit", "Nova", at("own"))).toContain("its computer's files");
-    expect(accessScope("edit", "Nova", at(null, true))).toContain("~/.wisp/agents/nova");
+    expect(accessScope("edit", "Nova", at(null, true))).toContain("~/.bubble-ai/agents/nova");
   });
 });

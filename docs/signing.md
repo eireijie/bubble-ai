@@ -16,7 +16,7 @@ Everything is set up. These steps add the credentials. Until they're done, Mac b
 
 | Secret | Value |
 | --- | --- |
-| `MAC_CERT_P12_BASE64` | the output of `base64 -i Wisp.p12` |
+| `MAC_CERT_P12_BASE64` | the output of `base64 -i Bubble AI.p12` |
 | `MAC_CERT_PASSWORD` | the `.p12` password |
 | `APPLE_ID` | your Apple account's email |
 | `APPLE_APP_SPECIFIC_PASSWORD` | the password from step 3 |
@@ -27,7 +27,7 @@ Everything is set up. These steps add the credentials. Until they're done, Mac b
 
 ## iPhone app
 
-1. Under [Identifiers](https://developer.apple.com/account/resources/identifiers/list), register `ai.wisp.ios` with **Push Notifications** on.
+1. Under [Identifiers](https://developer.apple.com/account/resources/identifiers/list), register `ai.bubbleai.ios` with **Push Notifications** on.
 2. In [App Store Connect](https://appstoreconnect.apple.com), create the app with that bundle ID.
 3. Upload a build. With the Apple account that's signed in to **Xcode → Settings → Accounts** (Admin or Account Holder on the team), nothing else is needed:
 

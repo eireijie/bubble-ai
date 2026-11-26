@@ -2,8 +2,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { OUTSIDE_CLOSE, OUTSIDE_OPEN, type AppleOp } from "@wisp/core";
-import { WispClient } from "@wisp/sdk";
+import { OUTSIDE_CLOSE, OUTSIDE_OPEN, type AppleOp } from "@bubble-ai/core";
+import { WispClient } from "@bubble-ai/sdk";
 import { buildHub } from "../src/app.ts";
 import { glanceApps, readOnlyFetch } from "../src/glance.ts";
 import { greetingPrompt, greetingWritten, readNotice } from "../src/greeting.ts";
@@ -226,7 +226,7 @@ describe("a first look at the person's apps", () => {
     hub.store.updateAgent(agentId, { settings: { setup: { ...s } } });
   });
 
-  it("says what it read under a hello the agent wrote, and not under Wisp's plain one", async () => {
+  it("says what it read under a hello the agent wrote, and not under Bubble AI's plain one", async () => {
     expect(readNotice(["GitHub"])).toBe("Read from GitHub just now. Nothing changed.");
     expect(readNotice(["Messages", "Calendar"])).toBe("Read from Messages and Calendar just now. Nothing changed.");
     expect(readNotice(["GitHub", "Slack", "Stripe"])).toBe("Read from GitHub, Slack and Stripe just now. Nothing changed.");
@@ -238,7 +238,7 @@ describe("a first look at the person's apps", () => {
     expect(hello.body).toMatch(/acme\/shop-web/);
     expect(hello.parts).toContainEqual({ type: "notice", text: "Read from GitHub and Slack just now. Nothing changed." });
 
-    // the model wrote nothing: Wisp's plain hello, with no notice
+    // the model wrote nothing: Bubble AI's plain hello, with no notice
     const other = await makeAgent("wren");
     startSetup(other);
     const o = hub.store.agent(other)!.settings.setup!;
@@ -261,7 +261,7 @@ describe("a first look at the person's apps", () => {
 });
 
 describe("POST /api/connectors/:id/check", () => {
-  it("signs in with the app's watcher: a good key, a refused key, and apps Wisp can't check", async () => {
+  it("signs in with the app's watcher: a good key, a refused key, and apps Bubble AI can't check", async () => {
     const good = hub.connectors.create(ws, me, { kind: "secret", name: "GitHub good", catalogId: "github", env: { GITHUB_TOKEN: "gh_good" } } as never);
     const bad = hub.connectors.create(ws, me, { kind: "secret", name: "GitHub bad", catalogId: "github", env: { GITHUB_TOKEN: "gh_nope" } } as never);
     const other = hub.connectors.create(ws, me, { kind: "secret", name: "Supabase", catalogId: "supabase", env: { SUPABASE_KEY: "x" } } as never);

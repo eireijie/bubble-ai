@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Brain, ChevronLeft, GitCommitHorizontal, Monitor, MessageSquare, MoreHorizontal, Plug, ShieldAlert, ShieldCheck } from "lucide-react";
-import type { AccessLevel, Agent, HarnessCatalog } from "@wisp/core";
-import { soulPath, soulTemplate } from "@wisp/core/src/soul.ts";
+import type { AccessLevel, Agent, HarnessCatalog } from "@bubble-ai/core";
+import { soulPath, soulTemplate } from "@bubble-ai/core/src/soul.ts";
 import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx";
 import { useAccess } from "../access.ts";
 import { connectorBlocker, connectorOrigin } from "../components/Access.tsx";
@@ -665,18 +665,18 @@ export interface AccessPlace {
 export function accessScope(access: AccessLevel, name: string, p: AccessPlace): string {
   if (!p.device) return "It has no device yet, so it can't touch any files.";
   const folder = p.computer === "shared" ? "its own folder on the shared computer" : p.computer === "own" ? "its computer's files" : `its own folder on ${p.device}`;
-  const path = p.computer === "shared" ? `~/files/${p.handle}` : p.computer === "own" ? "~/files" : `~/.wisp/agents/${p.handle}`;
+  const path = p.computer === "shared" ? `~/files/${p.handle}` : p.computer === "own" ? "~/files" : `~/.bubble-ai/agents/${p.handle}`;
   if (access === "read-only") return `${name} reads files and asks before changing any.`;
   if (access === "edit") return `${name} can change files in ${folder}, and asks before changing anything else.${p.advanced ? ` (${path}; some AI tools can't hold to this strictly.)` : ""}`;
   return `${name} can change any file and run any command on ${p.device}, where its AI runs, if ${p.device} allows full access. If it doesn't, ${name} can edit files only.`;
 }
 
-/** Harnesses Wisp can keep the person's own plugins out of. */
+/** Harnesses Bubble AI can keep the person's own plugins out of. */
 const OWN_PLUGINS_HARNESSES = ["codex", "claude-code", "gemini"];
 
 /**
  * What it may do without asking: its level for files and commands, and whether it may rewrite its
- * own personality. Each saves as it changes. Using the person's own plugins (which skip Wisp's
+ * own personality. Each saves as it changes. Using the person's own plugins (which skip Bubble AI's
  * approvals) is behind "Show all"; the level's reach in full is the picker's tooltip.
  */
 function AsksFirst({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
@@ -734,7 +734,7 @@ function AsksFirst({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
           <ShieldAlert size={15} className="shrink-0 mt-0.5" />
           {advanced ? (
             <span>
-              It can run any command as {place.device ?? "the device"}'s user. The device must opt in with <code>wisp node start --allow-full-access</code>; otherwise it runs with edit access.
+              It can run any command as {place.device ?? "the device"}'s user. The device must opt in with <code>bubble-ai node start --allow-full-access</code>; otherwise it runs with edit access.
             </span>
           ) : (
             <span>Only for an agent you trust: it can change anything{place.device ? ` on ${place.device}` : ""}.</span>
@@ -744,7 +744,7 @@ function AsksFirst({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
       {canOwnPlugins && ownPlugins && (
         <p className="flex gap-2 px-1 text-[13px] text-bad">
           <ShieldAlert size={15} className="shrink-0 mt-0.5" />
-          These skip Wisp's approvals and the screen switch.
+          These skip Bubble AI's approvals and the screen switch.
         </p>
       )}
       {error && <p className="px-1 text-[13px] text-bad">{error}</p>}

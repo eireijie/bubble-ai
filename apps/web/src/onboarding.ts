@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
-import { FEATURE_PRESETS, type Agent, type DeviceRole, type Features } from "@wisp/core";
-import { harnessInfo, harnessLabel, runsInVm } from "@wisp/core/src/harnesses.ts";
+import { FEATURE_PRESETS, type Agent, type DeviceRole, type Features } from "@bubble-ai/core";
+import { harnessInfo, harnessLabel, runsInVm } from "@bubble-ai/core/src/harnesses.ts";
 import { api } from "./api.ts";
 import { accessSkipped, onPublicAddress, type AccessInfo } from "./access.ts";
 import { keep, sameData, useStore } from "./store.ts";
@@ -48,7 +48,7 @@ export function stepsDone(s: OnboardingState | null, choices: SetupChoices = {})
 
 /** The phone step's line; with no agent yet (the AI step was skipped) it names none. */
 export function devicesLine(agentName: string | null): string {
-  return agentName ? `Say hi to ${agentName} from your phone too.` : "Add your phone so you can reach Wisp from it.";
+  return agentName ? `Say hi to ${agentName} from your phone too.` : "Add your phone so you can reach Bubble AI from it.";
 }
 
 /** Steps that finishing setup marks done: the agent only when one exists (a skipped AI leaves it open). */
@@ -110,7 +110,7 @@ const useOnboardingStore = create<{ state: OnboardingState | null; error: string
           (state) => set((s) => (s.error === null && sameData(s.state, state) ? s : { state: keep(s.state, state), error: null })),
           (e: { status?: number; message: string }) =>
             // a 404 means the browser has a newer app than the hub is running
-            set({ error: e.status === 404 ? "Restart Wisp on the computer it lives on, then reload this page." : `Couldn't check your progress: ${e.message}` }),
+            set({ error: e.status === 404 ? "Restart Bubble AI on the computer it lives on, then reload this page." : `Couldn't check your progress: ${e.message}` }),
         )
         .then(() => {
           if (!stale) return;
@@ -151,8 +151,8 @@ export function useOnboarding(pollMs?: number) {
 
 /** Each setup step as a plain next thing to do, for "Continue setup" and Help. */
 export const NEXT_STEP: Record<StepId, string> = {
-  anywhere: "Use Wisp away from home",
-  address: "See your Wisp server address",
+  anywhere: "Use Bubble AI away from home",
+  address: "See your Bubble AI server address",
   agent: "Make your first agent",
   devices: "Add your phone and other computers",
 };
@@ -211,9 +211,9 @@ export function helperChecklist(agents: AgentLike[], devices: DeviceInfo[] | nul
     return out;
   }
   out.push({ id: "helper", status: "ok", label: `You have an agent: ${agent.name}`, fix: null, to: null });
-  // helpers that join from outside Wisp don't need a device here
+  // helpers that join from outside Bubble AI don't need a device here
   if (harnessInfo(agent.harness)?.protocol === "mcp") {
-    out.push({ id: "device", status: "ok", label: `${agent.name} runs outside Wisp and needs no device here`, fix: null, to: null });
+    out.push({ id: "device", status: "ok", label: `${agent.name} runs outside Bubble AI and needs no device here`, fix: null, to: null });
     return out;
   }
   const agentRoute = (tab: "device" | "model"): Route => ({ view: "agents", agentId: agent.id, tab });
@@ -234,7 +234,7 @@ export function helperChecklist(agents: AgentLike[], devices: DeviceInfo[] | nul
       id: "online",
       status: "bad",
       label: `${device.name} is on and connected`,
-      fix: device.paused ? `${device.name} is paused. Resume Wisp on it.` : `Turn on ${device.name} and make sure Wisp is running there.`,
+      fix: device.paused ? `${device.name} is paused. Resume Bubble AI on it.` : `Turn on ${device.name} and make sure Bubble AI is running there.`,
       to: { view: "computers", computerId: null },
     });
     out.push(unknown("harness", "Its AI is installed there"));
@@ -272,7 +272,7 @@ export function featuresForExperience(choice: "simple" | "advanced"): Features {
 export const READY_ITEMS = [
   { id: "phone", label: "Add your phone", button: "Pair", ask: "Want me on your phone too?", action: "Pair my phone" },
   { id: "apps", label: "Set up apps", button: "Add", ask: "Which apps should I work with?", action: "Set up apps" },
-  { id: "away", label: "Use Wisp away from home", button: "Set up", ask: "Want to reach me away from home?", action: "Set up" },
+  { id: "away", label: "Use Bubble AI away from home", button: "Set up", ask: "Want to reach me away from home?", action: "Set up" },
   { id: "know", label: "Let me get to know you", button: "Start", ask: "Can I get to know you?", action: "Get started" },
 ] as const;
 export type ReadyItem = (typeof READY_ITEMS)[number]["id"];

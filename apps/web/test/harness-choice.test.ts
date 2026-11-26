@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HARNESSES } from "@wisp/core";
+import { HARNESSES } from "@bubble-ai/core";
 
 describe("harness choice", () => {
   it("explains every harness", () => {

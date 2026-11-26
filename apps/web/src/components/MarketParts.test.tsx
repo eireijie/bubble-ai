@@ -33,7 +33,7 @@ describe("AppTile", () => {
     expect(html).not.toContain("bg-white");
   });
 
-  it("draws a logo Wisp carries at once, near-black marks in the ink colour so they turn light in dark mode", () => {
+  it("draws a logo Bubble AI carries at once, near-black marks in the ink colour so they turn light in dark mode", () => {
     const gmail = renderToStaticMarkup(<AppTile name="Gmail" />);
     expect(gmail).not.toContain("<img");
     expect(gmail).toContain('fill="#EA4335"');
@@ -89,7 +89,7 @@ describe("searching the Add page", () => {
   });
 
   it("matches a category or a maker as the chips did, and every word typed", () => {
-    const github = ["GitHub", "Issues, pull requests, code search and repos.", "Developer", "Wisp"];
+    const github = ["GitHub", "Issues, pull requests, code search and repos.", "Developer", "Bubble AI"];
     expect(matchWords(queryWords("developer"), github)).toBe(true);
     expect(matchWords(queryWords("Anthropic"), ["PDF", "Read and fill in PDFs", "Anthropic"])).toBe(true);
     expect(matchWords(queryWords("pull developer"), github)).toBe(true);

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Check, ChevronRight, Laptop, Smartphone, X } from "lucide-react";
-import { APPLE_APPS, APPLE_APP_INFO, type AppleApp, type AppleLevel, type AppleMacStatus, type ApplePlace, type AppleSettings, type AppleView, type APPLE_SETTINGS_PANES } from "@wisp/core";
+import { APPLE_APPS, APPLE_APP_INFO, type AppleApp, type AppleLevel, type AppleMacStatus, type ApplePlace, type AppleSettings, type AppleView, type APPLE_SETTINGS_PANES } from "@bubble-ai/core";
 import { api, observeEvents } from "../../api.ts";
 import { href } from "../../router.ts";
 import { useFeature } from "../../features.ts";
@@ -174,7 +174,7 @@ export function ApplePage() {
               );
             })}
             {view.iphones.length === 0 ? (
-              <DeviceRow icon={<Smartphone size={18} strokeWidth={1.7} />} name="No iPhone yet" sub="Turn on Apple in Wisp on your iPhone" />
+              <DeviceRow icon={<Smartphone size={18} strokeWidth={1.7} />} name="No iPhone yet" sub="Turn on Apple in Bubble AI on your iPhone" />
             ) : (
               view.iphones.map((p) => {
                 const used = p.id === phone?.id;
@@ -447,7 +447,7 @@ function SpeakUpDialog({ kind, settings: s, isOwner, save, onClose }: { kind: Sp
 
 const POLL_MS = 3000;
 
-/** "Let Wisp use Apple apps on this Mac": each permission, live, with a way to open System Settings for the ones not allowed. */
+/** "Let Bubble AI use Apple apps on this Mac": each permission, live, with a way to open System Settings for the ones not allowed. */
 export function MacSheet({ mac, onView, onClose }: { mac: Mac; onView: (v: AppleView) => void; onClose: () => void }) {
   const [asking, setAsking] = useState<Pane | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -475,7 +475,7 @@ export function MacSheet({ mac, onView, onClose }: { mac: Mac; onView: (v: Apple
   const status = mac.status;
   return (
     <Sheet
-      title="Let Wisp use Apple apps on this Mac"
+      title="Let Bubble AI use Apple apps on this Mac"
       wide
       onClose={onClose}
       footer={

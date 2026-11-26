@@ -86,7 +86,7 @@ describe("push notifications", () => {
   it("is optional: phones register before a key is set, and nothing is sent", async () => {
     expect((await api("GET", "/api/me/push")).data).toMatchObject({ available: false, devices: 0 });
     expect((await api("POST", "/api/me/push", { token: "not hex" })).status).toBe(400);
-    expect((await api("POST", "/api/me/push", { token: PHONE.toUpperCase(), bundleId: "ai.wisp.ios", environment: "sandbox" })).data).toEqual({ ok: true, available: false });
+    expect((await api("POST", "/api/me/push", { token: PHONE.toUpperCase(), bundleId: "ai.bubbleai.ios", environment: "sandbox" })).data).toEqual({ ok: true, available: false });
     expect((await api("GET", "/api/me/push")).data).toMatchObject({ available: false, devices: 1 });
     expect((await api("POST", "/api/me/push/test")).status).toBe(409);
   });
@@ -94,14 +94,14 @@ describe("push notifications", () => {
   it("takes an APNs key from Settings (owners only, never shown back)", async () => {
     expect((await api("PUT", "/api/settings/push", { keyId: "KEY1234567", teamId: "TEAM123456", key: "nope" })).status).toBe(400);
     const saved = (await api("PUT", "/api/settings/push", { keyId: "KEY1234567", teamId: "TEAM123456", key: p8, environment: "sandbox" })).data;
-    expect(saved).toEqual({ configured: true, source: "settings", keyId: "KEY1234567", teamId: "TEAM123456", topic: "ai.wisp.ios", environment: "sandbox" });
+    expect(saved).toEqual({ configured: true, source: "settings", keyId: "KEY1234567", teamId: "TEAM123456", topic: "ai.bubbleai.ios", environment: "sandbox" });
     expect(JSON.stringify((await api("GET", "/api/settings/push")).data)).not.toContain("PRIVATE KEY");
     const test = (await api("POST", "/api/me/push/test")).data;
     expect(test).toEqual({ sent: 1, failed: [] });
     const last = got.at(-1)!;
     expect(last.path).toBe(`/3/device/${PHONE}`);
-    expect(last.headers).toMatchObject({ "apns-topic": "ai.wisp.ios", "apns-push-type": "alert" });
-    expect(last.body).toMatchObject({ aps: { alert: { title: "Wisp" }, sound: "default", badge: 0 }, wisp: { kind: "test", category: "other" } });
+    expect(last.headers).toMatchObject({ "apns-topic": "ai.bubbleai.ios", "apns-push-type": "alert" });
+    expect(last.body).toMatchObject({ aps: { alert: { title: "Bubble AI" }, sound: "default", badge: 0 }, wisp: { kind: "test", category: "other" } });
   });
 
   it("pushes an agent's DM and its reply in your thread, with your unread count as the badge", async () => {
@@ -183,7 +183,7 @@ describe("push notifications", () => {
     const token = issueToken(hub.store.db, "session", user.id, workspace.id);
     const phone = "c".repeat(64);
     await api("POST", "/api/me/push", { token: phone }, token);
-    await api("PUT", "/api/settings/push", { keyId: "KEY7654321", teamId: "TEAM123456", key: p8, topic: "ai.wisp.side" }, token);
+    await api("PUT", "/api/settings/push", { keyId: "KEY7654321", teamId: "TEAM123456", key: p8, topic: "ai.bubbleai.side" }, token);
     try {
       const agent = (await api("POST", "/api/agents", { handle: "side", name: "Side", harness: "custom" }, token)).data;
       const agentToken = (await api("POST", `/api/agents/${agent.id}/token`, {}, token)).data.token;
@@ -196,7 +196,7 @@ describe("push notifications", () => {
       expect(pushes).toHaveLength(2);
       for (const push of pushes) {
         expect(push.path).toBe(`/3/device/${phone}`);
-        expect(push.headers["apns-topic"]).toBe("ai.wisp.side");
+        expect(push.headers["apns-topic"]).toBe("ai.bubbleai.side");
         expect(JSON.parse(Buffer.from(String(push.headers.authorization).split(" ")[1].split(".")[0], "base64url").toString()).kid).toBe("KEY7654321");
         expect(push.body.aps.badge).toBe(1);
       }

@@ -9,7 +9,7 @@ beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-signin-"));
 });
 afterEach(() => fs.rmSync(home, { recursive: true, force: true }));
-const accounts = () => new HarnessAccounts(path.join(home, ".wisp"), { home });
+const accounts = () => new HarnessAccounts(path.join(home, ".bubble-ai"), { home });
 
 describe("asking a harness whether it's signed in", () => {
   it("asks Claude Code when its files show no login, instead of leaving it unknown or signed out", async () => {
@@ -82,7 +82,7 @@ describe("a sign-in that expired", () => {
     a.forgetChecks();
     expect((await a.listChecked("claude-code", undefined, yes))[0].signedIn).toBe(true);
   });
-  it("asks again once someone signs in, through Wisp or by changing its login files", async () => {
+  it("asks again once someone signs in, through Bubble AI or by changing its login files", async () => {
     expired("r");
     const a = accounts();
     a.markSignedOut("claude-code", "default");

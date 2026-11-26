@@ -8,7 +8,7 @@ import { buildHub } from "../src/app.ts";
 import { newSetupCode } from "../src/setup-code.ts";
 import { Cloudflare, Reach, type Run } from "../src/reach.ts";
 
-// What a stranger reaching a Wisp through Tailscale Funnel or a Cloudflare Tunnel can and can't do.
+// What a stranger reaching a Bubble AI through Tailscale Funnel or a Cloudflare Tunnel can and can't do.
 
 const dirs: string[] = [];
 const built: Awaited<ReturnType<typeof buildHub>>[] = [];
@@ -59,7 +59,7 @@ describe("making the first account", () => {
     expect((await setup(b, owner, { "x-warren-setup-key": "cloud-key-from-the-desktop-app" })).statusCode).toBe(200);
   });
 
-  it("forgets the code on a Wisp that already has an owner", async () => {
+  it("forgets the code on a Bubble AI that already has an owner", async () => {
     const dir = temp();
     const b = await hub(dir, false);
     expect((await setup(b, owner)).statusCode).toBe(200);
@@ -72,7 +72,7 @@ describe("making the first account", () => {
 });
 
 describe("uploaded files", () => {
-  it("only shows plain media in the browser, and never lets an upload run as Wisp", async () => {
+  it("only shows plain media in the browser, and never lets an upload run as Bubble AI", async () => {
     const b = await hub(temp(), false);
     const token = (await setup(b, owner)).json().token;
     const auth = { authorization: `Bearer ${token}` };

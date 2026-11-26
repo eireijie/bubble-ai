@@ -112,7 +112,7 @@ enum PlanColor {
   }
 }
 
-/** The wisps of the agents on a connection (or harness), overlapped, three at most. */
+/** The bubbles of the agents on a connection (or harness), overlapped, three at most. */
 struct UsedByWisps: View {
   @Environment(Store.self) private var store
   var users: [ModelConnection.User]

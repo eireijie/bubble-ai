@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-/** The hub's HTTP API, with the session token Wisp issues at sign-in (a Bearer token). */
+/** The hub's HTTP API, with the session token Bubble AI issues at sign-in (a Bearer token). */
 struct API {
   var base: URL
   var token: String?
@@ -68,7 +68,7 @@ struct API {
       }
       let path = ((context?.codingPath.map(\.stringValue) ?? []) + (missing.map { [$0] } ?? [])).joined(separator: ".")
       let body = String(String(decoding: data, as: UTF8.self).prefix(200))
-      throw Failure(status: 0, message: "The hub sent something this app doesn't understand. Is Wisp up to date?",
+      throw Failure(status: 0, message: "The hub sent something this app doesn't understand. Is Bubble AI up to date?",
         diagnostic: "Decoding at \(path.isEmpty ? "<root>" : path): \(context?.debugDescription ?? String(describing: error)). Body: \(body)")
     }
   }
@@ -93,7 +93,7 @@ struct API {
     do {
       (data, resp) = try await session.data(for: req)
     } catch let e as URLError where e.code != .cancelled {
-      throw Failure(status: 0, message: "Couldn't reach Wisp at \(base.host() ?? base.absoluteString). \(e.localizedDescription)")
+      throw Failure(status: 0, message: "Couldn't reach Bubble AI at \(base.host() ?? base.absoluteString). \(e.localizedDescription)")
     }
     let http = resp as! HTTPURLResponse
     if http.statusCode == 401 {
@@ -102,7 +102,7 @@ struct API {
     }
     guard (200..<300).contains(http.statusCode) else {
       let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
-      throw Failure(status: http.statusCode, message: msg ?? "Wisp said \(http.statusCode)")
+      throw Failure(status: http.statusCode, message: msg ?? "Bubble AI said \(http.statusCode)")
     }
     return (data, http)
   }
@@ -134,7 +134,7 @@ func envVar(_ suffix: String, in environment: [String: String] = ProcessInfo.pro
     guard let value, !value.hasPrefix("$(") else { return nil }
     return value
   }
-  return resolved(environment["WISP_" + suffix]) ?? resolved(environment["WARREN_" + suffix])
+  return resolved(environment["BUBBLE_" + suffix]) ?? resolved(environment["WISP_" + suffix]) ?? resolved(environment["WARREN_" + suffix])
 }
 
 /** Migrate before any AppStorage wrapper or session reader opens the preferences. */
@@ -157,7 +157,7 @@ enum WispPreferences {
 
 /** The session token lives in the Keychain, the hub's address in UserDefaults. */
 enum Session {
-  private static let service = "ai.wisp.session"
+  private static let service = "ai.bubbleai.session"
   private static let hubKey = "wisp.hub"
 
   @MainActor static var hub: URL? {

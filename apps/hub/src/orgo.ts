@@ -1,4 +1,4 @@
-import { AGENT_SCREEN, POSIX_FILES, parseKeys, parseListing, toScreen, x11Combo, type ComputerAction, type FileData, type OrgoConfig, type Screenshot } from "@wisp/core";
+import { AGENT_SCREEN, POSIX_FILES, parseKeys, parseListing, toScreen, x11Combo, type ComputerAction, type FileData, type OrgoConfig, type Screenshot } from "@bubble-ai/core";
 
 /**
  * Orgo (orgo.ai) cloud computers, driven from the hub with the workspace's API key. The key
@@ -57,7 +57,7 @@ export class OrgoClient {
     return data as T;
   }
 
-  /** Wisp keeps its computers in one Orgo workspace, made on first use. */
+  /** Bubble AI keeps its computers in one Orgo workspace, made on first use. */
   async workspaceId(name = "Wisp"): Promise<string> {
     const list = await this.request<{ workspaces?: { id: string; name: string }[] }>("GET", "/workspaces");
     const found = list.workspaces?.find((w) => w.name === name);
@@ -101,7 +101,7 @@ export class OrgoClient {
     return { url: `${this.ws}/desktops/${instanceId}/ws/websockify?token=${encodeURIComponent(password)}`, password };
   }
 
-  /** Do one Wisp computer action on an Orgo computer. */
+  /** Do one Bubble AI computer action on an Orgo computer. */
   async act(cfg: OrgoConfig & { resolution?: string }, a: ComputerAction): Promise<unknown> {
     const id = cfg.computerId;
     const screen = parseResolution(cfg.resolution);

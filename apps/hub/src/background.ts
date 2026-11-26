@@ -1,4 +1,4 @@
-import { CONNECTOR_CATALOG, zonedParts, type Allowance, type BackgroundSource, type BackgroundUsage, type BackgroundWork, type Followup } from "@wisp/core";
+import { CONNECTOR_CATALOG, zonedParts, type Allowance, type BackgroundSource, type BackgroundUsage, type BackgroundWork, type Followup } from "@bubble-ai/core";
 import { featureOn } from "./features.ts";
 import type { Hub } from "./hub.ts";
 import { watcherFor } from "./watchers/index.ts";
@@ -194,7 +194,7 @@ export class Background {
       }
       // there is something to look at, but the plan or today's limits say not now
       if (this.held(b, at)) continue;
-      // only notes changed (they change inside Wisp, often written by other agents' memory passes): the smallest
+      // only notes changed (they change inside Bubble AI, often written by other agents' memory passes): the smallest
       // model says whether that's worth a look, as it does for changes in apps
       if (why === "notes") {
         const sorting = this.hub.triage.sortNotes(b.agentId, b.userId, this.changedNotes(b.agentId, b.lastAt, b.userId), at);
@@ -701,7 +701,7 @@ export class Background {
   }
 
   /**
-   * What only a model can look at for this person: connected apps with no watch on them (Wisp can't see
+   * What only a model can look at for this person: connected apps with no watch on them (Bubble AI can't see
    * when those change), and the agent's computer until its first look (see below). Apps and sites with
    * a watch don't count: the watch wakes the agent when they change.
    */
@@ -722,7 +722,7 @@ export class Background {
   /**
    * Anything a check could find: apps or a computer only a model can look at, tasks waiting on it, or
    * notes it can read (beyond its own) that changed since its last check. Notes alone don't count
-   * otherwise: they only change inside Wisp.
+   * otherwise: they only change inside Bubble AI.
    */
   hasSomethingToWatch(agentId: string, since: string | null = null, userId: string | null = null) {
     return !!this.whyCheck(agentId, since, userId);
@@ -762,7 +762,7 @@ export class Background {
 
   /**
    * Everything the agent can look at for someone: the apps it's connected to, its computer, the
-   * memory folders it can read, and Wisp itself. Shown on its Background tab and in each check.
+   * memory folders it can read, and Bubble AI itself. Shown on its Background tab and in each check.
    */
   sources(agentId: string): BackgroundSource[] {
     const { store, access } = this.hub;
@@ -782,7 +782,7 @@ export class Background {
       const folder = parts[0] === "agents" || parts[0] === "people" || parts[0] === "teams" ? parts.slice(0, 2).join("/") : parts.length > 1 ? parts[0] : "";
       if (folder && !folders.has(folder) && folder !== `agents/${agentId}` && can(n.path).level !== "none") folders.add(folder);
     }
-    for (const f of [...folders].sort().slice(0, 20)) out.push({ kind: "memory", name: `${f}/`, detail: "notes in Wisp's memory" });
+    for (const f of [...folders].sort().slice(0, 20)) out.push({ kind: "memory", name: `${f}/`, detail: "notes in Bubble AI's memory" });
     return out;
   }
 
@@ -828,12 +828,12 @@ export class Background {
       ...watched,
       `\nWhat you can look at:`,
       ...sources.map(sourceLine),
-      `- Wisp itself: your tasks and approvals (below), channels you're in (chat_read), files people shared (file_view), and what you know about ${name} (above).`,
+      `- Bubble AI itself: your tasks and approvals (below), channels you're in (chat_read), files people shared (file_view), and what you know about ${name} (above).`,
       sources.some((x) => x.kind === "app")
         ? ""
-        : `You aren't connected to any apps yet (email, calendar, drive, project tools…). If ${name} seems to expect you to watch something you can't reach, tell them once which connection would let you (Connectors in Wisp), not on every check.`,
+        : `You aren't connected to any apps yet (email, calendar, drive, project tools…). If ${name} seems to expect you to watch something you can't reach, tell them once which connection would let you (Connectors in Bubble AI), not on every check.`,
       sources.some((x) => x.kind === "computer") && user && !this.hub.watches.active(agent.id, user.id).some((w) => w.service === "browser")
-        ? `Wisp won't wake you again just to look around your computer: a look with nothing particular to look for only costs ${name} money. If ${name} wants something on a website kept an eye on, start a watch for it now (watch_start, service "browser", with the address and what to look for). Wisp then looks for you, for free when it can read the page itself, and wakes you when it changes.`
+        ? `Bubble AI won't wake you again just to look around your computer: a look with nothing particular to look for only costs ${name} money. If ${name} wants something on a website kept an eye on, start a watch for it now (watch_start, service "browser", with the address and what to look for). Bubble AI then looks for you, for free when it can read the page itself, and wakes you when it changes.`
         : "",
       b?.focus ? `\n${name} asked you to keep an eye on: ${b.focus}\nStart there, then look at the rest.` : `\n${name} hasn't said what matters most, so keep an eye on all of it.`,
       `Go through each source and look for what's new or changed since your last check, and what's coming up. Then decide whether any of it needs ${name} now: something to do, answer, decide or get ready for; something they'd want to know; a problem, conflict or risk; a change to something they care about; or something you said you'd follow up on.`,

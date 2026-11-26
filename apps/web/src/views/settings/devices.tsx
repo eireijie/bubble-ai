@@ -13,7 +13,7 @@ import { Button, CopyBlock } from "../../components/ui.tsx";
 import { Row, Toggle } from "./parts.tsx";
 import { Group, SRow, rowDomId } from "./rows.tsx";
 
-/** Every device in this Wisp, one line each, and Add a device. */
+/** Every device in this Bubble AI, one line each, and Add a device. */
 export function DevicesRows() {
   const devices = useDevices(3000);
   const allowed = useStore((s) => canApproveJoin(s.me?.role));
@@ -71,7 +71,7 @@ export function AwayRow({ expanded = false }: { expanded?: boolean }) {
     } else if (info?.tailscale.serving) {
       if (info.tailscale.funnel) await useAccessStore.getState().act("unfunnel");
       await useAccessStore.getState().act("unserve");
-    } else throw new Error("This Wisp already uses a public address.");
+    } else throw new Error("This Bubble AI already uses a public address.");
   };
   return (
     <>
@@ -92,7 +92,7 @@ export function AwayRow({ expanded = false }: { expanded?: boolean }) {
   );
 }
 
-/** Whether the owner picks where each agent runs (Advanced), or Wisp places them. The switch other pages read. */
+/** Whether the owner picks where each agent runs (Advanced), or Bubble AI places them. The switch other pages read. */
 export function PickSwitch() {
   const mode = useComputerMode();
   const owner = useStore((s) => s.me?.role === "owner");
@@ -183,7 +183,7 @@ export function McpConnections({ info, allowed }: { info: AccessInfo | null; all
       else if (info?.cloudflare?.state === "running") {
         await api("POST", "/api/reach/cloudflare", { action: "stop" });
         await useAccessStore.getState().refresh(true);
-      } else throw new Error("This Wisp uses a public address; disconnect apps below to remove their access.");
+      } else throw new Error("This Bubble AI uses a public address; disconnect apps below to remove their access.");
     } catch (e) {
       setError(unavailable(e, "Connected apps"));
     } finally {

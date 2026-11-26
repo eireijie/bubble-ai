@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
-import { type AccessRule } from "@wisp/core";
+import { type AccessRule } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go, mayLeave } from "../router.ts";
@@ -83,7 +83,7 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
   useEffect(() => {
     refresh();
   }, [refresh, memoryVersion]);
-  // edits made outside Wisp (Obsidian, a git pull) are picked up as the page opens; after that the hub says when memory changes
+  // edits made outside Bubble AI (Obsidian, a git pull) are picked up as the page opens; after that the hub says when memory changes
   useEffect(() => {
     api<{ changed: number }>("POST", "/api/vault/sync").then((r) => void (r.changed && refresh()), () => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

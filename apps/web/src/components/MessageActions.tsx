@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Copy, CornerUpLeft, MessageSquare, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
-import { TAPBACKS, type Message, type Reaction } from "@wisp/core";
+import { TAPBACKS, type Message, type Reaction } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { Modal, cx } from "./ui.tsx";

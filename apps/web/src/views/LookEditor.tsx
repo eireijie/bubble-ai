@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, ChevronDown, Loader2, RotateCcw } from "lucide-react";
-import type { Agent } from "@wisp/core";
-import { BUBBLE_COLORS, BUBBLE_SHAPES, defaultAppearance, type BubbleShape, type GhostAppearance } from "@wisp/core/src/appearance.ts";
+import type { Agent } from "@bubble-ai/core";
+import { BUBBLE_COLORS, BUBBLE_SHAPES, defaultAppearance, type BubbleShape, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { BUBBLE_DEFS, BubbleBody, bubbleColor, bubbleShape } from "../components/Bubble.tsx";

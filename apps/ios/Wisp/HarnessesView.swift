@@ -167,7 +167,7 @@ private struct HarnessDetailView: View {
         Text(problem).font(.footnote).foregroundStyle(Palette.red).padding(.horizontal, 4)
       } else {
         if settings.fixed?.contains("file") == true {
-          Text("\((settings.configPath as NSString).lastPathComponent) has comments in it, so Wisp only shows it. Change it on \(device.name).").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
+          Text("\((settings.configPath as NSString).lastPathComponent) has comments in it, so Bubble AI only shows it. Change it on \(device.name).").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
         }
         HarnessAccountsBlock(device: device, settings: settings, users: users, onLoad: onLoad)
         modelBlock
@@ -257,7 +257,7 @@ private struct HarnessDetailView: View {
         CardGroup {
           if !ids.isEmpty {
             ForEach(wisp) { connector in
-              MarketToggleRow(title: connector.name, subtitle: connector.forAll ? "All agents" : connector.auth?.required == true ? (connector.auth?.signedIn == true ? "Logged in through Wisp" : "Needs logging in, in Wisp") : "Set up in Wisp", isOn: Binding(get: { ids.allSatisfy { connector.has($0) } }, set: { on in attach(connector, ids, on) }), disabled: connector.forAll) { MarketTile(symbol: "powerplug") }
+              MarketToggleRow(title: connector.name, subtitle: connector.forAll ? "All agents" : connector.auth?.required == true ? (connector.auth?.signedIn == true ? "Logged in through Bubble AI" : "Needs logging in, in Bubble AI") : "Set up in Bubble AI", isOn: Binding(get: { ids.allSatisfy { connector.has($0) } }, set: { on in attach(connector, ids, on) }), disabled: connector.forAll) { MarketTile(symbol: "powerplug") }
             }
           }
           ForEach(settings.apps) { app in itemRow(app, note: app.canToggle ? "Set up on this device" : "Set up on this device · changed there", kind: "app") }
@@ -463,7 +463,7 @@ private struct HarnessAccountsBlock: View {
   }
 }
 
-/** Signing an account in without the device's terminal: Wisp shows the link and code the harness prints. */
+/** Signing an account in without the device's terminal: Bubble AI shows the link and code the harness prints. */
 struct HarnessSignInSheet: View {
   @Environment(Store.self) private var store
   @Environment(\.dismiss) private var dismiss
@@ -561,7 +561,7 @@ struct HarnessSignInSheet: View {
       Text("\(answer) Copy the whole code from the page and paste it again.").font(.footnote).foregroundStyle(Palette.red).padding(.horizontal, 4)
         .accessibilityIdentifier("sign-in-answer")
     }
-    Text("Wisp passes the code to \(label) on \(device.name). Your password stays with \(label).").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
+    Text("Bubble AI passes the code to \(label) on \(device.name). Your password stays with \(label).").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
     HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Waiting for you to finish signing in").font(.footnote).foregroundStyle(Palette.muted) }.padding(.horizontal, 4)
   }
 
@@ -610,7 +610,7 @@ struct HarnessSignInSheet: View {
   }
 }
 
-/** Copy one of a harness's skills into Wisp's skills, for the agents you pick. */
+/** Copy one of a harness's skills into Bubble AI's skills, for the agents you pick. */
 private struct ShareHarnessSkill: View {
   @Environment(Store.self) private var store
   @Environment(\.dismiss) private var dismiss
@@ -646,7 +646,7 @@ private struct ShareHarnessSkill: View {
 
 // MARK: - Install a harness
 
-/** Install a harness on a device through Wisp (npm ones), and see what's already there. */
+/** Install a harness on a device through Bubble AI (npm ones), and see what's already there. */
 struct InstallHarnessSheet: View {
   @Environment(Store.self) private var store
   var nodeId: String
@@ -667,7 +667,7 @@ struct InstallHarnessSheet: View {
           }
         }
       }
-      Text("Wisp installs it on that computer and asks you before it runs anything. Others use their own installer there.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
+      Text("Bubble AI installs it on that computer and asks you before it runs anything. Others use their own installer there.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
       if action.busy { HStack { ProgressView(); Text("Working on the device…").font(.footnote).foregroundStyle(Palette.muted) } }
       if let output { Text(output).font(.caption).textSelection(.enabled).padding(.horizontal, 4) }
       InlineError(error: action.error)
@@ -778,7 +778,7 @@ enum HarnessPick {
   /**
    * The harness to preselect for a new agent: the first of `ids` that's signed in, else the first
    * nobody can tell about, else the first. One that would fail its first reply is never picked over
-   * one that works. Mirrors preferSignedIn in @wisp/core.
+   * one that works. Mirrors preferSignedIn in @bubble-ai/core.
    */
   static func preferSignedIn(_ ids: [String], _ signedIn: (String) -> Bool?) -> String? {
     var seen: [String] = []

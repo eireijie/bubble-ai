@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@wisp/core";
+import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@bubble-ai/core";
 import { id } from "./auth.ts";
 import { Computers } from "./computers.ts";
 import { Terminals } from "./terminals.ts";
@@ -25,7 +25,7 @@ import { PublicSkills } from "./skill-store.ts";
 import { Updates } from "./updates.ts";
 import { ConnectorStore, SkillStore } from "./connectors.ts";
 import { ModelConnections, modelsForHarness } from "./model-connections.ts";
-import type { Vault } from "@wisp/vault";
+import type { Vault } from "@bubble-ai/vault";
 import type { Vaults } from "./vaults.ts";
 import { MemoryAccess } from "./access.ts";
 import { ASK_BEFORE_TEXT, agentPolicy } from "./policy.ts";
@@ -70,7 +70,7 @@ interface LiveRun {
  * and turns messages into agent runs.
  */
 export class Hub {
-  /** Stable across restarts and address changes; joined computers use it to find this Wisp again. */
+  /** Stable across restarts and address changes; joined computers use it to find this Bubble AI again. */
   id = "";
   private closed = false;
   private clients = new Set<ClientConn>();
@@ -79,7 +79,7 @@ export class Hub {
   private taskReplies = new Map<string, { messageId: string; result: string }>();
   /** skills each run learned or read, shown under its reply */
   private runSkills = new Map<string, { learned: Set<string>; used: Set<string> }>();
-  /** devices whose owner ran `wisp node pause` there */
+  /** devices whose owner ran `bubble-ai node pause` there */
   private pausedNodes = new Set<string>();
   readonly guard = new LoopGuard();
   readonly access: MemoryAccess;
@@ -191,7 +191,7 @@ export class Hub {
       const vault = this.vault(t.workspaceId);
       if (!vault.list((p) => p.toLowerCase() === brief.toLowerCase()).length) {
         await vault
-          .write(brief, `# Team #${t.name}\n\nWhat this team is for, what it's working on, and how it works. The lead keeps this up to date.\n`, { name: "Wisp", email: "wisp@localhost" }, `Brief for #${t.name}`)
+          .write(brief, `# Team #${t.name}\n\nWhat this team is for, what it's working on, and how it works. The lead keeps this up to date.\n`, { name: "Bubble AI", email: "wisp@localhost" }, `Brief for #${t.name}`)
           .catch(() => undefined);
       }
     }
@@ -199,7 +199,7 @@ export class Hub {
 
   /**
    * Every agent has the built-in skills in its folder. Missing copies are put back (they can't be
-   * removed); `refresh` also rewrites copies that differ, so a new Wisp version reaches them.
+   * removed); `refresh` also rewrites copies that differ, so a new Bubble AI version reaches them.
    */
   async ensureBuiltinSkills(agentIds?: string[], refresh = false) {
     const rows = this.store.db.prepare("SELECT id, workspace_id AS workspaceId FROM agents").all() as { id: string; workspaceId: string }[];
@@ -210,7 +210,7 @@ export class Hub {
         const file = skillFile({ slug: s.id, name: s.name, description: s.description, content: s.content });
         const have = await vault.read(p).then((n) => n.content, () => null);
         if (have === file || (have !== null && !refresh)) continue;
-        await vault.write(p, file, { name: "Wisp", email: "wisp@localhost" }, `Built-in skill "${s.name}"`).catch(() => undefined);
+        await vault.write(p, file, { name: "Bubble AI", email: "wisp@localhost" }, `Built-in skill "${s.name}"`).catch(() => undefined);
       }
     }
   }
@@ -227,7 +227,7 @@ export class Hub {
       const p = agentSkillPath(agentId, s.slug);
       const file = skillFile(s);
       if ((await vault.read(p).then((n) => n.content, () => null)) === file) continue;
-      await vault.write(p, file, { name: "Wisp", email: "wisp@localhost" }, `Skill "${s.name}" for @${agent.handle}`).catch(() => undefined);
+      await vault.write(p, file, { name: "Bubble AI", email: "wisp@localhost" }, `Skill "${s.name}" for @${agent.handle}`).catch(() => undefined);
     }
   }
 
@@ -367,7 +367,7 @@ export class Hub {
     return !!nodeId && this.nodes.has(nodeId);
   }
 
-  /** Paused at the device itself (`wisp node pause`): it takes no work until it's resumed there. */
+  /** Paused at the device itself (`bubble-ai node pause`): it takes no work until it's resumed there. */
   isNodePaused(nodeId: string | null): boolean {
     return !!nodeId && this.pausedNodes.has(nodeId);
   }
@@ -407,7 +407,7 @@ export class Hub {
   }
 
   /**
-   * Where the agent's harness has to be signed in before it can answer, when Wisp knows it isn't:
+   * Where the agent's harness has to be signed in before it can answer, when Bubble AI knows it isn't:
    * on its device, or inside its own computer (a VM) when it runs there. null when it's signed in,
    * runs on a model connection (which brings its own sign-in), or nobody can tell yet.
    */
@@ -848,7 +848,7 @@ export class Hub {
       this.autoMemory.finished(run.id);
       if (agent && run.requestedBy) this.background.warnIfClimbing(agent.workspaceId, run.requestedBy);
     } else if (run.kind === "greet") {
-      // its own hello, or Wisp's when it couldn't write one: either way the person gets a hello
+      // its own hello, or Bubble AI's when it couldn't write one: either way the person gets a hello
       store.setRunStatus(run.id, "finalText" in result ? "done" : "failed", "error" in result ? result.error : undefined);
       // an expired sign-in posts no hello: the person signs in again and the hello is tried again
       const signIn = "error" in result && greetSignInFailed(agent, result.error);
@@ -1203,7 +1203,7 @@ export class Hub {
         this.postSystem(msg, `Not waking ${this.handleOf(agentId)}: ${verdict.reason}.`);
         continue;
       }
-      // commands Wisp answers itself don't wake the agent
+      // commands Bubble AI answers itself don't wake the agent
       if (msg.author.kind === "user" && this.commandFor(agent, msg.body)?.via === "wisp" && !this.isSummaryCompact(agent, msg.body)) {
         this.answerCommand(agent, msg, threadId);
         continue;
@@ -1220,7 +1220,7 @@ export class Hub {
     }
   }
 
-  /** What follows "/" for this agent: its harness's commands on its device, its Wisp skills, and Wisp's own. */
+  /** What follows "/" for this agent: its harness's commands on its device, its Bubble AI skills, and Bubble AI's own. */
   commands(agent: Agent): AgentCommand[] {
     const catalog = this.catalogFor(agent);
     const name = (id: string | null) => (id && this.store.agent(id)?.name) || "an agent";
@@ -1234,7 +1234,7 @@ export class Hub {
     if (!parsed) return null;
     const cmd = this.commands(agent).find((c) => c.name === parsed.name);
     if (!cmd) return null;
-    // Wisp's /compact is the harness's own where it has one (headless), sent by that name
+    // Bubble AI's /compact is the harness's own where it has one (headless), sent by that name
     if (cmd.kind === "wisp" && cmd.name === "compact") {
       const plan = compactPlan(agent.harness);
       if (plan.via === "native") return { ...cmd, name: plan.command, via: "raw", args: parsed.args, compact: true };
@@ -1334,7 +1334,7 @@ export class Hub {
     this.postSystem(near, `${handle} will run in ${harnessLabel(pick.harness)} from the next message${keepModel ? "" : `, on its default model (it doesn't have ${agent.model})`}. Its memory, skills and chats stay.`);
   }
 
-  /** A harness without its own /compact: Wisp asks it for a summary and carries that into a new chat. */
+  /** A harness without its own /compact: Bubble AI asks it for a summary and carries that into a new chat. */
   private isSummaryCompact(agent: Agent, body: string): boolean {
     return parseCommand(body, agent.handle)?.name === "compact" && compactPlan(agent.harness).via === "summary";
   }
@@ -1358,7 +1358,7 @@ export class Hub {
     this.postSystem(near, mine.length ? `Stopped ${this.handleOf(agent.id)}.` : `${this.handleOf(agent.id)} isn't working on anything here.`);
   }
 
-  /** Commands Wisp answers itself: /context (how full the conversation is), /model, /effort and /harness. */
+  /** Commands Bubble AI answers itself: /context (how full the conversation is), /model, /effort and /harness. */
   private answerCommand(agent: Agent, msg: Message, threadId: string | null) {
     const parsed = parseCommand(msg.body, agent.handle);
     if (parsed?.name === "model") return void this.answerModel(agent, msg, threadId, parsed.args);
@@ -1808,7 +1808,7 @@ export class Hub {
 
   /**
    * A team that runs on steps, as one of its agents sees it: the steps (what happens, in order, and
-   * what runs at the same time), who does each, and the instructions for the ones it does. Wisp
+   * what runs at the same time), who does each, and the instructions for the ones it does. Bubble AI
    * hands out each step as a task, so agents don't chase each other.
    */
   stepsSection(channelName: string, team: ChannelTeam, agentId: string): string {
@@ -1841,9 +1841,9 @@ export class Hub {
       `## Your team in #${channelName}`,
       ...mineRoles.map((r) => `You are the ${r.name}. ${r.description.trim()}`),
       ...own.map((s) => `Your instructions for step ${num(s.id)} (${s.action.trim() || "no title"}): ${(s.prompt ?? "").trim()}`),
-      `How this team works. A new message in the channel starts every step nothing comes before, all at once; a step with several inputs waits for all of them. Wisp hands each step to its agent as a task, with what the steps before produced. When you're handed a step, do it and finish the task with task_update; the next steps start on their own.\n${steps.join("\n")}`,
+      `How this team works. A new message in the channel starts every step nothing comes before, all at once; a step with several inputs waits for all of them. Bubble AI hands each step to its agent as a task, with what the steps before produced. When you're handed a step, do it and finish the task with task_update; the next steps start on their own.\n${steps.join("\n")}`,
       `Who is on the team:\n${people.join("\n")}`,
-      "Ask a teammate something with an @mention in the thread. Don't hand the steps themselves to anyone: Wisp does that. Use task_delegate only when your step tells you to hand out pieces.",
+      "Ask a teammate something with an @mention in the thread. Don't hand the steps themselves to anyone: Bubble AI does that. Use task_delegate only when your step tells you to hand out pieces.",
     ].join("\n");
   }
 
@@ -1935,7 +1935,7 @@ export class Hub {
       : "As you learn who you are, you may refine it with memory_write on me/SOUL.md. Keep it short.";
 
     return [
-      `You are @${agent.handle} ("${agent.name}"), an agent in the Wisp workspace "${store.workspace(agent.workspaceId)?.name}".`,
+      `You are @${agent.handle} ("${agent.name}"), an agent in the Bubble AI workspace "${store.workspace(agent.workspaceId)?.name}".`,
       // models often don't know their exact version, so say what this agent actually runs on
       `You run in ${harnessLabel(agent.harness)} with ${agent.model ? `the model "${agent.model}"` : "its default model"}${agent.settings.effort ? ` at ${agent.settings.effort} reasoning effort` : ""}. If asked what model you are, say exactly that.`,
       soul ? `\n## Your soul (me/SOUL.md): who you are\n${soul}\n\n${soulNote}` : "",
@@ -1957,7 +1957,7 @@ export class Hub {
       background ? "" : `To come back to something at a set time (a reminder they asked for, checking whether a reply came), use followup_set; you'll be woken then.`,
       !background && channel.kind === "dm" && user ? `\n${this.loops.promptSection(agent.id, channel.id, user.id, user.preferredName || user.name)}` : "",
       setup ? `\n${setup}` : "",
-      background ? "" : `When someone asks you to change how Wisp works for them (how often you check in, quiet hours, what to watch, turning a mod on or off), do it with settings_read and settings_change instead of sending them to Settings.`,
+      background ? "" : `When someone asks you to change how Bubble AI works for them (how often you check in, quiet hours, what to watch, turning a mod on or off), do it with settings_read and settings_change instead of sending them to Settings.`,
       localTime,
       this.computerSection(agent.id),
       skills ? `\n${skills}` : "",

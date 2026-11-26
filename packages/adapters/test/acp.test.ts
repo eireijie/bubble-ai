@@ -23,10 +23,10 @@ function setup(mode?: string) {
   return { dir, adapter, env, received };
 }
 
-const mcp = { command: "node", args: ["wisp-mcp.mjs"], env: { WISP_URL: "http://hub", WISP_TOKEN: "t", WISP_AGENT: "a1" } };
+const mcp = { command: "node", args: ["bubble-ai-mcp.mjs"], env: { BUBBLE_URL: "http://hub", BUBBLE_TOKEN: "t", BUBBLE_AGENT: "a1" } };
 
 describe("ACP adapter", () => {
-  it("runs a prompt: starts a session with Wisp's tools, streams tool calls and text, answers permissions", async () => {
+  it("runs a prompt: starts a session with Bubble AI's tools, streams tool calls and text, answers permissions", async () => {
     const { dir, adapter, env, received } = setup();
     const events: AdapterEvent[] = [];
     const res = await adapter.run({ prompt: "hi there", cwd: dir, env, mcp, model: "m2", access: "full" }, (e) => events.push(e));
@@ -39,7 +39,7 @@ describe("ACP adapter", () => {
     const msgs = received();
     const newSession = msgs.find((m) => m.method === "session/new");
     expect(newSession.params.cwd).toBe(dir);
-    expect(newSession.params.mcpServers).toEqual([{ name: "wisp", command: "node", args: ["wisp-mcp.mjs"], env: [{ name: "WISP_URL", value: "http://hub" }, { name: "WISP_TOKEN", value: "t" }, { name: "WISP_AGENT", value: "a1" }] }]);
+    expect(newSession.params.mcpServers).toEqual([{ name: "wisp", command: "node", args: ["bubble-ai-mcp.mjs"], env: [{ name: "BUBBLE_URL", value: "http://hub" }, { name: "BUBBLE_TOKEN", value: "t" }, { name: "BUBBLE_AGENT", value: "a1" }] }]);
     expect(msgs.find((m) => m.method === "session/set_model").params).toEqual({ sessionId: "sess-1", modelId: "m2" });
     // full access switches the agent to its no-approvals mode
     expect(msgs.find((m) => m.method === "session/set_mode").params).toEqual({ sessionId: "sess-1", modeId: "yolo" });

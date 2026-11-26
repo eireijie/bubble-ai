@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { DeviceShelf } from "@wisp/core";
+import type { DeviceShelf } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import type { Hub } from "./hub.ts";
 

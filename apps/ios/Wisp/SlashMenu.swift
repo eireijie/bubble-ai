@@ -6,7 +6,7 @@ struct AgentCommand: Decodable, Hashable, Identifiable {
   var name: String
   var description: String?
   var hint: String?
-  /** "wisp": answered by Wisp; "command"/"skill": the harness's own; "wisp-skill": a skill installed through Wisp */
+  /** "wisp": answered by Bubble AI; "command"/"skill": the harness's own; "wisp-skill": a skill installed through Bubble AI */
   var kind: String
   /** "wisp", "raw" or "prompt" */
   var via: String
@@ -31,14 +31,14 @@ struct AgentCommand: Decodable, Hashable, Identifiable {
 
   var kindLabel: String {
     switch kind {
-    case "wisp": "Wisp"
+    case "wisp": "Bubble AI"
     case "command": "Command"
     default: "Skill"
     }
   }
 }
 
-/** One headed section of the menu: "Learned by Ghosty", "Codex", "Wisp", "Skills". */
+/** One headed section of the menu: "Learned by Ghosty", "Codex", "Bubble AI", "Skills". */
 struct SlashSection: Identifiable {
   var title: String
   var rows: [SlashRow]
@@ -97,7 +97,7 @@ enum SlashMenu {
     }
   }
 
-  /** the order sections come in: Wisp's, what agents learned, the harness's own, then other skills */
+  /** the order sections come in: Bubble AI's, what agents learned, the harness's own, then other skills */
   static let sectionOrder = ["wisp", "learned", "harness", "skill"]
 
   static func harnessLabel(_ harness: String) -> String {
@@ -117,7 +117,7 @@ enum SlashMenu {
       switch section {
       case "learned": title = "Learned by \(row.command.learnedBy ?? row.agent.name)"
       case "harness": title = harnessLabel(row.agent.harness)
-      case "wisp": title = "Wisp"
+      case "wisp": title = "Bubble AI"
       default: title = "Skills"
       }
       if byTitle[title] == nil { order.append((sectionOrder.firstIndex(of: section) ?? 9, title)) }

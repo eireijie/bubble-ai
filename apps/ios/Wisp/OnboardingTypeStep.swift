@@ -143,14 +143,14 @@ struct AppRowState: Equatable {
   enum Phase: Equatable { case idle, key, busy, done, failed }
   var phase = Phase.idle
   var error: String?
-  /** false: saved, but Wisp has no way to try the key */
+  /** false: saved, but Bubble AI has no way to try the key */
   var checked = true
 }
 
 /**
  * The apps for the picked kinds, one row each with one button: Allow (an Apple app, macOS asks
  * once on the Mac), Sign in (the hub's sign-in page, in the system's sign-in sheet), Add key (the key goes
- * to Wisp, never shown again), or a greyed "Soon".
+ * to Bubble AI, never shown again), or a greyed "Soon".
  */
 struct AppsSheet: View {
   @Environment(Store.self) private var store
@@ -182,7 +182,7 @@ struct AppsSheet: View {
         Text("Set up apps").font(.system(size: 18, weight: .semibold)).tracking(-0.2).foregroundStyle(Palette.text).accessibilityAddTraits(.isHeader)
         Text("I only read while we set up. Anything I'd change waits for your yes.").font(.system(size: 13)).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
         if macMissing {
-          Text("Messages, Calendar and Reminders need Wisp on a Mac. You can add them later from one.").font(.system(size: 13)).foregroundStyle(Palette.muted)
+          Text("Messages, Calendar and Reminders need Bubble AI on a Mac. You can add them later from one.").font(.system(size: 13)).foregroundStyle(Palette.muted)
             .fixedSize(horizontal: false, vertical: true).padding(.top, 6)
         }
       }
@@ -306,7 +306,7 @@ struct AppsSheet: View {
   // MARK: a key
 
   private func addKey(_ a: StartApp) async {
-    guard let entry = OnboardingCatalog.connector(a.catalogId) else { return set(a.id, AppRowState(phase: .failed, error: "\(a.name) isn't in this Wisp's catalog.")) }
+    guard let entry = OnboardingCatalog.connector(a.catalogId) else { return set(a.id, AppRowState(phase: .failed, error: "\(a.name) isn't in this Bubble AI's catalog.")) }
     let env = (values[a.id] ?? [:]).mapValues(\.trimmed).filter { !$0.value.isEmpty }
     if let missing = AppRows.missing(entry, values: env) { return set(a.id, AppRowState(phase: .key, error: missing)) }
     set(a.id, AppRowState(phase: .busy))
@@ -325,7 +325,7 @@ struct AppsSheet: View {
         guard let have = store.connectors.first(where: { $0.name == entry.name }) else { throw clash }
         id = try await store.saveConnector(have.id, ["env": AnyEncodable(env)]).id
       }
-      // one read to check the key works (only for apps Wisp can read itself)
+      // one read to check the key works (only for apps Bubble AI can read itself)
       let check = await store.checkConnector(id)
       if !check.ok {
         if let created { try? await store.deleteConnector(created) }
@@ -350,7 +350,7 @@ struct AppsSheet: View {
     do {
       let fresh = !store.features.apple
       if fresh {
-        guard store.role == "owner" else { throw fail("Only your Wisp's owner can turn on the Apple apps.") }
+        guard store.role == "owner" else { throw fail("Only your Bubble AI's owner can turn on the Apple apps.") }
         var next = store.features
         next.apple = true
         try await store.setFeatures(next)
@@ -358,7 +358,7 @@ struct AppsSheet: View {
       await store.refreshApple()
       let mine = Set(store.nodes.filter { $0.mine == true }.map(\.id))
       guard let mac = store.apple?.macs.first(where: { $0.online && mine.contains($0.nodeId) }) ?? store.apple?.macs.first(where: \.online) else {
-        throw fail("Wisp can't reach your Mac right now. Open Wisp on it, then try again.")
+        throw fail("Bubble AI can't reach your Mac right now. Open Bubble AI on it, then try again.")
       }
       var levels: [String: Int] = fresh ? ["messages": 0, "contacts": 0, "calendar": 0, "reminders": 0] : [:]
       levels[app.rawValue] = 1
@@ -383,8 +383,8 @@ struct AppsSheet: View {
           _ = try? await store.fetch { try await $0.raw("POST", "/api/apple/mac/refresh", body: Empty()) }
           let s = await status()
           if s == "allowed" { break }
-          if s == "denied", pane != "fullDiskAccess" { throw fail("macOS said no. Allow Wisp in System Settings › Privacy & Security › \(a.name), then try again.") }
-          if Date() > until { throw fail(pane == "fullDiskAccess" ? "Turn on Wisp in System Settings › Privacy & Security › Full Disk Access, then try again." : "macOS didn't answer. Try again.") }
+          if s == "denied", pane != "fullDiskAccess" { throw fail("macOS said no. Allow Bubble AI in System Settings › Privacy & Security › \(a.name), then try again.") }
+          if Date() > until { throw fail(pane == "fullDiskAccess" ? "Turn on Bubble AI in System Settings › Privacy & Security › Full Disk Access, then try again." : "macOS didn't answer. Try again.") }
         }
       }
       OnboardingAnswers.save(workspaceId) { if !$0.appleApps.contains(app.rawValue) { $0.appleApps.append(app.rawValue) } }
@@ -501,7 +501,7 @@ struct AppRow: View {
           Link("Get a key ›", destination: link).font(.system(size: 13)).foregroundStyle(Palette.muted)
         }
       }
-      Text("Paste it, or fill it from your password manager. Wisp keeps it and never shows it again.").font(.system(size: 12)).foregroundStyle(Palette.faint).fixedSize(horizontal: false, vertical: true)
+      Text("Paste it, or fill it from your password manager. Bubble AI keeps it and never shows it again.").font(.system(size: 12)).foregroundStyle(Palette.faint).fixedSize(horizontal: false, vertical: true)
     }
     .onAppear { focused = fields.first?.key }
   }

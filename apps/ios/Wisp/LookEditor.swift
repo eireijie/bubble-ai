@@ -1,7 +1,7 @@
 import SwiftUI
 
 /**
- * Look (2026-11-25 "Wisp, bubbles", board "Bubble shapes"): the agent's bubble, big, with small
+ * Look (2026-11-25 "Bubble AI, bubbles", board "Bubble shapes"): the agent's bubble, big, with small
  * bubbles drifting up behind it and a mood to preview it in; then its shape (eight) and colour
  * (six, or your own). Every shape keeps the clear body, rainbow rim and face. Back to its
  * original look and Save sit at the bottom.

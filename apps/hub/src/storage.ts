@@ -17,7 +17,7 @@ import {
   type StorageRequest,
   type StorageService,
   type StorageSignIn,
-} from "@wisp/core";
+} from "@bubble-ai/core";
 import { id, now } from "./auth.ts";
 import { featureOn } from "./features.ts";
 import type { Hub } from "./hub.ts";
@@ -31,7 +31,7 @@ export { StorageError } from "./storage-providers.ts";
  * ask before adding, replacing or deleting anything. Every call to the service is made here on
  * the hub, so passwords and tokens never reach an agent or a device.
  *
- * What Wisp keeps: an app password or a service's sign-in token, encrypted with a key that only
+ * What Bubble AI keeps: an app password or a service's sign-in token, encrypted with a key that only
  * lives in the hub's data folder; or, for a login from the password manager, just which login
  * it is (read each time, never kept).
  */
@@ -63,7 +63,7 @@ type OAuthApp = { clientId: string; clientSecret?: string };
 
 /** files bigger than this aren't moved in one go */
 export const MAX_FILE_BYTES = 100 * 1024 * 1024;
-/** what storage_read hands an agent directly; bigger files go through Wisp files */
+/** what storage_read hands an agent directly; bigger files go through Bubble AI files */
 export const MAX_READ_BYTES = 5 * 1024 * 1024;
 const PENDING_TTL = 15 * 60_000;
 
@@ -286,12 +286,12 @@ export class Storage {
   }
 
   /**
-   * Nextcloud's own sign-in (Login Flow v2): the person approves Wisp in their browser and
-   * Nextcloud hands back an app password just for Wisp, which they can revoke there.
+   * Nextcloud's own sign-in (Login Flow v2): the person approves Bubble AI in their browser and
+   * Nextcloud hands back an app password just for Bubble AI, which they can revoke there.
    */
   async nextcloudStart(workspaceId: string, userId: string, server: string): Promise<{ pendingId: string; loginUrl: string }> {
     const base = webdavUrl(server).replace(/\/+$/, "");
-    const res = await this.fetch(`${base}/index.php/login/v2`, { method: "POST", headers: { "user-agent": "Wisp" }, signal: AbortSignal.timeout(20_000) }).catch((e: Error) => {
+    const res = await this.fetch(`${base}/index.php/login/v2`, { method: "POST", headers: { "user-agent": "Bubble AI" }, signal: AbortSignal.timeout(20_000) }).catch((e: Error) => {
       throw new StorageError(`Couldn't reach ${new URL(base).host}: ${e.message}`, 502);
     });
     if (!res.ok) throw new StorageError(`${new URL(base).host} didn't start a Nextcloud sign-in (${res.status}). Is it a Nextcloud server?`, 502);
@@ -372,7 +372,7 @@ export class Storage {
     const body = new URLSearchParams({ ...form, client_id: app.clientId, ...(app.clientSecret ? { client_secret: app.clientSecret } : {}) });
     const res = await this.fetch(service === "gdrive" ? this.google.token : this.dropbox.token, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: body.toString(), signal: AbortSignal.timeout(20_000) });
     const json = (await res.json().catch(() => ({}))) as { access_token?: string; error?: string; error_description?: string };
-    if (!res.ok || !json.access_token) throw new StorageError(`${STORAGE_SERVICES[service].name} didn't sign Wisp in: ${json.error_description ?? json.error ?? res.status}`, 502);
+    if (!res.ok || !json.access_token) throw new StorageError(`${STORAGE_SERVICES[service].name} didn't sign Bubble AI in: ${json.error_description ?? json.error ?? res.status}`, 502);
     return json as { access_token: string };
   }
 
@@ -475,7 +475,7 @@ export class Storage {
     return this.visible(r, await this.use(r, (pr) => pr.search(query.trim(), under)));
   }
 
-  /** Copy a file from the storage into Wisp, so it can be attached, viewed or downloaded. */
+  /** Copy a file from the storage into Bubble AI, so it can be attached, viewed or downloaded. */
   async agentToWisp(agent: Agent, ref: string, rawPath: string, channelId: string | null) {
     const r = this.mine(agent, ref);
     const { path: p } = this.allowed(r, rawPath, "read");
@@ -494,7 +494,7 @@ export class Storage {
   }
 
   /**
-   * An agent wants to put a Wisp file on the storage, make a folder or delete something: do it
+   * An agent wants to put a Bubble AI file on the storage, make a folder or delete something: do it
    * now if a person already said "Always in this folder" (never for deleting), else ask.
    */
   async agentChange(agent: Agent, ref: string, action: "put" | "delete" | "mkdir", rawPath: string, fileId: string | null, requestedBy: string | null): Promise<{ done: string } | { asked: string; summary: string }> {
@@ -504,7 +504,7 @@ export class Storage {
     let file: ReturnType<Hub["store"]["file"]> | undefined;
     if (action === "put") {
       file = fileId ? this.hub.store.file(fileId) : undefined;
-      if (!file || file.workspaceId !== agent.workspaceId) throw new StorageError("No such Wisp file. Upload it with file_upload first.", 404);
+      if (!file || file.workspaceId !== agent.workspaceId) throw new StorageError("No such Bubble AI file. Upload it with file_upload first.", 404);
       if (file.size > MAX_FILE_BYTES) throw new StorageError(`That file is over ${MAX_FILE_BYTES / 1024 / 1024} MB.`, 413);
     }
     const there = await this.use(r, (pr) => pr.stat(p));
@@ -538,7 +538,7 @@ export class Storage {
       return `Made the folder ${req.path} on ${r.name}.`;
     }
     const f = req.fileId ? this.hub.store.file(req.fileId) : undefined;
-    if (!f) throw new StorageError("The Wisp file is gone.", 410);
+    if (!f) throw new StorageError("The Bubble AI file is gone.", 410);
     const data = await fsp.readFile(path.join(this.filesDir, f.sha256.slice(0, 2), f.sha256));
     await this.use(r, (pr) => pr.write(req.path, data, f.mime || mimeOf(req.path)));
     return `${req.action === "replace" ? "Replaced" : "Saved"} ${req.path} on ${r.name}.`;

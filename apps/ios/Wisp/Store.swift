@@ -162,7 +162,7 @@ final class Store {
   /** A pairing link that opened the app (from the Camera app); the pairing screen picks it up. */
   var pendingPair: PairLink?
 
-  /** Signed in by pairing with Wisp on a computer (Settings → Mobile). */
+  /** Signed in by pairing with Bubble AI on a computer (Settings → Mobile). */
   func adopt(hub: URL, token: String, session: URLSession = .shared) async throws {
     do { try persistToken(token) } catch {
       _ = try? await API(base: hub, token: token, session: session).post("/api/auth/logout", Empty())
@@ -453,7 +453,7 @@ final class Store {
 
   /**
    * Codes typed for screens since the app opened, so watching one again doesn't ask again. Only in
-   * memory, never saved: the device checks them and Wisp keeps none.
+   * memory, never saved: the device checks them and Bubble AI keeps none.
    */
   @ObservationIgnored var screenCodes: [String: String] = [:]
 

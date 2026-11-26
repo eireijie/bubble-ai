@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Check, Clock, Loader2, MessagesSquare, Square, X } from "lucide-react";
-import type { Discussion } from "@wisp/core";
+import type { Discussion } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore, type DiscussionInfo } from "../store.ts";
 import { go } from "../router.ts";

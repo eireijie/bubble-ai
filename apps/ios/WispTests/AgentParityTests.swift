@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 @MainActor
 final class AgentParityTests: XCTestCase {
@@ -42,7 +42,7 @@ final class AgentParityTests: XCTestCase {
 
   func testAccessScopeWords() {
     XCTAssertEqual(AgentAccess.edit.scope(name: "Nova", handle: "nova", device: nil), "It has no device yet, so it can't touch any files.")
-    XCTAssertTrue(AgentAccess.edit.scope(name: "Nova", handle: "nova", device: "Mac").contains("~/.wisp/agents/nova"))
+    XCTAssertTrue(AgentAccess.edit.scope(name: "Nova", handle: "nova", device: "Mac").contains("~/.bubble-ai/agents/nova"))
     XCTAssertTrue(AgentAccess.readOnly.scope(name: "Nova", handle: "nova", device: "Mac").hasPrefix("Nova asks before changing"))
   }
 
@@ -74,13 +74,13 @@ final class AgentParityTests: XCTestCase {
   func testConnectionConfigQuotesLikeTheWeb() {
     let hub = "https://wisp.example.test"
     XCTAssertEqual(ConnectionFormat.claude.config(hub: hub, token: "ab'c"),
-      "claude mcp add wisp --env WISP_URL='https://wisp.example.test' --env WISP_TOKEN='ab'\\''c' -- wisp-mcp")
+      "claude mcp add bubble-ai --env BUBBLE_URL='https://wisp.example.test' --env BUBBLE_TOKEN='ab'\\''c' -- wisp-mcp")
     XCTAssertEqual(ConnectionFormat.codex.config(hub: hub, token: "tok"),
-      "[mcp_servers.wisp]\ncommand = \"wisp-mcp\"\nenv = { WISP_URL = \"https://wisp.example.test\", WISP_TOKEN = \"tok\" }")
+      "[mcp_servers.wisp]\ncommand = \"wisp-mcp\"\nenv = { BUBBLE_URL = \"https://wisp.example.test\", BUBBLE_TOKEN = \"tok\" }")
     let json = ConnectionFormat.json.config(hub: hub, token: "tok")
     let parsed = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any]
     let env = ((parsed?["mcpServers"] as? [String: Any])?["wisp"] as? [String: Any])?["env"] as? [String: String]
-    XCTAssertEqual(env, ["WISP_URL": hub, "WISP_TOKEN": "tok"])
+    XCTAssertEqual(env, ["BUBBLE_URL": hub, "BUBBLE_TOKEN": "tok"])
     XCTAssertEqual(ConnectionFormat.initial(for: "claude-code"), .claude)
     XCTAssertEqual(ConnectionFormat.initial(for: "codex"), .codex)
     XCTAssertEqual(ConnectionFormat.initial(for: "grok"), .json)

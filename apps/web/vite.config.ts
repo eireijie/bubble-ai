@@ -7,7 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 /**
  * After a build, write a brotli and a gzip copy beside every text file in dist. The hub sends the
- * copy a browser accepts (apps/hub/src/app.ts, preCompressed), so a phone or a browser reaching Wisp
+ * copy a browser accepts (apps/hub/src/app.ts, preCompressed), so a phone or a browser reaching Bubble AI
  * from outside downloads about a quarter of the bytes. Nothing changes for `vite dev`.
  */
 function precompress(): Plugin {
@@ -33,7 +33,7 @@ function precompress(): Plugin {
   };
 }
 
-const hub = process.env.WISP_HUB ?? process.env.WARREN_HUB ?? "http://localhost:4747";
+const hub = process.env.BUBBLE_HUB ?? process.env.WISP_HUB ?? process.env.WARREN_HUB ?? "http://localhost:4747";
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), precompress()],
@@ -42,7 +42,7 @@ export default defineConfig({
     target: "es2022",
     rollupOptions: {
       output: {
-        // React changes far less often than Wisp does: in a file of its own, a browser that has it keeps it across updates
+        // React changes far less often than Bubble AI does: in a file of its own, a browser that has it keeps it across updates
         manualChunks: (id) => (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id) ? "react" : undefined),
       },
     },

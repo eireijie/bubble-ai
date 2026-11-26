@@ -1,4 +1,4 @@
-# Cloudflare Pages project for Wisp's website. `npm run deploy` builds and uploads dist/.
-name = "wisp-app"
+# Cloudflare Pages project for Bubble AI's website. `npm run deploy` builds and uploads dist/.
+name = "bubble-ai"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-10-01"

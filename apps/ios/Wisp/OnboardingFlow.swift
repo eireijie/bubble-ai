@@ -1,7 +1,7 @@
 import SwiftUI
 
 /**
- * The first run on the phone, right after pairing with a Wisp nobody has made an agent on yet:
+ * The first run on the phone, right after pairing with a Bubble AI nobody has made an agent on yet:
  * pick your agent (and set up its apps), make it yours, choose what it thinks with, then its chat.
  * One host ghost carries through every page. It can be closed for later; the Inbox still offers
  * to make an agent.

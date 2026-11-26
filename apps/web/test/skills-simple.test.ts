@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { catalogSkill } from "@wisp/core";
+import { catalogSkill } from "@bubble-ai/core";
 import { plainSkill, whatItsFor } from "../src/views/SkillsView.tsx";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn() }));

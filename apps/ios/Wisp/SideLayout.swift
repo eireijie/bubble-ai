@@ -1,7 +1,7 @@
 import Foundation
 
 /**
- * One person's chat list (2026-11-25 "Wisp, bubbles", core types.ts SidebarLayout): up to 9 pins,
+ * One person's chat list (2026-11-25 "Bubble AI, bubbles", core types.ts SidebarLayout): up to 9 pins,
  * their own named sections, what they hid and what they marked unread. Saved in the hub's
  * UserPrefs.sidebar, so the phone and the desktop show the same list. Items are chat keys:
  * "a:<agentId>" for an agent, "c:<channelId>" for a team.

@@ -5,7 +5,7 @@ describe("memoryPrompt", () => {
   it("asks for every heading and adds the one-time link only when there is one", () => {
     const plain = memoryPrompt();
     for (const h of MEMORY_HEADINGS) expect(plain).toContain(`## ${h}:`);
-    expect(plain).toContain("reply with it and I'll paste it into Wisp");
+    expect(plain).toContain("reply with it and I'll paste it into Bubble AI");
     expect(plain).not.toContain("one-time link");
     expect(memoryPrompt("https://wisp.example/m/abc")).toContain("https://wisp.example/m/abc (it works once)");
   });
@@ -19,7 +19,7 @@ describe("parseMemoryAnswer", () => {
     "- Timezone is Europe/Lisbon (unsure).",
     "",
     "## Projects",
-    "1. Wisp: agents workspace, repo ~/kodi, next step is onboarding",
+    "1. Bubble AI: agents workspace, repo ~/kodi, next step is onboarding",
     "* Garden sensor (unsure)",
     "**Tools and accounts**",
     "- GitHub, Linear",
@@ -36,7 +36,7 @@ describe("parseMemoryAnswer", () => {
       ["Other", "Here's everything:"],
       ["About me", "Name: Sam, builds a home automation app (memory)"],
       ["About me", "Timezone is Europe/Lisbon."],
-      ["Projects", "Wisp: agents workspace, repo ~/kodi, next step is onboarding"],
+      ["Projects", "Bubble AI: agents workspace, repo ~/kodi, next step is onboarding"],
       ["Projects", "Garden sensor"],
       ["Tools and accounts", "GitHub, Linear"],
       ["Other", "A loose fact"],

@@ -1,4 +1,4 @@
-// Draws Wisp's ghost icons (the same ghost as apps/web/public/icon.svg) as PNGs:
+// Draws Bubble AI's ghost icons (the same ghost as apps/web/public/icon.svg) as PNGs:
 //   swift apps/ios/scripts/icons.swift
 // writes the desktop app icon, the menu bar template icons and the iOS app icon.
 import AppKit

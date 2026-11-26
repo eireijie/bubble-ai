@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import type { Agent } from "@wisp/core";
-import type { MemoryLine } from "@wisp/core/src/memory-import.ts";
+import type { Agent } from "@bubble-ai/core";
+import type { MemoryLine } from "@bubble-ai/core/src/memory-import.ts";
 import { api } from "../../api.ts";
 import { go } from "../../router.ts";
 import { usableDevices, useDevices } from "../../devices.ts";

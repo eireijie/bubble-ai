@@ -30,7 +30,7 @@ enum SkillText {
     }
     if skill.source == "catalog" {
       if let prefix = id.split(separator: ":").first, id.contains(":") { return prefix == "anthropic" ? "Anthropic" : prefix == "openai" ? "OpenAI" : prefix.capitalized }
-      return "Wisp"
+      return "Bubble AI"
     }
     return "Yours"
   }
@@ -359,7 +359,7 @@ private struct LibrarySkillPage: View {
         MarketTile(symbol: MarketText.skillSymbol((skill.slug ?? "") + " " + skill.name), size: 56)
         VStack(alignment: .leading, spacing: 6) {
           Text(skill.name).font(.system(size: 22, weight: .semibold)).lineLimit(3)
-          MarketPill(text: "Made by Wisp", tone: .green, symbol: "checkmark.seal")
+          MarketPill(text: "Made by Bubble AI", tone: .green, symbol: "checkmark.seal")
         }
         Spacer(minLength: 0)
       }

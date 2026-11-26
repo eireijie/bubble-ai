@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Agent, Message } from "@wisp/core";
+import type { Agent, Message } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { loadAnswers } from "../../onboardingV3.ts";
 import { motionReduced, useMotionReduced } from "../../theme.ts";

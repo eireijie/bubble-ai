@@ -64,7 +64,7 @@ struct DeviceDetail: View {
     let canRemove = store.canManage && (mine(n) || store.isOwner)
     if canUpdate || canRemove {
       Menu {
-        if canUpdate { Button("Update Wisp", systemImage: "arrow.down.circle") { update(n) } }
+        if canUpdate { Button("Update Bubble AI", systemImage: "arrow.down.circle") { update(n) } }
         if canRemove { Button("Remove device", systemImage: "trash", role: .destructive) { removing = true } }
       } label: { CircleLabel(symbol: "ellipsis") }
         .accessibilityLabel("More").accessibilityIdentifier("device-menu")
@@ -107,7 +107,7 @@ struct DeviceDetail: View {
         Spacer(minLength: 6)
         NodePill(node: n)
       }
-      if n.paused == true { Text("Paused at the device. Resume it there with: wisp node resume").font(.footnote).foregroundStyle(Palette.muted) }
+      if n.paused == true { Text("Paused at the device. Resume it there with: bubble-ai node resume").font(.footnote).foregroundStyle(Palette.muted) }
     }.listRowBackground(Palette.card)
   }
 
@@ -122,9 +122,9 @@ struct DeviceDetail: View {
   private func bringBack(_ n: AgentNode) -> some View {
     Section {
       Text(n.lastSeen == nil ? "It hasn't connected yet. Agents on it will wait." : lastSeen(n) + " Agents on it are paused until it is back.").font(.system(size: 15)).foregroundStyle(Palette.muted)
-      step(1, n.lastSeen == nil ? "Open Wisp on that computer and pick Join my Wisp" : "Turn it on and wake it up")
+      step(1, n.lastSeen == nil ? "Open Bubble AI on that computer and pick Join my Bubble AI" : "Turn it on and wake it up")
       step(2, "Make sure it is on the same Wi-Fi, or Away from home is on")
-      if n.lastSeen != nil { step(3, "Open Wisp on it if it is not running") }
+      if n.lastSeen != nil { step(3, "Open Bubble AI on it if it is not running") }
       Button { action.run { try await store.refreshNodes() } } label: { Label("Check again", systemImage: "arrow.clockwise").frame(maxWidth: .infinity) }
         .secondaryButton().controlSize(.large).disabled(action.busy).accessibilityIdentifier("device-check-again")
     } header: { Text("To bring it back") }.listRowBackground(Palette.card)
@@ -149,8 +149,8 @@ struct DeviceDetail: View {
       HStack(spacing: 12) {
         if n.isUpdating { ProgressView() } else { Image(systemName: "exclamationmark.triangle").foregroundStyle(Palette.red) }
         VStack(alignment: .leading, spacing: 2) {
-          Text(n.isUpdating ? "Updating Wisp on \(n.name)" : "Update failed").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
-          Text(n.update?.message.flatMap { $0.isEmpty ? nil : $0 } ?? "Getting the latest Wisp and restarting it. Agents on this device pause for a moment, then pick up where they left off.")
+          Text(n.isUpdating ? "Updating Bubble AI on \(n.name)" : "Update failed").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
+          Text(n.update?.message.flatMap { $0.isEmpty ? nil : $0 } ?? "Getting the latest Bubble AI and restarting it. Agents on this device pause for a moment, then pick up where they left off.")
             .font(.system(size: 13)).foregroundStyle(Palette.muted)
         }
       }
@@ -192,7 +192,7 @@ struct DeviceDetail: View {
     ("headless", "Headless", "Agents work in the background only"),
   ]
 
-  /** Update Wisp, and Remove device. */
+  /** Update Bubble AI, and Remove device. */
   @ViewBuilder private func manage(_ n: AgentNode) -> some View {
     let canUpdate = store.isOwner && n.online
     let canRemove = store.canManage && (mine(n) || store.isOwner)
@@ -200,7 +200,7 @@ struct DeviceDetail: View {
       Section {
         if canUpdate {
           Button { update(n) } label: {
-            RowLabel(title: n.isUpdating ? "Updating…" : "Update Wisp", chevron: false) {
+            RowLabel(title: n.isUpdating ? "Updating…" : "Update Bubble AI", chevron: false) {
               Image(systemName: "arrow.down.circle").foregroundStyle(Palette.text)
             }.padding(.horizontal, -18)
           }.buttonStyle(.plain).disabled(n.isUpdating || action.busy).accessibilityIdentifier("device-update")
@@ -213,7 +213,7 @@ struct DeviceDetail: View {
           }.buttonStyle(.plain).disabled(action.busy).accessibilityIdentifier("device-remove")
         }
       } footer: {
-        if mine(n) { Text("At \(n.name): wisp node screen code picks a new screen code, and wisp node pause stops everything there until wisp node resume.") }
+        if mine(n) { Text("At \(n.name): bubble-ai node screen code picks a new screen code, and bubble-ai node pause stops everything there until bubble-ai node resume.") }
       }.listRowBackground(Palette.card)
     }
   }
@@ -317,13 +317,13 @@ private struct YourScreen: View {
         VStack(alignment: .leading, spacing: 2) {
           Text(status).foregroundStyle(Palette.text)
           if let detail { Text(detail).font(.footnote).foregroundStyle(Palette.muted) }
-          if caps?.off == true && node.online { Text("Turn it on at \(node.name): wisp node screen on").font(.footnote).foregroundStyle(Palette.muted).textSelection(.enabled) }
+          if caps?.off == true && node.online { Text("Turn it on at \(node.name): bubble-ai node screen on").font(.footnote).foregroundStyle(Palette.muted).textSelection(.enabled) }
         }
       }
       if let code = caps?.code {
         VStack(alignment: .leading, spacing: 2) {
           Text("Screen code").foregroundStyle(Palette.text)
-          Text("Checked on the device (\(code == "pin" ? "PIN" : "password")). To change it, run wisp node screen code at \(node.name).").font(.footnote).foregroundStyle(Palette.muted)
+          Text("Checked on the device (\(code == "pin" ? "PIN" : "password")). To change it, run bubble-ai node screen code at \(node.name).").font(.footnote).foregroundStyle(Palette.muted)
         }
       }
       if caps?.ok == true && node.online {
@@ -412,7 +412,7 @@ private struct RemoteDesktopSection: View {
   var body: some View {
     Section {
       if let id = node.capabilities?.rustdesk?.id {
-        RemoteRow(label: "RustDesk", value: DeviceText.rustdeskID(id), copy: id, link: DeviceText.rustdeskLink(id), note: "Use the password you set in RustDesk. Wisp never sees it.")
+        RemoteRow(label: "RustDesk", value: DeviceText.rustdeskID(id), copy: id, link: DeviceText.rustdeskLink(id), note: "Use the password you set in RustDesk. Bubble AI never sees it.")
       }
       if let own = node.remoteDesktop, !editing {
         RemoteRow(label: own.label, value: own.shown, copy: own.value, link: own.link, onChange: { editing = true }, onRemove: { forgetting = true })
@@ -422,7 +422,7 @@ private struct RemoteDesktopSection: View {
       } else if node.capabilities?.rustdesk == nil && node.remoteDesktop == nil {
         if showRustdesk {
           Text("Run this at \(node.name). It asks before installing RustDesk, then shows its ID here.").foregroundStyle(.secondary)
-          CopyLine(text: "wisp node rustdesk")
+          CopyLine(text: "bubble-ai node rustdesk")
           Button("Back") { showRustdesk = false }
         } else {
           Button { showRustdesk = true } label: { Choice(title: "Set up RustDesk", symbol: "arrow.down.circle", detail: "Free and open source. \(node.name) installs it after asking you there.") }
@@ -539,7 +539,7 @@ private struct OwnAppForm: View {
         .onChange(of: value) { action.error = nil }
         .accessibilityIdentifier("remote-value")
       if app == .chrome { Text("From remotedesktop.google.com/access, or leave it at that page.").font(.footnote).foregroundStyle(.secondary) }
-      Text("Only you see this. Keep the app's password in your password manager; Wisp never asks for it.").font(.footnote).foregroundStyle(.secondary)
+      Text("Only you see this. Keep the app's password in your password manager; Bubble AI never asks for it.").font(.footnote).foregroundStyle(.secondary)
       InlineError(error: action.error)
       HStack {
         Button("Save", action: save).primaryButton().controlSize(.regular).disabled(action.busy || value.trimmed.isEmpty)

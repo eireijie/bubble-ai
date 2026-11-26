@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Agent, ModelConnection } from "@wisp/core";
+import type { Agent, ModelConnection } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { askableOn, finishedSteps, firstRunAgent, makeFirstAgent, NO_NODE, welcomeScreen } from "./WelcomeView.tsx";
 import { AgentStep, JOBS, nextLook, saveNamedAgent, shapeOf, suggestedName } from "./onboarding/AgentStep.tsx";
@@ -108,7 +108,7 @@ describe("the agent exists from Your agent on", () => {
       "/api/agents",
       expect.objectContaining({ name: "Juno", handle: "juno-2", harness: "claude-code", nodeId: "mac", useDefaults: true, greet: "later", settings: { appearance: shape.appearance, role: "Keep my days on track" } }),
     );
-    expect(vi.mocked(api).mock.calls[0][2]).toMatchObject({ instructions: expect.stringContaining("You are Juno, Sam's agent in Wisp.") });
+    expect(vi.mocked(api).mock.calls[0][2]).toMatchObject({ instructions: expect.stringContaining("You are Juno, Sam's agent in Bubble AI.") });
     // remembered, so Its AI and a reload are about this agent
     expect(loadAnswers("w1").agentId).toBe("a1");
   });
@@ -183,7 +183,7 @@ describe("a failed sign-in does not finish", () => {
 
 describe("what's already signed in", () => {
   const conn = (over: Partial<ModelConnection>) => ({ id: "mc1", provider: "anthropic", kind: "oauth", harnesses: ["claude-code"], mine: true, lastError: null, ...over }) as ModelConnection;
-  it("prefers a connection Wisp keeps, then a harness signed in on the computer", () => {
+  it("prefers a connection Bubble AI keeps, then a harness signed in on the computer", () => {
     expect(foundOn(device, [conn({})])).toEqual({ harness: "claude-code", connectionId: "mc1" });
     const signedIn = { ...device, harnesses: [{ id: "codex", version: null, accounts: { default: true } }] } as DeviceInfo;
     expect(foundOn(signedIn, [])).toEqual({ harness: "codex", connectionId: null, share: true });
@@ -235,13 +235,13 @@ describe("making an agent on a device", () => {
     await makeFirstAgent(device, "codex", "Atlas", [], [], appearance);
     expect(api).toHaveBeenCalledExactlyOnceWith("POST", "/api/agents", expect.objectContaining({ settings: { appearance } }));
   });
-  it("lets Wisp place an installed harness (the shared computer), without moving its sign-in", async () => {
+  it("lets Bubble AI place an installed harness (the shared computer), without moving its sign-in", async () => {
     vi.mocked(api).mockResolvedValueOnce({ id: "agent" });
     const ready = { ...device, capabilities: { vm: { ok: true } } } as DeviceInfo;
     await makeFirstAgent(ready, "codex", "Atlas", [], []);
     expect(api).toHaveBeenCalledExactlyOnceWith("POST", "/api/agents", expect.objectContaining({ nodeId: "mac", useDefaults: true }));
   });
-  it("puts the agent on the model connection Wisp keeps, so its first message needs no other sign-in", async () => {
+  it("puts the agent on the model connection Bubble AI keeps, so its first message needs no other sign-in", async () => {
     vi.mocked(api).mockResolvedValueOnce({ id: "agent" });
     await makeFirstAgent(device, "codex", "Atlas", [], [], undefined, "mc_1");
     expect(api).toHaveBeenCalledExactlyOnceWith("POST", "/api/agents", expect.objectContaining({ useDefaults: true, settings: { connectionId: "mc_1" } }));

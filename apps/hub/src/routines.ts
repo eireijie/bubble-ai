@@ -1,10 +1,10 @@
-import { WISP_COMMANDS, agentSkillPath, cronMatches, describeCron, parseCron, skillFile, skillSlug, zonedParts, type Actor, type RecordedStep, type Routine } from "@wisp/core";
+import { BUBBLE_COMMANDS, agentSkillPath, cronMatches, describeCron, parseCron, skillFile, skillSlug, zonedParts, type Actor, type RecordedStep, type Routine } from "@bubble-ai/core";
 import { MAX_LEARNED } from "./connectors.ts";
 import { featureOn } from "./features.ts";
 import { agentPolicy } from "./policy.ts";
 import type { Hub } from "./hub.ts";
 
-const WISP = { name: "Wisp", email: "wisp@localhost" };
+const WISP = { name: "Bubble AI", email: "wisp@localhost" };
 
 export function routineSlug(name: string): string {
   return (
@@ -191,7 +191,7 @@ export class Routines {
         "",
         rec.replace(/^# .*\n+/, "").trim() || "(The recording is missing. Ask how it's done before doing it.)",
       ].join("\n");
-      const reserved = [...WISP_COMMANDS.map((w) => w.name), ...(this.hub.catalogFor(agent)?.commands ?? []).map((x) => x.name)];
+      const reserved = [...BUBBLE_COMMANDS.map((w) => w.name), ...(this.hub.catalogFor(agent)?.commands ?? []).map((x) => x.name)];
       const skill = this.hub.skills.create(r.workspaceId, agent.id, {
         name: r.name,
         slug: this.hub.skills.freeSlug(r.workspaceId, skillSlug(r.name), reserved),

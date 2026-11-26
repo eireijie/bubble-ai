@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { WispClient } from "@wisp/sdk";
-import type { Message } from "@wisp/core";
+import { WispClient } from "@bubble-ai/sdk";
+import type { Message } from "@bubble-ai/core";
 import { buildHub } from "../src/app.ts";
 import { keepDeviceScreens } from "../src/shared-computer.ts";
 import { makeRoomFor } from "./room.ts";
@@ -86,7 +86,7 @@ describe("Use my computers", () => {
     await owner.request("POST", `/api/approvals/${pending[0].id}/decide`, { approve: true });
     const said = (await owner.messages(pending[0].channelId, { limit: 50 })).messages as Message[];
     expect(said.some((m) => m.body.includes("@scout Go ahead: you can use MacBook Air"))).toBe(true);
-    // allowed now: it gets past Wisp's checks to the device (offline in this test)
+    // allowed now: it gets past Bubble AI's checks to the device (offline in this test)
     await expect(asOwnersWork(() => agentApi.computer({ action: "screenshot" }, { device: "MacBook Air" }))).rejects.toThrow(/offline/);
   });
 

@@ -12,7 +12,7 @@ extension Store {
   }
 
   func connection() throws -> API {
-    guard let api else { throw API.Failure(status: 0, message: "Connect to Wisp to make changes.") }
+    guard let api else { throw API.Failure(status: 0, message: "Connect to Bubble AI to make changes.") }
     var connection = api
     let gen = session
     connection.authenticationExpired = { [weak self] in self?.authenticationExpired(generation: gen) }

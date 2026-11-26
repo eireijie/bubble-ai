@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Approval, Followup, TeamStep } from "@wisp/core";
+import type { Approval, Followup, TeamStep } from "@bubble-ai/core";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn(() => new Promise(() => {})), uploadFile: vi.fn() }));
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false, useMotionReduced: () => false }));

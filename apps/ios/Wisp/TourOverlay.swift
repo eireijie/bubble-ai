@@ -165,9 +165,9 @@ private struct Running: View {
       }
       .accessibilityHidden(true)
       Text(run.end ? "Done" : Tour.eyebrow(run.i, stops)).font(.system(size: 12)).foregroundStyle(Palette.muted).padding(.top, 2)
-      Text(run.end ? "That's Wisp" : stop?.title ?? "").font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.text)
+      Text(run.end ? "That's Bubble AI" : stop?.title ?? "").font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.text)
         .accessibilityAddTraits(.isHeader)
-      Text(run.end ? "Show me around stays in Help and in Settings › Learn Wisp." : stop.map { Tour.body($0, fallback: fallback) } ?? "")
+      Text(run.end ? "Show me around stays in Help and in Settings › Learn Bubble AI." : stop.map { Tour.body($0, fallback: fallback) } ?? "")
         .font(.system(size: 15)).lineSpacing(3).foregroundStyle(Palette.muted)
         .fixedSize(horizontal: false, vertical: true)
       if let t = stop?.tryIt { tryButton(t) }
@@ -313,7 +313,7 @@ private struct Running: View {
       guard !Task.isCancelled else { return }
       dock = .bottom
       withAnimation(.easeOut(duration: 0.25)) { landed = true }
-      UIAccessibility.post(notification: .screenChanged, argument: "That's Wisp")
+      UIAccessibility.post(notification: .screenChanged, argument: "That's Bubble AI")
       return
     }
     let place = placeFor(stop)

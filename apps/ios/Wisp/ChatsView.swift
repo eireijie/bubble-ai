@@ -64,7 +64,7 @@ enum ChatList {
 }
 
 /**
- * Your agents and teams in one list (2026-11-25 "Wisp, bubbles", phone list): search and +, up to
+ * Your agents and teams in one list (2026-11-25 "Bubble AI, bubbles", phone list): search and +, up to
  * 9 pins in a 3×3 grid, All / Your turn, then your sections and No section. Pins and sections are
  * kept in the hub (UserPrefs.sidebar), the same as on the desktop. Press and hold a chat for its menu.
  */

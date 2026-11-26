@@ -3,7 +3,7 @@ import OSLog
 import UIKit
 
 /**
- * Location for the Apple mod. Wisp never tracks where you go: it gets one fix when an agent asks
+ * Location for the Apple mod. Bubble AI never tracks where you go: it gets one fix when an agent asks
  * (a silent push from the hub) or when you open the app, and, when places are on, iOS tells it
  * when you cross a place's edge. Nothing in between is ever sent.
  */
@@ -11,7 +11,7 @@ import UIKit
 final class AppleLocation {
   static let shared = AppleLocation()
 
-  /** what iOS lets Wisp do with location */
+  /** what iOS lets Bubble AI do with location */
   private(set) var authorization: CLAuthorizationStatus
 
   @ObservationIgnored weak var store: Store?
@@ -24,7 +24,7 @@ final class AppleLocation {
   @ObservationIgnored private var needsActiveReport = false
   @ObservationIgnored private var lastActiveReport: Date?
   @ObservationIgnored private var registeredForPush = false
-  @ObservationIgnored private let log = Logger(subsystem: "ai.wisp.ios", category: "apple-location")
+  @ObservationIgnored private let log = Logger(subsystem: "ai.bubbleai.ios", category: "apple-location")
 
   static let pushTokenKey = "wisp.apple.pushToken"
   private static let levelKey = "wisp.apple.level"
@@ -130,7 +130,7 @@ final class AppleLocation {
         try await store.reportAppleLocation(latitude: fix.coordinate.latitude, longitude: fix.coordinate.longitude, accuracy: fix.horizontalAccuracy, at: fix.timestamp, requestId: requestId, device: self.device)
         return true
       } catch {
-        self.log.error("[Wisp] couldn't send location: \(error.localizedDescription)")
+        self.log.error("[Bubble AI] couldn't send location: \(error.localizedDescription)")
         return false
       }
     }
@@ -205,7 +205,7 @@ final class AppleLocation {
       do {
         for try await event in await m.events { self.crossed(event.identifier, state: event.state, at: event.date) }
       } catch {
-        self.log.error("[Wisp] place events stopped: \(error.localizedDescription)")
+        self.log.error("[Bubble AI] place events stopped: \(error.localizedDescription)")
       }
     }
     return m
@@ -230,7 +230,7 @@ final class AppleLocation {
     Task {
       await withBackgroundTime {
         do { try await store.reportApplePlace(placeId, kind: now ? "arrive" : "leave", at: at, deviceId: deviceId) }
-        catch { self.log.error("[Wisp] couldn't send a place event: \(error.localizedDescription)") }
+        catch { self.log.error("[Bubble AI] couldn't send a place event: \(error.localizedDescription)") }
       }
     }
   }

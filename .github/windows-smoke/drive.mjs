@@ -1,7 +1,7 @@
-// Drives a freshly installed Wisp.exe through first-run setup (Self-Host), creates the account
+// Drives a freshly installed Bubble AI.exe through first-run setup (Self-Host), creates the account
 // with test values, walks onboarding up to the AI page (no model key on CI), tries Claude
 // subscription there, and checks this computer joined the hub as a device. Screenshot at every step. Used by windows-smoke.yml.
-//   node drive.mjs <path to Wisp.exe> <screenshot folder>
+//   node drive.mjs <path to Bubble AI.exe> <screenshot folder>
 import { chromium } from "playwright-core";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -17,7 +17,7 @@ const app = spawn(exe, [`--remote-debugging-port=${PORT}`], { stdio: "inherit" }
 let exited = null;
 app.on("exit", (code) => {
   exited = code;
-  console.log(`Wisp.exe exited with ${code}`);
+  console.log(`Bubble AI.exe exited with ${code}`);
 });
 
 let browser;
@@ -28,8 +28,8 @@ for (let i = 0; i < 90 && !browser && exited === null; i++) {
     await sleep(1000);
   }
 }
-if (!browser) throw new Error("Couldn't attach to Wisp.exe's window (it never opened a debugging port)");
-console.log("attached to Wisp.exe");
+if (!browser) throw new Error("Couldn't attach to Bubble AI.exe's window (it never opened a debugging port)");
+console.log("attached to Bubble AI.exe");
 
 const shot = async (page, name) => {
   const file = path.join(shots, `${String(++n).padStart(2, "0")}-${name.replace(/[^\w-]+/g, "_").slice(0, 60)}.png`);
@@ -48,7 +48,7 @@ const proven = [];
 async function hubPage() {
   const until = Date.now() + 5 * 60_000;
   while (Date.now() < until) {
-    if (exited !== null) throw new Error(`Wisp.exe quit during setup (exit ${exited})`);
+    if (exited !== null) throw new Error(`Bubble AI.exe quit during setup (exit ${exited})`);
     const pages = browser.contexts().flatMap((c) => c.pages()).filter((p) => !p.url().startsWith("devtools:"));
     for (const page of pages) {
       const url = page.url();
@@ -100,7 +100,7 @@ let same = 0;
 let aiPage = false;
 const until = Date.now() + 6 * 60_000;
 while (Date.now() < until) {
-  if (exited !== null) throw new Error(`Wisp.exe quit during onboarding (exit ${exited})`);
+  if (exited !== null) throw new Error(`Bubble AI.exe quit during onboarding (exit ${exited})`);
   const text = await visibleText(page);
   const h = await heading(page);
   if (/think with\?/i.test(text)) {
@@ -176,7 +176,7 @@ if (aiPage) {
   else console.log("NOTE: no Windows-specific explanation seen after picking Claude subscription (see screenshot)");
 } else failures.push(`onboarding never reached the AI page (stuck on "${last}")`);
 
-// 4. this computer joined its hub as a device (the app runs `wisp node start` once signed in)
+// 4. this computer joined its hub as a device (the app runs `bubble-ai node start` once signed in)
 let joined = null;
 for (let i = 0; i < 40 && !joined; i++) {
   joined = await page

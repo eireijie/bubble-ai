@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { AppleOp, type AppleContact } from "@wisp/core";
+import { AppleOp, type AppleContact } from "@bubble-ai/core";
 import { decodeAttributedBody, decodeAttributedBodyHex } from "./typedstream.ts";
 import { APPLE_EPOCH_MS, appleDateToMs, appleMsToIso, automationPermission, chatName, cleanText, contactsPermission, eventKitPermission, handleKey, likePattern, nameIndex, permissionHolder, resolveChat, searchContacts, sqlString, unixMsToAppleDate, type ChatRow } from "./util.ts";
 import { allChats, fullDiskAccess, pickUnanswered, readChats, recentChats, searchMessages, sendService, unansweredChats } from "./messages.ts";
@@ -201,8 +201,8 @@ describe("small pieces", () => {
     expect([0, -1743, -1744, -600].map(automationPermission)).toEqual(["allowed", "denied", "not_asked", null]);
   });
   it("names who holds the permissions", () => {
-    const plist = "<key>CFBundleName</key><string>Wisp</string>";
-    expect(permissionHolder("/Applications/wisp.app/Contents/MacOS/wisp", {}, () => plist)).toBe("Wisp");
+    const plist = "<key>CFBundleName</key><string>Bubble AI</string>";
+    expect(permissionHolder("/Applications/wisp.app/Contents/MacOS/wisp", {}, () => plist)).toBe("Bubble AI");
     expect(permissionHolder("/Applications/wisp.app/Contents/MacOS/wisp", {}, () => { throw new Error("no"); })).toBe("wisp");
     expect(permissionHolder("/opt/homebrew/bin/node", { XPC_SERVICE_NAME: "ai.wisp.node" }, undefined, () => null)).toBe("node (/opt/homebrew/bin/node)");
     expect(permissionHolder("/opt/homebrew/bin/node", { TERM_PROGRAM: "Apple_Terminal" }, undefined, () => null)).toBe("Terminal");
@@ -240,18 +240,18 @@ describe("ops", () => {
     expect(AppleOp.safeParse({ op: "rm_rf" }).success).toBe(false);
   });
   it("turns a bad op into plain words", async () => {
-    const bridge = new AppleBridge("/nonexistent/chat.db", "Wisp");
+    const bridge = new AppleBridge("/nonexistent/chat.db", "Bubble AI");
     await expect(bridge.handle({ op: "messages_send", to: "x" })).rejects.toBeInstanceOf(AppleError);
-    await expect(bridge.handle({ op: "messages_read", chat: "Sam", limit: 0 })).rejects.toThrow(/isn't something Wisp can do/);
+    await expect(bridge.handle({ op: "messages_read", chat: "Sam", limit: 0 })).rejects.toThrow(/isn't something Bubble AI can do/);
   });
   it("checks ranges and handles before touching anything", async () => {
-    const bridge = new AppleBridge("/nonexistent/chat.db", "Wisp");
+    const bridge = new AppleBridge("/nonexistent/chat.db", "Bubble AI");
     await expect(bridge.handle({ op: "messages_unanswered", minHours: 30, maxHours: 2 })).rejects.toThrow(/shortest wait/);
     await expect(bridge.handle({ op: "messages_send", to: "Sam Lee", text: "hi" })).rejects.toThrow(/isn't a phone number or email/);
     await expect(bridge.handle({ op: "calendar_create", title: "x", start: "2026-01-02T00:00:00Z", end: "2026-01-01T00:00:00Z" })).rejects.toThrow(/end before it starts/);
   });
   it("says Messages has no history when there's no database", async () => {
-    const bridge = new AppleBridge("/nonexistent/chat.db", "Wisp");
+    const bridge = new AppleBridge("/nonexistent/chat.db", "Bubble AI");
     await expect(bridge.handle({ op: "messages_recent", limit: 5 })).rejects.toThrow(/no Messages history/);
   });
   it("puts no request text into the script itself", () => {

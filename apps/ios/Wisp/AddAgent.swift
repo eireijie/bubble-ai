@@ -42,7 +42,7 @@ struct AgentTemplate: Identifiable, Hashable {
     AgentTemplate(name: "Planner", does: "Breaks work into steps and keeps track of them",
                   instructions: "## What it owns\n- Turning a goal into small steps\n- Keeping the list up to date\n\n## Handoffs\n- Give each step to the agent best suited to it."),
     AgentTemplate(name: "Writer", does: "Drafts and edits writing in your voice",
-                  instructions: "## What it owns\n- First drafts, edits and summaries\n\n## Ask before\n- Sending anything outside Wisp\n\n## Reply style\n- Plain words, short sentences."),
+                  instructions: "## What it owns\n- First drafts, edits and summaries\n\n## Ask before\n- Sending anything outside Bubble AI\n\n## Reply style\n- Plain words, short sentences."),
   ]
 }
 
@@ -177,7 +177,7 @@ struct AddAgent: View {
       }
     }
     if external {
-      CardCaption("Set up where it already runs. It connects to Wisp through the API or wisp-mcp.")
+      CardCaption("Set up where it already runs. It connects to Bubble AI through the API or wisp-mcp.")
     } else {
       CardGroup {
         NavigationLink { NewAgentModel(draft: draft) } label: {
@@ -309,7 +309,7 @@ private struct NewAgentModel: View {
     AgentFrame(title: "Model", subtitle: "New agent") {
       CardGroup { ChoiceRow(title: "Automatic", selected: draft.model.isEmpty) { draft.model = "" } }
       FieldCard(label: "Model id", text: $draft.model, prompt: "Leave empty for automatic", lowercase: true)
-      CardCaption("Use the exact id your harness expects. Wisp passes it through unchanged. You can pick from its list once it's on a device.")
+      CardCaption("Use the exact id your harness expects. Bubble AI passes it through unchanged. You can pick from its list once it's on a device.")
     }
   }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Agent, DeviceCapabilities, DeviceRole, DiscoveredAgent, OwnRemoteDesktop } from "@wisp/core";
-import { harnessInfo, harnessLabel, runsInVm } from "@wisp/core/src/harnesses.ts";
+import type { Agent, DeviceCapabilities, DeviceRole, DiscoveredAgent, OwnRemoteDesktop } from "@bubble-ai/core";
+import { harnessInfo, harnessLabel, runsInVm } from "@bubble-ai/core/src/harnesses.ts";
 import { api } from "./api.ts";
 import type { ComputerInfo } from "./store.ts";
 
@@ -17,7 +17,7 @@ export interface DeviceInfo {
   shared?: boolean;
   /** what it does for agents: runs their VMs, lets agents that run on it use its screen, or neither (headless); null until chosen */
   role?: DeviceRole | null;
-  /** paused at the device (`wisp node pause`) */
+  /** paused at the device (`bubble-ai node pause`) */
   paused?: boolean;
   online: boolean;
   lastSeen?: string | null;
@@ -27,7 +27,7 @@ export interface DeviceInfo {
   harnesses?: { id: string; version: string | null; accounts?: Record<string, boolean | null>; agentAccounts?: Record<string, string> }[];
   /** what's signed in inside each of its VMs (computer id → harness → signed in) */
   vmSignIns?: Record<string, Record<string, boolean | null>>;
-  /** the Wisp version it runs */
+  /** the Bubble AI version it runs */
   version?: { commit: string | null; date: string | null } | null;
   update?: { state: "idle" | "updating" | "restarting" | "failed"; message: string } | null;
   remoteDesktop?: OwnRemoteDesktop | null;

@@ -18,7 +18,7 @@ function fixture(platform = "darwin", overrides: Record<string, unknown> = {}) {
   };
   return { root, home, appData, runner, log, migration, write };
 }
-const runtime = { node: "/bundled/electron", wispDir: "/bundled/wisp", env: { ELECTRON_RUN_AS_NODE: "1", WISP_DATA_DIR: "/data" } };
+const runtime = { node: "/bundled/electron", wispDir: "/bundled/wisp", env: { ELECTRON_RUN_AS_NODE: "1", BUBBLE_DATA_DIR: "/data" } };
 
 describe("desktop data migration", () => {
   it("moves the Electron profile before settings are read and preserves browser storage", () => {
@@ -26,10 +26,10 @@ describe("desktop data migration", () => {
     f.write("appData/Warren/Local Storage/leveldb/000001.log", Buffer.from([0, 1, 2, 255]));
     f.write("appData/Warren/desktop.json", JSON.stringify({ warrenDir: `${f.home}/.warren/source`, mode: "local", bounds: { width: 1200 } }));
     const { userData } = f.migration.prepare();
-    expect(userData).toBe(path.join(f.appData, "Wisp"));
+    expect(userData).toBe(path.join(f.appData, "Bubble AI"));
     expect(fs.existsSync(path.join(f.appData, "Warren"))).toBe(false);
     expect(fs.readFileSync(path.join(userData, "Local Storage/leveldb/000001.log"))).toEqual(Buffer.from([0, 1, 2, 255]));
-    expect(JSON.parse(fs.readFileSync(path.join(userData, "desktop.json"), "utf8"))).toEqual({ wispDir: `${f.home}/.wisp/source`, mode: "local", bounds: { width: 1200 } });
+    expect(JSON.parse(fs.readFileSync(path.join(userData, "desktop.json"), "utf8"))).toEqual({ wispDir: `${f.home}/.bubble-ai/source`, mode: "local", bounds: { width: 1200 } });
   });
 
   it.each(["darwin", "linux", "win32"])("moves the home and all data on %s, rewrites settings and keeps an alias", (platform) => {
@@ -38,32 +38,35 @@ describe("desktop data migration", () => {
     f.write("home/.warren/data/warren.db", "database bytes");
     f.write("home/.warren/agents/nova/user.json", '{"content":"/.warren/user content"}');
     f.migration.prepare();
-    const old = path.join(f.home, ".warren"), next = path.join(f.home, ".wisp");
+    const old = path.join(f.home, ".warren"), next = path.join(f.home, ".bubble-ai");
     expect(fs.lstatSync(old).isSymbolicLink()).toBe(true);
     expect(fs.realpathSync(old)).toBe(fs.realpathSync(next));
-    expect(JSON.parse(fs.readFileSync(path.join(next, "node.json"), "utf8"))).toEqual({ token: "secret", hub: "https://example/.warren/hub", workspaces: [`${f.home}/.wisp/agents/nova`], windows: "C:\\Users\\me\\.wisp\\agents" });
+    expect(JSON.parse(fs.readFileSync(path.join(next, "node.json"), "utf8"))).toEqual({ token: "secret", hub: "https://example/.warren/hub", workspaces: [`${f.home}/.bubble-ai/agents/nova`], windows: "C:\\Users\\me\\.bubble-ai\\agents" });
     expect(fs.readFileSync(path.join(old, "data/warren.db"), "utf8")).toBe("database bytes");
     expect(fs.readFileSync(path.join(next, "agents/nova/user.json"), "utf8")).toContain("/.warren/user content");
+    // ~/.warren → ~/.wisp → ~/.bubble-ai: both older names still lead to the data
+    expect(fs.readFileSync(path.join(f.home, ".wisp", "data/warren.db"), "utf8")).toBe("database bytes");
+    expect(f.log).toHaveBeenCalledTimes(2);
     f.migration.prepare();
-    expect(f.log).toHaveBeenCalledTimes(1);
+    expect(f.log).toHaveBeenCalledTimes(2);
     expect(f.runner).not.toHaveBeenCalled();
   });
 
-  it("never replaces existing Wisp directories or follows an old home symlink", () => {
+  it("never replaces existing Bubble AI directories or follows an old home symlink", () => {
     const f = fixture();
     f.write("home/.warren/node.json", '{"token":"old"}');
-    f.write("home/.wisp/node.json", '{"token":"new"}');
+    f.write("home/.bubble-ai/node.json", '{"token":"new"}');
     f.write("appData/Warren/desktop.json", '{"mode":"old"}');
-    f.write("appData/Wisp/desktop.json", '{"mode":"new"}');
+    f.write("appData/Bubble AI/desktop.json", '{"mode":"new"}');
     f.migration.prepare();
     expect(fs.lstatSync(path.join(f.home, ".warren")).isDirectory()).toBe(true);
-    expect(JSON.parse(fs.readFileSync(path.join(f.home, ".wisp/node.json"), "utf8")).token).toBe("new");
+    expect(JSON.parse(fs.readFileSync(path.join(f.home, ".bubble-ai/node.json"), "utf8")).token).toBe("new");
     expect(fs.existsSync(path.join(f.appData, "Warren/desktop.json"))).toBe(true);
     const g = fixture();
     fs.mkdirSync(path.join(g.root, "external"));
     fs.symlinkSync(path.join(g.root, "external"), path.join(g.home, ".warren"));
     g.migration.prepare();
-    expect(fs.existsSync(path.join(g.home, ".wisp"))).toBe(false);
+    expect(fs.existsSync(path.join(g.home, ".bubble-ai"))).toBe(false);
   });
 
   it("uses verified copy only for EXDEV, including symlinks, before removing the source", () => {
@@ -76,10 +79,10 @@ describe("desktop data migration", () => {
     f.write("home/.warren/data/vault/note.md", "memory");
     fs.symlinkSync("node.json", path.join(f.home, ".warren/link"));
     f.migration.prepare();
-    expect(fs.readFileSync(path.join(f.home, ".wisp/data/vault/note.md"), "utf8")).toBe("memory");
-    expect(fs.readlinkSync(path.join(f.home, ".wisp/link"))).toBe("node.json");
+    expect(fs.readFileSync(path.join(f.home, ".bubble-ai/data/vault/note.md"), "utf8")).toBe("memory");
+    expect(fs.readlinkSync(path.join(f.home, ".bubble-ai/link"))).toBe("node.json");
     expect(fs.lstatSync(path.join(f.home, ".warren")).isSymbolicLink()).toBe(true);
-    expect(fs.readdirSync(f.home).sort()).toEqual([".warren", ".wisp"]);
+    expect(fs.readdirSync(f.home).sort()).toEqual([".bubble-ai", ".warren", ".wisp"]);
   });
 
   it("keeps the original when cross-device copy verification fails", () => {
@@ -103,6 +106,58 @@ describe("desktop data migration", () => {
   });
 });
 
+describe("moving Wisp's folders to Bubble AI's", () => {
+  it("moves ~/Library/Application Support/Wisp and ~/.wisp, leaving ~/.wisp as an alias", () => {
+    const f = fixture();
+    f.write("appData/Wisp/Local Storage/leveldb/000001.log", Buffer.from([9, 8, 7]));
+    f.write("appData/Wisp/desktop.json", JSON.stringify({ wispDir: `${f.home}/.wisp/source`, hubUrl: "http://127.0.0.1:4747", mode: "local" }));
+    f.write("home/.wisp/node.json", JSON.stringify({ token: "secret", dir: `${f.home}/.wisp`, log: `${f.home}/.wisp/node.log` }));
+    f.write("home/.wisp/data/wisp.db", "database bytes");
+    f.write("home/.wisp/agents/nova/notes.json", JSON.stringify({ mine: `${f.home}/.wisp/agents/nova` }));
+    const { userData } = f.migration.prepare();
+    expect(userData).toBe(path.join(f.appData, "Bubble AI"));
+    expect(fs.existsSync(path.join(f.appData, "Wisp"))).toBe(false);
+    expect(fs.readFileSync(path.join(userData, "Local Storage/leveldb/000001.log"))).toEqual(Buffer.from([9, 8, 7]));
+    expect(JSON.parse(fs.readFileSync(path.join(userData, "desktop.json"), "utf8"))).toEqual({ wispDir: `${f.home}/.bubble-ai/source`, hubUrl: "http://127.0.0.1:4747", mode: "local" });
+    const next = path.join(f.home, ".bubble-ai");
+    expect(fs.readlinkSync(path.join(f.home, ".wisp"))).toBe(next);
+    expect(JSON.parse(fs.readFileSync(path.join(next, "node.json"), "utf8"))).toEqual({ token: "secret", dir: next, log: `${next}/node.log` });
+    expect(fs.readFileSync(path.join(next, "data/wisp.db"), "utf8")).toBe("database bytes");
+    // agents' own files are content, not settings
+    expect(fs.readFileSync(path.join(next, "agents/nova/notes.json"), "utf8")).toContain("/.wisp/agents/nova");
+    expect(fs.existsSync(path.join(next, ".moved-from"))).toBe(false);
+    expect(fs.readdirSync(f.home).sort()).toEqual([".bubble-ai", ".wisp"]);
+  });
+
+  it("leaves both folders as they are when the Bubble AI ones already exist", () => {
+    const f = fixture();
+    f.write("appData/Wisp/desktop.json", '{"mode":"old"}');
+    f.write("appData/Bubble AI/desktop.json", '{"mode":"new"}');
+    f.write("home/.wisp/node.json", '{"token":"old"}');
+    f.write("home/.warren/node.json", '{"token":"older"}');
+    f.write("home/.bubble-ai/node.json", '{"token":"new"}');
+    f.migration.prepare();
+    expect(fs.readFileSync(path.join(f.appData, "Wisp/desktop.json"), "utf8")).toBe('{"mode":"old"}');
+    expect(fs.readFileSync(path.join(f.appData, "Bubble AI/desktop.json"), "utf8")).toBe('{"mode":"new"}');
+    expect(fs.lstatSync(path.join(f.home, ".wisp")).isDirectory()).toBe(true);
+    expect(fs.lstatSync(path.join(f.home, ".warren")).isDirectory()).toBe(true);
+    expect(fs.readFileSync(path.join(f.home, ".wisp/node.json"), "utf8")).toBe('{"token":"old"}');
+    expect(fs.readFileSync(path.join(f.home, ".bubble-ai/node.json"), "utf8")).toBe('{"token":"new"}');
+    expect(f.log).not.toHaveBeenCalled();
+  });
+
+  it("gives a fresh install no aliases for older names, and finishes an alias a stopped move left out", () => {
+    const f = fixture();
+    f.write("home/.bubble-ai/node.json", "{}");
+    f.migration.prepare();
+    expect(fs.readdirSync(f.home)).toEqual([".bubble-ai"]);
+    f.write("home/.bubble-ai/.moved-from", path.join(f.home, ".wisp"));
+    f.migration.prepare();
+    expect(fs.readlinkSync(path.join(f.home, ".wisp"))).toBe(path.join(f.home, ".bubble-ai"));
+    expect(fs.existsSync(path.join(f.home, ".bubble-ai/.moved-from"))).toBe(false);
+  });
+});
+
 describe("legacy services are migrated by the bundled CLI", () => {
   it.each(["hub", "node"])("detects old launchd %s plists and waits for the injected runner", async (kind) => {
     const f = fixture();
@@ -113,7 +168,7 @@ describe("legacy services are migrated by the bundled CLI", () => {
     const pending = f.migration.migrateServices(runtime).then(() => { completed = true; });
     await vi.waitFor(() => expect(f.runner).toHaveBeenCalledOnce());
     expect(completed).toBe(false);
-    expect(f.runner).toHaveBeenCalledWith(runtime.node, ["/bundled/wisp/bin/wisp.mjs", "migrate", "--json"], expect.objectContaining({ cwd: runtime.wispDir, env: expect.objectContaining({ HOME: f.home, ELECTRON_RUN_AS_NODE: "1", WISP_DATA_DIR: "/data" }) }));
+    expect(f.runner).toHaveBeenCalledWith(runtime.node, ["/bundled/wisp/bin/bubble-ai.mjs", "migrate", "--json"], expect.objectContaining({ cwd: runtime.wispDir, env: expect.objectContaining({ HOME: f.home, ELECTRON_RUN_AS_NODE: "1", BUBBLE_DATA_DIR: "/data" }) }));
     fs.rmSync(plist); // what the CLI does after replacing the service
     finish({ stdout: '{"actions":["migrated"]}' });
     await pending;

@@ -43,7 +43,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { AgentAvatar, harnessLabel } from "./ui.tsx";
 import { Dlg, Item, Panel, Switch, Tile } from "./MarketParts.tsx";
 

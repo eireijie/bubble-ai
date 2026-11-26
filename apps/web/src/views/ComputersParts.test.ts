@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import type { ComputerInfo } from "../store.ts";
 import type { DeviceInfo } from "../devices.ts";
 
@@ -114,7 +114,7 @@ describe("a computer's sheet, from what the hub has", () => {
     expect(askLevel([agent("a", { settings: { useDevices: { mac: "tell" } } })], "mac").level).toBe("tell");
     expect(askLevel([agent("a", { settings: { useDevices: { mac: "tell" } } }), agent("b", { settings: { useDevices: { mac: "ask" } } }), agent("c", { settings: { useDevices: { pc: "tell" } } })], "mac")).toMatchObject({ level: "ask", agents: [{ id: "a" }, { id: "b" }] });
   });
-  it("offers a Wisp update only when there is one, or when nobody can tell", () => {
+  it("offers a Bubble AI update only when there is one, or when nobody can tell", () => {
     const hub = { version: { commit: "abc" }, check: { behind: 0 } };
     expect(updateExists({ version: { commit: "abc" } }, hub)).toBe(false);
     expect(updateExists({ version: { commit: "old" } }, hub)).toBe(true);
