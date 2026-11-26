@@ -40,7 +40,10 @@ describe("desktop updates", () => {
     const workflow = fs.readFileSync(fileURLToPath(new URL("../../../.github/workflows/desktop-release.yml", import.meta.url)), "utf8");
     // every Bubble-AI-* build is also uploaded as Wisp-*, so Wisp-mac-arm64.zip etc. stay on each release
     expect(workflow).toContain(`cp "$f" "Wisp-\${f#Bubble-AI-}"`);
-    expect(workflow).toContain("gh release upload \"$GITHUB_REF_NAME\" Bubble-AI-* Wisp-* --clobber");
+    // on a tag push VERSION is the tag and PUBLISH is true, so both names go up to that release (a dry run keeps them as artifacts)
+    expect(workflow).toContain("VERSION: ${{ github.event_name == 'push' && github.ref_name ||");
+    expect(workflow).toContain("PUBLISH: ${{ github.event_name == 'push' }}");
+    expect(workflow).toContain("gh release upload \"$VERSION\" Bubble-AI-* Wisp-* --clobber");
     for (const [platform, arch, env] of [["darwin", "arm64", {}], ["darwin", "x64", {}], ["win32", "x64", {}], ["linux", "x64", { APPIMAGE: "/a" }]] as const)
       expect(updater.assetName(platform, arch, env)).toMatch(/^Bubble-AI-/);
   });
