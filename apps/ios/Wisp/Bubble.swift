@@ -163,6 +163,8 @@ struct BubblePainter {
   var spin: Double?
   /** the colour behind the bubble, for the ring around the orange dot */
   var ground: Color
+  /** eyes, mouth, hat, wear and idle motion picked in Look (`BubbleWorn`); plain for looks saved before them */
+  var worn = BubbleWorn.plain
 
   /**
    * Where idle eyes rest: never dead centre, but to one side or to the side and a little up (owner,
@@ -214,11 +216,19 @@ struct BubblePainter {
     }
     drawRing(ctx)
     var body = ctx
+    if worn.hatted {
+      // with a hat on, the body steps down and in so the hat fits inside the same square (web .bub-hatted)
+      body.translateBy(x: s * 0.105, y: s * 0.21)
+      body.scaleBy(x: 0.79, y: 0.79)
+    }
     body.translateBy(x: s * 0.5 + dx * s, y: s * 0.9 + dy * s)
+    body.rotate(by: .degrees(bodyTilt()))
     body.scaleBy(x: sx, y: sy)
     body.translateBy(x: -s * 0.5, y: -s * 0.9)
     for part in shape.parts { drawPart(part, body) }
     drawEyes(body)
+    // worn things are drawn in the body's own box, so they wobble, hop and spin with it
+    drawWear(body)
     drawFlag(ctx)
   }
 
@@ -243,14 +253,32 @@ struct BubblePainter {
       let y = GhostAnimation.key(p, [(0, 1), (0.58, 1), (0.68, 1.04), (0.8, 0.96), (1, 1)])
       return (0, ty, x, y)
     case .asleep: return wob(7)
+    case .awake, .done:
+      // the idle motion picked in Look: float (the wobble), bounce, sway or still
+      switch worn.motion {
+      case "bounce":
+        let p = GhostAnimation.phase(time, 2.2)
+        let ty = GhostAnimation.key(p, [(0, 0), (0.45, -0.07), (0.6, 0), (1, 0)])
+        let x = GhostAnimation.key(p, [(0, 1), (0.45, 0.98), (0.6, 1.03), (0.7, 1), (1, 1)])
+        let y = GhostAnimation.key(p, [(0, 1), (0.45, 1.02), (0.6, 0.97), (0.7, 1), (1, 1)])
+        return (0, ty, x, y)
+      case "sway", "still": return (0, 0, 1, 1)
+      default: return wob(4.2)
+      }
     default: return wob(4.2)
     }
+  }
+
+  /** degrees the body leans for the "sway" idle motion (web bub-sway-body) */
+  private func bodyTilt() -> Double {
+    guard animated, mood == .awake || mood == .done, worn.motion == "sway" else { return 0 }
+    return -4 + 8 * GhostAnimation.wave(time, 3.6)
   }
 
   // MARK: the glass
 
   private func radii(_ part: BubbleForm.Part) -> BubbleForm.Radii {
-    guard animated, shape.morphs else { return part.radii }
+    guard animated, shape.morphs, worn.motion != "still" else { return part.radii }
     let base = shape == .blob ? BubbleForm.blobRadii : .all(0.5)
     let p = GhostAnimation.phase(time + 1.7, 6)
     func ease(_ t: Double) -> CGFloat { CGFloat(t * t * (3 - 2 * t)) }
@@ -367,7 +395,9 @@ struct BubblePainter {
     case .asleep: top = 0.41; height = 0.12
     default: break
     }
-    let w = s * 0.11, h = s * height
+    var w = s * 0.11, lefts: [CGFloat] = [0.31, 0.58]
+    if worn.eyes == "big" { top = 0.365; height = 0.20; w = s * 0.14; lefts = [0.295, 0.565] }
+    let h = s * height
     var blink: CGFloat = 1
     // everything starts and ends where the eyes rest
     var look = CGPoint(x: rest.x * w, y: rest.y * h)
@@ -387,13 +417,35 @@ struct BubblePainter {
       }
     }
     if let gaze { look.x += gaze.x; look.y += gaze.y }
-    let eye = dark ? Color(hex: "#141414") : Color(hex: "#1c1c1c")
+    let eye = ink
     let fx = shape.face.x * s, fy = shape.face.y * s
-    for left in [0.31, 0.58] as [CGFloat] {
+    for (i, left) in lefts.enumerated() {
+      if worn.eyes == "happy" || (worn.eyes == "wink" && i == 1) {
+        // a closed, happy arc (web: 13% wide, 9% tall, 42% down, 1% further left)
+        let k = s * 0.013
+        let cx = (left - 0.01 + 0.065) * s + fx + look.x, cy = 0.465 * s + fy + look.y
+        var arc = Path()
+        arc.move(to: CGPoint(x: cx - 3.8 * k, y: cy + 2 * k))
+        arc.addQuadCurve(to: CGPoint(x: cx + 3.8 * k, y: cy + 2 * k), control: CGPoint(x: cx, y: cy - 4.2 * k))
+        ctx.stroke(arc, with: .color(eye), style: StrokeStyle(lineWidth: 1.8 * k, lineCap: .round))
+        continue
+      }
       let cx = left * s + w / 2 + fx + look.x
       let cy = top * s + h / 2 + fy + look.y
       let eh = h * blink
-      ctx.fill(Path(ellipseIn: CGRect(x: cx - w / 2, y: cy - eh / 2, width: w, height: eh)), with: .color(eye))
+      let r = CGRect(x: cx - w / 2, y: cy - eh / 2, width: w, height: eh)
+      ctx.fill(Path(ellipseIn: r), with: .color(eye))
+      // big and sparkly eyes catch the light (web: radial-gradient shines)
+      var shines: [(CGFloat, CGFloat, CGFloat, Double)] = []
+      if worn.eyes == "big" { shines = [(0.64, 0.30, hypot(0.64 * w, 0.70 * h) * 0.16, 1)] }
+      if worn.eyes == "sparkle" { shines = [(0.66, 0.27, hypot(0.66 * w, 0.73 * h) * 0.18, 1), (0.34, 0.72, hypot(0.66 * w, 0.72 * h) * 0.10, 0.8)] }
+      guard !shines.isEmpty else { continue }
+      var lit = ctx
+      lit.clip(to: Path(ellipseIn: r))
+      for (x, y, rad, a) in shines {
+        let c = CGPoint(x: r.minX + x * w, y: r.minY + y * eh)
+        lit.fill(Path(ellipseIn: CGRect(x: c.x - rad, y: c.y - rad * blink, width: rad * 2, height: rad * 2 * blink)), with: .color(.white.opacity(a)))
+      }
     }
   }
 
@@ -496,5 +548,325 @@ struct BubbleField: View {
       }
       .allowsHitTesting(false).accessibilityHidden(true)
     }
+  }
+}
+
+// MARK: what a bubble wears (web: BubbleParts.tsx, bubbleParts() in Bubble.tsx)
+
+/**
+ * A look's eyes, mouth, hat, accessory and idle motion. Looks saved before these came back
+ * (no `parts`) get plain eyes and nothing worn, so they draw exactly as before.
+ */
+struct BubbleWorn: Equatable {
+  var eyes = "dots"
+  var mouth = "none"
+  var hat = "none"
+  var accessory = "none"
+  var motion = "float"
+  static let plain = BubbleWorn()
+
+  init() {}
+  init(_ look: GhostLook?) {
+    guard let look, look.parts == true else { return }
+    func pick(_ v: String?, _ fallback: String) -> String { v.flatMap { $0.isEmpty ? nil : $0 } ?? fallback }
+    eyes = pick(look.eyes, "dots")
+    mouth = pick(look.mouth, "none")
+    hat = pick(look.hat, "none")
+    accessory = pick(look.accessory, "none")
+    motion = pick(look.motion, "float")
+  }
+
+  /** A hat or something to wear needs some size to read; tiny bubbles keep just their eyes. */
+  func sized(_ size: CGFloat) -> BubbleWorn {
+    var w = self
+    if size < 20 { w.hat = "none"; w.accessory = "none" }
+    if size < 24 { w.mouth = "none" }
+    return w
+  }
+
+  var hatted: Bool { hat != "none" }
+}
+
+extension BubbleForm {
+  /** Where hats sit (top), neckwear hangs (bottom) and how wide the head is, in the bubble's 100×100 box (web ShapeDef). */
+  var anchor: (top: CGPoint, bottom: CGPoint, width: CGFloat) {
+    switch self {
+    case .round: (CGPoint(x: 50, y: 0), CGPoint(x: 50, y: 100), 100)
+    case .squircle: (CGPoint(x: 50, y: 2), CGPoint(x: 50, y: 98), 96)
+    case .egg: (CGPoint(x: 50, y: 0), CGPoint(x: 50, y: 100), 86)
+    case .drop: (CGPoint(x: 50, y: 10), CGPoint(x: 50, y: 94), 72)
+    case .blob: (CGPoint(x: 50, y: 4), CGPoint(x: 50, y: 96), 100)
+    case .capsule: (CGPoint(x: 50, y: 16), CGPoint(x: 50, y: 86), 90)
+    case .double: (CGPoint(x: 41, y: 18), CGPoint(x: 41, y: 100), 82)
+    case .cluster: (CGPoint(x: 38, y: 26), CGPoint(x: 38, y: 98), 72)
+    }
+  }
+}
+
+extension BubblePainter {
+  /** the eyes' ink, also used for the mouth */
+  var ink: Color { dark ? Color(hex: "#141414") : Color(hex: "#1c1c1c") }
+
+  private static let wearInk = Color(hex: "#262330")
+  private static func E(_ cx: CGFloat, _ cy: CGFloat, _ rx: CGFloat, _ ry: CGFloat) -> Path {
+    Path(ellipseIn: CGRect(x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2))
+  }
+  private static func R(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ r: CGFloat = 0) -> Path {
+    Path(roundedRect: CGRect(x: x, y: y, width: w, height: h), cornerRadius: r, style: .circular)
+  }
+  private static func poly(_ pts: [(CGFloat, CGFloat)]) -> Path {
+    var p = Path()
+    p.addLines(pts.map { CGPoint(x: $0.0, y: $0.1) })
+    p.closeSubpath()
+    return p
+  }
+  private static func quad(_ x0: CGFloat, _ y0: CGFloat, _ cx: CGFloat, _ cy: CGFloat, _ x1: CGFloat, _ y1: CGFloat) -> Path {
+    var p = Path()
+    p.move(to: CGPoint(x: x0, y: y0))
+    p.addQuadCurve(to: CGPoint(x: x1, y: y1), control: CGPoint(x: cx, y: cy))
+    return p
+  }
+  private static func line(_ w: CGFloat) -> StrokeStyle {
+    StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round)
+  }
+
+  /** Mouth and face wear in the face, neckwear and hats on the body; `body` is the body's context in points. */
+  func drawWear(_ body: GraphicsContext) {
+    guard worn.mouth != "none" || worn.accessory != "none" || worn.hatted else { return }
+    var u = body
+    u.scaleBy(x: size / 100, y: size / 100)
+    var face = u
+    face.translateBy(x: shape.face.x * 100, y: shape.face.y * 100)
+    drawMouth(face)
+    drawFaceWear(face)
+    drawNeckwear(u)
+    drawHat(u)
+  }
+
+  private func drawMouth(_ c: GraphicsContext) {
+    let x: CGFloat = 50, y: CGFloat = 62
+    let pink = Color(hex: "#ff7a93")
+    switch worn.mouth {
+    case "smile":
+      c.stroke(Self.quad(x - 5.5, y, x, y + 5, x + 5.5, y), with: .color(ink), style: Self.line(2.6))
+    case "open":
+      c.fill(Self.E(x, y + 1.5, 4, 4.6), with: .color(ink))
+      c.fill(Self.E(x, y + 4, 2.6, 1.5), with: .color(pink))
+    case "cat":
+      var p = Self.quad(x - 6.5, y, x - 3.25, y + 4.2, x, y)
+      p.addQuadCurve(to: CGPoint(x: x + 6.5, y: y), control: CGPoint(x: x + 3.25, y: y + 4.2))
+      c.stroke(p, with: .color(ink), style: Self.line(2.6))
+    case "fangs":
+      c.stroke(Self.quad(x - 6.5, y, x, y + 5, x + 6.5, y), with: .color(ink), style: Self.line(2.6))
+      var teeth = Self.poly([(x - 4.2, y + 2), (x - 2.7, y + 5.6), (x - 1.2, y + 2.5)])
+      teeth.addPath(Self.poly([(x + 1.2, y + 2.3), (x + 2.7, y + 5.4), (x + 4.2, y + 1.8)]))
+      c.fill(teeth, with: .color(.white))
+    case "tongue":
+      c.stroke(Self.quad(x - 5.5, y, x, y + 4.6, x + 5.5, y), with: .color(ink), style: Self.line(2.6))
+      var t = Self.quad(x + 0.4, y + 2, x + 0.4, y + 7, x + 3.8, y + 7)
+      t.addQuadCurve(to: CGPoint(x: x + 6.6, y: y + 1), control: CGPoint(x: x + 7.2, y: y + 7))
+      t.closeSubpath()
+      c.fill(t, with: .color(pink))
+    default: break
+    }
+  }
+
+  private func drawFaceWear(_ c: GraphicsContext) {
+    let a: CGFloat = 36.5, b: CGFloat = 63.5, y: CGFloat = 46.5
+    switch worn.accessory {
+    case "glasses":
+      for x in [a, b] {
+        c.fill(Self.E(x, y, 9, 9), with: .color(.white.opacity(0.16)))
+        c.stroke(Self.E(x, y, 9, 9), with: .color(Self.wearInk), lineWidth: 2.2)
+      }
+      c.stroke(Self.quad(a + 9, y - 1, 50, y - 4, b - 9, y - 1), with: .color(Self.wearInk), lineWidth: 2.2)
+    case "sunglasses":
+      let lens = Color(hex: "#16141d")
+      c.fill(Self.R(a - 10.5, y - 7, 21, 14, 5), with: .color(lens))
+      c.fill(Self.R(b - 10.5, y - 7, 21, 14, 5), with: .color(lens))
+      var bridge = Path()
+      bridge.move(to: CGPoint(x: a + 10, y: y - 3))
+      bridge.addLine(to: CGPoint(x: b - 10, y: y - 3))
+      c.stroke(bridge, with: .color(lens), lineWidth: 2.4)
+      var glint = Path()
+      for x in [a, b] {
+        glint.move(to: CGPoint(x: x - 6, y: y - 3.5))
+        glint.addLine(to: CGPoint(x: x - 2, y: y - 5.5))
+      }
+      c.stroke(glint, with: .color(.white.opacity(0.7)), style: Self.line(1.5))
+    case "monocle":
+      let gold = Color(hex: "#c9a227")
+      c.fill(Self.E(b, y, 9, 9), with: .color(.white.opacity(0.18)))
+      c.stroke(Self.E(b, y, 9, 9), with: .color(gold), lineWidth: 2.4)
+      c.stroke(Self.quad(b + 6.5, y + 6.5, b + 14, y + 15, b + 9, y + 27), with: .color(gold), lineWidth: 1.3)
+    case "mustache":
+      let m: CGFloat = 59
+      let curves: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+        (41, m - 5.5, 34, m - 1), (32, m + 4, 37, m + 3.4), (43.5, m + 1.8, 50, m + 2.5),
+        (56.5, m + 1.8, 63, m + 3.4), (68, m + 4, 66, m - 1), (59, m - 5.5, 50, m),
+      ]
+      var p = Path()
+      p.move(to: CGPoint(x: 50, y: m))
+      for (cx, cy, x, y) in curves { p.addQuadCurve(to: CGPoint(x: x, y: y), control: CGPoint(x: cx, y: cy)) }
+      p.closeSubpath()
+      c.fill(p, with: .color(Color(hex: "#3a2a20")))
+    default: break
+    }
+  }
+
+  private func drawNeckwear(_ c: GraphicsContext) {
+    let d = shape.anchor
+    let x = d.bottom.x, y = d.top.y + (d.bottom.y - d.top.y) * 0.79
+    let half = d.width / 2 * 0.78
+    var c = c
+    switch worn.accessory {
+    case "bowtie":
+      c.translateBy(x: x, y: y)
+      c.scaleBy(x: 1.25, y: 1.25)
+      var wings = Self.poly([(0, 0), (-11, -6.5), (-11, 6.5)])
+      wings.addPath(Self.poly([(0, 0), (11, -6.5), (11, 6.5)]))
+      c.fill(wings, with: .color(Color(hex: "#e5484d")))
+      c.fill(Self.R(-3, -3.2, 6, 6.4, 1.6), with: .color(Color(hex: "#c2333a")))
+    case "scarf":
+      let wool = Color(hex: "#ff8f5a")
+      c.fill(Self.R(x - half, y - 5, half * 2, 10, 5), with: .color(wool))
+      var stripes = Path()
+      for sx in [x - half + 9, x - half + 18, x + half - 11] {
+        stripes.move(to: CGPoint(x: sx, y: y - 5))
+        stripes.addLine(to: CGPoint(x: sx, y: y + 5))
+      }
+      c.stroke(stripes, with: .color(Color(hex: "#ffd166")), lineWidth: 2.4)
+      var tail = c
+      tail.translateBy(x: x + half * 0.3, y: y)
+      tail.rotate(by: .degrees(-10))
+      tail.fill(Self.R(0, 2, 9, max(8, min(14, d.bottom.y - y - 4)), 4), with: .color(wool))
+    case "tie":
+      let len = max(10, min(18, d.bottom.y - y - 3))
+      c.translateBy(x: x, y: y - 4)
+      c.fill(Self.poly([(-4, 0), (4, 0), (2.4, 5.5), (-2.4, 5.5)]), with: .color(Color(hex: "#2563eb")))
+      c.fill(Self.poly([(-2.4, 5.5), (2.4, 5.5), (5.2, len - 4), (0, len + 1), (-5.2, len - 4)]), with: .color(Color(hex: "#3b82f6")))
+    default: break
+    }
+  }
+
+  /** how far each hat sits down into the head, in the hat's own units */
+  private static let hatSink: [String: CGFloat] = ["tophat": 3, "party": 2, "beanie": 5, "crown": 2.5, "witch": 3, "propeller": 4]
+
+  private func drawHat(_ c: GraphicsContext) {
+    guard worn.hatted else { return }
+    let d = shape.anchor
+    let kind = worn.hat
+    let clipped = kind == "bow" || kind == "flower"
+    let k = (kind == "headphones" ? 1.62 : clipped ? 1.25 : 1.15) * (d.width / 100)
+    var c = c
+    if clipped {
+      c.translateBy(x: d.top.x + d.width * 0.31, y: d.top.y + d.width * 0.15)
+    } else {
+      c.translateBy(x: d.top.x, y: d.top.y + (Self.hatSink[kind] ?? 0) * k)
+    }
+    c.scaleBy(x: k, y: k)
+    let felt = Color(hex: "#2b2735"), gold = Color(hex: "#ffd166")
+    switch kind {
+    case "tophat":
+      c.fill(Self.R(-13, -25, 26, 25, 3), with: .color(felt))
+      c.fill(Self.R(-13, -9, 26, 5), with: .color(Color(hex: "#e5484d")))
+      c.fill(Self.R(-21, -2, 42, 5.5, 2.75), with: .color(felt))
+    case "party":
+      c.fill(Self.poly([(-12, 3), (12, 3), (0, -27)]), with: .color(Color(hex: "#ff8fab")))
+      var stripes = Path()
+      stripes.move(to: CGPoint(x: -8.4, y: -6))
+      stripes.addLine(to: CGPoint(x: 6.6, y: -6.4))
+      stripes.move(to: CGPoint(x: -4.5, y: -15.6))
+      stripes.addLine(to: CGPoint(x: 3.2, y: -15.8))
+      c.stroke(stripes, with: .color(gold), style: Self.line(3))
+      c.fill(Self.E(0, -28, 4, 4), with: .color(gold))
+    case "beanie":
+      var top = Self.quad(-21, 6, -21, -16, 0, -16)
+      top.addQuadCurve(to: CGPoint(x: 21, y: 6), control: CGPoint(x: 21, y: -16))
+      top.closeSubpath()
+      c.fill(top, with: .color(Color(hex: "#5b8def")))
+      c.fill(Self.R(-22.5, 0, 45, 8, 4), with: .color(Color(hex: "#3f6fd8")))
+      c.fill(Self.E(0, -17, 5, 5), with: .color(Color(hex: "#f8fafc")))
+    case "crown":
+      let crown = Self.poly([(-15, 3), (-15, -12), (-7.5, -4.5), (0, -17), (7.5, -4.5), (15, -12), (15, 3)])
+      c.fill(crown, with: .color(Color(hex: "#ffcf3f")))
+      c.stroke(crown, with: .color(Color(hex: "#e0a800")), style: Self.line(1.5))
+      c.fill(Self.E(0, -4, 2.4, 2.4), with: .color(Color(hex: "#ff5d73")))
+      c.fill(Self.E(-9, -1.5, 1.7, 1.7), with: .color(Color(hex: "#4dabf7")))
+      c.fill(Self.E(9, -1.5, 1.7, 1.7), with: .color(Color(hex: "#4dabf7")))
+    case "witch":
+      let purple = Color(hex: "#4b2e83")
+      var cone = Path()
+      cone.move(to: CGPoint(x: -13, y: 1))
+      cone.addLine(to: CGPoint(x: -2, y: -30))
+      cone.addQuadCurve(to: CGPoint(x: 13, y: -30), control: CGPoint(x: 4, y: -36))
+      cone.addQuadCurve(to: CGPoint(x: 3, y: -22), control: CGPoint(x: 5, y: -27))
+      cone.addLine(to: CGPoint(x: 13, y: 1))
+      cone.closeSubpath()
+      c.fill(cone, with: .color(purple))
+      c.fill(Self.R(-13, -5, 26, 4.5), with: .color(Color(hex: "#ffb703")))
+      c.fill(Self.E(0, 2, 27, 5), with: .color(purple))
+    case "headphones":
+      var band = Path()
+      band.move(to: CGPoint(x: -29, y: 24))
+      band.addCurve(to: CGPoint(x: 29, y: 24), control1: CGPoint(x: -31, y: -9), control2: CGPoint(x: 31, y: -9))
+      c.stroke(band, with: .color(felt), style: Self.line(4))
+      c.fill(Self.R(-35, 17, 10, 16, 4.5), with: .color(Color(hex: "#ff6b6b")))
+      c.fill(Self.R(25, 17, 10, 16, 4.5), with: .color(Color(hex: "#ff6b6b")))
+    case "bow":
+      c.rotate(by: .degrees(18))
+      var wings = Self.poly([(0, 0), (-10, -7), (-10, 7)])
+      wings.addPath(Self.poly([(0, 0), (10, -7), (10, 7)]))
+      c.fill(wings, with: .color(Color(hex: "#ff6fa3")))
+      c.fill(Self.E(0, 0, 3, 3), with: .color(Color(hex: "#ff3d7f")))
+    case "halo":
+      c.stroke(Self.E(0, -9, 16, 4.5), with: .color(Color(hex: "#ffd84d")), lineWidth: 3.4)
+    case "flower":
+      for a in stride(from: 0.0, to: 360.0, by: 72.0) {
+        let petal = Self.E(CGFloat(cos(a * .pi / 180)) * 4.2, CGFloat(sin(a * .pi / 180)) * 4.2, 3.6, 3.6)
+        c.fill(petal, with: .color(.white))
+        c.stroke(petal, with: .color(Color(hex: "#e9e1f7")), lineWidth: 0.6)
+      }
+      c.fill(Self.E(0, 0, 2.9, 2.9), with: .color(Color(hex: "#ffc83d")))
+    case "propeller":
+      var cap = Self.quad(-19, 6, -19, -13, 0, -13)
+      cap.addQuadCurve(to: CGPoint(x: 19, y: 6), control: CGPoint(x: 19, y: -13))
+      cap.closeSubpath()
+      c.fill(cap, with: .color(Color(hex: "#ff5d73")))
+      var side = Self.quad(-19, 6, -19, -13, 0, -13)
+      side.addLine(to: CGPoint(x: 0, y: 6))
+      side.closeSubpath()
+      c.fill(side, with: .color(gold))
+      c.fill(Self.R(-1.2, -21, 2.4, 9), with: .color(felt))
+      // the blades flip around the stem (web bub-prop, 1.2s linear)
+      var blades = c
+      blades.translateBy(x: 0, y: -21)
+      if animated {
+        let p = CGFloat(GhostAnimation.phase(time, 1.2))
+        blades.scaleBy(x: p < 0.5 ? 1 - 4 * p : -3 + 4 * p, y: 1)
+      }
+      blades.fill(Self.E(-7, 0, 7, 2.2), with: .color(Color(hex: "#4dabf7")))
+      blades.fill(Self.E(7, 0, 7, 2.2), with: .color(Color(hex: "#22c55e")))
+    default: break
+    }
+  }
+}
+
+#Preview("Worn") {
+  let looks: [(String, String, String, String, String)] = [
+    ("big", "smile", "tophat", "glasses", "bounce"), ("sparkle", "cat", "crown", "bowtie", "sway"),
+    ("happy", "open", "party", "scarf", "still"), ("wink", "tongue", "propeller", "tie", "float"),
+    ("dots", "fangs", "witch", "sunglasses", "float"), ("big", "smile", "headphones", "monocle", "float"),
+    ("sparkle", "none", "bow", "mustache", "float"), ("dots", "smile", "halo", "none", "float"),
+    ("big", "none", "flower", "none", "float"), ("dots", "none", "beanie", "none", "float"),
+  ]
+  ScrollView {
+    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90))]) {
+      ForEach(Array(looks.enumerated()), id: \.offset) { i, l in
+        GhostView(look: GhostLook(color: "#6cc4ff", eyes: l.0, mouth: l.1, hat: l.2, accessory: l.3, motion: l.4,
+                                  bubble: BubbleForm.allCases[i % BubbleForm.allCases.count].rawValue, parts: true),
+                  seed: "w\(i)", size: 80)
+      }
+    }.padding()
   }
 }

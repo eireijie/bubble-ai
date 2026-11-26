@@ -31,6 +31,7 @@ struct GhostView: View {
     let color = BubbleColors.color(look, seed: seed)
     let phase = Double(GhostLook.hash(seed) % 10_000) / 1000
     let rest = BubblePainter.rest(seed)
+    let worn = BubbleWorn(look).sized(size)
     let overflow = max(8, size * 0.3)
     let dark = colorScheme == .dark
     let rendered = TimelineView(.animation(minimumInterval: size >= 60 ? 1.0 / 60 : 1.0 / 30, paused: !animated)) { timeline in
@@ -41,7 +42,7 @@ struct GhostView: View {
         BubblePainter(shape: shape, color: color, mood: currentMood, size: size, dark: dark,
           time: animated ? now + phase : 0, animated: animated, gaze: animated ? eyes(now, rest: rest, mood: currentMood) : nil, rest: rest,
           spin: animated ? spunAt.map { timeline.date.timeIntervalSince($0) } : nil,
-          ground: Palette.ground).draw(context)
+          ground: Palette.ground, worn: worn).draw(context)
       }
       .frame(width: size + overflow * 2, height: size + overflow * 2)
     }
