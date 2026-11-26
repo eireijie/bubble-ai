@@ -234,7 +234,8 @@ export type NodeToHub = z.infer<typeof NodeToHub>;
 
 /** hub -> node */
 export const HubToNode = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("welcome"), nodeId: z.string() }),
+  /** `vms`: how many VMs the hub has on this device (an older hub leaves it out) */
+  z.object({ type: z.literal("welcome"), nodeId: z.string(), vms: z.number().int().min(0).optional() }),
   z.object({ type: z.literal("run"), run: RunRequest }),
   z.object({ type: z.literal("cancel"), runId: z.string() }),
   /** merge a task branch into the base branch, in the device's checkout of the repo */

@@ -176,18 +176,26 @@ export interface ExecResult {
 }
 
 /** Run a command to completion and collect its output; never throws for a non-zero exit. */
-export function exec(cmd: string, args: string[], opts: { input?: string | Buffer; timeoutMs?: number; env?: Record<string, string>; cwd?: string } = {}): Promise<ExecResult> {
+/** `signal`: aborting it stops the command (SIGTERM, so a build can wind down); it then ends with code -1. */
+export function exec(cmd: string, args: string[], opts: { input?: string | Buffer; timeoutMs?: number; env?: Record<string, string>; cwd?: string; signal?: AbortSignal } = {}): Promise<ExecResult> {
   return new Promise((resolve, reject) => {
+    if (opts.signal?.aborted) return resolve({ code: -1, stdout: Buffer.alloc(0), stderr: "(cancelled)" });
     const child = spawn(cmd, args, { env: { ...process.env, ...opts.env }, cwd: opts.cwd, stdio: ["pipe", "pipe", "pipe"] });
     const out: Buffer[] = [];
     let err = "";
     let killed = false;
+    let cancelled = false;
     const timer = opts.timeoutMs
       ? setTimeout(() => {
           killed = true;
           child.kill("SIGKILL");
         }, opts.timeoutMs)
       : null;
+    const onAbort = () => {
+      cancelled = true;
+      child.kill("SIGTERM");
+    };
+    opts.signal?.addEventListener("abort", onAbort, { once: true });
     child.stdout.on("data", (b: Buffer) => out.push(b));
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (c: string) => (err = (err + c).slice(-8000)));
@@ -197,7 +205,8 @@ export function exec(cmd: string, args: string[], opts: { input?: string | Buffe
     });
     child.on("close", (code) => {
       if (timer) clearTimeout(timer);
-      resolve({ code: killed ? -1 : (code ?? -1), stdout: Buffer.concat(out), stderr: killed ? `${err}\n(timed out)`.trim() : err });
+      opts.signal?.removeEventListener("abort", onAbort);
+      resolve({ code: killed || cancelled ? -1 : (code ?? -1), stdout: Buffer.concat(out), stderr: killed ? `${err}\n(timed out)`.trim() : cancelled ? `${err}\n(cancelled)`.trim() : err });
     });
     child.stdin.on("error", () => {});
     child.stdin.end(opts.input ?? "");

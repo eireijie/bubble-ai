@@ -7,7 +7,7 @@ import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
-import { SETUP_REPLIES, dropRepeatedEnd, greetNewAgent, greetingPrompt, recordSetupStep, setupNotePath } from "../src/greeting.ts";
+import { SETUP_REPLIES, dropRepeatedEnd, greetNewAgent, greetingPrompt, greetingText, recordSetupStep, setupNotePath } from "../src/greeting.ts";
 
 let dir: string;
 let close: () => Promise<void>;
@@ -82,6 +82,13 @@ afterAll(async () => {
 });
 
 describe("a new agent speaks first", () => {
+  it("says what it was made to do in its own words, not spliced into a template", () => {
+    const agent = { name: "Pip", harness: "codex" };
+    expect(greetingText(agent, null, "says pong")).toMatch(/^Hey, I'm Pip! I'm here to say pong\. What should I start on\?/);
+    expect(greetingText(agent, null, "Engineer")).toMatch(/^Hey, I'm Pip! I'm your engineer\./);
+    expect(greetingText(agent, null, "")).toMatch(/^Hey, I'm Pip! What would you like me to do\?/);
+  });
+
   it("says hello in its own name in the DM without running the model", async () => {
     const before = calls.length;
     const id = await make("ada");

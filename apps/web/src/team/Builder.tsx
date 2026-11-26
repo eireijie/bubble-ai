@@ -16,7 +16,7 @@ import { StepForm, stepHeading } from "./StepForm.tsx";
 import { TemplateBrowser } from "./Templates.tsx";
 import { useIsPhone } from "./parts.tsx";
 import { CreateAgentContext, NewAgentForTeam } from "./NewAgent.tsx";
-import { addStep, castFrom, changeRequest, fillTemplate, leadOf, relayout, removingStep, isStepDeleteKey, stepById, stepNeedsConfirm, stepProblems, teamFromSteps, updating, withChart, type AddAt, type AddKind } from "./flow.ts";
+import { addStep, builderLead, castFor, castFrom, changeRequest, fillTemplate, relayout, removingStep, isStepDeleteKey, stepById, stepNeedsConfirm, stepProblems, teamFromSteps, updating, withChart, type AddAt, type AddKind } from "./flow.ts";
 
 export interface BuilderProps {
   team: ChannelTeam;
@@ -96,7 +96,8 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
   const open = (id: string | null) => (phone ? setEditing(id) : setSel(id));
 
   const add = (kind: AddKind, at: AddAt) => {
-    const made = addStep(team, kind, at, agents);
+    // the picked lead and the team's agents first, so a step on an empty canvas goes to one of them
+    const made = addStep(team, kind, at, castFor(agents, leadId, pool));
     commit(made.team);
     setAdding(null);
     // the first step on an empty canvas: the view was fitted to nothing, so fit it again
@@ -153,7 +154,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
       .then((r) => setWorkspaceLead(r.lead))
       .catch(() => {});
   }, []);
-  const lead = agents.find((a) => a.id === (leadPick ?? leadOf(team, agents, leadId ?? workspaceLead)));
+  const lead = agents.find((a) => a.id === (leadPick ?? builderLead(team, agents, leadId, workspaceLead)));
   const lines = useFlowLines(team);
   const [text, setText] = useState("");
   const [drawing, setDrawing] = useState(false);

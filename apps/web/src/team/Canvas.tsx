@@ -100,10 +100,11 @@ export function StepCanvas({
       }
     };
     window.addEventListener("keydown", esc);
-    window.addEventListener("pointerdown", away);
+    // capture: a press on something that stops its own presses (the "A message comes in" menu) still closes this one, so only one menu is open
+    window.addEventListener("pointerdown", away, true);
     return () => {
       window.removeEventListener("keydown", esc);
-      window.removeEventListener("pointerdown", away);
+      window.removeEventListener("pointerdown", away, true);
     };
   }, [menuOpen]);
   const pointers = useRef(new Map<number, Pt>());

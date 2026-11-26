@@ -17,7 +17,7 @@ import { RemoteDesktopServer, type RemoteDesktopConfig } from "./computers/remot
 import type { RustdeskConfig } from "./rustdesk.ts";
 import { detectRemoteApps } from "./remote-apps.ts";
 import { ScreenLock, type ScreenCode } from "./screen-lock.ts";
-import { TAKEOVER_HARNESSES, Terminals, deviceShell, sessionName, shellQuote, takeoverShell, vmShell } from "./terminals.ts";
+import { TAKEOVER_HARNESSES, Terminals, deviceShell, sessionName, shellQuote, takeoverShell, tmuxSocket, vmShell } from "./terminals.ts";
 import { HarnessLogins } from "./harness-login.ts";
 import { ModelLogins } from "./model-login.ts";
 import { importCodexSignin, SharedSignins } from "./shared-signin.ts";
@@ -255,7 +255,7 @@ export class NodeDaemon {
       if (computer.kind === "vm" && !vm) throw new Error("this VM isn't on this device");
       await vm?.ready();
       const pane = harness ? await this.terminalLaunch(harness.id, harness.binary, msg.credential, vm, computer.name, msg.harnessOn) : null;
-      const cmd = vm ? vmShell({ bin: vm.engine.bin, name: vm.name, user: vm.user, home: vm.home }, session, pane?.launch) : deviceShell(session, { launch: pane?.launch });
+      const cmd = vm ? vmShell({ bin: vm.engine.bin, name: vm.name, user: vm.user, home: vm.home }, session, pane?.launch) : deviceShell(session, { launch: pane?.launch, socket: tmuxSocket(this.cfg.dir) });
       return { ...cmd, ended: pane?.ended };
     };
     const opening: { end?: boolean; gone?: boolean } = {};
@@ -537,8 +537,9 @@ export class NodeDaemon {
       this.send({ type: "hello", nodeName: this.cfg.name, agents: agents.map((a) => a.id), version: await version() });
       this.flushOutbox();
       await this.sendCapabilities();
-      // agents work on VMs: have the image here before the first one is needed
-      if (!this.local.paused && !this.cfg.noPrepare) void this.computers.prepareImage(() => void this.sendCapabilities());
+      // a VM lives here: have its image ready before it's needed. None yet: nothing is fetched or
+      // built until one is made and used (an older hub doesn't say, so prepare as before)
+      if (!this.local.paused && !this.cfg.noPrepare && msg.vms !== 0) void this.computers.prepareImage(() => void this.sendCapabilities());
       this.send({ type: "discovered", agents: discoverAgents(this.cfg.discoverHome) });
       await this.sendCatalog();
       void this.sendShelf();

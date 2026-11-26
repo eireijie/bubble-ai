@@ -38,7 +38,7 @@ import { foldTeams } from "./fold-teams.ts";
 import { TeamFlows } from "./team-flows.ts";
 import type { RunKind, Store } from "./store.ts";
 import { guestEvent } from "./guest-computers.ts";
-import { adoptShared, placeWaitingAgents } from "./shared-computer.ts";
+import { adoptShared, mayShareOnDemand, placeWaitingAgents } from "./shared-computer.ts";
 import { DeviceUse } from "./device-use.ts";
 
 const CONTEXT_MESSAGES = 20;
@@ -606,7 +606,8 @@ export class Hub {
     this.nodes.get(nodeId)?.socket.close(4000, "replaced by a newer connection");
     const conn = { socket, nodeId, workspaceId };
     this.nodes.set(nodeId, conn);
-    this.send(conn, { type: "welcome", nodeId });
+    // how many VMs it hosts: with none, it doesn't fetch or build the VM image ahead of time
+    this.send(conn, { type: "welcome", nodeId, vms: this.store.computersOnNode(nodeId).filter((c) => c.kind === "vm").length });
 
     socket.on("message", (raw, isBinary) => {
       if (this.closed) return;
@@ -1748,6 +1749,9 @@ export class Hub {
   computerSection(agentId: string): string {
     const agent = this.store.agent(agentId);
     const c: Computer | undefined = agent?.computerId ? this.store.computer(agent.computerId) : undefined;
+    // none yet: one is made the first time a task needs a screen (shared-computer.ts)
+    if (agent && !c && mayShareOnDemand(this, agent.id))
+      return `\n## A computer when you need one\nYou work on ${agent.nodeId ? (this.store.node(agent.nodeId)?.name ?? "your device") : "your device"} directly, with no screen of your own. When a task really needs one (a website to click through, an app to open), use computer_screenshot and the other computer tools: Bubble AI starts the workspace's shared computer for you (the first time takes a few minutes). Don't for anything your shell and files can do.`;
     if (!agent || !c) return "";
     const node = c.nodeId ? this.store.node(c.nodeId) : undefined;
     const caps = c.nodeId ? this.store.nodeCapabilities(c.nodeId) : null;

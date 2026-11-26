@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -61,6 +62,18 @@ export function sessionName(raw: string): string {
   return (raw.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "main").slice(0, 40);
 }
 
+/**
+ * The tmux server Bubble AI's shells live on: its own socket, named for this install (its data
+ * folder), so the person's own tmux and another Bubble AI on the same computer never attach to
+ * these shells, nor these to theirs.
+ */
+export function tmuxSocket(dataDir: string): string {
+  return `bubble-ai-${crypto.createHash("sha256").update(path.resolve(dataDir)).digest("hex").slice(0, 10)}`;
+}
+
+/** A Bubble AI shell's tmux session: "bubble-main", "bubble-codex-1". */
+export const tmuxSession = (session: string) => `bubble-${session}`;
+
 /** A word that's safe inside single quotes in sh. */
 export const shellQuote = (s: string) => sq(s);
 const sq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
@@ -70,7 +83,7 @@ const sq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
  * With `launch` (a harness's command, from Bubble AI's own list) the pane starts in that CLI, and
  * drops to a shell when it quits.
  */
-export function deviceShell(session: string, opts: { platform?: NodeJS.Platform; env?: NodeJS.ProcessEnv; has?: (bin: string) => boolean; launch?: string } = {}): ShellCommand {
+export function deviceShell(session: string, opts: { platform?: NodeJS.Platform; env?: NodeJS.ProcessEnv; has?: (bin: string) => boolean; launch?: string; socket?: string } = {}): ShellCommand {
   const platform = opts.platform ?? process.platform;
   const env = opts.env ?? process.env;
   const has = opts.has ?? onPath;
@@ -83,16 +96,20 @@ export function deviceShell(session: string, opts: { platform?: NodeJS.Platform;
   const shell = env.SHELL && fs.existsSync(env.SHELL) ? env.SHELL : platform === "darwin" ? "/bin/zsh" : "/bin/bash";
   // a login shell, so the CLI is found where the person's own PATH has it
   const run = launch ? `${sq(shell)} -lc ${sq(`${launch}; exec ${sq(shell)} -l`)}` : null;
-  if (has("tmux"))
+  if (has("tmux")) {
+    const name = tmuxSession(session);
+    const socket = ["-L", opts.socket ?? "bubble-ai"];
     return {
       file: "tmux",
-      // Bubble AI's pane header already names the computer, so tmux's status bar goes (for Bubble AI's sessions only)
-      args: ["new-session", "-A", "-s", `wisp-${session}`, ...(run ? [run] : []), ";", "set-option", "-t", `wisp-${session}`, "status", "off"],
+      // Bubble AI's pane header already names the computer, so tmux's status bar goes (for Bubble AI's sessions only).
+      // `exit` in the shell ends the session, whatever the person's tmux.conf says about keeping dead panes.
+      args: [...socket, "new-session", "-A", "-s", name, ...(run ? [run] : []), ";", "set-option", "-t", name, "status", "off", ";", "set-option", "-t", name, "remain-on-exit", "off"],
       cwd,
       env: { SHELL: shell },
-      stop: () => void execFile("tmux", ["kill-session", "-t", `wisp-${session}`], () => {}),
+      stop: () => void execFile("tmux", [...socket, "kill-session", "-t", name], () => {}),
       redraws: true,
     };
+  }
   return launch ? { file: shell, args: ["-lc", `${launch}; exec ${sq(shell)} -l`], cwd } : { file: shell, args: ["-l"], cwd };
 }
 
@@ -101,8 +118,8 @@ export function vmShell(vm: { bin: string; name: string; user: string; home: str
   const script = [
     'L="$2"',
     'if command -v tmux >/dev/null 2>&1; then',
-    '  if [ -n "$L" ]; then exec tmux new-session -A -s "wisp-$1" "$L; exec bash -l" \\; set-option -t "wisp-$1" status off; fi',
-    '  exec tmux new-session -A -s "wisp-$1" \\; set-option -t "wisp-$1" status off',
+    '  if [ -n "$L" ]; then exec tmux -L bubble-ai new-session -A -s "bubble-$1" "$L; exec bash -l" \\; set-option -t "bubble-$1" status off \\; set-option -t "bubble-$1" remain-on-exit off; fi',
+    '  exec tmux -L bubble-ai new-session -A -s "bubble-$1" \\; set-option -t "bubble-$1" status off \\; set-option -t "bubble-$1" remain-on-exit off',
     "fi",
     '[ -n "$L" ] && sh -c "$L"',
     "exec bash -l",
@@ -110,7 +127,7 @@ export function vmShell(vm: { bin: string; name: string; user: string; home: str
   return {
     file: vm.bin,
     args: ["exec", "-i", "-t", "-u", vm.user, "-w", vm.home, "-e", `HOME=${vm.home}`, "-e", "TERM=xterm-256color", "-e", "DISPLAY=:1", vm.name, "sh", "-c", script, "sh", session, launch ?? ""],
-    stop: () => void execFile(vm.bin, ["exec", "-u", vm.user, vm.name, "sh", "-c", 'command -v tmux >/dev/null 2>&1 && tmux kill-session -t "wisp-$1"', "sh", session], () => {}),
+    stop: () => void execFile(vm.bin, ["exec", "-u", vm.user, vm.name, "sh", "-c", 'command -v tmux >/dev/null 2>&1 && tmux -L bubble-ai kill-session -t "bubble-$1"', "sh", session], () => {}),
   };
 }
 

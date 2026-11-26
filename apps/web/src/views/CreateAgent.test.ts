@@ -116,7 +116,8 @@ const device = (id: string, role: NodeInfo["role"] = "vms"): NodeInfo => ({ id, 
 const computer = { id: "desk", name: "Desk", nodeId: "node", kind: "vm", online: true, transport: "vnc", agents: [], workspaceId: "ws", config: {}, status: "ready", statusText: "", controller: null, help: null, createdAt: "2026-01-01", ownerId: null, paused: false, activity: null } as unknown as ComputerInfo;
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubGlobal("window", Object.assign(new EventTarget(), { matchMedia: () => ({ matches: true }) }));
+  // a desktop-wide window (phone widths are tried on their own below); other media queries match
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { matchMedia: (q: string) => ({ matches: !/max-width/.test(q) }) }));
   vi.stubGlobal("document", Object.assign(new EventTarget(), { visibilityState: "visible" }));
   vi.stubGlobal("location", { protocol: "http:", host: "localhost", href: "http://localhost/#/agents/a/instructions", origin: "http://localhost", pathname: "/", search: "", hash: "#/agents/a/instructions" });
   vi.stubGlobal("alert", vi.fn());
@@ -420,7 +421,7 @@ describe("new agent sheet", () => {
     expect(named(m.tree, "LookOptions")).toBeDefined();
     expect(textButton(m, "More options")).toBeUndefined();
     // the defaults' AI is the one picked
-    expect(find(m.tree, (el) => el.props.role === "radio" && el.props["aria-checked"] === true && el.props.children?.[1]?.props?.children === "Codex")).toBeDefined();
+    expect(find(m.tree, (el) => el.props.role === "radio" && el.props["aria-checked"] === true && el.props.children?.[1]?.props?.children?.[0]?.props?.children === "Codex")).toBeDefined();
     expect(createButton(m).props.disabled).toBe(false);
     submit(m);
     await tick();
@@ -458,6 +459,37 @@ describe("new agent sheet", () => {
     submit(m);
     await tick();
     expect(creates()[0][2]).toMatchObject({ settings: { appearance: worn } });
+  });
+
+  it("on a phone, puts the name and what it does first: its look is a small preview that opens the editor", async () => {
+    vi.stubGlobal("window", Object.assign(new EventTarget(), { matchMedia: () => ({ matches: true }) }));
+    hub();
+    const m = mount(() => CreateAgent({ nodes: [], onClose() {} }));
+    await tick();
+    const tree = m.render();
+    expect(named(tree, "LookOptions")).toBeUndefined();
+    expect(named(tree, "Ghost").props.size).toBeLessThan(100);
+    expect(field(tree, "What it does")).toBeDefined();
+    field(tree, "Change its look").props.onClick();
+    expect(named(m.render(), "LookEditorScreen")).toBeDefined();
+  });
+
+  it("marks an AI that isn't installed on the device, and installs it from there", async () => {
+    const mac = { ...device("mac"), harnesses: [{ id: "codex", accounts: { default: true } }] } as unknown as NodeInfo;
+    hub();
+    const m = mount(() => CreateAgent({ nodes: [mac], onClose() {} }));
+    await tick();
+    const tile = (id: string) => find(m.render(), (e) => e.props?.role === "radio" && (e as unknown as { key: string }).key === id);
+    const says = (e: El | undefined, text: string) => !!e && !!find(e.props.children, (x) => x.props?.children === text);
+    expect(says(tile("kimi"), "Not installed")).toBe(true);
+    expect(says(tile("codex"), "Not installed")).toBe(false);
+    tile("kimi")!.props.onClick();
+    const install = find(m.render(), (e) => e.type?.name === "Button" && Array.isArray(e.props.children) && e.props.children.includes("Install"));
+    expect(install).toBeDefined();
+    vi.mocked(api).mockImplementation(async () => ({}));
+    install!.props.onClick();
+    await tick();
+    expect(vi.mocked(api).mock.calls).toContainEqual(["POST", "/api/nodes/mac/install", { harness: "kimi" }]);
   });
 
   it("silently takes a free handle when the name's own is in use, and stops a name another agent has", async () => {

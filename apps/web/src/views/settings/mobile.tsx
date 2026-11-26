@@ -31,7 +31,7 @@ function reachHint(addresses: string[]): string {
   return "Your phone needs to be on the same Wi-Fi as this computer.";
 }
 
-/** Settings → Mobile: pair the phone app with this Bubble AI by scanning a QR code, then matching a code. */
+/** Settings → Computers → Phone: pair the phone app with this Bubble AI by scanning a QR code, then matching a code. */
 export function PhonePairing({ autoStart = false, compact = false }: { autoStart?: boolean; compact?: boolean }) {
   const [started, setStarted] = useState<Started | null>(null);
   const [pairing, setPairing] = useState<Pairing | null>(null);

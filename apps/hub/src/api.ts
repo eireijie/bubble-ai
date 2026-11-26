@@ -81,8 +81,8 @@ import { DRAFT_TITLE, registerTeamDraftApi } from "./team-drafts.ts";
 import { registerRemoteMcp } from "./remote-mcp.ts";
 import { agentPolicy } from "./policy.ts";
 import { FEATURE_PRESET, createOrganization, registerOrgApi } from "./api-orgs.ts";
-import { agentDefaults } from "./agent-defaults.ts";
-import { advancedOn, simplePlacement } from "./shared-computer.ts";
+import { agentDefaults, newAgentComputer } from "./agent-defaults.ts";
+import { simplePlacement } from "./shared-computer.ts";
 import { spawnRight } from "./spawn.ts";
 import { greetNewAgent, registerSetupApi } from "./greeting.ts";
 import { registerOnboardingApi } from "./api-onboarding.ts";
@@ -1213,9 +1213,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       ...(body.role.trim() ? { role: body.role.trim() } : {}),
     };
     let computerId: string | null = null;
-    // the shared computer when it's for an owner's work (Simple, or Advanced's default); else its own
+    // what the defaults say (its device directly, unless an owner picked otherwise); the shared
+    // computer only for an owner's work, a member's gets its own
     const forOwner = !!requester && store.role(c.workspaceId, requester) === "owner";
-    const choice = !advancedOn(store, c.workspaceId) ? (forOwner ? "shared" : "own-vm") : defaults.computer === "shared" && !forOwner ? "own-vm" : defaults.computer;
+    const choice = newAgentComputer(defaults.computer, forOwner);
     if (choice === "shared") {
       const placed = simplePlacement(hub, c.workspaceId);
       if (placed.computerId) {
@@ -1285,16 +1286,19 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     );
     if (!body) return;
     const { useDefaults, greet, ...fields } = body;
+    // set to work without a device by whoever made it: it doesn't wait for one
+    const askedHeadless = !!body.settings?.headless;
     const defaults = useDefaults ? agentDefaults(store, c.workspaceId) : null;
     if (defaults) {
       fields.harness ??= defaults.harness ?? undefined;
       if (fields.model === undefined) fields.model = defaults.models[fields.harness ?? ""] ?? (fields.harness === defaults.harness ? defaults.model : undefined);
       if (fields.nodeId === undefined && defaults.nodeId && canUseDevice(c, defaults.nodeId)) fields.nodeId = defaults.nodeId;
     }
-    // where it works: in Simple an owner's agent goes on the shared computer, with its AI tool beside it
-    // (a member's gets a computer of its own, so it never has the owner's sign-ins); Advanced follows the defaults
+    // where it works: what the defaults say, which is its device directly unless an owner picked
+    // otherwise. The shared computer (only when picked) is for an owner's agents, with its AI tool
+    // beside it; a member's gets a computer of its own, so it never has the owner's sign-ins.
     const isOwner = c.viewer.role === "owner";
-    const computerChoice = !defaults ? null : !advancedOn(store, c.workspaceId) ? (isOwner ? "shared" : "own-vm") : defaults.computer === "shared" && !isOwner ? "own-vm" : defaults.computer;
+    const computerChoice = !defaults ? null : newAgentComputer(defaults.computer, isOwner);
     let placedComputer: string | null | undefined;
     if (computerChoice === "shared" && fields.computerId === undefined) {
       const placed = simplePlacement(hub, c.workspaceId);
@@ -1332,6 +1336,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
         computerId = comp.id;
         body.settings = { runIn: "computer", ...body.settings };
       } else if (computerChoice === "none") body.settings = { headless: true, ...body.settings };
+      // no device yet (first-run setup, before the person's computer joins): it gets the first one it can use
+      if (!fields.nodeId && computerChoice !== "shared" && !askedHeadless) body.settings = { ...body.settings, waitsForDevice: true } as typeof body.settings;
     }
     const created = store.createAgent({ ...fields, harness, computerId, workspaceId: c.workspaceId });
     const agent = store.updateAgent(created.id, { settings: body.settings })!;

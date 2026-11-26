@@ -11,7 +11,7 @@ import { sessionName } from "./terminals.ts";
 import { featureOn } from "./features.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
 import { greetNewAgent } from "./greeting.ts";
-import { ADVANCED_KEY, adoptShared, advancedOn, sharedComputer } from "./shared-computer.ts";
+import { ADVANCED_KEY, adoptShared, advancedOn, shareOnDemand, sharedComputer } from "./shared-computer.ts";
 
 export const HARNESS = z.union([z.enum(HARNESS_IDS as [string, ...string[]]), z.string().regex(DEVICE_HARNESS, 'a known harness, or "acp:<name>" declared on a device')]);
 
@@ -482,9 +482,10 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
 
   // --- an agent's own computer ---------------------------------------------------------------------
 
-  const myComputer = (c: Caller, reply: FastifyReply): Computer | null => {
+  /** `onDemand`: a task that needs a screen, so an agent with none can get the shared one now (shareOnDemand). */
+  const myComputer = (c: Caller, reply: FastifyReply, onDemand = false): Computer | null => {
     const agent = store.agent(c.actor.id);
-    const comp = agent?.computerId ? store.computer(agent.computerId) : undefined;
+    const comp = agent?.computerId ? store.computer(agent.computerId) : onDemand && agent ? (shareOnDemand(hub, agent.id) ?? undefined) : undefined;
     if (!comp) {
       reply.code(404).send({ error: "you don't have a computer; a person can give you one on your page in Bubble AI (Agents → Computer)" });
       return null;
@@ -506,7 +507,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (c.actor.kind !== "agent") return reply.code(403).send({ error: "agents only" });
     const borrowing = !!(req.body as { on?: unknown })?.on;
     // a person's own computer it was allowed (Use my computers) doesn't need one of its own
-    const comp = borrowing ? null : myComputer(c, reply);
+    const comp = borrowing ? null : myComputer(c, reply, true);
     if (!borrowing && !comp) return;
     const action = parse(ComputerAction, (req.body as { action?: unknown })?.action, reply);
     if (!action) return;
