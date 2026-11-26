@@ -323,9 +323,10 @@ final class ComputerTests: XCTestCase {
     r.add(kind: "click", x: 3, y: 4, snapshot: Data([9, 9]))
     r.add(kind: "type", text: "report")
     reply("POST", "/api/files", #"{"id":"f1","name":"step-1.jpg"}"#)
-    reply("POST", "/api/routines/teach", #"{"id":"r1"}"#)
-    reply("GET", "/api/routines", "[]")
-    try await store.saveLesson(agent: store.agents[0], computer: store.computers[0], name: " Weekly report ", recording: r, narration: "  the blue button  ")
+    // the hub answers with the chat the lesson was posted in; the agent saves it as a skill there
+    reply("POST", "/api/routines/teach", #"{"name":"Weekly report","recordingPath":"agents/a1/lessons/weekly-report.md","channelId":"c9","messageId":"m1"}"#)
+    reply("GET", "/api/channels", ##"[{"id":"c9","name":"dm:u1:a1","kind":"dm","topic":"","createdAt":"2026-10-25T10:00:00Z"}]"##)
+    let chat = try await store.saveLesson(agent: store.agents[0], computer: store.computers[0], name: " Weekly report ", recording: r, narration: "  the blue button  ")
     XCTAssertEqual(sentRequests("POST", "/api/files").count, 1)
     let body = try XCTUnwrap(sentBody("POST", "/api/routines/teach"))
     XCTAssertEqual(body["agentId"] as? String, "a1")
@@ -338,5 +339,7 @@ final class ComputerTests: XCTestCase {
     XCTAssertEqual(steps[0]["kind"] as? String, "click")
     XCTAssertNil(steps[1]["imageFileId"])
     XCTAssertEqual(steps[1]["text"] as? String, "report")
+    XCTAssertEqual(chat?.id, "c9")
+    XCTAssertTrue(sentRequests("GET", "/api/routines").isEmpty)
   }
 }
