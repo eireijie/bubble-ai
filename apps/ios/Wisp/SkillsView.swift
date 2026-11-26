@@ -369,7 +369,7 @@ private struct LibrarySkillPage: View {
       }
       if let plain = skill.plain {
         MarketLabel("What it needs")
-        CardGroup { MarketRow(symbol: "wand.and.stars", title: plain.needs) }
+        CardGroup { MarketRow(symbol: "hammer", title: plain.needs) }
         MarketLabel("Example")
         Text(plain.example).font(.system(size: 15)).textSelection(.enabled).padding(16).frame(maxWidth: .infinity, alignment: .leading)
           .background(Palette.control, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

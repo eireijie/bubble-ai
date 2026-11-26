@@ -186,7 +186,7 @@ struct ChatsView: View {
         Menu {
           Button("New chat", systemImage: "square.and.pencil") { sheet = "chat" }
           if store.canManage {
-            Button("New agent", systemImage: "sparkles") { sheet = "agent" }
+            Button("New agent", systemImage: "person.crop.circle.badge.plus") { sheet = "agent" }
             Button("New team", systemImage: "person.2") { sheet = "team" }
           } else {
             Button("Browse teams", systemImage: "magnifyingglass") { sheet = "browse" }
@@ -224,7 +224,7 @@ struct ChatsView: View {
     .overlay {
       if !searchMode && store.agents.isEmpty && entries.isEmpty {
         ContentUnavailableView {
-          Label("Add your first agent", systemImage: "sparkles")
+          Label("Add your first agent", systemImage: "plus")
         } description: {
           Text("Give it a job and a computer.")
         } actions: {

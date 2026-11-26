@@ -147,7 +147,7 @@ struct AgentPersonalityPage: View {
         }.buttonStyle(.plain).accessibilityIdentifier("personality-history")
         if store.canManage {
           Button { text = SoulText.template(name: current.name, handle: current.handle); preview = false } label: {
-            RowLabel(title: "Start from a template", leading: { rowIcon("sparkles") })
+            RowLabel(title: "Start from a template", leading: { rowIcon("square.on.square") })
           }.buttonStyle(.plain).accessibilityIdentifier("personality-template")
         }
       }

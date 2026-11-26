@@ -423,7 +423,7 @@ struct NewTaskView: View {
             InboxHead(title: "Who takes it?")
             CardGroup {
               if let lead {
-                choice("auto", { AgentAvatar(agent: lead, size: 28, showStatus: false) }, "Let \(lead.name) plan it", aside: "sparkles")
+                choice("auto", { AgentAvatar(agent: lead, size: 28, showStatus: false) }, "Let \(lead.name) plan it", aside: nil)
               }
               ForEach(store.agents.filter { $0.id != lead?.id }) { a in
                 choice(a.id, { AgentAvatar(agent: a, size: 28, showStatus: false) }, a.name + ((a.settings?.role).flatMap { $0.isEmpty ? nil : " · \($0)" } ?? ""))

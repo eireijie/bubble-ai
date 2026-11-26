@@ -189,7 +189,15 @@ struct BubblePainter {
     return CGSize(width: s * 0.11, height: s * height)
   }
 
-  private static let rim: [Color] = ["#ff7cc4", "#7fb0ff", "#6fe8c0", "#ffe27a", "#ff9c80", "#bf86ff", "#ff7cc4"].map { Color(hex: $0) }
+  private static let rimHex = ["#ff7cc4", "#7fb0ff", "#6fe8c0", "#ffe27a", "#ff9c80", "#bf86ff", "#ff7cc4"]
+  /** the rainbow rim leaned towards the bubble's own colour, so a warm bubble's edge doesn't mix green and blue into brown */
+  private var rim: [Color] {
+    let own = GhostColor.rgb(GhostColor.safe(color, fallback: "#a59bff"))
+    return Self.rimHex.map { hex in
+      let v = zip(GhostColor.rgb(hex), own).map { ($0 * 0.55 + $1 * 0.45) / 255 }
+      return Color(red: v[0], green: v[1], blue: v[2])
+    }
+  }
   private var small: Bool { size <= 80 }
 
   func draw(_ ctx: GraphicsContext) {
@@ -304,7 +312,7 @@ struct BubblePainter {
 
     // the rainbow rim
     let angle = Angle.degrees(-70 + (animated ? GhostAnimation.phase(time, 9) * 360 : 0))
-    let conic = GraphicsContext.Shading.conicGradient(Gradient(colors: Self.rim), center: CGPoint(x: box.midX, y: box.midY), angle: angle)
+    let conic = GraphicsContext.Shading.conicGradient(Gradient(colors: rim), center: CGPoint(x: box.midX, y: box.midY), angle: angle)
     if shape == .round {
       // the soft, wide rim of a round bubble: transparent inside, fading in towards the edge
       let (from, to): (CGFloat, CGFloat) = small ? (0.62, 0.86) : (0.84, 0.96)

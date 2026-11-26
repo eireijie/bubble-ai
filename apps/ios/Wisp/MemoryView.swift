@@ -139,7 +139,7 @@ struct NoteView: View {
           let who = displayAuthor(author, store: store)
           HStack(spacing: 8) {
             AuthorAvatar(author: who, size: 26)
-            Text("Written by \(who.name)" + (note.editedAt.flatMap(relative).map { " · edited \($0)" } ?? "")).font(.system(size: 15)).foregroundStyle(Palette.muted)
+            Text(who.name + (note.editedAt.flatMap(relative).map { " · edited \($0)" } ?? "")).font(.system(size: 15)).foregroundStyle(Palette.muted)
           }.padding(.horizontal, 6)
         }
         tagRow(note)

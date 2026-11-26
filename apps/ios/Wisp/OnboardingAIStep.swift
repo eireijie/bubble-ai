@@ -181,7 +181,7 @@ struct OnboardingAIStep: View {
       out.append(Option(id: .found, key: "found", title: HarnessChoice.label(found.harness), sub: sub, symbol: "laptopcomputer", badge: "Found on \(there)"))
     }
     // Claude's sign-in runs in a terminal on the device, which Windows can't do yet
-    out.append(Option(id: .claude, key: "claude", title: "Claude subscription", sub: device?.capabilities?.platform == "win32" ? "Needs a Mac or Linux computer for now. On Windows, use an API key." : "Pro or Max. Sign in, then paste the code it shows.", symbol: "sparkle", badge: nil))
+    out.append(Option(id: .claude, key: "claude", title: "Claude subscription", sub: device?.capabilities?.platform == "win32" ? "Needs a Mac or Linux computer for now. On Windows, use an API key." : "Pro or Max. Sign in, then paste the code it shows.", symbol: "person.badge.key", badge: nil))
     out.append(Option(id: .chatgpt, key: "chatgpt", title: "ChatGPT subscription", sub: "Plus or higher. Sign in with ChatGPT.", symbol: "message", badge: nil))
     out.append(Option(id: .grok, key: "grok", title: "Grok subscription", sub: "Sign in with your Grok account.", symbol: "xmark", badge: nil))
     out.append(Option(id: .key, key: "key", title: "I have an API key", sub: "Claude, OpenAI, OpenRouter, Gemini or Grok.", symbol: "key", badge: nil))

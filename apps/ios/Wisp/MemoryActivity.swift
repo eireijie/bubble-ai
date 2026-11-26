@@ -12,7 +12,7 @@ struct ChangeAuthor {
       return ChangeAuthor(name: agent.name, kind: "agent", agent: agent)
     }
     if author == "Edited in Obsidian" { return ChangeAuthor(name: "Obsidian", kind: "on disk", symbol: "pencil.line") }
-    if author == "Bubble AI" || author == "Warren" { return ChangeAuthor(name: "Bubble AI", symbol: "sparkle") }
+    if author == "Bubble AI" || author == "Warren" { return ChangeAuthor(name: "Bubble AI", symbol: "app.badge") }
     return ChangeAuthor(name: author, kind: "person")
   }
 }

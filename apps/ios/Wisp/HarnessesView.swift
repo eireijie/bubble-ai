@@ -283,7 +283,7 @@ private struct HarnessDetailView: View {
 
   private func itemRow(_ item: HarnessSettingItem, note: String, kind: String, share: (() -> Void)? = nil) -> some View {
     HStack(spacing: 14) {
-      MarketTile(symbol: kind == "app" ? "powerplug" : kind == "plugin" ? "puzzlepiece" : "wand.and.stars")
+      MarketTile(symbol: kind == "app" ? "powerplug" : kind == "plugin" ? "puzzlepiece" : "hammer")
       VStack(alignment: .leading, spacing: 2) {
         Text(item.name).font(.system(size: 15, weight: .medium)).lineLimit(1)
         Text(note).font(.system(size: 13)).foregroundStyle(Palette.faint).lineLimit(1)

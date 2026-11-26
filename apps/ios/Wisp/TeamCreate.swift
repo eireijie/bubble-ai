@@ -171,7 +171,7 @@ struct NewChannel: View {
               path.append(.builder)
             }
             startRow("Browse templates", "\(TeamTemplate.builtIn.count) ready-made teams.", "square.grid.2x2", "start-templates") { path.append(.templates) }
-            startRow("Have an agent build it", "Say it in one sentence.", "sparkles", "start-agent") {
+            startRow("Describe it", "Say it in one sentence.", "text.bubble", "start-agent") {
               if model.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { model.description = model.topic }
               path.append(.describe)
             }
@@ -296,7 +296,7 @@ private struct DescribePage: View {
       }
       .scrollDismissesKeyboard(.interactively)
     } bottom: {
-      Button { focused = false; build() } label: { Label("Build it", systemImage: "sparkles").frame(maxWidth: .infinity) }
+      Button { focused = false; build() } label: { Text("Make the team").frame(maxWidth: .infinity) }
         .primaryButton().padding(.horizontal, 36).padding(.vertical, 10)
         .disabled(model.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.agents.isEmpty)
         .accessibilityIdentifier("describe-build")
