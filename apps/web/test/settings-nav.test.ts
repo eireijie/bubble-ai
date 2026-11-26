@@ -64,6 +64,7 @@ describe("agent page", () => {
       routines: "more",
       connect: "more",
       runs: "more",
+      watches: "more",
       remove: "more",
     });
     expect(agentPlace(null)).toEqual({ group: null, part: null });

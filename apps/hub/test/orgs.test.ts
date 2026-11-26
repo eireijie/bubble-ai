@@ -137,18 +137,18 @@ describe("features", () => {
 
 describe("agent defaults", () => {
   it("uses the latest agent's harness until an owner saves defaults, and fills in a new agent with them", async () => {
-    // the "sched" agent above runs the custom harness; no devices, so no VM
-    expect((await api("GET", "/api/settings/agent-defaults")).data).toEqual({ harness: "custom", model: null, computer: "shared", nodeId: null, models: {} });
+    // the "sched" agent above runs the custom harness; no devices, so no computer
+    expect((await api("GET", "/api/settings/agent-defaults")).data).toEqual({ harness: "custom", model: null, computer: "none", nodeId: null, models: {} });
     const sam = await login("sam@example.com");
     expect((await api("PUT", "/api/settings/agent-defaults", { harness: "codex" }, sam)).status).toBe(403);
-    expect((await api("PUT", "/api/settings/agent-defaults", { harness: "codex", model: "gpt-6" })).data).toMatchObject({ harness: "codex", model: "gpt-6", computer: "shared" });
+    expect((await api("PUT", "/api/settings/agent-defaults", { harness: "codex", model: "gpt-6" })).data).toMatchObject({ harness: "codex", model: "gpt-6", computer: "none" });
     expect((await api("PUT", "/api/settings/agent-defaults", { nodeId: "node_nope" })).status).toBe(400);
 
     const a = (await api("POST", "/api/agents", { handle: "dflt", name: "Dflt", useDefaults: true })).data;
     expect(a).toMatchObject({ harness: "codex", model: "gpt-6", computerId: null });
-    // no device yet: it waits for the shared computer rather than working without one
-    expect(a.settings).toMatchObject({ waitsForShared: true, respondTo: "me" });
-    expect(a.settings.headless).toBeUndefined();
+    // no device yet and nothing saved: it works without a computer, so no VM is made until one is asked for
+    expect(a.settings).toMatchObject({ headless: true, respondTo: "me" });
+    expect(a.settings.waitsForShared).toBeUndefined();
     // what you pick wins over the defaults
     expect((await api("POST", "/api/agents", { handle: "picked", name: "Picked", harness: "claude-code", useDefaults: true })).data).toMatchObject({ harness: "claude-code", model: null });
     // without defaults a harness is still needed
