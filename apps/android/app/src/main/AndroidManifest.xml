@@ -15,7 +15,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="Bubble AI"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Bubble AI"
+        android:theme="@style/Theme.BubbleAI"
         android:usesCleartextTraffic="true">
 
         <!-- the QR scanner module downloads with the app instead of on first scan -->

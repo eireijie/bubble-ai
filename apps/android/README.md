@@ -32,7 +32,29 @@ cd apps/android && ./gradlew assembleDebug    # app/build/outputs/apk/debug/app-
 
 Install it on a phone with USB debugging on: `adb install -r app/build/outputs/apk/debug/app-debug.apk`, or send the APK to the phone and open it (Android asks to allow installing from that app).
 
-Release builds (`./gradlew assembleRelease`) are signed with the debug key for now, so testers can sideload them; tagged releases attach `Bubble-AI-android.apk` (see [apps/desktop](../desktop/README.md#release-it)). Each CI build has its own debug key, so testers may need to uninstall before installing a newer one. Google Play needs a real upload key, Play App Signing, a target SDK Play currently accepts, and (for new personal developer accounts) a 14-day closed test with 12 testers.
+Release builds (`./gradlew assembleRelease`) are signed with the release key when `ANDROID_KEYSTORE_PATH` (plus the password and alias variables below) points at one, and with the debug key otherwise, so testers can still sideload them. Tagged releases attach `Bubble-AI-android.apk` through [`android-release.yml`](../../.github/workflows/android-release.yml); you can also run that workflow by hand to get the APK as a workflow artifact. Without a release key the APK is labelled "debug-signed test build", and since each CI run has its own debug key, testers must uninstall before installing a newer one.
+
+### Release key
+
+To sign every release with the same key (needed for updates to install over each other, and for Google Play), make a keystore once and keep it safe (losing it means a new app listing):
+
+```bash
+keytool -genkeypair -v -keystore bubble-ai-release.jks -alias bubble-ai -keyalg RSA -keysize 4096 -validity 10000
+base64 -i bubble-ai-release.jks | tr -d '\n' | pbcopy
+```
+
+Then add these repository secrets (GitHub → Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | the keystore, base64 on one line (what the second command copied) |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_ALIAS` | `bubble-ai` (the `-alias` above) |
+| `ANDROID_KEY_PASSWORD` | the key password; leave it out if it's the same as the keystore's |
+
+Locally: `ANDROID_KEYSTORE_PATH=/path/to/bubble-ai-release.jks ANDROID_KEYSTORE_PASSWORD=… ANDROID_KEY_ALIAS=bubble-ai ./gradlew assembleRelease`.
+
+Google Play also needs Play App Signing (upload this key as the upload key), a target SDK Play currently accepts, and (for new personal developer accounts) a 14-day closed test with 12 testers.
 
 ## Not yet
 

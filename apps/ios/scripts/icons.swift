@@ -4,7 +4,7 @@
 // highlight, and two eyes glancing to the right. The iPhone app icon alone keeps the square "Full glass" tile
 // (the tile itself is the bubble). Light by default; dark where the platform has a dark icon. Writes the
 // desktop app icon and menu bar template, the iOS app icons (light, dark, tinted) and Mark, the Android
-// launcher icons, and the web and site PNGs. The SVGs (apps/web/public/icon.svg, site/public/favicon.svg) and
+// launcher icons (legacy and adaptive), and the web and site PNGs. The SVGs (apps/web/public/icon.svg, site/public/favicon.svg) and
 // the Android status-bar vector are hand-written to match.
 import AppKit
 
@@ -177,6 +177,16 @@ for (size, dir) in [(48, "mdpi"), (72, "hdpi"), (96, "xhdpi"), (144, "xxhdpi"), 
   png(size, "\(root)/android/app/src/main/res/mipmap-\(dir)/ic_launcher.png") { ctx, s in
     let m = (s * 0.04).rounded()
     roundBubble(ctx, full(s).insetBy(dx: m, dy: m))
+  }
+}
+// Android adaptive icon (Android 8+, used for both icon and roundIcon): a 108 dp frosted tile behind the round bubble,
+// which sits at 80% of the 72 dp the launcher shows (57.6 dp, inside the 66 dp safe zone whatever mask it uses).
+// The themed (monochrome) layer is the hand-written vector drawable/ic_launcher_monochrome.xml.
+for (size, dir) in [(108, "mdpi"), (162, "hdpi"), (216, "xhdpi"), (324, "xxhdpi"), (432, "xxxhdpi")] {
+  png(size, "\(root)/android/app/src/main/res/mipmap-\(dir)/ic_launcher_background.png", opaque: true) { ctx, s in frostedTile(ctx, full(s)) }
+  png(size, "\(root)/android/app/src/main/res/mipmap-\(dir)/ic_launcher_foreground.png") { ctx, s in
+    let d = s * 57.6 / 108
+    roundBubble(ctx, CGRect(x: (s - d) / 2, y: (s - d) / 2, width: d, height: d), shadow: true)
   }
 }
 // web app PWA icons
