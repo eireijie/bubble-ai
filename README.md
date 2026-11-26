@@ -55,7 +55,7 @@ The app updates itself. Every build is on the [Releases](https://github.com/eire
 
 ### iPhone
 
-Bubble AI for iPhone and iPad is in testing on TestFlight: **TestFlight link coming soon** <!-- TESTFLIGHT_LINK: replace with the public TestFlight invite -->. You can also build it from [`apps/ios`](apps/ios/README.md) with Xcode.
+Bubble AI for iPhone and iPad is in testing on TestFlight; the public link is coming soon <!-- TESTFLIGHT_LINK: replace with the public TestFlight invite -->. You can also build it from [`apps/ios`](apps/ios/README.md) with Xcode.
 
 ### Android
 
