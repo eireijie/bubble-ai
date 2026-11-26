@@ -132,7 +132,7 @@ export function AddComputer({ devices, onClose, onCreated, nodeId: preferNode, d
   };
 
   const option = (k: Kind, icon: ReactNode, title: string, note?: string, disabled?: boolean) => (
-    <button key={k} type="button" role="radio" aria-checked={kind === k} disabled={disabled} onClick={() => setPicked(k)} className={cx("flex min-h-[51px] w-full items-center gap-3 rounded-[14px] border px-3.5 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60", kind === k ? "border-ink bg-card" : cx("border-line", !disabled && "hover:bg-hover"))}>
+    <button key={k} type="button" role="radio" aria-checked={kind === k} disabled={disabled} onClick={() => setPicked(k)} className={cx("flex min-h-[51px] w-full items-center gap-3 rounded-[12px] border px-3.5 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60", kind === k ? "border-ink bg-card" : cx("border-line", !disabled && "hover:bg-hover"))}>
       <span className="shrink-0 text-muted">{icon}</span>
       <span className="min-w-0">
         <span className="block text-[14px] font-medium">{title}</span>
@@ -393,7 +393,7 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
 
           {dropping && (
             <div className="absolute inset-0 z-30 border-2 border-dashed border-info bg-info/15 grid place-items-center pointer-events-none">
-              <span className="inline-flex items-center gap-2 rounded-full bg-black/70 text-white px-4 h-10 text-sm font-medium">
+              <span className="inline-flex items-center gap-2 rounded-[8px] bg-black/70 text-white px-4 h-10 text-sm font-medium">
                 <Upload size={16} /> Drop to send
               </span>
             </div>
@@ -401,7 +401,7 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
         </div>
 
         {sync.note && (
-          <span className="absolute left-1/2 top-2 z-20 max-w-[90%] -translate-x-1/2 truncate rounded-full bg-black/70 px-3 py-1 text-xs text-white pointer-events-none" role="status">
+          <span className="absolute left-1/2 top-2 z-20 max-w-[90%] -translate-x-1/2 truncate rounded-[8px] bg-black/70 px-3 py-1 text-xs text-white pointer-events-none" role="status">
             {sync.note}
           </span>
         )}

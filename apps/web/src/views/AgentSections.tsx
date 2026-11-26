@@ -34,9 +34,9 @@ export const TAB_TITLES: Record<AgentTab, string> = {
 // --- Rows -----------------------------------------------------------------------
 
 /** A card of one-line rows, the same one the agent panel beside a chat uses. */
-export const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+export const CARD = "overflow-hidden rounded-[12px] bg-card divide-y divide-line";
 /** The same card for rows whose pickers drop below them: it clips nothing, so its first and last rows round their own corners. */
-export const CARD_OPEN = "rounded-[14px] bg-card divide-y divide-line [&>:first-child]:rounded-t-[14px] [&>:last-child]:rounded-b-[14px]";
+export const CARD_OPEN = "rounded-[12px] bg-card divide-y divide-line [&>:first-child]:rounded-t-[14px] [&>:last-child]:rounded-b-[14px]";
 const LINE = "flex min-h-[46px] w-full items-center gap-3 px-3.5 py-1.5 text-left text-[14px]";
 /** A small picker on the right of a row. */
 export const SELECT = "h-8 min-w-0 max-w-[60vw] sm:max-w-64 rounded-lg border border-line bg-panel px-2 text-[13px] text-ink disabled:opacity-50";
@@ -450,7 +450,7 @@ export function RemovePanel({ agent }: { agent: Agent }) {
       <h3 className="text-[19px] font-semibold leading-[26px]">Remove {agent.name}?</h3>
       <p className="text-[14px] leading-[22px] text-muted">Its notes and personality stay in memory. Its schedules and chats stop.</p>
       {error && <p className="text-sm text-bad">{error}</p>}
-      <button onClick={remove} disabled={busy} className="mt-1 inline-flex h-10 items-center justify-center gap-2 rounded-full bg-bad px-5 text-sm font-medium text-white disabled:opacity-60">
+      <button onClick={remove} disabled={busy} className="mt-1 inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-bad px-5 text-sm font-medium text-white disabled:opacity-60">
         <Trash2 size={16} /> Remove {agent.name}
       </button>
     </div>

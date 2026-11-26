@@ -192,7 +192,7 @@ export function RuntimesPage() {
                   <Menu
                     align="right"
                     trigger={(_o, t) => (
-                      <button onClick={t} className="mr-3 grid size-9 place-items-center rounded-full text-muted hover:bg-hover" aria-label={`More for ${h.label}`} title={`More for ${h.label}`}>
+                      <button onClick={t} className="mr-3 grid size-9 place-items-center rounded-[8px] text-muted hover:bg-hover" aria-label={`More for ${h.label}`} title={`More for ${h.label}`}>
                         <MoreHorizontal size={16} />
                       </button>
                     )}

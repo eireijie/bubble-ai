@@ -171,7 +171,7 @@ export function LookPanel({ agent, onDirty, active }: { agent: Agent; onDirty: (
         onReset={() => setLook(fallback)}
         speakingLevel={speakingLevel}
         extra={
-          <div className="overflow-hidden rounded-[14px] bg-card">
+          <div className="overflow-hidden rounded-[12px] bg-card">
             <button type="button" aria-expanded={voiceOpen} onClick={() => setVoiceOpen(!voiceOpen)} className="flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover">
               <span className="flex-1 font-medium">Voice</span>
               <ChevronDown size={15} className={cx("shrink-0 text-faint", voiceOpen && "rotate-180")} aria-hidden />

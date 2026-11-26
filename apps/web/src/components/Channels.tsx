@@ -331,7 +331,7 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
       )}
       {error && <p className="text-sm text-bad">{error}</p>}
       {!!members?.length && (
-        <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+        <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
           {[...agentsIn, ...peopleIn].map((m) => {
             const isMe = m.kind === "user" && m.id === me?.user.id;
             const node = m.kind === "agent" ? nodes.find((n) => n.agentId === m.id) : undefined;
@@ -370,7 +370,7 @@ export function ChannelMembers({ channel, canManage, onClose }: { channel: Chann
                   </Button>
                 ) : (
                   canManage && (
-                    <button onClick={() => change("DELETE", m)} disabled={busy === `${m.kind}:${m.id}`} className="grid size-8 shrink-0 place-items-center rounded-full text-faint hover:bg-hover hover:text-bad" aria-label={`Remove ${m.name} from ${channel.name}`}>
+                    <button onClick={() => change("DELETE", m)} disabled={busy === `${m.kind}:${m.id}`} className="grid size-8 shrink-0 place-items-center rounded-[8px] text-faint hover:bg-hover hover:text-bad" aria-label={`Remove ${m.name} from ${channel.name}`}>
                       <X size={15} />
                     </button>
                   )
@@ -503,7 +503,7 @@ export function ChannelPins({ channel, onClose }: { channel: ChannelInfo; onClos
   if (!pins) return null;
   if (!pins.length) return <p className="px-1 py-2 text-[13px] text-muted">Nothing pinned</p>;
   return (
-    <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+    <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
       {pins.map((p) => (
         <div key={p.message.id} className="px-3 py-2.5 flex gap-3 items-start">
           <button

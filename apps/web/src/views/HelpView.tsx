@@ -37,7 +37,7 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
       </header>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-xl px-4 md:px-8 pt-2 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-6">
-          <div className="rounded-[14px] bg-card overflow-hidden">
+          <div className="rounded-[12px] bg-card overflow-hidden">
             <button type="button" className={rowClass} onClick={() => (helper ? void openDm(helper.id) : go({ view: "welcome" }))}>
               {helper && <AgentAvatar agent={helper} size={34} />}
               <span className="flex-1 min-w-0 truncate">{helper ? `Ask ${helper.name}` : "Make your agent"}</span>
@@ -49,14 +49,14 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
             <h2 id="help-quiet" className="px-1 text-[13px] font-medium text-muted">
               My agent isn't answering
             </h2>
-            <ul className="rounded-[14px] bg-card divide-y divide-line overflow-hidden" aria-busy={devices === null}>
+            <ul className="rounded-[12px] bg-card divide-y divide-line overflow-hidden" aria-busy={devices === null}>
               {checks.map((c) => (
                 <CheckRow key={c.id} check={c} />
               ))}
             </ul>
           </section>
 
-          <div className="rounded-[14px] bg-card divide-y divide-line overflow-hidden">
+          <div className="rounded-[12px] bg-card divide-y divide-line overflow-hidden">
             <button type="button" className={rowClass} onClick={() => startTour()}>
               <span className="flex-1">Show me around</span>
               <ChevronRight size={15} className="text-muted" aria-hidden />

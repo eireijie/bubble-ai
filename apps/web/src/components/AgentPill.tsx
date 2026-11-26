@@ -35,7 +35,7 @@ export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boole
     <button
       onClick={onClick}
       aria-expanded={open}
-      className="agent-pill group inline-flex max-w-full flex-col items-center gap-1 rounded-[14px] px-2 pt-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="agent-pill group inline-flex max-w-full flex-col items-center gap-1 rounded-[12px] px-2 pt-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`${agent.name}${note ? `, ${note}` : ""}. About ${agent.name}`}
     >
       {/* poking the bubble plays with it instead of opening the panel */}
@@ -43,7 +43,7 @@ export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boole
         <Ghost look={look} size={44} mood={mood} interactive label={agent.name} seed={agent.handle} />
       </span>
       {/* the name in a small pill under it, with a chevron: it opens the details */}
-      <span className={cx("inline-flex h-[24px] max-w-full items-center gap-1 rounded-full pl-2.5 pr-1.5 text-[13px] transition-colors duration-150", open ? "bg-side-active" : "bg-[var(--bubble-them)] group-hover:bg-hover")}>
+      <span className={cx("inline-flex h-[24px] max-w-full items-center gap-1 rounded-[6px] pl-2.5 pr-1.5 text-[13px] transition-colors duration-150", open ? "bg-side-active" : "bg-[var(--bubble-them)] group-hover:bg-hover")}>
         <span className="truncate font-semibold">{agent.name}</span>
         {note && mood !== "awake" && (
           <span key={mood} className={cx("m-fade-in shrink-0", mood === "waiting" ? "text-st-needs" : mood === "error" ? "text-st-problem" : mood === "working" || mood === "thinking" ? "shimmer-text text-wisp-strong" : "text-muted")} aria-hidden>

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useRef, useState } from "react";
 import { SuggestionBanner } from "../SuggestionBanner.tsx";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
@@ -21,6 +21,11 @@ import { loadAnswers } from "../../onboardingV3.ts";
 
 /** What you can answer its hello with in one tap: the first is the one primary button. */
 export const QUICK = ["Yes, go ahead", "Something else first"] as const;
+
+/** Does a hello ask an open question ("What would you like me to do?"), which a yes or no can't answer? */
+export function opensQuestion(text: string): boolean {
+  return /\b(what|which|how|where|who|when)\b[^?.!]*\?/i.test(text);
+}
 
 /** Where each of setup's questions leads: a page, or a sheet that opens here. */
 export const ASK_OPENS: Record<ReadyItem, Route | "phone" | "know"> = {
@@ -114,8 +119,12 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
   const guest = useStore((s) => s.me?.role === "guest");
   const [firstAgentId] = useState(() => loadAnswers(workspaceId).agentId);
   const [sheet, setSheet] = useState<"phone" | "know" | null>(null);
+  // once the pings card has been up, setup's question waits for the next visit instead of popping in
+  const pingShown = useRef(false);
   if (!agent || !isFirstChat(agent, channelId)) return null;
-  const quick = !sent && !youSpoke ? QUICK : [];
+  // the yes/no replies fit a hello that proposes something; one that asks an open question ("What would you like me to do?") is answered by typing
+  const hello = messages.find((m) => m.author.kind === "agent" && !m.threadId)?.body ?? "";
+  const quick = !sent && !youSpoke && !opensQuestion(hello) ? QUICK : [];
   const reply = (text: string) => {
     setSent(true);
     void api("POST", `/api/channels/${channelId}/messages`, { body: text }).catch(() => setSent(false));
@@ -141,7 +150,8 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
   };
   const ping = justOn ? "on" : pingState({ answered: answeredOnce(messages, agent.id), asked, busy, perm });
   const help = switchHelp();
-  const ask = chatAsk({ rows: ready.items, started: ready.started, youSpoke: youSpoke || sent, pingUp: ping !== "hidden", guest, firstAgent: firstAgentId === agent.id });
+  if (ping !== "hidden") pingShown.current = true;
+  const ask = chatAsk({ rows: ready.items, started: ready.started, youSpoke: youSpoke || sent, pingUp: pingShown.current, guest, firstAgent: firstAgentId === agent.id });
   const yes = (id: ReadyItem) => {
     const to = ASK_OPENS[id];
     setReadyItem(workspaceId, id, true);

@@ -177,3 +177,14 @@ export function vmAvailabilityNote(devices: DeviceInfo[]): string | undefined {
   if (refused) return refused.capabilities!.vm.detail ? `${refused.name}: ${refused.capabilities!.vm.detail}` : "None of your devices can run VMs yet: install Docker on one.";
   return `Checking what ${joinNames(online.map((d) => d.name))} can run…`;
 }
+
+/**
+ * How many machines are on, for the sidebar's Computers row: every connected device (paused ones
+ * aside), plus agent computers (VMs, cloud) that are running. A device's own screen is that device,
+ * so it isn't counted twice. Before the device list has loaded, devices with a screen stand in.
+ */
+export function machinesOn(devices: Pick<DeviceInfo, "online" | "paused">[] | null, computers: Pick<ComputerInfo, "kind" | "online" | "status" | "paused">[]): number {
+  const own = devices ? devices.filter((d) => d.online && !d.paused).length : computers.filter((c) => c.kind === "device" && c.online && !c.paused).length;
+  const vms = computers.filter((c) => c.kind !== "device" && c.online && !c.paused && (c.status === "ready" || c.status === "starting")).length;
+  return own + vms;
+}

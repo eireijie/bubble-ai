@@ -22,12 +22,12 @@ export const noteName = (p: string) => baseName(p).replace(/\.md$/i, "");
 export const isNotePath = (p: string) => /\.md$/i.test(p);
 
 /** A capsule button like the mockups: a glass-ish control, or the filled primary. */
-export const pill = "inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-full border border-control-line bg-control text-sm font-medium text-ink whitespace-nowrap transition-colors hover:bg-hover disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
-export const pillPrimary = "inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-full bg-accent text-accent-ink text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent/90 disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
-export const pillDanger = "inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-full bg-bad text-white text-sm font-medium whitespace-nowrap transition-colors hover:opacity-90 disabled:opacity-50 outline-none";
+export const pill = "inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-[8px] border border-control-line bg-control text-sm font-medium text-ink whitespace-nowrap transition-colors hover:bg-hover disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
+export const pillPrimary = "inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-[8px] bg-accent text-accent-ink text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent/90 disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
+export const pillDanger = "inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-[8px] bg-bad text-white text-sm font-medium whitespace-nowrap transition-colors hover:opacity-90 disabled:opacity-50 outline-none";
 export const field = "h-11 w-full rounded-2xl border border-control-line bg-control px-4 text-body text-ink outline-none placeholder:text-faint focus:border-ring focus:ring-3 focus:ring-ring/30";
 /** A round icon button with a soft fill: 32px on desktops, 44px on phones. */
-export const iconBtn = "grid size-8 max-md:size-11 shrink-0 place-items-center rounded-full bg-chip text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
+export const iconBtn = "grid size-8 max-md:size-11 shrink-0 place-items-center rounded-[8px] bg-chip text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 /** The one column every Memory page keeps to, and its title. */
 export const pageCol = "mx-auto w-full max-w-[632px] px-4";
 export const pageTitle = "text-[24px] leading-[30px] font-[650] tracking-[-0.01em]";
@@ -37,10 +37,10 @@ export const menuRow = "w-full h-9 max-md:h-11 px-2.5 rounded-lg flex items-cent
 /** A filter that is on: who or what it narrows to, and an x to drop it. */
 export function FilterChip({ avatar, text, clear, onClear }: { avatar: ReactNode; text: string; clear: string; onClear: () => void }) {
   return (
-    <span className="inline-flex h-[30px] max-w-full items-center gap-1.5 rounded-full bg-chip pl-2 pr-1">
+    <span className="inline-flex h-[30px] max-w-full items-center gap-1.5 rounded-[8px] bg-chip pl-2 pr-1">
       {avatar}
       <span className="truncate text-[13px] font-semibold">{text}</span>
-      <button onClick={onClear} aria-label={clear} title={clear} className="grid size-[22px] max-md:size-7 shrink-0 place-items-center rounded-full text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+      <button onClick={onClear} aria-label={clear} title={clear} className="grid size-[22px] max-md:size-7 shrink-0 place-items-center rounded-[8px] text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
         <X size={12} />
       </button>
     </span>
@@ -86,7 +86,7 @@ export function PhoneBar({ title, onBack, trailing, close }: { title: string; on
         <span className="size-[52px]" />
       )}
       <h1 className="flex-1 min-w-0 flex justify-center">
-        <span className="truncate max-w-full h-11 px-5 inline-flex items-center rounded-full border border-control-line bg-control text-body font-medium">{title}</span>
+        <span className="truncate max-w-full h-11 px-5 inline-flex items-center rounded-[8px] border border-control-line bg-control text-body font-medium">{title}</span>
       </h1>
       {trailing ?? <span className="size-[52px]" />}
     </header>

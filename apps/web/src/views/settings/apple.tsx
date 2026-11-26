@@ -205,7 +205,7 @@ export function ApplePage() {
                     ) : (
                       <span className="flex items-center gap-3">
                         <Online on={m.online} />
-                        <button type="button" onClick={() => void pickMac(m)} className="h-7 rounded-full border border-control-line bg-control px-3 text-[13px] font-medium hover:bg-hover" aria-label={`Use ${m.name}`}>
+                        <button type="button" onClick={() => void pickMac(m)} className="h-7 rounded-[8px] border border-control-line bg-control px-3 text-[13px] font-medium hover:bg-hover" aria-label={`Use ${m.name}`}>
                           Use
                         </button>
                       </span>
@@ -231,7 +231,7 @@ export function ApplePage() {
                       ) : (
                         <span className="flex items-center gap-3">
                           <Online on={phoneOnline(p)} />
-                          <button type="button" onClick={() => void save({ iphoneId: p.id })} className="h-7 rounded-full border border-control-line bg-control px-3 text-[13px] font-medium hover:bg-hover" aria-label={`Use ${p.name}`}>
+                          <button type="button" onClick={() => void save({ iphoneId: p.id })} className="h-7 rounded-[8px] border border-control-line bg-control px-3 text-[13px] font-medium hover:bg-hover" aria-label={`Use ${p.name}`}>
                             Use
                           </button>
                         </span>
@@ -436,7 +436,7 @@ function SpeakUpDialog({ kind, settings: s, isOwner, save, onClose }: { kind: Sp
               <div key={f} className="flex items-center gap-3 px-3.5 py-2">
                 <span className="min-w-0 flex-1 truncate text-[14px]">{f}</span>
                 {isOwner && (
-                  <button type="button" aria-label={`Remove ${f}`} onClick={() => void save({ speakUp: { unansweredFrom: from.filter((x) => x !== f) } })} className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink">
+                  <button type="button" aria-label={`Remove ${f}`} onClick={() => void save({ speakUp: { unansweredFrom: from.filter((x) => x !== f) } })} className="grid size-7 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink">
                     <X size={14} />
                   </button>
                 )}
@@ -471,7 +471,7 @@ function SpeakUpDialog({ kind, settings: s, isOwner, save, onClose }: { kind: Sp
                   <span className="block truncate text-[13px] text-muted">{placeWhen(p)}</span>
                 </span>
                 {isOwner && (
-                  <button type="button" aria-label={`Remove ${p.name}`} onClick={() => void save({ places: s.places.filter((x) => x.id !== p.id) })} className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink">
+                  <button type="button" aria-label={`Remove ${p.name}`} onClick={() => void save({ places: s.places.filter((x) => x.id !== p.id) })} className="grid size-7 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink">
                     <X size={14} />
                   </button>
                 )}
@@ -582,7 +582,7 @@ function SmallButton({ primary, className, ...p }: ButtonHTMLAttributes<HTMLButt
     <button
       type="button"
       {...p}
-      className={cx("h-[34px] whitespace-nowrap rounded-full px-4 text-[13px] font-medium disabled:opacity-50", primary ? "bg-accent px-[18px] text-accent-ink hover:bg-accent/90" : "border border-control-line bg-control hover:bg-hover", className)}
+      className={cx("h-[34px] whitespace-nowrap rounded-[8px] px-4 text-[13px] font-medium disabled:opacity-50", primary ? "bg-accent px-[18px] text-accent-ink hover:bg-accent/90" : "border border-control-line bg-control hover:bg-hover", className)}
     />
   );
 }

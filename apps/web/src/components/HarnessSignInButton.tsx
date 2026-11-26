@@ -45,7 +45,7 @@ export function HarnessSignInButton({ signIn, agentId, className, children, onOp
   };
   return (
     <>
-      <button type="button" disabled={busy} onClick={() => void start()} className={cx("h-8 px-3 rounded-full border border-control-line bg-control text-[13px] text-ink hover:bg-hover disabled:opacity-50 inline-flex shrink-0 items-center gap-1.5", className)}>
+      <button type="button" disabled={busy} onClick={() => void start()} className={cx("h-8 px-3 rounded-[8px] border border-control-line bg-control text-[13px] text-ink hover:bg-hover disabled:opacity-50 inline-flex shrink-0 items-center gap-1.5", className)}>
         {busy ? <Loader2 size={13} className="animate-spin" /> : <LogIn size={13} />} {children ?? "Sign in"}
       </button>
       {error && <span className="text-xs text-bad">{error}</span>}

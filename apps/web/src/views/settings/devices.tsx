@@ -203,7 +203,7 @@ export function McpConnections({ info, allowed }: { info: AccessInfo | null; all
     }
   };
   return (
-    <section className="rounded-[14px] bg-card pb-3">
+    <section className="rounded-[12px] bg-card pb-3">
       <Row label="Grok, ChatGPT and Claude">
         <Toggle label="Grok, ChatGPT and Claude" on={!!origin || confirming} disabled={!owner || busy} onChange={(value) => (value ? setConfirming(true) : confirming ? setConfirming(false) : void toggle(false))} />
       </Row>

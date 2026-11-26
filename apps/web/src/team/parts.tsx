@@ -43,7 +43,7 @@ export function KindIcon({ kind, size = 16 }: { kind: TeamStepKind | "beside" | 
 
 export function MessageChip({ className }: { className?: string }) {
   return (
-    <span className={cx("inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-card px-3.5 text-[13px] text-muted", className)}>
+    <span className={cx("inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-line bg-card px-3.5 text-[13px] text-muted", className)}>
       <MessageSquare size={14} aria-hidden /> A message comes in
     </span>
   );

@@ -67,7 +67,7 @@ function ScreenTile({ computer, sharing }: { computer: ComputerInfo; sharing: st
   const off = computer.kind === "vm" && computer.status === "stopped";
   return (
     <div className="max-w-[360px] space-y-1.5">
-      <a href={href({ view: "computers", computerId: computer.id })} aria-label={off ? `Turn on and watch ${computer.name}` : `Watch ${computer.name}`} className="block overflow-hidden rounded-[14px]">
+      <a href={href({ view: "computers", computerId: computer.id })} aria-label={off ? `Turn on and watch ${computer.name}` : `Watch ${computer.name}`} className="block overflow-hidden rounded-[12px]">
         {off ? (
           <div className="grid aspect-[16/10] place-items-center bg-neutral-800 text-white/85">
             <span className="flex flex-col items-center gap-1.5">

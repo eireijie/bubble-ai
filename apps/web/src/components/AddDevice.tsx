@@ -193,7 +193,7 @@ export function AddDeviceDialog({ onClose, start = "list" }: { onClose: () => vo
   if (step === "list")
     return (
       <Modal title="Add" onClose={onClose}>
-        <div className="overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+        <div className="overflow-hidden rounded-[12px] bg-card divide-y divide-line">
           {ADD_ROWS.map((r) => (
             <button key={r.step} type="button" onClick={() => setStep(r.step)} className="flex h-[51px] w-full items-center gap-3 px-3.5 text-left text-[14px] font-medium hover:bg-hover">
               <span className="shrink-0 text-muted">{r.icon}</span>

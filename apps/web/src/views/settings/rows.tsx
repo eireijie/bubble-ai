@@ -24,7 +24,7 @@ export const FiveContext = createContext<FiveState>({ page: "you", guest: false,
  * guest, a mod that's off) takes no room, title and all.
  */
 export function Group({ children, className, title }: { children?: ReactNode; className?: string; title?: string }) {
-  const card = <div className={cx("rounded-[14px] bg-card divide-y divide-line overflow-hidden empty:hidden", className)}>{children}</div>;
+  const card = <div className={cx("rounded-[12px] bg-card divide-y divide-line overflow-hidden empty:hidden", className)}>{children}</div>;
   if (!title) return card;
   return (
     <section aria-label={title} className="has-[>div:empty]:hidden">
@@ -75,8 +75,8 @@ export function SRow({ id, value, children, to, external, danger, icon }: { id: 
 export function Seg<T extends string>({ value, options, onChange, label, disabled }: { value: T; options: [T, ReactNode][]; onChange: (v: T) => void; label: string; disabled?: boolean }) {
   const thumb = useSlidingThumb<HTMLDivElement>(value, options.length);
   return (
-    <div ref={thumb.ref} className="relative inline-flex shrink-0 gap-0.5 rounded-full border border-line p-0.5" role="radiogroup" aria-label={label}>
-      {thumb.ready && <span aria-hidden className="seg-thumb absolute top-0.5 bottom-0.5 left-0 rounded-full bg-side-active" style={thumb.style} />}
+    <div ref={thumb.ref} className="relative inline-flex shrink-0 gap-0.5 rounded-[8px] bg-side-active p-0.5" role="radiogroup" aria-label={label}>
+      {thumb.ready && <span aria-hidden className="seg-thumb absolute top-0.5 bottom-0.5 left-0 rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(0,0,0,.1),0_0_0_0.5px_var(--line2)] dark:bg-[#2c2c2c]" style={thumb.style} />}
       {options.map(([v, text]) => (
         <button
           key={v}
@@ -85,7 +85,7 @@ export function Seg<T extends string>({ value, options, onChange, label, disable
           aria-checked={value === v}
           disabled={disabled}
           onClick={() => onChange(v)}
-          className={cx("relative h-[26px] px-3 rounded-full text-[13px] leading-[18px] whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-semibold" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-side-active")}
+          className={cx("relative h-[26px] px-3 rounded-[6px] text-[13px] leading-[18px] whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-medium" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-panel")}
         >
           {text}
         </button>

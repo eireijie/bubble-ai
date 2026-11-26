@@ -170,7 +170,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
             </button>
           )}
           <h1 className="text-[22px] md:text-[24px] leading-[30px] font-[650] tracking-[-0.01em]">Needs you</h1>
-          {count > 0 && <span key={count} className="m-fade-in grid h-6 min-w-6 place-items-center rounded-full bg-st-needs/15 px-2 text-[13px] font-semibold tabular-nums text-st-needs">{count}</span>}
+          {count > 0 && <span key={count} className="m-fade-in grid h-6 min-w-6 place-items-center rounded-[6px] bg-st-needs/15 px-2 text-[13px] font-semibold tabular-nums text-st-needs">{count}</span>}
         </div>
       </header>
 

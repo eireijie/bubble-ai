@@ -329,7 +329,7 @@ function TrackRow({ f, agentName, onCancel, onChanged }: { f: Followup; agentNam
         align="right"
         items={items}
         trigger={(open, toggle) => (
-          <button onClick={toggle} aria-expanded={open} className="h-7 px-3 rounded-full border border-control-line bg-control text-[12px] font-medium hover:bg-hover">
+          <button onClick={toggle} aria-expanded={open} className="h-7 px-3 rounded-[8px] border border-control-line bg-control text-[12px] font-medium hover:bg-hover">
             Change
           </button>
         )}

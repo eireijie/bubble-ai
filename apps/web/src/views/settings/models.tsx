@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { ProviderLogo } from "../../components/HarnessLogo.tsx";
 import { MODEL_PROVIDER_INFO, harnessLabel, providerLabel, type ModelConnection, type ModelProvider } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
@@ -38,12 +39,6 @@ export function ModelsPage() {
   const missing = PROVIDERS.filter((p) => !mine.some((c) => c.provider === p.id));
   return (
     <div className="max-w-3xl">
-      <div className="flex items-start justify-between gap-4">
-        <span />
-        <button type="button" onClick={() => setConnecting("any")} className={cx(btn, "mt-0.5")}>
-          <Plus size={14} /> Connect
-        </button>
-      </div>
       {connections === null ? (
         <p className="flex items-center gap-2 text-[13px] text-muted">
           <Loader2 size={14} className="animate-spin" /> Loading…
@@ -63,6 +58,7 @@ export function ModelsPage() {
               <div className="overflow-hidden rounded-xl border border-line bg-card divide-y divide-line">
                 {missing.map((p) => (
                   <div key={p.id} className="flex min-h-12 items-center gap-3 px-4 py-2">
+                    <ProviderLogo provider={p.id} size={20} />
                     <span className="text-[14px] font-medium">{p.label}</span>
                     <span className="min-w-0 truncate text-[13px] text-faint">{p.signIn?.length ? "Sign in or API key" : "API key"}</span>
                     <button type="button" onClick={() => setConnecting(p.id)} className={cx(btn, "ml-auto")}>
@@ -98,9 +94,12 @@ function ConnectionRow({ c, all, onManage }: { c: ModelConnection; all: ModelCon
   const plan = c.usage ? planLeft(c.usage) : null;
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_7rem_auto]">
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <ProviderLogo provider={c.provider} size={20} />
+        <div className="min-w-0">
         <div className="truncate text-[14px] font-medium">{connectionName(c, all)}</div>
         <div className={cx("truncate text-[12px]", c.lastError ? "text-warn" : "text-faint")}>{c.lastError ?? connectionSub(c)}</div>
+        </div>
       </div>
       <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
         {c.usage && plan ? (

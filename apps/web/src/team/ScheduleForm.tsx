@@ -133,7 +133,7 @@ export function ScheduleForm({ team, stepId, onChange, onDelete, channelId }: { 
         <button type="button" onClick={onDelete} className="min-h-8 text-[13px] text-bad hover:underline">
           Delete
         </button>
-        <button type="button" disabled={!saved || running} title={saved ? undefined : "Save the team first"} onClick={runNow} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line2 px-3.5 text-sm font-medium hover:bg-hover disabled:opacity-50">
+        <button type="button" disabled={!saved || running} title={saved ? undefined : "Save the team first"} onClick={runNow} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-line2 px-3.5 text-sm font-medium hover:bg-hover disabled:opacity-50">
           <Play size={14} aria-hidden /> Run now
         </button>
       </div>

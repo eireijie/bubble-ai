@@ -73,7 +73,7 @@ const SHEETS: Record<string, () => ReactNode> = {
       <MergedPageContext.Provider value>
         <RuntimesPage />
       </MergedPageContext.Provider>
-      <a href={href({ view: "settings", ...rowTarget(rowById("accounts")) })} className="mt-7 flex items-center gap-3 px-4 min-h-[52px] rounded-[14px] bg-card text-body hover:bg-hover">
+      <a href={href({ view: "settings", ...rowTarget(rowById("accounts")) })} className="mt-7 flex items-center gap-3 px-5 min-h-[52px] rounded-[12px] bg-card text-body hover:bg-hover">
         <span className="flex-1">{rowById("accounts").label}</span>
         <ChevronRight size={15} className="text-faint" aria-hidden />
       </a>
@@ -225,7 +225,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   };
 
   const results = (
-    <div className="rounded-[14px] bg-card divide-y divide-line overflow-hidden" role="list" aria-label="Settings that match">
+    <div className="rounded-[12px] bg-card divide-y divide-line overflow-hidden" role="list" aria-label="Settings that match">
       {found.map((r) => (
         <a key={r.id} role="listitem" href={rowHref(r)} onClick={pick} className="flex items-center gap-3 px-4 min-h-[52px] text-body hover:bg-hover">
           <span className="flex-1 min-w-0 truncate">{r.label}</span>
@@ -263,7 +263,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   if (fullWindow)
     return (
       <div className="flex-1 min-w-0 min-h-0 flex">
-        <aside className="flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-3 pt-[max(1.25rem,env(safe-area-inset-top))] pb-6">
+        <aside className="flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-6">
           <h2 className="mb-3 px-2 text-[15px] font-semibold">Settings</h2>
           <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="mb-3 bg-panel" />
           <PopNav label="Settings" current={query ? null : current} onPick={() => setQuery("")} items={pages.map((p) => ({ key: p, label: FIVE_LABEL[p], icon: FIVE_ICON[p], href: pageTop(p) }))} />
@@ -273,7 +273,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
             SHEETS.apps()
           ) : (
             <div key={query ? "search" : `${current}:${sheet?.id ?? ""}`} className="settings-pop-section flex-1 min-h-0 overflow-y-auto">
-              <div className={cx("max-w-[640px] pl-8 pr-12 pt-6", bottom)}>
+              <div className={cx("max-w-[720px] pl-10 pr-16 pt-8", bottom)}>
                 {query ? (
                   <>
                     <h1 className="t-title mb-4">Search</h1>
@@ -323,7 +323,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
           ) : query ? (
             results
           ) : (
-            <nav data-tour="settings-home" aria-label="Settings" className="rounded-[14px] bg-card divide-y divide-line overflow-hidden">
+            <nav data-tour="settings-home" aria-label="Settings" className="rounded-[12px] bg-card divide-y divide-line overflow-hidden">
               {pages.map((p) => (
                 <a key={p} href={pageTop(p)} className="flex items-center gap-3 px-4 min-h-[52px] text-body hover:bg-hover">
                   <span className="flex-1">{FIVE_LABEL[p]}</span>

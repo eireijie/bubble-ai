@@ -217,7 +217,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
       </header>
       <div className="flex-1 min-h-0 flex">
         {/* desktops (the pop-up): the live ghost, its name and what it does, how it is, Message, then its sections */}
-        <aside className="hidden md:flex w-[280px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-3 pt-5 pb-5">
+        <aside className="hidden md:flex w-[280px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-4 pt-8 pb-6">
           <div className="mb-4 flex flex-col items-start gap-2.5 px-2">
             {ghost(76)}
             <div className="w-full min-w-0">
@@ -235,8 +235,8 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
           <PopNav label={`${agent.name}'s settings`} current={group} items={AGENT_GROUPS.map((g) => ({ key: g, label: GROUP_TITLES[g], icon: GROUP_ICON[g], onSelect: () => pick(g), dot: unsaved(g) ? "unsaved" : g === "works" && !readiness.ready ? "needs" : null }))} />
         </aside>
         {/* md:px-8 is the room a part's save bar (-mx-8) reaches into */}
-        <div ref={content} className="flex-1 min-w-0 overflow-y-auto px-4 md:px-8 pt-1 md:pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-[640px] max-md:mx-auto">
+        <div ref={content} className="flex-1 min-w-0 overflow-y-auto px-5 md:pl-10 md:pr-16 pt-1 md:pt-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="max-w-[720px] max-md:mx-auto">
             {!part && (
               <div className="space-y-6">
                 {/* the profile, on phones */}
@@ -389,7 +389,7 @@ function SoulPanel({ agent, onDirty, active }: { agent: FullAgent; onDirty: (d: 
           onChange={(e) => setDraft(e.target.value)}
           spellCheck
           aria-label="SOUL.md"
-          className="min-h-[420px] w-full resize-y rounded-[14px] border border-line bg-bg px-4 py-3 font-mono text-[13.5px] leading-relaxed outline-none focus:border-ink/40"
+          className="min-h-[420px] w-full resize-y rounded-[12px] border border-line bg-bg px-4 py-3 font-mono text-[13.5px] leading-relaxed outline-none focus:border-ink/40"
         />
       )}
       {last && (
@@ -484,7 +484,7 @@ function InstructionsPanel({ agent, onDirty, active }: { agent: FullAgent; onDir
       </div>
       <div className="mb-2 flex flex-wrap gap-1.5">
         {snippets.map((s) => (
-          <button key={s.label} onClick={() => setDraft((d) => (d.trim() ? d.replace(/\s*$/, "\n\n") : "") + s.text + "\n")} className="text-xs rounded-full border border-line px-2.5 py-1 hover:bg-hover">
+          <button key={s.label} onClick={() => setDraft((d) => (d.trim() ? d.replace(/\s*$/, "\n\n") : "") + s.text + "\n")} className="text-xs rounded-[8px] border border-line px-2.5 py-1 hover:bg-hover">
             + {s.label}
           </button>
         ))}

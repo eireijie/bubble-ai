@@ -80,7 +80,7 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
             {shown.map((a) => {
               const line = agentListLine(a, devices, Object.values(live).find((r) => r.agentId === a.id));
               return (
-                <li key={a.id} className="group relative flex h-[76px] items-center gap-3 rounded-[14px] px-2 transition-colors duration-150 hover:bg-side-active">
+                <li key={a.id} className="group relative flex h-[76px] items-center gap-3 rounded-[12px] px-2 transition-colors duration-150 hover:bg-side-active">
                   <button type="button" onClick={() => void openDm(a.id)} aria-label={`Message ${a.name}`} className="flex min-w-0 flex-1 items-center gap-3.5 text-left after:absolute after:inset-0 after:rounded-[12px]">
                     <AgentAvatar agent={a} size={58} live />
                     <span className="min-w-0 flex-1">

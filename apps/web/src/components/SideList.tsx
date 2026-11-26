@@ -210,7 +210,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
       data-tour="pins"
       aria-label="Pinned"
       role="list"
-      className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-1 rounded-[14px] px-0.5 pb-3 pt-1", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
+      className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-1 rounded-[12px] px-0.5 pb-3 pt-1", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
       {...dropProps("pins", (key) => {
         const c = byKey.get(key);
         if (!c) return;
@@ -239,7 +239,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               {...dropProps(`pin:${c.key}`, (key) => layout.pins.includes(key) && save(movePin(layout, key, i)))}
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
-              className={cx("flex h-[100px] flex-col items-center justify-center gap-[6px] rounded-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "bg-side-active" : "hover:bg-side-hover")}
+              className={cx("flex h-[100px] flex-col items-center justify-center gap-[6px] rounded-[12px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "bg-side-active" : "hover:bg-side-hover")}
             >
               <span className="relative grid place-items-center" style={{ width: pinSize, height: pinSize }}>
                 <ChatAvatar chat={c} size={pinSize} />
@@ -282,7 +282,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           aria-current={isActive ? "page" : undefined}
           data-tour="chat-row"
           data-needs={line?.needs ? "" : undefined}
-          className={cx("group/row flex w-full items-center gap-3 rounded-[14px] pl-2.5 pr-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on bg-[#7a5bdc] text-white" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
+          className={cx("group/row flex w-full items-center gap-3 rounded-[10px] px-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on bg-[#7a5bdc] text-white" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
           style={{ height: rowH }}
         >
           <span className="relative grid shrink-0 place-items-center" style={{ width: avatar, height: avatar }}>
@@ -316,7 +316,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
     const dragName = dragging ? byKey.get(dragging)?.name : null;
     const isEditing = editing === s.id && !s.none;
     return (
-      <section key={s.id} aria-label={s.name} className={cx("flex flex-col rounded-[14px]", isHot && s.keys.length > 0 && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")} {...dropProps(`sec:${s.id}`, (key) => byKey.get(key) && doMove(byKey.get(key)!, s.id))}>
+      <section key={s.id} aria-label={s.name} className={cx("flex flex-col rounded-[12px]", isHot && s.keys.length > 0 && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")} {...dropProps(`sec:${s.id}`, (key) => byKey.get(key) && doMove(byKey.get(key)!, s.id))}>
         {s.none && layout.sections.length === 0 ? null : isEditing ? (
           <div className="flex h-[34px] items-center gap-1.5 pl-2.5 pr-2">
             <ChevronDown size={14} strokeWidth={2.2} className="shrink-0 text-muted" aria-hidden />
@@ -331,8 +331,9 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           </div>
         ) : (
           <SectionHeader
-            name={s.name}
-            count={s.keys.length}
+            // the chats outside your sections, under your sections: "Other", with no count beside it
+            name={s.none ? "Other" : s.name}
+            count={s.none ? 0 : s.keys.length}
             folded={s.folded}
             phone={phone}
             canEdit={!guest && !s.none}
@@ -343,7 +344,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
         )}
         {!s.folded && s.keys.map((k) => byKey.get(k)).filter((c): c is Chat => !!c).map(row)}
         {!s.folded && !s.none && s.keys.length === 0 && (
-          <div className={cx("mx-1 mb-1.5 mt-0.5 grid h-[52px] place-items-center rounded-[14px] border-[1.5px] border-dashed text-[13px]", isHot ? "border-wisp bg-[var(--wisp-soft,rgba(122,91,220,.10))] font-semibold text-wisp-strong" : "border-line2 text-muted")}>
+          <div className={cx("mx-1 mb-1.5 mt-0.5 grid h-[52px] place-items-center rounded-[12px] border-[1.5px] border-dashed text-[13px]", isHot ? "border-wisp bg-[var(--wisp-soft,rgba(122,91,220,.10))] font-semibold text-wisp-strong" : "border-line2 text-muted")}>
             {isHot && dragName ? `Drop to move ${dragName} here` : phone ? "Hold an agent, then drag it here" : "Drag agents or teams here"}
           </div>
         )}
@@ -367,9 +368,9 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
         </div>
       )}
       {pinGrid}
-      <div role="tablist" aria-label="Show" className={cx("mb-1.5 grid shrink-0 grid-cols-2 rounded-[12px] bg-side-active p-[3px]", phone ? "mx-3 h-[38px]" : "mx-1 h-9")}>
+      <div role="tablist" aria-label="Show" className={cx("mb-3 grid shrink-0 grid-cols-2 rounded-[8px] bg-side-active p-[2px]", phone ? "mx-3 h-[36px]" : "mx-1 h-8")}>
         {(["all", "turn"] as const).map((f) => (
-          <button key={f} type="button" role="tab" data-tour={f === "turn" ? "yourturn" : undefined} aria-selected={filter === f} onClick={() => setFilter(f)} className={cx("rounded-[9px] text-center outline-none transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", phone ? "text-[15px]" : "text-[14px]", filter === f ? "bg-panel font-semibold text-ink shadow-[0_1px_3px_rgba(0,0,0,.12)]" : "text-muted hover:text-ink")}>
+          <button key={f} type="button" role="tab" data-tour={f === "turn" ? "yourturn" : undefined} aria-selected={filter === f} onClick={() => setFilter(f)} className={cx("rounded-[6px] text-center outline-none transition-[background-color,color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-ring/40", phone ? "text-[15px]" : "text-[13.5px]", filter === f ? "bg-panel font-medium text-ink shadow-[0_1px_2px_rgba(0,0,0,.1),0_0_0_0.5px_var(--line2)] dark:bg-[#2c2c2c]" : "text-muted hover:text-ink")}>
             {f === "all" ? "All" : "Your turn"}
             {f === "turn" && waiting.length > 0 && <span className="ml-1 font-bold text-[#b25e00] dark:text-[#ff9f0a]">{waiting.length}</span>}
           </button>
@@ -669,11 +670,11 @@ function Pop({ at, onClose, label, left, phone, children }: { at: { x: number; y
   }, [onClose]);
   return createPortal(
     <div className={cx("fixed inset-0 z-[90]", phone && "m-scrim bg-black/45 backdrop-blur-[6px]")} onMouseDown={(e) => e.target === e.currentTarget && onClose()} onContextMenu={(e) => (e.preventDefault(), onClose())} onTouchStart={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} role="menu" aria-label={label} style={{ position: "fixed", ...pos }} className="m-menu flex w-[228px] flex-col rounded-[14px] bg-panel p-1.5 shadow-[0_12px_36px_rgba(0,0,0,.16),0_0_0_1px_rgba(0,0,0,.06)] dark:bg-[#1f1f1f] dark:shadow-[0_12px_36px_rgba(0,0,0,.6),0_0_0_1px_rgba(255,255,255,.08)]">
+      <div ref={ref} role="menu" aria-label={label} style={{ position: "fixed", ...pos }} className="m-menu flex w-[228px] flex-col rounded-[12px] bg-panel p-1.5 shadow-[0_12px_36px_rgba(0,0,0,.16),0_0_0_1px_rgba(0,0,0,.06)] dark:bg-[#1f1f1f] dark:shadow-[0_12px_36px_rgba(0,0,0,.6),0_0_0_1px_rgba(255,255,255,.08)]">
         {phone && (
           <div className="flex items-center gap-2 px-2.5 pb-1 pt-1.5">
             <span className="flex-1 truncate text-[14px] font-semibold">{label}</span>
-            <button type="button" onClick={onClose} aria-label="Close" className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover">
+            <button type="button" onClick={onClose} aria-label="Close" className="grid size-7 place-items-center rounded-[8px] text-muted hover:bg-hover">
               <X size={15} />
             </button>
           </div>

@@ -386,7 +386,7 @@ export function FilesPanel({ computer: c, onClose, refresh, onSent }: { computer
       <PanelHead title={`Files on ${c.name}`} onClose={onClose} />
       <div className="flex flex-wrap gap-1">
         {shortcuts.map((s) => (
-          <button key={s.path} onClick={() => load(s.path)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-line text-xs hover:bg-hover">
+          <button key={s.path} onClick={() => load(s.path)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-[8px] border border-line text-xs hover:bg-hover">
             {s.icon} {s.label}
           </button>
         ))}

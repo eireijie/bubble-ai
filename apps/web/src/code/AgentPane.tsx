@@ -273,7 +273,7 @@ export function TalkBar({ task, agent, focus }: { task: CodeTask; agent: Agent; 
           aria-label={stopping ? `Stop ${agent.name}` : "Send"}
           title={stopping ? "Stop (Esc twice)" : "Send"}
           style={{ background: color, color: inkOn(color) }}
-          className="m-press grid size-10 shrink-0 place-items-center rounded-full disabled:!bg-chip disabled:!text-faint md:size-[34px]"
+          className="m-press grid size-10 shrink-0 place-items-center rounded-[8px] disabled:!bg-chip disabled:!text-faint md:size-[34px]"
         >
           {stopping ? <Square size={13} strokeWidth={2.4} fill="currentColor" /> : <ArrowUp size={18} strokeWidth={2.2} />}
         </button>

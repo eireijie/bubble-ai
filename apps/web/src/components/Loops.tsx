@@ -114,7 +114,7 @@ export function PickTime({ title, dueAt, onClose, onPick }: { title: string; due
       </label>
       <input id="pick-time" type="datetime-local" value={value} min={local(new Date().toISOString())} onChange={(e) => setValue(e.target.value)} className="w-full h-10 rounded-lg border border-control-line bg-control px-3 text-[14px]" />
       <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onClose} className="h-9 px-4 rounded-full border border-control-line bg-control text-[13px] font-medium hover:bg-hover">
+        <button onClick={onClose} className="h-9 px-4 rounded-[8px] border border-control-line bg-control text-[13px] font-medium hover:bg-hover">
           Cancel
         </button>
         <button
@@ -123,7 +123,7 @@ export function PickTime({ title, dueAt, onClose, onPick }: { title: string; due
             onPick(at);
             onClose();
           }}
-          className="h-9 px-4 rounded-full bg-accent text-accent-ink text-[13px] font-medium disabled:opacity-40"
+          className="h-9 px-4 rounded-[8px] bg-accent text-accent-ink text-[13px] font-medium disabled:opacity-40"
         >
           Set
         </button>
@@ -138,7 +138,7 @@ function FollowupPill({ p, animate }: { p: Pill; animate: boolean }) {
   const [picking, setPicking] = useState(false);
   const items = useReminderItems(p.followupId, () => setPicking(true));
   const icon = p.status === "done" ? <Check size={13} className="text-ok shrink-0" /> : p.status === "cancelled" ? <Minus size={13} className="shrink-0" /> : <Clock size={13} className="text-accent-chats shrink-0" />;
-  const base = "inline-flex max-w-full items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-control-line bg-card text-[13px]";
+  const base = "inline-flex max-w-full items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-[8px] border border-control-line bg-card text-[13px]";
   if (p.status !== "pending")
     return (
       <span className={cx(base, "text-faint", animate && "m-pill-in")}>
@@ -199,7 +199,7 @@ function QuickReplies({ channelId, replies }: { channelId: string; replies: stri
             setSent(true);
             void api("POST", `/api/channels/${channelId}/messages`, { body: r }).catch(() => setSent(false));
           }}
-          className="m-chip-in h-8 px-3.5 rounded-full border border-control-line bg-card text-[13px] font-medium hover:bg-hover"
+          className="m-chip-in h-8 px-3.5 rounded-[8px] border border-control-line bg-card text-[13px] font-medium hover:bg-hover"
         >
           {r}
         </button>

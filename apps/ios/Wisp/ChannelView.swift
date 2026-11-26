@@ -185,7 +185,8 @@ struct ChannelView: View {
   private var composer: some View {
     Composer(placeholder: placeholder, channelId: channel.id, refresh: list.count, draft: draft, attachTrigger: attachTrigger, send: { text, files, replyTo in
             try await store.send(text, in: channel.id, files: files, replyTo: replyTo)
-          }, onModelCommand: store.dmAgent(current).map { _ in { showRun = true } }, callLive: call != nil)
+          }, onModelCommand: store.dmAgent(current).map { _ in { showRun = true } }, callLive: call != nil,
+          onCall: store.dmAgent(current) != nil && canCall && call == nil ? { startCall() } : nil, callName: store.dmAgent(current)?.name)
     .tourTarget("composer")
     // Show me around starts from the chat that's open
     .onAppear { TourRun.shared.openChannel = channel.id }
@@ -246,10 +247,6 @@ struct ChannelView: View {
       .tourTarget(store.dmAgent(current) != nil ? "agent-pill" : "team-pill")
     } trailing: {
       HStack(spacing: 6) {
-      if let agent = store.dmAgent(current), canCall, call == nil {
-        CircleButton(symbol: "phone", label: "Call \(agent.name)", id: "chat-call", tint: Palette.call) { startCall() }
-          .tourTarget("call")
-      }
       if store.dmAgent(current) != nil, let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { showRun = true } }
       Menu {
         if let agent = store.dmAgent(current) {
@@ -675,6 +672,9 @@ struct Composer: View {
   var onModelCommand: (() -> Void)? = nil
   /** a call is on: dictating would take the microphone and speaker away from it */
   var callLive = false
+  /** a 1:1 chat: with the field empty, the round button calls the agent instead of sending */
+  var onCall: (() -> Void)? = nil
+  var callName: String? = nil
   @State private var dictation = Dictation()
   @State private var dictationBase = ""
   @State private var text = ""
@@ -782,18 +782,22 @@ struct Composer: View {
               .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).strokeBorder(Palette.hairline))
           }
         }
-        Button { submit() } label: {
-          Image(systemName: sending ? "ellipsis" : "arrow.up")
+        let calls = empty && !sending && uploading.isEmpty && onCall != nil
+        Button { if calls { onCall?() } else { submit() } } label: {
+          Image(systemName: calls ? "waveform" : sending ? "ellipsis" : "arrow.up")
             .font(.system(size: 16, weight: .bold))
             .foregroundStyle(Palette.mineInk)
             .frame(width: 42, height: 42)
             .background(Circle().fill(Palette.mine))
+            .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.press)
-        .disabled(blocked)
-        .opacity(blocked ? 0.35 : 1)
+        .disabled(blocked && !calls)
+        .opacity(blocked && !calls ? 0.35 : 1)
         .animation(.snappy, value: blocked)
-        .accessibilityLabel("Send").accessibilityIdentifier("composer-send")
+        .animation(.snappy, value: calls)
+        .accessibilityLabel(calls ? "Call \(callName ?? "agent")" : "Send").accessibilityIdentifier(calls ? "composer-call" : "composer-send")
+        .tourTarget(calls ? "call" : "composer-send")
       }
     }
     .padding(.horizontal, 18)

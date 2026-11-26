@@ -35,7 +35,7 @@ export function CardButton({ tone = "soft", className, ...p }: ButtonHTMLAttribu
       type="button"
       {...p}
       className={cx(
-        "m-press h-9 md:h-8 px-[15px] rounded-full text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
+        "m-press h-9 md:h-8 px-[15px] rounded-[8px] text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
         tone === "primary" && "bg-ink text-panel hover:bg-ink/85",
         tone === "danger" && "bg-bad text-white hover:bg-bad/90",
         tone === "soft" && "bg-transparent text-ink hover:bg-hover border border-line2 font-medium",
@@ -50,7 +50,7 @@ export function CardButton({ tone = "soft", className, ...p }: ButtonHTMLAttribu
 export function StateChip({ tone = "neutral", children }: { tone?: "neutral" | "ok" | "warn" | "bad" | "info"; children: ReactNode }) {
   const color = { neutral: "var(--muted)", ok: "var(--ok)", warn: "var(--warn)", bad: "var(--bad)", info: "var(--info)" }[tone];
   return (
-    <span className="inline-flex items-center h-[26px] px-2.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0" style={{ color, background: `color-mix(in oklab, ${color} 15%, transparent)` }}>
+    <span className="inline-flex items-center h-[26px] px-2.5 rounded-[6px] text-xs font-medium whitespace-nowrap shrink-0" style={{ color, background: `color-mix(in oklab, ${color} 15%, transparent)` }}>
       {children}
     </span>
   );
@@ -98,6 +98,7 @@ export function dismissHelp(c: ComputerInfo) {
 export function NeedRow({ avatar, text, to, onOpen, meta, children }: { avatar: ReactNode; text: string; to?: string; onOpen?: () => void; meta: (string | null | undefined | false)[]; children?: ReactNode }) {
   const line = "text-[15px] md:text-[17px] leading-[22px] md:leading-6 font-semibold break-words";
   const link = cx(line, "text-left rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/40");
+  const facts = meta.filter((m): m is string => !!m && !text.includes(m));
   return (
     <li className="flex items-start gap-3.5 py-3.5">
       <span className="shrink-0 grid w-10 place-items-center">{avatar}</span>
@@ -114,7 +115,8 @@ export function NeedRow({ avatar, text, to, onOpen, meta, children }: { avatar: 
           ) : (
             <span className={line}>{text}</span>
           )}
-          <span className="max-w-full truncate text-[13px] md:text-[14px] leading-[18px] text-muted">{meta.filter(Boolean).join(" · ")}</span>
+          {/* who and when, minus anything the sentence already says ("Atlas needs…" doesn't repeat "Atlas") */}
+          {facts.length > 0 && <span className="max-w-full truncate text-[13px] md:text-[14px] leading-[18px] text-muted">{facts.join(" · ")}</span>}
         </div>
         {children}
       </div>

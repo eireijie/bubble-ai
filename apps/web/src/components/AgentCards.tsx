@@ -28,7 +28,7 @@ export function ComputerPart({ computerId, request, agentName }: { computerId: s
         {agentName ?? "It"} asked for help on {computer.name}
       </div>
       <p className="mt-1 text-sm text-muted">{request}</p>
-      <a href={href({ view: "computers", computerId: computer.id })} className="mt-2.5 h-11 w-full rounded-full bg-accent px-5 text-body font-medium text-accent-ink inline-flex items-center justify-center gap-2">
+      <a href={href({ view: "computers", computerId: computer.id })} className="mt-2.5 h-10 w-full rounded-[8px] bg-accent px-5 text-body font-medium text-accent-ink inline-flex items-center justify-center gap-2">
         <Monitor size={16} /> Open {computer.name}
       </a>
     </ChatCard>
@@ -61,7 +61,7 @@ function Settled({ approval, className }: { approval: Approval; className?: stri
   );
 }
 
-const PILL = "m-press h-8 md:h-10 rounded-full px-4 md:px-5 text-[13px] md:text-[15px] disabled:opacity-50";
+const PILL = "m-press h-8 md:h-10 rounded-[8px] px-4 md:px-5 text-[13px] md:text-[15px] disabled:opacity-50";
 /** Allow wears the open agent's colour (the Bubble AI violet in a team), like your bubbles and the send button. */
 const ALLOW = cx(PILL, "bg-[var(--bubble-me)] font-semibold text-[var(--bubble-me-ink)] transition-[filter,transform] duration-150 hover:brightness-[0.94]");
 const NOT_NOW = cx(PILL, "border border-line2 font-medium hover:bg-hover");
@@ -232,15 +232,15 @@ function StorageApprovalCard({ approval }: { approval: Approval }) {
           <p className="mt-2.5 text-xs text-muted">Waiting for an owner to answer.</p>
         ) : (
           <div className="mt-3 flex flex-wrap gap-2">
-            <button disabled={busy} onClick={() => decide(true)} className={cx("h-[34px] rounded-full px-4 text-sm font-semibold disabled:opacity-50", req.action === "delete" ? "bg-bad text-white" : "bg-ink text-panel")}>
+            <button disabled={busy} onClick={() => decide(true)} className={cx("h-[34px] rounded-[8px] px-4 text-sm font-semibold disabled:opacity-50", req.action === "delete" ? "bg-bad text-white" : "bg-ink text-panel")}>
               {req.action === "delete" ? "Delete" : req.action === "replace" ? "Replace" : "Allow"}
             </button>
             {req.action !== "delete" && (
-              <button disabled={busy} onClick={() => decide(true, true)} className="h-[34px] rounded-full border border-line2 bg-transparent px-4 text-sm font-medium hover:bg-hover disabled:opacity-50">
+              <button disabled={busy} onClick={() => decide(true, true)} className="h-[34px] rounded-[8px] border border-line2 bg-transparent px-4 text-sm font-medium hover:bg-hover disabled:opacity-50">
                 Always in this folder
               </button>
             )}
-            <button disabled={busy} onClick={() => decide(false)} className="h-[34px] rounded-full border border-line2 bg-transparent px-4 text-sm font-medium hover:bg-hover disabled:opacity-50">
+            <button disabled={busy} onClick={() => decide(false)} className="h-[34px] rounded-[8px] border border-line2 bg-transparent px-4 text-sm font-medium hover:bg-hover disabled:opacity-50">
               Not now
             </button>
           </div>
@@ -350,7 +350,7 @@ export function ChangeCard({ id, fallback }: { id: string; fallback: string }) {
             <RotateCcw size={13} /> Undone
           </span>
         ) : (
-          <button className="h-10 rounded-full border border-control-line bg-control px-4 text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50" onClick={undo} disabled={busy}>
+          <button className="h-10 rounded-[8px] border border-control-line bg-control px-4 text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50" onClick={undo} disabled={busy}>
             <RotateCcw size={14} /> Undo
           </button>
         )}

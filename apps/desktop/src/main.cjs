@@ -126,7 +126,7 @@ app.setAboutPanelOptions?.({ applicationName: "Bubble AI", copyright: "Apache-2.
  * window managers there draw very different ones.
  */
 const TITLE_BAR =
-  process.platform === "darwin" ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 18, y: 18 } }
+  process.platform === "darwin" ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 20, y: 32 } }
   : process.platform === "win32" ? { titleBarStyle: "hidden", titleBarOverlay: { color: "#ffffff", symbolColor: "#1b1a22", height: 40 } }
   : {};
 

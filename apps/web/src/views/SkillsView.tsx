@@ -170,7 +170,7 @@ export function skillLine(s: Pick<Skill, "source" | "catalogId" | "learnedBy" | 
 /** A skill's instructions, unfolded under its card. */
 function Instructions({ text, html, loading }: { text?: string; html: string; loading?: boolean }) {
   return (
-    <div className="space-y-3 rounded-[14px] bg-card px-4 py-3.5">
+    <div className="space-y-3 rounded-[12px] bg-card px-4 py-3.5">
       {text && <p className="text-sm font-medium">{text}</p>}
       {loading ? <Loader /> : html && <div className="prose-w text-sm text-ink/90" dangerouslySetInnerHTML={{ __html: html }} />}
     </div>
@@ -420,7 +420,7 @@ export function TryDialog({ skill, agents, onClose }: { skill: { name: string; d
           <label htmlFor={sid} className="text-sm">
             Which agent?
           </label>
-          <select id={sid} value={helper?.id} onChange={(e) => setPick(e.target.value)} className="h-9 rounded-full border border-control-line bg-control px-3 text-sm">
+          <select id={sid} value={helper?.id} onChange={(e) => setPick(e.target.value)} className="h-9 rounded-[8px] border border-control-line bg-control px-3 text-sm">
             {holders.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -454,9 +454,9 @@ function TagsInput({ tags, onChange }: { tags: string[]; onChange: (t: string[])
   return (
     <div className="flex flex-wrap items-center gap-2">
       {tags.map((t) => (
-        <span key={t} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-control-line bg-control pl-4 pr-2 text-sm">
+        <span key={t} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-control-line bg-control pl-4 pr-2 text-sm">
           {t}
-          <button type="button" aria-label={`Remove ${t}`} onClick={() => onChange(tags.filter((x) => x !== t))} className="grid size-6 place-items-center rounded-full text-muted hover:text-ink">
+          <button type="button" aria-label={`Remove ${t}`} onClick={() => onChange(tags.filter((x) => x !== t))} className="grid size-6 place-items-center rounded-[8px] text-muted hover:text-ink">
             <X size={13} />
           </button>
         </span>

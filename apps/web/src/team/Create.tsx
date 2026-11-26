@@ -82,14 +82,14 @@ export function NewTeamFlow({ onClose, sectionId = null, initialName = "", initi
           if (valid) setPage("builder");
         }}
       >
-        <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="release-crew" aria-label="Name" autoCapitalize="none" autoCorrect="off" maxLength={80} className="h-11 w-full rounded-[14px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />
+        <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="release-crew" aria-label="Name" autoCapitalize="none" autoCorrect="off" maxLength={80} className="h-11 w-full rounded-[12px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />
         {id && (exists || id !== name) && <p className={cx("px-1 text-xs", exists ? "text-bad" : "text-faint")}>{exists ? `${id} already exists` : id}</p>}
         {agents.length > 0 && (
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Agents on the team">
             {agents.map((a) => {
               const on = picked.includes(a.id);
               return (
-                <button key={a.id} type="button" role="checkbox" aria-checked={on} onClick={() => toggle(a.id)} className={cx("inline-flex h-9 items-center gap-1.5 rounded-full border pl-1.5 pr-3 text-[13px]", on ? "border-transparent bg-side-active font-medium" : "border-line hover:bg-hover")}>
+                <button key={a.id} type="button" role="checkbox" aria-checked={on} onClick={() => toggle(a.id)} className={cx("inline-flex h-9 items-center gap-1.5 rounded-[8px] border pl-1.5 pr-3 text-[13px]", on ? "border-transparent bg-side-active font-medium" : "border-line hover:bg-hover")}>
                   <AgentAvatar agent={a} size={24} interactive={false} />
                   {a.name}
                   {on && <Check size={13} strokeWidth={2.6} aria-hidden />}

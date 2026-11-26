@@ -31,10 +31,10 @@ export function AskAgent({ placeholder, className }: { placeholder: string; clas
           e.preventDefault();
           void send();
         }}
-        className="flex items-center gap-2 min-h-12 rounded-full border border-line bg-panel pl-2 pr-1.5 py-1.5 shadow-[var(--shadow)]"
+        className="flex items-center gap-2 min-h-12 rounded-[8px] border border-line bg-panel pl-2 pr-1.5 py-1.5 shadow-[var(--shadow)]"
       >
         {agents.length > 1 ? (
-          <label className="relative shrink-0 size-10 grid place-items-center rounded-full hover:bg-hover cursor-pointer" title={`Ask ${agent.name}`}>
+          <label className="relative shrink-0 size-10 grid place-items-center rounded-[8px] hover:bg-hover cursor-pointer" title={`Ask ${agent.name}`}>
             <AgentAvatar agent={agent} size={26} badge={false} />
             <select aria-label="Which agent" className="absolute inset-0 opacity-0 cursor-pointer" value={agent.id} onChange={(e) => setAgentId(e.target.value)}>
               {agents.map((a) => (

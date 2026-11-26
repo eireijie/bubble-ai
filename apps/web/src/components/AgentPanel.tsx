@@ -19,33 +19,37 @@ import { RunPanel } from "./RunPanel.tsx";
 import { stopRuns, workDetail } from "./ActivityPill.tsx";
 import { minutesSince, runStartedAt } from "./agentActivity.ts";
 import { lazyView } from "../lazy.tsx";
+import { setChannelPrefs } from "./Channels.tsx";
+import { Toggle } from "../views/settings/parts.tsx";
 
 // How calls sound sits in More, and lives with the call screen: a file of its own, fetched in the
 // background after the app is up (lazy.tsx), so a chat doesn't bring the voice engine with it.
 const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallOptions));
 
 /** What the panel shows: the agent itself ("details"), or the sheet one of its rows opens. */
-export type AgentPanelTab = "details" | "thinks" | "works" | "can" | "asks" | "knows" | "more";
+export type AgentPanelTab = "details" | "computer" | "thinks" | "can" | "asks" | "knows" | "more";
 
-const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
+const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { computer: "Computer", thinks: "Thinks with", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
 /** A sheet by name; anything else (an old remembered tab) is the agent itself. */
 export const panelSheet = (tab: string | null | undefined): AgentPanelTab => (tab && tab in SHEETS ? (tab as AgentPanelTab) : "details");
 
 const ACCESS_LABEL: Record<AccessLevel, string> = { "read-only": "Read only", edit: "Can edit files", full: "Full access" };
 
-const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+const CARD = "overflow-hidden rounded-[12px] bg-card divide-y divide-line";
 const ROW = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover disabled:hover:bg-transparent";
 
 /**
  * An agent in the pane beside a chat (its own, or a team it works in): 310 px, pushing the chat.
  * Its live ghost, name and one editable line of what it does; what it is doing right now, with
- * Stop, while it works; then one card of rows (Thinks with, Works on, Can use, Asks first, Knows,
+ * Stop, while it works; then one card of rows (Thinks with, Runs on, Can use, Asks first, Knows,
  * More), each showing its value and opening a sheet in place or the matching tab of its page.
  */
-export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { agent: Agent; channelId: string; tab?: AgentPanelTab; onClose: () => void; inDm?: boolean }) {
-  const [sheet, setSheet] = useState<AgentPanelTab>(() => panelSheet(tab));
+export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = false }: { agent: Agent; channelId: string; tab?: AgentPanelTab; onClose: () => void; onSheet?: (tab: AgentPanelTab) => void; inDm?: boolean }) {
+  const [sheet, setSheetState] = useState<AgentPanelTab>(() => panelSheet(tab));
+  // the chat remembers which sheet is open, so the next DM opens on it too (its computer, say)
+  const setSheet = (t: AgentPanelTab) => (setSheetState(t), onSheet?.(t));
   // the chat can ask for a sheet while the panel is open (the header's "nearly full" ring)
-  useEffect(() => setSheet(panelSheet(tab)), [tab]);
+  useEffect(() => setSheetState(panelSheet(tab)), [tab]);
   // who is working, not the words: streamed text must not re-render the panel (liveShape.ts)
   const live = useStore(liveShape);
   const agents = useStore((s) => s.agents);
@@ -69,9 +73,14 @@ export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { a
   const page = (t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
 
   return (
-    <aside aria-label={`${agent.name}'s details`} className="m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:w-[310px] lg:shrink-0 lg:border-l lg:border-line">
+    <aside
+      onClickCapture={(e) => {
+        // the agent's full page replaces the panel instead of opening on top of it
+        if ((e.target as HTMLElement).closest?.('a[href^="#/agents/"]')) onClose();
+      }}
+      aria-label={`${agent.name}'s details`} className={cx("m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:shrink-0 lg:border-l lg:border-line", sheet === "computer" ? "lg:w-[460px]" : "lg:w-[310px]")}>
       {/* its own 310 px, so nothing reflows while the pane opens */}
-      <div className="flex min-h-0 flex-1 flex-col lg:w-[310px]">
+      <div className={cx("flex min-h-0 flex-1 flex-col", sheet === "computer" ? "lg:w-[460px]" : "lg:w-[310px]")}>
         <div className="relative flex h-14 shrink-0 items-center justify-between px-3">
           {sheet === "details" ? (
             <span />
@@ -80,7 +89,7 @@ export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { a
               <ChevronLeft size={18} />
             </button>
           )}
-          {sheet !== "details" && <h2 className="pointer-events-none absolute inset-x-12 truncate text-center text-[14px] font-semibold">{SHEETS[sheet]}</h2>}
+          {sheet !== "details" && <h2 className="pointer-events-none absolute inset-x-12 truncate text-center text-[14px] font-semibold">{sheet === "computer" ? `${agent.name}'s computer` : SHEETS[sheet]}</h2>}
           <button type="button" onClick={onClose} className="circle circle-sm" aria-label="Close panel">
             <X size={16} />
           </button>
@@ -117,10 +126,10 @@ export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { a
               <div className={cx(CARD, "m-details-cards")}>
                 <PanelRow label="Thinks with" value={ctx ? runLine(ctx, models) : [harnessLabel(agent.harness), agent.model ? prettyModel(agent.model) : null].filter(Boolean).join(" · ")} onClick={() => setSheet("thinks")} />
                 <PanelRow
-                  label="Works on"
+                  label="Runs on"
                   value={!readiness.ready ? (readiness.problem ?? "Setup incomplete") : (computer?.name ?? device?.name ?? "None yet")}
                   warn={!readiness.ready}
-                  onClick={() => setSheet("works")}
+                  href={page("device")}
                 />
                 <PanelRow label="Can use" onClick={() => setSheet("can")} />
                 <PanelRow label="Asks first" value={ACCESS_LABEL[access]} onClick={() => setSheet("asks")} />
@@ -130,21 +139,20 @@ export function AgentPanel({ agent, channelId, tab, onClose, inDm = false }: { a
               <p className="m-details-cards px-1 pt-3 text-[13px] leading-5 text-muted">Or ask {agent.name} to change any of it.</p>
             </>
           )}
-          {sheet === "thinks" && ctx && <RunPanel big agent={agent} ctx={ctx} models={models} channelId={channelId} canEdit={canEdit} close={back} />}
-          {sheet === "works" && (
+          {sheet === "computer" && (
             <div className="space-y-3">
-              {computer && <ComputerCard agent={agent} computer={computer} />}
+              {computer ? <ComputerCard agent={agent} computer={computer} /> : <p className="px-1 py-6 text-center text-[14px] text-muted">{agent.name} has no computer yet.</p>}
               <div className={CARD}>
-                <PanelRow label="Computer" value={computer ? computer.name : agent.settings.headless ? "No screen" : "None yet"} href={page("computer")} />
-                <PanelRow label="Runs on" value={device?.name ?? "None yet"} href={page("device")} />
+                <PanelRow label="Computer" value={computer ? computer.name : "None yet"} href={computer ? href({ view: "computers", computerId: computer.id }) : page("computer")} />
               </div>
-              {!readiness.ready && <WhatsMissing agent={agent} devices={devices} problem={readiness.problem} />}
             </div>
           )}
+          {sheet === "thinks" && ctx && <RunPanel big agent={agent} ctx={ctx} models={models} channelId={channelId} canEdit={canEdit} close={back} />}
           {sheet === "can" && (
             <div className={CARD}>
               <PanelRow label="Apps" href={page("apps")} />
               <PanelRow label="Skills" href={page("skills")} />
+              <PanelRow label="Add" href={`#/marketplace/for/${encodeURIComponent(agent.id)}`} />
             </div>
           )}
           {sheet === "asks" && (
@@ -251,29 +259,14 @@ function AccessList({ agent, access, canEdit }: { agent: Agent; access: AccessLe
   );
 }
 
-/** Setup that is not finished: what is missing, and the one thing to do about it. */
-function WhatsMissing({ agent, devices, problem }: { agent: Agent; devices: DeviceInfo[] | null; problem: string | null }) {
-  const next = setupNextStep(agent, devices);
-  return (
-    <div className="flex flex-wrap items-center gap-2 px-1 text-[13px]">
-      <SetupIncomplete problem={problem} />
-      {next && (
-        <a href={next.href} className="font-medium text-ink underline underline-offset-2">
-          {next.action}
-        </a>
-      )}
-    </div>
-  );
-}
-
 /** The rest of the agent: its look and voice, who it answers, schedules, activity, connecting an app to it, removing it; and how calls with it sound. */
 function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => string }) {
-  const invite = useFeature("invite");
   const routines = useFeature("routines");
   const background = useFeature("background");
   const me = useStore((s) => s.me);
   const members = useStore((s) => s.members);
   const teams = useTeams();
+  const dm = useStore((s) => s.channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agent.id}`)));
   const onTeams = teams.filter((t) => t.members.some((m) => m.agentId === agent.id)).map((t) => t.name);
   // "Only you", "Anyone", or the people picked: whose messages wake it
   const to = agent.settings.respondTo ?? "anyone";
@@ -284,9 +277,14 @@ function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => strin
     <div className="space-y-3">
       <div className={CARD}>
         <PanelRow label="Look and voice" href={page("look")} />
-        {invite && <PanelRow label="Who can ask it" value={answers} href={page("access")} />}
-        {routines && <PanelRow label="Schedules" href={page("routines")} />}
+        <PanelRow label="Who can ask it" value={answers} href={page("access")} />
+        <div className="flex h-[46px] w-full items-center gap-3 px-3.5 text-[14px]">
+          <span className="min-w-0 flex-1 truncate font-medium">Notifications</span>
+          <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
+        </div>
+        {routines && <PanelRow label="Routines" href={page("routines")} />}
         {background && <PanelRow label="Background checks" href={page("background")} />}
+        <PanelRow label="What it watches" href={page("overview")} />
         <PanelRow label="Activity" href={page("runs")} />
         <PanelRow label="Connect" href={page("connect")} />
         <PanelRow label="Remove" href={page("remove")} />
@@ -296,7 +294,7 @@ function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => strin
         {onTeams.length > 0 && <FactRow label="Teams" value={onTeams.join(", ")} />}
       </div>
       <h3 className="px-1 pt-1 text-[13px] font-semibold text-muted">Calls</h3>
-      <div className="rounded-[14px] bg-card p-3.5">
+      <div className="rounded-[12px] bg-card p-3.5">
         <Suspense fallback={null}>
           <CallOptions />
         </Suspense>
@@ -449,19 +447,19 @@ export function ComputerFullscreen({ agent, computer: c, onClose }: { agent: Age
         <span className="font-medium truncate">{c.name}</span>
         {!mine && (state.working ? <WorkingBadge text={c.activity?.text ?? "Working"} /> : <Pill tone={state.tone}>{state.label}</Pill>)}
         {mine && (
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 inline-flex items-center gap-2 rounded-full bg-info text-white pl-3.5 pr-1 h-9 text-sm font-medium shadow-panel" role="status">
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 inline-flex items-center gap-2 rounded-[8px] bg-info text-white pl-3.5 pr-1 h-9 text-sm font-medium shadow-panel" role="status">
             <Hand size={15} /> You are in control
-            <button onClick={() => control(false)} className="h-7 px-3 rounded-full bg-white/20 hover:bg-white/30 text-xs font-medium">
+            <button onClick={() => control(false)} className="h-7 px-3 rounded-[8px] bg-white/20 hover:bg-white/30 text-xs font-medium">
               Hand back
             </button>
           </div>
         )}
         {teach && canControl && !someoneElse && (
-          <button onClick={() => go({ view: "computers", computerId: c.id, teach: agent.id })} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-white/20 text-sm font-medium hover:bg-white/10" title={`Do a task once while ${agent.name} watches; it saves it as a routine`}>
+          <button onClick={() => go({ view: "computers", computerId: c.id, teach: agent.id })} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-[8px] border border-white/20 text-sm font-medium hover:bg-white/10" title={`Do a task once while ${agent.name} watches; it saves it as a skill`}>
             <Video size={15} /> Teach a task
           </button>
         )}
-        <button onClick={close} className={cx(!(teach && canControl && !someoneElse) && "ml-auto", "size-9 rounded-full hover:bg-white/10 grid place-items-center")} aria-label="Exit full screen" title="Exit full screen">
+        <button onClick={close} className={cx(!(teach && canControl && !someoneElse) && "ml-auto", "size-9 rounded-[8px] hover:bg-white/10 grid place-items-center")} aria-label="Exit full screen" title="Exit full screen">
           <Minimize2 size={18} />
         </button>
       </div>
