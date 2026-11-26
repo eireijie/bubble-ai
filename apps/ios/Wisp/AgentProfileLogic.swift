@@ -118,6 +118,35 @@ enum RunLine {
     let line = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? text
     return line.count > 70 ? String(line.prefix(67)) + "…" : line
   }
+
+  /**
+   * Where a run happened, in words: the chat's title when it's known, "Your chat" for a direct chat
+   * (whose raw name is "dm:usr_…:agt_…"), else the team's name. Never an id.
+   */
+  static func place(channelName: String?, title: String?) -> String? {
+    if let title, !title.isEmpty, !title.hasPrefix("dm:") { return title }
+    guard let name = channelName, !name.isEmpty else { return nil }
+    return name.hasPrefix("dm:") ? "Your chat" : name
+  }
+
+  /**
+   * Why a run failed, in one plain line (core runFailureReason / runFailureLine): a missing program,
+   * a sign-in, a paused device, a usage limit; else the hub's hint or its own words.
+   */
+  static func reason(_ run: AgentRun, harness: String, device: String?) -> String? {
+    guard isBad(run) else { return nil }
+    if let hint = run.hint, !hint.isEmpty { return hint }
+    let error = run.error ?? ""
+    let label = HarnessChoice.label(harness)
+    let on = device.map { " on \($0)" } ?? ""
+    func has(_ pattern: String) -> Bool { error.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil }
+    if has(#"\bspawn\s+\S+\s+ENOENT\b|command not found|not found in PATH|isn't installed"#) { return "\(label) isn't installed\(on)." }
+    if has(#"isn't signed in|not logged in|please log ?in|unauthori[sz]ed|\b401\b|invalid api key|authentication"#) { return "\(label) isn't signed in\(on)." }
+    if has(#"\bis paused\b|was paused|was stopped before|isn't connected to a device|device is offline"#) { return device.map { "\($0) can't run it right now." } ?? "No device can run it right now." }
+    if has(#"usage limit|rate limit|limit (reached|exceeded)|quota|too many requests|\b429\b|out of credits|credit balance"#) { return "\(label) reached its usage limit." }
+    let plain = error.trimmingCharacters(in: .whitespacesAndNewlines)
+    return plain.isEmpty ? "It couldn't finish." : (plain.count > 160 ? String(plain.prefix(157)) + "…" : plain)
+  }
 }
 
 /** Picked people on "Who can ask it", and what saves. */

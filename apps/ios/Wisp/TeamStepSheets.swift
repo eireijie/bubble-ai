@@ -560,7 +560,7 @@ struct StepEditor: View {
               Image(systemName: "person.2").font(.system(size: 17)).foregroundStyle(Palette.muted).frame(width: 28)
               Text(t.name).font(.system(size: 15)).foregroundStyle(Palette.text)
               Spacer()
-              if step.handoffTo == t.id { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.blue) }
+              if step.handoffTo == t.id { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.accent) }
             }
             .padding(.horizontal, 18).frame(minHeight: 54).contentShape(Rectangle())
           }
@@ -604,7 +604,7 @@ struct StepEditor: View {
               ForEach(ChannelTeam.Step.Rule.Op.allCases, id: \.self) { op in Button(op.label) { setRule(op: op) } }
             } label: {
               HStack(spacing: 4) { Text(rule.op.label); Image(systemName: "chevron.up.chevron.down").font(.system(size: 11)) }
-                .font(.system(size: 15)).foregroundStyle(Palette.blue).frame(minHeight: 44)
+                .font(.system(size: 15)).foregroundStyle(Palette.accent).frame(minHeight: 44)
             }
             Spacer()
           }
@@ -709,7 +709,7 @@ struct StepEditor: View {
             s.handTo = to
           }
         } label: {
-          Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(on ? Palette.blue : Palette.faint).frame(width: 44, height: 44)
+          Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(on ? Palette.accent : Palette.faint).frame(width: 44, height: 44)
         }
         .buttonStyle(.plain).accessibilityLabel("\(role.name), \(on ? "on" : "off")")
         TextField("Role name", text: roleBinding(role.id, \.name)).font(.system(size: 15)).foregroundStyle(Palette.text)
@@ -772,7 +772,7 @@ struct StepEditor: View {
                   .frame(width: 26, height: 26).background(Circle().fill(Palette.badge))
                 Text(s.action.isEmpty ? "Untitled step" : s.action).font(.system(size: 15)).foregroundStyle(Palette.text).lineLimit(1)
                 Spacer()
-                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(on ? Palette.blue : Palette.faint)
+                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 22)).foregroundStyle(on ? Palette.accent : Palette.faint)
               }
               .padding(.horizontal, 18).frame(minHeight: 54).contentShape(Rectangle())
             }

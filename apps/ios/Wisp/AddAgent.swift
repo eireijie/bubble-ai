@@ -3,16 +3,17 @@ import SwiftUI
 /** Everything a new agent is being given, shared by the create screen and the pages under More options. */
 @MainActor @Observable
 final class AgentDraft {
-  // every new agent starts white with a face and outfit of its own, picked once (typing its name doesn't change it)
+  // a round bubble in one of the bubble colours, picked once: typing its name never changes it
   var look = GhostLook.newAgent()
   var name = ""
   var does = ""
   var instructions = ""
-  var custom = false
   var harness = "claude-code"
   var model = ""
-  /** "vm:<device>", "share:<computer>", "later" (decide later) or "none" (headless) */
-  var computer = "later"
+  /** where it works (web: Runs on) */
+  var place = AgentPlace.shared
+  /** the device its AI runs on, and where its own computer or screen is */
+  var nodeId: String?
   var handle = ""
   var respondTo = "me"
   var respondPeople: Set<String> = []
@@ -27,6 +28,60 @@ final class AgentDraft {
   func finalHandle() -> String { handle.isEmpty ? ManagementText.handle(name) : ManagementText.handle(handle) }
 }
 
+/** Where a new agent works, the web's four Runs on choices. */
+enum AgentPlace: String, CaseIterable, Identifiable {
+  case shared, own, screen, none
+  var id: String { rawValue }
+
+  var title: String {
+    switch self {
+    case .shared: "Shared computer"
+    case .own: "Its own computer"
+    case .screen: "My screen"
+    case .none: "No computer"
+    }
+  }
+
+  var symbol: String {
+    switch self {
+    case .shared: "person.2"
+    case .own: "desktopcomputer"
+    case .screen: "laptopcomputer"
+    case .none: "bubble.left"
+    }
+  }
+
+  /** The line under it on this device; why it can't be picked when it can't. */
+  func line(node: AgentNode?) -> String {
+    let name = node?.name ?? "your computer"
+    switch self {
+    case .shared: return "With your other agents"
+    case .own: return node?.capabilities?.vm?.ok == true ? "A desktop on \(name)" : node?.vmProblem ?? "Connect a computer first"
+    case .screen: return node?.mine == true ? (node?.capabilities?.screen?.ok == true ? "Works right on \(name)" : node?.capabilities?.screen?.detail ?? "Off on \(name)") : "Only on your own computer"
+    case .none: return "Chat and files only"
+    }
+  }
+
+  /** Can it be picked with this device? */
+  func usable(node: AgentNode?, computers: [Computer]) -> Bool {
+    switch self {
+    case .shared, .none: return true
+    case .own: return node?.capabilities?.vm?.ok == true
+    case .screen: return node?.mine == true && (node?.capabilities?.screen?.ok == true || computers.contains { $0.kind == "device" && $0.nodeId == node?.id })
+    }
+  }
+
+  /** Where a new agent goes unless someone picks: what the device does for agents, else the saved defaults, else shared. */
+  static func initial(node: AgentNode?, defaults: AgentDefaults?, computers: [Computer]) -> AgentPlace {
+    if node?.role == "headless" { return .none }
+    if node?.role == "screen", AgentPlace.screen.usable(node: node, computers: computers) { return .screen }
+    switch defaults?.computer {
+    case "none": return .none
+    case "own-vm" where AgentPlace.own.usable(node: node, computers: computers): return .own
+    default: return .shared
+    }
+  }
+}
 /** Starting points for a new agent: a job in a few words, and the instructions that go with it. */
 struct AgentTemplate: Identifiable, Hashable {
   var id: String { name }
@@ -47,10 +102,9 @@ struct AgentTemplate: Identifiable, Hashable {
 }
 
 /**
- * New agent (agent-Create / CreateCustom / CreateMore .dc.html): one screen with a name, what it
- * does, and where it runs: your defaults, or Customize for the harness, model and computer. Rare
- * knobs (handle, apps, skills, instructions) are under More options. Bringing in an agent that
- * already exists is the row near the bottom.
+ * New agent: its bubble, a name and what it does, then where it works (Shared computer, Its own
+ * computer, My screen, No computer: the web's Runs on) and what it thinks with. Rare knobs (handle,
+ * apps, skills, instructions) are under More options. One Create, at the top; a problem shows as an alert.
  */
 struct AddAgent: View {
   @Environment(Store.self) private var store
@@ -61,6 +115,8 @@ struct AddAgent: View {
 
   @State private var draft = AgentDraft()
   @State private var editingLook = false
+  @State private var placement: ComputerSettings?
+  @State private var loaded = false
   @State private var action = FormAction()
 
   private var handleTaken: Bool { store.agents.contains { $0.handle == draft.finalHandle() } }
@@ -85,8 +141,9 @@ struct AddAgent: View {
   private var askWho: Bool { store.features.invite || store.otherPeople.count > 0 }
   private var firstNode: String? {
     let usable = store.nodes.filter(\.usable)
-    return usable.first { $0.id == nodeId }?.id ?? usable.first { $0.online }?.id ?? usable.first?.id
+    return usable.first { $0.id == nodeId }?.id ?? usable.first { $0.id == store.agentDefaults?.nodeId }?.id ?? usable.first { $0.online }?.id ?? usable.first?.id
   }
+  private var node: AgentNode? { store.nodes.first { $0.id == (draft.nodeId ?? firstNode) } }
 
   var body: some View {
     NavigationStack {
@@ -96,12 +153,12 @@ struct AddAgent: View {
             .padding(.horizontal, 16).frame(height: 44).glassPill()
         }
         .buttonStyle(.press).disabled(!valid || action.busy).opacity(!valid || action.busy ? 0.4 : 1)
-        .accessibilityLabel("Create agent").accessibilityIdentifier("new-create-top")
+        .accessibilityLabel("Create agent").accessibilityIdentifier("new-create")
       }) {
         VStack(spacing: 12) {
-          GhostView(look: draft.look, seed: draft.finalHandle(), size: 96, interactive: true).frame(width: 96, height: 96).accessibilityHidden(true)
+          GhostView(look: draft.look, seed: draft.look.color, size: 96, interactive: true).frame(width: 96, height: 96).accessibilityHidden(true)
           HStack(spacing: 8) {
-            AgentChip(title: "Shuffle its look", symbol: "shuffle") { draft.look = GhostLook.shuffled() }.accessibilityIdentifier("new-shuffle")
+            AgentChip(title: "Shuffle", symbol: "shuffle") { draft.look = GhostLook.shuffled() }.accessibilityIdentifier("new-shuffle")
             AgentChip(title: "Edit look", symbol: "paintpalette") { editingLook = true }.accessibilityIdentifier("new-look")
           }
         }.frame(maxWidth: .infinity).padding(.vertical, 4)
@@ -110,117 +167,138 @@ struct AddAgent: View {
         if handleTaken { AgentError(text: "@\(draft.finalHandle()) is taken. Pick another name, or change the handle under More options.") }
         FieldCard(label: "What it does", text: $draft.does, prompt: "Optional. e.g. reviews pull requests").accessibilityIdentifier("new-does")
 
-        Segments(options: [(false, "Use defaults"), (true, "Customize")], selection: $draft.custom, id: "new-mode")
-        if draft.custom { customize } else { defaults }
-        // the AI it would run on isn't signed in on its device: say so, with Sign in, before it's made
-        if !external, let harness = draft.custom ? draft.harness : (store.agentDefaults?.harness ?? AddAgent.preferredHarness(store, node: firstNode)) {
-          HarnessSignInNotice(harness: harness, node: store.nodes.first { $0.id == (draft.custom ? (draft.computer.hasPrefix("vm:") ? String(draft.computer.dropFirst(3)) : firstNode) : (store.agentDefaults?.nodeId ?? firstNode)) })
+        if !external {
+          CardCaption("Runs on")
+          places
+          if store.nodes.filter(\.usable).count > 1 { deviceRow }
+        }
+        CardGroup {
+          NavigationLink { NewAgentHarness(draft: draft, node: node) } label: {
+            RowLabel(title: "Harness", value: HarnessChoice.label(draft.harness), leading: { BrandLogo(id: draft.harness, symbol: "cpu", size: 26) })
+          }.buttonStyle(.plain).accessibilityIdentifier("new-harness")
+          if !external {
+            NavigationLink { NewAgentModel(draft: draft) } label: {
+              RowLabel(title: "Model", value: draft.model.isEmpty ? "Automatic" : draft.model, leading: { rowIcon("dial.medium") })
+            }.buttonStyle(.plain).accessibilityIdentifier("new-model")
+          }
+        }
+        if external {
+          CardCaption("Set it up where it already runs. It connects to Bubble AI through the API or wisp-mcp.")
+        } else {
+          // the AI it would run on isn't signed in on its device: say so, with Sign in, before it's made
+          HarnessSignInNotice(harness: draft.harness, node: node)
         }
 
         if !AgentTemplate.all.isEmpty {
-          CardCaption("Start from a template (optional)")
+          CardCaption("Start from")
           FlowLayout(spacing: 8) {
             ForEach(AgentTemplate.all) { template in
               AgentChip(title: template.name, on: draft.template == template.name) { apply(template) }
             }
           }
         }
-
-        if store.canManage {
-          CardGroup {
+        if askWho { who }
+        CardGroup {
+          NavigationLink { NewAgentMore(draft: draft, askWho: askWho) } label: {
+            RowLabel(title: "More options", leading: { rowIcon("slider.horizontal.3") })
+          }.buttonStyle(.plain).accessibilityIdentifier("new-more")
+          if store.canManage {
             NavigationLink { AgentBring { agent in dismiss(); onCreated(agent) } } label: {
-              RowLabel(title: "Already have an agent? Bring it in", leading: { rowIcon("square.and.arrow.down") })
+              RowLabel(title: "Bring in an agent you have", leading: { rowIcon("square.and.arrow.down") })
             }.buttonStyle(.plain).accessibilityIdentifier("new-bring")
           }
         }
-        AgentError(text: action.error)
-        PillButton(title: "Create agent", busy: action.busy, id: "new-create") { create() }.disabled(!valid || action.busy)
       }
-      .sheet(isPresented: $editingLook) { LookEditor(look: $draft.look, name: draft.name, seed: draft.finalHandle()) }
+      .sheet(isPresented: $editingLook) { LookEditor(look: $draft.look, name: draft.name, seed: draft.look.color) }
+      .alert("Couldn't create it", isPresented: Binding(get: { action.error != nil }, set: { if !$0 { action.error = nil } })) {
+        Button("OK") { action.error = nil }
+      } message: { Text(action.error ?? "") }
     }
     .agentSheet()
     .interactiveDismissDisabled(action.busy)
     .task {
+      guard !loaded else { return }
       await store.refreshAgentDefaults()
-      do { try await store.refreshManagement() } catch { action.error = error.localizedDescription }
+      try? await store.refreshManagement()
+      await store.refreshComputers()
       try? await store.refreshSkills()
       try? await store.refreshConnectors()
+      placement = try? await store.computerSettings()
+      draft.nodeId = firstNode
       draft.harness = store.agentDefaults?.harness ?? AddAgent.preferredHarness(store, node: firstNode) ?? "claude-code"
       draft.model = store.agentDefaults?.model ?? ""
-      if store.agentDefaults?.computer != "none", let node = (nodeId != nil && firstNode == nodeId ? nodeId : nil) ?? store.agentDefaults?.nodeId ?? firstNode { draft.computer = "vm:\(node)" }
+      draft.place = AgentPlace.initial(node: node, defaults: store.agentDefaults, computers: store.computers)
+      loaded = true
     }
   }
 
-  // MARK: defaults and customize
+  // MARK: where it runs
 
-  private var defaults: some View {
-    let summary = store.defaultsSummary
-    return CardGroup {
-      Button { draft.custom = true } label: {
-        RowLabel(title: "Harness it runs on", value: (store.agentDefaults?.harness ?? AddAgent.preferredHarness(store, node: firstNode)).map(HarnessChoice.label) ?? "Claude Code", leading: { rowIcon("cpu") })
-      }.buttonStyle(.plain)
-      Button { draft.custom = true } label: {
-        RowLabel(title: "Model", value: store.agentDefaults?.model ?? "Harness default", leading: { rowIcon("dial.medium") })
-      }.buttonStyle(.plain)
-      RowLabel(title: "Computer", value: summary.computer, chevron: false, leading: { rowIcon("desktopcomputer") })
-      if store.isOwner {
-        NavigationLink { AgentDefaultsView() } label: { RowLabel(title: "Change defaults", leading: { rowIcon("gearshape") }) }.buttonStyle(.plain)
+  /** The four Runs on tiles, two by two; one this device can't do says why and can't be picked. */
+  private var places: some View {
+    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+      ForEach(AgentPlace.allCases) { p in
+        let on = draft.place == p
+        let ok = p.usable(node: node, computers: store.computers)
+        Button { withAnimation(.snappy) { draft.place = p } } label: {
+          VStack(alignment: .leading, spacing: 4) {
+            Image(systemName: p.symbol).font(.system(size: 15)).foregroundStyle(on ? Palette.accent : Palette.muted)
+            Text(p.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+            Text(p.line(node: node)).font(.system(size: 12)).foregroundStyle(Palette.faint).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+          }
+          .frame(maxWidth: .infinity, minHeight: 78, alignment: .topLeading)
+          .padding(12)
+          .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Palette.card))
+          .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(on ? Palette.accent : Palette.cardBorder, lineWidth: on ? 2 : 1))
+          .contentShape(RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
+          .opacity(ok ? 1 : 0.45)
+        }
+        .buttonStyle(.pressRow)
+        .disabled(!ok)
+        .accessibilityLabel("\(p.title). \(p.line(node: node))")
+        .accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityIdentifier("new-place-\(p.rawValue)")
       }
     }
   }
 
-  @ViewBuilder private var customize: some View {
-    CardCaption("Harness it runs on")
-    FlowLayout(spacing: 8) {
-      ForEach(Self.choices(store)) { choice in
-        AgentChip(title: choice.label, on: draft.harness == choice.id) { draft.harness = choice.id }
+  /** Which device, when there's more than one: its AI runs there, and its own computer or screen is there. */
+  private var deviceRow: some View {
+    CardGroup {
+      Menu {
+        ForEach(store.nodes.filter(\.usable)) { n in
+          Button { pickDevice(n.id) } label: { Label(n.name, systemImage: n.id == node?.id ? "checkmark" : "laptopcomputer") }
+        }
+      } label: {
+        RowLabel(title: "Device", value: node?.name ?? "None", leading: { rowIcon("laptopcomputer") })
       }
+      .accessibilityIdentifier("new-device")
     }
-    if external {
-      CardCaption("Set up where it already runs. It connects to Bubble AI through the API or wisp-mcp.")
-    } else {
-      CardGroup {
-        NavigationLink { NewAgentModel(draft: draft) } label: {
-          RowLabel(title: "Model", value: draft.model.isEmpty ? "Automatic" : draft.model, leading: { rowIcon("dial.medium") })
-        }.buttonStyle(.plain)
-        NavigationLink { NewAgentComputer(draft: draft) } label: {
-          RowLabel(title: "Runs on", value: computerText, leading: { rowIcon("desktopcomputer") })
-        }.buttonStyle(.plain)
-        Button { draft.computer = "later" } label: {
-          RowLabel(title: "Decide later", chevron: false, leading: { rowIcon("clock") })
-            .overlay(alignment: .trailing) { if draft.computer == "later" { Radio(on: true).padding(.trailing, 18) } }
-        }.buttonStyle(.plain)
-      }
-    }
-    if askWho {
-      CardCaption("Who can ask it")
-      Segments(options: [("me", "Only me"), ("anyone", "Anyone"), ("people", "Picked")], selection: $draft.respondTo, id: "new-who")
-      if draft.respondTo == "people" {
-        if store.otherPeople.isEmpty {
-          CardCaption("Nobody else is here yet.")
-        } else {
-          CardGroup {
-            ForEach(store.otherPeople) { person in
-              ChoiceRow(title: person.preferredName ?? person.name, subtitle: person.role.capitalized, selected: draft.respondPeople.contains(person.id)) {
-                if draft.respondPeople.contains(person.id) { draft.respondPeople.remove(person.id) } else { draft.respondPeople.insert(person.id) }
-              }
+  }
+
+  private func pickDevice(_ id: String) {
+    draft.nodeId = id
+    // a choice the new device can't do goes back to the shared computer
+    if !draft.place.usable(node: node, computers: store.computers) { draft.place = .shared }
+    if let n = node, !(n.harnesses ?? []).contains(where: { $0.id == draft.harness }), let h = AddAgent.preferredHarness(store, node: id) { draft.harness = h }
+  }
+
+  @ViewBuilder private var who: some View {
+    CardCaption("Who can ask it")
+    Segments(options: [("me", "Only me"), ("anyone", "Anyone"), ("people", "Picked")], selection: $draft.respondTo, id: "new-who")
+    if draft.respondTo == "people" {
+      if store.otherPeople.isEmpty {
+        CardCaption("Nobody else is here yet.")
+      } else {
+        CardGroup {
+          ForEach(store.otherPeople) { person in
+            ChoiceRow(title: person.preferredName ?? person.name, subtitle: person.role.capitalized, selected: draft.respondPeople.contains(person.id)) {
+              if draft.respondPeople.contains(person.id) { draft.respondPeople.remove(person.id) } else { draft.respondPeople.insert(person.id) }
             }
           }
         }
       }
     }
-    CardGroup {
-      NavigationLink { NewAgentMore(draft: draft, askWho: askWho) } label: {
-        RowLabel(title: "More options")
-      }.buttonStyle(.plain).accessibilityIdentifier("new-more")
-    }
-  }
-
-  private var computerText: String {
-    let c = draft.computer
-    if c.hasPrefix("vm:") { return "New computer on " + (store.nodes.first { $0.id == String(c.dropFirst(3)) }?.name ?? "a device") }
-    if c.hasPrefix("share:") { return store.computers.first { $0.id == String(c.dropFirst(6)) }?.name ?? "A computer" }
-    return c == "none" ? "No computer" : "Decide later"
   }
 
   private func apply(_ template: AgentTemplate) {
@@ -237,6 +315,15 @@ struct AddAgent: View {
 
   // MARK: create
 
+  /** The shared computer: the one there is, else made now (owners); nil when no device can run one yet. */
+  private func sharedComputer() async -> String? {
+    if let id = placement?.sharedComputerId { return id }
+    guard store.isOwner else { return nil }
+    let made: Computer? = try? await store.fetch { try await $0.post("/api/computers/shared", Empty()) }
+    if made != nil { await store.refreshComputers() }
+    return made?.id
+  }
+
   private func create() {
     action.run {
       let d = draft
@@ -246,37 +333,34 @@ struct AddAgent: View {
       if askWho && d.respondTo == "people" { settings["respondPeople"] = AnyEncodable(Array(d.respondPeople).sorted()) }
       var fields: Fields = [
         "name": AnyEncodable(d.name.trimmed), "handle": AnyEncodable(d.finalHandle()), "instructions": AnyEncodable(d.instructions),
+        "harness": AnyEncodable(d.harness),
       ]
-      if d.custom {
-        fields["harness"] = AnyEncodable(d.harness)
-        fields["model"] = .nullable(d.model.trimmed)
-        if external {
-          fields["nodeId"] = .null
-        } else if d.computer.hasPrefix("vm:") {
-          let node = String(d.computer.dropFirst(3))
-          fields["nodeId"] = AnyEncodable(node)
-          fields["computerId"] = AnyEncodable(try await d.computerDraft.resolveVM(node: node, name: d.name.trimmed, store: store))
-          settings["runIn"] = AnyEncodable("computer")
-        } else if d.computer.hasPrefix("share:"), let c = store.computers.first(where: { $0.id == String(d.computer.dropFirst(6)) }) {
-          fields["computerId"] = AnyEncodable(c.id)
-          let node = c.nodeId.flatMap { id in store.nodes.first { $0.id == id && $0.usable }?.id } ?? firstNode
-          fields["nodeId"] = .nullable(node ?? "")
-          if c.kind == "vm", c.nodeId == node, harnessRunsInVM(d.harness) { settings["runIn"] = AnyEncodable("computer") }
-        } else if d.computer == "none" {
-          fields["nodeId"] = .nullable(firstNode ?? "")
-          settings["headless"] = AnyEncodable(true)
-        } else {
-          // decide later: on a device, no computer yet
-          fields["nodeId"] = .nullable(firstNode ?? "")
-        }
+      if !external { fields["model"] = .nullable(d.model.trimmed) }
+      let device = d.nodeId ?? firstNode
+      if external {
+        fields["nodeId"] = .null
       } else {
-        fields["useDefaults"] = AnyEncodable(true)
-        // started from a device's page: the agent goes there, not to the default device
-        if let start = self.nodeId, firstNode == start { fields["nodeId"] = AnyEncodable(start) }
-        // hubs without agent defaults still need a harness and a device
-        if store.agentDefaults == nil {
-          fields["harness"] = AnyEncodable(AddAgent.preferredHarness(store, node: firstNode) ?? "claude-code")
-          fields["nodeId"] = .nullable(firstNode ?? "")
+        fields["nodeId"] = .nullable(device ?? "")
+        switch d.place {
+        case .shared:
+          if let shared = await sharedComputer() {
+            // its AI stays on its device beside its sign-in; it works on the shared computer
+            fields["computerId"] = AnyEncodable(shared)
+          } else if placement?.advanced != true && store.isOwner {
+            // no device can run the shared computer yet: Bubble AI gives it one as soon as one can
+            fields["useDefaults"] = AnyEncodable(true)
+          }
+        case .own:
+          guard let device else { throw API.Failure(status: 0, message: "Connect a computer first.") }
+          fields["computerId"] = AnyEncodable(try await d.computerDraft.resolveVM(node: device, name: d.name.trimmed, store: store))
+          if harnessRunsInVM(d.harness) { settings["runIn"] = AnyEncodable("computer") }
+        case .screen:
+          guard let device else { throw API.Failure(status: 0, message: "Connect a computer first.") }
+          var id = store.computers.first { $0.kind == "device" && $0.nodeId == device }?.id
+          if id == nil { id = try await ComputerChoice.screen.resolve(nodeId: device, agentName: d.name.trimmed, store: store) }
+          if let id { fields["computerId"] = AnyEncodable(id) }
+        case .none:
+          settings["headless"] = AnyEncodable(true)
         }
       }
       fields["settings"] = AnyEncodable(settings)
@@ -300,7 +384,55 @@ struct AddAgent: View {
   }
 }
 
-// MARK: pages under Customize
+// MARK: pages under New agent
+
+/** What a new agent thinks with: the harnesses it can run on here, each with its mark. */
+private struct NewAgentHarness: View {
+  @Environment(Store.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  @Bindable var draft: AgentDraft
+  var node: AgentNode?
+
+  private var installed: Set<String> { Set((node?.harnesses ?? []).map(\.id)) }
+  /** the ones it can really run on: installed on the device, or in its own computer (which comes with them), or set up elsewhere */
+  private var runnable: [HarnessChoice] {
+    AddAgent.choices(store).filter { h in
+      h.protocolName == "mcp" || installed.contains(h.id) || (draft.place == .own && harnessRunsInVM(h.id)) || h.id == draft.harness
+    }
+  }
+  private var missing: [HarnessChoice] { AddAgent.choices(store).filter { h in !runnable.contains { $0.id == h.id } } }
+
+  var body: some View {
+    AgentFrame(title: "Harness", subtitle: "New agent") {
+      CardGroup {
+        ForEach(runnable) { h in
+          PickRow(logo: h.id, title: h.label, subtitle: sub(h), selected: draft.harness == h.id, id: "new-harness-\(h.id)") {
+            draft.harness = h.id
+            draft.model = ""
+            dismiss()
+          }
+        }
+      }
+      if !missing.isEmpty, let node {
+        CardCaption("Not on \(node.name) yet")
+        CardGroup {
+          ForEach(missing) { h in
+            NavigationLink { DeviceDetail(nodeId: node.id) } label: {
+              RowLabel(title: h.label, value: "Install", leading: { BrandLogo(id: h.id, symbol: "cpu", size: 26) })
+            }.buttonStyle(.plain)
+          }
+        }
+      }
+    }
+  }
+
+  private func sub(_ h: HarnessChoice) -> String? {
+    if h.protocolName == "mcp" { return "Set up where it runs" }
+    guard let node else { return nil }
+    if !installed.contains(h.id) { return draft.place == .own ? "In its own computer" : nil }
+    return node.harnessSignedIn(h.id) == false ? "Not signed in on \(node.name)" : "On \(node.name)"
+  }
+}
 
 /** Model for a new agent: automatic, or an id you type. */
 private struct NewAgentModel: View {
@@ -310,27 +442,6 @@ private struct NewAgentModel: View {
       CardGroup { ChoiceRow(title: "Automatic", selected: draft.model.isEmpty) { draft.model = "" } }
       FieldCard(label: "Model id", text: $draft.model, prompt: "Leave empty for automatic", lowercase: true)
       CardCaption("Use the exact id your harness expects. Bubble AI passes it through unchanged. You can pick from its list once it's on a device.")
-    }
-  }
-}
-
-/** Where a new agent works: a new computer on a device, one that exists, or none. */
-private struct NewAgentComputer: View {
-  @Environment(Store.self) private var store
-  @Bindable var draft: AgentDraft
-
-  var body: some View {
-    AgentFrame(title: "Runs on", subtitle: "New agent") {
-      CardGroup {
-        ForEach(store.nodes.filter(\.usable)) { node in
-          ChoiceRow(title: "New computer on \(node.name)", subtitle: node.online ? "Online" : "Offline", selected: draft.computer == "vm:\(node.id)") { draft.computer = "vm:\(node.id)" }
-        }
-        ForEach(store.computers) { c in
-          ChoiceRow(title: "Share \(c.name)", subtitle: "It uses the same files, browser and sign-ins", selected: draft.computer == "share:\(c.id)") { draft.computer = "share:\(c.id)" }
-        }
-        ChoiceRow(title: "No computer", subtitle: "It can think and write, but can't use apps or a screen", selected: draft.computer == "none") { draft.computer = "none" }
-        ChoiceRow(title: "Decide later", selected: draft.computer == "later") { draft.computer = "later" }
-      }
     }
   }
 }

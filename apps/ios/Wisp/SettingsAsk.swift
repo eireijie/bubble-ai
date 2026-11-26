@@ -22,7 +22,7 @@ struct AskAgentCard: View {
           TextField("", text: $text, prompt: Text(placeholder.replacingOccurrences(of: "{name}", with: agent.name)).foregroundStyle(Palette.faint), axis: .vertical)
             .lineLimit(1...4).submitLabel(.send).onSubmit(send).foregroundStyle(Palette.text).font(.system(size: 15))
             .accessibilityIdentifier("ask-agent-field")
-          Button(action: send) { Image(systemName: "arrow.up.circle.fill").font(.system(size: 28)).foregroundStyle(text.trimmed.isEmpty ? Palette.faint : Palette.blue) }
+          Button(action: send) { Image(systemName: "arrow.up.circle.fill").font(.system(size: 28)).foregroundStyle(text.trimmed.isEmpty ? Palette.faint : Palette.accent) }
             .buttonStyle(.plain).disabled(action.busy || text.trimmed.isEmpty).accessibilityLabel("Send")
         }
         .padding(.horizontal, 18).frame(minHeight: 56)

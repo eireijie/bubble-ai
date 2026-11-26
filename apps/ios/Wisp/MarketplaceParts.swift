@@ -208,7 +208,7 @@ struct SkillShareSheet: View {
   @ViewBuilder private var home: some View {
     if let skill {
       CardGroup {
-        MarketRow(symbol: "wand.and.stars", tile: 50, title: skill.name, subtitle: used.isEmpty ? "No agent has it yet" : "Used by \(ShelfLogic.sentence(used))")
+        MarketRow(symbol: "hammer", tile: 50, title: skill.name, subtitle: used.isEmpty ? "No agent has it yet" : "Used by \(ShelfLogic.sentence(used))")
       }
       CardGroup {
         Button { UIPasteboard.general.string = SkillShare.link(SharedSkill(name: skill.name, description: skill.description ?? "", content: skill.content ?? "", tags: skill.tags ?? [])); note = "Link copied. Anyone with it can paste it into Bring one in." } label: {
@@ -269,7 +269,7 @@ struct SkillShareSheet: View {
 
   @ViewBuilder private var foundPage: some View {
     if let found {
-      CardGroup { MarketRow(symbol: "wand.and.stars", tile: 50, title: found.name, subtitle: found.description.isEmpty ? "No description" : found.description) }
+      CardGroup { MarketRow(symbol: "hammer", tile: 50, title: found.name, subtitle: found.description.isEmpty ? "No description" : found.description) }
       HStack(spacing: 10) {
         Button { page = .home } label: { Text("Back").frame(maxWidth: .infinity) }.secondaryButton()
         Button {

@@ -191,7 +191,42 @@ final class AgentProfileTests: XCTestCase {
     XCTAssertEqual(draft.finalHandle(), "release-manager")
     draft.handle = "rm"
     XCTAssertEqual(draft.finalHandle(), "rm")
-    XCTAssertFalse(draft.custom)
-    XCTAssertEqual(draft.computer, "later")
+    XCTAssertEqual(draft.place, .shared)
+    // the look is picked once and kept while the name is typed
+    let look = draft.look
+    draft.name = "Release Manager 2"
+    XCTAssertEqual(draft.look, look)
+    XCTAssertNil(draft.look.parts)
+  }
+
+  func testTeamSlugReadsAsWords() {
+    XCTAssertEqual(Channel.label("audit-crew"), "Audit crew")
+    XCTAssertEqual(Channel.label("my_team"), "My team")
+    XCTAssertEqual(Channel.label("Design Crew"), "Design Crew")
+    XCTAssertEqual(Channel.label("general"), "general")
+  }
+
+  func testLaterVerbsAgree() {
+    XCTAssertEqual(FlowWords.titleAsVerb("Find gaps, challenge the plan")?.third, "finds gaps, challenges the plan")
+    XCTAssertEqual(FlowWords.titleAsVerb("Read the diff and test it")?.third, "reads the diff and tests it")
+    XCTAssertEqual(FlowWords.titleAsVerb("Find gaps, challenge the plan")?.base, "find gaps, challenge the plan")
+  }
+
+  func testMemoryNotesHaveFriendlyNames() {
+    XCTAssertEqual(noteTitle("agents/ivy/SOUL.md"), "Personality")
+    XCTAssertEqual(noteTitle("skills/web-research/SKILL.md"), "Web research skill")
+    XCTAssertEqual(noteTitle("AGENTS.md"), "Instructions")
+    XCTAssertEqual(noteTitle("shared/Plan.md"), "Plan")
+  }
+
+  func testFailedReplyLine() {
+    XCTAssertEqual(StandingFailure.text(name: "Ivy", why: "Codex isn't signed in."), "Ivy couldn't answer. Codex isn't signed in.")
+    XCTAssertEqual(StandingFailure.text(name: "Ivy", why: "  "), "Ivy couldn't answer.")
+  }
+
+  func testRunPlaceNeverShowsAnId() {
+    XCTAssertEqual(RunLine.place(channelName: "dm:usr_1:agt_2", title: nil), "Your chat")
+    XCTAssertEqual(RunLine.place(channelName: "audit", title: "Audit"), "Audit")
+    XCTAssertNil(RunLine.place(channelName: nil, title: nil))
   }
 }

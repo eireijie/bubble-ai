@@ -14,7 +14,7 @@ struct MemoryNote: Decodable, Identifiable, Hashable {
   var snippet: String?
   var frontmatter: [String: FrontValue]?
   var id: String { path }
-  var name: String { title ?? (path as NSString).lastPathComponent }
+  var name: String { title ?? noteTitle(path) }
   var editable: Bool { access == "edit" || access == "manage" }
 }
 struct NoteRevision: Decodable, Identifiable {

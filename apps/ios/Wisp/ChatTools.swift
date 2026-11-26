@@ -178,3 +178,56 @@ struct ChatToolSheet: View {
     .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
   }
 }
+
+/** Search in this chat: what's loaded here, newest first; a tap goes to the message and flashes it. */
+struct ChatSearchSheet: View {
+  @Environment(Store.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  var messages: [Message]
+  var open: (String) -> Void
+  @State private var query = ""
+  @FocusState private var focused: Bool
+
+  static func matches(_ messages: [Message], _ query: String) -> [Message] {
+    let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !q.isEmpty else { return [] }
+    return messages.filter { $0.deletedAt == nil && $0.body.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil }.reversed()
+  }
+
+  var body: some View {
+    let found = Self.matches(messages, query)
+    VStack(spacing: 0) {
+      SheetHeader(title: "Search in chat") { dismiss() }
+      HStack(spacing: 8) {
+        Image(systemName: "magnifyingglass").foregroundStyle(Palette.faint)
+        TextField("Search", text: $query).focused($focused).submitLabel(.search).autocorrectionDisabled()
+      }
+      .font(.system(size: 15))
+      .padding(.horizontal, 12).frame(height: 38)
+      .background(Capsule().fill(Palette.field))
+      .padding(.horizontal, 18).padding(.bottom, 10)
+      ScrollView {
+        LazyVStack(alignment: .leading, spacing: 0) {
+          if !query.trimmed.isEmpty && found.isEmpty {
+            Text("Nothing here says that.").font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.top, 24).frame(maxWidth: .infinity)
+          }
+          ForEach(found) { m in
+            Button { dismiss(); open(m.id) } label: {
+              VStack(alignment: .leading, spacing: 2) {
+                Text(store.name(of: m.author)).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text)
+                Text(m.body).font(.system(size: 15)).foregroundStyle(Palette.muted).lineLimit(2).multilineTextAlignment(.leading)
+              }
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(.horizontal, 18).padding(.vertical, 10).contentShape(Rectangle())
+            }
+            .buttonStyle(.pressRow)
+          }
+        }
+      }
+    }
+    .background(Palette.sheet.ignoresSafeArea())
+    .presentationDetents([.medium, .large])
+    .onAppear { focused = true }
+    .accessibilityIdentifier("chat-search")
+  }
+}

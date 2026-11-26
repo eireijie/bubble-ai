@@ -31,7 +31,7 @@ struct AgentsView: View {
               .accessibilityAddTraits(.isHeader)
             if store.agents.isEmpty {
               ContentUnavailableView {
-                Label("Add your first agent", systemImage: "sparkles")
+                Label("No agents yet", systemImage: "person.crop.circle.badge.plus")
               } description: {
                 Text("Give it a job and a computer.")
               } actions: {
@@ -43,7 +43,6 @@ struct AgentsView: View {
                   AgentTile(agent: a, doing: store.activity[a.id], openSettings: { path.append(a) }, openChat: { path.append($0) })
                     .rowEntrance(i)
                 }
-                if store.canManage { newAgentTile }
               }
             }
           }
@@ -129,10 +128,10 @@ struct AgentTile: View {
         Text(ActivityText.line(doing))
           .font(.system(size: 13)).foregroundStyle(Palette.statusWorkingText).lineLimit(2).multilineTextAlignment(.center)
       }
-    } else if agent.needsSignIn {
+    } else if agent.needsSignIn || store.missingHarness(agent) != nil {
       HStack(spacing: 6) {
         Circle().fill(Palette.statusNeeds).frame(width: 7, height: 7)
-        Text("Needs sign-in").font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.statusNeedsText)
+        Text(agent.needsSignIn ? "Needs sign-in" : "Not installed").font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.statusNeedsText)
       }
       .padding(.horizontal, 10).frame(height: 24)
       .background(Capsule().fill(Palette.statusNeeds.tint16))

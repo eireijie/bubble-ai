@@ -151,7 +151,7 @@ enum MarketText {
       (#"\b(comms|slack|messages?|email|chat)\b"#, "message"),
       (#"\b(mcp|api|cli|code|aspnet|winui|jupyter|sdk)\b"#, "chevron.left.forwardslash.chevron.right")
     ]
-    return picks.first { t.range(of: $0.0, options: .regularExpression) != nil }?.1 ?? "wand.and.stars"
+    return picks.first { t.range(of: $0.0, options: .regularExpression) != nil }?.1 ?? "hammer"
   }
 
   /** Where an installed skill came from, in words. */

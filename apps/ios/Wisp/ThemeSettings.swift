@@ -76,7 +76,7 @@ struct AppearanceSettingsView: View {
               Circle()
                 .fill(LinearGradient(stops: [.init(color: Color(hex: item.light), location: 0.5), .init(color: Color(hex: item.dark), location: 0.5)], startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(width: 52, height: 52)
-                .overlay(Circle().strokeBorder(on ? Palette.blue : Palette.hairline, lineWidth: 2))
+                .overlay(Circle().strokeBorder(on ? Palette.accent : Palette.hairline, lineWidth: 2))
               Text(item.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.text).lineLimit(1).minimumScaleFactor(0.7)
             }.frame(maxWidth: .infinity)
           }
@@ -92,7 +92,7 @@ struct AppearanceSettingsView: View {
       CardGroup {
         HStack(spacing: 12) {
           Text("A").font(.system(size: 13)).foregroundStyle(Palette.faint)
-          Slider(value: sizeStep, in: 0...2, step: 1).tint(Palette.blue).accessibilityLabel("Text size").accessibilityValue(textSize.capitalized)
+          Slider(value: sizeStep, in: 0...2, step: 1).tint(Palette.accent).accessibilityLabel("Text size").accessibilityValue(textSize.capitalized)
           Text("A").font(.system(size: 22)).foregroundStyle(Palette.text)
         }.padding(.horizontal, 18).frame(minHeight: 54)
         ToggleRow(title: "Reduce motion", isOn: $reduceMotion, id: "reduce-motion")

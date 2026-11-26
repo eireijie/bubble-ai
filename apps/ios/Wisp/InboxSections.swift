@@ -21,10 +21,10 @@ struct AgentDoing: Equatable {
 
 /** Plain logic behind the Inbox sections (the web's DashboardView and useWaitingOnYou). */
 extension Store {
-  func chatName(_ c: Channel) -> String { c.isDM ? dmAgent(c)?.name ?? "Direct message" : c.name }
+  func chatName(_ c: Channel) -> String { c.isDM ? dmAgent(c)?.name ?? "Direct message" : c.label }
   private func channelLabel(_ id: String?) -> String? {
     guard let id, let c = channels.first(where: { $0.id == id }) else { return nil }
-    return c.isDM ? "in a DM" : "in \(c.name)"
+    return c.isDM ? "in a DM" : "in \(c.label)"
   }
 
   /** One line per busy agent, from the most specific source: its task, then the chat step it's on. */
@@ -249,7 +249,7 @@ struct InboxSections: View {
             HStack(spacing: 12) {
               TeamGhosts(agents: teamChannel?.iconAgents(store.agents) ?? members, seed: t.name, size: 40, iconFileId: teamChannel?.settings?.iconFileId)
               VStack(alignment: .leading, spacing: 3) {
-                Text(t.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+                Text(Channel.label(t.name)).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
                 TeamRunLine(channelId: t.channelId ?? "", busyName: busy?.name ?? (teamBusy ? "" : nil))
               }
               Spacer(minLength: 0)
@@ -330,7 +330,7 @@ struct InboxSections: View {
   }
 
   private func chatRow(_ c: Channel, title: String) -> some View {
-    let last = store.messages[c.id]?.last
+    let last = store.messages[c.id].flatMap(ChatList.said)
     return HStack(spacing: 12) {
       if c.isDM, let a = store.dmAgent(c) { SoloGhost(agent: a, size: 40) }
       else {
@@ -417,7 +417,7 @@ struct ReadinessSection: View {
       GeometryReader { g in
         ZStack(alignment: .leading) {
           Capsule().fill(Palette.field)
-          Capsule().fill(Palette.blue).frame(width: g.size.width * CGFloat(done) / CGFloat(max(total, 1)))
+          Capsule().fill(Palette.accent).frame(width: g.size.width * CGFloat(done) / CGFloat(max(total, 1)))
         }
       }
       .frame(height: 6).accessibilityHidden(true)

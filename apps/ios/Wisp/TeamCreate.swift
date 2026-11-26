@@ -82,7 +82,7 @@ struct NewChannel: View {
             VStack(alignment: .leading, spacing: 6) {
               Text("A team needs at least \(ChannelTeam.minAgents) agents, and you have \(store.agents.isEmpty ? "none" : String(store.agents.count)).").font(.system(size: 15)).foregroundStyle(Palette.text)
               Button(store.agents.isEmpty ? "Make an agent" : "Make another agent") { addingAgent = true }
-                .font(.system(size: 15)).foregroundStyle(Palette.blue).accessibilityIdentifier("create-add-agent")
+                .font(.system(size: 15)).foregroundStyle(Palette.accent).accessibilityIdentifier("create-add-agent")
             }
             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
@@ -171,7 +171,7 @@ struct NewChannel: View {
               path.append(.builder)
             }
             startRow("Browse templates", "\(TeamTemplate.builtIn.count) ready-made teams.", "square.grid.2x2", "start-templates") { path.append(.templates) }
-            startRow("Have an agent build it", "Say it in one sentence.", "sparkles", "start-agent") {
+            startRow("Describe it", "Say it in one sentence.", "text.bubble", "start-agent") {
               if model.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { model.description = model.topic }
               path.append(.describe)
             }
@@ -296,7 +296,7 @@ private struct DescribePage: View {
       }
       .scrollDismissesKeyboard(.interactively)
     } bottom: {
-      Button { focused = false; build() } label: { Label("Build it", systemImage: "sparkles").frame(maxWidth: .infinity) }
+      Button { focused = false; build() } label: { Text("Make the team").frame(maxWidth: .infinity) }
         .primaryButton().padding(.horizontal, 36).padding(.vertical, 10)
         .disabled(model.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.agents.isEmpty)
         .accessibilityIdentifier("describe-build")
@@ -374,7 +374,6 @@ private struct PreviewPage: View {
 
   var body: some View {
     let team = model.team
-    let lines = model.draft?.lines ?? team.flowLines(store)
     PageFrame(title: "Preview", back: back) {
       ScrollView {
         VStack(alignment: .leading, spacing: 18) {
@@ -382,13 +381,6 @@ private struct PreviewPage: View {
           VStack(spacing: 10) {
             ForEach(team.orderedSteps) { s in PreviewStepRow(team: team, step: s) }
           }
-          Text("How it works").font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.horizontal, 6).padding(.top, 6)
-          VStack(alignment: .leading, spacing: 14) {
-            ForEach(lines) { line in TeamHowLine(team: team, line: line, size: 26) }
-          }
-          .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-          .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
           if let problem = team.createProblem ?? error {
             Text(problem).font(.system(size: 15)).foregroundStyle(Palette.red).padding(.horizontal, 6)
           }
@@ -456,7 +448,7 @@ private struct ReviewPage: View {
           HStack(spacing: 14) {
             TeamGhosts(agents: agents, seed: slug, size: 56)
             VStack(alignment: .leading, spacing: 4) {
-              Text(model.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? slug : model.name.trimmingCharacters(in: .whitespacesAndNewlines)).font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text)
+              Text(model.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Channel.label(slug) : model.name.trimmingCharacters(in: .whitespacesAndNewlines)).font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text)
               if !model.topic.isEmpty { Text(model.topic).font(.system(size: 15)).foregroundStyle(Palette.muted) }
             }
           }

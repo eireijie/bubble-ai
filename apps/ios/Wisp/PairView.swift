@@ -76,7 +76,7 @@ struct PairView: View {
         }
         .tint(Palette.muted)
         if !QRScanner.available {
-          Text("This device can't scan codes. On your computer, click **Copy pairing link** and paste it here.")
+          Text("On your computer, click **Copy pairing link**, then paste it here.")
             .font(.footnote)
             .foregroundStyle(Palette.muted)
             .multilineTextAlignment(.center)
@@ -85,12 +85,13 @@ struct PairView: View {
           .font(.footnote)
           .foregroundStyle(Palette.faint)
           .multilineTextAlignment(.center)
-          .padding(.bottom, 120)
       }
     } bottom: {
-      AuthButton(title: "Scan QR code", symbol: "qrcode.viewfinder", id: "pair-scan") { scanning = true }
-        .disabled(!QRScanner.available)
-      AuthButton(title: "Paste a pairing link", symbol: "doc.on.clipboard", primary: false, id: "pair-paste") { pasting = true }
+      // a device without a camera gets one button, not a dead one over the words
+      if QRScanner.available {
+        AuthButton(title: "Scan QR code", symbol: "qrcode.viewfinder", id: "pair-scan") { scanning = true }
+      }
+      AuthButton(title: "Paste a pairing link", symbol: "doc.on.clipboard", primary: !QRScanner.available, id: "pair-paste") { pasting = true }
     }
   }
 

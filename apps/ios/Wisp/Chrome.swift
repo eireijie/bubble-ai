@@ -32,9 +32,10 @@ extension View {
   }
 
   /** The light surface a pill (name, tab bar) sits on. */
-  @ViewBuilder func glassPill() -> some View {
+  // inside a Button pass interactive: false: interactive glass takes the first tap for itself, so the button needed two
+  @ViewBuilder func glassPill(interactive: Bool = true) -> some View {
     if #available(iOS 26, *) {
-      self.glassEffect(.regular.interactive(), in: .capsule)
+      self.glassEffect(interactive ? .regular.interactive() : .regular, in: .capsule)
     } else {
       self.background(Capsule().fill(Palette.control)).overlay(Capsule().strokeBorder(Palette.hairline))
     }
@@ -104,6 +105,23 @@ struct TopBar<Leading: View, Center: View, Trailing: View>: View {
   }
 }
 
+/**
+ * What sits behind a chat's top bar: a blur of the page that fades out at its bottom edge, so
+ * messages scrolled up under it soften instead of running through the name.
+ */
+struct HeaderBackdrop: View {
+  var body: some View {
+    ZStack {
+      Rectangle().fill(.ultraThinMaterial)
+      Palette.ground.opacity(0.72)
+    }
+    .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.72), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+    .padding(.bottom, -16)
+    .ignoresSafeArea(edges: .top)
+    .allowsHitTesting(false)
+  }
+}
+
 /** The name in the middle of a chat's top bar: the ghost and the name on a glass pill. */
 struct NamePill<Icon: View>: View {
   var title: String
@@ -116,7 +134,7 @@ struct NamePill<Icon: View>: View {
     }
     .padding(.leading, 12).padding(.trailing, 18)
     .frame(height: 44)
-    .glassPill()
+    .glassPill(interactive: false)
     .contentShape(Capsule())
   }
 }

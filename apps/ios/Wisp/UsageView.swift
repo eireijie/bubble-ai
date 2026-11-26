@@ -18,7 +18,7 @@ struct UsageView: View {
         if loadError != nil {
           HStack(spacing: 10) {
             Text("Couldn't refresh.").font(.system(size: 13)).foregroundStyle(Palette.red)
-            Button("Retry") { Task { await load() } }.font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.blue)
+            Button("Retry") { Task { await load() } }.font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.accent)
             Spacer()
           }.padding(.horizontal, 6)
         }
@@ -141,7 +141,7 @@ enum UsageFormat {
   }
 }
 
-private let chatShade = Palette.blue
+private let chatShade = Palette.accent
 private let ownShade = Color(light: 0x0A4FA8, dark: 0x1E5FB8)
 
 private struct UsageContent: View {

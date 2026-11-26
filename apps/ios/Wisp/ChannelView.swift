@@ -23,6 +23,11 @@ struct ChannelView: View {
   @State private var flashed: String?
   @State private var attachTrigger = 0
   @State private var tool: ChatTool?
+  @State private var searching = false
+  /** the message bar has focus: the extras over it step aside, so nothing covers the slash menu or the last message */
+  @State private var typing = false
+  @State private var jumpTo: String?
+  @State private var screen: String?
   /** what the agent in a DM runs on: the line over the message box and the ring in the header */
   @State private var run = RunInfo()
   @State private var showRun = false
@@ -94,6 +99,13 @@ struct ChannelView: View {
       flashed = id
       Task { try? await Task.sleep(for: .milliseconds(1400)); if flashed == id { flashed = nil } }
     }
+    .onChange(of: jumpTo) { _, id in
+      guard let id else { return }
+      withAnimation(.snappy) { proxy.scrollTo(id, anchor: .center) }
+      flashed = id
+      jumpTo = nil
+      Task { try? await Task.sleep(for: .milliseconds(1400)); if flashed == id { flashed = nil } }
+    }
     .environment(\.flashedMessage, flashed)
     }
     .scrollDismissesKeyboard(.interactively)
@@ -103,11 +115,13 @@ struct ChannelView: View {
       } else {
         VStack(spacing: 6) {
           // a new agent's first chat: one-tap answers, pings after its first answer, and what it set up
-          SetupTourChat(channel: current)
-          FirstChatExtras(channel: current)
+          if !typing {
+            SetupTourChat(channel: current)
+            FirstChatExtras(channel: current)
+          }
           ActivityPill(channel: current)
           VStack(alignment: .leading, spacing: 0) {
-            if let agent = store.dmAgent(current), run.context != nil {
+            if !typing, let agent = store.dmAgent(current), run.context != nil {
               RunSummaryLine(agent: agent, info: run) { showRun = true }
                 .padding(.leading, 82).padding(.trailing, 18)
                 .transition(.opacity)
@@ -126,6 +140,8 @@ struct ChannelView: View {
         chrome
         // it can't answer until its harness is signed in where it runs: say so before anyone writes
         if current.archivedAt == nil, let agent = store.dmAgent(current), agent.signIn != nil { AgentSignInBar(agent: agent).padding(.bottom, 4) }
+        // its harness isn't on the device it runs on: every reply would fail, so say it and offer Install
+        if current.archivedAt == nil, let agent = store.dmAgent(current), let node = store.missingHarness(agent) { HarnessMissingBar(agent: agent, node: node).padding(.bottom, 4) }
         // a call shrunk from full screen sits under the top bar
         if let call, !call.expanded { CallBar(call: call).transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .top).combined(with: .move(edge: .top)).combined(with: .opacity)) }
       }.animation(Motion.pick(Motion.pop, reduceMotion), value: call?.expanded)
@@ -139,6 +155,8 @@ struct ChannelView: View {
       if let call { CallScreen(call: call) }
     }
     .sheet(item: $tool) { ChatToolSheet(tool: $0, channelId: channel.id) }
+    .sheet(isPresented: $searching) { ChatSearchSheet(messages: list) { jumpTo = $0 } }
+    .navigationDestination(item: $screen) { ComputerDetail(computerId: $0) }
     .sheet(isPresented: $showRun) {
       if let agent = store.dmAgent(current) { RunSheet(agentId: agent.id, channelId: channel.id, info: run) }
     }
@@ -186,7 +204,8 @@ struct ChannelView: View {
     Composer(placeholder: placeholder, channelId: channel.id, refresh: list.count, draft: draft, attachTrigger: attachTrigger, send: { text, files, replyTo in
             try await store.send(text, in: channel.id, files: files, replyTo: replyTo)
           }, onModelCommand: store.dmAgent(current).map { _ in { showRun = true } }, callLive: call != nil,
-          onCall: store.dmAgent(current) != nil && canCall && call == nil ? { startCall() } : nil, callName: store.dmAgent(current)?.name)
+          onCall: store.dmAgent(current) != nil && canCall && call == nil ? { startCall() } : nil, callName: store.dmAgent(current)?.name,
+          onFocus: { on in withAnimation(Motion.pick(Motion.soft, reduceMotion)) { typing = on } })
     .tourTarget("composer")
     // Show me around starts from the chat that's open
     .onAppear { TourRun.shared.openChannel = channel.id }
@@ -208,7 +227,7 @@ struct ChannelView: View {
 
   private var placeholder: String {
     if let agent = store.dmAgent(current) { return "Ask \(agent.name)" }
-    return "Message \(current.name)"
+    return "Message \(current.label)"
   }
 
   /** a voice call is on offer in a chat with one agent when voice is on */
@@ -236,27 +255,29 @@ struct ChannelView: View {
           }
           .padding(.horizontal, 10).frame(height: 24)
           .fixedSize(horizontal: false, vertical: true)
-          .glassPill()
+          .glassPill(interactive: false)
           if current.archivedAt != nil { Text("Archived").font(.system(size: 11)).foregroundStyle(Palette.muted) }
         }
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .accessibilityLabel(store.dmAgent(current) != nil ? "\(store.title(of: current)), open profile" : "\(current.name), team info")
+      .accessibilityLabel(store.dmAgent(current) != nil ? "\(store.title(of: current)), open profile" : "\(current.label), team info")
       .accessibilityIdentifier("chat-title")
       .tourTarget(store.dmAgent(current) != nil ? "agent-pill" : "team-pill")
     } trailing: {
       HStack(spacing: 6) {
-      if store.dmAgent(current) != nil, let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { showRun = true } }
+      // calling lives on the message bar's round button (empty field); the ring opens how full the conversation is,
+      // and the harness and model open only from the chip over the message bar
+      if let agent = store.dmAgent(current), let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { tool = .context(agent) } }
       Menu {
         if let agent = store.dmAgent(current) {
-          if canCall, call == nil { Button("Call \(agent.name)", systemImage: "phone") { startCall() }.tint(Palette.call) }
-          Button("About \(agent.name)", systemImage: "person.crop.circle") { showDetails = true }
-          if store.role != "guest" { Button("Harness, model and effort", systemImage: "cpu") { showRun = true } }
           Button("What it can do", systemImage: "shield") { tool = .access(agent) }
-          Button("Context window", systemImage: "gauge.with.dots.needle.33percent") { tool = .context(agent) }
+          if let computer = agent.computerId, store.canViewComputers { Button("See its screen", systemImage: "display") { screen = computer } }
+          Button("Search in chat", systemImage: "magnifyingglass") { searching = true }
+          Button(current.isMuted ? "Unmute" : "Mute", systemImage: current.isMuted ? "bell" : "bell.slash") {
+            Task { try? await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(current.isMuted ? "default" : "mute")]) }
+          }
         } else {
-          Button("Team info", systemImage: "person.2") { showDetails = true }
           Menu("Notify me", systemImage: "bell") {
             Picker("Notify me", selection: Binding(get: { current.notify ?? "default" }, set: { v in Task { try? await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(v)]) } })) {
               Text("Every message").tag("all")
@@ -265,6 +286,7 @@ struct ChannelView: View {
             }
           }
           Button("How the team works", systemImage: "point.3.connected.trianglepath.dotted") { showTeam = true }
+          Button("Search in chat", systemImage: "magnifyingglass") { searching = true }
           Button((current.starred ?? false) ? "Unpin from the top" : "Pin to the top", systemImage: "pin") {
             Task { try? await store.setChannelPrefs(channel.id, ["starred": AnyEncodable(!(current.starred ?? false))]) }
           }
@@ -274,10 +296,7 @@ struct ChannelView: View {
         .tourTarget("chat-more")
       }
     }
-    .background(alignment: .top) {
-      LinearGradient(colors: [Palette.ground, Palette.ground.opacity(0)], startPoint: .top, endPoint: .bottom)
-        .padding(.bottom, -10).ignoresSafeArea(edges: .top).allowsHitTesting(false)
-    }
+    .background(alignment: .top) { HeaderBackdrop() }
     .background { hangUpWhenLeaving }
   }
 }
@@ -429,7 +448,7 @@ struct ThreadView: View {
     .toolbar(.hidden, for: .tabBar)
     .toolbar(.hidden, for: .navigationBar)
     .background(Palette.ground.ignoresSafeArea())
-    .safeAreaInset(edge: .top, spacing: 0) { chrome }
+    .safeAreaInset(edge: .top, spacing: 0) { chrome.background(alignment: .top) { HeaderBackdrop() } }
     .task(id: ref) {
       settled = false
       await load()
@@ -484,8 +503,6 @@ struct ThreadView: View {
     } trailing: {
       if handoffTask != nil, let agent = handoffAgent, agent.status == .busy, store.role != "guest" {
         CircleButton(symbol: "stop.fill", label: "Stop \(agent.name)") { Task { try? await store.stopAgent(agent.id) } }
-      } else {
-        CircleButton(symbol: "xmark", label: "Close thread") { dismiss() }
       }
     }
   }
@@ -615,7 +632,7 @@ struct EmptyChannel: View {
       } else {
         let team = channel.team(agents: store.agents)
         TeamGhosts(agents: channel.iconAgents(store.agents), seed: channel.name, size: 64, iconFileId: channel.settings?.iconFileId)
-        Text(channel.name).font(.system(size: 20, weight: .semibold))
+        Text(channel.label).font(.system(size: 20, weight: .semibold))
         Text(intro(team)).font(.system(size: 15)).foregroundStyle(Palette.muted)
         if channel.archivedAt == nil {
           CardGroup {
@@ -675,6 +692,8 @@ struct Composer: View {
   /** a 1:1 chat: with the field empty, the round button calls the agent instead of sending */
   var onCall: (() -> Void)? = nil
   var callName: String? = nil
+  /** told when the field gains or loses focus (the chat tucks its extras away while you type) */
+  var onFocus: (Bool) -> Void = { _ in }
   @State private var dictation = Dictation()
   @State private var dictationBase = ""
   @State private var text = ""
@@ -685,6 +704,7 @@ struct Composer: View {
   @State private var error: String?
   @State private var pickingPhotos = false
   @State private var pickingFiles = false
+  @State private var takingPhoto = false
   @State private var photos: [PhotosPickerItem] = []
   @State private var slash = SlashMenuModel()
   @FocusState private var focused: Bool
@@ -740,6 +760,7 @@ struct Composer: View {
       // a round +, a pill-shaped field with dictation inside, and a round send button outside it
       HStack(alignment: .bottom, spacing: 8) {
         Menu {
+          if UIImagePickerController.isSourceTypeAvailable(.camera) { Button("Camera", systemImage: "camera") { takingPhoto = true } }
           Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
           Button("Files", systemImage: "folder") { pickingFiles = true }
           if chatAgent == nil { Button("Mention an agent", systemImage: "at") { text += (text.isEmpty || text.hasSuffix(" ") ? "@" : " @"); focused = true } }
@@ -825,7 +846,16 @@ struct Composer: View {
     }
     .onChange(of: attachTrigger) { pickingFiles = true }
     .onChange(of: callLive) { _, live in if live { dictation.stop() } }
+    .onChange(of: focused) { _, on in onFocus(on) }
     .onChange(of: store.replying) { _, _ in if replyTarget != nil { focused = true } }
+    .fullScreenCover(isPresented: $takingPhoto) {
+      CameraPicker { image in
+        guard let jpeg = image.jpegData(compressionQuality: 0.85) else { return }
+        let stamp = Date().formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false)).replacingOccurrences(of: ":", with: "-")
+        upload("Photo") { (jpeg, "Photo \(stamp).jpg", "image/jpeg") }
+      }
+      .ignoresSafeArea()
+    }
     .photosPicker(isPresented: $pickingPhotos, selection: $photos, maxSelectionCount: 10, matching: .any(of: [.images, .videos]))
     .onChange(of: photos) { _, items in
       guard !items.isEmpty else { return }

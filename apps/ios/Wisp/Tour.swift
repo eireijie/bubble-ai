@@ -105,7 +105,7 @@ enum Tour {
     Stop(id: "sections", ch: 4, title: "Sections", body: "Your own groups. Drag rows in, fold away the ones you don't need.", place: .chats, targets: ["sections", "new-section"], phoneBody: "Your own groups. Press and hold a row to move it in, fold away the ones you don't need."),
     Stop(id: "agent-page", ch: 4, title: "Agent page", body: "Click an agent's name for its page: look, apps, and what it asks first.", place: .chat, targets: ["agent-pill"]),
     Stop(id: "ai", ch: 4, title: "What runs your agents", body: "Each agent runs on an AI you already use, like Claude Code or Codex. Sign in once.", place: .ai, targets: ["ai-page"], noGuests: true),
-    Stop(id: "mods", ch: 4, title: "Mods", body: "Whole extra features, like Tasks, Apple and Storage. Off until you want them.", place: .mods, targets: ["mods-page", "mods-on"], mod: .tasks, noGuests: true),
+    Stop(id: "mods", ch: 4, title: "Mods", body: "Whole extra features, like Tasks, Apple and Storage. Off until you want them.", place: .mods, targets: ["mods-page"], mod: .tasks, noGuests: true),
     Stop(id: "settings", ch: 4, title: "Settings", body: "Everything else. Show me around lives here too, under Learn Bubble AI, and in Help.", place: .settings, targets: ["learn-row", "settings-page"]),
   ]
 
@@ -152,12 +152,10 @@ enum Tour {
     }
   }
 
-  /** "Chapter 2 of 5 · Hands-off · 1 of 4" */
+  /** "Chapter 2 · Hands-off": the one count is the step counter under the card */
   static func eyebrow(_ i: Int, _ list: [Stop] = stops) -> String {
     let s = list[i]
-    let inCh = list.filter { $0.ch == s.ch }
-    let n = (inCh.firstIndex { $0.id == s.id } ?? 0) + 1
-    return "Chapter \(s.ch + 1) of \(chapters.count) · \(chapters[s.ch]) · \(n) of \(inCh.count)"
+    return "Chapter \(s.ch + 1) · \(chapters[s.ch])"
   }
 
   /** The button that starts the tour: never started, part way, or all seen. */

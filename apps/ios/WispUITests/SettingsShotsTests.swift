@@ -30,7 +30,7 @@ final class SettingsShotsTests: XCTestCase {
     let pages: [(String, String)] = [
       ("settings-notifications", "notifications"), ("settings-behavior", "behavior"), ("settings-voice", "voice"), ("settings-security", "security"),
       ("settings-workspace", "workspace"), ("settings-people", "people"), ("settings-usage", "usage"),
-      ("settings-agents", "agent-policy"), ("settings-connections", "connections"), ("settings-computers", "computers-and-devices"), ("settings-ai", "ai"), ("settings-buddy", "buddy"),
+      ("settings-agents", "agent-policy"), ("settings-connections", "connections"), ("settings-computers", "computers-and-devices"), ("ai-harnesses", "harnesses"), ("settings-buddy", "buddy"),
       ("settings-data", "data"), ("settings-about", "about"),
     ]
     for (id, screen) in pages { visit(id, screen) }

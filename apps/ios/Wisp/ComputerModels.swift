@@ -67,6 +67,10 @@ struct NewComputer: Encodable, Equatable {
 struct ComputerSettings: Decodable {
   struct Orgo: Decodable { var configured: Bool }
   var orgo: Orgo
+  /** Advanced lets people place agents themselves; Simple puts an owner's on the shared computer */
+  var advanced: Bool?
+  /** the computer agents share, once there is one */
+  var sharedComputerId: String?
 }
 
 extension AgentNode {

@@ -261,7 +261,7 @@ private struct Running: View {
         }
       })) { Text("\(name) mod") }
         .labelsHidden()
-        .tint(Palette.blue)
+        .tint(Palette.accent)
         .disabled(!owner || modBusy)
     }
     .padding(.horizontal, 12).padding(.vertical, 8)

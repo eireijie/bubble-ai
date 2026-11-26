@@ -168,7 +168,7 @@ struct AddComputerView: View {
           if let note { Text(note).font(.footnote).foregroundStyle(Color.orange) }
         }
         Spacer(minLength: 0)
-        Image(systemName: kind == k ? "checkmark.circle.fill" : "circle").foregroundStyle(kind == k ? Palette.blue : Palette.faint)
+        Image(systemName: kind == k ? "checkmark.circle.fill" : "circle").foregroundStyle(kind == k ? Palette.accent : Palette.faint)
       }
       .padding(14).frame(maxWidth: .infinity, alignment: .leading)
       .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))

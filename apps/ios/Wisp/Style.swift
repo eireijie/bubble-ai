@@ -48,7 +48,8 @@ enum Palette {
   static let hairline = Color(light: 0x000000, lightAlpha: 0.09, dark: 0xFFFFFF, darkAlpha: 0.10)
   /** the 1px edge on cards and panels */
   static let cardBorder = Color(light: 0x000000, lightAlpha: 0.08, dark: 0xFFFFFF, darkAlpha: 0.08)
-  static let blue = Color(hex: 0x0A84FF)
+  /** the Bubble AI accent: checkmarks, switches, links and highlights (web --wisp-strong / --wisp) */
+  static let accent = Color(light: 0x7A5BDC, dark: 0xA98BF5)
   /** your own message bubbles: Bubble AI violet with dark words (web --bubble-me) */
   static let mine = Color(hex: 0xA98BF5)
   static let mineInk = Color(hex: 0x161616)

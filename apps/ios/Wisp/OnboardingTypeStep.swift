@@ -143,6 +143,8 @@ struct AppRowState: Equatable {
   enum Phase: Equatable { case idle, key, busy, done, failed }
   var phase = Phase.idle
   var error: String?
+  /** what to do on the Mac while macOS is being asked (Full Disk Access is a switch, not a prompt) */
+  var hint: String?
   /** false: saved, but Bubble AI has no way to try the key */
   var checked = true
 }
@@ -169,6 +171,8 @@ struct AppsSheet: View {
   @State private var browser = SignInBrowser()
   /** the row whose key form opened last */
   @State private var keyRow: String?
+  /** each Apple app being allowed, so it can be cancelled */
+  @State private var allowing: [String: Task<Void, Never>] = [:]
   @ReduceMotion private var reduceMotion
 
   private var modes: [String: AppRowMode] { Dictionary(uniqueKeysWithValues: apps.map { ($0.id, AppRows.mode($0, options: options)) }) }
@@ -193,7 +197,7 @@ struct AppsSheet: View {
             ForEach(shown) { a in
               AppRow(app: a, mode: modes[a.id] ?? .soon, reason: options?[a.catalogId ?? ""]?.reason, state: rows[a.id] ?? AppRowState(),
                      values: Binding(get: { values[a.id] ?? [:] }, set: { values[a.id] = $0 }),
-                     onAllow: { Task { await allow(a) } }, onKey: { set(a.id, AppRowState(phase: .key)); keyRow = a.id }, onSave: { Task { await addKey(a) } }, onSignIn: { Task { await signIn(a) } })
+                     onAllow: { allowing[a.id] = Task { await allow(a) } }, onCancel: { allowing[a.id]?.cancel(); allowing[a.id] = nil; set(a.id, AppRowState()) }, onKey: { set(a.id, AppRowState(phase: .key)); keyRow = a.id }, onSave: { Task { await addKey(a) } }, onSignIn: { Task { await signIn(a) } })
             }
           }
           .padding(.horizontal, 20).padding(.bottom, 8)
@@ -347,6 +351,7 @@ struct AppsSheet: View {
     guard let app = a.apple else { return }
     set(a.id, AppRowState(phase: .busy))
     func fail(_ message: String) -> API.Failure { API.Failure(status: 0, message: message) }
+    var turnedOn = false
     do {
       let fresh = !store.features.apple
       if fresh {
@@ -354,13 +359,15 @@ struct AppsSheet: View {
         var next = store.features
         next.apple = true
         try await store.setFeatures(next)
+        turnedOn = true
       }
       await store.refreshApple()
       let mine = Set(store.nodes.filter { $0.mine == true }.map(\.id))
       guard let mac = store.apple?.macs.first(where: { $0.online && mine.contains($0.nodeId) }) ?? store.apple?.macs.first(where: \.online) else {
         throw fail("Bubble AI can't reach your Mac right now. Open Bubble AI on it, then try again.")
       }
-      var levels: [String: Int] = fresh ? ["messages": 0, "contacts": 0, "calendar": 0, "reminders": 0] : [:]
+      // only the app asked for: everything else (Location too) stays off
+      var levels: [String: Int] = fresh ? ["messages": 0, "contacts": 0, "calendar": 0, "reminders": 0, "location": 0] : [:]
       levels[app.rawValue] = 1
       _ = try await store.saveApple(AppleSettingsPatch(macNodeId: mac.nodeId, levels: levels))
       let pane = OnboardingCatalog.applePermission(app)
@@ -377,6 +384,7 @@ struct AppsSheet: View {
       if await status() != "allowed" {
         // macOS shows its own prompt on the Mac (or its System Settings pane for Full Disk Access)
         _ = try? await store.fetch { try await $0.raw("POST", "/api/apple/mac/permission", body: ["pane": pane]) }
+        set(a.id, AppRowState(phase: .busy, hint: pane == "fullDiskAccess" ? "On \(mac.name), turn on Bubble AI in System Settings › Privacy & Security › Full Disk Access." : "Answer the prompt on \(mac.name)."))
         let until = Date().addingTimeInterval(120)
         while true {
           try await Task.sleep(for: .milliseconds(1500))
@@ -391,6 +399,16 @@ struct AppsSheet: View {
       set(a.id, AppRowState(phase: .done))
       stage.react(.grab)
     } catch {
+      // given up or cancelled: the mod this turned on goes back off, so nothing stays on that wasn't allowed
+      if turnedOn, store.role == "owner", OnboardingAnswers.load(workspaceId).appleApps.isEmpty {
+        // its own task: a cancelled one would cancel this request too
+        Task { @MainActor in
+          var next = store.features
+          next.apple = false
+          try? await store.setFeatures(next)
+        }
+      }
+      if error is CancellationError || Task.isCancelled { set(a.id, AppRowState()); return }
       set(a.id, AppRowState(phase: .failed, error: error.localizedDescription))
     }
   }
@@ -404,6 +422,7 @@ struct AppRow: View {
   var state: AppRowState
   @Binding var values: [String: String]
   var onAllow: () -> Void
+  var onCancel: () -> Void = {}
   var onKey: () -> Void
   var onSave: () -> Void
   var onSignIn: () -> Void
@@ -430,6 +449,10 @@ struct AppRow: View {
         control
       }
       .frame(minHeight: 36)
+      if state.phase == .busy, let hint = state.hint {
+        Text(hint).font(.system(size: 13)).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+          .padding(.top, 6).padding(.leading, 34).accessibilityIdentifier("ob-app-\(app.id)-hint")
+      }
       if state.phase == .key { keyForm.padding(.top, 10).padding(.leading, 34).id(Self.formId(app.id)).obPop() }
       if state.phase == .failed, let error = state.error {
         Text(error).font(.system(size: 13)).foregroundStyle(Palette.red).fixedSize(horizontal: false, vertical: true)
@@ -462,6 +485,7 @@ struct AppRow: View {
         HStack(spacing: 6) {
           ProgressView().controlSize(.small)
           Text(app.how == .mac ? "Asking macOS" : mode == .signIn ? "Signing in" : "Checking").font(.system(size: 13)).foregroundStyle(Palette.muted)
+          if app.how == .mac { Button("Cancel", action: onCancel).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text).buttonStyle(.plain).padding(.leading, 4).accessibilityIdentifier("ob-app-\(app.id)-cancel") }
         }
       case .key:
         EmptyView()

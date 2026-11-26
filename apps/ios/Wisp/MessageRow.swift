@@ -135,7 +135,7 @@ struct MessageRow: View {
     .padding(.top, (compact ? 0 : 4) + (hasReactions && showsBubble ? 12 : 0))
     .padding(.bottom, last ? 4 : 1)
     .background {
-      if flashed == message.id { Palette.blue.opacity(0.14) }
+      if flashed == message.id { Palette.accent.opacity(0.14) }
     }
     .animation(.easeOut(duration: 0.5), value: flashed)
     .contentShape(Rectangle())
@@ -339,36 +339,111 @@ struct ThreadWork: View {
   }
 }
 
-/** What to do about a failed run: sign in if that's the cause, then ask again. */
+/**
+ * A reply that failed: one quiet line saying why ("Claude Code isn't installed on Mac mini.") and
+ * its one fix: Install, Sign in, Choose device, or Try again. Only the newest failure in a chat
+ * offers its button, so a run of failures doesn't stack them. The full error opens from the line.
+ */
 private struct RunFailedActions: View {
   @Environment(Store.self) private var store
-  var runId: String
-  var retry: Bool
-  var fix: String?
+  var failure: RunFailure
   var agent: Agent?
+  /** the raw error the hub posted with it ("Run failed: …"), shown when the line is tapped */
+  var detail: String?
+  /** the newest failure in its chat: the only one with a button */
+  var newest: Bool
   @State private var action = FormAction()
   @State private var sent = false
+  @State private var more = false
 
   var body: some View {
     if sent {
-      Text("Trying again…").font(.caption).foregroundStyle(Palette.faint).padding(.horizontal, 4)
+      Text("Trying again…").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
     } else {
       VStack(alignment: .leading, spacing: 6) {
-        HStack(spacing: 8) {
-          // still not signed in: open that sign-in right here (on its device, or on its own computer)
-          if fix == "signin" || fix == "computer", let agent = agent.flatMap({ store.agent($0.id) }), let signIn = agent.signIn {
-            AgentSignInButton(agent: agent, signIn: signIn)
-          } else if fix == "signin" { NavigationLink { HarnessesView() } label: { Text("Sign in") }.buttonStyle(CardPill(tone: .soft)).accessibilityIdentifier("run-sign-in") }
-          if fix == "connection" { NavigationLink { ModelsSettingsView() } label: { Text("Sign in") }.buttonStyle(CardPill(tone: .soft)).accessibilityIdentifier("run-sign-in") }
-          if fix == "computer", let agent, store.agent(agent.id)?.signIn == nil { NavigationLink { AgentComputerView(agent: agent) } label: { Text("Sign in") }.buttonStyle(CardPill(tone: .soft)).accessibilityIdentifier("run-sign-in") }
-          if retry {
-            Button("Try again") { action.run { try await store.retryRun(runId); sent = true } }
-              .buttonStyle(CardPill(tone: .soft)).disabled(action.busy).accessibilityIdentifier("run-retry")
+        HStack(spacing: 10) {
+          Button { if detail != nil { withAnimation(.snappy) { more.toggle() } } } label: {
+            HStack(spacing: 6) {
+              Image(systemName: "exclamationmark.circle").font(.system(size: 12)).foregroundStyle(Palette.statusProblem)
+              Text(failure.line).font(.system(size: 13)).foregroundStyle(Palette.muted).multilineTextAlignment(.leading)
+            }
           }
+          .buttonStyle(.plain).disabled(detail == nil)
+          .accessibilityHint(detail == nil ? "" : "Shows the full error")
+          .accessibilityIdentifier("run-failed-line")
+          if newest { fixButton }
         }
+        if more, let detail { Text(detail).font(.system(size: 12)).foregroundStyle(Palette.faint).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
         InlineError(error: action.error)
-      }.padding(.horizontal, 4)
+      }
+      .padding(.horizontal, 4)
     }
+  }
+
+  @ViewBuilder private var fixButton: some View {
+    let live = agent.flatMap { store.agent($0.id) }
+    switch failure.action {
+    case .install:
+      Button(action.busy ? "Installing…" : "Install") {
+        action.run {
+          guard let harness = failure.harness, let node = failure.nodeId else { return }
+          _ = try await store.installHarness(harness, node: node)
+          if failure.retry { try await store.retryRun(failure.runId); sent = true }
+        }
+      }
+      .buttonStyle(FixPill()).disabled(action.busy).accessibilityIdentifier("run-install")
+    case .signIn:
+      if failure.fix != "connection", let live, let signIn = live.signIn {
+        AgentSignInButton(agent: live, signIn: signIn, compact: true)
+      } else if failure.fix == "connection" {
+        NavigationLink { ModelsSettingsView() } label: { Text("Sign in") }.buttonStyle(FixPill()).accessibilityIdentifier("run-sign-in")
+      } else if failure.fix == "computer", let live {
+        NavigationLink { AgentComputerView(agent: live) } label: { Text("Sign in") }.buttonStyle(FixPill()).accessibilityIdentifier("run-sign-in")
+      } else {
+        NavigationLink { HarnessesView() } label: { Text("Sign in") }.buttonStyle(FixPill()).accessibilityIdentifier("run-sign-in")
+      }
+    case .device:
+      if let live { NavigationLink { AgentComputerView(agent: live) } label: { Text("Choose device") }.buttonStyle(FixPill()).accessibilityIdentifier("run-device") }
+    case .retry:
+      Button("Try again") { action.run { try await store.retryRun(failure.runId); sent = true } }
+        .buttonStyle(FixPill()).disabled(action.busy).accessibilityIdentifier("run-retry")
+    case .none:
+      EmptyView()
+    }
+  }
+}
+
+/** The small pill a failed reply's fix sits on: one line high, never full width. */
+struct FixPill: ButtonStyle {
+  @Environment(\.isEnabled) private var enabled
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text)
+      .padding(.horizontal, 12).frame(height: 30)
+      .background(Capsule().fill(Palette.control).overlay(Capsule().strokeBorder(Palette.hairline)))
+      .opacity(enabled ? 1 : 0.5)
+      .contentShape(Capsule())
+      .pressFeedback(configuration.isPressed)
+  }
+}
+
+enum RunFailedText {
+  /** The "Run failed: …" status the hub posts beside a run_failed part: hidden, since the part says it plainly. */
+  static func isFailureStatus(_ text: String) -> Bool { text.hasPrefix("Run failed:") }
+  /** That status's words, without the prefix, for the line's detail. */
+  static func detail(_ message: Message) -> String? {
+    for p in message.parts {
+      if case .status(let t) = p, isFailureStatus(t) {
+        return String(t.dropFirst("Run failed:".count)).trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "`", with: "")
+      }
+    }
+    return nil
+  }
+  static func hasFailure(_ message: Message) -> Bool { message.parts.contains { if case .runFailed = $0 { true } else { false } } }
+  /** Is this the newest message in its chat (and thread) with a failed run? */
+  static func isNewest(_ message: Message, in messages: [Message]) -> Bool {
+    let same = messages.filter { $0.threadId == message.threadId && hasFailure($0) }
+    return !same.contains { $0.id == message.id } || same.last?.id == message.id
   }
 }
 
@@ -379,8 +454,11 @@ struct PartView: View {
 
   var body: some View {
     switch part {
-    case .runFailed(let runId, let retry, let fix):
-      RunFailedActions(runId: runId, retry: retry, fix: fix, agent: store.agent(message.author.id))
+    case .runFailed(let failure):
+      RunFailedActions(failure: failure, agent: store.agent(message.author.id), detail: RunFailedText.detail(message),
+                       newest: RunFailedText.isNewest(message, in: store.messages[message.channelId] ?? []))
+    case .status(let t) where RunFailedText.isFailureStatus(t) && RunFailedText.hasFailure(message):
+      EmptyView()
     case .notice(let t), .status(let t):
       Text(t.replacingOccurrences(of: "`", with: "")).font(.caption).foregroundStyle(Palette.faint).italic().padding(.horizontal, 4)
     case .file(let id, let name):
@@ -755,7 +833,7 @@ struct ComputerCard: View {
         } label: {
           VStack(alignment: .leading, spacing: 8) {
             ScreenThumb(computer: c).frame(maxWidth: 320)
-            Text("Open \(c.name)").font(.caption.weight(.semibold)).foregroundStyle(Palette.blue)
+            Text("Open \(c.name)").font(.caption.weight(.semibold)).foregroundStyle(Palette.accent)
           }
         }
         .buttonStyle(.plain)

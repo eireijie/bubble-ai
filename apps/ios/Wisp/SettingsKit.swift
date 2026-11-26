@@ -127,7 +127,7 @@ struct ToggleRow: View {
         }
       }
     }
-    .tint(Palette.blue)
+    .tint(Palette.accent)
     .padding(.horizontal, 14).frame(minHeight: subtitle == nil ? 48 : 56)
     .accessibilityIdentifier(id ?? "")
   }
@@ -157,7 +157,7 @@ struct OptionRow: View {
           if let subtitle { Text(subtitle).font(.system(size: 13)).foregroundStyle(Palette.faint).multilineTextAlignment(.leading) }
         }
         Spacer(minLength: 8)
-        if selected { Image(systemName: "checkmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.blue) }
+        if selected { Image(systemName: "checkmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.accent) }
       }
       .padding(.horizontal, 14).frame(minHeight: subtitle == nil ? 48 : 56).contentShape(Rectangle())
     }

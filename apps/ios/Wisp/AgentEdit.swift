@@ -37,10 +37,10 @@ struct AgentEditSheet: View {
         else { CardCaption("Letters a to z. Teammates type this to mention it.") }
         CardGroup {
           NavigationLink { AgentPersonalityPage(agent: current) } label: {
-            RowLabel(title: "Personality", subtitle: soul.isEmpty ? "Who it is and how it sounds" : soul)
+            RowLabel(title: "Personality", subtitle: soul.isEmpty ? "Who it is and how it sounds" : soul, leading: { rowIcon("face.smiling") })
           }.buttonStyle(.plain).accessibilityIdentifier("edit-personality")
           NavigationLink { AgentInstructionsPage(agent: current) } label: {
-            RowLabel(title: "Instructions", subtitle: instructionsLine)
+            RowLabel(title: "Instructions", subtitle: instructionsLine, leading: { rowIcon("text.alignleft") })
           }.buttonStyle(.plain).accessibilityIdentifier("edit-instructions")
           Button { voiceSheet = true } label: {
             RowLabel(title: "Voice", subtitle: voiceLine, leading: { rowIcon("waveform") })
@@ -147,7 +147,7 @@ struct AgentPersonalityPage: View {
         }.buttonStyle(.plain).accessibilityIdentifier("personality-history")
         if store.canManage {
           Button { text = SoulText.template(name: current.name, handle: current.handle); preview = false } label: {
-            RowLabel(title: "Start from a template", leading: { rowIcon("sparkles") })
+            RowLabel(title: "Start from a template", leading: { rowIcon("square.on.square") })
           }.buttonStyle(.plain).accessibilityIdentifier("personality-template")
         }
       }

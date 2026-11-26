@@ -480,7 +480,7 @@ private struct PlaceSheet: View {
       if let center {
         VStack(alignment: .leading, spacing: 6) {
           Map(position: $camera, interactionModes: []) {
-            MapCircle(center: center, radius: radius).foregroundStyle(Palette.blue.opacity(0.18)).stroke(Palette.blue, lineWidth: 1.5)
+            MapCircle(center: center, radius: radius).foregroundStyle(Palette.accent.opacity(0.18)).stroke(Palette.accent, lineWidth: 1.5)
           }
           .frame(height: 150)
           .clipShape(RoundedRectangle(cornerRadius: Corner.card, style: .continuous))

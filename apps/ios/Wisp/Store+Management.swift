@@ -11,6 +11,17 @@ extension Store {
     return !inComputer
   }
 
+  /**
+   * The device an agent runs on directly whose program for its harness isn't there: it looks Online,
+   * but every reply would fail ("spawn claude ENOENT"). nil when it's there, can't be told, or runs elsewhere.
+   */
+  func missingHarness(_ agent: Agent) -> AgentNode? {
+    guard harnessOnDevice(agent), agent.signIn == nil, HarnessChoice.all.first(where: { $0.id == agent.harness })?.protocolName != "mcp",
+          let node = nodes.first(where: { $0.id == agent.nodeId }), node.online, let list = node.harnesses, !list.isEmpty || node.capabilities != nil
+    else { return nil }
+    return list.contains { $0.id == agent.harness } ? nil : node
+  }
+
   func connection() throws -> API {
     guard let api else { throw API.Failure(status: 0, message: "Connect to Bubble AI to make changes.") }
     var connection = api

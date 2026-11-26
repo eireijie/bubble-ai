@@ -15,6 +15,15 @@ enum StorageService: String, Codable, CaseIterable, Identifiable {
   }
   /** the brand's real logo from the hub, or nothing for "Other server" */
   var logos: [String] { self == .webdav ? [] : AppLogo.byName(name) }
+  /** the logo shipped with the app, so it shows even when the hub can't fetch one */
+  var asset: String? {
+    switch self {
+    case .nextcloud: "logo-nextcloud"
+    case .gdrive: "logo-gdrive"
+    case .dropbox: "logo-dropbox"
+    case .truenas, .webdav: nil
+    }
+  }
 }
 
 struct StorageFolder: Codable, Hashable {
@@ -114,7 +123,7 @@ struct StorageLogo: View {
   var service: StorageService
   var size: CGFloat = 40
   var body: some View {
-    if service.logos.isEmpty { MarketTile(symbol: "server.rack", size: size) } else { AppLogo(sources: service.logos, symbol: "externaldrive", size: size) }
+    if let asset = service.asset { Image(asset).resizable().scaledToFit().frame(width: size * 0.6, height: size * 0.6).logoTile(size).accessibilityHidden(true) } else if service.logos.isEmpty { MarketTile(symbol: "server.rack", size: size) } else { AppLogo(sources: service.logos, symbol: "externaldrive", size: size) }
   }
 }
 
@@ -142,7 +151,7 @@ struct StorageView: View {
             ForEach(list.connections) { c in
               NavigationLink { StorageConnectionView(connection: c, onChange: load) } label: {
                 HStack(spacing: 0) {
-                  MarketRow(logos: c.service.logos, symbol: "server.rack", title: c.name, subtitle: subtitle(c))
+                  MarketRow(symbol: "server.rack", logos: c.service.logos, asset: c.service.asset, title: c.name, subtitle: subtitle(c)) { EmptyView() }
                   Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.faint).padding(.trailing, 16)
                 }
               }
@@ -195,7 +204,7 @@ private struct AddStorageSheet: View {
         CardGroup {
           ForEach(StorageService.allCases) { s in
             Button { service = s } label: {
-              MarketRow(logos: s.logos, symbol: "server.rack", title: s.name, subtitle: s == .webdav ? "ownCloud, Synology, QNAP, anything with WebDAV" : nil)
+              MarketRow(symbol: "server.rack", logos: s.logos, asset: s.asset, title: s.name, subtitle: s == .webdav ? "ownCloud, Synology, QNAP, anything with WebDAV" : nil) { EmptyView() }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("storage-pick-\(s.rawValue)")
@@ -238,7 +247,7 @@ private struct ConnectNextcloud: View {
       MarketField(label: "Address", placeholder: "https://cloud.example.com", text: $server, keyboard: .URL, plain: true)
       MarketPrimaryButton(title: "Sign in with Nextcloud", busy: waiting, disabled: server.trimmed.isEmpty) { start() }
         .accessibilityIdentifier("storage-nextcloud-signin")
-      Text("Your Nextcloud opens in the browser to approve Bubble AI. Bubble AI gets its own app password, which you can revoke there under Security. It never sees your password.")
+      Text("Approve Bubble AI in your Nextcloud. It gets its own app password and never sees yours.")
         .font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
       if waiting {
         HStack(spacing: 10) { ProgressView(); Text("Waiting for you to approve in the browser…") }.font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
@@ -340,7 +349,7 @@ private struct ConnectCloud: View {
       ConnectHead(service: service, back: back)
       VStack(alignment: .leading, spacing: 4) {
         Text("Your \(google ? "Google" : "Dropbox") app").font(.system(size: 15, weight: .semibold))
-        Text("Bubble AI runs on your own server, so it signs in to \(service.name) through an app you make \(google ? "in Google Cloud" : "in the Dropbox App Console"). Once per workspace.")
+        Text("Make an app \(google ? "in Google Cloud" : "in the Dropbox App Console") once, then paste its keys here.")
           .font(.system(size: 13)).foregroundStyle(Palette.muted)
         Button("How") { if let help { openURL(help) } }.font(.system(size: 13, weight: .medium))
         Text("Redirect address: \((store.api?.base.absoluteString ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "/")))/api/storage/oauth/callback")

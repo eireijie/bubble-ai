@@ -19,7 +19,7 @@ struct ChatEntry: Identifiable, Hashable {
   var name: String {
     switch kind {
     case .agent(let a): a.name
-    case .team(let c): c.name
+    case .team(let c): c.label
     }
   }
   var isTeam: Bool { if case .team = kind { true } else { false } }
@@ -37,15 +37,20 @@ struct ChatEntry: Identifiable, Hashable {
 
 /** What the Chats list shows and in what order. Pure, so it can be tested. */
 enum ChatList {
+  /** the newest message with words or files: a system line like "queued" says nothing a row can show */
+  static func said(_ list: [Message]) -> Message? {
+    list.last { $0.deletedAt == nil && (!$0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !$0.files.isEmpty) } ?? list.last
+  }
+
   /** Agents' chats and teams in one flat list: pinned first, then the most recent, then by name. */
   static func entries(agents: [Agent], channels: [Channel], messages: [String: [Message]], dmAgent: (Channel) -> Agent?) -> [ChatEntry] {
     var out: [ChatEntry] = []
     for agent in agents {
       let dm = channels.first { $0.isDM && dmAgent($0)?.id == agent.id }
-      out.append(ChatEntry(kind: .agent(agent), channel: dm, last: dm.flatMap { messages[$0.id]?.last }))
+      out.append(ChatEntry(kind: .agent(agent), channel: dm, last: dm.flatMap { messages[$0.id].flatMap(Self.said) }))
     }
     for c in channels where !c.isDM && c.joined == true && c.archivedAt == nil {
-      out.append(ChatEntry(kind: .team(c), channel: c, last: messages[c.id]?.last))
+      out.append(ChatEntry(kind: .team(c), channel: c, last: messages[c.id].flatMap(Self.said)))
     }
     return out.sorted { a, b in
       if a.pinned != b.pinned { return a.pinned }
@@ -186,12 +191,11 @@ struct ChatsView: View {
         Menu {
           Button("New chat", systemImage: "square.and.pencil") { sheet = "chat" }
           if store.canManage {
-            Button("New agent", systemImage: "sparkles") { sheet = "agent" }
+            Button("New agent", systemImage: "person.crop.circle.badge.plus") { sheet = "agent" }
             Button("New team", systemImage: "person.2") { sheet = "team" }
           } else {
             Button("Browse teams", systemImage: "magnifyingglass") { sheet = "browse" }
           }
-          if !guest { Button("New section", systemImage: "folder.badge.plus") { newSection() } }
         } label: { CircleLabel(symbol: "plus", size: 38, weight: .regular) }
           .accessibilityLabel("New chat, agent or team").accessibilityIdentifier("new-menu")
           .tourTarget("new")
@@ -224,7 +228,7 @@ struct ChatsView: View {
     .overlay {
       if !searchMode && store.agents.isEmpty && entries.isEmpty {
         ContentUnavailableView {
-          Label("Add your first agent", systemImage: "sparkles")
+          Label("Add your first agent", systemImage: "plus")
         } description: {
           Text("Give it a job and a computer.")
         } actions: {
@@ -670,8 +674,8 @@ struct ChatRow<Menu: View>: View {
       HStack(spacing: 12) {
         ChatAvatar(entry: entry, size: 48)
           .overlay(alignment: .topTrailing) {
-            if unread && !needsTeam {
-              Circle().fill(Color(hex: 0x0A84FF)).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
+            if unread && !needsTeam && entry.badge == 0 {
+              Circle().fill(Palette.accent).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
             } else if needsTeam {
               Circle().fill(Color(hex: 0xFF9F0A)).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
             }
@@ -702,7 +706,7 @@ struct ChatRow<Menu: View>: View {
     .accessibilityIdentifier(entry.isTeam ? "team-row" : "chat-row")
     .contextMenu { menu }
     .swipeActions(edge: .leading, allowsFullSwipe: false) {
-      if channel != nil { Button("Mark as read", systemImage: "checkmark") { action.run { try await store.readChannel(channel!.id) } }.tint(.blue) }
+      if channel != nil { Button("Mark as read", systemImage: "checkmark") { action.run { try await store.readChannel(channel!.id) } }.tint(Palette.accent) }
     }
     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
       muteButton.tint(.gray)
@@ -792,7 +796,7 @@ struct ChatRow<Menu: View>: View {
       }
     }
     switch entry.kind {
-    case .agent(let a): return a.settings?.description.flatMap { $0.isEmpty ? nil : $0 } ?? "@\(a.handle)"
+    case .agent(let a): return a.settings?.description.flatMap { $0.isEmpty ? nil : $0 } ?? a.settings?.role.flatMap { $0.isEmpty ? nil : $0 } ?? "No messages yet"
     case .team(let c):
       if let leads = c.leadLine(agents: store.agents) { return leads }
       return c.topic.isEmpty ? "No messages yet" : c.topic
@@ -872,7 +876,7 @@ struct UnreadBadge: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 6)
         .frame(minWidth: 20, minHeight: 20)
-        .background(Capsule().fill(Palette.blue))
+        .background(Capsule().fill(Palette.accent))
         .badgePop(count)
         .transition(reduceMotion ? .opacity : .scale(scale: 0.4).combined(with: .opacity))
     }

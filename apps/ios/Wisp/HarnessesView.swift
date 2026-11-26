@@ -60,7 +60,7 @@ struct HarnessesView: View {
   private func row(_ computer: HarnessComputer, _ h: HarnessComputer.Harness) -> some View {
     let settable = !computer.isVM && devices.contains { $0.id == computer.nodeId }
     return HStack(spacing: 12) {
-      Image(systemName: ModelWords.harnessSymbol(h.id)).font(.system(size: 13)).foregroundStyle(Palette.muted).frame(width: 18)
+      BrandLogo(id: h.id, symbol: ModelWords.harnessSymbol(h.id), size: 26)
       Text(h.label).font(.system(size: 15)).lineLimit(1)
       if let v = h.version { Text(v).font(.system(size: 12)).foregroundStyle(Palette.faint).monospacedDigit().lineLimit(1) }
       Spacer(minLength: 8)
@@ -283,14 +283,14 @@ private struct HarnessDetailView: View {
 
   private func itemRow(_ item: HarnessSettingItem, note: String, kind: String, share: (() -> Void)? = nil) -> some View {
     HStack(spacing: 14) {
-      MarketTile(symbol: kind == "app" ? "powerplug" : kind == "plugin" ? "puzzlepiece" : "wand.and.stars")
+      MarketTile(symbol: kind == "app" ? "powerplug" : kind == "plugin" ? "puzzlepiece" : "hammer")
       VStack(alignment: .leading, spacing: 2) {
         Text(item.name).font(.system(size: 15, weight: .medium)).lineLimit(1)
         Text(note).font(.system(size: 13)).foregroundStyle(Palette.faint).lineLimit(1)
       }
       Spacer(minLength: 8)
       if let share { Button { share() } label: { Label("Share", systemImage: "square.and.arrow.up").font(.system(size: 13)).foregroundStyle(Palette.muted) }.buttonStyle(.plain) }
-      Toggle(item.name, isOn: Binding(get: { item.enabled }, set: { on in toggle(kind, item, on) })).labelsHidden().tint(Palette.blue)
+      Toggle(item.name, isOn: Binding(get: { item.enabled }, set: { on in toggle(kind, item, on) })).labelsHidden().tint(Palette.accent)
         .disabled(busy == "\(kind):\(item.id)" || !item.canToggle)
     }.padding(.horizontal, 16).padding(.vertical, 10).frame(minHeight: 64)
   }
@@ -661,20 +661,26 @@ struct InstallHarnessSheet: View {
       CardGroup {
         ForEach(HarnessChoice.all.filter { $0.protocolName != "mcp" }) { h in
           let have = node?.harnesses?.first { $0.id == h.id }
-          MarketRow(symbol: "terminal", title: h.label, subtitle: have == nil ? "Not on this device" : (have?.version).map { "Version \($0)" } ?? "Installed") {
+          HStack(spacing: 12) {
+            BrandLogo(id: h.id, size: 28)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(h.label).font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.text)
+              Text(have == nil ? "Not installed" : (have?.version).map { "Version \($0)" } ?? "Installed").font(.system(size: 13)).foregroundStyle(Palette.faint)
+            }
+            Spacer(minLength: 8)
             if have != nil { MarketPill(text: "Installed", tone: .green) }
             else if installable.contains(h.id) { AddButton(title: "Install") { installing = h.id }.disabled(node?.online != true || action.busy) }
           }
+          .padding(.horizontal, 14).frame(minHeight: 58)
         }
       }
-      Text("Bubble AI installs it on that computer and asks you before it runs anything. Others use their own installer there.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
       if action.busy { HStack { ProgressView(); Text("Working on the device…").font(.footnote).foregroundStyle(Palette.muted) } }
       if let output { Text(output).font(.caption).textSelection(.enabled).padding(.horizontal, 4) }
       InlineError(error: action.error)
       Button { action.run { try await store.refreshDevice(nodeId) } } label: { Label("Refresh", systemImage: "arrow.clockwise").font(.system(size: 13)).foregroundStyle(Palette.muted) }.buttonStyle(.plain).padding(.horizontal, 4).disabled(node?.online != true || action.busy)
     }
-    .confirmationDialog("Install this harness on \(node?.name ?? "the device")?", isPresented: Binding(get: { installing != nil }, set: { if !$0 { installing = nil } }), titleVisibility: .visible) {
-      Button("Install") { if let harness = installing { action.run { output = try await store.installHarness(harness, node: nodeId) } } }
+    .confirmationDialog(installing.map { "Install \(HarnessChoice.label($0)) on \(node?.name ?? "the device")?" } ?? "", isPresented: Binding(get: { installing != nil }, set: { if !$0 { installing = nil } }), titleVisibility: .visible, presenting: installing) { harness in
+      Button("Install \(HarnessChoice.label(harness))") { output = nil; action.run { _ = try await store.installHarness(harness, node: nodeId); output = "\(HarnessChoice.label(harness)) is installed." } }
     }
   }
 }
@@ -690,6 +696,8 @@ struct AgentSignInButton: View {
   /** the agent it's for; only needed when it runs in its own computer */
   var agent: Agent?
   var signIn: AgentSignIn
+  /** the small pill a failed reply uses, not the full-width one */
+  var compact = false
   /** told when its sign-in sheet opens or closes */
   var onOpenChange: (Bool) -> Void = { _ in }
   @State private var target: Target?
@@ -710,7 +718,7 @@ struct AgentSignInButton: View {
         Text("Sign in")
       }
     }
-    .buttonStyle(CardPill(tone: .soft))
+    .modifier(SignInStyle(compact: compact))
     .disabled(action.busy)
     .accessibilityIdentifier("agent-sign-in")
     .onChange(of: target?.id) { _, id in onOpenChange(id != nil) }
@@ -739,6 +747,29 @@ struct AgentSignInButton: View {
   enum SignInError: LocalizedError {
     case gone(String)
     var errorDescription: String? { if case .gone(let s) = self { return s }; return nil }
+  }
+}
+
+/** The line a chat shows while its agent's harness isn't installed on the device it runs on, with Install. */
+struct HarnessMissingBar: View {
+  @Environment(Store.self) private var store
+  var agent: Agent
+  var node: AgentNode
+  @State private var action = FormAction()
+
+  var body: some View {
+    SuggestionBanner(symbol: "arrow.down.circle", text: "\(HarnessChoice.label(agent.harness)) isn't installed on \(node.name), so \(agent.name) can't answer yet.",
+                     detail: action.error, action: action.busy ? "Installing…" : "Install", onAction: {
+      action.run { _ = try await store.installHarness(agent.harness, node: node.id) }
+    }, busy: action.busy)
+    .accessibilityIdentifier("agent-install-bar")
+  }
+}
+
+private struct SignInStyle: ViewModifier {
+  var compact: Bool
+  func body(content: Content) -> some View {
+    if compact { content.buttonStyle(FixPill()) } else { content.buttonStyle(CardPill(tone: .soft)) }
   }
 }
 

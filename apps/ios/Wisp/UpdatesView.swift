@@ -61,7 +61,7 @@ struct UpdatesView: View {
         HStack(spacing: 12) {
           VStack(alignment: .leading, spacing: 2) {
             Text(canUpdate ? "Update available" : check?.behind == 0 ? "Up to date" : check == nil ? (checking ? "Checking…" : "Not checked yet") : "Can't update here")
-              .font(.system(size: 15)).foregroundStyle(canUpdate ? Palette.blue : check?.behind == 0 ? Palette.statusOnline : Palette.text)
+              .font(.system(size: 15)).foregroundStyle(canUpdate ? Palette.accent : check?.behind == 0 ? Palette.statusOnline : Palette.text)
             if let reason = check?.reason { Text(reason).font(.system(size: 13)).foregroundStyle(Palette.faint).fixedSize(horizontal: false, vertical: true) }
           }
           Spacer(minLength: 8)
@@ -167,15 +167,22 @@ struct AgentRuntimesView: View {
   @State private var action = FormAction()
   var body: some View {
     SettingsPage("Harness setup", id: "runtimes") {
-      CardLabel("On this device")
+      CardLabel("Your devices")
       CardGroup {
-        ForEach(store.nodes.filter(\.usable)) { node in NavigationLink { DeviceDetail(node: node) } label: { RowLabel(title: node.name) } }
+        ForEach(store.nodes.filter(\.usable)) { node in NavigationLink { DeviceDetail(node: node) } label: { RowLabel(title: node.name) { Image(systemName: "desktopcomputer").foregroundStyle(Palette.muted).frame(width: 22) } }.buttonStyle(.plain) }
         if !store.nodes.contains(where: \.usable) { RowLabel(title: "Connect a device first.", chevron: false) }
       }
-      CardLabel("Inside your agents' VMs")
-      CardGroup { ForEach(["claude-code", "codex", "hermes", "kimi"], id: \.self) { RowLabel(title: HarnessChoice.label($0), chevron: false) } }
-      CardLabel("Connect from anywhere")
-      CardGroup { ForEach(HarnessChoice.all.filter { $0.protocolName == "mcp" }) { RowLabel(title: $0.label, chevron: false) } }
+      CardLabel("Ready on Bubble AI computers")
+      CardGroup {
+        ForEach(["claude-code", "codex", "hermes", "kimi"], id: \.self) { id in
+          RowLabel(title: HarnessChoice.label(id), value: "Ready", chevron: false) { BrandLogo(id: id, size: 22) }.allowsHitTesting(false)
+        }
+      }
+      if store.canManage {
+        CardGroup {
+          NavigationLink { AgentBring { _ in } } label: { RowLabel(title: "Bring in an agent you have") { Image(systemName: "square.and.arrow.down").foregroundStyle(Palette.muted).frame(width: 22) } }.buttonStyle(.plain)
+        }
+      }
       StatusLine(error: action.error)
     }
     .task { do { try await store.refreshNodes() } catch { action.error = error.localizedDescription } }
