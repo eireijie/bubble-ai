@@ -249,7 +249,7 @@ struct InboxSections: View {
             HStack(spacing: 12) {
               TeamGhosts(agents: teamChannel?.iconAgents(store.agents) ?? members, seed: t.name, size: 40, iconFileId: teamChannel?.settings?.iconFileId)
               VStack(alignment: .leading, spacing: 3) {
-                Text(t.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+                Text(Channel.label(t.name)).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
                 TeamRunLine(channelId: t.channelId ?? "", busyName: busy?.name ?? (teamBusy ? "" : nil))
               }
               Spacer(minLength: 0)
@@ -330,7 +330,7 @@ struct InboxSections: View {
   }
 
   private func chatRow(_ c: Channel, title: String) -> some View {
-    let last = store.messages[c.id]?.last
+    let last = store.messages[c.id].flatMap(ChatList.said)
     return HStack(spacing: 12) {
       if c.isDM, let a = store.dmAgent(c) { SoloGhost(agent: a, size: 40) }
       else {

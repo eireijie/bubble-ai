@@ -27,6 +27,11 @@ struct InboxView: View {
   private var pending: [Approval] { store.role == "guest" ? [] : store.pendingApprovals }
   private var shownFailures: [StandingFailure] { store.role == "guest" ? [] : failures.filter { f in store.agent(f.agentId)?.status != .busy } }
   private var needsCount: Int { pending.count + helpWanted.count + shownFailures.count }
+  /** the setup card above says something is left to do, so "All caught up" would be untrue */
+  private var setupPending: Bool {
+    guard store.role != "guest" else { return false }
+    return store.agents.isEmpty || Readiness.checks(agents: store.agents, devices: store.readyDevices).contains { $0.status == .bad }
+  }
   private var canNewTask: Bool { store.canManage && store.features.tasks && !store.agents.isEmpty }
 
   var body: some View {
@@ -112,7 +117,7 @@ struct InboxView: View {
       }
     }
     InboxSections(caughtUp: needsCount == 0, open: open)
-    if needsCount == 0, store.unreadChats.isEmpty, store.workingAgents.isEmpty { CaughtUp(compact: others || !store.agents.isEmpty) }
+    if needsCount == 0, store.unreadChats.isEmpty, store.workingAgents.isEmpty, !setupPending { CaughtUp(compact: others || !store.agents.isEmpty) }
   }
 
   private func openFailureChat(_ f: StandingFailure) {

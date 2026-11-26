@@ -293,9 +293,10 @@ struct BubblePainter {
     }
     let outline = Self.path(box, radii(part))
     let base = Color(hex: color)
-    let tint = dark ? Self.mixWhite(color, 0.42) : base
+    // dark: lifted further towards white, so a warm colour reads as peach on black instead of brown
+    let tint = dark ? Self.mixWhite(color, 0.5) : base
     // light: 8% in the middle, 16%, 36% at the edge; dark: frosted 56%, 60%, 68%
-    let (core, mid, edge): (Double, Double, Double) = dark ? (0.56, 0.60, 0.68) : (0.08, 0.16, 0.36)
+    let (core, mid, edge): (Double, Double, Double) = dark ? (0.62, 0.68, 0.78) : (0.08, 0.16, 0.36)
     let asleep = mood == .asleep
     var glass = local
     glass.clip(to: outline)
