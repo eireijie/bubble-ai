@@ -54,3 +54,10 @@ export function HarnessLogo({
     />
   );
 }
+
+/** A model provider's mark, from the same local brand files (OpenRouter has none: a plain plug). */
+const PROVIDER_LOGO: Record<string, string> = { anthropic: "claude-code", openai: "codex", google: "gemini", xai: "grok" };
+export function ProviderLogo({ provider, size = 20 }: { provider: string; size?: number }) {
+  const harness = PROVIDER_LOGO[provider];
+  return harness ? <HarnessLogo harness={harness} size={size} /> : <Plug size={size} strokeWidth={1.7} aria-hidden="true" className="shrink-0 text-muted" />;
+}

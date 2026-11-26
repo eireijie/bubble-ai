@@ -147,6 +147,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
       else if (!next) localStorage.removeItem("wisp.agentPanel");
     } catch {}
   };
+  // a thread takes the pane's space: the pane closes (its remembered sheet stays for the next DM), so closing the thread leaves just the chat
+  useEffect(() => {
+    if (route.threadId) setSideState(null);
+  }, [route.threadId]);
   /** Open a pane; a thread that's open closes first, since they share the space. */
   const openSide = (next: Side) => {
     if (route.threadId && channel) go({ view: "chat", channelId: channel.id, threadId: null });
@@ -245,8 +249,10 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             {/* --- end DM header tools --- */}
           </div>
         </header>
-        {/* one suggested step sits here, under the header, in its own space (SuggestionBanner) */}
-        <div ref={setBannerSlot} className="relative z-20 flex shrink-0 flex-col items-center gap-2 px-4 pb-2 empty:hidden" />
+        {/* one suggested step floats here, just under the header, over the messages: coming or going it never moves them (SuggestionBanner) */}
+        <div className="relative z-20 h-0 shrink-0">
+          <div ref={setBannerSlot} className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 px-4 empty:hidden" />
+        </div>
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
           <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!callee} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
@@ -502,11 +508,21 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
   const runs = useLiveRuns((r) => r.channelId === channel.id && !r.threadId);
   const working = useWorkingByThread(channel.id);
 
-  // first message from someone else after where you'd read up to
+  // what was already here when the chat opened: a reply that arrives while you watch isn't "new"
+  const seenAtOpen = useRef<{ channelId: string; ids: Set<string> } | null>(null);
+  if (messages && seenAtOpen.current?.channelId !== channel.id) seenAtOpen.current = { channelId: channel.id, ids: new Set(messages.map((m) => m.id)) };
+  // first message from someone else after where you'd read up to, and before anything you said since
   const firstNew = useMemo(() => {
     if (!messages || !readMark) return null;
-    return messages.find((m) => m.createdAt > readMark && m.author.id !== me?.user.id && m.author.id !== "system")?.id ?? null;
-  }, [messages, readMark, me]);
+    const there = seenAtOpen.current?.channelId === channel.id ? seenAtOpen.current.ids : null;
+    for (const m of messages) {
+      if (m.createdAt <= readMark || m.author.id === "system") continue;
+      if (m.author.id === me?.user.id) return null;
+      if (there && !there.has(m.id)) return null;
+      return m.id;
+    }
+    return null;
+  }, [messages, readMark, me, channel.id]);
 
   // where each message sits among its neighbours (a new chat, a time above it, grouped with the one before,
   // last of its group): worked out when the messages change, not again for every word of a reply
@@ -758,11 +774,30 @@ function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo
     ...(!channel.archivedAt ? [{ icon: <Paperclip size={18} />, title: "Add files", onClick: () => window.dispatchEvent(new CustomEvent(COMPOSER_ATTACH, { detail: channel.id })) }] : []),
     ...(invite && canManage ? [{ icon: <UserPlus size={18} />, title: "Invite people", onClick: onMembers }] : []),
   ];
+  // who's on it, leads first, with the role each has on the chart
+  const team = teamOf(channel);
+  const crew = (team?.members.length ? [...team.members].sort((x, y) => Number(y.lead) - Number(x.lead)).map((m) => ({ id: m.agentId, role: m.lead ? "Leads" : m.role })) : (channel.agentIds ?? []).map((id) => ({ id, role: "" })))
+    .map((m) => ({ ...m, agent: names.agent(m.id) }))
+    .filter((m): m is typeof m & { agent: Agent } => !!m.agent);
+  const first = team?.leadId ? names.agent(team.leadId)?.name : undefined;
   return (
     <div className="px-6 pb-6 pt-8 flex flex-col items-center text-center">
       <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={64} />
       <h2 className="mt-3 t-title">{channel.name}</h2>
       {channel.topic && <p className="mt-1 max-w-sm text-body text-muted">{channel.topic}</p>}
+      {crew.length > 0 && (
+        <ul aria-label="On this team" className="mt-5 w-full max-w-xs overflow-hidden rounded-[12px] bg-card divide-y divide-line text-left">
+          {crew.slice(0, 6).map((m) => (
+            <li key={m.id} className="flex h-[52px] items-center gap-3 px-3.5">
+              <AgentAvatar agent={m.agent} size={30} live />
+              <span className="min-w-0 flex-1 truncate text-body font-medium">{m.agent.name}</span>
+              {m.role && <span className="max-w-[45%] shrink-0 truncate text-[13px] text-muted">{m.role}</span>}
+            </li>
+          ))}
+          {crew.length > 6 && <li className="flex h-[40px] items-center px-3.5 text-[13px] text-muted">and {crew.length - 6} more</li>}
+        </ul>
+      )}
+      {first && !channel.archivedAt && <p className="mt-2 max-w-xs text-[13px] text-muted">{first} answers first and hands work on.</p>}
       {cards.length > 0 && (
         <div className="mt-5 w-full max-w-xs overflow-hidden rounded-[12px] bg-card divide-y divide-line text-left">
           {cards.map((c) => (
@@ -1448,6 +1483,7 @@ function ThreadPanel({ channelId, rootId, agentId, messageId }: { channelId: str
 
 function ThreadHeader({ channelId, parent, onBack, onClose }: { channelId: string; parent: string | null; onBack: () => void; onClose: () => void }) {
   const channel = useStore((s) => s.channels.find((c) => c.id === channelId));
+  const dmName = useStore((s) => (channel?.kind === "dm" ? s.agents.find((a) => channel.name.endsWith(`:${a.id}`))?.name : undefined));
   return (
     <header className="h-[4.5rem] shrink-0 px-3 flex items-center gap-2 border-b border-line safe-top box-content">
       <span className={cx(!parent && "lg:hidden")}>
@@ -1457,7 +1493,7 @@ function ThreadHeader({ channelId, parent, onBack, onClose }: { channelId: strin
       </span>
       <div className="min-w-0 flex-1 px-1">
         <div className="truncate text-body font-medium leading-tight">{parent ? "Sub-thread" : "Thread"}</div>
-        {channel && <div className="truncate text-[14px] text-muted">{channel.kind === "dm" ? "Chat" : channel.name}</div>}
+        {channel && <div className="truncate text-[14px] text-muted">{channel.kind === "dm" ? `with ${dmName ?? "your agent"}` : `in ${channel.name}`}</div>}
       </div>
       <span className="max-lg:hidden">
         <button onClick={onClose} className="circle circle-sm" aria-label="Close thread">
@@ -2025,8 +2061,6 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
                   <ComposerMenuItem icon={<Camera size={18} />} label="Photos" onClick={() => (close(), photoInput.current?.click())} />
                   <ComposerMenuItem icon={<Paperclip size={18} />} label="Files" onClick={() => (close(), fileInput.current?.click())} />
                   {channel?.kind !== "dm" && <ComposerMenuItem icon={<AtSign size={18} />} label="Mention an agent" onClick={() => (close(), insert(text && !/\s$/.test(text.slice(0, ta.current?.selectionStart ?? text.length)) ? " @" : "@"))} />}
-                  {/* the round button dictates while it's held; this is the same thing for a keyboard */}
-                  {dictation.supported && <ComposerMenuItem icon={<Mic size={18} />} label={dictation.on ? "Stop dictating" : "Dictate"} onClick={() => (close(), dictation.toggle())} />}
                 </div>
               )}
             </Popover>

@@ -418,14 +418,15 @@ export function Rail({ route }: { route: Route }) {
     ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon {...icon} />, onSelect: startNewAgent }] : []),
     ...(!isGuest ? [{ label: "New team", icon: <Users {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
     ...(!isGuest ? [{ label: "New section", icon: <FolderPlus {...icon} />, onSelect: () => (wide ? newSideSection() : (setWide(), setTimeout(newSideSection, SIDEBAR_OPEN_MS))) }] : []),
-    { label: "Browse teams", icon: <Search {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
     "divider" as const,
+    { label: "Browse teams", icon: <Search {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
     // the wide sidebar lists the places under search; as a rail they live here
     ...(!wide && inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
     ...(!wide && !isGuest ? [place("Apps and skills", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
     ...(!wide && !isGuest ? [place(features.tasks ? "Tasks" : "Tasks (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "mods" })] : []),
-    ...(!isGuest ? MOD_NAV.filter((m) => features[m.feature] && (!wide || m.place === "more")).map((m) => place(m.label, m.icon(18), m.to)) : []),
+    // mods' own pages (Storage, Apple) live in Settings; Code shows here only while the sidebar is a rail
+    ...(!wide && !isGuest ? MOD_NAV.filter((m) => features[m.feature] && m.place === "rail").map((m) => place(m.label, m.icon(18), m.to)) : []),
     ...(!wide && ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
     ...(orgs.length > 1
       ? [
@@ -523,8 +524,8 @@ export function Rail({ route }: { route: Route }) {
         {wide && (
           <nav aria-label="Places" className="mb-3 flex shrink-0 flex-col gap-px px-3">
             {!isGuest && placeRow({ label: "Needs you", icon: <Bell {...placeIcon} />, to: href({ view: "dashboard" }), on: route.view === "dashboard", count: inbox > 0 ? (inbox > 99 ? "99+" : String(inbox)) : null, strong: inbox > 0 })}
-            {!isGuest && placeRow({ label: "Computers", icon: <ComputersIcon size={17} />, to: computersTo, on: computersOn, aria: computersLabel, tour: "computers", count: <><span aria-hidden className={cx("mr-1.5 inline-block size-1.5 rounded-full align-middle", onCount > 0 ? "bg-[#30d158]" : "bg-muted opacity-50")} />{onCount} on</> })}
-            {placeRow({ label: "Memory", icon: <BookOpen {...placeIcon} />, to: vaultTo, on: vaultOn, aria: `Memory vault${notes != null ? `, ${notes} notes` : ""}`, tour: "vault", count: notes != null ? String(notes) : null })}
+            {!isGuest && placeRow({ label: "Computers", icon: <ComputersIcon size={17} />, to: computersTo, on: computersOn, aria: computersLabel, tour: "computers", count: onCount > 0 ? <><span aria-hidden className="mr-1.5 inline-block size-1.5 rounded-full bg-[#30d158] align-middle" />{onCount} on</> : null })}
+            {placeRow({ label: "Memory", icon: <BookOpen {...placeIcon} />, to: vaultTo, on: vaultOn, aria: `Memory vault${notes != null ? `, ${notes} ${notes === 1 ? "note" : "notes"}` : ""}`, tour: "vault", count: notes != null ? String(notes) : null })}
             {!isGuest && placeRow({ label: "Apps and skills", icon: <LayoutGrid {...placeIcon} />, to: href({ view: "marketplace" }), on: route.view === "marketplace" || route.view === "skills" || route.view === "connectors" || route.view === "mods" })}
             {/* Tasks is a mod: while it's off the row opens Mods, where it's switched on */}
             {!isGuest && placeRow({ label: "Tasks", icon: <ListTodo {...placeIcon} />, to: href(features.tasks ? { view: "tasks" } : { view: "mods" }), on: route.view === "tasks", aria: features.tasks ? undefined : "Tasks, off. Turn it on in Mods", count: features.tasks ? null : "Off" })}

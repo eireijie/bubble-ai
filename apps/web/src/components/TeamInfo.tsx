@@ -493,7 +493,6 @@ function RulesSheet({ channel, canEdit }: { channel: ChannelInfo; canEdit: boole
 function MoreSheet({ channel, members, canManage, onSheet, onClose }: { channel: ChannelInfo; members: ChannelMember[] | null; canManage: boolean; onSheet: (s: TeamSheet) => void; onClose: () => void }) {
   const names = useNames();
   const agents = useStore((s) => s.agents);
-  const sections = useStore((s) => s.sections);
   const notify = useStore((s) => s.channels.find((c) => c.id === channel.id)?.notify ?? channel.notify);
   const canEdit = canManage && !channel.archivedAt;
   const team = channel.settings.team;
@@ -505,20 +504,16 @@ function MoreSheet({ channel, members, canManage, onSheet, onClose }: { channel:
   };
   const rules = agentRulesOf(channel.settings);
   const saveRules = (patch: Partial<typeof rules>) => run(patchChannel(channel, { settings: agentRulesOf({ ...rules, ...patch }) }));
-  const leads = (team?.nodes ?? []).filter((n) => n.lead).map((n) => names.agent(n.agentId)?.name).filter(Boolean);
   const answerer = rules.defaultAgentId ? names.agent(rules.defaultAgentId) : undefined;
   const onTeam = new Set((team?.nodes ?? []).map((n) => n.agentId));
   const reportsTo = team?.reportsTo ? names.agent(team.reportsTo) : undefined;
   return (
     <div className="space-y-3">
+      {/* how the team works */}
       <div className={CARD}>
         <PanelRow label="Team rules" value={rules.instructions.trim() ? rules.instructions.trim().split("\n")[0] : "None"} onClick={() => onSheet("rules")} />
-        {team?.nodes.length ? (
-          <div className="flex min-h-[46px] items-center gap-3 px-3.5 text-[14px]">
-            <span className="shrink-0 font-medium">Answers</span>
-            <span className="min-w-0 flex-1 truncate text-right text-[13px] text-muted">{leads.join(" and ") || "The team"}</span>
-          </div>
-        ) : (
+        {/* a team with a flow chart answers through its leads (How it works shows them); without one, pick who answers */}
+        {!team?.nodes.length && (
           <PickRow
             label="Answers"
             value={rules.defaultAgentId ?? ""}
@@ -528,8 +523,6 @@ function MoreSheet({ channel, members, canManage, onSheet, onClose }: { channel:
             onPick={(v) => saveRules({ defaultAgentId: v || null })}
           />
         )}
-        <SwitchRow label="Reply in thread" on={rules.replyInThread} disabled={!canEdit} onChange={(replyInThread) => saveRules({ replyInThread })} />
-        <PanelRow label="Pinned messages" value={channel.pinnedIds.length ? String(channel.pinnedIds.length) : "None"} onClick={() => onSheet("pins")} />
         {!!team?.nodes.length && (
           <PickRow
             label="Reports to"
@@ -540,21 +533,14 @@ function MoreSheet({ channel, members, canManage, onSheet, onClose }: { channel:
             onPick={(v) => run(patchChannel(channel, { settings: { team: { ...team, reportsTo: v || null } } }))}
           />
         )}
-        <PanelRow label="Context and access" onClick={() => setDialog("context")} />
+        <SwitchRow label="Reply in thread" on={rules.replyInThread} disabled={!canEdit} onChange={(replyInThread) => saveRules({ replyInThread })} />
+        {!isProtected(channel) && <SwitchRow label="Private" on={channel.private} disabled={!canManage} onChange={(isPrivate) => run(patchChannel(channel, { private: isPrivate }))} />}
       </div>
+      {/* you and this chat (its section is set from the sidebar's row menu) */}
       <div className={CARD}>
         <PickRow label="Notify me" value={notify} shown={NOTIFY[notify].label} options={(Object.keys(NOTIFY) as ChannelNotify[]).map((k) => ({ value: k, label: NOTIFY[k].label }))} onPick={(v) => void setChannelPrefs(channel, { notify: v as ChannelNotify })} />
-        {!isProtected(channel) && <SwitchRow label="Private" on={channel.private} disabled={!canManage} onChange={(isPrivate) => run(patchChannel(channel, { private: isPrivate }))} />}
-        {sections.length > 0 && (
-          <PickRow
-            label="Section"
-            value={channel.sectionId ?? ""}
-            shown={sections.find((s) => s.id === channel.sectionId)?.name ?? "None"}
-            disabled={!canManage}
-            options={[{ value: "", label: "None" }, ...sections.map((s) => ({ value: s.id, label: s.name }))]}
-            onPick={(v) => run(patchChannel(channel, { sectionId: v || null }))}
-          />
-        )}
+        <PanelRow label="Pinned messages" value={channel.pinnedIds.length ? String(channel.pinnedIds.length) : "None"} onClick={() => onSheet("pins")} />
+        <PanelRow label="Context and access" onClick={() => setDialog("context")} />
       </div>
       <div className={CARD}>
         {canManage && <PanelRow label={channel.archivedAt ? "Unarchive" : "Archive"} onClick={() => (channel.archivedAt ? run(setArchived(channel, false)) : setDialog("archive"))} />}

@@ -7,8 +7,9 @@ import { harnessLabel, teamIconAgentIds, type Agent, type Approval, type Section
 import { api } from "../api.ts";
 import { useStore, usePrefs, useWaitingOnYou, type ChannelInfo, type ComputerInfo, type LiveRun } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
+import { agentReadiness } from "../devices.ts";
 import { go, href, type Route } from "../router.ts";
-import { openDm } from "../openDm.ts";
+import { openDm, startNewChat } from "../openDm.ts";
 import { AgentAvatar, Menu, cx, clockTime } from "./ui.tsx";
 import { useSheetBackdrop } from "../motion.ts";
 import { ChannelSettings, SectionDialog, leaveChannel, setChannelPrefs } from "./Channels.tsx";
@@ -117,6 +118,13 @@ function storePreviewContext(): PreviewContext {
  * a chat with no messages yet.
  */
 export function chatPreviewLine(c: Chat, live: Record<string, LiveRun>, ctx: PreviewContext = storePreviewContext()): PreviewLine {
+  const line = previewLine(c, live, ctx);
+  // an agent that can't work until you set something up is on Needs you, so its chat is your turn too (its words stay)
+  if (!line.needs && !line.working && c.kind === "dm" && c.agent && !agentReadiness(c.agent, null).ready) return { ...line, needs: true };
+  return line;
+}
+
+function previewLine(c: Chat, live: Record<string, LiveRun>, ctx: PreviewContext): PreviewLine {
   const run = c.channel ? Object.values(live).find((r) => r.channelId === c.channel!.id && (c.kind === "team" || r.agentId === c.agent?.id)) : undefined;
   if (run) {
     const who = c.kind === "team" ? `${ctx.agents.find((a) => a.id === run.agentId)?.name ?? "An agent"} · ` : "";
@@ -567,10 +575,10 @@ export function NewChatPicker({ onClose }: { onClose: () => void }) {
   const agents = useStore((s) => s.agents);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    // one agent: no choice to make
+    // one agent: no choice to make, straight to a fresh conversation with it
     if (agents.length === 1) {
       onClose();
-      void openDm(agents[0].id);
+      void startNewChat(agents[0].id);
     }
   }, [agents, onClose]);
   useEffect(() => {
@@ -603,7 +611,7 @@ export function NewChatPicker({ onClose }: { onClose: () => void }) {
             onClick={() => {
               setBusy(true);
               onClose();
-              void openDm(a.id);
+              void startNewChat(a.id);
             }}
             className="w-full flex items-center gap-3 px-3.5 min-h-[56px] rounded-2xl text-left hover:bg-hover"
           >

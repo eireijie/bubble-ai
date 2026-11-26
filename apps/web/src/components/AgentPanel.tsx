@@ -27,7 +27,7 @@ const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) =>
 /** What the panel shows: the agent itself ("details"), or the sheet one of its rows opens. */
 export type AgentPanelTab = "details" | "computer" | "thinks" | "works" | "can" | "asks" | "knows" | "more";
 
-const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { computer: "Computer", thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
+const SHEETS: Record<Exclude<AgentPanelTab, "details">, string> = { computer: "Computer", thinks: "Thinks with", works: "Runs on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
 /** A sheet by name; anything else (an old remembered tab) is the agent itself. */
 export const panelSheet = (tab: string | null | undefined): AgentPanelTab => (tab && tab in SHEETS ? (tab as AgentPanelTab) : "details");
 
@@ -39,7 +39,7 @@ const ROW = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px
 /**
  * An agent in the pane beside a chat (its own, or a team it works in): 310 px, pushing the chat.
  * Its live ghost, name and one editable line of what it does; what it is doing right now, with
- * Stop, while it works; then one card of rows (Thinks with, Works on, Can use, Asks first, Knows,
+ * Stop, while it works; then one card of rows (Thinks with, Runs on, Can use, Asks first, Knows,
  * More), each showing its value and opening a sheet in place or the matching tab of its page.
  */
 export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = false }: { agent: Agent; channelId: string; tab?: AgentPanelTab; onClose: () => void; onSheet?: (tab: AgentPanelTab) => void; inDm?: boolean }) {
@@ -71,7 +71,12 @@ export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = fal
   const page = (t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
 
   return (
-    <aside aria-label={`${agent.name}'s details`} className={cx("m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:shrink-0 lg:border-l lg:border-line", sheet === "computer" ? "lg:w-[460px]" : "lg:w-[310px]")}>
+    <aside
+      onClickCapture={(e) => {
+        // the agent's full page replaces the panel instead of opening on top of it
+        if ((e.target as HTMLElement).closest?.('a[href^="#/agents/"]')) onClose();
+      }}
+      aria-label={`${agent.name}'s details`} className={cx("m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:shrink-0 lg:border-l lg:border-line", sheet === "computer" ? "lg:w-[460px]" : "lg:w-[310px]")}>
       {/* its own 310 px, so nothing reflows while the pane opens */}
       <div className={cx("flex min-h-0 flex-1 flex-col", sheet === "computer" ? "lg:w-[460px]" : "lg:w-[310px]")}>
         <div className="relative flex h-14 shrink-0 items-center justify-between px-3">
@@ -119,7 +124,7 @@ export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = fal
               <div className={cx(CARD, "m-details-cards")}>
                 <PanelRow label="Thinks with" value={ctx ? runLine(ctx, models) : [harnessLabel(agent.harness), agent.model ? prettyModel(agent.model) : null].filter(Boolean).join(" · ")} onClick={() => setSheet("thinks")} />
                 <PanelRow
-                  label="Works on"
+                  label="Runs on"
                   value={!readiness.ready ? (readiness.problem ?? "Setup incomplete") : (computer?.name ?? device?.name ?? "None yet")}
                   warn={!readiness.ready}
                   onClick={() => setSheet("works")}
@@ -144,9 +149,9 @@ export function AgentPanel({ agent, channelId, tab, onClose, onSheet, inDm = fal
           {sheet === "works" && (
             <div className="space-y-3">
               {computer && <ComputerCard agent={agent} computer={computer} />}
+              {/* one line for where it runs (its computer, else its device); the page has the choices */}
               <div className={CARD}>
-                <PanelRow label="Computer" value={computer ? computer.name : agent.settings.headless ? "No screen" : "None yet"} href={page("computer")} />
-                <PanelRow label="Runs on" value={device?.name ?? "None yet"} href={page("device")} />
+                <PanelRow label="Change where it runs" value={computer?.name ?? device?.name ?? "Not set up"} href={page(computer ? "computer" : "device")} />
               </div>
               {!readiness.ready && <WhatsMissing agent={agent} devices={devices} problem={readiness.problem} />}
             </div>

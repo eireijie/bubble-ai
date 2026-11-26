@@ -12,7 +12,7 @@ const saved = { me: initial.me, channels: initial.channels, sections: initial.se
 afterEach(() => Object.assign(initial, saved));
 
 const me = { kind: "user", role: "owner", user: { id: "u1", name: "Yug Patel", email: "yug@example.com", createdAt: "now" }, workspace: { id: "w", name: "Meadows" }, prefs: { sendWith: "enter", clock: "auto", toolCalls: "collapsed", experience: "advanced" } } as unknown as Me;
-const agent = (id: string, name: string) => ({ id, handle: name.toLowerCase(), name, harness: "codex", model: null, nodeId: null, computerId: null, settings: {}, status: "online", createdAt: "2026-01-01T00:00:00Z", workspaceId: "w" }) as never;
+const agent = (id: string, name: string) => ({ id, handle: name.toLowerCase(), name, harness: "codex", model: null, nodeId: "n1", computerId: null, settings: {}, status: "online", createdAt: "2026-01-01T00:00:00Z", workspaceId: "w" }) as never;
 const channel = (over: Partial<ChannelInfo>): ChannelInfo =>
   ({ id: "c", workspaceId: "w", name: "x", kind: "channel", topic: "", sectionId: null, private: false, archivedAt: null, settings: { defaultAgentId: null, replyInThread: true, instructions: "", team: null }, createdAt: "2026-01-01T00:00:00Z", joined: true, memberCount: 1, unread: 0, lastReadAt: null, notify: "default", starred: false, pinnedIds: [], last: null, ...over }) as ChannelInfo;
 

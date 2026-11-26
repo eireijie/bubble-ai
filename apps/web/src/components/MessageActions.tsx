@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Copy, CornerUpLeft, MessageSquare, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { TAPBACKS, type Message, type Reaction } from "@bubble-ai/core";
@@ -93,10 +93,21 @@ export function MessageMenu({ actions, reacted, onReact, at, source, preview, mi
       setBox({ left, top, origin: mine ? "100% 50%" : "0 50%", shift });
       return;
     }
+    // beside the bubble, never over it: left of your own messages, right of theirs, when there is room
+    if (rect) {
+      const room = mine ? rect.left - 8 >= w + 8 : vw - rect.right - 8 >= w + 8;
+      if (room) {
+        const top = Math.min(Math.max(8, (at?.y ?? rect.top) - 20), vh - h - 8);
+        setBox({ left: mine ? rect.left - w - 8 : rect.right + 8, top, origin: mine ? "100% 0" : "0 0", shift: 0 });
+        return;
+      }
+    }
     const x = at?.x ?? rect?.left ?? 16;
-    const y = at?.y ?? (rect ? rect.bottom + 6 : 16);
-    const up = y + h > vh - 8 && y - h > 8;
-    setBox({ left: Math.min(Math.max(8, x), vw - w - 8), top: up ? y - h : Math.min(y, vh - h - 8), origin: `${x <= vw - w - 8 ? 0 : 100}% ${up ? 100 : 0}%`, shift: 0 });
+    // no room at the side: under the bubble (or over it when it's at the bottom), not on it
+    const y = rect ? rect.bottom + 6 : (at?.y ?? 16);
+    const above = rect ? rect.top - 6 - h : y - h;
+    const up = y + h > vh - 8 && above > 8;
+    setBox({ left: Math.min(Math.max(8, x), vw - w - 8), top: up ? above : Math.min(y, vh - h - 8), origin: `${x <= vw - w - 8 ? 0 : 100}% ${up ? 100 : 0}%`, shift: 0 });
   }, [lift, rect, at, mine]);
 
   // the message being lifted leaves its place in the chat while the menu shows it
@@ -196,7 +207,8 @@ export function MessageMenu({ actions, reacted, onReact, at, source, preview, mi
       )}
       <div role="menu" aria-label="Message actions" className={cx("m-glass rounded-[12px] p-1", lift ? "w-[236px]" : "", lift && mine && "self-end")}>
         {actions.map((a, k) => (
-          <div key={a.id}>
+          // no wrapper element: a menu's items sit straight inside it
+          <Fragment key={a.id}>
             {a.danger && k > 0 && <div className="mx-2 my-1 h-px bg-line" role="separator" />}
             <button
               type="button"
@@ -211,7 +223,7 @@ export function MessageMenu({ actions, reacted, onReact, at, source, preview, mi
               <span className="shrink-0 opacity-80">{a.icon}</span>
               <span className="flex-1">{a.label}</span>
             </button>
-          </div>
+          </Fragment>
         ))}
       </div>
     </div>
@@ -409,6 +421,7 @@ export function EditMessageDialog({ m, onClose }: { m: Message; onClose: () => v
   const [text, setText] = useState(m.body);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const placed = useRef(false);
   // a message that carries a file may lose its caption
   const canSave = !!text.trim() || m.parts.some((p) => p.type === "file");
   const save = async () => {
@@ -426,19 +439,26 @@ export function EditMessageDialog({ m, onClose }: { m: Message; onClose: () => v
   return (
     <Modal title="Edit message" label="Edit message" onClose={onClose}>
       <textarea
-        autoFocus
+        // the cursor starts at the end of the text, where an edit usually goes
+        ref={(el) => {
+          if (!el || placed.current) return;
+          placed.current = true;
+          el.focus();
+          el.setSelectionRange(el.value.length, el.value.length);
+        }}
         rows={4}
         value={text}
         disabled={busy}
         aria-label="Edit message"
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          // like the composer: Enter saves, Shift+Enter is a new line
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             void save();
           }
         }}
-        className="block w-full resize-none rounded-2xl border border-control-line bg-control px-4 py-3 text-body outline-none focus:border-ring"
+        className="block w-full resize-none rounded-[10px] border border-control-line bg-control px-4 py-3 text-body outline-none focus:border-ring"
       />
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-3 flex items-center gap-2">

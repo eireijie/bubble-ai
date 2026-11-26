@@ -331,8 +331,9 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           </div>
         ) : (
           <SectionHeader
-            name={s.name}
-            count={s.keys.length}
+            // the chats outside your sections, under your sections: "Other", with no count beside it
+            name={s.none ? "Other" : s.name}
+            count={s.none ? 0 : s.keys.length}
             folded={s.folded}
             phone={phone}
             canEdit={!guest && !s.none}
