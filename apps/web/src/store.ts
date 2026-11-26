@@ -119,6 +119,8 @@ interface State {
   changesVersion: number;
   /** bumps when tasks change, so the Tasks page refetches */
   tasksVersion: number;
+  /** what the open Needs you page counts (team requests that stopped, reminders due, failed replies, offline devices too); null while it isn't open */
+  needsYouCount: number | null;
   /** bumps when a stepped team's request moves on */
   flowsVersion: number;
   /** bumps when notes change outside Bubble AI, so Memory reloads */
@@ -213,6 +215,7 @@ export const useStore = create<State>((set, get) => ({
   backgroundVersion: 0,
   changesVersion: 0,
   tasksVersion: 0,
+  needsYouCount: null,
   flowsVersion: 0,
   memoryVersion: 0,
   modelsVersion: 0,
@@ -679,5 +682,15 @@ export function useInboxCount(): number {
   // already knows is counted here (no computer chosen, or a sign-in the hub flagged), so the shell
   // never polls for it; the page itself also knows about a device that went offline.
   const unready = useStore((s) => (s.me && s.me.role !== "guest" ? s.agents.reduce((n, a) => n + (!agentReadiness(a, null).ready || a.signIn ? 1 : 0), 0) : 0));
-  return waiting.approvals.length + waiting.help.length + unready;
+  const page = useStore((s) => s.needsYouCount);
+  return inboxCount(waiting.approvals.length + waiting.help.length + unready, page);
+}
+
+/**
+ * The Needs you badge: what the store knows waits on you, or what the page counts while it's open
+ * (it also knows about stopped team requests, reminders due, failed replies and offline devices),
+ * whichever is more, so the sidebar never shows nothing while the page lists something.
+ */
+export function inboxCount(known: number, page: number | null): number {
+  return Math.max(known, page ?? 0);
 }

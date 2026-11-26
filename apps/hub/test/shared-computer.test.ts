@@ -6,8 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { WispClient } from "@bubble-ai/sdk";
 import { buildHub } from "../src/app.ts";
-import { ADVANCED_KEY, HOME_KEY, SHARED_KEY, adoptShared, sharedSize } from "../src/shared-computer.ts";
-import { saveAgentDefaults } from "../src/agent-defaults.ts";
+import { ADVANCED_KEY, HOME_KEY, SHARED_KEY, adoptShared, shareOnDemand, sharedSize } from "../src/shared-computer.ts";
+import { agentDefaults, saveAgentDefaults } from "../src/agent-defaults.ts";
 import { makeRoomFor } from "./room.ts";
 import type { Hub } from "../src/hub.ts";
 
@@ -56,7 +56,39 @@ describe("the shared computer", () => {
     expect(sharedSize(undefined)).toEqual({ cpus: 2, memoryGb: 2 });
   });
 
-  it("puts an owner's new agents on one shared computer, off until needed, with their AI beside it", async () => {
+  it("isn't made for a new agent unasked: it works on its device directly, and nothing starts", async () => {
+    expect(agentDefaults(hub.store, ws).computer).toBe("device");
+    const started = vi.spyOn(hub.computers, "startInBackground");
+    const a = await owner.request("POST", "/api/agents", { handle: "plain", name: "Plain", harness: "custom", useDefaults: true });
+    const m = await member.request("POST", "/api/agents", { handle: "mplain", name: "MPlain", harness: "custom", useDefaults: true });
+    expect(a.computerId).toBeNull();
+    expect(a.nodeId).toBeTruthy();
+    expect(hub.store.agent(a.id)!.settings.headless).toBeUndefined();
+    expect(m.computerId).toBeNull();
+    expect(hub.store.setting(ws, SHARED_KEY)).toBeNull();
+    expect(hub.store.computers(ws).filter((c) => c.kind === "vm")).toEqual([]);
+    expect(started).not.toHaveBeenCalled();
+    started.mockRestore();
+  });
+
+  it("is made when a task needs a screen, for an owner's agent on the device that can run it", async () => {
+    const a = await owner.request("POST", "/api/agents", { handle: "needy", name: "Needy", harness: "codex", nodeId: home });
+    const far = await owner.request("POST", "/api/agents", { handle: "faraway", name: "Faraway", harness: "codex", nodeId: other });
+    const quiet = await owner.request("POST", "/api/agents", { handle: "hush", name: "Hush", harness: "codex", nodeId: home, settings: { headless: true } });
+    expect(shareOnDemand(hub, quiet.id)).toBeNull();
+    expect(hub.store.setting(ws, SHARED_KEY)).toBeNull();
+    const c = shareOnDemand(hub, a.id)!;
+    expect(c).toMatchObject({ kind: "vm", nodeId: home, status: "stopped", name: "Shared computer" });
+    expect(hub.store.agent(a.id)!.computerId).toBe(c.id);
+    // its AI tool is on another device: it can't have it beside it
+    expect(shareOnDemand(hub, far.id)).toBeNull();
+    // cleaned up so the next tests start from no shared computer
+    await hub.computers.remove(c);
+    hub.store.setSetting(ws, SHARED_KEY, null);
+  });
+
+  it("puts an owner's new agents on one shared computer when the defaults say so, off until needed, with their AI beside it", async () => {
+    saveAgentDefaults(hub.store, ws, { computer: "shared" });
     const a = await owner.request("POST", "/api/agents", { handle: "scout", name: "Scout", harness: "custom", useDefaults: true });
     const b = await owner.request("POST", "/api/agents", { handle: "harry", name: "Harry", harness: "custom", useDefaults: true });
     const shared = hub.store.setting(ws, SHARED_KEY)!;
@@ -71,8 +103,10 @@ describe("the shared computer", () => {
   });
 
   it("gives a member's agent a computer of its own, never the owner's sign-ins", async () => {
+    const started = vi.spyOn(hub.computers, "startInBackground").mockImplementation(() => {});
     const m = await member.request("POST", "/api/agents", { handle: "pip", name: "Pip", harness: "custom", useDefaults: true });
     expect(m.computerId).not.toBe(hub.store.setting(ws, SHARED_KEY));
+    started.mockRestore();
   });
 
   it("moves an owner's older agents with no computer onto it, and leaves the rest alone", async () => {
@@ -82,7 +116,9 @@ describe("the shared computer", () => {
     // as when upgrading a Bubble AI from before the shared computer
     hub.store.setSetting(ws, "computers.sharedAdopted", null);
     const moved = adoptShared(hub, ws);
-    expect(moved).toEqual([plain.id]);
+    expect(moved).toContain(plain.id);
+    expect(moved).not.toContain(headless.id);
+    expect(moved).not.toContain(elsewhere.id);
     expect(hub.store.agent(plain.id)!.computerId).toBe(hub.store.setting(ws, SHARED_KEY));
     expect(hub.store.agent(headless.id)!.computerId).toBeNull();
     // its AI tool is signed in on another device: it stays there
@@ -101,6 +137,7 @@ describe("the shared computer", () => {
     const w2 = h2.store.firstWorkspace()!.id;
     const node = (await o.request("POST", "/api/nodes", { name: "mac" })).node.id;
     h2.store.setNodeCapabilities(node, caps(16, false));
+    saveAgentDefaults(h2.store, w2, { computer: "shared" });
     const a = await o.request("POST", "/api/agents", { handle: "early", name: "Early", harness: "custom", useDefaults: true });
     expect(a.computerId).toBeNull();
     expect(a.nodeId).toBe(node);

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { frameOutside, harnessInfo, harnessLabel, SETUP_STEPS, signInProblem, WATCH_SERVICES, type Agent, type AgentSetup, type Message, type SetupStep, type WatchService } from "@bubble-ai/core";
+import { frameOutside, harnessInfo, harnessLabel, roleSentence, SETUP_STEPS, signInProblem, WATCH_SERVICES, type Agent, type AgentSetup, type Message, type SetupStep, type WatchService } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { glanceApps } from "./glance.ts";
 import type { Hub } from "./hub.ts";
@@ -82,9 +82,10 @@ export function roleOf(hub: Hub, agent: Agent): string {
   return "";
 }
 
-/** The hello, written by Bubble AI in the agent's name. */
-export function greetingText(agent: Pick<Agent, "name" | "harness">, signIn: { device: string } | null): string {
-  const hello = `Hey, I'm ${agent.name}! What would you like me to do?`;
+/** The hello, written by Bubble AI in the agent's name; `role` (what it was made to do) is said in its own words. */
+export function greetingText(agent: Pick<Agent, "name" | "harness">, signIn: { device: string } | null, role = ""): string {
+  const job = roleSentence(role);
+  const hello = job ? `Hey, I'm ${agent.name}! ${job} What should I start on?` : `Hey, I'm ${agent.name}! What would you like me to do?`;
   if (signIn) {
     return `${hello}\n\nBefore I can get started, ${harnessLabel(agent.harness)} needs to be signed in on ${signIn.device}. Press Sign in in this chat to do that. Tell me what you need in the meantime and I'll pick it up once that's done.`;
   }
@@ -132,7 +133,7 @@ function startSetup(hub: Hub, agent: Agent, userId: string | null | undefined): 
 /** Bubble AI's hello in the agent's name, with a sign-in note when its harness isn't signed in where it runs. */
 function staticGreeting(hub: Hub, agent: Agent): string {
   const signIn = hub.signInNeeded(agent);
-  return greetingText(agent, signIn ? { device: signIn.where } : null);
+  return greetingText(agent, signIn ? { device: signIn.where } : null, roleOf(hub, agent));
 }
 
 /** "GitHub", "Messages and Calendar", "GitHub, Slack and Notion". */
@@ -447,7 +448,8 @@ export function setupSection(hub: Hub, agent: Agent, at: { channelId: string; li
     const lines = kept.length ? kept : s.replies.map((r) => `- "${r}"`);
     return lines.length ? `## What ${personName} told you when you met\nFrom your first chat; they may have changed their mind since, and what they say now wins.\n${lines.join("\n")}` : "";
   }
-  const ctx = { computer: !!hub.computerSection(agent.id), logins: !!hub.logins.status(agent.workspaceId) };
+  // a computer it has now: one it could get on demand isn't started for a sign-in check
+  const ctx = { computer: !!(agent.computerId && hub.store.computer(agent.computerId)), logins: !!hub.logins.status(agent.workspaceId) };
   const left = remaining(s);
   const role = roleOf(hub, agent);
   return [

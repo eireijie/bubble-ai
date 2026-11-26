@@ -158,6 +158,11 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
   const failed = failures.filter((f, i) => !unready.some((u) => u.agent.id === f.agentId) && failures.findIndex((g) => g.agentId === f.agentId) === i);
   const count = asks.length + helpNow.length + stopped.length + due.length + unready.length + failed.length;
   const laterCount = helpLater.length + later.length;
+  // the sidebar's badge counts what this page lists while it's open
+  useEffect(() => {
+    useStore.setState({ needsYouCount: count });
+  }, [count]);
+  useEffect(() => () => useStore.setState({ needsYouCount: null }), []);
   const earlier = useEarlier(Object.values(approvals).filter((a) => !held.includes(a.id)), tasks);
 
   return (

@@ -531,14 +531,32 @@ class MainActivity : Activity() {
         if (v != null && v.canGoBack() && findViewById<View>(R.id.offline)?.visibility != View.VISIBLE) v.goBack() else @Suppress("DEPRECATION") super.onBackPressed()
     }
 
-    /** Android 15 draws apps under the status and navigation bars; keep Bubble AI clear of them and the keyboard. */
+    /**
+     * Android 15 draws apps under the status and navigation bars and ignores adjustResize; keep Bubble AI
+     * clear of them and the keyboard: the frame is padded by the keyboard's height, so the web view
+     * shrinks above it (older Androids resize the window themselves, adjustResize in the manifest).
+     * When the keyboard opens, the field being typed in is scrolled up into view, clear of a sheet's
+     * buttons that stick to the bottom.
+     */
     private fun fitSystemBars(view: View) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        var keyboard = false
         view.setOnApplyWindowInsetsListener { v, insets ->
             val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime() or WindowInsets.Type.displayCutout())
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            val open = insets.isVisible(WindowInsets.Type.ime())
+            if (open && !keyboard) v.postDelayed({ showFocusedField() }, 250)
+            keyboard = open
             WindowInsets.CONSUMED
         }
+    }
+
+    /** The field the keyboard is typing into, scrolled to the middle of what's left of the screen. */
+    private fun showFocusedField() {
+        web?.evaluateJavascript(
+            "(function(e){if(e&&e!==document.body&&e.scrollIntoView)e.scrollIntoView({block:'center',behavior:'smooth'});})(document.activeElement)",
+            null,
+        )
     }
 
     /** The status and navigation bars in the page's color, with icons that show on it. */

@@ -280,7 +280,8 @@ export function ComputersFive() {
       {error && <Note bad>{error}</Note>}
       <Group title="New agents">
         <SRow id="works-on">
-          <Select label="New agents work on" value={d.saved?.computer ?? "shared"} disabled={noDefaults} onChange={(v) => setDefault({ computer: v as AgentDefaults["computer"] })}>
+          <Select label="New agents work on" value={d.saved?.computer ?? "device"} disabled={noDefaults} onChange={(v) => setDefault({ computer: v as AgentDefaults["computer"] })}>
+            <option value="device">Their device directly</option>
             <option value="shared">The shared computer</option>
             <option value="own-vm">Their own computer</option>
             <option value="none">No computer</option>

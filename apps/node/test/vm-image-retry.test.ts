@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildFailure, buildImage, publishedImage } from "../src/computers/docker.ts";
+import { buildFailure, buildImage, ensureImage, imageJobsRunning, publishedImage } from "../src/computers/docker.ts";
 import type { exec } from "../src/computers/driver.ts";
 
 /** A build log like the one that failed on a Mac: the cause is well above the last line. */
@@ -64,5 +64,77 @@ describe("building the VM image", () => {
     fs.writeFileSync(path.join(dir, ".git", "config"), '[remote "origin"]\n\turl = https://gitlab.com/x/y.git\n');
     expect(publishedImage(dir)).toBeNull();
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("getting the VM image", () => {
+  /** A stand-in build that waits until it's told to finish, or is stopped. */
+  function fakeBuild() {
+    const builds: { signal: AbortSignal; finish: () => void }[] = [];
+    const fetch = (_e: unknown, _local: string, onStatus: (t: string) => void, signal: AbortSignal) =>
+      new Promise<void>((resolve, reject) => {
+        onStatus("Building the VM image");
+        builds.push({ signal, finish: resolve });
+        signal.addEventListener("abort", () => reject(new Error("killed")));
+      });
+    return { fetch, builds };
+  }
+
+  it("builds once per tag, however many ask at the same time", async () => {
+    const { fetch, builds } = fakeBuild();
+    const heard: string[] = [];
+    const a = ensureImage(engine, () => {}, undefined, { fetch, tag: "dedupe" });
+    const b = ensureImage(engine, (t) => heard.push(t), undefined, { fetch, tag: "dedupe" });
+    const other = ensureImage(engine, () => {}, undefined, { fetch, tag: "other" });
+    expect(builds).toHaveLength(2);
+    // the second one hears where the build is
+    expect(heard).toEqual(["Building the VM image"]);
+    for (const x of builds) x.finish();
+    expect(await a).toBe("wisp-computer:dedupe");
+    expect(await b).toBe("wisp-computer:dedupe");
+    expect(await other).toBe("wisp-computer:other");
+    expect(imageJobsRunning()).toBe(0);
+  });
+
+  it("stops the build once everyone waiting on it gives up (the computer was deleted)", async () => {
+    const { fetch, builds } = fakeBuild();
+    const one = new AbortController();
+    const two = new AbortController();
+    const a = ensureImage(engine, () => {}, one.signal, { fetch, tag: "cancel" });
+    const b = ensureImage(engine, () => {}, two.signal, { fetch, tag: "cancel" });
+    one.abort();
+    await expect(a).rejects.toThrow(/cancelled/);
+    // the other VM still wants it: it goes on
+    expect(builds[0].signal.aborted).toBe(false);
+    two.abort();
+    await expect(b).rejects.toThrow(/cancelled/);
+    expect(builds[0].signal.aborted).toBe(true);
+    expect(imageJobsRunning()).toBe(0);
+    // asking again afterwards starts a fresh build
+    const c = ensureImage(engine, () => {}, undefined, { fetch, tag: "cancel" });
+    expect(builds).toHaveLength(2);
+    builds[1].finish();
+    await expect(c).resolves.toBe("wisp-computer:cancel");
+  });
+
+  it("doesn't start anything for a computer already removed", async () => {
+    const { fetch, builds } = fakeBuild();
+    const gone = new AbortController();
+    gone.abort();
+    await expect(ensureImage(engine, () => {}, gone.signal, { fetch, tag: "gone" })).rejects.toThrow(/cancelled/);
+    expect(builds).toHaveLength(0);
+  });
+
+  it("stops a build command when asked", async () => {
+    const stop = new AbortController();
+    const calls: string[][] = [];
+    const run = ((_bin: string, args: string[], o: { signal?: AbortSignal }) => {
+      calls.push(args);
+      return new Promise((resolve) => o.signal?.addEventListener("abort", () => resolve({ code: -1, stdout: Buffer.from(""), stderr: "(cancelled)" })));
+    }) as unknown as typeof exec;
+    const p = buildImage(engine, "t", "/r", { run, signal: stop.signal, delaysMs: [1, 1], sleep: async () => {} });
+    stop.abort();
+    await expect(p).rejects.toThrow(/cancelled/);
+    expect(calls).toHaveLength(1);
   });
 });

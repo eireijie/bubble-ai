@@ -7,7 +7,7 @@ import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx
 import { effortName, prettyModel } from "../components/EffortSlider.tsx";
 import { AppTile } from "../components/MarketParts.tsx";
 import { AGENT_TYPES, START_APPS, type AgentType, type AgentTypeId } from "./onboarding/agentTypes.ts";
-import { HARNESSES, accountsSignedIn, preferSignedIn, runsInVm, type Agent, type AgentSignIn, type Connector, type DiscoveredAgent, type Skill } from "@bubble-ai/core";
+import { HARNESSES, accountsSignedIn, preferSignedIn, roleSentence, runsInVm, type Agent, type AgentSignIn, type Connector, type DiscoveredAgent, type Skill } from "@bubble-ai/core";
 import { HarnessSignInButton } from "../components/HarnessSignInButton.tsx";
 import { api } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
@@ -20,6 +20,7 @@ import { MoreOptions } from "../components/MoreOptions.tsx";
 import { useFeature } from "../features.ts";
 import { useComputerMode } from "../computerMode.ts";
 import { LookEditorScreen, LookOptions } from "./LookEditor.tsx";
+import { useNarrow } from "../components/SetupShell.tsx";
 import { Button, Field, harnessLabel, Input, Modal, Pill, Textarea, cx, touchFirst } from "../components/ui.tsx";
 
 export function ComputerPicker({
@@ -193,7 +194,8 @@ function HarnessGrid({ list, harness, onPick, label }: { list: HarnessChoice[]; 
 export interface AgentDefaults {
   harness: string | null;
   model: string | null;
-  computer: "shared" | "own-vm" | "none";
+  /** "device": on its device directly (the default once one is connected); "none": no computer */
+  computer: "device" | "shared" | "own-vm" | "none";
   nodeId: string | null;
 }
 
@@ -209,8 +211,19 @@ export function defaultsSummary(d: AgentDefaults, nodes: Pick<NodeInfo, "id" | "
   const node = nodes.find((n) => n.id === d.nodeId);
   return {
     ai: `${harness} · ${d.model ? prettyModel(d.model) : "Automatic model"}`,
-    computer: simple || d.computer === "shared" ? "The shared computer" : d.computer === "own-vm" ? (node ? `Its own computer on ${node.name}` : "Its own computer") : "No computer",
+    computer: computerSummary(d, node, simple),
   };
+}
+
+/**
+ * Where "Use my defaults" puts it: the device directly, unless the owner picked otherwise; no
+ * computer while there's no device. A member's agent never gets the owner's shared computer.
+ */
+function computerSummary(d: AgentDefaults, node: Pick<NodeInfo, "name"> | undefined, _simple: boolean): string {
+  if (d.computer === "device") return node ? `${node.name} directly` : "No computer";
+  if (d.computer === "shared") return "The shared computer";
+  if (d.computer === "own-vm") return node ? `Its own computer on ${node.name}` : "Its own computer";
+  return "No computer";
 }
 
 /** Names a new agent is offered: one is already in the field when the sheet opens. */
@@ -270,14 +283,14 @@ function effortsFor(h: { models?: { id: string; efforts?: string[] }[]; efforts?
   return list.length ? list : ["low", "medium", "high"];
 }
 
-const lowerFirst = (s: string) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 const listOf = (names: string[]) => (names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
 /** What the new agent will say first, from what's picked so far: the preview under its bubble. */
 export function sampleGreeting({ name, role, apps, instructions }: { name: string; role: string; apps: string[]; instructions: string }): string {
   const lines = [`Hi, I'm ${name.trim() || "your new agent"}.`];
-  const job = role.trim().replace(/[.\s]+$/, "");
-  if (job) lines.push(`I'm here to ${lowerFirst(job).replace(/\bmy\b/g, "your")}.`);
+  // said in its own words, not spliced in ("Says pong" is "I'm here to say pong.")
+  const job = roleSentence(role);
+  if (job) lines.push(job);
   if (apps.length) lines.push(`I can use ${listOf(apps.slice(0, 3))}${apps.length > 3 ? ` and ${apps.length - 3} more` : ""}.`);
   if (instructions.trim()) lines.push("I've read your instructions.");
   lines.push("What should I start on?");
@@ -301,6 +314,19 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   const inviteOn = useFeature("invite");
   const [view, setView] = useState<View>(bringIn ? "external" : "form");
   const bodyRef = useRef<HTMLDivElement>(null);
+  const phone = useNarrow("(max-width: 767px)");
+  // phones: a field the keyboard would cover scrolls up into view once the keyboard has opened
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body?.addEventListener) return;
+    const onFocus = (e: Event) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.matches?.("input, textarea, select") || !touchFirst()) return;
+      setTimeout(() => el.scrollIntoView?.({ block: "center", behavior: "smooth" }), 300);
+    };
+    body.addEventListener("focusin", onFocus);
+    return () => body.removeEventListener("focusin", onFocus);
+  }, []);
   useEffect(() => {
     const body = bodyRef.current;
     body?.scrollTo?.({ top: 0 });
@@ -365,8 +391,14 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
           startSignedIn();
         }
         if (!aiPicked.current) {
-          if (d.harness) setHarness(d.harness);
-          if (d.model) setModel(d.model);
+          // the defaults' AI isn't installed on this device while another is: start on one that is
+          const on = nodes.find((n) => n.id === nodeId);
+          const here = (on?.harnesses ?? []).map((h) => h.id);
+          if (d.harness && here.length && !here.includes(d.harness)) startSignedIn();
+          else {
+            if (d.harness) setHarness(d.harness);
+            if (d.model) setModel(d.model);
+          }
         }
         if (d.nodeId && !startOn && usable.some((n) => n.id === d.nodeId)) setNodeId(d.nodeId);
       },
@@ -437,15 +469,34 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   const [token, setToken] = useState<string | null>(null);
 
   const node = nodes.find((n) => n.id === nodeId);
-  const installed = new Set((node?.harnesses ?? []).map((h) => h.id));
+  // installed here just now: counts before the device's next report arrives
+  const [justInstalled, setJustInstalled] = useState<string[]>([]);
+  const installed = new Set([...(node?.harnesses ?? []).map((h) => h.id), ...justInstalled.filter((x) => x.startsWith(`${nodeId}:`)).map((x) => x.slice(nodeId.length + 1))]);
   const declared = [...new Map(usable.flatMap((n) => (n.harnesses ?? []).filter((h) => h.id.startsWith("acp:")).map((h) => [h.id, h] as const))).values()];
   const harnesses = [
     ...HARNESSES.filter((h) => h.id !== "custom"),
     ...declared.map((h) => ({ id: h.id, label: h.id.slice(4), protocol: "acp" as const, note: "Available on a connected device", binary: "" })),
     HARNESSES.find((h) => h.id === "custom")!,
   ];
-  // the ones it can really run on here: installed on the device, or in a computer (which comes with them)
-  const runnable = harnesses.filter((h) => h.protocol !== "mcp" && (installed.has(h.id) || runsInVm(h.id) || h.id === harness));
+  // every AI it can run with, the ones installed on the device first; the rest say "Not installed" and offer Install
+  const notInstalled = (id: string) => !!node?.harnesses && !installed.has(id);
+  const runnable = harnesses.filter((h) => h.protocol !== "mcp").sort((a, b) => Number(notInstalled(a.id)) - Number(notInstalled(b.id)));
+  const [installing, setInstalling] = useState<string | null>(null);
+  const [installError, setInstallError] = useState<string | null>(null);
+  const installHere = async (id: string) => {
+    if (!node || installing) return;
+    setInstalling(id);
+    setInstallError(null);
+    try {
+      await api("POST", `/api/nodes/${node.id}/install`, { harness: id });
+      setJustInstalled((list) => [...list, `${node.id}:${id}`]);
+      await api("POST", `/api/nodes/${node.id}/refresh`).catch(() => {});
+    } catch (e) {
+      setInstallError((e as Error).message);
+    } finally {
+      setInstalling(null);
+    }
+  };
   const { advanced: pickWhere } = useComputerMode();
   const useDefaults = place.kind === "auto" && !invite && defaults !== null && defaults !== "error";
   const selectedHarness = harnesses.find((h) => h.id === harness) ?? harnesses[0];
@@ -573,9 +624,10 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
             }}
           >
             {/* who it is: its bubble, name and handle, what it will say first, and its look */}
-            <aside className="flex shrink-0 flex-col items-center border-line bg-card/50 px-5 pb-5 pt-7 md:w-[330px] md:overflow-y-auto md:border-r">
-              <button type="button" disabled={busy || !!created} onClick={() => setAppearance(shuffleBubbleLook())} aria-label="Change its look" title="Shuffle its look" className="rounded-[20px] outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none">
-                <Ghost look={look} seed={finalHandle} size={124} trackPointer label="" />
+            <aside className="flex shrink-0 flex-col items-center border-line bg-card/50 px-5 pb-4 pt-5 md:w-[330px] md:overflow-y-auto md:border-r md:pb-5 md:pt-7">
+              {/* phones: a small preview that opens the look editor, so the name and what it does come first */}
+              <button type="button" disabled={busy || !!created} onClick={() => (phone ? setView("look") : setAppearance(shuffleBubbleLook()))} aria-label="Change its look" title={phone ? "Change its look" : "Shuffle its look"} className="rounded-[20px] outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none">
+                <Ghost look={look} seed={finalHandle} size={phone ? 64 : 124} trackPointer={!phone} label="" />
               </button>
               <fieldset disabled={busy || !!created} className="w-full min-w-0">
                 <input
@@ -625,12 +677,18 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                 )}
               </div>
 
-              <div className="mt-5 w-full">
-                <LookOptions value={look} onChange={setAppearance} name={finalHandle} dense />
-                <button type="button" className={cx(QUIET, "-ml-2.5 mt-1")} onClick={() => setView("look")}>
-                  Bigger preview
+              {phone ? (
+                <button type="button" disabled={busy || !!created} className={cx(QUIET, "mt-2")} onClick={() => setView("look")}>
+                  Change its look
                 </button>
-              </div>
+              ) : (
+                <div className="mt-5 w-full">
+                  <LookOptions value={look} onChange={setAppearance} name={finalHandle} dense />
+                  <button type="button" className={cx(QUIET, "-ml-2.5 mt-1")} onClick={() => setView("look")}>
+                    Bigger preview
+                  </button>
+                </div>
+              )}
             </aside>
 
             {/* what it does and what it works with */}
@@ -685,8 +743,11 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                           return (
                             <button key={h.id} type="button" role="radio" aria-checked={on} onClick={() => pickAi({ harness: h.id })} className={cx(TILE, "h-11", on ? TILE_ON : TILE_OFF)}>
                               <HarnessLogo harness={h.id} size={18} />
-                              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{h.label}</span>
-                              {node?.mine && signed === false && <span className="size-1.5 shrink-0 rounded-full bg-warn" title="Not signed in" aria-label="Not signed in" />}
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[13px] font-medium">{h.label}</span>
+                                {notInstalled(h.id) && <span className="block truncate text-[11px] leading-3 text-muted">Not installed</span>}
+                              </span>
+                              {node?.mine && !notInstalled(h.id) && signed === false && <span className="size-1.5 shrink-0 rounded-full bg-warn" title="Not signed in" aria-label="Not signed in" />}
                             </button>
                           );
                         })}
@@ -719,7 +780,16 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                           </div>
                         </div>
                       </div>
-                      {signInFirst && (
+                      {node && notInstalled(harness) && selectedHarness.protocol !== "mcp" && (
+                        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-card px-3.5 py-2.5 text-[13px]">
+                          <span className="min-w-0 flex-1">{installError ?? `${selectedHarness.label} isn't installed on ${node.name}.`}</span>
+                          <Button type="button" size="sm" disabled={!!installing || !node.online} onClick={() => void installHere(harness)}>
+                            {installing === harness ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                            {installing === harness ? "Installing…" : "Install"}
+                          </Button>
+                        </div>
+                      )}
+                      {signInFirst && !notInstalled(harness) && (
                         <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-card px-3.5 py-2.5 text-[13px]">
                           <span className="min-w-0 flex-1">{noneSignedIn ? `No AI is signed in on ${signInFirst.where} yet.` : `${harnessLabel(signInFirst.harness)} isn't signed in on ${signInFirst.where}.`}</span>
                           <HarnessSignInButton signIn={signInFirst} />
@@ -729,11 +799,6 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
 
                     {selectedHarness.protocol !== "mcp" && (
                       <PlacePicker value={place} onChange={choosePlace} node={node} nodes={nodes} usable={usable} nodeId={nodeId} onNode={(id) => (setNodeId(id), choosePlace(place.kind === "auto" ? place : defaultComputer(nodes.find((n) => n.id === id), computers)))} auto={defaults !== "error" ? (summary?.computer ?? "Automatic") : null} advanced={pickWhere} />
-                    )}
-                    {place.kind !== "auto" && node && !runsInVm(harness) && !installed.has(harness) && selectedHarness.protocol !== "mcp" && (
-                      <p className="text-xs text-muted">
-                        Install {selectedHarness.label} on {node.name} first.
-                      </p>
                     )}
                     {place.kind !== "auto" && node && !node.online && (
                       <p role="status" className="text-xs text-warn">
@@ -951,7 +1016,10 @@ function PlacePicker({ value, onChange, node, nodes, usable, nodeId, onNode, aut
         )}
       </div>
       <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Computer">
-        {auto !== null && tile({ kind: "auto" }, <Users size={15} />, auto === "The shared computer" ? "Shared computer" : "Automatic", auto === "The shared computer" ? "With your other agents" : auto === "Automatic" ? "Your defaults" : auto)}
+        {auto !== null &&
+          (auto.endsWith(" directly")
+            ? tile({ kind: "auto" }, <Laptop size={15} />, "This device", `Works on ${auto}`)
+            : tile({ kind: "auto" }, <Users size={15} />, auto === "The shared computer" ? "Shared computer" : "Automatic", auto === "The shared computer" ? "With your other agents" : auto === "Automatic" ? "Your defaults" : auto))}
         {node && tile({ kind: "vm" }, <Monitor size={15} />, "Its own computer", node.capabilities?.vm.ok ? `A desktop on ${node.name}` : (node.capabilities?.vm.detail ?? "Connect the device to check"), !node.capabilities?.vm.ok)}
         {node?.mine && !screenExists && tile({ kind: "screen" }, <Laptop size={15} />, "My screen", node.capabilities?.screen.ok ? `Works on ${node.name}` : (node.capabilities?.screen.detail ?? "Off"), node.capabilities?.screen.ok !== true)}
         {advanced &&

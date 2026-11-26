@@ -7,7 +7,7 @@ import { useStore } from "../store.ts";
 import { AgentAvatar, Button, Modal, cx } from "../components/ui.tsx";
 import { EMPTY_TEAM, addToTeam } from "../components/TeamChart.tsx";
 import { TeamBuilder } from "./Builder.tsx";
-import { emptyTeam, teamAgentIds, withChart } from "./flow.ts";
+import { emptyTeam, seedTeam, teamAgentIds, withChart } from "./flow.ts";
 
 /** The old way a typed name became a channel name; names are kept as typed now (`teamName`). */
 export const teamSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
@@ -83,7 +83,10 @@ export function NewTeamFlow({ onClose, sectionId = null, initialName = "", initi
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (valid) setPage("builder");
+          if (!valid) return;
+          // the agents picked here are on the canvas already, the first leading
+          setTeam((t) => seedTeam(t, picked));
+          setPage("builder");
         }}
       >
         <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Release crew" aria-label="Name" autoCorrect="off" maxLength={80} className="h-11 w-full rounded-[12px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />

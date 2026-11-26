@@ -115,6 +115,8 @@ export interface AgentSettings {
   useDevices?: Record<string, "ask" | "tell">;
   /** made before any device could run the shared computer: it gets it once one can (set by the hub) */
   waitsForShared?: boolean;
+  /** made before any device was connected: it gets the first one its maker can use (set by the hub) */
+  waitsForDevice?: boolean;
   /** its job title, e.g. "Engineer" or "Researcher"; the lead hands work out by it */
   role?: string;
   /** what the role means for how it works: what it owns, what to send its way */

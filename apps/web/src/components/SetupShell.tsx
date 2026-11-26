@@ -86,7 +86,7 @@ export function useNarrow(query = "(max-width: 760px)") {
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(query).matches);
   useEffect(() => {
     const mq = window.matchMedia?.(query);
-    if (!mq) return;
+    if (!mq?.addEventListener) return;
     const on = () => setNarrow(mq.matches);
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
