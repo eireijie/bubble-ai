@@ -12,19 +12,21 @@ const initial = useStore.getState();
 afterEach(() => useStore.setState(initial, true));
 
 describe("add agent onboarding", () => {
-  it("is one sheet with every choice in view and filled in: look, template, role, instructions, AI, computer, apps and skills", () => {
+  it("is one sheet, filled in: look rows, template, role and AI in view, the rest under More options", () => {
     const html = renderToStaticMarkup(
       createElement(CreateAgent, { nodes: [], onClose() {} }),
     );
     expect(html).toContain('aria-label="New agent"');
-    // a click on the bubble gives it another look
+    // a click on the bubble, or the shuffle by its name, gives it another look
     expect(html).toContain('aria-label="Change its look"');
+    expect(html).toContain('aria-label="Shuffle its look"');
     expect(html).toMatch(/aria-label="Name"[^>]*value="[A-Z][a-z]+"/);
-    // what it will say first, shown instead of described
-    expect(html).toMatch(/Hi, I&#x27;m [A-Z][a-z]+\. What should I start on\?/);
-    for (const t of ['aria-label="Start from"', "What it does", "Instructions", 'aria-label="AI"', 'aria-label="Effort"', 'aria-label="Computer"', "Apps", "Skills", 'aria-label="Look"', "Make it a team", "Bring one in"]) expect(html).toContain(t);
-    // nothing folded away any more
-    for (const t of ["More options", "Use my defaults", "Customize"]) expect(html).not.toContain(t);
+    // its look as seven rows, every choice a small bubble wearing it
+    for (const row of ["Shape", "Colour", "Eyes", "Mouth", "Hat", "Wear", "Motion"]) expect(html).toContain(`role="radiogroup" aria-label="${row}"`);
+    for (const t of ['aria-label="Start from"', "What it does", 'aria-label="AI"', 'aria-label="Model"', 'aria-label="Effort"', "More options", "Make it a team", "Bring one in"]) expect(html).toContain(t);
+    // folded until opened; the closed row says what's picked
+    for (const t of ['aria-label="Instructions"', 'aria-label="Computer"', ">Apps<", ">Skills<", "Use my defaults", "Customize"]) expect(html).not.toContain(t);
+    expect(html).toContain('aria-expanded="false"');
     // nothing to create until your defaults have loaded
     expect(html).toMatch(/disabled=""[^>]*>(<!-- -->)?Create</);
     // no emoji tiles for templates
