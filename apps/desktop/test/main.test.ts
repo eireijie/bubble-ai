@@ -238,12 +238,13 @@ describe("desktop device status", () => {
     expect(await f.main.readDeviceStatus()).toBe(false);
   });
 
-  it("keeps the Inbox shortcut pointed at its existing route", () => {
+  it("puts the sidebar strip on ⌘1-⌘5 (Computers first) and keeps Inbox pointed at its existing route", () => {
     const f = fixture();
-    const item = f.main.appMenu().find((i: any) => i.label === "Go").submenu[0];
-    expect(item).toMatchObject({ label: "Inbox", accelerator: "CmdOrCtrl+1" });
+    const go = f.main.appMenu().find((i: any) => i.label === "Go").submenu;
+    expect(go[0]).toMatchObject({ label: "Computers", accelerator: "CmdOrCtrl+1" });
+    const inbox = go.find((i: any) => i.label === "Inbox");
     f.main.init();
-    item.click();
+    inbox.click();
     expect(f.executeJavaScript).toHaveBeenCalledWith('location.hash = "#/dashboard"');
   });
 

@@ -61,13 +61,13 @@ describe("docked sidebar", () => {
     return renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
   }
 
-  it("opens at the remembered width: search and New on top, the list, you and Computers + Memory vault at the foot, a resize edge", () => {
+  it("opens at the remembered width: search and New on top, Computers + Memory in the icon strip, the list, you at the foot, a resize edge", () => {
     const html = render({ width: 360, collapsed: false });
     expect(html).toContain("width:360px");
     expect(html).toContain('role="separator"');
     expect(html).toContain(">Iris<");
     expect(html).toContain(">Sam<");
-    expect(html).toMatch(/aria-label="Computers, \d+ on"/);
+    expect(html).toContain('href="#/computers" data-tour="computers" aria-label="Computers"');
     expect(html).toContain('href="#/vault"');
     for (const control of ["Search", "New agent or team", "Account, settings and help"]) expect(html).toContain(`aria-label="${control}"`);
     // the All / Your turn filter

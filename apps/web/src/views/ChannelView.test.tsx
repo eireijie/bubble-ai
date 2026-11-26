@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "@bubble-ai/core";
-import { ChannelView } from "./ChannelView.tsx";
+import { ChannelView, Composer } from "./ChannelView.tsx";
 
 const h = vi.hoisted(() => ({
   state: {} as any, refs: [] as { current: any }[], index: 0,
@@ -13,11 +13,12 @@ vi.mock("react", async (original) => ({
   useMemo: (fn: () => any) => fn(),
   useRef: (value: any) => h.refs[h.index++] ?? (h.refs[h.index - 1] = { current: value }),
   useState: (value: any) => [typeof value === "function" ? value() : value, vi.fn()],
-}));
+  useSyncExternalStore: (_subscribe: unknown, get: () => any) => get(),}));
 vi.mock("../store.ts", () => ({
   useStore: Object.assign((select: (s: any) => any) => { h.storeCalls++; return select(h.state); }, { getState: () => h.state, subscribe: () => () => {} }),
   conversationKey: (channelId: string, threadId?: string) => threadId ? `${channelId}/t/${threadId}` : channelId,
   useNames: () => ({ agent: () => undefined }),
+  usePrefs: () => ({ sendWith: "enter" }),
 }));
 vi.mock("../theme.ts", () => ({ motionReduced: () => false }));
 vi.mock("../features.ts", () => ({ useFeature: () => false }));
@@ -129,5 +130,31 @@ describe("a chat that goes missing", () => {
     };
     const present = calls("channel");
     expect(calls("gone")).toBe(present);
+  });
+});
+
+describe("the message box", () => {
+  const box = (props: Partial<Parameters<typeof Composer>[0]> = {}) => {
+    h.refs = []; h.index = 0;
+    h.state.agents = []; h.state.me = { role: "owner" };
+    const tree = Composer({ channelId: "channel", placeholder: "Message Nova", onCall: () => {}, callName: "Nova", ...props });
+    return find(tree, (node) => node.props?.["data-tour"] === "input");
+  };
+  const roundOf = (input: any) => find(input, (node) => node.props?.["data-tour"] === "send");
+
+  it("holds the attach button, the text and the round button in one box", () => {
+    const input = box();
+    expect(input.props.className).toContain("composer-box");
+    expect(find(input, (node) => node.props?.className === "composer-plus-slot")).toBeTruthy();
+    expect(find(input, (node) => node.type === "textarea")).toBeTruthy();
+    expect(roundOf(input).props["aria-label"]).toBe("Call Nova");
+    expect(roundOf(input).props.className).toContain("is-go");
+  });
+
+  it("turns the round button into Stop while an agent works", () => {
+    h.state.live = { run: { channelId: "channel", agentId: "a", threadPath: [], threadId: null } };
+    const round = roundOf(box());
+    expect(round.props["aria-label"]).toBe("Stop");
+    expect(round.props.className).toContain("is-stop");
   });
 });

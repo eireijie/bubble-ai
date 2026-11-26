@@ -1,0 +1,30 @@
+/*
+ * New agent's look rows (2026-11-26, design "Calmer layout", option D1): a label, then one row of
+ * small swatches. A row that doesn't fit scrolls sideways with no scrollbar and fades at the edge
+ * that has more.
+ */
+.look-rows { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.look-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 6px; }
+.look-row-label { font-size: 12px; line-height: 16px; color: var(--muted); }
+.look-row-sw { display: flex; gap: 3px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 2px; scroll-behavior: smooth; }
+.look-row-sw::-webkit-scrollbar { display: none; }
+.look-row-sw[data-more="end"] { -webkit-mask-image: linear-gradient(90deg, #000 84%, transparent); mask-image: linear-gradient(90deg, #000 84%, transparent); }
+.look-row-sw[data-more="start"] { -webkit-mask-image: linear-gradient(270deg, #000 84%, transparent); mask-image: linear-gradient(270deg, #000 84%, transparent); }
+.look-row-sw[data-more="both"] { -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }
+.look-sw { position: relative; flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; outline: none; transition: background-color 0.15s, box-shadow 0.15s; }
+.look-sw:hover { background: var(--hover); }
+.look-sw[data-on] { background: var(--side-active); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.look-sw:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 45%, transparent); }
+.look-sw[data-on]:focus-visible { box-shadow: inset 0 0 0 1.5px var(--ink), 0 0 0 2px color-mix(in srgb, var(--ring) 45%, transparent); }
+.look-dot { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08); }
+
+/* the AI row (harness picker, Model, Effort) and More options' summary row */
+.na-ai { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+@media (max-width: 767px) { .na-ai { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .na-ai > :first-child { grid-column: 1 / -1; } }
+.na-more { display: flex; width: 100%; min-height: 42px; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; font-weight: 500; text-align: left; outline: none; transition: background-color 0.15s; }
+.na-more:hover { background: var(--hover); }
+.na-more:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 45%, transparent); }
+.na-more-sum { min-width: 0; flex: 1; text-align: right; font-size: 12px; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.na-opts { animation: na-opts-in 0.22s cubic-bezier(0.2, 0.8, 0.3, 1); }
+@keyframes na-opts-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .look-row-sw { scroll-behavior: auto; } .na-opts { animation: none; } }

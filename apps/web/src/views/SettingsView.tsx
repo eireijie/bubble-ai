@@ -141,13 +141,13 @@ function ModOff({ mod, owner }: { mod: FeatureKey; owner: boolean }) {
 function YouHeader() {
   const me = useStore((s) => s.me)!;
   return (
-    <div className="mb-5 flex items-center gap-3.5">
-      <span className="grid size-14 shrink-0 place-items-center rounded-full bg-wisp-soft text-[17px] font-semibold text-wisp-strong" aria-hidden>
+    <div className="mb-4 flex items-center gap-3">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-wisp-soft text-[14px] font-semibold text-wisp-strong md:size-10 max-md:size-14 max-md:text-[17px]" aria-hidden>
         {initialsOf(me.user.name)}
       </span>
       <div className="min-w-0">
-        <div className="truncate text-[17px] font-semibold leading-6">{me.user.name}</div>
-        <div className="truncate text-[13px] text-muted">
+        <div className="truncate text-[15px] font-semibold leading-5 max-md:text-[17px] max-md:leading-6">{me.user.name}</div>
+        <div className="truncate t-cap text-muted">
           {me.role === "owner" ? "Owner" : me.role === "guest" ? "Guest" : "Member"} · {me.workspace.name}
         </div>
       </div>
@@ -227,9 +227,9 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   const results = (
     <div className="rounded-[12px] bg-card divide-y divide-line overflow-hidden" role="list" aria-label="Settings that match">
       {found.map((r) => (
-        <a key={r.id} role="listitem" href={rowHref(r)} onClick={pick} className="flex items-center gap-3 px-4 min-h-[52px] text-body hover:bg-hover">
+        <a key={r.id} role="listitem" href={rowHref(r)} onClick={pick} className="flex items-center gap-3 px-4 min-h-[52px] md:min-h-[44px] text-body hover:bg-hover">
           <span className="flex-1 min-w-0 truncate">{r.label}</span>
-          <span className="shrink-0 text-[13px] text-muted">{FIVE_LABEL[r.page]}</span>
+          <span className="shrink-0 text-[13px] md:t-cap text-muted">{FIVE_LABEL[r.page]}</span>
         </a>
       ))}
       {found.length === 0 && <p className="px-4 py-3.5 text-sm text-muted">No settings match</p>}
@@ -263,9 +263,9 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   if (fullWindow)
     return (
       <div className="flex-1 min-w-0 min-h-0 flex">
-        <aside className="flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-6">
-          <h2 className="mb-3 px-2 text-[15px] font-semibold">Settings</h2>
-          <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="mb-3 bg-panel" />
+        <aside className="flex w-[200px] shrink-0 flex-col overflow-y-auto border-r border-line bg-panel px-2.5 pt-5 pb-5">
+          <h2 className="mb-2 px-2.5 text-[13px] font-semibold">Settings</h2>
+          <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="mb-2 !h-[30px] !rounded-[8px] px-2 text-[13px]" />
           <PopNav label="Settings" current={query ? null : current} onPick={() => setQuery("")} items={pages.map((p) => ({ key: p, label: FIVE_LABEL[p], icon: FIVE_ICON[p], href: pageTop(p) }))} />
         </aside>
         <main className="flex-1 min-w-0 min-h-0 flex flex-col" aria-label={query ? "Settings search" : `${sheet?.label ?? FIVE_LABEL[current!]} settings`}>
@@ -273,7 +273,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
             SHEETS.apps()
           ) : (
             <div key={query ? "search" : `${current}:${sheet?.id ?? ""}`} className="settings-pop-section flex-1 min-h-0 overflow-y-auto">
-              <div className={cx("max-w-[720px] pl-10 pr-16 pt-8", bottom)}>
+              <div className={cx("max-w-[720px] pl-7 pr-16 pt-6", bottom)}>
                 {query ? (
                   <>
                     <h1 className="t-title mb-4">Search</h1>

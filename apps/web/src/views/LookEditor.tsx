@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ChevronDown, Loader2, RotateCcw, Shuffle } from "lucide-react";
 import type { Agent } from "@bubble-ai/core";
 import { BUBBLE_COLORS, BUBBLE_SHAPES, GHOST_ACCESSORIES, GHOST_EYES, GHOST_HATS, GHOST_MOTIONS, GHOST_MOUTHS, defaultAppearance, shuffleBubbleLook, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
@@ -10,6 +10,7 @@ import { Ghost } from "../components/Ghost.tsx";
 import { Button, cx } from "../components/ui.tsx";
 import { VoicePicker } from "../voice/VoicePicker.tsx";
 import { SaveBar } from "./SettingsParts.tsx";
+import "./look-rows.css";
 
 /** What each option is called on screen. The option lists come from core, so they always match the hub. */
 export const LOOK_LABELS: Record<string, string> = {
@@ -125,6 +126,85 @@ export function LookOptions({ value: look, onChange, name, dense = false }: { va
         {tab === "Hat" && tiles("hat", GHOST_HATS, (v) => LOOK_LABELS[v] ?? v)}
         {tab === "Wear" && tiles("accessory", GHOST_ACCESSORIES, (v) => LOOK_LABELS[v] ?? v)}
         {tab === "Motion" && tiles("motion", GHOST_MOTIONS, (v) => LOOK_LABELS[v] ?? v)}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The look as seven short rows, one per kind (New agent): a label, then every choice as a small
+ * swatch, all in view at once. A row too long for its column scrolls sideways and fades at the edge
+ * that has more. Each swatch is the real bubble wearing that choice, so it shows what you'd get.
+ */
+export function LookRows({ value: look, onChange, name }: { value: GhostAppearance; onChange: (look: GhostAppearance) => void; name: string }) {
+  const color = bubbleColor(look, name);
+  const set = (patch: Partial<GhostAppearance>) => onChange({ ...look, ...patch, parts: true });
+  const known = BUBBLE_COLORS.some((c) => c.hex === lower(color));
+  const swatches = <K extends "bubble" | "eyes" | "mouth" | "hat" | "accessory" | "motion">(key: K, options: readonly NonNullable<GhostAppearance[K]>[], label: (v: string) => string) =>
+    options.map((v) => {
+      const on = (key === "bubble" ? bubbleShape(look) : look[key]) === v;
+      const title = label(v);
+      return (
+        <button key={v} type="button" role="radio" aria-checked={on} aria-label={title} title={title} data-on={on || undefined} onClick={() => set({ [key]: v } as Partial<GhostAppearance>)} className="look-sw">
+          {/* only the motion swatches move, so the rows stay calm */}
+          <Ghost look={{ ...look, parts: true, [key]: v }} seed={name} size={24} animate={key === "motion"} trackPointer={false} label="" />
+        </button>
+      );
+    });
+  return (
+    <div className="look-rows">
+      <LookRow label="Shape">{swatches("bubble", BUBBLE_SHAPES, (v) => BUBBLE_DEFS[v as keyof typeof BUBBLE_DEFS].name)}</LookRow>
+      <LookRow label="Colour">
+        {BUBBLE_COLORS.map((c) => {
+          const on = lower(color) === c.hex;
+          return (
+            <button key={c.hex} type="button" role="radio" aria-checked={on} aria-label={c.name} title={c.name} data-on={on || undefined} onClick={() => set({ color: c.hex, color2: undefined })} className="look-sw">
+              <span className="look-dot" style={{ background: c.hex }} />
+            </button>
+          );
+        })}
+        <label title="Your own colour" data-on={!known || undefined} className="look-sw cursor-pointer">
+          <span className="look-dot" style={{ background: known ? "conic-gradient(#ff5f5f, #ffd84d, #5fe08a, #4dabf7, #b07cff, #ff5f5f)" : color }} />
+          <input type="color" value={color} onChange={(e) => set({ color: e.target.value, color2: undefined })} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Your own colour" />
+        </label>
+      </LookRow>
+      <LookRow label="Eyes">{swatches("eyes", GHOST_EYES, (v) => LOOK_LABELS[v] ?? v)}</LookRow>
+      <LookRow label="Mouth">{swatches("mouth", ["none", ...GHOST_MOUTHS.filter((m) => m !== "none")] as const, (v) => LOOK_LABELS[v] ?? v)}</LookRow>
+      <LookRow label="Hat">{swatches("hat", GHOST_HATS, (v) => LOOK_LABELS[v] ?? v)}</LookRow>
+      <LookRow label="Wear">{swatches("accessory", GHOST_ACCESSORIES, (v) => LOOK_LABELS[v] ?? v)}</LookRow>
+      <LookRow label="Motion">{swatches("motion", GHOST_MOTIONS, (v) => LOOK_LABELS[v] ?? v)}</LookRow>
+    </div>
+  );
+}
+
+/** One row of swatches: it scrolls sideways when it doesn't fit, fading on the side that has more, and opens with the picked one in view. */
+function LookRow({ label, children }: { label: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState<"" | "start" | "end" | "both">("");
+  const measure = () => {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.scrollLeft > 1;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setMore(start && end ? "both" : start ? "start" : end ? "end" : "");
+  };
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const picked = el.querySelector<HTMLElement>("[data-on]");
+    if (picked && picked.offsetLeft + picked.offsetWidth > el.clientWidth) el.scrollLeft = picked.offsetLeft - el.clientWidth / 2 + picked.offsetWidth / 2;
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, []);
+  return (
+    <div className="look-row">
+      <span className="look-row-label" aria-hidden>
+        {label}
+      </span>
+      <div ref={ref} role="radiogroup" aria-label={label} onScroll={measure} data-more={more || undefined} className="look-row-sw">
+        {children}
       </div>
     </div>
   );

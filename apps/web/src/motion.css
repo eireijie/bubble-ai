@@ -245,29 +245,40 @@ button[role="switch"]:active:not(:disabled) .m-knob { scale: 1.2 1; }
 :root[data-motion="reduce"] :is(button.rounded-full, a.rounded-full, .circle, .m-press):active { transform: none; }
 :root[data-motion="reduce"][data-sheet] #root { transform: none; border-radius: 0; }
 
-/* ---------- the Settings pop-up (desktops): the app dims, the card rises from 96% and settles ---------- */
+/* ---------- pop-ups over the chat (desktops; canvas "Calmer layout", board B) ----------
+ * Open: the dim fades in over 160ms; the panel rises 8px and grows from 96% over 220ms.
+ * Close: 140ms, a fade and a shrink to 98%. Moving to another pop-up swaps what's inside the open
+ * panel with a 120ms crossfade instead of closing and opening again. Reduced motion: fades only. */
 @keyframes m-pop-scrim { from { background: transparent; backdrop-filter: blur(0); } }
 @keyframes m-pop-card { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
-@keyframes m-pop-card-out { to { opacity: 0; transform: translateY(4px) scale(0.975); } }
+@keyframes m-pop-card-out { to { opacity: 0; transform: scale(0.98); } }
 @keyframes m-pop-scrim-out { to { background: transparent; backdrop-filter: blur(0); } }
-.settings-pop { background: rgb(0 0 0 / 0.32); backdrop-filter: blur(2px); animation: m-pop-scrim 260ms ease-out backwards; }
+@keyframes m-pop-over { from { opacity: 0; transform: translateX(-4px) scale(0.98); } }
+.settings-pop { background: rgb(0 0 0 / 0.28); animation: m-pop-scrim 160ms ease-out backwards; }
 :root[data-mode="dark"] .settings-pop { background: rgb(0 0 0 / 0.55); }
-.settings-pop-panel { animation: m-pop-card 380ms cubic-bezier(0.32, 0.72, 0, 1) backwards; transform-origin: 50% 46%; }
-.settings-pop[data-state="out"] { animation: m-pop-scrim-out 200ms ease-in forwards; }
-.settings-pop[data-state="out"] .settings-pop-panel { animation: m-pop-card-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+.settings-pop-panel { animation: m-pop-card 220ms var(--ease-out) backwards; transform-origin: 50% 46%; transition: width 220ms var(--ease-out), height 220ms var(--ease-out); }
+.settings-pop[data-state="out"] { animation: m-pop-scrim-out 140ms ease-in forwards; }
+.settings-pop[data-state="out"] .settings-pop-panel { animation: m-pop-card-out 140ms ease-in forwards; }
+/* another place picked while a pop-up is open: what's inside crossfades */
+.pop-swap { animation: m-fade 120ms ease-out backwards; }
+/* Needs you: a popover beside its row */
+.needs-pop { animation: m-pop-over 160ms var(--ease-out) backwards; transform-origin: 0 0; }
+.needs-pop[data-state="out"] { animation: m-fade 140ms ease-in reverse both; }
 /* a section of the pop-up slides in a little as it changes */
 @keyframes m-pop-section { from { opacity: 0; transform: translateY(6px); } }
-.settings-pop-section { animation: m-pop-section 260ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
+.settings-pop-section { animation: m-pop-section 220ms var(--ease-out) backwards; }
 /* the marker under the chosen section glides to the next one */
 .pop-nav { position: relative; }
-.pop-nav-mark { position: absolute; left: 0; right: 0; top: 0; border-radius: 8px; background: var(--side-active); transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1), height 260ms cubic-bezier(0.32, 0.72, 0, 1); pointer-events: none; }
+.pop-nav-mark { position: absolute; left: 0; right: 0; top: 0; border-radius: 8px; background: var(--hover); transition: transform 220ms var(--ease-out), height 220ms var(--ease-out); pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
-  .settings-pop, .settings-pop-panel, .settings-pop-section { animation: m-fade 120ms ease-out backwards !important; }
-  .settings-pop[data-state="out"], .settings-pop[data-state="out"] .settings-pop-panel { animation: m-fade 120ms ease-out reverse both !important; }
+  .settings-pop, .settings-pop-panel, .settings-pop-section, .needs-pop { animation: m-fade 120ms ease-out backwards !important; transition: none; }
+  .settings-pop[data-state="out"], .settings-pop[data-state="out"] .settings-pop-panel, .needs-pop[data-state="out"] { animation: m-fade 120ms ease-out reverse both !important; }
   .pop-nav-mark { transition: none; }
 }
 :root[data-motion="reduce"] .settings-pop-panel,
-:root[data-motion="reduce"] .settings-pop-section { animation: none !important; }
+:root[data-motion="reduce"] .settings-pop-section,
+:root[data-motion="reduce"] .pop-swap,
+:root[data-motion="reduce"] .needs-pop { animation: none !important; transition: none; }
 :root[data-motion="reduce"] .pop-nav-mark { transition: none; }
 
 /* words for something happening right now ("working", "Reading files…") carry a light that sweeps across them */

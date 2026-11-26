@@ -97,7 +97,8 @@ export function dismissHelp(c: ComputerInfo) {
  * asked), who and when, and its buttons underneath.
  */
 export function NeedRow({ avatar, text, to, onOpen, meta, children }: { avatar: ReactNode; text: string; to?: string; onOpen?: () => void; meta: (string | null | undefined | false)[]; children?: ReactNode }) {
-  const line = "text-[15px] md:text-[17px] leading-[22px] md:leading-6 font-semibold break-words";
+  // the Needs you popover sets --need-size to 14
+  const line = "text-[15px] md:text-[length:var(--need-size,17px)] leading-[22px] md:leading-[var(--need-lh,24px)] font-semibold break-words";
   const link = cx(line, "text-left rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/40");
   const facts = meta.filter((m): m is string => !!m && !text.includes(m));
   return (

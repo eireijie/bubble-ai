@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Bot, Check, ChevronRight, Cloud, Download, Laptop, Loader2, Lock, MessageSquare, Monitor, Plus, Search, UserPlus, Users, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowLeft, ArrowRight, Bot, Check, ChevronDown, ChevronRight, Cloud, Download, Laptop, Loader2, Lock, MessageSquare, Monitor, Plus, Search, Shuffle, UserPlus, Users, X } from "lucide-react";
+import { LAYER } from "../components/layers.ts";
 import { newBubbleLook, shuffleBubbleLook, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { Ghost } from "../components/Ghost.tsx";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
@@ -19,7 +21,7 @@ import { defaultComputer, resolveComputer, vmOnDevice, withComputer, type Comput
 import { MoreOptions } from "../components/MoreOptions.tsx";
 import { useFeature } from "../features.ts";
 import { useComputerMode } from "../computerMode.ts";
-import { LookEditorScreen, LookOptions } from "./LookEditor.tsx";
+import { LookEditorScreen, LookRows } from "./LookEditor.tsx";
 import { useNarrow } from "../components/SetupShell.tsx";
 import { Button, Field, harnessLabel, Input, Modal, Pill, Textarea, cx, touchFirst } from "../components/ui.tsx";
 
@@ -199,6 +201,99 @@ export interface AgentDefaults {
   nodeId: string | null;
 }
 
+type AiChoice = { id: string; label: string; notInstalled: boolean; signedOut: boolean };
+
+/**
+ * The AI a new agent runs on, as one picker: its logo and name, and a list of every AI it can run
+ * with, the ones installed on the device first ("Not installed" on the rest). The list is drawn on
+ * the page (fixed) so the form's scroll area can't cut it off.
+ */
+export function AiPicker({ list, value, onPick }: { list: AiChoice[]; value: string; onPick: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<React.CSSProperties | null>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const current = list.find((h) => h.id === value) ?? list[0];
+  useLayoutEffect(() => {
+    if (!open || !button.current) return;
+    const r = button.current.getBoundingClientRect();
+    const h = panel.current?.offsetHeight ?? 0;
+    const below = window.innerHeight - r.bottom - 12;
+    const up = h > below && r.top - 12 > below;
+    setPos({ position: "fixed", left: Math.max(8, r.left), width: Math.max(r.width, 240), maxHeight: Math.max(160, (up ? r.top : window.innerHeight - r.bottom) - 16), overflowY: "auto", ...(up ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 }), transformOrigin: up ? "bottom left" : "top left" });
+    panel.current?.querySelector<HTMLElement>("[aria-selected=true]")?.focus({ preventScroll: true });
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: Event) => {
+      const t = e.target as Node;
+      if (!panel.current?.contains(t) && !button.current?.contains(t)) setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+        button.current?.focus();
+      }
+    };
+    const scrolled = (e: Event) => !panel.current?.contains(e.target as Node) && setOpen(false);
+    window.addEventListener("mousedown", away);
+    window.addEventListener("keydown", key, true);
+    window.addEventListener("scroll", scrolled, true);
+    window.addEventListener("resize", scrolled);
+    return () => {
+      window.removeEventListener("mousedown", away);
+      window.removeEventListener("keydown", key, true);
+      window.removeEventListener("scroll", scrolled, true);
+      window.removeEventListener("resize", scrolled);
+    };
+  }, [open]);
+  const move = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...(panel.current?.querySelectorAll<HTMLElement>("[role=option]") ?? [])];
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
+  };
+  return (
+    <>
+      <button ref={button} type="button" aria-label="AI" aria-haspopup="listbox" aria-expanded={open} onClick={() => (setPos(null), setOpen(!open))} onKeyDown={(e) => e.key === "ArrowDown" && (e.preventDefault(), setOpen(true))} className={cx(SELECT, "flex items-center gap-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/40")}>
+        {current && <HarnessLogo harness={current.id} size={16} />}
+        <span className="min-w-0 flex-1 truncate font-medium">{current?.label}</span>
+        {current?.notInstalled && <span className="shrink-0 text-[11px] text-muted">Not installed</span>}
+        {current && !current.notInstalled && current.signedOut && <span className="size-1.5 shrink-0 rounded-full bg-warn" title="Not signed in" aria-label="Not signed in" />}
+        <ChevronDown size={14} className="shrink-0 text-muted" aria-hidden />
+      </button>
+      {open &&
+        createPortal(
+          <div ref={panel} role="listbox" aria-label="AI" onKeyDown={move} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className={cx("m-menu glass rounded-[12px] p-1.5", LAYER.menu)}>
+            {list.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                role="option"
+                aria-selected={h.id === value}
+                onClick={() => {
+                  onPick(h.id);
+                  setOpen(false);
+                  button.current?.focus();
+                }}
+                className="flex min-h-9 w-full items-center gap-2.5 rounded-[8px] px-2.5 text-left text-[13px] outline-none hover:bg-hover focus-visible:bg-hover"
+              >
+                <HarnessLogo harness={h.id} size={18} />
+                <span className="min-w-0 flex-1 truncate font-medium">{h.label}</span>
+                {h.notInstalled && <span className="shrink-0 text-[11px] text-muted">Not installed</span>}
+                {!h.notInstalled && h.signedOut && <span className="size-1.5 shrink-0 rounded-full bg-warn" title="Not signed in" aria-label="Not signed in" />}
+                <Check size={14} className={cx("shrink-0", h.id === value ? "text-ink" : "invisible")} aria-hidden />
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 /** "Use my defaults" can't create an agent until the defaults name an AI: then you pick one right in the form. */
 export const defaultsNeedPicking = (d: AgentDefaults | "error" | null) => d === "error" || (d !== null && !d.harness);
 
@@ -298,11 +393,11 @@ export function sampleGreeting({ name, role, apps, instructions }: { name: strin
 }
 
 /**
- * New agent, on one sheet: everything is in view and already filled in, so Create works at once.
- * On the left, its bubble, name and handle, the first thing it will say (which changes as you
- * pick), and its look. On the right: a template to start from, what it does, instructions, its AI
- * (harness, model, effort), the computer it works on, apps, skills and who it answers. "Bring one
- * in" and "Make it a team" sit by Create.
+ * New agent, on one sheet, already filled in so Create works at once (design "Calmer layout", D1).
+ * On the left, its bubble, name, handle and shuffle, then its look as seven short rows. On the
+ * right: a template to start from, what it does, and its AI on one row (the AI, model, effort).
+ * Instructions, the computer it works on, apps, skills and who it answers are under More options,
+ * whose closed row says what's picked. "Bring one in" and "Make it a team" sit by Create.
  */
 /** `onCreated`: hand the new agent back (to a team being built, say) instead of opening its page. `nodeId`: start on this device. `template`: start from one of the agent templates. */
 export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringIn, template: startTemplate }: { nodes: NodeInfo[]; onClose: () => void; onCreated?: (agent: Agent) => void; nodeId?: string; bringIn?: boolean; template?: AgentTypeId }) {
@@ -436,6 +531,8 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
     if (patch.effort !== undefined) setEffort(patch.effort);
   };
 
+  // instructions, computer, apps, skills and who can ask it stay folded until asked for
+  const [moreOpen, setMoreOpen] = useState(false);
   const [respondTo, setRespondTo] = useState<RespondTo>("me");
   const [respondPeople, setRespondPeople] = useState<string[]>([]);
   const [connectors, setConnectors] = useState<Connector[] | null>(null);
@@ -609,38 +706,78 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   const failed = error ? `${error}${created ? " Your agent was created. Retry to finish its invitation." : ""}` : null;
   const handleProblem = problem && typedHandle ? problem : null;
   const underName = handleProblem ? null : problem;
-  const width = view === "look" ? "sm:max-w-[920px]!" : view === "form" ? "sm:max-w-[900px]!" : "sm:max-w-[460px]!";
+  const width = view === "look" ? "sm:max-w-[920px]!" : view === "form" ? "sm:max-w-[880px]!" : "sm:max-w-[460px]!";
   const placeLine = place.kind === "auto" ? (summary?.computer ?? "Automatic") : place.kind === "vm" ? "Its own computer" : place.kind === "screen" ? "Your screen" : place.kind === "headless" ? "No computer" : place.kind === "later" ? "Computer later" : (computers.find((c) => c.id === place.id)?.name ?? "Computer");
+  const askable = inviteOn || others.length > 0;
+  const title = invite ? "Invite an agent" : "New agent";
+  // phones: close on the left and the title centred, like a sheet; desktop: title, then close on the right
+  const header = phone ? (
+    <div className="grid grid-cols-[32px_minmax(0,1fr)_32px] items-center px-3 pt-3">
+      <button type="button" onClick={onClose} disabled={busy} className="circle circle-sm border-0! text-muted hover:text-ink" aria-label="Close">
+        <X size={18} />
+      </button>
+      <h1 tabIndex={-1} className="truncate text-center text-[16px] font-semibold leading-6 outline-none">
+        {title}
+      </h1>
+    </div>
+  ) : (
+    <div className="flex items-center gap-3 px-6 pt-5">
+      <h1 tabIndex={-1} className="t-title min-w-0 flex-1 truncate outline-none">
+        {title}
+      </h1>
+      <button type="button" onClick={onClose} disabled={busy} className="circle circle-sm border-0! bg-chip text-muted hover:text-ink" aria-label="Close">
+        <X size={16} />
+      </button>
+    </div>
+  );
+  // More options' closed row: what's picked inside, in a line
+  const moreSummary = [
+    instructions.trim() ? "Instructions" : null,
+    !invite && selectedHarness.protocol !== "mcp" ? `Computer: ${placeLine}` : null,
+    appNames.length ? `${appNames.length} ${appNames.length === 1 ? "app" : "apps"}` : null,
+    pickedSkills.length ? `${pickedSkills.length} ${pickedSkills.length === 1 ? "skill" : "skills"}` : null,
+    askable ? { me: "Only me", anyone: "Anyone", people: "Picked people" }[respondTo] : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Modal title="New agent" label="New agent" onClose={busy ? () => {} : onClose} headerless className={cx("sm:rounded-[18px]! transition-[max-width] duration-300 ease-[cubic-bezier(.165,.84,.44,1)] motion-reduce:transition-none", width)} contentClassName="p-0!">
       <div ref={bodyRef}>
         {view === "form" && (
           <form
-            className="flex flex-col md:h-[min(760px,calc(92vh-2px))] md:flex-row"
+            className="flex flex-col md:h-[min(600px,calc(92vh-2px))] md:flex-row"
             onSubmit={(e) => {
               e.preventDefault();
               void submit();
             }}
           >
-            {/* who it is: its bubble, name and handle, what it will say first, and its look */}
-            <aside className="flex shrink-0 flex-col items-center border-line bg-card/50 px-5 pb-4 pt-5 md:w-[330px] md:overflow-y-auto md:border-r md:pb-5 md:pt-7">
-              {/* phones: a small preview that opens the look editor, so the name and what it does come first */}
+            {/* phones: the title and close sit on top of the sheet */}
+            {phone && header}
+            {/* who it is: its bubble, name, handle and shuffle, then its look */}
+            <aside className="flex shrink-0 flex-col items-center border-line bg-card/50 px-4 pb-4 pt-4 md:w-[324px] md:overflow-y-auto md:border-r md:px-5 md:pb-5 md:pt-6">
+              {/* phones: a small preview that opens the bigger look editor; on a desktop a click gives it another look */}
               <button type="button" disabled={busy || !!created} onClick={() => (phone ? setView("look") : setAppearance(shuffleBubbleLook()))} aria-label="Change its look" title={phone ? "Change its look" : "Shuffle its look"} className="rounded-[20px] outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none">
-                <Ghost look={look} seed={finalHandle} size={phone ? 64 : 124} trackPointer={!phone} label="" />
+                <Ghost look={look} seed={finalHandle} size={phone ? 64 : 104} trackPointer={!phone} label="" />
               </button>
               <fieldset disabled={busy || !!created} className="w-full min-w-0">
-                <input
-                  aria-label="Name"
-                  placeholder="Name"
-                  maxLength={80}
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="off"
-                  className="w-full bg-transparent pt-2 text-center text-[24px] leading-8 font-[650] outline-none placeholder:text-faint border-b border-transparent focus-visible:border-line2"
-                />
-                <label className="mx-auto flex w-fit max-w-full items-center text-[13px] text-muted">
+                <div className="grid grid-cols-[28px_minmax(0,1fr)_28px] items-center gap-1 pt-1.5">
+                  <span aria-hidden />
+                  <input
+                    aria-label="Name"
+                    placeholder="Name"
+                    maxLength={80}
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoComplete="off"
+                    className="w-full min-w-0 bg-transparent text-center text-[19px] leading-7 font-[650] outline-none placeholder:text-faint border-b border-transparent focus-visible:border-line2"
+                  />
+                  <button type="button" onClick={() => setAppearance(shuffleBubbleLook())} aria-label="Shuffle its look" title="Shuffle its look" className="grid size-7 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40">
+                    <Shuffle size={15} aria-hidden />
+                  </button>
+                </div>
+                <label className="mx-auto flex w-fit max-w-full items-center text-[12px] text-muted">
                   <span aria-hidden>@</span>
                   <input
                     value={handle}
@@ -658,57 +795,24 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                     {underName ?? handleProblem}
                   </p>
                 )}
-              </fieldset>
-
-              {/* the first thing it will say, from what's picked */}
-              <div className="mt-4 w-full" aria-live="polite">
-                <div className="bubble them tail relative max-w-full! text-[14px] leading-[21px]">{external ? `Hi, I'm ${cleanName || "your agent"}. I'll join once you send the invitation.` : sampleGreeting({ name: cleanName, role, apps: appNames, instructions })}</div>
-                {!external && (
-                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 pl-1 text-[12px] text-muted">
-                    <span className="inline-flex items-center gap-1.5">
-                      <HarnessLogo harness={harness} size={13} />
-                      {selectedHarness.label}
-                      {model ? ` · ${prettyModel(models.find((m) => m.id === model)?.label ?? model)}` : ""}
-                      {effort ? ` · ${effortName(effort)}` : ""}
-                    </span>
-                    <span aria-hidden>·</span>
-                    <span>{placeLine}</span>
-                  </div>
-                )}
-              </div>
-
-              {phone ? (
-                <button type="button" disabled={busy || !!created} className={cx(QUIET, "mt-2")} onClick={() => setView("look")}>
-                  Change its look
-                </button>
-              ) : (
-                <div className="mt-5 w-full">
-                  <LookOptions value={look} onChange={setAppearance} name={finalHandle} dense />
-                  <button type="button" className={cx(QUIET, "-ml-2.5 mt-1")} onClick={() => setView("look")}>
-                    Bigger preview
-                  </button>
+                {/* its look, one row per kind: every choice in view, a long row scrolls sideways */}
+                <div className="mt-3 w-full">
+                  <LookRows value={look} onChange={setAppearance} name={finalHandle} />
                 </div>
-              )}
+              </fieldset>
             </aside>
 
             {/* what it does and what it works with */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div className="flex items-center gap-3 px-5 pt-5 sm:px-6">
-                <h1 tabIndex={-1} className="t-title min-w-0 flex-1 truncate outline-none">
-                  {invite ? "Invite an agent" : "New agent"}
-                </h1>
-                <button type="button" onClick={onClose} disabled={busy} className="circle circle-sm border-0! bg-chip text-muted hover:text-ink" aria-label="Close">
-                  <X size={16} />
-                </button>
-              </div>
-              <fieldset disabled={busy || !!created} className="min-h-0 min-w-0 flex-1 space-y-5 px-5 pb-5 pt-4 sm:px-6 md:overflow-y-auto">
+              {!phone && header}
+              <fieldset disabled={busy || !!created} className="min-h-0 min-w-0 flex-1 space-y-4 px-4 pb-5 pt-3 sm:px-6 md:overflow-y-auto">
                 {!invite && (
-                  <section className="space-y-2">
+                  <section className="space-y-1.5">
                     <span className={LABEL}>Start from</span>
-                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="radiogroup" aria-label="Start from">
+                    <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Start from">
                       {AGENT_TYPES.filter((t) => t.id !== "other").map((t) => (
-                        <button key={t.id} type="button" role="radio" aria-checked={templateId === t.id} onClick={() => applyTemplate(t)} className={cx(TILE, "h-11", templateId === t.id ? TILE_ON : TILE_OFF)}>
-                          <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted" aria-hidden>
+                        <button key={t.id} type="button" role="radio" aria-checked={templateId === t.id} onClick={() => applyTemplate(t)} className={cx(TILE, "h-8 gap-1.5 rounded-full px-3", templateId === t.id ? TILE_ON : TILE_OFF)}>
+                          <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted" aria-hidden>
                             <path d={t.icon} />
                           </svg>
                           <span className="min-w-0 truncate text-[13px] font-medium">{t.name.replace(/ assistant$/, "")}</span>
@@ -722,10 +826,6 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                   <span className={LABEL}>What it does</span>
                   <Input maxLength={60} value={role} onChange={(e) => (setRole(e.target.value), setTemplateId(null))} aria-label="What it does" placeholder="Keeps my inbox in order" className="h-10!" />
                 </label>
-                <label className="block space-y-1.5">
-                  <span className={LABEL}>Instructions</span>
-                  <Textarea rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} aria-label="Instructions" placeholder="How it should work, what to ask first, what to leave alone" />
-                </label>
 
                 {invite ? (
                   <div className="space-y-1.5">
@@ -733,135 +833,137 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                     <HarnessGrid list={harnesses} harness={harness} onPick={setHarness} label="Agent harness" />
                   </div>
                 ) : (
-                  <>
-                    <section className="space-y-2">
-                      <span className={LABEL}>AI</span>
-                      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="radiogroup" aria-label="AI">
-                        {runnable.map((h) => {
-                          const on = harness === h.id;
-                          const signed = signedInOn(h.id);
-                          return (
-                            <button key={h.id} type="button" role="radio" aria-checked={on} onClick={() => pickAi({ harness: h.id })} className={cx(TILE, "h-11", on ? TILE_ON : TILE_OFF)}>
-                              <HarnessLogo harness={h.id} size={18} />
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-[13px] font-medium">{h.label}</span>
-                                {notInstalled(h.id) && <span className="block truncate text-[11px] leading-3 text-muted">Not installed</span>}
-                              </span>
-                              {node?.mine && !notInstalled(h.id) && signed === false && <span className="size-1.5 shrink-0 rounded-full bg-warn" title="Not signed in" aria-label="Not signed in" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-                        <label className="space-y-1">
-                          <span className="block text-[12px] text-muted">Model</span>
-                          {models.length ? (
-                            <select aria-label="Model" value={model} onChange={(e) => pickAi({ model: e.target.value })} className={SELECT}>
-                              <option value="">Automatic</option>
-                              {models.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                  {prettyModel(m.label)}
-                                </option>
-                              ))}
-                              {model && !models.some((m) => m.id === model) && <option value={model}>{model}</option>}
-                            </select>
-                          ) : (
-                            <Input aria-label="Model" value={model} onChange={(e) => pickAi({ model: e.target.value })} placeholder="Automatic" className="h-9! text-[13px]!" />
-                          )}
-                        </label>
-                        <div className="space-y-1">
-                          <span className="block text-[12px] text-muted">Effort</span>
-                          <div className="flex rounded-[10px] bg-chip p-0.5" role="radiogroup" aria-label="Effort">
-                            {["", ...efforts].map((x) => (
-                              <button key={x || "default"} type="button" role="radio" aria-checked={effort === x} onClick={() => pickAi({ effort: x })} className={cx("h-8 min-w-0 flex-1 truncate rounded-[8px] px-1.5 text-[12px] font-medium transition-colors", effort === x ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
-                                {x ? effortName(x) : "Auto"}
-                              </button>
+                  <section className="space-y-2">
+                    <span className={LABEL}>AI</span>
+                    {/* one row: which AI, its model and how hard it thinks */}
+                    <div className="na-ai">
+                      <AiPicker list={runnable.map((h) => ({ id: h.id, label: h.label, notInstalled: notInstalled(h.id), signedOut: !!node?.mine && signedInOn(h.id) === false }))} value={harness} onPick={(id) => pickAi({ harness: id })} />
+                      <label className={cx(SELECT, "flex items-center gap-1.5")}>
+                        <span className="shrink-0 text-muted">Model</span>
+                        {models.length ? (
+                          <select aria-label="Model" value={model} onChange={(e) => pickAi({ model: e.target.value })} className="min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent font-medium outline-none">
+                            <option value="">Auto</option>
+                            {models.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {prettyModel(m.label)}
+                              </option>
                             ))}
-                          </div>
-                        </div>
+                            {model && !models.some((m) => m.id === model) && <option value={model}>{model}</option>}
+                          </select>
+                        ) : (
+                          <input aria-label="Model" value={model} onChange={(e) => pickAi({ model: e.target.value })} placeholder="Auto" className="min-w-0 flex-1 bg-transparent font-medium outline-none placeholder:text-ink" />
+                        )}
+                        {models.length > 0 && <ChevronDown size={14} className="pointer-events-none shrink-0 text-muted" aria-hidden />}
+                      </label>
+                      <label className={cx(SELECT, "flex items-center gap-1.5")}>
+                        <span className="shrink-0 text-muted">Effort</span>
+                        <select aria-label="Effort" value={effort} onChange={(e) => pickAi({ effort: e.target.value })} className="min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent font-medium outline-none">
+                          {["", ...efforts].map((x) => (
+                            <option key={x || "default"} value={x}>
+                              {x ? effortName(x) : "Auto"}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="pointer-events-none shrink-0 text-muted" aria-hidden />
+                      </label>
+                    </div>
+                    {node && notInstalled(harness) && selectedHarness.protocol !== "mcp" && (
+                      <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-card px-3.5 py-2.5 text-[13px]">
+                        <span className="min-w-0 flex-1">{installError ?? `${selectedHarness.label} isn't installed on ${node.name}.`}</span>
+                        <Button type="button" size="sm" disabled={!!installing || !node.online} onClick={() => void installHere(harness)}>
+                          {installing === harness ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                          {installing === harness ? "Installing…" : "Install"}
+                        </Button>
                       </div>
-                      {node && notInstalled(harness) && selectedHarness.protocol !== "mcp" && (
-                        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-card px-3.5 py-2.5 text-[13px]">
-                          <span className="min-w-0 flex-1">{installError ?? `${selectedHarness.label} isn't installed on ${node.name}.`}</span>
-                          <Button type="button" size="sm" disabled={!!installing || !node.online} onClick={() => void installHere(harness)}>
-                            {installing === harness ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                            {installing === harness ? "Installing…" : "Install"}
-                          </Button>
-                        </div>
-                      )}
-                      {signInFirst && !notInstalled(harness) && (
-                        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-card px-3.5 py-2.5 text-[13px]">
-                          <span className="min-w-0 flex-1">{noneSignedIn ? `No AI is signed in on ${signInFirst.where} yet.` : `${harnessLabel(signInFirst.harness)} isn't signed in on ${signInFirst.where}.`}</span>
-                          <HarnessSignInButton signIn={signInFirst} />
-                        </div>
-                      )}
-                    </section>
+                    )}
+                    {signInFirst && !notInstalled(harness) && (
+                      <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-card px-3.5 py-2.5 text-[13px]">
+                        <span className="min-w-0 flex-1">{noneSignedIn ? `No AI is signed in on ${signInFirst.where} yet.` : `${harnessLabel(signInFirst.harness)} isn't signed in on ${signInFirst.where}.`}</span>
+                        <HarnessSignInButton signIn={signInFirst} />
+                      </div>
+                    )}
+                  </section>
+                )}
 
-                    {selectedHarness.protocol !== "mcp" && (
+                {/* the rest, folded: its closed row says what's picked */}
+                <button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} className="na-more">
+                  <ChevronRight size={15} className={cx("shrink-0 text-muted transition-transform duration-200", moreOpen && "rotate-90")} aria-hidden />
+                  <span className="shrink-0">More options</span>
+                  {!moreOpen && <span className="na-more-sum">{moreSummary}</span>}
+                </button>
+
+                {moreOpen && (
+                  <div className="na-opts space-y-4">
+                    <label className="block space-y-1.5">
+                      <span className={LABEL}>Instructions</span>
+                      <Textarea rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} aria-label="Instructions" placeholder="How it should work, what to ask first, what to leave alone" />
+                    </label>
+
+                    {!invite && selectedHarness.protocol !== "mcp" && (
                       <PlacePicker value={place} onChange={choosePlace} node={node} nodes={nodes} usable={usable} nodeId={nodeId} onNode={(id) => (setNodeId(id), choosePlace(place.kind === "auto" ? place : defaultComputer(nodes.find((n) => n.id === id), computers)))} auto={defaults !== "error" ? (summary?.computer ?? "Automatic") : null} advanced={pickWhere} />
                     )}
-                    {place.kind !== "auto" && node && !node.online && (
+                    {!invite && place.kind !== "auto" && node && !node.online && (
                       <p role="status" className="text-xs text-warn">
                         {node.name} is offline. It answers once {node.name} reconnects.
                       </p>
                     )}
-                  </>
-                )}
 
-                <section className="space-y-2">
-                  <span className={LABEL}>Apps</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {connectors === null && <span className="text-xs text-muted">Loading…</span>}
-                    {connectors?.map((c) =>
-                      c.allAgents ? (
-                        <span key={c.id} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-chip pl-1.5 pr-2.5 text-[13px] font-medium" title="On for all agents">
-                          <AppTile name={c.name} size={20} /> {c.name}
-                        </span>
-                      ) : (
-                        <Chip key={c.id} small on={pickedApps.includes(c.id)} onClick={() => setPickedApps(togglePick(pickedApps, c.id))} icon={<AppTile name={c.name} size={20} />}>
-                          {c.name}
-                        </Chip>
-                      ),
-                    )}
-                    <AddChip onClick={() => (onClose(), go({ view: "connectors" }))} />
-                  </div>
-                  {!canUseConnectedApps(selectedHarness) && <p className="text-xs text-muted">{selectedHarness.label} can't use apps yet.</p>}
-                </section>
-                <section className="space-y-2">
-                  <span className={LABEL}>Skills</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {skills === null && <span className="text-xs text-muted">Loading…</span>}
-                    {skills?.map((sk) =>
-                      sk.allAgents ? (
-                        <span key={sk.id} className="inline-flex h-8 items-center gap-1 rounded-lg bg-chip px-2.5 text-[13px] font-medium" title="On for all agents">
-                          <Check size={13} /> {sk.name}
-                        </span>
-                      ) : (
-                        <Chip key={sk.id} small on={pickedSkills.includes(sk.id)} onClick={() => setPickedSkills(togglePick(pickedSkills, sk.id))} title={sk.description}>
-                          {sk.name}
-                        </Chip>
-                      ),
-                    )}
-                    <AddChip onClick={() => (onClose(), go({ view: "skills" }))} />
-                  </div>
-                </section>
-                {(inviteOn || others.length > 0) && (
-                  <section className="space-y-2">
-                    <span className={LABEL}>Who can ask it</span>
-                    <RespondPicker value={respondTo} onChange={setRespondTo} />
-                    {respondTo === "people" &&
-                      (others.length ? (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {others.map((p) => (
-                            <Chip key={p.id} small on={respondPeople.includes(p.id)} onClick={() => setRespondPeople(togglePick(respondPeople, p.id))}>
-                              {p.name}
+                    <section className="space-y-2">
+                      <span className={LABEL}>Apps</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {connectors === null && <span className="text-xs text-muted">Loading…</span>}
+                        {connectors?.map((c) =>
+                          c.allAgents ? (
+                            <span key={c.id} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-chip pl-1.5 pr-2.5 text-[13px] font-medium" title="On for all agents">
+                              <AppTile name={c.name} size={20} /> {c.name}
+                            </span>
+                          ) : (
+                            <Chip key={c.id} small on={pickedApps.includes(c.id)} onClick={() => setPickedApps(togglePick(pickedApps, c.id))} icon={<AppTile name={c.name} size={20} />}>
+                              {c.name}
                             </Chip>
+                          ),
+                        )}
+                        <AddChip onClick={() => (onClose(), go({ view: "connectors" }))} />
+                      </div>
+                      {!canUseConnectedApps(selectedHarness) && <p className="text-xs text-muted">{selectedHarness.label} can't use apps yet.</p>}
+                    </section>
+                    <section className="space-y-2">
+                      <span className={LABEL}>Skills</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {skills === null && <span className="text-xs text-muted">Loading…</span>}
+                        {skills?.map((sk) =>
+                          sk.allAgents ? (
+                            <span key={sk.id} className="inline-flex h-8 items-center gap-1 rounded-lg bg-chip px-2.5 text-[13px] font-medium" title="On for all agents">
+                              <Check size={13} /> {sk.name}
+                            </span>
+                          ) : (
+                            <Chip key={sk.id} small on={pickedSkills.includes(sk.id)} onClick={() => setPickedSkills(togglePick(pickedSkills, sk.id))} title={sk.description}>
+                              {sk.name}
+                            </Chip>
+                          ),
+                        )}
+                        <AddChip onClick={() => (onClose(), go({ view: "skills" }))} />
+                      </div>
+                    </section>
+                    {askable && (
+                      <section className="space-y-2">
+                        <span className={LABEL}>Who can ask it</span>
+                        <RespondPicker value={respondTo} onChange={setRespondTo} />
+                        {respondTo === "people" &&
+                          (others.length ? (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {others.map((p) => (
+                                <Chip key={p.id} small on={respondPeople.includes(p.id)} onClick={() => setRespondPeople(togglePick(respondPeople, p.id))}>
+                                  {p.name}
+                                </Chip>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted">Nobody else is here yet.</p>
                           ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted">Nobody else is here yet.</p>
-                      ))}
-                  </section>
+                      </section>
+                    )}
+                  </div>
                 )}
               </fieldset>
 

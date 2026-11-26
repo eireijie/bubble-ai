@@ -30,7 +30,8 @@ export const field = "h-11 w-full rounded-2xl border border-control-line bg-cont
 export const iconBtn = "grid size-8 max-md:size-11 shrink-0 place-items-center rounded-[8px] bg-chip text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50";
 /** The one column every Memory page keeps to, and its title. */
 export const pageCol = "mx-auto w-full max-w-[632px] px-4";
-export const pageTitle = "text-[24px] leading-[30px] font-[650] tracking-[-0.01em]";
+/** a page title: 20 (tokens.css --t-title) */
+export const pageTitle = "t-title";
 /** One row of a small menu: 36px on desktops, 44px on phones. */
 export const menuRow = "w-full h-9 max-md:h-11 px-2.5 rounded-lg flex items-center gap-2.5 text-[14px] text-left text-ink outline-none hover:bg-hover focus-visible:bg-hover";
 

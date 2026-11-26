@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { STOPS, TOTAL, seenCount } from "../tour.ts";
 import { createPortal } from "react-dom";
-import { Apple, Bell, BookOpen, Building2, ChevronDown, ExternalLink, FolderPlus, Sparkles, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
+import { Apple, Bell, BookOpen, Building2, ExternalLink, FolderPlus, Sparkles, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, Plus, Search, Settings, SquareTerminal, Store, Users, X } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
 import { GITHUB_URL } from "@bubble-ai/core";
 import { startTour } from "./tour/tourRun.ts";
@@ -13,7 +13,7 @@ import { logout } from "../logout.ts";
 import { useStore, useInboxCount, usePrefs } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
 import { machinesOn, useDevices } from "../devices.ts";
-import { go, href, SETTINGS_PAGES, type Route } from "../router.ts";
+import { closePopup, go, href, SETTINGS_PAGES, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { ComputersIcon, WispGhost } from "./icons.tsx";
 import { NewOrgDialog, OrgList, OrgSwitcher, useOrgs } from "./OrgSwitcher.tsx";
@@ -23,15 +23,45 @@ import { SideList, newSideSection, useSideLayout } from "./SideList.tsx";
 import { placeChats } from "../sidebarLayout.ts";
 import { SIDEBAR, SIDEBAR_CLOSE_MS, SIDEBAR_EASE, SIDEBAR_OPEN_MS, SIDEBAR_TOGGLE, dragWidth, loadSidebar, saveSidebar, settle, stepWidth, type SidebarState } from "../sidebarWidth.ts";
 
-/** Where the Chats item goes: the chat you were last in, else the newest one. Remembered per page load. */
+/** Where the Chats item goes, and what desktops open on: the chat you were last in, kept on this device. */
+const LAST_CHAT_KEY = "bubble.last-chat";
 let lastChat: string | null = null;
 export function rememberChat(id: string | null) {
-  if (id) lastChat = id;
+  if (!id || id === lastChat) return;
+  lastChat = id;
+  try {
+    localStorage.setItem(LAST_CHAT_KEY, id);
+  } catch {}
+}
+function keptChat(): string | null {
+  if (lastChat) return lastChat;
+  try {
+    return localStorage.getItem(LAST_CHAT_KEY);
+  } catch {
+    return null;
+  }
 }
 export function chatsTarget(): string {
-  const { channels } = useStore.getState();
-  const id = lastChat && channels.some((c) => c.id === lastChat) ? lastChat : null;
+  const id = homeChat(useStore.getState().channels, false);
   return id ? href({ view: "chat", channelId: id, threadId: null }) : href({ view: "chats" });
+}
+
+/**
+ * The chat desktops open on (#/): the one you were last in when it's still there, else (with
+ * `newest`) the chat or team with the newest message. Null when there is none.
+ */
+export function homeChat(channels: { id: string; kind: string; joined?: boolean; archivedAt?: string | null; last?: { at: string } | null; createdAt: string }[], newest = true): string | null {
+  const kept = keptChat();
+  const open = (c: (typeof channels)[number]) => !c.archivedAt && (c.kind !== "channel" || c.joined);
+  if (kept && channels.some((c) => c.id === kept && open(c))) return kept;
+  if (!newest) return null;
+  let best: { id: string; at: number } | null = null;
+  for (const c of channels) {
+    if (!open(c)) continue;
+    const at = Date.parse(c.last?.at ?? c.createdAt);
+    if (!best || at > best.at) best = { id: c.id, at };
+  }
+  return best?.id ?? null;
 }
 
 export function initialsOf(name: string): string {
@@ -239,6 +269,118 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
   );
 });
 
+/** The notes Memory held when it was last opened: the strip's dot shows only when new ones arrived since. */
+const MEMORY_SEEN_KEY = "bubble.memory.seen-notes";
+function useNewNotes(notes: number | null, open: boolean): boolean {
+  const [seen, setSeen] = useState<number | null>(() => {
+    try {
+      const v = localStorage.getItem(MEMORY_SEEN_KEY);
+      return v == null ? null : Number(v);
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    if (notes == null) return;
+    // the first count this device sees is the baseline; opening Memory catches up
+    if (seen == null || open) {
+      if (seen !== notes) setSeen(notes);
+      try {
+        localStorage.setItem(MEMORY_SEEN_KEY, String(notes));
+      } catch {}
+    }
+  }, [notes, open, seen]);
+  return notes != null && seen != null && notes > seen;
+}
+
+/** Finish setup's card at the foot, until its x: after that it lives in the account menu. */
+const SETUP_CARD_KEY = "bubble.setup-card.hidden";
+function useSetupCardHidden(): [boolean, () => void] {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(SETUP_CARD_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const hide = () => {
+    setHidden(true);
+    try {
+      localStorage.setItem(SETUP_CARD_KEY, "1");
+    } catch {}
+  };
+  return [hidden, hide];
+}
+
+/** One place in the strip under search: a line icon with a tooltip (name, count, shortcut) and a dot when there's news. */
+export interface StripPlace {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  to: string;
+  on: boolean;
+  /** ⌘1 to ⌘5 */
+  shortcut: number;
+  /** said after the name in the tooltip: "1 on", "5 notes", "Off" */
+  count?: string | null;
+  /** a small dot at the corner: green while a computer is on, violet when new notes arrived */
+  dot?: "on" | "new" | null;
+  tour?: string;
+}
+
+/**
+ * The places that aren't chats (canvas "Calmer layout", board A1): Computers, Memory, Apps and
+ * skills, Tasks and Code (when its mod is on), in that order, ⌘1 to ⌘5. Guests get Memory alone.
+ * Exported for the tests.
+ */
+export function stripPlaces(o: { guest: boolean; tasks: boolean; code: boolean; computersOn: number; notes: number | null; newNotes: boolean; open: Route | null; vaultTo: string }): StripPlace[] {
+  const v = o.open?.view;
+  const icon = { size: 18, strokeWidth: 1.8 };
+  const all: (StripPlace | false)[] = [
+    !o.guest && { key: "computers", label: "Computers", icon: <ComputersIcon size={18} />, to: href({ view: "computers", computerId: null }), on: v === "computers", shortcut: 1, count: o.computersOn > 0 ? `${o.computersOn} on` : null, dot: o.computersOn > 0 ? "on" : null, tour: "computers" },
+    { key: "memory", label: "Memory", icon: <BookOpen {...icon} />, to: o.vaultTo, on: v === "vault", shortcut: 2, count: o.notes != null ? `${o.notes} ${o.notes === 1 ? "note" : "notes"}` : null, dot: o.newNotes ? "new" : null, tour: "vault" },
+    !o.guest && { key: "apps", label: "Apps and skills", icon: <LayoutGrid {...icon} />, to: href({ view: "marketplace" }), on: v === "marketplace" || v === "skills" || v === "connectors" || v === "mods", shortcut: 3 },
+    // Tasks is a mod: while it's off the icon opens Mods, where it's switched on
+    !o.guest && { key: "tasks", label: "Tasks", icon: <ListTodo {...icon} />, to: href(o.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" }), on: v === "tasks", shortcut: 4, count: o.tasks ? null : "Off" },
+    !o.guest && o.code && { key: "code", label: "Code", icon: <SquareTerminal {...icon} />, to: href({ view: "code" }), on: v === "code", shortcut: 5 },
+  ];
+  return all.filter((p): p is StripPlace => !!p);
+}
+
+/** Where ⌘1 to ⌘5 go: the strip's places by number, or null when that one isn't there. */
+export function shortcutTarget(n: number, o: { guest: boolean; tasks: boolean; code: boolean }): string | null {
+  const p = stripPlaces({ ...o, computersOn: 0, notes: null, newNotes: false, open: null, vaultTo: href({ view: "vault", path: null }) }).find((x) => x.shortcut === n);
+  return p?.to ?? null;
+}
+
+function StripButton({ p, align }: { p: StripPlace; align: "left" | "center" | "right" }) {
+  const aria = [p.label, p.count].filter(Boolean).join(", ");
+  return (
+    <a
+      href={p.to}
+      data-tour={p.tour}
+      aria-label={aria}
+      aria-keyshortcuts={`Meta+${p.shortcut}`}
+      aria-current={p.on ? "page" : undefined}
+      className={cx("group/tip relative grid h-8 w-10 shrink-0 place-items-center rounded-[8px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", p.on ? "bg-side-active text-ink" : "text-muted hover:bg-side-active hover:text-ink")}
+    >
+      {p.icon}
+      {p.dot && <span aria-hidden className={cx("absolute right-[6px] top-[4px] box-content size-1.5 rounded-full border-2 border-sidebar", p.dot === "on" ? "bg-[#30d158]" : "bg-wisp")} />}
+      <span
+        aria-hidden
+        className={cx(
+          "pointer-events-none absolute top-[calc(100%+6px)] z-20 whitespace-nowrap rounded-[6px] bg-ink px-2 py-[5px] text-[12px] leading-4 text-panel opacity-0 shadow-float transition-opacity duration-150 group-hover/tip:opacity-100 group-hover/tip:delay-300 group-focus-visible/tip:opacity-100",
+          align === "left" ? "left-0" : align === "right" ? "right-0" : "left-1/2 -translate-x-1/2",
+        )}
+      >
+        {p.label}
+        {p.count ? ` · ${p.count}` : ""}
+        <kbd className="ml-1.5 font-sans text-[11px] opacity-60">⌘{p.shortcut}</kbd>
+      </span>
+    </a>
+  );
+}
+
 function useMedia(query: string, fallback: boolean): boolean {
   const [on, setOn] = useState(() => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(query).matches : fallback));
   useEffect(() => {
@@ -260,7 +402,7 @@ function useMedia(query: string, fallback: boolean): boolean {
  * narrow it snaps to a rail of ghosts. ⌘\ collapses and expands it, a double-click on the edge
  * resets it, and the width is remembered on this device.
  */
-export function Rail({ route }: { route: Route }) {
+export function Rail({ route, popup = null }: { route: Route; /** the pop-up open over the page, if any: its place shows as open */ popup?: Route | null }) {
   const me = useStore((s) => s.me)!;
   const computers = useStore((s) => s.computers);
   const sections = useStore((s) => s.sections);
@@ -285,6 +427,10 @@ export function Rail({ route }: { route: Route }) {
   const [orgAt, setOrgAt] = useState<CSSProperties | null>(null);
   const [newOrg, setNewOrg] = useState(false);
   const footRef = useRef<HTMLDivElement>(null);
+  const [setupHidden, hideSetup] = useSetupCardHidden();
+  // what's open: the pop-up when there is one, else the page
+  const open = popup ?? route;
+  const newNotes = useNewNotes(notes, open.view === "vault");
 
   const [side, setSide] = useState<SidebarState>(loadSidebar);
   const roomy = useMedia(`(min-width: ${SIDEBAR.roomy}px)`, true);
@@ -461,11 +607,13 @@ export function Rail({ route }: { route: Route }) {
     />
   );
   const firstName = me.user.name.trim().split(/\s+/)[0] || me.user.name;
-  const settingsOn = route.view === "settings" && (route.page as string | null) !== "vault";
+  const settingsOn = open.view === "settings" && (open.page as string | null) !== "vault";
   // your name in the corner opens the account menu: settings, help, the tour, what's new
   const accountItems = [
     { label: "Settings", icon: <Settings {...icon} />, onSelect: () => go({ view: "settings", page: null }) },
     { label: "Help", icon: <LifeBuoy {...icon} />, onSelect: () => go({ view: "help" }) },
+    // Finish setup's card, once its x was pressed
+    ...(!isGuest && wide && setupHidden && ready.started && ready.left > 0 ? [{ label: `Finish setup · ${ready.left} left`, icon: <Compass {...icon} />, onSelect: () => go({ view: "settings", page: "learn" }) }] : []),
     ...(!isGuest ? [{ label: toLearn ? `Show me around · ${learnSeen} of ${TOTAL}` : "Show me around", icon: <Compass {...icon} />, onSelect: () => startTour(learnSeen >= TOTAL ? 0 : undefined) }] : []),
     { label: "What's new", icon: <Sparkles {...icon} />, onSelect: () => go({ view: "settings", page: "updates", item: "news" }) },
     { label: "Report a problem", icon: <ExternalLink {...icon} />, onSelect: () => window.open(`${GITHUB_URL}/issues`, "_blank", "noreferrer") },
@@ -485,32 +633,57 @@ export function Rail({ route }: { route: Route }) {
     />
   );
   const computersTo = href({ view: "computers", computerId: null });
-  const computersOn = route.view === "computers";
+  const computersOn = open.view === "computers";
   // the vault's own settings page (PR 113) when this build has it; the memory notes otherwise
   const vaultPage = (SETTINGS_PAGES as readonly string[]).includes("vault");
   const vaultTo = vaultPage ? "#/settings/vault" : href({ view: "vault", path: null });
-  const vaultOn = vaultPage ? route.view === "settings" && (route.page as string | null) === "vault" : route.view === "vault";
+  const vaultOn = vaultPage ? open.view === "settings" && (open.page as string | null) === "vault" : open.view === "vault";
   const onCount = machinesOn(isGuest ? [] : devices, computers);
   const computersLabel = `Computers, ${onCount} on${working ? ", one is working" : ""}`;
-  const placeIcon = { size: 17, strokeWidth: 1.8 };
-  const placeRow = (p: { label: string; icon: ReactNode; to: string; on: boolean; aria?: string; tour?: string; count?: ReactNode; strong?: boolean }) => (
-    <a key={p.label} href={p.to} data-tour={p.tour} aria-label={p.aria} aria-current={p.on ? "page" : undefined} className={cx("flex h-[34px] min-w-0 items-center gap-2.5 rounded-[8px] px-2.5 text-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", p.on ? "bg-line2 text-ink" : "text-ink/85 hover:bg-line2")}>
-      <span className="grid size-[18px] shrink-0 place-items-center text-muted">{p.icon}</span>
-      <span className="min-w-0 flex-1 truncate">{p.label}</span>
-      {p.count != null && <span className={cx("shrink-0 text-[12.5px] tabular-nums", p.strong ? "font-semibold text-[#d97706] dark:text-[#ff9f0a]" : "text-faint")}>{p.count}</span>}
-    </a>
+  const strip = stripPlaces({ guest: isGuest, tasks: !!features.tasks, code: !!features.code, computersOn: onCount, notes, newNotes, open, vaultTo });
+  const needsOpen = open.view === "dashboard";
+  const needsCount = inbox > 99 ? "99+" : String(inbox);
+  // Needs you: a row only while something needs you; it opens a popover beside it (App draws it)
+  const needsRow = !isGuest && inbox > 0 && (
+    <button
+      type="button"
+      data-needs-row
+      aria-haspopup="dialog"
+      aria-expanded={needsOpen}
+      aria-label={`Needs you, ${needsCount}`}
+      onClick={() => (needsOpen ? closePopup() : go({ view: "dashboard" }))}
+      className={cx("flex h-[34px] w-full min-w-0 items-center gap-2.5 rounded-[8px] px-2.5 text-[14px] text-ink outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", needsOpen ? "bg-st-needs/20" : "bg-st-needs/10 hover:bg-st-needs/15")}
+    >
+      <Bell size={16} strokeWidth={1.8} className="shrink-0 text-st-needs" aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-left">Needs you</span>
+      <span className="shrink-0 text-[12px] font-semibold tabular-nums text-st-needs">{needsCount}</span>
+    </button>
+  );
+  const setupTotal = ready.items.length || 1;
+  const setupCard = wide && !isGuest && ready.started && ready.left > 0 && !setupHidden && (
+    <div className="relative mx-3 mb-2.5 grid shrink-0 grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1.5 rounded-[10px] border border-line2 bg-panel py-2.5 pl-3 pr-2.5 text-[13px]">
+      <a href={href({ view: "settings", page: "learn" })} className="min-w-0 truncate rounded-[10px] outline-none after:absolute after:inset-0 after:rounded-[10px] focus-visible:after:ring-2 focus-visible:after:ring-ring/40">
+        <span className="font-semibold">Finish setup</span> <span className="text-[12px] text-muted">· {ready.left} left</span>
+      </a>
+      <button type="button" onClick={hideSetup} aria-label="Hide Finish setup" title="Hide (it stays in your menu)" className="relative z-10 grid size-5 place-items-center rounded-[6px] text-faint outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
+        <X size={14} strokeWidth={1.8} />
+      </button>
+      <span aria-hidden className="col-span-2 h-1 overflow-hidden rounded-full bg-line2">
+        <span className="block h-full rounded-full bg-wisp" style={{ width: `${Math.round(((setupTotal - ready.left) / setupTotal) * 100)}%` }} />
+      </span>
+    </div>
   );
 
   return (
     <div className="relative z-30 flex shrink-0">
       <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(20px,env(safe-area-inset-top))] pb-4" style={{ width, transition }}>
         {/* search and New; nothing else up here */}
-        <div className={cx("side-top mb-4 flex shrink-0 items-center gap-2", wide ? "h-[36px] px-4" : "flex-col gap-2.5")}>
+        <div className={cx("side-top flex shrink-0 items-center gap-1.5", wide ? "mb-2.5 h-[34px] px-3" : "mb-4 flex-col gap-2.5")}>
           {wide ? (
-            <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[36px] min-w-0 flex-1 items-center gap-2 rounded-[8px] pl-3 pr-3 text-[15px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
-              <Search size={17} strokeWidth={1.9} aria-hidden />
+            <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[34px] min-w-0 flex-1 items-center gap-2 rounded-[8px] px-2.5 text-[14px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
+              <Search size={15} strokeWidth={1.9} aria-hidden />
               <span className="flex-1 truncate text-left">Search</span>
-              <kbd className="font-sans text-[12px] text-faint">⌘K</kbd>
+              <kbd className="font-sans text-[11px] text-faint">⌘K</kbd>
             </button>
           ) : (
             <button type="button" onClick={() => useStore.getState().setPalette(true)} aria-label="Search" title="Search" className={cx(ROUND, SOFT)}>
@@ -520,18 +693,16 @@ export function Rail({ route }: { route: Route }) {
           {plus(false)}
         </div>
 
-        {/* the places that aren't chats, labelled (the phone's You page lists the same) */}
+        {/* the places that aren't chats: one strip of line icons, then Needs you while something does */}
         {wide && (
-          <nav aria-label="Places" className="mb-3 flex shrink-0 flex-col gap-px px-3">
-            {!isGuest && placeRow({ label: "Needs you", icon: <Bell {...placeIcon} />, to: href({ view: "dashboard" }), on: route.view === "dashboard", count: inbox > 0 ? (inbox > 99 ? "99+" : String(inbox)) : null, strong: inbox > 0 })}
-            {!isGuest && placeRow({ label: "Computers", icon: <ComputersIcon size={17} />, to: computersTo, on: computersOn, aria: computersLabel, tour: "computers", count: onCount > 0 ? <><span aria-hidden className="mr-1.5 inline-block size-1.5 rounded-full bg-[#30d158] align-middle" />{onCount} on</> : null })}
-            {placeRow({ label: "Memory", icon: <BookOpen {...placeIcon} />, to: vaultTo, on: vaultOn, aria: `Memory vault${notes != null ? `, ${notes} ${notes === 1 ? "note" : "notes"}` : ""}`, tour: "vault", count: notes != null ? String(notes) : null })}
-            {!isGuest && placeRow({ label: "Apps and skills", icon: <LayoutGrid {...placeIcon} />, to: href({ view: "marketplace" }), on: route.view === "marketplace" || route.view === "skills" || route.view === "connectors" || route.view === "mods" })}
-            {/* Tasks is a mod: while it's off the row opens Mods, where it's switched on */}
-            {!isGuest && placeRow({ label: "Tasks", icon: <ListTodo {...placeIcon} />, to: href(features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" }), on: route.view === "tasks", aria: features.tasks ? undefined : "Tasks, off. Turn it on in Mods", count: features.tasks ? null : "Off" })}
-            {!isGuest && MOD_NAV.filter((m) => m.place === "rail" && features[m.feature]).map((m) => placeRow({ label: m.label, icon: m.icon(17), to: href(m.to), on: m.views.includes(route.view) }))}
-            {!isGuest && ready.started && ready.left > 0 && placeRow({ label: "Finish setup", icon: <Compass {...placeIcon} />, to: href({ view: "settings", page: "learn" }), on: route.view === "settings" && (route.page as string | null) === "learn", count: `${ready.left} left` })}
-          </nav>
+          <div className="mb-2.5 flex shrink-0 flex-col gap-2.5 px-3">
+            <nav aria-label="Places" className="flex justify-between gap-0.5 px-0.5">
+              {strip.map((p, i) => (
+                <StripButton key={p.key} p={p} align={i < 2 ? "left" : i === 2 && strip.length > 3 ? "center" : "right"} />
+              ))}
+            </nav>
+            {needsRow}
+          </div>
         )}
 
         <div className={cx("side-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden", wide ? "px-3" : "px-3")}>
@@ -543,13 +714,17 @@ export function Rail({ route }: { route: Route }) {
         </div>
 
         {wide ? (
-          <div ref={footRef} className="flex shrink-0 items-center gap-2 px-4 pt-3">
-            {you}
-          </div>
+          <>
+            <div className="h-2.5 shrink-0" />
+            {setupCard}
+            <div ref={footRef} className="flex shrink-0 items-center gap-2 px-3">
+              {you}
+            </div>
+          </>
         ) : (
           <div ref={footRef} className="flex shrink-0 flex-col items-center gap-2 pt-2">
             {!isGuest && inbox > 0 && (
-              <a href={href({ view: "dashboard" })} aria-label={`Needs you, ${inbox}`} title="Needs you" aria-current={route.view === "dashboard" ? "page" : undefined} className={cx(ROUND, route.view === "dashboard" ? "bg-line2" : SOFT)}>
+              <a href={href({ view: "dashboard" })} data-needs-row aria-label={`Needs you, ${inbox}`} title="Needs you" aria-current={needsOpen ? "page" : undefined} className={cx(ROUND, needsOpen ? "bg-line2" : SOFT)}>
                 <Bell size={19} strokeWidth={1.8} />
                 <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-[#ff9f0a]" />
               </a>
