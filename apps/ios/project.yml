@@ -47,6 +47,9 @@ targets:
       path: Wisp/Info.plist
       properties:
         CFBundleDisplayName: Bubble AI
+        # the launch screen takes the app's page colour (light and dark), so dark mode has no white flash
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         # only standard HTTPS and TLS, so App Store Connect doesn't ask about encryption on every build
         ITSAppUsesNonExemptEncryption: false
         # pairing QR codes are wisp://pair links, so the Camera app opens them in Bubble AI
