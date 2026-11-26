@@ -7,7 +7,7 @@ import { CALLBACK_PATH, ConnectorAuth, isPublicUrl } from "./connector-auth.ts";
 import { APP_CALLBACK_PATH, AppSignInError } from "./app-signin.ts";
 import { registerShopApi } from "./api-shop.ts";
 import { ComputerError } from "./computers.ts";
-import { holdsSecret } from "./connectors.ts";
+import { MAX_LEARNED, holdsSecret } from "./connectors.ts";
 import { checkConnector } from "./glance.ts";
 import { agentPolicy } from "./policy.ts";
 
@@ -51,9 +51,6 @@ function confirmSignInPage(who: string, names: string, continueTo: string, cance
 }
 
 const SKILL_BODY = z.object({ name: NAME, description: z.string().trim().max(500).default(""), content: z.string().min(1).max(100_000), tags: z.array(z.string().trim().min(1).max(30)).max(10).default([]) });
-
-/** How many skills one agent can learn. */
-const MAX_LEARNED = 200;
 
 /** What an agent sends to save how it did something (skill_save). */
 const LEARNED = z.object({ name: NAME, description: z.string().trim().max(200).default(""), content: z.string().trim().min(1).max(20_000), slug: z.string().trim().min(1).max(60).optional() }).strict();

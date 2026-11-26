@@ -137,8 +137,12 @@ extension Store {
     return r.element
   }
 
-  /** Save a lesson as a routine the agent writes up. Pictures go up first. */
-  func saveLesson(agent: Agent, computer c: Computer, name: String, recording: TeachRecording, narration: String) async throws {
+  /**
+   * Send a lesson to the agent, which saves it as a skill in your chat with it. Pictures go up
+   * first. Returns that chat, to open. Refused while saving skills is off (Settings → Skills).
+   */
+  @discardableResult
+  func saveLesson(agent: Agent, computer c: Computer, name: String, recording: TeachRecording, narration: String) async throws -> Channel? {
     var steps: [TaughtStep] = []
     for (n, item) in recording.items.enumerated() {
       var step = item.step
@@ -148,8 +152,10 @@ extension Store {
     let notes = narration.trimmingCharacters(in: .whitespacesAndNewlines)
     let request = TeachRequest(agentId: agent.id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), computerId: c.id, steps: steps,
       durationMs: max(0, Int(Date().timeIntervalSince(recording.started) * 1000)), narration: notes.isEmpty ? nil : notes)
-    try await fetch { try await $0.post("/api/routines/teach", request) }
-    try? await refreshRoutines()
+    struct Sent: Decodable { var channelId: String }
+    let sent: Sent = try await fetch { try await $0.post("/api/routines/teach", request) }
+    await refreshChannels()
+    return channels.first { $0.id == sent.channelId }
   }
 }
 

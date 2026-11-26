@@ -465,6 +465,11 @@ export class Store {
     return (rows as RoutineRow[]).map(toRoutine);
   }
 
+  /** Routines older hubs left "learning" (teaching now saves a skill), in every workspace. */
+  learningRoutines(): Routine[] {
+    return (this.db.prepare("SELECT * FROM routines WHERE status = 'learning'").all() as RoutineRow[]).map(toRoutine);
+  }
+
   scheduledRoutines(): Routine[] {
     return (this.db.prepare("SELECT * FROM routines WHERE enabled = 1 AND schedule IS NOT NULL AND status = 'ready'").all() as RoutineRow[]).map(toRoutine);
   }

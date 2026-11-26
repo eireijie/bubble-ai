@@ -437,8 +437,10 @@ export type MessagePart =
   | { type: "computer"; computerId: string; request?: string }
   /** an agent wants a person's OK before it does something */
   | { type: "approval"; approvalId: string }
-  /** a routine was taught, changed or run */
+  /** a routine was changed or run */
   | { type: "routine"; routineId: string }
+  /** a person showed the agent how to do something (Teach a task); it saves the steps as a skill. `recordingPath` is the note with what they did */
+  | { type: "lesson"; name: string; recordingPath: string }
   /** this message hands out a task: people see a task card; the assignee gets its id and how to report back */
   | { type: "task"; taskId: string }
   /** an agent's answer to /context: how full its conversation is */
@@ -513,7 +515,7 @@ export interface Routine {
   /** where runs are posted; null = a DM with whoever made it */
   channelId: string | null;
   enabled: boolean;
-  /** "learning" while the agent studies a recording; then "ready" */
+  /** "ready". Older hubs made taught routines "learning" until the agent saved steps; teaching now saves a skill, and those are migrated */
   status: "learning" | "ready";
   createdBy: Actor;
   /** when it was last asked to run (by a person or the schedule); the run may still be queued */

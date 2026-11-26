@@ -328,6 +328,9 @@ type SkillRow = {
   updated_at: string;
 };
 
+/** How many skills one agent can learn. */
+export const MAX_LEARNED = 200;
+
 export class SkillStore {
   constructor(readonly db: Db) {}
 

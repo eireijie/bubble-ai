@@ -5,7 +5,7 @@ import type { Caller } from "./api.ts";
 import { ComputerError } from "./computers.ts";
 import { decideModsApproval } from "./api-background.ts";
 import { OrgoClient, OrgoError } from "./orgo.ts";
-import { routineSlug } from "./routines.ts";
+import { TeachRefused, routineSlug } from "./routines.ts";
 import type { Hub } from "./hub.ts";
 import { sessionName } from "./terminals.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
@@ -742,7 +742,7 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     return { ok: true, messageId: msg.id, channelId: msg.channelId };
   });
 
-  /** "Show a Bot how it's done": a person's recording becomes a routine the agent learns. */
+  /** Teach a task: a person's recording goes to the agent, which saves it as a skill. */
   app.post("/api/routines/teach", async (req, reply) => {
     const c = need(req, reply, { member: true });
     if (!c) return;
@@ -753,8 +753,12 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (!mayGiveRoutines(c, agent.id, reply)) return;
     if (body.computerId && !own(c, body.computerId)) return reply.code(400).send({ error: "unknown computer" });
     for (const s of body.steps) if (s.imageFileId && store.file(s.imageFileId)?.workspaceId !== c.workspaceId) return reply.code(400).send({ error: "unknown screenshot file" });
-    const r = await hub.routines.teach({ workspaceId: c.workspaceId, agentId: agent.id, userId: c.actor.id, name: body.name, computerId: body.computerId, steps: body.steps as RecordedStep[], durationMs: body.durationMs, narration: body.narration });
-    return r;
+    try {
+      return await hub.routines.teach({ workspaceId: c.workspaceId, agentId: agent.id, userId: c.actor.id, name: body.name, computerId: body.computerId, steps: body.steps as RecordedStep[], durationMs: body.durationMs, narration: body.narration });
+    } catch (e) {
+      if (e instanceof TeachRefused) return reply.code(409).send({ error: e.message });
+      throw e;
+    }
   });
 
   /** An agent saves the steps of a routine it learned (or a new one it was asked to keep). */
