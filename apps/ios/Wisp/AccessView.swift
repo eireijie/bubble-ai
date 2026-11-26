@@ -56,16 +56,12 @@ struct AccessView: View {
     SettingsPage("Away from home", id: "access") {
       if !store.isOwner { CardHint("Your Bubble AI's owner can turn this on.") }
       if let info {
-        CardLabel("Away from home")
         CardGroup {
           RowLabel(title: info.awayOn ? "Reachable from anywhere" : "Only at home for now", subtitle: info.publicUrl ?? info.cloudflare?.url ?? info.lan?.first, value: info.awayOn ? "On" : "Off", chevron: false)
-          RowLabel(title: "Tailscale", subtitle: info.tailscale.state == "running" ? (info.tailscale.tailnet.map { "Signed in on \($0)" } ?? "Running") : nil, value: tailscaleStatus(info), chevron: false)
-          RowLabel(title: "Cloudflare", subtitle: info.cloudflareRunning ? nil : "Paste a setup code to use it instead", value: info.cloudflareRunning ? "Connected" : "Not set up", chevron: false)
         }
         if store.isOwner {
           if info.awayOn {
             Button("Turn off") { turningOff = true }.buttonStyle(.pill(.destructive)).disabled(action.busy)
-            CardHint("At home, Bubble AI works on your Wi-Fi without either. Turning this off keeps it that way. Devices and phones that used the away address stop reaching this Bubble AI until you turn it back on.")
           } else {
             setup(info)
           }

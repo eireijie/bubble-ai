@@ -13,35 +13,23 @@ struct LearnWispCard: View {
 
   var body: some View {
     let seen = Tour.seenCount(learn, stops)
+    // one row: the ring, where you are, and a tap carries on from there
     CardGroup {
-      VStack(spacing: 12) {
+      Button { start(seen >= stops.count ? 0 : nil) } label: {
         HStack(spacing: 12) {
-          LearnRing(seen: seen, total: stops.count, size: 36)
+          LearnRing(seen: seen, total: stops.count, size: 28)
           VStack(alignment: .leading, spacing: 1) {
-            Text("Learn Bubble AI").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
-            Text(Tour.summary(learn, stops)).font(.system(size: 13)).foregroundStyle(Palette.muted)
+            Text("Learn Bubble AI").font(.system(size: 15)).foregroundStyle(Palette.text)
+            Text(Tour.summary(learn, stops)).font(.system(size: 13)).foregroundStyle(Palette.faint).lineLimit(1)
           }
-          Spacer(minLength: 0)
+          Spacer(minLength: 8)
+          Text(Tour.resumeLabel(learn, stops)).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.accent)
         }
-        .accessibilityElement(children: .combine)
-        Button { start(seen >= stops.count ? 0 : nil) } label: { Text(Tour.resumeLabel(learn, stops)).frame(maxWidth: .infinity) }
-          .buttonStyle(.pill(.primary))
-          .accessibilityIdentifier("learn-start")
+        .padding(.horizontal, 14).frame(minHeight: 56).contentShape(Rectangle())
       }
-      .padding(14)
+      .buttonStyle(.pressRow)
+      .accessibilityIdentifier("learn-start")
       .tourTarget("learn-row")
-      ForEach(Tour.chapterProgress(learn, stops)) { c in
-        Button { start(c.first) } label: {
-          HStack {
-            Text(c.name).font(.system(size: 15)).foregroundStyle(Palette.text)
-            Spacer()
-            Text(c.seen == c.total ? "Seen" : "\(c.seen) of \(c.total)").font(.system(size: 13)).foregroundStyle(Palette.muted)
-          }
-          .padding(.horizontal, 14).frame(height: 46).contentShape(Rectangle())
-        }
-        .buttonStyle(.pressRow)
-        .accessibilityIdentifier("learn-chapter")
-      }
     }
   }
 
