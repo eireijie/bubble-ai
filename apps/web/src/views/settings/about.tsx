@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { href } from "../../router.ts";
-import { Button, Modal } from "../../components/ui.tsx";
+import { AppMark, Button, Modal } from "../../components/ui.tsx";
 import { DesktopUpdates } from "./DesktopUpdates.tsx";
 import { RemoveWispRow } from "./RemoveWisp.tsx";
 import { HubAddress } from "./workspace.tsx";
@@ -110,6 +110,10 @@ export function AboutPage() {
   const version = `Bubble AI${v?.commit ? ` ${v.commit}` : ""}${v?.date ? ` · ${new Date(v.date).toLocaleDateString()}` : ""}`;
   return (
     <>
+      <div className="flex flex-col items-center gap-3 pt-2 pb-6">
+        <AppMark size={80} />
+        <span className="text-[22px] font-semibold tracking-[-0.03em] text-ink">Bubble AI</span>
+      </div>
       {desktop && <DesktopUpdates />}
       <Group>
         <SRow id="version" value={hubShown ? `${version} · ${status}` : version}>

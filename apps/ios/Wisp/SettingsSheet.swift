@@ -164,8 +164,8 @@ struct SettingsSheet: View {
 
   private var footer: some View {
     VStack(spacing: 4) {
-      GhostView(look: GhostLook(color: "#f5f5f5", color2: "#d9d9d9"), seed: "", size: 30, animate: false).accessibilityHidden(true)
-      Text("Bubble AI").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
+      Image("Mark").resizable().frame(width: 30, height: 30).accessibilityHidden(true)
+      Text("Bubble AI").font(.system(size: 15, weight: .semibold)).tracking(-0.45).foregroundStyle(Palette.text)
       if !version.isEmpty { Text(version).font(.system(size: 13)).foregroundStyle(Palette.faint) }
     }.padding(.top, 6)
   }

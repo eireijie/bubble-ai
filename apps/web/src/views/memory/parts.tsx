@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, PencilLine, X } from "lucide-react";
 import { personDir, type Agent } from "@bubble-ai/core";
 import { useStore, type Member } from "../../store.ts";
-import { AgentAvatar, GhostMark, Modal, UserAvatar, cx } from "../../components/ui.tsx";
+import { AgentAvatar, BubbleMark, Modal, UserAvatar, cx } from "../../components/ui.tsx";
 
 /** Phone-width screens: pages take turns, with a back circle on top. */
 export function useIsPhone() {
@@ -137,7 +137,7 @@ export function whoIs(author: string, agents: Agent[], members: Member[], size =
   if (author === "Edited in Obsidian")
     return { name: "Obsidian", avatar: <span className="shrink-0 rounded-full bg-chip grid place-items-center text-muted" style={{ width: size, height: size }}><PencilLine size={size * 0.5} /></span> };
   if (author === "Bubble AI" || author === "Warren")
-    return { name: "Bubble AI", avatar: <span className="shrink-0 rounded-full bg-chip grid place-items-center text-muted" style={{ width: size, height: size }}><GhostMark size={size * 0.55} /></span> };
+    return { name: "Bubble AI", avatar: <span className="shrink-0 rounded-full bg-chip grid place-items-center text-muted" style={{ width: size, height: size }}><BubbleMark size={size * 0.55} /></span> };
   return { name: author, avatar: <UserAvatar name={author} size={size} /> };
 }
 

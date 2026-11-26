@@ -48,6 +48,12 @@ struct UpdatesView: View {
     let check = info?.check
     let canUpdate = check?.canUpdate == true
     return SettingsPage("About", subtitle: "Bubble AI \(version)", id: "about") {
+      // the wordmark: the app's bubble mark above the name
+      VStack(spacing: 12) {
+        Image("Mark").resizable().frame(width: 80, height: 80).accessibilityHidden(true)
+        Text("Bubble AI").font(.system(size: 22, weight: .semibold)).tracking(-0.66).foregroundStyle(Palette.text)
+      }
+      .frame(maxWidth: .infinity).padding(.bottom, 8)
       if let commit = info?.version?.commit {
         CardLabel("This hub runs Bubble AI \(commit)\(info?.version?.date.flatMap(Wire.date).map { " from " + $0.formatted(.dateTime.month().day()) } ?? "")")
       }

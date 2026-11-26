@@ -1,5 +1,5 @@
 import { shareOrigin, useAccess } from "../access.ts";
-import { useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { type Agent } from "@bubble-ai/core";
@@ -228,17 +228,53 @@ export function StatusChip({ status, needsSignIn }: { status: Agent["status"]; n
   );
 }
 
-/** Bubble AI's mark: a bubble outline with two eyes. `draw` animates it drawing itself (the loading state). */
-export function GhostMark({ size = 20, draw, className }: { size?: number; draw?: boolean; className?: string }) {
+/** Bubble AI's mark in one colour: the rounded-square bubble as a ring, two eyes glancing right (the menu bar and
+ * status-bar glyph). `draw` animates the ring drawing itself (the loading state). */
+export function BubbleMark({ size = 20, draw, className }: { size?: number; draw?: boolean; className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={draw ? 4.5 : 9} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path className={draw ? "loader-draw" : undefined} pathLength={100} d="M60 14 a46 46 0 1 1 -0.01 0 Z" />
+    <svg viewBox="0 0 120 120" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={draw ? 6 : 10.7} strokeLinecap="round" className={className} aria-hidden>
+      <rect className={draw ? "loader-draw" : undefined} pathLength={100} x="15.3" y="15.3" width="89.4" height="89.4" rx="25" />
       {!draw && (
         <g fill="currentColor" stroke="none">
-          <ellipse cx="50" cy="56" rx="5.5" ry="8" />
-          <ellipse cx="72" cy="56" rx="5.5" ry="8" />
+          <ellipse cx="52" cy="56" rx="7.3" ry="13.5" />
+          <ellipse cx="78.7" cy="56" rx="7.3" ry="13.5" />
         </g>
       )}
+    </svg>
+  );
+}
+
+/** Bubble AI's full-colour mark, the app icon: a frosted, blue-tinted tile with a rainbow rim and two eyes glancing
+ * right. Light and dark follow the app's mode (`.app-mark` in index.css). */
+export function AppMark({ size = 32, className }: { size?: number; className?: string }) {
+  const id = useId().replace(/:/g, "");
+  return (
+    <svg viewBox="0 0 64 64" width={size} height={size} className={cx("app-mark", className)} aria-hidden>
+      <defs>
+        <radialGradient id={`${id}g`} cx="32" cy="28.8" r="51.2" gradientUnits="userSpaceOnUse">
+          <stop offset="0" className="am-g0" />
+          <stop offset=".7" className="am-g1" />
+          <stop offset="1" className="am-g2" />
+        </radialGradient>
+        <linearGradient id={`${id}r`} x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#bf86ff" />
+          <stop offset=".25" stopColor="#ff7cc4" />
+          <stop offset=".45" stopColor="#7fb0ff" />
+          <stop offset=".65" stopColor="#6fe8c0" />
+          <stop offset=".82" stopColor="#ffe27a" />
+          <stop offset="1" stopColor="#ff9c80" />
+        </linearGradient>
+        <radialGradient id={`${id}h`}>
+          <stop offset="0" stopColor="#fff" stopOpacity=".75" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect className="am-base" width="64" height="64" rx="14.4" />
+      <rect fill={`url(#${id}g)`} width="64" height="64" rx="14.4" />
+      {size > 32 && <ellipse fill={`url(#${id}h)`} cx="16.64" cy="9.6" rx="8.96" ry="4.48" />}
+      <rect x="2.56" y="2.56" width="58.88" height="58.88" rx="11.84" fill="none" stroke={`url(#${id}r)`} strokeWidth="5.12" />
+      <ellipse className="am-eye" cx="24.64" cy="29.28" rx="5.44" ry="10.72" />
+      <ellipse className="am-eye" cx="44.48" cy="29.28" rx="5.44" ry="10.72" />
     </svg>
   );
 }
@@ -249,8 +285,8 @@ export function Loader({ label = "Loading…" }: { label?: string }) {
     <div role="status" className="h-full w-full grid place-items-center bg-panel" style={{ color: "var(--loader)" }}>
       {/* a faint outline stays put so the screen is never empty while the bubble redraws */}
       <span className="relative grid place-items-center">
-        <GhostMark size={88} className="opacity-20" />
-        <GhostMark size={88} draw className="absolute inset-0" />
+        <BubbleMark size={88} className="opacity-20" />
+        <BubbleMark size={88} draw className="absolute inset-0" />
       </span>
       <span className="sr-only">{label}</span>
     </div>

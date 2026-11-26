@@ -293,6 +293,18 @@
 }
 
 /* Loading: a gray ghost drawing itself, then erasing, like Paperclip's paperclip. */
+/* the full-colour app mark (AppMark): light tile by default, dark tile in dark mode */
+.app-mark { flex: none; }
+.app-mark .am-base { fill: #f7f7f5; }
+.app-mark .am-eye { fill: #141414; }
+.app-mark .am-g0 { stop-color: #8fb4ff; stop-opacity: .14; }
+.app-mark .am-g1 { stop-color: #8fb4ff; stop-opacity: .3; }
+.app-mark .am-g2 { stop-color: #8fb4ff; stop-opacity: .52; }
+[data-mode="dark"] .app-mark .am-base { fill: #161616; }
+[data-mode="dark"] .app-mark .am-eye { fill: #f4f4f2; }
+[data-mode="dark"] .app-mark .am-g0 { stop-opacity: .18; }
+[data-mode="dark"] .app-mark .am-g1 { stop-opacity: .34; }
+[data-mode="dark"] .app-mark .am-g2 { stop-opacity: .56; }
 .loader-draw {
   stroke-dasharray: 0 100;
   animation: loader-draw 1.6s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
