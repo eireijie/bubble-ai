@@ -13,7 +13,7 @@ export function SignOutButton({ className, label = "Sign out", icon }: { classNa
         {icon && <LogOut size={17} aria-hidden />} {label}
       </button>
       {asking && (
-        <Modal title="Sign out of Wisp?" onClose={() => setAsking(false)}>
+        <Modal title="Sign out of Bubble AI?" onClose={() => setAsking(false)}>
           <p className="text-body text-muted mb-5">Your agents keep working. To come back, sign in again.</p>
           <div className="flex flex-col gap-2">
             <Button

@@ -4,11 +4,11 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import WebSocket, { WebSocketServer } from "ws";
-import type { ComputerSpec, DeviceCapabilities, KeyCombo, LoginFillResult, Message } from "@wisp/core";
+import type { ComputerSpec, DeviceCapabilities, KeyCombo, LoginFillResult, Message } from "@bubble-ai/core";
 import { LoginError } from "../src/logins.ts";
 import { vncAuthResponse } from "../src/vnc-relay.ts";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import { WispClient } from "@bubble-ai/sdk";
 import { ComputerHost } from "../../node/src/computers/index.ts";
 import type { Driver, Shot } from "../../node/src/computers/driver.ts";
 import { localFiles } from "../../node/src/computers/transfer.ts";
@@ -372,8 +372,8 @@ describe("computers", () => {
   });
 
   it("keeps a device's own screen to its owner and agents that run on it, only for the owner's work", async () => {
-    await expect(owner.request("POST", "/api/computers", { kind: "device", nodeId })).rejects.toThrow(/wisp node screen on/);
-    // `wisp node screen on`, at the device
+    await expect(owner.request("POST", "/api/computers", { kind: "device", nodeId })).rejects.toThrow(/bubble-ai node screen on/);
+    // `bubble-ai node screen on`, at the device
     await fs.writeFile(path.join(nodeDir, "node.json"), JSON.stringify({ shareScreen: true }));
     await waitFor(async () => (await owner.request<any[]>("GET", "/api/nodes"))[0].capabilities?.screen.ok);
     await expect(member.request("POST", "/api/computers", { kind: "device", nodeId })).rejects.toThrow(/only Me can use its screen/);
@@ -401,7 +401,7 @@ describe("computers", () => {
     await owner.request("PATCH", `/api/agents/${agentId}`, { settings: { anyoneCanAsk: true } });
     let refused = "";
     duringRun = async (input) => {
-      const harness = new WispClient({ url, token: input.mcp!.env.WISP_TOKEN });
+      const harness = new WispClient({ url, token: input.mcp!.env.BUBBLE_TOKEN });
       refused = await harness.computer({ action: "screenshot" }).then(() => "", (e: Error) => e.message);
     };
     const before = calls.length;
@@ -544,7 +544,7 @@ describe("logins from a password manager", () => {
     await waitFor(() => fills().length === 1);
     expect(fills()[0].args[0]).toEqual({ site: "zendesk.com", username: "support@shop.test", password: "hunter2" });
     // other runs can wake the agent too: find the one that says it was filled
-    await waitFor(() => calls.slice(before).some((c) => c.prompt.includes("Wisp filled the Zendesk login (username, password) and pressed sign in")));
+    await waitFor(() => calls.slice(before).some((c) => c.prompt.includes("Bubble AI filled the Zendesk login (username, password) and pressed sign in")));
     expect(calls.slice(before).some((c) => c.prompt.includes("hunter2"))).toBe(false);
     expect((await owner.request("GET", "/api/logins")).logins[0].always).toEqual([agentId]);
     await noSecrets();
@@ -556,7 +556,7 @@ describe("logins from a password manager", () => {
     fillAnswer = () => ({ filled: [], submitted: false, wrongSite: "zendesk-login.evil.test" });
     expect(await agentApi.fillLogin("zendesk.com")).toMatchObject({ status: "not_filled", message: expect.stringContaining("the page open is on zendesk-login.evil.test") });
     fillAnswer = () => ({ filled: ["username", "password"], submitted: true, cleared: true });
-    expect((await agentApi.fillLogin("zendesk.com")).message).toMatch(/the page didn't move on, so Wisp took the password back out/);
+    expect((await agentApi.fillLogin("zendesk.com")).message).toMatch(/the page didn't move on, so Bubble AI took the password back out/);
     fillAnswer = () => ({ filled: ["username", "password"], submitted: true });
     // a subdomain anyone can sign up for isn't the saved site
     await expect(agentApi.fillLogin("acme-help.zendesk.com")).rejects.toThrow(/no saved login for acme-help.zendesk.com/);
@@ -603,7 +603,7 @@ describe("RustDesk", () => {
     const theirs = (await member.request<any[]>("GET", "/api/nodes"))[0];
     expect(theirs.capabilities.screen).toBeTruthy();
     expect(theirs.capabilities.rustdesk).toBeUndefined();
-    // `wisp node rustdesk off`
+    // `bubble-ai node rustdesk off`
     await fs.writeFile(path.join(nodeDir, "node.json"), JSON.stringify({ shareScreen: true }));
     await waitFor(async () => !(await owner.request<any[]>("GET", "/api/nodes"))[0].capabilities?.rustdesk);
   });
@@ -651,7 +651,7 @@ describe("a screen's code", () => {
     await expect(agentApi.computer({ action: "screenshot" })).rejects.toThrow(/locked with its code/);
     let seen = "";
     duringRun = async (input) => {
-      const harness = new WispClient({ url, token: input.mcp!.env.WISP_TOKEN });
+      const harness = new WispClient({ url, token: input.mcp!.env.BUBBLE_TOKEN });
       seen = await harness.computer<{ width: number }>({ action: "screenshot" }).then((s) => `${s.width}`, (e: Error) => e.message);
     };
     const before = calls.length;

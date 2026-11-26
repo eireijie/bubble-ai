@@ -15,7 +15,7 @@ export interface ChatPoint {
 
 /**
  * The chat a new top-level message joins: the latest message's, unless it's been quiet for
- * CONVERSATION_GAP_MS, then a new one named after the message itself. Wisp's own notices
+ * CONVERSATION_GAP_MS, then a new one named after the message itself. Bubble AI's own notices
  * ("Run failed") don't keep a chat going, so `latest` is the latest message someone wrote.
  */
 export function conversationFor(latest: ChatPoint | undefined, message: { id: string; createdAt: string }): string {

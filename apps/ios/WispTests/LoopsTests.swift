@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 /** Open loops and promises: the new message parts, the chat list's `loop`/`next`, and the pure logic in Loops.swift. */
 @MainActor

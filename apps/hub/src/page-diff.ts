@@ -61,7 +61,7 @@ export type PageRead = { ok: true; lines: string[] } | { ok: false; why: string 
  */
 export async function readPage(fetchImpl: typeof fetch, url: string): Promise<PageRead> {
   try {
-    const res = await fetchImpl(url, { headers: { accept: "text/html,text/plain;q=0.9", "user-agent": "Mozilla/5.0 (compatible; Wisp watch)" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const res = await fetchImpl(url, { headers: { accept: "text/html,text/plain;q=0.9", "user-agent": "Mozilla/5.0 (compatible; Bubble AI watch)" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!res.ok) return { ok: false, why: `the site answered ${res.status}` };
     const type = res.headers.get("content-type") ?? "";
     if (type && !/text\/html|text\/plain|xhtml/i.test(type)) return { ok: false, why: "not a web page" };

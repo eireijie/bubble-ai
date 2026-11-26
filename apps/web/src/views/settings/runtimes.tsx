@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
-import { HARNESSES, harnessInfo, harnessLabel, type HarnessInfo } from "@wisp/core";
+import { HARNESSES, harnessInfo, harnessLabel, type HarnessInfo } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { usableDevices, useDevices, type DeviceInfo } from "../../devices.ts";
 import { href } from "../../router.ts";
@@ -9,7 +9,7 @@ import { Add, Badge, Dlg, Item, Label, Panel, Pick, Prim, Sec, Tile } from "../.
 import { PageHeader } from "./parts.tsx";
 import { HarnessLogo } from "../../components/HarnessLogo.tsx";
 
-/** A harness on a neutral tile with its brand mark (a plain line icon when Wisp has none). */
+/** A harness on a neutral tile with its brand mark (a plain line icon when Bubble AI has none). */
 function Mark({ id }: { id: string }) {
   return (
     <Tile size={40}>
@@ -24,7 +24,7 @@ async function checkAgain(deviceId: string) {
   await new Promise((r) => setTimeout(r, 2500));
 }
 
-/** Install a harness on a device through Wisp (npm ones), or show how to do it by hand. */
+/** Install a harness on a device through Bubble AI (npm ones), or show how to do it by hand. */
 function useInstall(device: DeviceInfo | undefined) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +114,7 @@ export function InstallHarness({ device, onClose }: { device: DeviceInfo; onClos
 
 /**
  * The agent tools (harnesses) each device can run, like a runtime manager: which are ready, which
- * need installing (Wisp installs npm ones itself, on its owner's say-so), and how to sign them in.
+ * need installing (Bubble AI installs npm ones itself, on its owner's say-so), and how to sign them in.
  */
 export function RuntimesPage() {
   const devices = useDevices(4000);
@@ -257,11 +257,11 @@ function AddRuntime({ device, onClose }: { device: DeviceInfo | undefined; onClo
     <Dlg title="Add a harness" onClose={onClose} wide>
       <div className="space-y-4 text-sm">
         <p>
-          Any agent that speaks the Agent Client Protocol (ACP) can run in Wisp. Add it on {device?.name ?? "the device"}, in <code>~/.wisp/node.json</code>:
+          Any agent that speaks the Agent Client Protocol (ACP) can run in Bubble AI. Add it on {device?.name ?? "the device"}, in <code>~/.bubble-ai/node.json</code>:
         </p>
         <CopyBlock text={snippet} />
         <p className="text-muted">
-          Then restart <code>wisp node</code> (or press Check again). It shows up here and in Add agent. It's added at the device on purpose: nobody can make a device run a new program from Wisp.
+          Then restart <code>bubble-ai node</code> (or press Check again). It shows up here and in Add agent. It's added at the device on purpose: nobody can make a device run a new program from Bubble AI.
         </p>
         <p className="text-muted">Running an agent somewhere else entirely? Add it as an agent and connect it with wisp-mcp from its Connect tab.</p>
       </div>

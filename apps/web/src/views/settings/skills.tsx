@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Book, ChevronDown, ChevronLeft } from "lucide-react";
-import type { Agent, Skill } from "@wisp/core";
+import type { Agent, Skill } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { go, href, useRoute } from "../../router.ts";
@@ -16,7 +16,7 @@ const TABS: [SkillsTab, string][] = [
   ["added", "Added"],
 ];
 
-/** One row of the list: a skill in Wisp, or a harness's own. */
+/** One row of the list: a skill in Bubble AI, or a harness's own. */
 export type SkillRow = { kind: "skill"; skill: Skill } | { kind: "built-in"; skill: BuiltInSkill };
 
 /** The list's sections in order (Learned, Built in, Added), each only when it has rows and the tab shows it. */

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import WebSocket from "ws";
-import { ComputerAction, TRANSFER_ACTIONS, envVar, tunnelFrame, type Actor, type Computer, type ComputerController, type ComputerSpec, type NodeToHub, type OrgoConfig, type Screenshot } from "@wisp/core";
+import { ComputerAction, TRANSFER_ACTIONS, envVar, tunnelFrame, type Actor, type Computer, type ComputerController, type ComputerSpec, type NodeToHub, type OrgoConfig, type Screenshot } from "@bubble-ai/core";
 import { id, now } from "./auth.ts";
 import { OrgoClient } from "./orgo.ts";
 import { relayVnc } from "./vnc-relay.ts";
@@ -19,7 +19,7 @@ const LOG_COALESCE_MS = 60_000;
 /**
  * How long a VM goes unused before it stops, freeing its memory. Its files, sign-ins and apps are
  * kept, and it starts again when it's next needed. One fixed time, not a setting
- * ($WISP_COMPUTER_IDLE_MS only shortens it for tests).
+ * ($BUBBLE_COMPUTER_IDLE_MS only shortens it for tests).
  */
 export const IDLE_STOP_MS = Number(envVar("COMPUTER_IDLE_MS")) || 15 * 60_000;
 /** An agent waiting longer than this for its computer to come up hears "Starting the computer…" in chat. */
@@ -45,7 +45,7 @@ export type ComputerView = Computer & {
   online: boolean;
   /** a device's own screen: whose it is (only they see it) */
   ownerId: string | null;
-  /** its device was paused there (`wisp node pause`) */
+  /** its device was paused there (`bubble-ai node pause`) */
   paused: boolean;
   /** a device's own screen that opens with the code picked at the device: which kind it is */
   code: "pin" | "password" | null;
@@ -140,7 +140,7 @@ export class Computers {
     const kind = this.codeKind(c);
     if (!kind) return until;
     const label = kind === "pin" ? "PIN" : "password";
-    if (!code) throw new ComputerError(`Enter ${c.name}'s ${label}. It was picked at the device, and Wisp doesn't keep it.`, 403);
+    if (!code) throw new ComputerError(`Enter ${c.name}'s ${label}. It was picked at the device, and Bubble AI doesn't keep it.`, 403);
     if (!c.nodeId || !this.hub.isNodeOnline(c.nodeId)) throw new ComputerError(`${c.name} is offline: its device isn't connected`, 503);
     try {
       const r = (await this.nodeRequest(c.nodeId, (requestId) => ({ type: "screen_unlock", requestId, purpose, code, until: new Date(until).toISOString() }), 20_000)) as { until?: string };
@@ -310,7 +310,7 @@ export class Computers {
     const input = !transfer && !["screenshot", "status", "start", "stop", "destroy", "harness_status", "signin", "inspect"].includes(action.action);
     if (c.kind === "device") this.checkScreenUse(c, by, opts.requester !== undefined ? opts.requester : by.kind === "agent" ? (this.hub.currentRun(by.id)?.requestedBy ?? null) : null, action, !!opts.borrowed);
     if (by.kind === "user" && by.id !== "system" && (input || transfer) && !this.canUse(c, by.id)) throw new ComputerError(this.notYours(c), 403);
-    if (this.hub.isNodePaused(c.nodeId)) throw new ComputerError(`${c.name} is paused at its device. Someone there has to run \`wisp node resume\` first.`, 423);
+    if (this.hub.isNodePaused(c.nodeId)) throw new ComputerError(`${c.name} is paused at its device. Someone there has to run \`bubble-ai node resume\` first.`, 423);
     if (by.kind === "agent" && ctl && input) {
       // a person who's stopped using it doesn't keep the agent waiting: it takes the computer back
       if (Date.now() - ctl.touched >= AGENT_RECLAIM_MS) {
@@ -458,7 +458,7 @@ export class Computers {
       if (by.id !== "system" && by.id !== owner) throw new ComputerError(`${c.name} is ${name}'s own screen; only ${name} can use it`, 403);
       return;
     }
-    // its files and clipboard go through the agent's own folder on the device, not Wisp's file transfer
+    // its files and clipboard go through the agent's own folder on the device, not Bubble AI's file transfer
     if ((TRANSFER_ACTIONS as readonly string[]).includes(action.action)) throw new ComputerError(`${c.name} is ${name}'s own screen; its files and clipboard stay with ${name}. Use the screen, or ask ${name} in chat for a file.`, 403);
     // an agent running elsewhere uses it only when its owner allowed that (Use my computers)
     const why = borrowed ? null : this.whyNotOnDevice(c, by.id);

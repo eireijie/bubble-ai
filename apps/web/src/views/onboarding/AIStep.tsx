@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { ChevronRight, Loader2 } from "lucide-react";
-import { HARNESSES, MODEL_PROVIDER_INFO, harnessLabel, type HarnessSettings, type ModelConnection, type ModelProvider } from "@wisp/core";
+import { HARNESSES, MODEL_PROVIDER_INFO, harnessLabel, type HarnessSettings, type ModelConnection, type ModelProvider } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { unavailable } from "../../join.ts";
@@ -23,7 +23,7 @@ export function harnessFor(provider: ModelProvider, kind: "oauth" | "key", suppo
   return PREFERRED.find((h) => canUse(support, h, { provider, kind }) && support.length) ?? own ?? "hermes";
 }
 
-/** What's already set to go on the person's computer, best first: a connection Wisp keeps, then a harness signed in there. */
+/** What's already set to go on the person's computer, best first: a connection Bubble AI keeps, then a harness signed in there. */
 export function foundOn(device: DeviceInfo | undefined, connections: ModelConnection[]): { harness: string; connectionId: string | null; share?: boolean } | null {
   for (const h of ["claude-code", "codex"]) {
     const c = readyConnection(h, connections);
@@ -31,7 +31,7 @@ export function foundOn(device: DeviceInfo | undefined, connections: ModelConnec
   }
   const signedIn = (id: string) => device?.harnesses?.find((x) => x.id === id)?.accounts?.default === true;
   if (signedIn("claude-code")) return { harness: "claude-code", connectionId: null };
-  // Codex's own sign-in is shared with Wisp ("Use this sign-in"), so it works on every computer
+  // Codex's own sign-in is shared with Bubble AI ("Use this sign-in"), so it works on every computer
   if (signedIn("codex")) return { harness: "codex", connectionId: null, share: true };
   for (const h of HARNESSES) if (h.protocol !== "mcp" && signedIn(h.id)) return { harness: h.id, connectionId: null };
   return null;
@@ -229,7 +229,7 @@ export function AIStep({ agentId, device, onDone, onBack }: { agentId: string; d
     fail("That didn't connect. Try again.");
   };
 
-  /** Sign in again where this AI signs in: Claude and ChatGPT through Wisp, the rest on the computer. */
+  /** Sign in again where this AI signs in: Claude and ChatGPT through Bubble AI, the rest on the computer. */
   const signInAgain = (h: string) => (h === "claude-code" ? pick("claude") : h === "codex" ? pick("chatgpt") : void deviceHarness(h));
 
   /** "Set up later": the agent stays as it is and says hello anyway (the hub's plain one, saying what it still needs). */

@@ -1,4 +1,4 @@
-import { AppleOp, type AppleContact, type AppleEvent, type AppleMacStatus, type ApplePermission, type AppleReminder } from "@wisp/core";
+import { AppleOp, type AppleContact, type AppleEvent, type AppleMacStatus, type ApplePermission, type AppleReminder } from "@bubble-ai/core";
 import { exec } from "../computers/driver.ts";
 import { appIcons } from "./icons.ts";
 import { ScriptError, runAppleScript } from "./jxa.ts";
@@ -73,7 +73,7 @@ export class AppleBridge {
    */
   async handle(raw: unknown, opts: { dry?: boolean } = {}): Promise<unknown> {
     const parsed = AppleOp.safeParse(raw);
-    if (!parsed.success) throw new AppleError(`That isn't something Wisp can do with Apple apps (${parsed.error.issues[0]?.message ?? "bad request"}).`);
+    if (!parsed.success) throw new AppleError(`That isn't something Bubble AI can do with Apple apps (${parsed.error.issues[0]?.message ?? "bad request"}).`);
     const op = parsed.data;
     const dry = !!opts.dry;
     try {
@@ -185,7 +185,7 @@ export class AppleBridge {
   }
 
   private async send(to: string, text: string, dry: boolean): Promise<AppleDone> {
-    if (!handleKey(to)) throw new AppleError(`“${to}” isn't a phone number or email, so Wisp can't text it.`);
+    if (!handleKey(to)) throw new AppleError(`“${to}” isn't a phone number or email, so Bubble AI can't text it.`);
     const chats = await this.chatRows().catch(() => [] as ChatRow[]);
     const service = sendService(to, chats);
     try {
@@ -234,13 +234,13 @@ export class AppleBridge {
     if (err instanceof DbError) {
       if (err.kind === "no_access") {
         this.lastStatus = null;
-        return new AppleError(`Wisp can't read Messages yet: allow Full Disk Access for ${this.holder} in ${where} → Full Disk Access.`);
+        return new AppleError(`Bubble AI can't read Messages yet: allow Full Disk Access for ${this.holder} in ${where} → Full Disk Access.`);
       }
       if (err.kind === "missing") return new AppleError("This Mac has no Messages history yet. Sign in to Messages on it first.");
-      return new AppleError(`Wisp couldn't read Messages on this Mac (${err.message}).`);
+      return new AppleError(`Bubble AI couldn't read Messages on this Mac (${err.message}).`);
     }
     if (err instanceof SendError) {
-      if (err.kind === "not_allowed") return new AppleError(`Wisp isn't allowed to send texts yet: in ${where} → Automation, turn on Messages under ${this.holder}.`);
+      if (err.kind === "not_allowed") return new AppleError(`Bubble AI isn't allowed to send texts yet: in ${where} → Automation, turn on Messages under ${this.holder}.`);
       if (err.kind === "no_account") return new AppleError("Messages on this Mac isn't signed in for that kind of text. Open Messages and sign in, or turn on Text Message Forwarding on your iPhone.");
       return new AppleError(`Messages couldn't send it (${err.message}).`);
     }
@@ -249,7 +249,7 @@ export class AppleBridge {
       switch (err.code) {
         case "NO_ACCESS":
           this.lastStatus = null;
-          return new AppleError(`Wisp can't use ${what} yet: allow ${this.holder} in ${where} → ${what}.`);
+          return new AppleError(`Bubble AI can't use ${what} yet: allow ${this.holder} in ${where} → ${what}.`);
         case "GONE":
           return new AppleError(op.startsWith("calendar") ? "That event isn't on this Mac's calendar anymore." : "That reminder isn't on this Mac anymore.");
         case "READ_ONLY":

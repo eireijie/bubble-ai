@@ -68,7 +68,7 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
             <div>
               <Code>{storage.path}</Code>
             </div>
-            {fixed && <div className="text-xs text-muted">{storage.movable === false ? "An extra workspace's memory can't be moved." : "Set by WISP_VAULT_DIR where Wisp runs."}</div>}
+            {fixed && <div className="text-xs text-muted">{storage.movable === false ? "An extra workspace's memory can't be moved." : "Set by BUBBLE_VAULT_DIR where Bubble AI runs."}</div>}
           </div>
           {!fixed && (
             <form
@@ -92,7 +92,7 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
                   </Button>
                 )}
               </div>
-              <p className="text-xs text-muted">The full path on the machine that runs Wisp. In Docker, a folder inside a volume you mounted.</p>
+              <p className="text-xs text-muted">The full path on the machine that runs Bubble AI. In Docker, a folder inside a volume you mounted.</p>
               {error && <p className="text-sm text-bad">{error}</p>}
             </form>
           )}
@@ -101,7 +101,7 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
       {storage.pendingRestart && (
         <div className="mt-3 rounded-xl bg-accent-soft p-4 text-sm space-y-2">
           <p>
-            Wisp will use <Code>{storage.nextPath}</Code> after it restarts.
+            Bubble AI will use <Code>{storage.nextPath}</Code> after it restarts.
           </p>
           {storage.restartable ? (
             <Button
@@ -113,10 +113,10 @@ function Location({ storage, reload }: { storage: MemoryStorage; reload: () => v
                 setTimeout(() => window.location.reload(), 4000);
               }}
             >
-              {restarting ? "Restarting…" : "Restart Wisp now"}
+              {restarting ? "Restarting…" : "Restart Bubble AI now"}
             </Button>
           ) : (
-            <p className="text-muted">Stop Wisp and start it again to switch.</p>
+            <p className="text-muted">Stop Bubble AI and start it again to switch.</p>
           )}
         </div>
       )}
@@ -158,7 +158,7 @@ function ObsidianSteps({ storage, reload }: { storage: MemoryStorage; reload: ()
         {storage.path && (
           <Card>
             <div className="px-4 py-3.5 space-y-2">
-              <div className="text-sm font-medium">On the computer that runs Wisp</div>
+              <div className="text-sm font-medium">On the computer that runs Bubble AI</div>
               <p className="text-sm text-muted">
                 Open <Code>{storage.path}</Code> as a vault.
               </p>
@@ -185,7 +185,7 @@ function ObsidianSteps({ storage, reload }: { storage: MemoryStorage; reload: ()
                 </Button>
               </div>
               {error && <p className="text-sm text-bad">{error}</p>}
-              <CopyBlock text={`git clone "${remoteUrl(fresh ?? "YOUR-TOKEN")}" "Wisp memory"`} />
+              <CopyBlock text={`git clone "${remoteUrl(fresh ?? "YOUR-TOKEN")}" "Bubble AI memory"`} />
               {!fresh && <p className="text-xs text-muted">Replace YOUR-TOKEN with a token. It's shown once.</p>}
               {window.location.protocol === "http:" && !local && <p className="text-xs text-muted">This address isn't encrypted. Use it only on your home network or a private one like Tailscale.</p>}
               {/* what a token gives away, so nobody hands one out lightly */}

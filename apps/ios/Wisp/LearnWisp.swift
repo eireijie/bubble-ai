@@ -1,7 +1,7 @@
 import SwiftUI
 
 /**
- * Learn Wisp (board 11, phone 4): how much of Show me around you've seen, on a ring, with Show me
+ * Learn Bubble AI (board 11, phone 4): how much of Show me around you've seen, on a ring, with Show me
  * around / Resume / Start again and each chapter. It sits at the top of Settings; Help has a row
  * that starts the same tour. Progress is the hub's (UserPrefs.learn), so it matches the desktop.
  */
@@ -18,7 +18,7 @@ struct LearnWispCard: View {
         HStack(spacing: 12) {
           LearnRing(seen: seen, total: stops.count, size: 36)
           VStack(alignment: .leading, spacing: 1) {
-            Text("Learn Wisp").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
+            Text("Learn Bubble AI").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
             Text(Tour.summary(learn, stops)).font(.system(size: 13)).foregroundStyle(Palette.muted)
           }
           Spacer(minLength: 0)

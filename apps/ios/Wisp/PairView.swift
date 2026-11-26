@@ -1,7 +1,7 @@
 import SwiftUI
 import VisionKit
 
-/** Signed out: connect to Wisp on your computer by scanning the QR code in Settings → Mobile (or pasting its link). */
+/** Signed out: connect to Bubble AI on your computer by scanning the QR code in Settings → Mobile (or pasting its link). */
 struct PairView: View {
   @Environment(Store.self) private var store
   @State private var step: Step = .start
@@ -17,7 +17,7 @@ struct PairView: View {
     case code(String, workspace: String?)
     /** the computer said no, or the code ran out */
     case denied(String)
-    /** couldn't reach the computer, or the code wasn't a Wisp one */
+    /** couldn't reach the computer, or the code wasn't a Bubble AI one */
     case failed(String, unreachable: Bool)
   }
 
@@ -45,7 +45,7 @@ struct PairView: View {
       }
     }
     .sheet(isPresented: $pasting) { pasteSheet }
-    // a code scanned with the Camera app opens Wisp with the link
+    // a code scanned with the Camera app opens Bubble AI with the link
     .onChange(of: store.pendingPair, initial: true) { _, link in
       guard let link else { return }
       store.pendingPair = nil
@@ -59,15 +59,15 @@ struct PairView: View {
   private var start: some View {
     AuthPage {
       VStack(spacing: 26) {
-        AuthHero(title: "Connect to Wisp", subtitle: "Point your camera at the code on your computer.", ghost: false)
+        AuthHero(title: "Connect to Bubble AI", subtitle: "Point your camera at the code on your computer.", ghost: false)
         if let message = store.sessionMessage {
           Text(message).font(.callout).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
         }
         scannerFrame
         DisclosureGroup {
           VStack(alignment: .leading, spacing: 16) {
-            StepRow(n: 1, title: "Open Wisp on your computer", text: "Go to Settings → Mobile and click Start pairing.")
-            StepRow(n: 2, title: "Scan the QR code", text: "Your phone needs to be on the same Wi-Fi, unless your Wisp is set up to be reached from anywhere.")
+            StepRow(n: 1, title: "Open Bubble AI on your computer", text: "Go to Settings → Mobile and click Start pairing.")
+            StepRow(n: 2, title: "Scan the QR code", text: "Your phone needs to be on the same Wi-Fi, unless your Bubble AI is set up to be reached from anywhere.")
             StepRow(n: 3, title: "Check the code", text: "Confirm on your computer that both show the same six digits.")
           }
           .padding(.top, 12)
@@ -81,7 +81,7 @@ struct PairView: View {
             .foregroundStyle(Palette.muted)
             .multilineTextAlignment(.center)
         }
-        Text("Don't have Wisp on a computer yet? Get it free at github.com/\(WispRepo.github).")
+        Text("Don't have Bubble AI on a computer yet? Get it free at github.com/\(WispRepo.github).")
           .font(.footnote)
           .foregroundStyle(Palette.faint)
           .multilineTextAlignment(.center)
@@ -116,7 +116,7 @@ struct PairView: View {
   private var connecting: some View {
     AuthPage(back: ("xmark", "Cancel", cancel)) {
       VStack(spacing: 22) {
-        AuthHero(title: "Finding your computer", subtitle: "Looking on this Wi-Fi. Wisp needs to be running on it.")
+        AuthHero(title: "Finding your computer", subtitle: "Looking on this Wi-Fi. Bubble AI needs to be running on it.")
         ProgressView().controlSize(.large)
       }
       .padding(.top, 44)
@@ -130,7 +130,7 @@ struct PairView: View {
       VStack(spacing: 18) {
         AuthHero(title: "Check the code", subtitle: "Your computer should show this same code. If it does, click Yes, pair it there.")
         CodeCard(code: code).padding(.top, 6)
-        WaitingLine(text: "Waiting for you to confirm in \(workspace ?? "Wisp") on your computer…")
+        WaitingLine(text: "Waiting for you to confirm in \(workspace ?? "Bubble AI") on your computer…")
       }
       .padding(.top, 44)
     } bottom: {
@@ -154,7 +154,7 @@ struct PairView: View {
 
   private func failed(_ message: String, unreachable: Bool) -> some View {
     AuthPage {
-      AuthHero(title: unreachable ? "Can't reach your Wisp" : "That didn't work", subtitle: message)
+      AuthHero(title: unreachable ? "Can't reach your Bubble AI" : "That didn't work", subtitle: message)
         .padding(.top, 70)
     } bottom: {
       AuthButton(title: "Try again", id: "pair-retry", action: retry)
@@ -169,7 +169,7 @@ struct PairView: View {
         Spacer()
       }
       Text("Paste a pairing link").font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text).padding(.top, 18)
-      Text("In Wisp on your computer: Settings → Mobile → Start pairing → Copy pairing link. Then paste it here.")
+      Text("In Bubble AI on your computer: Settings → Mobile → Start pairing → Copy pairing link. Then paste it here.")
         .font(.system(size: 15)).foregroundStyle(Palette.muted).lineSpacing(3).padding(.top, 8)
       VStack(alignment: .leading, spacing: 7) {
         Text("Pairing link").font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.muted).padding(.leading, 6)
@@ -210,7 +210,7 @@ struct PairView: View {
 
   private func use(_ text: String) {
     guard let link = PairLink(text) else {
-      step = .failed("That isn't a Wisp pairing code. Scan the code in Wisp → Settings → Mobile.", unreachable: false)
+      step = .failed("That isn't a Bubble AI pairing code. Scan the code in Bubble AI → Settings → Mobile.", unreachable: false)
       return
     }
     pair(link)
@@ -223,7 +223,7 @@ struct PairView: View {
     work = Task {
       do {
         guard let hub = await Pairing.reachable(link.addresses) else {
-          throw Pairing.Failure(message: "Check that your computer is on and Wisp is running, and that this phone is on the same Wi-Fi. If you're away from home, Away from home needs to be on.", unreachable: true)
+          throw Pairing.Failure(message: "Check that your computer is on and Bubble AI is running, and that this phone is on the same Wi-Fi. If you're away from home, Away from home needs to be on.", unreachable: true)
         }
         let claimed = try await Pairing.claim(link, at: hub)
         step = .code(claimed.code, workspace: claimed.workspaceName)

@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # the same hash `wisp node` computes (recipeTag in apps/node/src/computers/docker.ts)
+      # the same hash `bubble-ai node` computes (recipeTag in apps/node/src/computers/docker.ts)
       - id: image
         run: |
           echo "tag=$(find docker/computer -type f | LC_ALL=C sort | xargs cat | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"

@@ -1,4 +1,4 @@
-import { frontMatter, linkedSkillContent, skillBody, skillLicense, skillTitle, type StoreSkill } from "@wisp/core";
+import { frontMatter, linkedSkillContent, skillBody, skillLicense, skillTitle, type StoreSkill } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 
 /** Public SKILL.md repos the store reads live. Each skill links back to its folder there. */
@@ -105,7 +105,7 @@ export class PublicSkills {
   async installable(id: string): Promise<{ skill: StoreSkill; name: string; description: string; content: string; tags: string[] } | undefined> {
     const f = (await this.load()).found.find((x) => x.skill.id === id);
     if (!f) return undefined;
-    if (!f.skill.license.open) throw Object.assign(new Error(`${f.skill.name} isn't open source (${f.skill.license.label}), so Wisp links to it instead of copying it: ${f.skill.url}`), { status: 403 });
+    if (!f.skill.license.open) throw Object.assign(new Error(`${f.skill.name} isn't open source (${f.skill.license.label}), so Bubble AI links to it instead of copying it: ${f.skill.url}`), { status: 403 });
     return {
       skill: f.skill,
       name: f.skill.name,

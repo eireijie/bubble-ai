@@ -1,4 +1,4 @@
-import type { ChatLoop, Followup, MessagePart, WrapUp } from "@wisp/core";
+import type { ChatLoop, Followup, MessagePart, WrapUp } from "@bubble-ai/core";
 import { afterQuietHours, inQuietHours } from "./background.ts";
 import type { Hub } from "./hub.ts";
 
@@ -11,7 +11,7 @@ export const MAX_CHECKBACKS = 2;
 
 /**
  * Open loops and promises in a chat: where a DM stands (chat_status), the follow-ups shown under
- * the reply that set them, Wisp checking back when a chat stops while it waits on the person, and
+ * the reply that set them, Bubble AI checking back when a chat stops while it waits on the person, and
  * the wrap-up when it's done.
  */
 export class Loops {
@@ -95,7 +95,7 @@ export class Loops {
     return [
       `## Keeping track`,
       `- When you promise to come back to something ("I'll look when the build finishes"), when ${name} says they'll do something later ("I'll send it tonight"), or when they mention something worth asking about later ("my interview is Friday"), set it with followup_set: a label they'll see under your reply (2–5 words: "Check the build", "Nudge you about the deck", "Ask how the interview went"), waiting_on "agent" or "person", and when. For their promises, add the condition ("only if it hasn't gone out"). Don't set one for small talk.`,
-      `- When this chat's state changes, call chat_status: "waiting" when the next step is ${name}'s (you asked them something, or they owe a step; summary in their words, like "send Sam the deck"), and Wisp checks back for you if they go quiet; "done" when what they asked for is finished (with did, saved and next when real work got done); "open" otherwise.`,
+      `- When this chat's state changes, call chat_status: "waiting" when the next step is ${name}'s (you asked them something, or they owe a step; summary in their words, like "send Sam the deck"), and Bubble AI checks back for you if they go quiet; "done" when what they asked for is finished (with did, saved and next when real work got done); "open" otherwise.`,
       `- When something you're tracking is done or no longer needed, call followup_cancel (done: true when it happened).`,
       loop && loop.status !== "open" ? `This chat is ${loop.status === "waiting" ? `waiting on ${name}: ${loop.summary}` : loop.status}.` : "",
       open.length ? `You're keeping track of:

@@ -1,12 +1,12 @@
-// electron-builder hook: put the Wisp that scripts/bundle-wisp.mjs staged into the app's
+// electron-builder hook: put the Bubble AI that scripts/bundle-bubble-ai.mjs staged into the app's
 // Resources/wisp. Copied here rather than through `extraResources` so npm's workspace links
-// (node_modules/@wisp/* → ../../packages/*) stay links.
+// (node_modules/@bubble-ai/* → ../../packages/*) stay links.
 const fs = require("node:fs");
 const path = require("node:path");
 
 exports.default = async function afterPack(context) {
   const from = path.join(context.packager.info.projectDir, "build", "wisp-runtime");
-  if (!fs.existsSync(path.join(from, "bin", "wisp.mjs"))) throw new Error("Wisp isn't staged; run `npm run bundle -w @wisp/desktop` first");
+  if (!fs.existsSync(path.join(from, "bin", "bubble-ai.mjs"))) throw new Error("Bubble AI isn't staged; run `npm run bundle -w @bubble-ai/desktop` first");
   const resources =
     context.electronPlatformName === "darwin"
       ? path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, "Contents", "Resources")

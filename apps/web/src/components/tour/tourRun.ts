@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { LearnProgress } from "@wisp/core";
+import type { LearnProgress } from "@bubble-ai/core";
 import { useStore } from "../../store.ts";
 import { parseRoute } from "../../router.ts";
 import { cleanSeen, resumeIndex, stopsFor, withSeen } from "../../tour.ts";
@@ -11,7 +11,7 @@ import { cleanSeen, resumeIndex, stopsFor, withSeen } from "../../tour.ts";
 export interface TourRun {
   /** index into stopsFor(guest) */
   i: number;
-  /** past the last stop: the "That's Wisp" card */
+  /** past the last stop: the "That's Bubble AI" card */
   end: boolean;
   /** the chat the tour came from, where chat stops happen */
   homeChannel: string | null;

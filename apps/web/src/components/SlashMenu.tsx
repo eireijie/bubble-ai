@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { harnessLabel, type Agent, type AgentCommand } from "@wisp/core";
+import { harnessLabel, type Agent, type AgentCommand } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore, type ChannelInfo } from "../store.ts";
 import type { ChannelMember } from "./Channels.tsx";
@@ -10,7 +10,7 @@ export { slashQuery };
 
 /**
  * The "/" menu, like Discord's: type "/" at the start of a message and every agent here shows
- * what it can do, in sections: Wisp's commands, skills agents learned, the harness's own commands and skills, then other Wisp skills. Picking one writes "/name " (and "@handle " in a channel, so it
+ * what it can do, in sections: Bubble AI's commands, skills agents learned, the harness's own commands and skills, then other Bubble AI skills. Picking one writes "/name " (and "@handle " in a channel, so it
  * goes to that agent).
  */
 
@@ -21,7 +21,7 @@ export function commandGroup(c: Pick<AgentCommand, "kind"> & { group?: AgentComm
   return c.group ?? (c.kind === "wisp" ? "wisp" : c.kind === "wisp-skill" ? "skill" : "harness");
 }
 
-/** A section's key and its small header: "Learned by Ghosty", "Codex", "Wisp", "Skills". */
+/** A section's key and its small header: "Learned by Ghosty", "Codex", "Bubble AI", "Skills". */
 export function slashSection(item: SlashItem): { key: string; label: string } {
   const c = item.command;
   switch (commandGroup(c)) {
@@ -30,7 +30,7 @@ export function slashSection(item: SlashItem): { key: string; label: string } {
     case "harness":
       return { key: `harness:${item.agent.harness}`, label: harnessLabel(item.agent.harness) };
     case "wisp":
-      return { key: "wisp", label: "Wisp" };
+      return { key: "wisp", label: "Bubble AI" };
     default:
       return { key: "skill", label: "Skills" };
   }

@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 /** The phone chat list's pins and sections: the same rules as web sidebarLayout.ts. */
 final class SideLayoutTests: XCTestCase {

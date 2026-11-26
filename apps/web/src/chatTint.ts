@@ -9,7 +9,7 @@ export function inkOn(color: string): string {
 
 /**
  * The open agent's colour tints its chat: your bubbles and the composer's round button
- * (`--bubble-me`, `--bubble-me-ink`). A team chat passes no colour and keeps the Wisp violet.
+ * (`--bubble-me`, `--bubble-me-ink`). A team chat passes no colour and keeps the Bubble AI violet.
  */
 export function chatTint(color: string | undefined): CSSProperties | undefined {
   return color ? ({ "--bubble-me": color, "--bubble-me-ink": inkOn(color) } as CSSProperties) : undefined;

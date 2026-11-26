@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { MIN_TEAM_AGENTS, teamSizeProblem, type ChannelTeam } from "@wisp/core";
+import { MIN_TEAM_AGENTS, teamSizeProblem, type ChannelTeam } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { go } from "../router.ts";
 import { useStore } from "../store.ts";

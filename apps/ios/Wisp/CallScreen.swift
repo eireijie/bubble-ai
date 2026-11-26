@@ -178,7 +178,7 @@ struct CallLifecycle: ViewModifier {
         if !connected { session.disconnect() } else if !session.state.ready { Task { await session.start() } }
       }
       .onChange(of: scenePhase) { _, phase in
-        // the system stops the microphone while Wisp is in the background; pick the call back up on return
+        // the system stops the microphone while Bubble AI is in the background; pick the call back up on return
         guard phase == .active, let session = call?.session, !session.state.ready, session.state.startedAt != nil, session.state.error.isEmpty, store.connected else { return }
         Task { await session.start() }
       }
@@ -379,7 +379,7 @@ struct CallScreen: View {
             .frame(width: 40, height: 40).background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.orange.opacity(0.15)))
           Text("A little help with the microphone?").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
         }
-        Text("Wisp needs your microphone to hear you. Turn it on in Settings, then come back. \(live.name) will still answer in chat.").font(.system(size: 15)).foregroundStyle(Palette.muted)
+        Text("Bubble AI needs your microphone to hear you. Turn it on in Settings, then come back. \(live.name) will still answer in chat.").font(.system(size: 15)).foregroundStyle(Palette.muted)
         if let url = URL(string: UIApplication.openSettingsURLString) {
           pill("Open Settings", primary: true, id: "call-open-settings") { UIApplication.shared.open(url) }
         }
@@ -388,7 +388,7 @@ struct CallScreen: View {
     } else if facts.failed {
       problemCard {
         if !state.error.isEmpty { Text(state.error).font(.system(size: 13)).foregroundStyle(Palette.red) }
-        Text("Check that your Wisp is reachable and that the voice you picked has its key. The conversation is still here in chat.").font(.system(size: 15)).foregroundStyle(Palette.muted)
+        Text("Check that your Bubble AI is reachable and that the voice you picked has its key. The conversation is still here in chat.").font(.system(size: 15)).foregroundStyle(Palette.muted)
         if store.connected { pill("Try again", primary: true, id: "call-retry") { call.retry(store: store) } }
         NavigationLink { VoiceSettingsView() } label: {
           HStack(spacing: 8) { Text("Voice settings"); Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.faint) }

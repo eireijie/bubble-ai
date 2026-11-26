@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import type { Agent, LeadStatus } from "@wisp/core";
+import type { Agent, LeadStatus } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import type { Hub } from "./hub.ts";
 import type { Store } from "./store.ts";

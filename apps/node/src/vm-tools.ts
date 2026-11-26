@@ -6,9 +6,9 @@ const MCP_MAIN = fileURLToPath(new URL("../../../packages/mcp/src/main.ts", impo
 let bundled: Promise<{ code: string; hash: string }> | null = null;
 
 /**
- * wisp-mcp as a single file that runs on any Node 22, so a harness inside a VM gets Wisp's
+ * wisp-mcp as a single file that runs on any Node 22, so a harness inside a VM gets Bubble AI's
  * tools without this device's node_modules (which are built for this device's OS). Built once per
- * process with esbuild, which Wisp already has (through tsx).
+ * process with esbuild, which Bubble AI already has (through tsx).
  */
 export function mcpBundle(): Promise<{ code: string; hash: string }> {
   bundled ??= (async () => {

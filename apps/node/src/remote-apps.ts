@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { RemoteApp } from "@wisp/core";
+import type { RemoteApp } from "@bubble-ai/core";
 import { has } from "./computers/driver.ts";
 import { listening } from "./computers/remote-desktop.ts";
 

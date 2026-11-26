@@ -1,4 +1,4 @@
-import type { ClientEvent, Message } from "@wisp/core";
+import type { ClientEvent, Message } from "@bubble-ai/core";
 
 const computerTool = (name: string) => /(?:^|[_./:-])(?:computer|browser)(?:_|$)/.test(name);
 

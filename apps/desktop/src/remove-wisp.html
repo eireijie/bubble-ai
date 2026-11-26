@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
-<title>Remove Wisp</title>
+<title>Remove Bubble AI</title>
 <style>
   :root {
     --panel: #ffffff; --card: #f2f2f5; --control: #ffffff; --line: rgb(0 0 0 / 0.08); --control-line: rgb(0 0 0 / 0.14);
@@ -108,10 +108,10 @@
     render = showList;
     const lost = scan.items.filter((i) => i.group === "lost");
     const rest = scan.items.filter((i) => i.group === "rest");
-    const kept = `${scan.tailscale && picked.has(scan.tailscaleWith) ? "Wisp's Tailscale address turns off with the hub. " : ""}${scan.kept.join(", ").replace(/^./, (c) => c.toUpperCase())} stay.`;
+    const kept = `${scan.tailscale && picked.has(scan.tailscaleWith) ? "Bubble AI's Tailscale address turns off with the hub. " : ""}${scan.kept.join(", ").replace(/^./, (c) => c.toUpperCase())} stay.`;
     app.replaceChildren(
       el("div", { className: "scroll" },
-        el("h1", { textContent: "Remove Wisp from this computer" }),
+        el("h1", { textContent: "Remove Bubble AI from this computer" }),
         el("p", { className: "sub", textContent: "Untick anything you want to keep." }),
         ...warnings(),
         lost.length ? el("h2", { textContent: "Can't be recovered" }) : null,
@@ -120,7 +120,7 @@
         backedUp ? el("p", { className: "note", textContent: `Backup saved in ${backedUp}. It doesn't include agent computers.` }) : null,
         rest.length ? el("h2", { textContent: "Everything else" }) : null,
         rest.length ? el("div", { className: "card" }, ...rest.map(row)) : null,
-        !scan.items.length ? el("p", { className: "sub", textContent: "Wisp left nothing here that it can remove." }) : null,
+        !scan.items.length ? el("p", { className: "sub", textContent: "Bubble AI left nothing here that it can remove." }) : null,
         el("p", { className: "note", textContent: kept }),
         ...(scan.manual.length
           ? [el("h2", { textContent: "Needs an admin password, so remove these yourself" }), el("div", { className: "card" }, ...scan.manual.map((m) => el("div", { className: "row" }, el("span", {}, m.label, el("span", { className: "s" }, el("code", { textContent: m.command }))))))]
@@ -134,13 +134,13 @@
     render = showConfirm;
     word = "";
     const chosen = scan.items.filter((i) => picked.has(i.id));
-    const go = Object.assign(button("Remove Wisp", startRemoving, "danger"), { disabled: true });
+    const go = Object.assign(button("Remove Bubble AI", startRemoving, "danger"), { disabled: true });
     const input = el("input", { autocomplete: "off", spellcheck: false, oninput: (e) => { word = e.target.value; go.disabled = word !== scan.word; } });
     const hasData = picked.has("data");
     app.replaceChildren(
       el("div", { className: "scroll" },
         el("h1", { textContent: "Remove these for good?" }),
-        el("div", { className: "card list", style: "margin-top:14px" }, ...chosen.map((i) => el("div", { className: i.group === "lost" ? "red" : "", textContent: i.id === "data" ? `Chats, memory and files. ${i.detail}` : i.id === "vms" ? `${i.label.replace("Agent computers · ", "")} agent computer${i.label.endsWith(" 1") ? "" : "s"} and everything on them` : i.detail ? `${i.label}: ${i.detail}` : i.label })), scan.tailscale && picked.has(scan.tailscaleWith) ? el("div", { textContent: "Wisp's Tailscale address" }) : null),
+        el("div", { className: "card list", style: "margin-top:14px" }, ...chosen.map((i) => el("div", { className: i.group === "lost" ? "red" : "", textContent: i.id === "data" ? `Chats, memory and files. ${i.detail}` : i.id === "vms" ? `${i.label.replace("Agent computers · ", "")} agent computer${i.label.endsWith(" 1") ? "" : "s"} and everything on them` : i.detail ? `${i.label}: ${i.detail}` : i.label })), scan.tailscale && picked.has(scan.tailscaleWith) ? el("div", { textContent: "Bubble AI's Tailscale address" }) : null),
         hasData && !backedUp ? el("div", { className: "red", style: "margin-top:12px;font-size:13px" }, "You haven't saved a backup. ", button("Save one", showList, "link")) : null,
         ...warnings().map((w) => { w.className = "sub"; return w; }),
         el("label", { className: "type" }, `Type ${scan.word} to confirm`, input),
@@ -154,7 +154,7 @@
     const failed = steps.filter((s) => s.state === "failed").length;
     const later = steps.some((s) => s.state === "later");
     const title = !done ? "Removing…" : later ? "One thing is left to do" : failed ? `Finished, ${failed === 1 ? "1 step" : `${failed} steps`} failed` : "Removed";
-    const sub = !done ? "" : later ? "Wisp has to close so it can remove the app. Steps that failed are listed here and again after it closes." : "";
+    const sub = !done ? "" : later ? "Bubble AI has to close so it can remove the app. Steps that failed are listed here and again after it closes." : "";
     const mark = { running: "…", done: "✓", failed: "✕", later: "·" };
     app.replaceChildren(
       el("div", { className: "scroll" },
@@ -163,7 +163,7 @@
         el("div", { className: "card", style: "margin-top:14px" }, ...steps.map((s) =>
           el("div", { className: "row" }, el("span", { className: `i ${s.state === "done" ? "ok" : s.state === "failed" ? "red" : ""}`, textContent: mark[s.state], ariaHidden: "true" }), el("span", {}, s.label, s.detail ? el("span", { className: "s", textContent: s.detail }) : null)))),
       ),
-      done ? footer(button(later ? "Close Wisp and finish" : "Done", () => api.finish(), "go")) : footer(),
+      done ? footer(button(later ? "Close Bubble AI and finish" : "Done", () => api.finish(), "go")) : footer(),
     );
   }
 

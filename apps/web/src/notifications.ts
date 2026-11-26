@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { ClientEvent } from "@wisp/core";
+import type { ClientEvent } from "@bubble-ai/core";
 import { api } from "./api.ts";
 import { go } from "./router.ts";
 import { pushOnHere, reconcilePush, syncPushPrefs } from "./push.ts";
@@ -7,7 +7,7 @@ import type { useStore } from "./store.ts";
 
 /**
  * Desktop notifications, set up per device (Settings → Notifications): the browser asks once for
- * permission, and Wisp then tells you about the things you choose, by default only while you're
+ * permission, and Bubble AI then tells you about the things you choose, by default only while you're
  * looking at something else.
  */
 export interface NotifyPrefs {
@@ -23,7 +23,7 @@ export interface NotifyPrefs {
   /** a task you handed off is done or failed */
   tasks: boolean;
   sound: boolean;
-  /** only when Wisp isn't the window you're in */
+  /** only when Bubble AI isn't the window you're in */
   onlyAway: boolean;
 }
 

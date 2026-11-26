@@ -37,7 +37,7 @@ export function OfflineBanner({ phone }: { phone: boolean }) {
   return (
     <div role="status" className="shrink-0 flex items-center justify-center gap-3.5 px-5 py-3 bg-card border-b border-line text-sm font-medium">
       <WifiOff size={18} strokeWidth={1.8} className="text-muted" aria-hidden />
-      Can’t reach your Wisp
+      Can’t reach your Bubble AI
       <span className="text-faint" aria-hidden>
         ·
       </span>
@@ -66,7 +66,7 @@ export function UpdatedBanner({ phone }: { phone: boolean }) {
       role="status"
       className={phone ? "m-toast-top glass fixed inset-x-[18px] top-[122px] z-50 rounded-xl pl-[18px] pr-3.5 py-3.5 flex items-center gap-3" : "m-toast glass fixed right-6 bottom-6 z-50 w-[380px] rounded-3xl pl-5 pr-4 py-4 flex items-center gap-2.5"}
     >
-      <span className={phone ? "flex-1 text-base font-medium" : "flex-1 text-body font-medium"}>Wisp was updated</span>
+      <span className={phone ? "flex-1 text-base font-medium" : "flex-1 text-body font-medium"}>Bubble AI was updated</span>
       <button className="h-11 px-3.5 rounded-full text-muted text-body font-medium hover:text-ink" onClick={() => setLater(true)}>
         Not now
       </button>

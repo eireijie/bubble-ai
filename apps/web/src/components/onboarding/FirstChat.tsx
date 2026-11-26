@@ -3,7 +3,7 @@ import { SuggestionBanner } from "../SuggestionBanner.tsx";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { Bell } from "lucide-react";
-import type { Agent, Message } from "@wisp/core";
+import type { Agent, Message } from "@bubble-ai/core";
 import { enableNotifications, permission } from "../../notifications.ts";
 import { enablePush, pushSupported } from "../../push.ts";
 import { go, type Route } from "../../router.ts";
@@ -95,7 +95,7 @@ export function pingState(o: { answered: boolean; asked: boolean; busy: boolean;
 /** The one place to turn pings back on: the desktop app opens the system switch; a browser can only say where it is. */
 export function switchHelp(): { open?: () => void; where: string } {
   const desktop = typeof window !== "undefined" ? window.wispDesktop?.notifications : undefined;
-  if (desktop) return { open: () => void desktop.openSettings(), where: "System Settings › Notifications › Wisp" };
+  if (desktop) return { open: () => void desktop.openSettings(), where: "System Settings › Notifications › Bubble AI" };
   return { where: "your browser's site settings for this page (the icon left of the address)" };
 }
 
@@ -180,7 +180,7 @@ export function FirstChatExtras({ agent, channelId, workspaceId }: { agent: Agen
         <section className="first-chat-pop flex items-start gap-3 rounded-[18px] border border-line bg-card px-3.5 py-3" aria-label="Notifications" aria-live="polite">
           <Bell size={16} strokeWidth={1.7} className="mt-0.5 shrink-0 text-muted" aria-hidden />
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-ink">{ping === "on" ? "Pings are on." : ping === "off" ? "Pings are off for Wisp." : "Want a ping when this is done?"}</div>
+            <div className="text-[13px] font-medium text-ink">{ping === "on" ? "Pings are on." : ping === "off" ? "Pings are off for Bubble AI." : "Want a ping when this is done?"}</div>
             <div className="mt-0.5 text-[13px] leading-5 text-muted">
               {ping === "on"
                 ? "I'll only ping you when something's finished or I need a yes."

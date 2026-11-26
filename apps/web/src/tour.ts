@@ -1,8 +1,8 @@
-import type { FeatureKey, LearnProgress } from "@wisp/core";
+import type { FeatureKey, LearnProgress } from "@bubble-ai/core";
 import type { Route } from "./router.ts";
 
 /**
- * Show me around (2026-11-25 "Wisp, bubbles", boards 9 and 10): 25 stops in 5 chapters. The
+ * Show me around (2026-11-25 "Bubble AI, bubbles", boards 9 and 10): 25 stops in 5 chapters. The
  * person's agent flies to the real thing on each stop, the rest of the page dims, and a short card
  * says what it is. This file is the list of stops and the arithmetic over them, with no React, so
  * it can be tested. The overlay that runs it is components/tour/TourOverlay.tsx.
@@ -66,7 +66,7 @@ export const STOPS: Stop[] = [
   { id: "skills", ch: 2, place: { view: "marketplace" }, targets: ["#add-skills"], side: "left", noGuests: true, title: "Skills", body: "Jobs agents know how to do. Add them here, or do a task once on a computer and the agent saves it as a skill." },
   { id: "computers", ch: 2, place: "side", phonePlace: { view: "computers", computerId: null }, targets: [t("computers"), t("computers-list"), t("computers-page")], side: "top", noGuests: true, title: "Computers", body: "Agents work on their own computer, so yours stays free. The dot says how many are on.", phoneBody: "Agents work on their own computer, so yours stays free." },
   { id: "your-computers", ch: 2, place: { view: "computers", computerId: null }, targets: [t("computers-list"), t("computers-page")], side: "left", noGuests: true, title: "Your computers", body: "Watch live or take over. Agents can use your own computers too, only if you say so." },
-  { id: "phone", ch: 2, place: { view: "settings", page: "devices", item: "phone" }, targets: [t("settings-sheet")], side: "left", noGuests: true, title: "Your phone", body: "Scan this with the Wisp phone app. Same agents, same chats, approvals on the go." },
+  { id: "phone", ch: 2, place: { view: "settings", page: "devices", item: "phone" }, targets: [t("settings-sheet")], side: "left", noGuests: true, title: "Your phone", body: "Scan this with the Bubble AI phone app. Same agents, same chats, approvals on the go." },
   // Memory and teams
   { id: "vault", ch: 3, place: "side", phonePlace: { view: "vault", path: null }, targets: [t("vault"), t("vault-list"), t("vault-page")], side: "top", title: "Memory vault", body: "Notes agents keep about you and your work." },
   { id: "notes", ch: 3, place: { view: "vault", path: null }, targets: [t("vault-list"), t("vault-page")], side: "left", title: "Read every note", body: "Fix or delete anything. Every agent reads these, so you only say it once." },
@@ -79,7 +79,7 @@ export const STOPS: Stop[] = [
   { id: "agent-page", ch: 4, place: "chat", targets: [".agent-pill"], side: "bottom", title: "Agent page", body: "Click an agent's name for its page: look, apps, and what it asks first." },
   { id: "ai", ch: 4, place: { view: "settings", page: "harnesses", item: "accounts" }, targets: [t("settings-sheet")], side: "left", noGuests: true, title: "What runs your agents", body: "Each agent runs on an AI you already use, like Claude Code or Codex. Sign in once." },
   { id: "mods", ch: 4, place: { view: "mods" }, targets: ["#add-mods"], side: "left", mod: "tasks", noGuests: true, title: "Mods", body: "Whole extra features, like Tasks, Apple and Storage. Off until you want them." },
-  { id: "settings", ch: 4, place: "side", phonePlace: { view: "settings", page: null }, targets: [t("you"), t("settings-home"), t("settings-page")], side: "top", title: "Settings", body: "Everything else. Show me around lives here too, under Learn Wisp, and in Help." },
+  { id: "settings", ch: 4, place: "side", phonePlace: { view: "settings", page: null }, targets: [t("you"), t("settings-home"), t("settings-page")], side: "top", title: "Settings", body: "Everything else. Show me around lives here too, under Learn Bubble AI, and in Help." },
 ];
 
 export const TOTAL = STOPS.length;

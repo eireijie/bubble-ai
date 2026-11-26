@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 /** The flowchart follows the same model, rules, plain lines and templates as team-flow.ts in packages/core. */
 final class TeamFlowTests: XCTestCase {

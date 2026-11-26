@@ -1,4 +1,4 @@
-// Wisp desktop: the workspace in its own window, plus what only an app on this computer can do:
+// Bubble AI desktop: the workspace in its own window, plus what only an app on this computer can do:
 // run a hub here, connect this computer as a device for agents (one click, no token to copy), and
 // keep both going from the menu bar after the window closes.
 const { app, BrowserWindow, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, shell, Notification, systemPreferences } = require("electron");
@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const migration = require("./migration.cjs").createMigration({ appData: app.getPath("appData") });
-app.setName("Wisp");
+app.setName("Bubble AI");
 const migrated = migration.prepare();
 fs.mkdirSync(migrated.userData, { recursive: true });
 app.setPath("userData", migrated.userData);
@@ -111,11 +111,11 @@ function showPairing() {
 app.on("second-instance", (_event, argv = []) => {
   if (!argv.some(openPairing) && startupComplete) showWindow();
 });
-// any other wisp:// link still brings Wisp to the front instead of doing nothing
+// any other wisp:// link still brings Bubble AI to the front instead of doing nothing
 app.on("open-url", (event, url) => { event.preventDefault(); if (!openPairing(url) && startupComplete) showWindow(); });
 registerProtocols(app);
 
-app.setAboutPanelOptions?.({ applicationName: "Wisp", copyright: "Apache-2.0", website: GITHUB_URL });
+app.setAboutPanelOptions?.({ applicationName: "Bubble AI", copyright: "Apache-2.0", website: GITHUB_URL });
 
 // ---------------------------------------------------------------- window
 
@@ -146,7 +146,7 @@ function createWindow() {
     y: b?.y,
     minWidth: 880, // narrower and the web app switches to its phone layout (767px)
     minHeight: 520,
-    title: "Wisp",
+    title: "Bubble AI",
     icon: ICON,
     show: false,
     backgroundColor: "#ffffff",
@@ -161,7 +161,7 @@ function createWindow() {
   };
   win.on("resize", remember);
   win.on("move", remember);
-  // closing the window keeps Wisp (and its hub and device) running from the menu bar
+  // closing the window keeps Bubble AI (and its hub and device) running from the menu bar
   win.on("close", (e) => {
     if (quitting) return;
     e.preventDefault();
@@ -179,7 +179,7 @@ function createWindow() {
     if (/^https?:|^mailto:/.test(url) || isExternalAppLink(url)) shell.openExternal(url);
     return { action: "deny" };
   });
-  // a window Wisp opened only ever shows Wisp; anything else goes to the browser
+  // a window Bubble AI opened only ever shows Bubble AI; anything else goes to the browser
   win.webContents.on("did-create-window", (child) => {
     child.webContents.on("will-navigate", (e, url) => {
       if (onOrigin(url, hubOrigin)) return;
@@ -303,14 +303,14 @@ async function connect(restartDevice = false) {
 
   const started = await startLocalHub(() => showSetup({ step: "starting" }));
   if (started.problem) return showSetup({ step: "create", ...started });
-  // a new Wisp here: its setup link, so making the first account doesn't ask for the code
+  // a new Bubble AI here: its setup link, so making the first account doesn't ask for the code
   const setupCode = engine.localSetupCode(config.wispDir);
   openHub(LOCAL_HUB, setupCode ? `#/setup/${setupCode}` : openOnboarding ? "#/welcome/intro" : "");
   openOnboarding = false;
   startDeviceIfWanted();
 }
 
-/** How to run Wisp here: the app's own copy, or from source a Wisp folder and Node 22+. */
+/** How to run Bubble AI here: the app's own copy, or from source a Bubble AI folder and Node 22+. */
 function needs() {
   const found = engine.runtime(config.wispDir);
   if (!found.problem && !found.bundled && config.wispDir !== found.wispDir) {
@@ -333,7 +333,7 @@ async function sessionToken() {
 }
 
 /**
- * Make this computer a device of the Wisp in the window, if the person chose that. A device
+ * Make this computer a device of the Bubble AI in the window, if the person chose that. A device
  * already set up for this hub just starts; otherwise it's added for whoever signs in, as soon as
  * they do (a hub's first account is made in the window, after the app has opened it).
  */
@@ -369,7 +369,7 @@ async function startDevice({ quiet = false, confirmed = false, claim = null } = 
   deviceError = "";
   if (!hubOrigin) return;
   const service = await engine.serviceRunning("node");
-  // a device card in Wisp that never connected: this computer becomes that device
+  // a device card in Bubble AI that never connected: this computer becomes that device
   if (claim?.token) {
     if (device.running()) await stopAndWait();
     engine.writeNodeConfig({ hub: hubOrigin, token: claim.token, nodeId: undefined, name: claim.name || deviceName() });
@@ -389,17 +389,17 @@ async function startDevice({ quiet = false, confirmed = false, claim = null } = 
   if (cfg.hub && cfg.token && !sameHub && !confirmed) {
     const { response } = await dialog.showMessageBox(win, {
       type: "question",
-      buttons: ["Connect to this Wisp", "Cancel"],
+      buttons: ["Connect to this Bubble AI", "Cancel"],
       defaultId: 0,
       cancelId: 1,
-      message: "This computer is a device of another Wisp",
+      message: "This computer is a device of another Bubble AI",
       detail: `It's set up for ${cfg.hub}. Connecting it to ${hubOrigin} instead disconnects it from there.`,
     });
     if (response !== 0) return;
   }
   if (!sameHub) {
     const token = await sessionToken();
-    if (!token) return fail("Sign in to Wisp first, then connect this computer.");
+    if (!token) return fail("Sign in to Bubble AI first, then connect this computer.");
     try {
       const res = await fetch(new URL("/api/nodes", hubOrigin), {
         method: "POST",
@@ -417,7 +417,7 @@ async function startDevice({ quiet = false, confirmed = false, claim = null } = 
   config.device = true;
   save();
   if (service) {
-    // `wisp service install node` runs the device here: point it at this hub instead
+    // `bubble-ai service install node` runs the device here: point it at this hub instead
     if (!(await engine.restartService("node"))) {
       deviceBy = "";
       deviceOnline = false;
@@ -425,12 +425,12 @@ async function startDevice({ quiet = false, confirmed = false, claim = null } = 
     }
     deviceBy = "service";
     refresh();
-    if (!quiet) notify(`${deviceName()} is a device now`, "Agents can run here. Choose what it does for them in Wisp → Devices.");
+    if (!quiet) notify(`${deviceName()} is a device now`, "Agents can run here. Choose what it does for them in Bubble AI → Devices.");
     return;
   }
   deviceBy = "app";
-  device.start(found.node, found.wispDir, ["node", "start"], { ...found.env, WISP_EXIT_IF_REJECTED: "1" });
-  if (!quiet) notify(`${deviceName()} is a device now`, "Agents can run here. Choose what it does for them in Wisp → Devices.");
+  device.start(found.node, found.wispDir, ["node", "start"], { ...found.env, BUBBLE_EXIT_IF_REJECTED: "1" });
+  if (!quiet) notify(`${deviceName()} is a device now`, "Agents can run here. Choose what it does for them in Bubble AI → Devices.");
 
   function fail(msg) {
     deviceError = msg;
@@ -506,7 +506,7 @@ const sameOrigin = (a, b) => {
 function setDeviceFlag(key, on) {
   engine.writeNodeConfig(key === "shareScreen" ? { shareScreen: on, noScreen: on ? undefined : engine.readNodeConfig().noScreen } : { [key]: on });
   refresh();
-  // like `wisp node screen on`: turning the screen on asks for a code when there isn't one
+  // like `bubble-ai node screen on`: turning the screen on asks for a code when there isn't one
   if (key === "shareScreen" && on && !engine.readNodeConfig().screenCode) showCodeWindow(false);
 }
 
@@ -514,7 +514,7 @@ function setDeviceFlag(key, on) {
 let codeWin = null;
 let codeSaved = false;
 
-/** Pick (or change) the code that opens this screen from Wisp, in a small window of its own. */
+/** Pick (or change) the code that opens this screen from Bubble AI, in a small window of its own. */
 function showCodeWindow(change) {
   if (codeWin) return codeWin.focus();
   codeSaved = false;
@@ -539,7 +539,7 @@ function showCodeWindow(change) {
   codeWin.on("closed", () => {
     codeWin = null;
     if (!codeSaved && !change && !engine.readNodeConfig().screenCode)
-      notify("No code for this screen", "Your Wisp sign-in alone opens it. Pick one from the menu: Pick a Screen Code…");
+      notify("No code for this screen", "Your Bubble AI sign-in alone opens it. Pick one from the menu: Pick a Screen Code…");
   });
   codeWin.loadFile(path.join(__dirname, "screen-code.html"), { query: { state: JSON.stringify({ change }) } });
 }
@@ -551,13 +551,13 @@ ipcMain.handle("screen-code:save", (e, input) => {
   if (r.error) return { error: r.error };
   engine.writeNodeConfig({ screenCode: r.screenCode });
   codeSaved = true;
-  notify("Screen code saved", `You'll enter this ${r.screenCode.kind === "pin" ? "PIN" : "password"} in Wisp to watch this screen.`);
+  notify("Screen code saved", `You'll enter this ${r.screenCode.kind === "pin" ? "PIN" : "password"} in Bubble AI to watch this screen.`);
   codeWin.close();
   refresh();
   return { ok: true };
 });
 
-// ---------------------------------------------------------------- removing Wisp from this computer
+// ---------------------------------------------------------------- removing Bubble AI from this computer
 
 /** @type {BrowserWindow | null} */
 let removeWin = null;
@@ -569,7 +569,7 @@ let removal = null;
 /** A folder for tests moves every path; outside the temp folder it switches the feature off. */
 function removalEngine() {
   if (removal) return removal;
-  const root = process.env.WISP_REMOVAL_ROOT || "";
+  const root = process.env.BUBBLE_REMOVAL_ROOT || "";
   removal = createRemoval({
     home: os.homedir(), appData: app.getPath("appData"), root, packaged: app.isPackaged, port: PORT, // os.homedir() follows HOME
     env: root ? process.env : engine.env(),
@@ -589,7 +589,7 @@ async function hubGet(token, route) {
 
 /**
  * This computer's person, as far as the app can tell: on a computer running the hub, its owner;
- * on one that joined a Wisp elsewhere, whoever uses it, since only this computer changes.
+ * on one that joined a Bubble AI elsewhere, whoever uses it, since only this computer changes.
  */
 async function canRemove() {
   try { removalEngine(); } catch { return false; }
@@ -608,7 +608,7 @@ function showRemovalWindow() {
     useContentSize: true,
     minimizable: false,
     fullscreenable: false,
-    title: "Remove Wisp",
+    title: "Remove Bubble AI",
     icon: ICON,
     show: false,
     backgroundColor: nativeTheme?.shouldUseDarkColors ? "#18181b" : "#ffffff",
@@ -647,10 +647,10 @@ async function removalContext() {
       const others = nodes.filter((n) => n.id !== self).length;
       const people = Math.max(0, members.length - 1);
       const uses = [others && `${others} other device${others === 1 ? "" : "s"}`, people && `${people} other ${people === 1 ? "person" : "people"}`].filter(Boolean);
-      if (uses.length) warnings.push({ bad: true, text: `This computer runs your Wisp. ${others + people === 1 ? `${uses[0]} uses it and loses access.` : `${uses.join(" and ")} use it and lose access.`}` });
-    } else warnings.push({ bad: true, text: "This computer runs your Wisp. Wisp couldn't check who else uses it. Anyone who does loses access." });
+      if (uses.length) warnings.push({ bad: true, text: `This computer runs your Bubble AI. ${others + people === 1 ? `${uses[0]} uses it and loses access.` : `${uses.join(" and ")} use it and lose access.`}` });
+    } else warnings.push({ bad: true, text: "This computer runs your Bubble AI. Bubble AI couldn't check who else uses it. Anyone who does loses access." });
   } else if (config.mode === "remote" && config.hubUrl) {
-    warnings.push({ text: `Your Wisp at ${hostOf(config.hubUrl)} stays as it is, with its chats and memory. This computer shows as offline there until you remove it in Devices.` });
+    warnings.push({ text: `Your Bubble AI at ${hostOf(config.hubUrl)} stays as it is, with its chats and memory. This computer shows as offline there until you remove it in Devices.` });
   }
   if (config.cloud) {
     const by = cloud.provider(config.cloud.provider ?? "hetzner").name;
@@ -708,7 +708,7 @@ removalCall("removal:start", async (ids, word) => {
   }
 });
 
-/** Hand over to the helper and quit; or, with the app kept, go back to a Wisp or to its start screen. */
+/** Hand over to the helper and quit; or, with the app kept, go back to a Bubble AI or to its start screen. */
 function finishRemoval() {
   const result = removalResult;
   removalResult = null;
@@ -774,8 +774,8 @@ function serverAddressItems() {
   if (!addrs.length) return [];
   return [
     {
-      label: "Copy Wisp Address",
-      submenu: addrs.map((a) => ({ label: a.replace(/^http:\/\//, ""), click: () => (clipboard.writeText(a), notify("Wisp address copied", "Share this address with your other computers.")) })),
+      label: "Copy Bubble AI Address",
+      submenu: addrs.map((a) => ({ label: a.replace(/^http:\/\//, ""), click: () => (clipboard.writeText(a), notify("Bubble AI address copied", "Share this address with your other computers.")) })),
     },
   ];
 }
@@ -787,14 +787,14 @@ function trayMenu() {
     { label: hubLine(), enabled: false },
     { label: deviceLine(), enabled: false },
     { type: "separator" },
-    { label: "Open Wisp", click: () => (switchingFrom ? returnToServer() : showWindow()) },
+    { label: "Open Bubble AI", click: () => (switchingFrom ? returnToServer() : showWindow()) },
     ...serverAddressItems(),
     buddy.menu(),
     { type: "separator" },
     isDevice || deviceWaiting
       ? { label: deviceWaiting ? "Don't Make This Computer a Device" : "Disconnect This Computer for Agents…", enabled: deviceBy !== "service", click: () => stopDevice() }
       : { label: "Connect This Computer for Agents…", enabled: !!hubOrigin, click: () => startDevice() },
-    { label: "Let Me Use This Screen from Wisp", type: "checkbox", visible: isDevice, checked: !!n.shareScreen && !n.noScreen, click: (i) => setDeviceFlag("shareScreen", i.checked) },
+    { label: "Let Me Use This Screen from Bubble AI", type: "checkbox", visible: isDevice, checked: !!n.shareScreen && !n.noScreen, click: (i) => setDeviceFlag("shareScreen", i.checked) },
     { label: n.screenCode ? "Change Screen Code…" : "Pick a Screen Code…", visible: isDevice && !!n.shareScreen && !n.noScreen, click: () => showCodeWindow(!!n.screenCode) },
     { label: "Pause Agents on This Computer", type: "checkbox", visible: isDevice, checked: !!n.paused, click: (i) => setDeviceFlag("paused", i.checked) },
     { type: "separator" },
@@ -804,7 +804,7 @@ function trayMenu() {
     { label: "Update Automatically", type: "checkbox", checked: config.autoUpdate !== false, click: (i) => ((config.autoUpdate = i.checked), save()) },
     { label: "Show Logs", click: () => shell.openPath(logDir) },
     { type: "separator" },
-    { label: "Quit Wisp", accelerator: "CmdOrCtrl+Q", click: () => app.quit() },
+    { label: "Quit Bubble AI", accelerator: "CmdOrCtrl+Q", click: () => app.quit() },
   ]);
 }
 
@@ -818,7 +818,7 @@ function appMenu() {
   const mac = process.platform === "darwin";
   return Menu.buildFromTemplate([
     ...(mac
-      ? [{ label: "Wisp", submenu: [{ role: "about" }, { label: "Check for Updates…", click: () => updater.check() }, { type: "separator" }, { label: "Settings…", accelerator: "Cmd+,", click: go("settings") }, { type: "separator" }, { role: "hide" }, { role: "hideOthers" }, { role: "unhide" }, { type: "separator" }, { role: "quit" }] }]
+      ? [{ label: "Bubble AI", submenu: [{ role: "about" }, { label: "Check for Updates…", click: () => updater.check() }, { type: "separator" }, { label: "Settings…", accelerator: "Cmd+,", click: go("settings") }, { type: "separator" }, { role: "hide" }, { role: "hideOthers" }, { role: "unhide" }, { type: "separator" }, { role: "quit" }] }]
       : []),
     { label: "File", submenu: [{ label: "Create or Join Another Server…", click: () => showAnotherServer() }, { type: "separator" }, mac ? { role: "close" } : { role: "quit" }] },
     { role: "editMenu" },
@@ -842,14 +842,14 @@ function appMenu() {
       ],
     },
     { role: "windowMenu" },
-    { role: "help", submenu: [{ label: "Wisp on GitHub", click: () => shell.openExternal(GITHUB_URL) }, ...(mac ? [] : [{ label: "Check for Updates…", click: () => updater.check() }]), { label: "Show Logs", click: () => shell.openPath(logDir) }] },
+    { role: "help", submenu: [{ label: "Bubble AI on GitHub", click: () => shell.openExternal(GITHUB_URL) }, ...(mac ? [] : [{ label: "Check for Updates…", click: () => updater.check() }]), { label: "Show Logs", click: () => shell.openPath(logDir) }] },
   ]);
 }
 
 function refresh() {
   if (!app.isReady()) return;
   tray?.setContextMenu(trayMenu());
-  tray?.setToolTip(`Wisp: ${hubLine()}`);
+  tray?.setToolTip(`Bubble AI: ${hubLine()}`);
 }
 
 function notify(title, body) {
@@ -910,7 +910,7 @@ setup("setup:poll-join", () => {
       const result = await joinClient.poll();
       if (result.status !== "approved") return { ok: true, status: result.status };
       switchTo({ mode: "remote", hubUrl: result.hubUrl, cloud: sameOrigin(result.hubUrl, config.hubUrl ?? "") ? config.cloud : undefined, device: true });
-      // hubId lets this computer find its Wisp again if the address changes; undefined clears one from an earlier Wisp
+      // hubId lets this computer find its Bubble AI again if the address changes; undefined clears one from an earlier Bubble AI
       engine.writeNodeConfig({ hub: result.hubUrl, token: result.nodeToken, nodeId: result.nodeId, name: deviceName(), hubId: typeof result.hubId === "string" ? result.hubId : undefined });
       joinClient.cancel();
       await connect(true);
@@ -980,7 +980,7 @@ const pendingFor = (server) => ({ provider: server.provider, id: server.id, name
  * A server that was created but didn't finish setting up keeps its setup key here (`cloudPending`),
  * even across restarts: only that key can make its first account, so "Keep waiting" (`resume`, the
  * server's id) picks it up again instead of leaving it unusable. When it's done, the setup page
- * opens Wisp itself (setup:open), after the RustDesk step if there is one.
+ * opens Bubble AI itself (setup:open), after the RustDesk step if there is one.
  */
 setup("setup:cloud-create", async (providerId, token, { type, location, account, device: asDevice = false, resume = null } = {}) => {
   const pending = resume != null && config.cloudPending?.server?.id === resume ? config.cloudPending : undefined;
@@ -1088,7 +1088,7 @@ ipcMain.handle("microphone:open-settings", async (e) => {
 // Notifications: after "Don't Allow", only the system's own switch turns them back on; open exactly that one.
 ipcMain.handle("notifications:open-settings", async (e) => {
   if (!fromHub(e)) return;
-  if (process.platform === "darwin") await shell.openExternal("x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=ai.wisp.desktop");
+  if (process.platform === "darwin") await shell.openExternal("x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=ai.bubbleai.desktop");
   else if (process.platform === "win32") await shell.openExternal("ms-settings:notifications");
 });
 ipcMain.handle("removal:available", (e) => (fromHub(e) ? canRemove() : false));
@@ -1116,7 +1116,7 @@ app.whenReady().then(async () => {
   updater.start();
   deviceStatusTimer = setInterval(() => void readDeviceStatus(), 15_000);
 }).catch((err) => {
-  dialog.showErrorBox("Couldn’t migrate Wisp", err.message);
+  dialog.showErrorBox("Couldn’t migrate Bubble AI", err.message);
   app.quit();
 });
 

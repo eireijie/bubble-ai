@@ -110,7 +110,7 @@ export function OrgList({ onDone, onNewOrg }: { onDone: () => void; onNewOrg?: (
   );
 }
 
-/** The popover version, for the Wisp ghost at the top of the desktop rail. */
+/** The popover version, for the Bubble AI ghost at the top of the desktop rail. */
 export function OrgSwitcher({ trigger }: { trigger: (open: boolean, toggle: () => void) => ReactNode }) {
   // The dialog lives beside the popover, not in it: it is portaled to <body>, so a click in it would count as outside the popover and close it.
   const [newOrg, setNewOrg] = useState(false);

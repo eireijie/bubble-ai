@@ -1,4 +1,4 @@
-import type { ClientEvent } from "@wisp/core";
+import type { ClientEvent } from "@bubble-ai/core";
 
 const TOKEN_KEY = "wisp.token";
 
@@ -73,8 +73,8 @@ export async function fileBlob(id: string): Promise<Blob> {
 export async function fileUrl(id: string): Promise<string> {
   const res = await fetch(`/api/files/${id}`, { headers: { authorization: `Bearer ${getToken()}` } });
   if (!res.ok) throw new ApiError("file unavailable", res.status);
-  // An object URL opens on Wisp's own origin, so only plain media keeps its type; anything else
-  // (an uploaded HTML, SVG or XML file) becomes plain bytes that can't run as Wisp.
+  // An object URL opens on Bubble AI's own origin, so only plain media keeps its type; anything else
+  // (an uploaded HTML, SVG or XML file) becomes plain bytes that can't run as Bubble AI.
   const blob = await res.blob();
   return URL.createObjectURL(INLINE_TYPE.test(blob.type) ? blob : new Blob([blob], { type: "application/octet-stream" }));
 }

@@ -1,6 +1,6 @@
 // RustDesk, recommended during setup when agents will use this computer: free, open-source remote
 // desktop (AGPL-3.0, installed as its own unchanged app), so the person can watch or take over
-// this screen from their phone. Same idea as `wisp node rustdesk`: Wisp installs it, reads its ID
+// this screen from their phone. Same idea as `bubble-ai node rustdesk`: Bubble AI installs it, reads its ID
 // into node.json (the device reports it to the hub), and never sees its password.
 const { execFile, spawn } = require("node:child_process");
 const fs = require("node:fs");

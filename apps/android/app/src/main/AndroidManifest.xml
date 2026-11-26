@@ -13,9 +13,9 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="Wisp"
+        android:label="Bubble AI"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Wisp"
+        android:theme="@style/Theme.Bubble AI"
         android:usesCleartextTraffic="true">
 
         <!-- the QR scanner module downloads with the app instead of on first scan -->
@@ -41,7 +41,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- pairing QR codes are wisp://pair links, so the camera app opens them in Wisp -->
+            <!-- pairing QR codes are wisp://pair links, so the camera app opens them in Bubble AI -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

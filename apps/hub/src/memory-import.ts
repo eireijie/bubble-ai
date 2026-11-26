@@ -1,5 +1,5 @@
-import { looksSecret } from "@wisp/core/src/memory-import.ts";
-import type { Vault } from "@wisp/vault";
+import { looksSecret } from "@bubble-ai/core/src/memory-import.ts";
+import type { Vault } from "@bubble-ai/vault";
 
 /**
  * "Bring what your AI already knows", saved: the lines the person ticked go into the agent's own
@@ -30,9 +30,9 @@ function fileName(title: string): string {
 }
 
 /**
- * A project line's name, so every line about one project lands in one note. "Wisp: an agents
- * app" → "Wisp"; with no short label first, the capitalized words it opens with: "Wisp's next
- * step is…" and "Hotel Reconciliation Center is…" → "Wisp", "Hotel Reconciliation Center".
+ * A project line's name, so every line about one project lands in one note. "Bubble AI: an agents
+ * app" → "Bubble AI"; with no short label first, the capitalized words it opens with: "Bubble AI's next
+ * step is…" and "Hotel Reconciliation Center is…" → "Bubble AI", "Hotel Reconciliation Center".
  * Null when the line names nothing, so it goes in the Projects note.
  */
 export function projectName(text: string): string | null {

@@ -1,4 +1,4 @@
-import { CREDENTIAL_SUPPORT, ConnectionSecret, harnessesFor, keyHint, type ConnectionKind, type ConnectionModel, type HarnessCatalog, type ModelConnection, type ModelProvider, type PlanUsage, type RunCredential } from "@wisp/core";
+import { CREDENTIAL_SUPPORT, ConnectionSecret, harnessesFor, keyHint, type ConnectionKind, type ConnectionModel, type HarnessCatalog, type ModelConnection, type ModelProvider, type PlanUsage, type RunCredential } from "@bubble-ai/core";
 import { id, now } from "./auth.ts";
 import type { Db } from "./db.ts";
 

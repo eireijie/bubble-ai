@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { frontMatter, shortDescription, type CommandOption } from "@wisp/core";
+import { frontMatter, shortDescription, type CommandOption } from "@bubble-ai/core";
 
 /**
  * Commands and skills a harness keeps in files on this device, for the "/" menu in chat.
@@ -38,7 +38,7 @@ export async function commandsIn(dir: string, prefix = ""): Promise<CommandOptio
   return out;
 }
 
-/** Claude Code's built-in commands that work when it runs headless, as Wisp runs it. */
+/** Claude Code's built-in commands that work when it runs headless, as Bubble AI runs it. */
 export const CLAUDE_BUILTINS: CommandOption[] = [
   { name: "compact", description: "Shrink the conversation so it can keep going", hint: "what to keep", kind: "command", via: "raw", builtIn: true },
   { name: "review", description: "Review a pull request", kind: "command", via: "raw", builtIn: true },
@@ -47,7 +47,7 @@ export const CLAUDE_BUILTINS: CommandOption[] = [
   { name: "pr-comments", description: "Read the comments on a pull request", kind: "command", via: "raw", builtIn: true },
 ];
 
-/** Claude Code commands Wisp leaves out of "/": Wisp has its own, or they only work in its terminal. */
+/** Claude Code commands Bubble AI leaves out of "/": Bubble AI has its own, or they only work in its terminal. */
 const CLAUDE_SKIP = new Set([
   "clear", "color", "config", "fast", "focus", "heapdump", "rename", "output-style", "doctor", "reload-plugins", "reload-skills", "agents", "mcp", "import",
   "auto-mode-setup", "autocompact", "design-consent", "design-revoke", "list-agents", "team-onboarding", "workflow-launch-exec", "model", "effort", "context",

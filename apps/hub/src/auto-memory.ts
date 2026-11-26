@@ -1,4 +1,4 @@
-import { noteWords, overlap } from "@wisp/vault";
+import { noteWords, overlap } from "@bubble-ai/vault";
 import { SLOW_DOWN_AT } from "./background.ts";
 import { agentPolicy } from "./policy.ts";
 import type { Hub } from "./hub.ts";
@@ -41,7 +41,7 @@ const EXCERPT = 600;
 
 /** Tools that save to memory or skills: a run that used one saved on its own. */
 const SAVING = /^(memory_(write|append|remember|forget)|skill_save|routine_save)$/;
-/** Tools that don't count as doing work (Wisp's own bookkeeping). */
+/** Tools that don't count as doing work (Bubble AI's own bookkeeping). */
 const BOOKKEEPING = /^(memory_|skill_|settings_|followup_|chat_|approval_request|next_check|task_update|TodoWrite)/;
 
 /** The person said something lasting about themselves or a decision. */
@@ -279,7 +279,7 @@ export class AutoMemory {
     const skillItems = (p?.items ?? []).flatMap((i, n) => (i.skill ? [n + 1] : []));
     const learned = this.hub.skills.forAgent(agent.id).filter((s) => s.source === "learned");
     return [
-      `You are @${agent.handle} ("${agent.name}") in the Wisp workspace "${store.workspace(agent.workspaceId)?.name}". This is a short memory pass Wisp runs after your recent work. Nothing you write here is posted; only what you save is kept, and people can see and undo every save in Memory.`,
+      `You are @${agent.handle} ("${agent.name}") in the Bubble AI workspace "${store.workspace(agent.workspaceId)?.name}". This is a short memory pass Bubble AI runs after your recent work. Nothing you write here is posted; only what you save is kept, and people can see and undo every save in Memory.`,
       items.length ? `\n## What happened\n${items.join("\n")}` : "",
       `\n## What to do`,
       `- For each item, decide whether anything is worth keeping: a decision, a preference, a result someone will need again, how a connected app or site works, a fact about a project or person. Skip small talk, one-off answers and anything memory already has.`,
@@ -289,7 +289,7 @@ export class AutoMemory {
       skillItems.length
         ? `- ${skillItems.length === 1 ? `Item ${skillItems[0]}` : `Items ${skillItems.join(", ")}`}: save how to do it with skill_save (short numbered steps with the specifics that mattered, and where to stop and ask a person).${learned.length ? ` If one of your skills already covers it (${learned.map((s) => `/${s.slug}`).join(", ")}), save under that name to update it.` : ""}`
         : "",
-      merges.length ? `- Wisp found notes that may say the same thing: ${merges.map(([a, b]) => `${a} and ${b}`).join("; ")}. If they do, merge them into one and memory_forget the other; if not, link them.` : "",
+      merges.length ? `- Bubble AI found notes that may say the same thing: ${merges.map(([a, b]) => `${a} and ${b}`).join("; ")}. If they do, merge them into one and memory_forget the other; if not, link them.` : "",
       `- Never save passwords, keys, tokens, card numbers or one-time codes; write where the secret lives instead.`,
       `\nKeep it short: a few tool calls. When you're done, reply with one line saying what you saved, or "nothing" if nothing was worth keeping.`,
     ]
@@ -325,7 +325,7 @@ export class AutoMemory {
       const hints = await vault.hints(p, note.content, inScope);
       if (n.links === 0) {
         const links = [...new Set([...hints.linkable, ...hints.similar.map((s) => `[[${s.path.split("/").pop()!.replace(/\.md$/i, "")}]]`)])].slice(0, 3);
-        if (links.length) await vault.write(p, `${note.content.replace(/\s+$/, "")}\n\nRelated: ${links.join(", ")}\n`, { name: "Wisp", email: "wisp@localhost" }, `Tidy: link ${p} to related notes`);
+        if (links.length) await vault.write(p, `${note.content.replace(/\s+$/, "")}\n\nRelated: ${links.join(", ")}\n`, { name: "Bubble AI", email: "wisp@localhost" }, `Tidy: link ${p} to related notes`);
       }
       // the agent that owns the folder merges, and only notes it can edit
       const owner = scope.startsWith("agents/") ? scope.split("/")[1] : null;

@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { ConnectorSpec } from "@wisp/core";
+import type { ConnectorSpec } from "@bubble-ai/core";
 import { acpMcpServers, claudeArgs, codexArgs, codexEnv } from "../src/index.ts";
 
 const connectors: ConnectorSpec[] = [
   { name: "github", kind: "mcp-http", url: "https://api.githubcopilot.com/mcp/", headers: { Authorization: "Bearer t0k" } },
   { name: "postgres", kind: "mcp-stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-postgres", "postgres://h/db"], env: { PGSSL: "1" } },
   { name: "legacy", kind: "mcp-http", url: "https://example.com/sse" },
-  // Wisp's own servers can't be replaced by a connector
+  // Bubble AI's own servers can't be replaced by a connector
   { name: "wisp", kind: "mcp-stdio", command: "evil" },
 ];
-const wisp = { command: "node", args: ["wisp-mcp.mjs"], env: { WISP_TOKEN: "x" } };
+const wisp = { command: "node", args: ["bubble-ai-mcp.mjs"], env: { BUBBLE_TOKEN: "x" } };
 
 describe("connectors reach the harness", () => {
   it("claude: --mcp-config with stdio, http and sse servers, all pre-allowed", () => {
@@ -33,20 +33,20 @@ describe("connectors reach the harness", () => {
     expect(a).toEqual(
       expect.arrayContaining([
         'mcp_servers.github.url="https://api.githubcopilot.com/mcp/"',
-        'mcp_servers.github.env_http_headers={Authorization="WISP_HEADER_GITHUB_AUTHORIZATION"}',
+        'mcp_servers.github.env_http_headers={Authorization="BUBBLE_HEADER_GITHUB_AUTHORIZATION"}',
         'mcp_servers.postgres.command="npx"',
         'mcp_servers.postgres.args=["-y","@modelcontextprotocol/server-postgres","postgres://h/db"]',
         'mcp_servers.postgres.env_vars=["PGSSL"]',
-        'mcp_servers.wisp.env_vars=["WISP_TOKEN"]',
+        'mcp_servers.wisp.env_vars=["BUBBLE_TOKEN"]',
       ]),
     );
     expect(a).not.toContain('mcp_servers.wisp.command="evil"');
     // nothing secret in `ps`
-    expect(a.join(" ")).not.toMatch(/t0k|WISP_TOKEN="x"/);
-    expect(codexEnv(input)).toEqual({ WISP_TOKEN: "x", PGSSL: "1", WISP_HEADER_GITHUB_AUTHORIZATION: "Bearer t0k" });
+    expect(a.join(" ")).not.toMatch(/t0k|BUBBLE_TOKEN="x"/);
+    expect(codexEnv(input)).toEqual({ BUBBLE_TOKEN: "x", PGSSL: "1", BUBBLE_HEADER_GITHUB_AUTHORIZATION: "Bearer t0k" });
   });
 
-  it("codex: waits for Wisp's own tools and fails the run without them; its browser and connected apps get the same time but aren't required", () => {
+  it("codex: waits for Bubble AI's own tools and fails the run without them; its browser and connected apps get the same time but aren't required", () => {
     // Codex starts a turn without a server that's slow to come up, and the agent then has no way to message, follow up or ask
     const a = codexArgs({ prompt: "", cwd: "/", mcp: wisp, browser: { command: "wisp-browser-mcp", args: [], env: {} }, connectors });
     expect(a).toContain("mcp_servers.wisp.required=true");

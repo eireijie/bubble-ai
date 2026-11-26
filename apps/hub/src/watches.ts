@@ -1,4 +1,4 @@
-import { aboutKey, frameOutside, watchEstimate, WATCH_SERVICES, type AppEvent, type Watch, type WatchService, type WatchServiceInfo } from "@wisp/core";
+import { aboutKey, frameOutside, watchEstimate, WATCH_SERVICES, type AppEvent, type Watch, type WatchService, type WatchServiceInfo } from "@bubble-ai/core";
 import { id, now } from "./auth.ts";
 import { inQuietHours, SLOW_DOWN_AT } from "./background.ts";
 import { isPublicUrl } from "./connector-auth.ts";
@@ -30,17 +30,17 @@ const ANSWER_WINDOW_MS = 3 * 24 * 60 * 60_000;
 const MENTIONS_SHOWN_MS = 30 * 24 * 60 * 60_000;
 export const BROWSER_EVERY_MINUTES = 6 * 60;
 export const BROWSER_MIN_MINUTES = 2 * 60;
-/** A page Wisp could read that fails this many looks in a row is handed to the agent's browser. */
+/** A page Bubble AI could read that fails this many looks in a row is handed to the agent's browser. */
 const PAGE_FAILS_BEFORE_AGENT = 3;
 /** Quiet looks in a row that keep doubling a signed-in site's wait (capped at a day). */
 const MAX_QUIET_LOOKS = 4;
 /** New lines from the page, at most, passed to the agent. */
 const MAX_NEW_LINES = 15;
-/** In a browser check's preview: what to look for, then this, then the lines Wisp saw added. */
+/** In a browser check's preview: what to look for, then this, then the lines Bubble AI saw added. */
 const NEW_ON_PAGE = "\n[new on the page]\n";
 
 /**
- * Where a website watch stands. `page`: Wisp reads it itself and keeps a key per line (no text), and the
+ * Where a website watch stands. `page`: Bubble AI reads it itself and keeps a key per line (no text), and the
  * agent is woken only when lines were added. Otherwise the agent looks in its own browser, and `quiet`
  * counts its looks in a row that found nothing to say.
  */
@@ -202,7 +202,7 @@ export class Watches {
     return (this.db.prepare("SELECT w.service, w.connector_id AS connectorId FROM watches w JOIN watch_agents a ON a.watch_id = w.id WHERE a.agent_id = ? AND w.user_id = ? AND w.paused = 0").all(agentId, userId) as { service: WatchService; connectorId: string | null }[]);
   }
 
-  /** Whether Wisp reads this website watch's page itself (so the agent is only woken when it changes). */
+  /** Whether Bubble AI reads this website watch's page itself (so the agent is only woken when it changes). */
   readsPage(watchId: string) {
     return !!siteState(this.row(watchId)?.cursor ?? null).page;
   }
@@ -260,7 +260,7 @@ export class Watches {
       // unless it's told otherwise, it looks as often as the agent checks in for this person, so the two never disagree
       const pace = agentIds.length === 1 ? this.hub.store.background(agentIds[0], input.userId)?.everyMinutes : undefined;
       every = Math.min(24 * 60, Math.max(BROWSER_MIN_MINUTES, Math.round(input.everyMinutes ?? pace ?? BROWSER_EVERY_MINUTES)));
-      // a page Wisp can read itself is compared from now on, at no cost; the agent already saw it while setting this up
+      // a page Bubble AI can read itself is compared from now on, at no cost; the agent already saw it while setting this up
       const read = await readPage(this.fetch, url);
       if (read.ok) cursor = JSON.stringify({ page: read.lines.map(lineKey) } satisfies SiteState);
     } else {
@@ -423,7 +423,7 @@ export class Watches {
   }
 
   /**
-   * A website watch's look. Wisp reads the page itself when it can (no sign-in needed, the text is in the
+   * A website watch's look. Bubble AI reads the page itself when it can (no sign-in needed, the text is in the
    * page) and wakes the agent only with lines that are new. Otherwise the agent looks in its browser.
    */
   private async lookAtSite(r: WatchRow, at: Date) {
@@ -616,7 +616,7 @@ export class Watches {
       const [lookFor, added] = (s.preview ?? "").split(NEW_ON_PAGE);
       out.push(
         added
-          ? `\n${s.title} changed. Wisp read ${s.url} and these lines are new since it last looked:\n${frameOutside(`the web page ${s.url}`, added.split("\n").map((l) => `  ${l}`).join("\n"))}\nYou're watching it for: ${lookFor}. If these lines answer that, you don't need to open the site; open it only to see more. Most changes need nothing from you. Only tell ${name} what's new and matters.`
+          ? `\n${s.title} changed. Bubble AI read ${s.url} and these lines are new since it last looked:\n${frameOutside(`the web page ${s.url}`, added.split("\n").map((l) => `  ${l}`).join("\n"))}\nYou're watching it for: ${lookFor}. If these lines answer that, you don't need to open the site; open it only to see more. Most changes need nothing from you. Only tell ${name} what's new and matters.`
           : `\nTime to look at ${s.title}: open ${s.url} in your computer's browser (if it asks you to sign in, use login_fill or ask ${name}), and look for: ${lookFor}. Compare with your watch notes and write down what you saw. Only tell ${name} what's new and matters.`,
       );
     }
@@ -625,13 +625,13 @@ export class Watches {
       out.push(`\nWisp watches ${watchedSites.map((w) => w.config.url ?? w.label).join(", ")} for you and wakes you when ${watchedSites.length === 1 ? "it changes" : "they change"}, so don't open ${watchedSites.length === 1 ? "it" : "them"} on this check.`);
     if (events.length || mentions.length)
       out.push(
-        `\nSay each thing once. When you message ${name} about something, pass \`about\` to message_person with its key (the [about: …] above, or your own short one like "essay-due-friday"). If they don't answer, it's dropped for good: Wisp won't let you raise the same key again unless they wrote back.`,
+        `\nSay each thing once. When you message ${name} about something, pass \`about\` to message_person with its key (the [about: …] above, or your own short one like "essay-due-friday"). If they don't answer, it's dropped for good: Bubble AI won't let you raise the same key again unless they wrote back.`,
       );
     if (mentions.length) out.push(`Already raised (don't raise these again unless they answered and something new happened):`, ...mentions.map((m) => `- ${m.about}: ${fmt(m.saidAt)}, ${m.answeredAt ? "they answered" : "no answer, so dropped"}`));
     // apps it's connected to that could tell it about changes, but don't yet
     const unwatched = this.hub.connectors.forAgent(run.agentId).filter((c) => !watches.some((w) => w.connectorId === c.id) && WATCHERS.some((w) => !!c.catalogId && w.catalogIds.includes(c.catalogId) && !w.unavailable?.()));
     if (unwatched.length)
-      out.push(`\nYou're connected to ${unwatched.map((c) => c.name).join(", ")}, but Wisp doesn't tell you when ${unwatched.length === 1 ? "it changes" : "they change"}. If ${name} would want that, ask once (about: "watch:${unwatched[0].catalogId}") and start it with watch_start.`);
+      out.push(`\nYou're connected to ${unwatched.map((c) => c.name).join(", ")}, but Bubble AI doesn't tell you when ${unwatched.length === 1 ? "it changes" : "they change"}. If ${name} would want that, ask once (about: "watch:${unwatched[0].catalogId}") and start it with watch_start.`);
     const broken = watches.filter((w) => w.lastError);
     if (broken.length) out.push(`\nWatches that couldn't look last time:`, ...broken.map((w) => `- ${w.label}: ${w.lastError}`), `If it's a key problem, tell ${name} once how to fix it.`);
     return out;

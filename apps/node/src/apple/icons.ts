@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AppleApp } from "@wisp/core";
+import type { AppleApp } from "@bubble-ai/core";
 import { exec } from "../computers/driver.ts";
 
 /**

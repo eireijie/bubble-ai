@@ -14,7 +14,7 @@ final class TourRun {
   struct Run: Equatable {
     /** index into Tour.stops(guest:) */
     var i: Int
-    /** past the last stop: the "That's Wisp" card */
+    /** past the last stop: the "That's Bubble AI" card */
     var end = false
     /** the chat the tour came from, where chat stops happen */
     var homeChannel: String?

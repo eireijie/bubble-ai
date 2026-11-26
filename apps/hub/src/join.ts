@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import type { JoinRequestView } from "@wisp/core";
+import type { JoinRequestView } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { issueToken, revokeToken } from "./auth.ts";
 import type { Hub } from "./hub.ts";
@@ -79,13 +79,13 @@ export function registerJoinApi(app: FastifyInstance, hub: Hub, { need, parse }:
     if (!body) return;
     const i = body.invite ? invite(body.invite) : undefined;
     const forwarded = ["forwarded", "x-forwarded-for", "x-real-ip", "cf-connecting-ip"].some((h) => req.headers[h] !== undefined);
-    if ((body.invite && !i) || ((!isLocalJoinAddress(ip) || forwarded) && !i)) return reply.code(403).send({ error: "Ask for a new invite link from your Wisp." });
+    if ((body.invite && !i) || ((!isLocalJoinAddress(ip) || forwarded) && !i)) return reply.code(403).send({ error: "Ask for a new invite link from your Bubble AI." });
     const workspaceId = i?.workspaceId ?? store.firstWorkspace()?.id;
-    if (!workspaceId) return reply.code(409).send({ error: "Finish getting Wisp ready on this computer first." });
+    if (!workspaceId) return reply.code(409).send({ error: "Finish getting Bubble AI ready on this computer first." });
     if ([...requests.values()].filter((p) => p.workspaceId === workspaceId && p.status === "pending").length >= MAX_PENDING)
-      return reply.code(429).header("retry-after", "60").send({ error: "Your Wisp already has computers waiting to join. Approve or deny them first." });
+      return reply.code(429).header("retry-after", "60").send({ error: "Your Bubble AI already has computers waiting to join. Approve or deny them first." });
     const hubUrl = await origin(req);
-    if (!hubUrl) return reply.code(409).send({ error: "Wisp needs a reachable address first." });
+    if (!hubUrl) return reply.code(409).send({ error: "Bubble AI needs a reachable address first." });
     const key = secret(), requestId = crypto.randomBytes(12).toString("base64url");
     const r: JoinRequest = { id: requestId, name: body.name, kind: body.kind, platform: body.platform, code: String(crypto.randomInt(0, 1_000_000)).padStart(6, "0"), createdAt: new Date().toISOString(), secretHash: sha(key), workspaceId, hubUrl, status: "pending", expiresAt: Date.now() + JOIN_TTL_MS };
     requests.set(r.id, r);
@@ -131,13 +131,13 @@ export function registerJoinApi(app: FastifyInstance, hub: Hub, { need, parse }:
     if (!c) return;
     sweep();
     const base = await origin(req);
-    if (!base) return reply.code(409).send({ error: "Wisp needs a reachable address first." });
+    if (!base) return reply.code(409).send({ error: "Bubble AI needs a reachable address first." });
     const key = secret(), expiresAt = Date.now() + INVITE_TTL_MS;
     db.prepare("INSERT INTO device_invites (hash, workspace_id, expires_at) VALUES (?, ?, ?)").run(sha(key), c.workspaceId, expiresAt);
     return { url: `${base}/join/${key}`, expiresAt: new Date(expiresAt).toISOString() };
   });
-  // A joined computer that lost its Wisp checks a Wisp it found on the Wi-Fi is the real one before it sends its credential:
-  // only the real Wisp holds the credential's hash, so only it can answer the challenge.
+  // A joined computer that lost its Bubble AI checks a Bubble AI it found on the Wi-Fi is the real one before it sends its credential:
+  // only the real Bubble AI holds the credential's hash, so only it can answer the challenge.
   app.post("/api/join/prove", async (req, reply) => {
     const body = parse(z.object({ nodeId: z.string().min(1).max(100), nonce: z.string().min(16).max(200) }), req.body, reply);
     if (!body) return;
@@ -148,10 +148,10 @@ export function registerJoinApi(app: FastifyInstance, hub: Hub, { need, parse }:
   app.get("/join/:secret", async (req, reply) => {
     reply.header("cache-control", "no-store").header("referrer-policy", "no-referrer").header("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
     const key = (req.params as { secret: string }).secret;
-    if (!invite(key)) return reply.code(410).type("text/html; charset=utf-8").send("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Wisp</title><p>This invite has expired; ask for a new link from your Wisp.</p></html>");
+    if (!invite(key)) return reply.code(410).type("text/html; charset=utf-8").send("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Bubble AI</title><p>This invite has expired; ask for a new link from your Bubble AI.</p></html>");
     const base = await origin(req);
-    if (!base) return reply.code(409).send({ error: "Wisp needs a reachable address first." });
+    if (!base) return reply.code(409).send({ error: "Bubble AI needs a reachable address first." });
     const command = `curl -fsSL ${shell(`${base}/install.sh`)} | sh -s join ${shell(`${base}/join/${key}`)}`;
-    return reply.type("text/html; charset=utf-8").send(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Join my Wisp</title><style>body{font:18px system-ui;max-width:640px;margin:12vh auto;padding:24px;line-height:1.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f4f4;padding:20px;border-radius:12px}</style><h1>Join my Wisp</h1><p>Open Wisp on that computer and pick Join my Wisp, then paste this link.</p><pre>${html(`${base}/join/${key}`)}</pre><p>Or run this on that computer:</p><pre>${html(command)}</pre></html>`);
+    return reply.type("text/html; charset=utf-8").send(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Join my Bubble AI</title><style>body{font:18px system-ui;max-width:640px;margin:12vh auto;padding:24px;line-height:1.5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f4f4;padding:20px;border-radius:12px}</style><h1>Join my Bubble AI</h1><p>Open Bubble AI on that computer and pick Join my Bubble AI, then paste this link.</p><pre>${html(`${base}/join/${key}`)}</pre><p>Or run this on that computer:</p><pre>${html(command)}</pre></html>`);
   });
 }

@@ -1,9 +1,9 @@
-import type { AppleApp } from "@wisp/core";
+import type { AppleApp } from "@bubble-ai/core";
 
 /**
  * "Pick your agent" (first-run page 1): what the first agent is for, and the apps each kind of agent
- * starts with. How each app is set up follows what Wisp can really do today:
- * - `mac`: an Apple app the Apple mod reads on the Mac Wisp runs on (macOS asks once);
+ * starts with. How each app is set up follows what Bubble AI can really do today:
+ * - `mac`: an Apple app the Apple mod reads on the Mac Bubble AI runs on (macOS asks once);
  * - `key`: a connector from the catalog. The sheet asks the hub (signInOptions) whether it signs in
  *   from here: then the row says Sign in; otherwise Add key, with a key the person pastes (or their
  *   password manager fills); and when it can do neither from here, Soon;
@@ -21,7 +21,7 @@ export interface StartApp {
   icon: string;
   /** `key`: the catalog connector it adds */
   catalogId?: string;
-  /** `mac`: the Apple app, and the macOS permission that lets Wisp read it */
+  /** `mac`: the Apple app, and the macOS permission that lets Bubble AI read it */
   apple?: Exclude<AppleApp, "location">;
 }
 
@@ -94,7 +94,7 @@ const OTHER_APPS = ["notion", "brave"];
 
 /**
  * The apps the picked types start with, merged, each once, in pick order. Apps that work now come
- * first and "Soon" ones last; Apple apps only when Wisp lives on a Mac.
+ * first and "Soon" ones last; Apple apps only when Bubble AI lives on a Mac.
  */
 export function appsForTypes(types: readonly string[], otherText: string, onMac: boolean): StartApp[] {
   const seen = new Set<string>();
@@ -108,7 +108,7 @@ export function appsForTypes(types: readonly string[], otherText: string, onMac:
   return [...apps.filter((a) => a.how !== "soon"), ...apps.filter((a) => a.how === "soon")];
 }
 
-/** Do the picked types want Apple apps that this Wisp can't reach (it doesn't live on a Mac)? */
+/** Do the picked types want Apple apps that this Bubble AI can't reach (it doesn't live on a Mac)? */
 export const missesMac = (types: readonly string[], onMac: boolean) => !onMac && AGENT_TYPES.some((t) => types.includes(t.id) && t.apps.some((a) => START_APPS[a]?.how === "mac"));
 
 /** "What I do" from the picks: the first picked type's line, or their own words for "Something else". */

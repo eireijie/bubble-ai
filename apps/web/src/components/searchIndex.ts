@@ -1,6 +1,6 @@
 import { Blocks, BookOpen, Brain, LifeBuoy, ListChecks, ListTodo, Monitor, Settings, SlidersHorizontal, SquareTerminal, Store, type LucideIcon } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
-import type { FeatureKey } from "@wisp/core";
+import type { FeatureKey } from "@bubble-ai/core";
 import type { Route, SettingsPage } from "../router.ts";
 import { useStore } from "../store.ts";
 import { FIVE, FIVE_LABEL, FIVE_ROUTE, ROWS, rowTarget, type Five } from "../views/settings/map.ts";

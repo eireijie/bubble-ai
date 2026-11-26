@@ -1,6 +1,6 @@
 import SwiftUI
 
-/** Settings → Mods (set-Mods.dc.html): the optional parts of Wisp; turn on only what you use. Owners change it; everyone sees what's on. */
+/** Settings → Mods (set-Mods.dc.html): the optional parts of Bubble AI; turn on only what you use. Owners change it; everyone sees what's on. */
 struct FeaturesView: View {
   @Environment(Store.self) private var store
   @State private var action = FormAction()
@@ -89,7 +89,7 @@ struct AgentDefaultsView: View {
   var body: some View {
     SettingsPage("Agent defaults", id: "agent-defaults") {
       if loaded && store.agentDefaults == nil {
-        CardHint("This Wisp doesn't have agent defaults yet. Update Wisp on your computer to use them.")
+        CardHint("This Bubble AI doesn't have agent defaults yet. Update Bubble AI on your computer to use them.")
       }
       if !store.isOwner { OwnersOnlyNote() }
       CardLabel("New agents start with")

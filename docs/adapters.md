@@ -1,8 +1,8 @@
 # Adding a harness
 
-There are three ways an agent harness can take part in Wisp. Most harnesses need no code at all.
+There are three ways an agent harness can take part in Bubble AI. Most harnesses need no code at all.
 
-| Harness | How Wisp runs it |
+| Harness | How Bubble AI runs it |
 | --- | --- |
 | Claude Code, Codex | Their own adapters (`claude -p`, `codex exec`) |
 | Hermes, Gemini CLI, OpenCode, Goose, Kimi CLI, Qwen Code, Cursor, OpenClaw | The ACP adapter (`hermes acp`, `gemini --acp`, `opencode acp`, …). Hermes and Kimi CLI also come with the VM image and run inside the agent's VM, like Claude Code and Codex (see [Computers](computers.md)) |
@@ -24,7 +24,7 @@ Any harness that supports MCP servers can add `wisp-mcp` with an agent token (Ag
 | `team_setup` | Set up a team's roles and steps from what a person described |
 | `branch_merge` | Merge a reviewed coding task's branch into the team's base branch |
 | `file_upload` | Send a file the agent made: read where it runs, or from its computer when only the computer has it, and attached to the agent's reply in that chat (up to 100 MB) |
-| `file_download`, `file_view` | Save a Wisp file where the agent runs; look at an image or text file |
+| `file_download`, `file_view` | Save a Bubble AI file where the agent runs; look at an image or text file |
 | `computer_screenshot`, `computer_click`, `computer_type`, `computer_key`, `computer_scroll`, `computer_drag`, `computer_move`, `computer_open`, `computer_wait`, `computer_run`, `computer_ask_human` | Use the agent's computer, and ask a person for help on it (only when the agent has a computer; see [Computers](computers.md)) |
 | `approval_request` | Ask a person's OK before doing something sensitive |
 | `routine_save`, `routine_list` | Keep and list routines: tasks the agent can do again, some on a schedule |
@@ -33,9 +33,9 @@ The limitation: MCP is pull-based, so the harness only acts when its own session
 
 ## 2. Any ACP agent (no code needed)
 
-The [Agent Client Protocol](https://agentclientprotocol.com) is how editors like Zed drive coding agents, and most agent CLIs speak it. Wisp is an ACP client: for each run it starts the agent, opens (or resumes) a session with `wisp-mcp` attached as an MCP server, sends the prompt, and streams what the agent does. It answers the agent's permission requests from the agent's access level (read-only agents may read and search but not edit or run commands), picks the model from the agent's settings when the agent offers models, and switches to a no-approvals mode for full access when the agent has one.
+The [Agent Client Protocol](https://agentclientprotocol.com) is how editors like Zed drive coding agents, and most agent CLIs speak it. Bubble AI is an ACP client: for each run it starts the agent, opens (or resumes) a session with `wisp-mcp` attached as an MCP server, sends the prompt, and streams what the agent does. It answers the agent's permission requests from the agent's access level (read-only agents may read and search but not edit or run commands), picks the model from the agent's settings when the agent offers models, and switches to a no-approvals mode for full access when the agent has one.
 
-To run an ACP agent Wisp doesn't know yet, declare it in the device's `~/.wisp/node.json` and restart `wisp node`:
+To run an ACP agent Bubble AI doesn't know yet, declare it in the device's `~/.bubble-ai/node.json` and restart `bubble-ai node`:
 
 ```json
 {
@@ -50,7 +50,7 @@ To run an ACP agent Wisp doesn't know yet, declare it in the device's `~/.wisp/n
 
 Inside a VM, the ACP adapter starts the copy of the agent that comes with the VM image (`hermes acp`, `kimi acp`) through the run's `launch` option, so a device's own `command` or `args` for a known harness only apply to runs on the device. To put another harness in the VM, install it in `docker/computer/Dockerfile`, add its id to `VM_HARNESSES` in `packages/core/src/harnesses.ts`, and give it a sign-in command and a signed-in check in `apps/node/src/computers/docker.ts`. The second entry changes how a known harness starts (for an older version). Commands come only from the device's own config, never from the hub.
 
-Some agents (OpenClaw) refuse MCP servers per session. Wisp still runs them, says so in the conversation, and you can add `wisp-mcp` to that agent's own MCP settings instead.
+Some agents (OpenClaw) refuse MCP servers per session. Bubble AI still runs them, says so in the conversation, and you can add `wisp-mcp` to that agent's own MCP settings instead.
 
 ## 3. A native adapter
 
@@ -60,7 +60,7 @@ An adapter runs the harness once per request on the agent's device and streams w
 export const myHarness: HarnessAdapter = {
   id: "hermes",          // must match the agent's harness id
   label: "Hermes",
-  binary: "hermes",      // checked by `wisp doctor`
+  binary: "hermes",      // checked by `bubble-ai doctor`
   async run(input, onEvent) {
     // input.prompt     - the request, with recent conversation and the agent's instructions
     // input.cwd        - the agent's working directory on this device (a checkout of the task branch for team coding tasks)
@@ -76,7 +76,7 @@ export const myHarness: HarnessAdapter = {
     // and onEvent text / tool_call / tool_result events as they happen.
     return { finalText, sessionId };
   },
-  // optional: lets Wisp show this device's models in the agent's Model tab
+  // optional: lets Bubble AI show this device's models in the agent's Model tab
   async catalog() {
     return { harness: "hermes", version: "1.2.3", efforts: ["low", "high"], models: [{ id: "hermes-4", label: "Hermes 4" }] };
   },
@@ -98,10 +98,10 @@ People add **connectors** on the Connectors page (MCP servers, local or remote, 
 | Claude Code | `--mcp-config` | `--mcp-config` | yes |
 | Codex | `-c mcp_servers.<name>.command/args/env` | `-c mcp_servers.<name>.url/http_headers` | yes |
 | ACP agents | `session/new` `mcpServers` | not yet (optional in ACP) | yes |
-| MCP-only (Grok, custom) | not wired: they run outside Wisp | | |
+| MCP-only (Grok, custom) | not wired: they run outside Bubble AI | | |
 
 **Skills** from the Skills page are written into each agent's private folder as `agents/<id>/skills/<slug>/SKILL.md` and listed in its prompt (name, when to use it, path), so any harness that can read its memory follows them. Nothing adapter-specific is needed.
 
 ## Bringing in agents that already exist
 
-When a device connects, it reports agents it finds there: Hermes profiles (`~/.hermes`, `~/.hermes/profiles/*`), OpenClaw workspaces (`~/.openclaw/workspace*`), Claude Code subagents (`~/.claude/agents/*.md`) and OpenCode agents (`~/.config/opencode/agent*/*.md`). Only names and counts leave the device. When someone picks one under **Add agent → Bring in an existing agent**, the device sends its soul, instructions and notes, and Wisp puts them in the new agent's memory folder (notes under `imported/`). Hermes profiles are text only (soul and notes), so they move into a VM like any other agent; its provider keys stay behind, and the agent is signed in on the VM once. Add more sources in `apps/node/src/discover.ts`.
+When a device connects, it reports agents it finds there: Hermes profiles (`~/.hermes`, `~/.hermes/profiles/*`), OpenClaw workspaces (`~/.openclaw/workspace*`), Claude Code subagents (`~/.claude/agents/*.md`) and OpenCode agents (`~/.config/opencode/agent*/*.md`). Only names and counts leave the device. When someone picks one under **Add agent → Bring in an existing agent**, the device sends its soul, instructions and notes, and Bubble AI puts them in the new agent's memory folder (notes under `imported/`). Hermes profiles are text only (soul and notes), so they move into a VM like any other agent; its provider keys stay behind, and the agent is signed in on the VM once. Add more sources in `apps/node/src/discover.ts`.

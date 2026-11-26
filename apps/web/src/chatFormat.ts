@@ -1,4 +1,4 @@
-import type { Message } from "@wisp/core";
+import type { Message } from "@bubble-ai/core";
 import { workKind } from "./components/agentActivity.ts";
 
 /** Pure helpers for how a conversation reads: time labels, grouping, quotes and tool lines. */

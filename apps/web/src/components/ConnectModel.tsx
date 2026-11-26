@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ChevronRight, ExternalLink, Loader2 } from "lucide-react";
-import { MODEL_PROVIDER_INFO, harnessLabel, type ModelConnection, type ModelLogin, type ModelProvider } from "@wisp/core";
+import { MODEL_PROVIDER_INFO, harnessLabel, type ModelConnection, type ModelLogin, type ModelProvider } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { PROVIDERS, connectWays, siteName } from "../models.ts";

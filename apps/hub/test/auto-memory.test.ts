@@ -2,8 +2,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import { PASSES_PER_DAY } from "../src/auto-memory.ts";
@@ -34,7 +34,7 @@ const fake: HarnessAdapter = {
   binary: "true",
   async run(input, onEvent) {
     const env = input.mcp!.env;
-    const agent = new WispClient({ url: env.WISP_URL, token: env.WISP_TOKEN, runId: env.WISP_RUN });
+    const agent = new WispClient({ url: env.BUBBLE_URL, token: env.BUBBLE_TOKEN, runId: env.BUBBLE_RUN });
     if (input.prompt.includes("short memory pass")) {
       prompts.push(input.prompt);
       return { finalText: await onPass(agent, input), sessionId: null };
@@ -153,7 +153,7 @@ describe("what agents save", () => {
 
 describe("memory passes", () => {
   it("follow real work the agent didn't save, once the chat is quiet, and post nothing", async () => {
-    // Claude Code names MCP tools mcp__server__tool, Codex server.tool; Wisp's own chat_status isn't work
+    // Claude Code names MCP tools mcp__server__tool, Codex server.tool; Bubble AI's own chat_status isn't work
     calls = ["mcp__gmail__search", "gmail.read", "mcp__gmail__draft", "wisp.chat_status"];
     onChat = async () => "Drafted the reply to Dana about the March invoice.";
     await say("answer Dana's email about the invoice");
@@ -278,7 +278,7 @@ describe("the daily tidy", () => {
     await hub.autoMemory.tidy(wsId);
     expect((await vault().read("shared/coffee.md")).content).toMatch(/Related: \[\[espresso\]\]/);
     const [change] = await vault().changes(1);
-    expect(change.author).toBe("Wisp");
+    expect(change.author).toBe("Bubble AI");
 
     // the agent's next pass is asked to merge them
     await say("I prefer standups short");

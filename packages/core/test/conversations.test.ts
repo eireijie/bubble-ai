@@ -33,7 +33,7 @@ describe("splitConversations", () => {
     expect([...ids.values()]).toEqual(["a", "a", "a", "d"]);
   });
 
-  it("doesn't let Wisp's notices start or extend a chat", () => {
+  it("doesn't let Bubble AI's notices start or extend a chat", () => {
     const ids = splitConversations([
       { id: "a", createdAt: at(0), authorId: "u" },
       { id: "s", createdAt: at(140), authorId: "system" },

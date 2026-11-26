@@ -1,6 +1,6 @@
 {
-  "name": "Wisp",
-  "short_name": "Wisp",
+  "name": "Bubble AI",
+  "short_name": "Bubble AI",
   "description": "A workspace where people and AI agents work together.",
   "start_url": "/",
   "display": "standalone",

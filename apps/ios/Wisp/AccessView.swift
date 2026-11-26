@@ -32,11 +32,11 @@ extension Store {
       if info.tailscale.funnel == true { _ = try await tailscale("unfunnel") }
       return try await tailscale("unserve")
     }
-    throw API.Failure(status: 0, message: "This Wisp already uses a public address.")
+    throw API.Failure(status: 0, message: "This Bubble AI already uses a public address.")
   }
 }
 
-/** Settings → Access (set-Access.dc.html): use Wisp away from home with Tailscale or a Cloudflare tunnel. Owners only. */
+/** Settings → Access (set-Access.dc.html): use Bubble AI away from home with Tailscale or a Cloudflare tunnel. Owners only. */
 struct AccessView: View {
   @Environment(Store.self) private var store
   @Environment(\.openURL) private var openURL
@@ -54,7 +54,7 @@ struct AccessView: View {
 
   var body: some View {
     SettingsPage("Away from home", id: "access") {
-      if !store.isOwner { CardHint("Your Wisp's owner can turn this on.") }
+      if !store.isOwner { CardHint("Your Bubble AI's owner can turn this on.") }
       if let info {
         CardLabel("Away from home")
         CardGroup {
@@ -65,14 +65,14 @@ struct AccessView: View {
         if store.isOwner {
           if info.awayOn {
             Button("Turn off") { turningOff = true }.buttonStyle(.pill(.destructive)).disabled(action.busy)
-            CardHint("At home, Wisp works on your Wi-Fi without either. Turning this off keeps it that way. Devices and phones that used the away address stop reaching this Wisp until you turn it back on.")
+            CardHint("At home, Bubble AI works on your Wi-Fi without either. Turning this off keeps it that way. Devices and phones that used the away address stop reaching this Bubble AI until you turn it back on.")
           } else {
             setup(info)
           }
         }
         if store.isOwner { apps }
       } else if failed {
-        CardHint("Away from home isn't available yet. Update Wisp on the computer it runs on.")
+        CardHint("Away from home isn't available yet. Update Bubble AI on the computer it runs on.")
       } else {
         HStack { ProgressView(); Text("Checking…").foregroundStyle(Palette.muted) }
       }
@@ -80,10 +80,10 @@ struct AccessView: View {
       StatusLine(error: action.error)
     }
     .task { await watch() }
-    .confirmCard($turningOff, title: "Turn off away from home?", message: "Devices and phones that used the away address stop reaching this Wisp until you turn it back on.", confirm: "Turn off") {
+    .confirmCard($turningOff, title: "Turn off away from home?", message: "Devices and phones that used the away address stop reaching this Bubble AI until you turn it back on.", confirm: "Turn off") {
       if let info { run { self.info = try await store.turnAwayOff(info); hint = "Away from home is off." } }
     }
-    .confirmCard($confirmingApps, title: "Give Grok, ChatGPT and Claude a public address?", message: "Anyone on the internet can reach this address, but only apps you approve can use it. The rest of Wisp stays private.", confirm: "Turn on", destructive: false) {
+    .confirmCard($confirmingApps, title: "Give Grok, ChatGPT and Claude a public address?", message: "Anyone on the internet can reach this address, but only apps you approve can use it. The rest of Bubble AI stays private.", confirm: "Turn on", destructive: false) {
       toggle(true)
     }
     .confirmCard(Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), title: "Disconnect \(removing?.name ?? "this app")?", message: "It stops reaching your agents.", confirm: "Disconnect") {
@@ -190,7 +190,7 @@ struct AccessView: View {
       } else if info?.cloudflareRunning == true {
         info = try await store.stopCloudflare()
       } else {
-        throw API.Failure(status: 0, message: "This Wisp uses a public address; disconnect apps below to remove their access.")
+        throw API.Failure(status: 0, message: "This Bubble AI uses a public address; disconnect apps below to remove their access.")
       }
     }
   }

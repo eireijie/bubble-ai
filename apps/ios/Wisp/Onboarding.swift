@@ -1,6 +1,6 @@
 import Foundation
 
-/** GET /api/onboarding: what exists so far (helpers, devices) and whether Wisp is reachable from anywhere. */
+/** GET /api/onboarding: what exists so far (helpers, devices) and whether Bubble AI is reachable from anywhere. */
 struct OnboardingState: Decodable {
   struct Device: Decodable, Identifiable { var id: String; var name: String; var online: Bool; var mine: Bool?; var role: String? }
   var devices: [Device] = []
@@ -87,7 +87,7 @@ enum Readiness {
     }
     var out = [Check(id: "helper", status: .ok, label: "You have an agent: \(agent.name)")]
     if runsOutside(agent.harness) {
-      out.append(Check(id: "device", status: .ok, label: "\(agent.name) runs outside Wisp and needs no device here"))
+      out.append(Check(id: "device", status: .ok, label: "\(agent.name) runs outside Bubble AI and needs no device here"))
       return out
     }
     let rest = [unknown("online", "That device is on and connected"), unknown("harness", "Its AI is installed there")]
@@ -104,7 +104,7 @@ enum Readiness {
     out.append(Check(id: "device", status: .ok, label: "\(agent.name) works on \(device.name)"))
     if !device.online || device.paused {
       out.append(Check(id: "online", status: .bad, label: "\(device.name) is on and connected",
-                       fix: device.paused ? "\(device.name) is paused. Resume Wisp on it." : "Turn on \(device.name) and make sure Wisp is running there.", to: .devices))
+                       fix: device.paused ? "\(device.name) is paused. Resume Bubble AI on it." : "Turn on \(device.name) and make sure Bubble AI is running there.", to: .devices))
       out.append(unknown("harness", "Its AI is installed there"))
       return out
     }

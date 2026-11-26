@@ -16,10 +16,10 @@ import { useMemo, useSyncExternalStore } from "react";
  *   #/settings[/<page>[/<item>]]     your settings and the organization's (see SETTINGS_PAGES); full window on desktops; <item> opens one thing in a page (a skill)
  *   #/join/<code>                    accept an invite (signed out)
  *   #/authorize/<requestId>          let an app (Grok, ChatGPT, Claude…) connect as an agent (the hub's /oauth/authorize sends people here)
- *   #/welcome[/intro]                first-run onboarding; /intro opens on "what Wisp is"
+ *   #/welcome[/intro]                first-run onboarding; /intro opens on "what Bubble AI is"
  *   #/help                           help: finish setup, why a helper isn't answering, words you'll see
- *   #/mods                           mods: optional parts of Wisp, switched on or off
- *   #/here[/<agentId>]               "Here's your Wisp": what setup turned on, each undoable (onboarding's last page)
+ *   #/mods                           mods: optional parts of Bubble AI, switched on or off
+ *   #/here[/<agentId>]               "Here's your Bubble AI": what setup turned on, each undoable (onboarding's last page)
  *   #/code                           Code (a mod): terminals on your computers
  *   #/                               the dashboard on desktops, the chats list on phones (App.tsx)
  *   #/chats                          channel list (phones; desktops go to the dashboard)

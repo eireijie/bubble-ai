@@ -19,7 +19,7 @@ function probes(replies: Record<string, unknown> = {}): DoctorDependencies {
     away: async () => ({ on: false, found: true }),
   };
 }
-describe("wisp doctor", () => {
+describe("bubble-ai doctor", () => {
   it("checks health, actual online presence, agent apps, engine and remote access", async () => {
     const deps = probes();
     const result = await checkDoctor("/tmp/wisp", saved, deps);
@@ -35,7 +35,7 @@ describe("wisp doctor", () => {
     deps.harnesses = () => []; deps.engine = async () => false;
     const result = await checkDoctor("/tmp/wisp", {}, deps);
     expect(result.every((r) => !r.ok && !!r.fix)).toBe(true);
-    expect(result[1].fix).toBe("Run: wisp join");
+    expect(result[1].fix).toBe("Run: bubble-ai join");
   });
   it("does not confuse a running service with a connection", async () => {
     const deps = probes(); deps.connected = () => false;
@@ -45,7 +45,7 @@ describe("wisp doctor", () => {
   });
   it("offers resume when this computer is paused", async () => {
     const result = await checkDoctor("/tmp/wisp", { ...saved, paused: true }, probes());
-    expect(result[1]).toMatchObject({ ok: false, fix: "Run: wisp node resume" });
+    expect(result[1]).toMatchObject({ ok: false, fix: "Run: bubble-ai node resume" });
   });
   it("works with legacy settings without a saved id", async () => {
     const result = await checkDoctor("/tmp/wisp", { ...saved, nodeId: undefined }, probes());

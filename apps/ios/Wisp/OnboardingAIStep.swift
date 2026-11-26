@@ -3,7 +3,7 @@ import SwiftUI
 /** What the first agent can think with, and the rules for picking it (AIStep.tsx). */
 enum OnboardingAI {
   enum Pick: Hashable { case found, claude, chatgpt, grok, key, harness(String) }
-  /** What's already set to go: a connection Wisp keeps, or a harness signed in on the computer. */
+  /** What's already set to go: a connection Bubble AI keeps, or a harness signed in on the computer. */
   struct Found: Equatable { var harness: String; var connectionId: String?; var share = false }
 
   /** The harnesses a connection is tried on, best first: the one the provider makes, then the open ones. */
@@ -24,14 +24,14 @@ enum OnboardingAI {
     return preferred.first { h in support.contains { $0.harness == h && $0.provider == provider && $0.kind == kind } } ?? own ?? "hermes"
   }
 
-  /** What's already set to go on the person's computer, best first: a connection Wisp keeps, then a harness signed in there. */
+  /** What's already set to go on the person's computer, best first: a connection Bubble AI keeps, then a harness signed in there. */
   static func found(on device: AgentNode?, connections: [ModelConnection], support: [CredentialSupport]) -> Found? {
     for h in ["claude-code", "codex"] {
       if let c = connections.first(where: { $0.mine == true && $0.lastError == nil && ModelWords.supports(h, $0, support: support) }) { return Found(harness: h, connectionId: c.id) }
     }
     func signedIn(_ id: String) -> Bool { (device?.harnesses?.first { $0.id == id }?.accounts?["default"] ?? nil) == true }
     if signedIn("claude-code") { return Found(harness: "claude-code") }
-    // Codex's own sign-in is shared with Wisp ("Use this sign-in"), so it works on every computer
+    // Codex's own sign-in is shared with Bubble AI ("Use this sign-in"), so it works on every computer
     if signedIn("codex") { return Found(harness: "codex", share: true) }
     if let h = HarnessChoice.all.first(where: { $0.protocolName != "mcp" && signedIn($0.id) }) { return Found(harness: h.id) }
     return nil
@@ -46,7 +46,7 @@ enum OnboardingAI {
 
 /**
  * First-run page 3: what the agent thinks with. What's already signed in on the person's computer
- * is found and picked; a subscription signs in once to Wisp; a key becomes a model connection. Any
+ * is found and picked; a subscription signs in once to Bubble AI; a key becomes a model connection. Any
  * pick makes the agent from page 2's draft (or updates the one made before) and checks it can
  * answer before Continue.
  */
@@ -177,7 +177,7 @@ struct OnboardingAIStep: View {
     var out: [Option] = []
     let there = device?.name ?? "your computer"
     if let found {
-      let sub = found.connectionId != nil ? "Already connected to Wisp." : found.harness == "claude-code" ? "Signed in on \(there). Uses your Claude plan." : "Signed in on \(there)."
+      let sub = found.connectionId != nil ? "Already connected to Bubble AI." : found.harness == "claude-code" ? "Signed in on \(there). Uses your Claude plan." : "Signed in on \(there)."
       out.append(Option(id: .found, key: "found", title: HarnessChoice.label(found.harness), sub: sub, symbol: "laptopcomputer", badge: "Found on \(there)"))
     }
     // Claude's sign-in runs in a terminal on the device, which Windows can't do yet
@@ -248,7 +248,7 @@ struct OnboardingAIStep: View {
     }
   }
 
-  /** A sign-in or key just became a connection Wisp keeps: try the agent on it. */
+  /** A sign-in or key just became a connection Bubble AI keeps: try the agent on it. */
   private func connected(_ connectionId: String) {
     connect = nil
     Task {
@@ -265,7 +265,7 @@ struct OnboardingAIStep: View {
     guard found.share else { return await tryIt(found.harness, found.connectionId) }
     phase = .checking
     harness = found.harness
-    // Codex's own sign-in becomes a connection Wisp keeps; if it can't be shared, it's used where it is
+    // Codex's own sign-in becomes a connection Bubble AI keeps; if it can't be shared, it's used where it is
     let body: Fields = ["provider": AnyEncodable("openai"), "nodeId": AnyEncodable(device.id)]
     let shared: ModelConnection? = try? await store.fetch { try await $0.post("/api/model-connections/import", body) }
     await reload()
@@ -312,7 +312,7 @@ struct OnboardingAIStep: View {
         let r = await store.agentHarnessStatus(agent.id)
         if let r, r.signedIn == true || (r.signedIn == nil && connectionId == nil && r.inComputer != true) {
           // a status check can say "signed in" for a session that can't refresh: its hello is the real
-          // first run, and only a hello it wrote (or Wisp's, if it ran out of time) means it's ready
+          // first run, and only a hello it wrote (or Bubble AI's, if it ran out of time) means it's ready
           trying = .hello
           while live(), Date() < deadline {
             if await store.agentHarnessStatus(agent.id)?.signedIn == false { throw needsSignIn }
@@ -344,7 +344,7 @@ struct OnboardingAIStep: View {
   }
 
   /**
-   * Make the first agent: on the model connection Wisp keeps for it when there is one, else on the
+   * Make the first agent: on the model connection Bubble AI keeps for it when there is one, else on the
    * harness's own sign-in where it runs. Its hello is held until it's asked for (greet "later"),
    * so it can greet with what it was just told.
    */
@@ -371,7 +371,7 @@ struct OnboardingAIStep: View {
       fields["computerId"] = AnyEncodable(computer?.id ?? "")
       settings["runIn"] = AnyEncodable("computer")
     } else {
-      // otherwise Wisp places it: the AI stays beside its sign-in, and it works on the shared computer
+      // otherwise Bubble AI places it: the AI stays beside its sign-in, and it works on the shared computer
       fields["useDefaults"] = AnyEncodable(true)
     }
     fields["settings"] = AnyEncodable(settings)
@@ -406,7 +406,7 @@ struct OnboardingAIStep: View {
         if channelId != nil { break }
         try? await Task.sleep(for: .seconds(1))
       }
-      // what the first run switches on by itself (routines, a morning plan), each undoable on Here's your Wisp
+      // what the first run switches on by itself (routines, a morning plan), each undoable on Here's your Bubble AI
       await switchOnRecommended(agentId, channelId: channelId)
     }
     onDone(agentId, channelId)

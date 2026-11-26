@@ -107,7 +107,7 @@ struct SettingsSheet: View {
     .presentationCornerRadius(Corner.sheet)
     .presentationDragIndicator(.hidden)
     .sheet(isPresented: $orgs) { OrgSwitcherSheet().environment(store) }
-    .confirmCard($confirmSignOut, title: "Sign out of Wisp on this iPhone?", message: "Your agents keep working. To come back, scan your Wisp's QR code or sign in again.", confirm: "Sign out") {
+    .confirmCard($confirmSignOut, title: "Sign out of Bubble AI on this iPhone?", message: "Your agents keep working. To come back, scan your Bubble AI's QR code or sign in again.", confirm: "Sign out") {
       dismiss(); store.signOut()
     }
     .managementAlert(policyAction)
@@ -148,7 +148,7 @@ struct SettingsSheet: View {
     CardGroup {
       if store.me != nil {
         NavigationLink { ProfileSettingsView() } label: {
-          RowLabel(title: store.me?.preferredName ?? store.me?.name ?? "You", subtitle: "\(store.role.capitalized) · \(store.workspace?.name ?? "Wisp")") {
+          RowLabel(title: store.me?.preferredName ?? store.me?.name ?? "You", subtitle: "\(store.role.capitalized) · \(store.workspace?.name ?? "Bubble AI")") {
             ProfileInitials(size: 46)
           }
         }.accessibilityIdentifier("you-profile")
@@ -165,7 +165,7 @@ struct SettingsSheet: View {
   private var footer: some View {
     VStack(spacing: 4) {
       GhostView(look: GhostLook(color: "#f5f5f5", color2: "#d9d9d9"), seed: "", size: 30, animate: false).accessibilityHidden(true)
-      Text("Wisp").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
+      Text("Bubble AI").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
       if !version.isEmpty { Text(version).font(.system(size: 13)).foregroundStyle(Palette.faint) }
     }.padding(.top, 6)
   }

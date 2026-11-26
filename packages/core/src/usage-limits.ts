@@ -41,7 +41,7 @@ export interface LimitHit {
 const LIMIT =
   /(?:usage|rate|weekly|daily|monthly|session|plan|spend(?:ing)?|token|request)s?[ _-]?limit|\d+[- ]hour limit|hit your limit|limit (?:reached|exceeded)|too many requests|\b429\b|quota|credit balance is too low|out of credits|insufficient[_ ]credits?|insufficient_quota|usage_limit_reached|exceeded your current/i;
 /**
- * Limits that aren't the plan's: Wisp's own, a full disk, a model's context window, a browser or
+ * Limits that aren't the plan's: Bubble AI's own, a full disk, a model's context window, a browser or
  * session count, and another service's rate limit (a connected app's API answering 429).
  */
 const NOT_THE_PLAN =

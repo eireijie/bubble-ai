@@ -66,6 +66,16 @@
       </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
+            key = "BUBBLE_HUB"
+            value = "$(BUBBLE_HUB)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "BUBBLE_TOKEN"
+            value = "$(BUBBLE_TOKEN)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
             key = "WARREN_HUB"
             value = "$(WARREN_HUB)"
             isEnabled = "YES">

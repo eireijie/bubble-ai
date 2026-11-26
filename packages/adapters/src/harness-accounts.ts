@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { ACCOUNT_ID, harnessInfo, type HarnessAccount } from "@wisp/core";
+import { ACCOUNT_ID, harnessInfo, type HarnessAccount } from "@bubble-ai/core";
 import { HARNESS_SPECS, harnessConfigPath, harnessDir, type HarnessHomes } from "./harness-config.ts";
 
 /**
@@ -11,7 +11,7 @@ import { HARNESS_SPECS, harnessConfigPath, harnessDir, type HarnessHomes } from 
  * account is the harness's usual folder. Hermes already has this: its profiles.
  *
  * Which accounts exist and which agent uses which is kept on the device (harness-accounts.json in
- * Wisp's folder there), like everything else about the harness.
+ * Bubble AI's folder there), like everything else about the harness.
  */
 
 export interface AccountsFile {
@@ -56,7 +56,7 @@ const askHarness: SignInProbe = (harness, binary, env) =>
 
 export class HarnessAccounts {
   constructor(
-    /** Wisp's folder on the device (~/.wisp) */
+    /** Bubble AI's folder on the device (~/.bubble-ai) */
     private wispDir: string,
     private h: HarnessHomes = {},
   ) {}
@@ -84,7 +84,7 @@ export class HarnessAccounts {
   /** The folder an account's harness uses. */
   dir(harness: string, account: string): string {
     const base = harnessDir(harness, this.h);
-    if (!base) throw new Error(`Wisp can't add accounts to ${harness} yet`);
+    if (!base) throw new Error(`Bubble AI can't add accounts to ${harness} yet`);
     if (account === "default") return base;
     ACCOUNT_ID.parse(account);
     // Hermes's own profiles, so `hermes -p <name>` sees the same account
@@ -106,7 +106,7 @@ export class HarnessAccounts {
     return !!HARNESS_SPECS[harness]?.accounts;
   }
 
-  /** Every account of a harness, the default first. Hermes profiles made outside Wisp count too. */
+  /** Every account of a harness, the default first. Hermes profiles made outside Bubble AI count too. */
   list(harness: string): HarnessAccount[] {
     if (!harnessDir(harness, this.h)) return [];
     const known = HarnessAccounts.supports(harness) ? (this.read().accounts[harness] ?? []) : [];
@@ -176,7 +176,7 @@ export class HarnessAccounts {
   /**
    * A run was turned away because its sign-in expired or was revoked ("OAuth session expired and
    * could not be refreshed"), which the harness's status command still calls signed in. Count the
-   * account as signed out until it signs in again: a sign-in through Wisp, its login files changing,
+   * account as signed out until it signs in again: a sign-in through Bubble AI, its login files changing,
    * or a run that works. Not for a run on a Models connection, whose sign-in isn't this account's.
    */
   markSignedOut(harness: string, account: string) {
@@ -238,7 +238,7 @@ export class HarnessAccounts {
    * plugins, apps), never its logins.
    */
   add(harness: string, label: string): HarnessAccount {
-    if (!HarnessAccounts.supports(harness)) throw new Error(`${harness} keeps its logins outside its folder (in the system keychain or its own data folder), so Wisp can't keep a second account apart yet`);
+    if (!HarnessAccounts.supports(harness)) throw new Error(`${harness} keeps its logins outside its folder (in the system keychain or its own data folder), so Bubble AI can't keep a second account apart yet`);
     const v = this.read();
     const list = (v.accounts[harness] ??= []);
     const taken = new Set([...this.list(harness).map((a) => a.id)]);
@@ -291,7 +291,7 @@ export class HarnessAccounts {
 
 /**
  * The command that signs an account in on the device, run with the account's folder. Ones that
- * print a link and a code (device sign-in) work from anywhere; Wisp shows them.
+ * print a link and a code (device sign-in) work from anywhere; Bubble AI shows them.
  */
 export function loginCommand(harness: string, provider?: string): { command: string; args: string[] } | { manual: string[] } {
   if (harness === "codex") return { command: "codex", args: ["login", "--device-auth"] };
@@ -300,20 +300,20 @@ export function loginCommand(harness: string, provider?: string): { command: str
     if (!provider) throw new Error("pick the provider to sign in to");
     return { command: "hermes", args: ["auth", "add", provider] };
   }
-  // the browser shows a code to paste back, which Wisp passes on
+  // the browser shows a code to paste back, which Bubble AI passes on
   if (harness === "claude-code") return { command: "claude", args: ["auth", "login"] };
   // their sign-in only runs inside their own screen: the command to run at the device
   if (harness === "gemini") return { manual: ["gemini"] };
   if (harness === "qwen") return { manual: ["qwen", "(then /auth)"] };
   const login = harnessInfo(harness)?.login;
   if (login) return { manual: [login] };
-  throw new Error(`Wisp can't sign ${harness} in yet; sign in on the device`);
+  throw new Error(`Bubble AI can't sign ${harness} in yet; sign in on the device`);
 }
 
 /**
  * Runs a command in a pseudo-terminal 400 columns wide and relays it, for sign-ins that only run in
  * a terminal (`claude setup-token` draws its screen with Ink and prints nothing without one). Wide,
- * so the link and the token it prints aren't wrapped; Enter from Wisp is sent as a terminal's \r.
+ * so the link and the token it prints aren't wrapped; Enter from Bubble AI is sent as a terminal's \r.
  */
 const PTY_RELAY = String.raw`
 import os, pty, sys, select, fcntl, termios, struct
@@ -352,12 +352,12 @@ sys.exit(os.waitstatus_to_exitcode(status) if hasattr(os, "waitstatus_to_exitcod
  */
 export function modelLoginCommand(provider: string, harness: string, binary?: string): { command: string; args: string[]; home: string; wantsInput: boolean } {
   if (provider === "anthropic" && harness === "claude-code") {
-    if (process.platform === "win32") throw new Error("Claude's sign-in for Wisp needs a Mac or Linux device; or connect an API key instead");
+    if (process.platform === "win32") throw new Error("Claude's sign-in for Bubble AI needs a Mac or Linux device; or connect an API key instead");
     return { command: "python3", args: ["-c", PTY_RELAY, binary ?? "claude", "setup-token"], home: "CLAUDE_CONFIG_DIR", wantsInput: true };
   }
   if (provider === "openai" && harness === "codex") return { command: binary ?? "codex", args: ["login", "--device-auth", "-c", `cli_auth_credentials_store="file"`], home: "CODEX_HOME", wantsInput: false };
   if (provider === "xai" && harness === "hermes") return { command: binary ?? "hermes", args: ["auth", "add", "xai-oauth", "--type", "oauth", "--no-browser"], home: "HERMES_HOME", wantsInput: false };
-  throw new Error(`Wisp can't sign in to ${provider} with ${harness}`);
+  throw new Error(`Bubble AI can't sign in to ${provider} with ${harness}`);
 }
 
 /** The long-lived token `claude setup-token` prints (sk-ant-oat01-…), from its output. Exported for tests. */

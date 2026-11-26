@@ -8,7 +8,7 @@ export DISPLAY=:1
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1
 mkdir -p "$HOME/files" "$HOME/Downloads"
 
-# the same desktop every time: Wisp's dock, wallpaper, window theme and icons, and Chrome for links
+# the same desktop every time: Bubble AI's dock, wallpaper, window theme and icons, and Chrome for links
 CONF="$HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
 mkdir -p "$CONF"
 cp /usr/local/share/wisp/desktop/*.xml "$CONF/"

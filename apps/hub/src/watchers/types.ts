@@ -1,4 +1,4 @@
-import type { WatchService } from "@wisp/core";
+import type { WatchService } from "@bubble-ai/core";
 
 /** One change a watcher found, before it's handed to agents. */
 export interface FoundEvent {
@@ -28,7 +28,7 @@ export interface PollResult {
 }
 
 /**
- * How Wisp asks one app what changed. A watcher plugs in by naming the keys it needs (the same
+ * How Bubble AI asks one app what changed. A watcher plugs in by naming the keys it needs (the same
  * keys the app's connector keeps) and answering `poll`. It must keep a page of results short and
  * treat its cursor as its own: the hub only stores it.
  */
@@ -65,7 +65,7 @@ export class WatchError extends Error {
 export async function getJson<T = any>(ctx: PollContext, url: string, { app, ...init }: RequestInit & { app: string }): Promise<T> {
   const res = await ctx.fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
   if (res.status === 401 || res.status === 403) throw new WatchError(`${app} refused the key (${res.status}). It may have expired or be missing a permission.`, true, res.status);
-  if (res.status === 429) throw new WatchError(`${app} asked Wisp to slow down; it will look again later.`, false, 429);
+  if (res.status === 429) throw new WatchError(`${app} asked Bubble AI to slow down; it will look again later.`, false, 429);
   if (!res.ok) throw new WatchError(`${app} answered ${res.status}.`, false, res.status);
   return (await res.json()) as T;
 }

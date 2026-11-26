@@ -131,7 +131,7 @@ struct AppleView: View {
       }
       if location.authorization != .authorizedAlways && location.authorization != .notDetermined {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Text("To notice when you arrive or leave, Wisp needs Location set to Always.").font(.system(size: 13)).foregroundStyle(MarketColor.warn)
+          Text("To notice when you arrive or leave, Bubble AI needs Location set to Always.").font(.system(size: 13)).foregroundStyle(MarketColor.warn)
           Spacer(minLength: 4)
           Button(canAskAlways ? "Allow" : "Settings") { canAskAlways ? askAlways() : openSettings() }
             .font(.system(size: 13, weight: .semibold)).foregroundStyle(MarketColor.blueText).buttonStyle(.plain)
@@ -198,7 +198,7 @@ struct AppleView: View {
       } else {
         VStack(alignment: .leading, spacing: 2) {
           Text(info.macs.isEmpty ? "No Mac yet" : "Pick a Mac").font(.system(size: 15)).foregroundStyle(Palette.text)
-          Text(info.macs.isEmpty ? "Run Wisp on a Mac that joined this hub" : "\(info.macs.count) Macs joined this hub").font(.system(size: 13)).foregroundStyle(Palette.faint)
+          Text(info.macs.isEmpty ? "Run Bubble AI on a Mac that joined this hub" : "\(info.macs.count) Macs joined this hub").font(.system(size: 13)).foregroundStyle(Palette.faint)
         }
         Spacer(minLength: 8)
       }
@@ -534,7 +534,7 @@ private struct PlaceSheet: View {
     Task {
       defer { locating = false }
       guard let fix = await AppleLocation.shared.currentFix() else {
-        note = AppleLocation.shared.allowed ? "Couldn't find where you are. Try again, or search." : "Allow location for Wisp in Settings, or search instead."
+        note = AppleLocation.shared.allowed ? "Couldn't find where you are. Try again, or search." : "Allow location for Bubble AI in Settings, or search instead."
         return
       }
       setCenter(fix.coordinate, label: "Where you are now")

@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 @MainActor
 final class ComputerTests: XCTestCase {

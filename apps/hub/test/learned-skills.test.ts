@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import type { CommandOption, MessagePart } from "@wisp/core";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import type { CommandOption, MessagePart } from "@bubble-ai/core";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import { makeRoomFor } from "./room.ts";
@@ -35,7 +35,7 @@ const fake: HarnessAdapter = {
   async run(input, onEvent) {
     if (reports) onEvent({ type: "commands", commands: reports });
     const env = input.mcp!.env;
-    const agent = new WispClient({ url: env.WISP_URL, token: env.WISP_TOKEN, runId: env.WISP_RUN });
+    const agent = new WispClient({ url: env.BUBBLE_URL, token: env.BUBBLE_TOKEN, runId: env.BUBBLE_RUN });
     return { finalText: await onReply(agent, input), sessionId: null };
   },
 };
@@ -413,9 +413,9 @@ describe("a harness's own list from its runs", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(sent).toBe(1);
     const { commands } = await owner.request("GET", `/api/agents/${agentId}/commands`);
-    // /compact is Wisp's own command for every agent now, so the harness's copy isn't listed twice
+    // /compact is Bubble AI's own command for every agent now, so the harness's copy isn't listed twice
     expect(commands.filter((c: any) => c.group === "harness").map((c: any) => c.name)).toEqual(["simplify"]);
-    // Wisp's own commands come first; the person's own skill ("anki") shows only with the agent's switch on
+    // Bubble AI's own commands come first; the person's own skill ("anki") shows only with the agent's switch on
     expect(commands[0].group).toBe("wisp");
     hub.store.updateAgent(agentId, { settings: { ...hub.store.agent(agentId)!.settings, ownPlugins: true } });
     const on = await owner.request("GET", `/api/agents/${agentId}/commands`);

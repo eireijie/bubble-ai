@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSteps, stepsProblem, type ChannelTeam, type TeamStep } from "@wisp/core";
+import { normalizeSteps, stepsProblem, type ChannelTeam, type TeamStep } from "@bubble-ai/core";
 import { agentRulesOf } from "../src/components/channel-rules.ts";
 import { escapeAction } from "../src/team/escape.ts";
 import { addStep, disconnecting, handoffCanWait, inputIds, insertingBetween, movingAfter, removingStep, stepById, stepProblems, updating } from "../src/team/flow.ts";

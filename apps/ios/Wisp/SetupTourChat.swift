@@ -5,7 +5,7 @@ import SwiftUI
  * the agent says what got done ("Great! I can see all that you've done." and which apps are
  * connected, or a plain line when none are), then Show me around starts on its own; when the tour
  * ends or is skipped it asks "What should I start on?". Simple: nothing starts; the tour waits in
- * Settings › Learn Wisp and Help. A tour already started on another device isn't repeated. It all
+ * Settings › Learn Bubble AI and Help. A tour already started on another device isn't repeated. It all
  * goes away once the person writes their first message.
  */
 @MainActor enum SetupTour {

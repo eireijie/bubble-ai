@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum WispRepo {
-  static let github = "eireijie/wisp"
+  static let github = "eireijie/bubble-ai"
   static let url = "https://github.com/\(github)"
 }
 
@@ -33,10 +33,10 @@ struct UpdatesView: View {
       guard updating else { return }
       while !Task.isCancelled {
         do { try await Task.sleep(for: .seconds(3)); info = try await store.connection().get("/api/updates"); action.error = nil }
-        catch { if !Task.isCancelled { action.error = "Wisp is restarting. It will reconnect when the hub is back." } }
+        catch { if !Task.isCancelled { action.error = "Bubble AI is restarting. It will reconnect when the hub is back." } }
       }
     }
-    .confirmCard($confirming, title: "Update and restart the hub?", message: "Everyone will briefly disconnect. Wisp comes back by itself.", confirm: "Update and restart", destructive: false) {
+    .confirmCard($confirming, title: "Update and restart the hub?", message: "Everyone will briefly disconnect. Bubble AI comes back by itself.", confirm: "Update and restart", destructive: false) {
       action.run {
         let result: HubUpdate = try await store.connection().post("/api/updates/hub", Empty())
         info?.update = result.update
@@ -47,9 +47,9 @@ struct UpdatesView: View {
   private var page: some View {
     let check = info?.check
     let canUpdate = check?.canUpdate == true
-    return SettingsPage("About", subtitle: "Wisp \(version)", id: "about") {
+    return SettingsPage("About", subtitle: "Bubble AI \(version)", id: "about") {
       if let commit = info?.version?.commit {
-        CardLabel("This hub runs Wisp \(commit)\(info?.version?.date.flatMap(Wire.date).map { " from " + $0.formatted(.dateTime.month().day()) } ?? "")")
+        CardLabel("This hub runs Bubble AI \(commit)\(info?.version?.date.flatMap(Wire.date).map { " from " + $0.formatted(.dateTime.month().day()) } ?? "")")
       }
       CardGroup {
         HStack(spacing: 12) {
@@ -96,7 +96,7 @@ struct UpdatesView: View {
 struct WhatsNewView: View {
   var info: HubUpdate?
   var body: some View {
-    SettingsPage("What's new", subtitle: info?.version?.commit.map { "Wisp \($0)" }, id: "whats-new") {
+    SettingsPage("What's new", subtitle: info?.version?.commit.map { "Bubble AI \($0)" }, id: "whats-new") {
       let changes = info?.check?.changes ?? []
       if changes.isEmpty {
         CardGroup { RowLabel(title: "Nothing new right now", chevron: false) }
@@ -120,7 +120,7 @@ struct UpdatingView: View {
     VStack(spacing: 14) {
       Spacer()
       ProgressView().controlSize(.large)
-      Text("Updating Wisp").font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text)
+      Text("Updating Bubble AI").font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text)
       Text("Everyone is briefly disconnected. This page reloads by itself when the hub is back.").font(.system(size: 15)).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
       Text(state == "restarting" ? "Restarting the hub…" : (line ?? "Updating…")).font(.system(size: 13)).foregroundStyle(Palette.faint)
       Spacer()
@@ -143,7 +143,7 @@ struct UpdateFailedView: View {
       Spacer()
       Image(systemName: "exclamationmark.triangle").font(.system(size: 34)).foregroundStyle(Palette.red)
       Text("The update didn't finish").font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text).multilineTextAlignment(.center)
-      Text("Wisp is still running the version it had. Nothing was lost. You can try again, or ask the person who runs the hub.").font(.system(size: 15)).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
+      Text("Bubble AI is still running the version it had. Nothing was lost. You can try again, or ask the person who runs the hub.").font(.system(size: 15)).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
       if let message, !message.isEmpty { Text(message).font(.system(size: 13, design: .monospaced)).foregroundStyle(Palette.faint).multilineTextAlignment(.leading).textSelection(.enabled) }
       if canRetry { Button("Try again", action: retry).buttonStyle(.pill(.primary)).accessibilityIdentifier("update-retry") }
       Button("Back to About", action: back).buttonStyle(.pill(.ghost))

@@ -1,5 +1,5 @@
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 final class MarketplaceTests: XCTestCase {
   private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T { try Wire.decoder.decode(type, from: Data(json.utf8)) }
@@ -74,7 +74,7 @@ final class MarketplaceTests: XCTestCase {
     let shelves = try decode([DeviceShelf].self, ##"[{"nodeId":"n1","nodeName":"MacBook","online":true,"items":[{"key":"claude-code:skill:pdf","harness":"claude-code","kind":"skill","name":"pdf","description":"Read PDFs","path":"/x"},{"key":"codex:mcp:github","harness":"codex","kind":"mcp","name":"github","path":"/y","transport":"http","url":"https://api.example.com/mcp","headers":["Authorization"]},{"key":"codex:mcp:db","harness":"codex","kind":"mcp","name":"db","path":"/z","transport":"stdio","command":"npx","args":["db"],"secrets":["DB_KEY"]}]}]"##)
     let items = shelves[0].items
     XCTAssertEqual(items[0].skillId, "pdf")
-    XCTAssertTrue(items[1].readyAsIs)   // only a login header: Wisp signs in itself
+    XCTAssertTrue(items[1].readyAsIs)   // only a login header: Bubble AI signs in itself
     XCTAssertFalse(items[2].readyAsIs)  // a secret stayed on the device
     XCTAssertEqual(ShelfLogic.summary(items), "1 skill and 2 apps")
     XCTAssertEqual(ShelfLogic.skillId("n1", items[0]), "device:n1:claude-code:pdf")

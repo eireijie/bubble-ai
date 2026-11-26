@@ -35,8 +35,8 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import org.json.JSONObject
 
 /**
- * Wisp for Android: pair with Wisp on your computer by scanning the QR code in Settings → Mobile,
- * then use Wisp's own phone layout in a web view, signed in with the session the pairing gave you.
+ * Bubble AI for Android: pair with Bubble AI on your computer by scanning the QR code in Settings → Mobile,
+ * then use Bubble AI's own phone layout in a web view, signed in with the session the pairing gave you.
  */
 class MainActivity : Activity() {
     private val prefs by lazy {
@@ -111,8 +111,8 @@ class MainActivity : Activity() {
     private fun offer(link: PairLink) {
         if (web == null) return pair(link)
         AlertDialog.Builder(this)
-            .setTitle("Pair with another Wisp?")
-            .setMessage("This phone is signed in to a Wisp already.")
+            .setTitle("Pair with another Bubble AI?")
+            .setMessage("This phone is signed in to a Bubble AI already.")
             .setPositiveButton("Sign out and pair") { _, _ -> signOut(); pair(link) }
             .setNegativeButton("Cancel", null)
             .show()
@@ -169,7 +169,7 @@ class MainActivity : Activity() {
         }
         AlertDialog.Builder(this)
             .setTitle("Paste pairing link")
-            .setMessage("In Wisp on your computer: Settings → Mobile → Start pairing → Copy pairing link.")
+            .setMessage("In Bubble AI on your computer: Settings → Mobile → Start pairing → Copy pairing link.")
             .setView(box)
             .setPositiveButton("Connect") { _, _ -> use(input.text.toString()) }
             .setNegativeButton("Cancel", null)
@@ -177,7 +177,7 @@ class MainActivity : Activity() {
     }
 
     private fun use(text: String?) {
-        val link = PairLink.parse(text) ?: return step(Step.Start, error = "That isn't a Wisp pairing code. Scan the code in Wisp → Settings → Mobile.")
+        val link = PairLink.parse(text) ?: return step(Step.Start, error = "That isn't a Bubble AI pairing code. Scan the code in Bubble AI → Settings → Mobile.")
         pair(link)
     }
 
@@ -191,7 +191,7 @@ class MainActivity : Activity() {
                     ?: throw PairingError("Couldn't reach your computer. Make sure this phone is on the same Wi-Fi as it, then try again.")
                 val claimed = Pairing.claim(link, at, deviceName())
                 runOnUiThread {
-                    if (pairing == mine) step(Step.Code, claimed.code, "Waiting for you to confirm in ${claimed.workspaceName ?: "Wisp"} on your computer…")
+                    if (pairing == mine) step(Step.Code, claimed.code, "Waiting for you to confirm in ${claimed.workspaceName ?: "Bubble AI"} on your computer…")
                 }
                 val t = Pairing.waitForConfirm(link, at) { pairing == mine } ?: return@Thread
                 runOnUiThread {
@@ -229,8 +229,8 @@ class MainActivity : Activity() {
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
         }
-        // Wisp keeps its sign-in in localStorage; put the paired one there before the page runs
-        // and hear about it when Wisp drops it (signed out here, or this phone's sign-in was ended on the computer)
+        // Bubble AI keeps its sign-in in localStorage; put the paired one there before the page runs
+        // and hear about it when Bubble AI drops it (signed out here, or this phone's sign-in was ended on the computer)
         val setToken = "Object.keys(localStorage).filter(k=>k.startsWith('warren.')).forEach(k=>{" +
             "var n='wisp.'+k.slice(7);if(localStorage.getItem(n)===null)localStorage.setItem(n,localStorage.getItem(k));localStorage.removeItem(k);});" +
             "if (!localStorage.getItem('wisp.token')) localStorage.setItem('wisp.token', ${JSONObject.quote(signIn)});" +
@@ -266,7 +266,7 @@ class MainActivity : Activity() {
                 if (!request.isForMainFrame || web !== v || errorShown) return
                 errorShown = true
                 AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Can't reach Wisp")
+                    .setTitle("Can't reach Bubble AI")
                     .setMessage("Is your computer on, and is this phone on the same Wi-Fi as it (or on your private network)? You can also pair with it again.")
                     .setPositiveButton("Try again") { _, _ -> errorShown = false; v.loadUrl("$origin/") }
                     .setNegativeButton("Pair again") { _, _ -> errorShown = false; signOut() }
@@ -369,7 +369,7 @@ class MainActivity : Activity() {
         if (v != null && v.canGoBack()) v.goBack() else @Suppress("DEPRECATION") super.onBackPressed()
     }
 
-    /** Android 15 draws apps under the status and navigation bars; keep Wisp clear of them and the keyboard. */
+    /** Android 15 draws apps under the status and navigation bars; keep Bubble AI clear of them and the keyboard. */
     private fun fitSystemBars(view: View) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         view.setOnApplyWindowInsetsListener { v, insets ->

@@ -8,7 +8,7 @@ import { normalizeTokens } from "../src/app-signin.ts";
 import * as relay from "../../../site/functions/_relay.ts";
 
 /**
- * One-click sign-in through Wisp's app with Google, GitHub and Slack, run end to end through the
+ * One-click sign-in through Bubble AI's app with Google, GitHub and Slack, run end to end through the
  * real relay code (site/functions/_relay.ts) with the companies faked.
  */
 
@@ -46,7 +46,7 @@ let hub: Hub;
 let close: () => Promise<void>;
 let owner: string;
 let agentId: string;
-const before = process.env.WISP_SIGNIN_RELAY;
+const before = process.env.BUBBLE_SIGNIN_RELAY;
 
 async function api<T = any>(method: string, url: string, body?: unknown, token = owner): Promise<{ status: number; data: T; cookie: string }> {
   const res = await fetch(base + url, { method, headers: { ...(body !== undefined ? { "content-type": "application/json" } : {}), authorization: `Bearer ${token}` }, body: body !== undefined ? JSON.stringify(body) : undefined });
@@ -60,7 +60,7 @@ async function api<T = any>(method: string, url: string, body?: unknown, token =
 const sameBrowser = (url: string, cookie: string) => fetch(url, { redirect: "manual", headers: { cookie } });
 
 beforeAll(async () => {
-  process.env.WISP_SIGNIN_RELAY = RELAY;
+  process.env.BUBBLE_SIGNIN_RELAY = RELAY;
   dir = await fs.mkdtemp(path.join(os.tmpdir(), "wisp-app-signin-"));
   const built = await buildHub({ dataDir: dir, setupCode: false });
   hub = built.hub;
@@ -76,8 +76,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await close();
   await fs.rm(dir, { recursive: true, force: true });
-  if (before === undefined) delete process.env.WISP_SIGNIN_RELAY;
-  else process.env.WISP_SIGNIN_RELAY = before;
+  if (before === undefined) delete process.env.BUBBLE_SIGNIN_RELAY;
+  else process.env.BUBBLE_SIGNIN_RELAY = before;
 });
 
 describe("which apps can sign in from here", () => {
@@ -230,7 +230,7 @@ describe("signing in with Google through the relay", () => {
     expect(elsewhere.status).toBe(200);
     expect(elsewhere.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     const html = await elsewhere.text();
-    expect(html).toContain("Me started this sign-in for Google Drive in Wisp");
+    expect(html).toContain("Me started this sign-in for Google Drive in Bubble AI");
     expect(html).toContain("Continue only if you started it");
     expect(hub.connectors.auth.accessToken(r.data.connectors[0].id)).toBeNull();
     // a wrong cookie is no better than none
@@ -277,7 +277,7 @@ describe("the relay", () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("someone.example.com");
-    expect(html).toContain("Continue only if that's your Wisp");
+    expect(html).toContain("Continue only if that's your Bubble AI");
     expect(html).toContain(`https://someone.example.com/api/connectors/app/callback?code=c&#38;state=${state}`);
   });
 

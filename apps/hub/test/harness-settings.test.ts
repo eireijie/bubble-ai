@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { HarnessAdapter } from "@wisp/adapters";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter } from "@bubble-ai/adapters";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
@@ -26,7 +26,7 @@ const envs: Record<string, string>[] = [];
 
 const config = () => fs.readFile(path.join(home, ".hermes", "config.yaml"), "utf8");
 
-/** Hermes as far as the device can tell: installed, and during a run it asks Wisp to switch its model. */
+/** Hermes as far as the device can tell: installed, and during a run it asks Bubble AI to switch its model. */
 const hermes: HarnessAdapter = {
   id: "hermes",
   label: "Hermes",
@@ -39,17 +39,17 @@ const hermes: HarnessAdapter = {
     // what it does depends on the message that woke it (the prompt's last line), not the history
     const last = input.prompt.trim().split("\n").pop() ?? "";
     if (last.includes("use the research account")) {
-      const res = await fetch(`${input.mcp!.env!.WISP_URL}/api/agent/harness-settings`, {
+      const res = await fetch(`${input.mcp!.env!.BUBBLE_URL}/api/agent/harness-settings`, {
         method: "PATCH",
-        headers: { "content-type": "application/json", authorization: `Bearer ${input.mcp!.env!.WISP_TOKEN}` },
+        headers: { "content-type": "application/json", authorization: `Bearer ${input.mcp!.env!.BUBBLE_TOKEN}` },
         body: JSON.stringify({ useAccount: "Research" }),
       });
       attempts.push({ status: res.status, body: await res.json() });
     }
     if (last.includes("switch to gpt-5")) {
-      const res = await fetch(`${input.mcp!.env!.WISP_URL}/api/agent/harness-settings`, {
+      const res = await fetch(`${input.mcp!.env!.BUBBLE_URL}/api/agent/harness-settings`, {
         method: "PATCH",
-        headers: { "content-type": "application/json", authorization: `Bearer ${input.mcp!.env!.WISP_TOKEN}` },
+        headers: { "content-type": "application/json", authorization: `Bearer ${input.mcp!.env!.BUBBLE_TOKEN}` },
         body: JSON.stringify({ changes: [{ op: "model", model: "gpt-5" }] }),
       });
       attempts.push({ status: res.status, body: await res.json() });
@@ -189,7 +189,7 @@ describe("harness settings", () => {
     expect(await status(sam.request("POST", `/api/nodes/${nodeId}/harness-accounts/hermes`, { op: "add", label: "Mine" }))).toBe(403);
   });
 
-  it("says how to sign in where it can't from Wisp", async () => {
+  it("says how to sign in where it can't from Bubble AI", async () => {
     expect(await status(owner.request("POST", `/api/nodes/${nodeId}/harness-accounts/goose`, { op: "add", label: "Two" }))).toBe(422);
   });
 });

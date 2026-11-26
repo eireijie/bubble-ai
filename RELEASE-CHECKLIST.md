@@ -1,9 +1,9 @@
-# Wisp v1 release checklist
+# Bubble AI v1 release checklist
 
 Everything the user asked for, gathered from their notes and the commit history on 2026-10-23. Each line gets checked by hand on the real app (not just tests) before the public v1. Mark: ✅ works · 🟡 works with a caveat · ❌ broken · ⬜ not checked yet.
 
 ## Hub and web app
-- ⬜ First-run setup: create the first account; Tailscale shown as setup step 1 ("Use Wisp from anywhere"); the hub computer becomes a device on its own
+- ⬜ First-run setup: create the first account; Tailscale shown as setup step 1 ("Use Bubble AI from anywhere"); the hub computer becomes a device on its own
 - ⬜ Sign in, invites (off by default, owner can turn on), people and roles, organization switcher, per-organization memory
 - ⬜ Sidebar: Inbox, Agents, Channels, Computers, Mods, Settings; "More" holds Marketplace; search box doubles as the create menu
 - ⬜ Inbox: action cards (approvals, waiting) and the allowance pill
@@ -22,8 +22,8 @@ Everything the user asked for, gathered from their notes and the commit history 
 - ⬜ Computers: a VM per agent; the agent's desk; live screen (VNC and frames); click to take control, agents take it back; clipboard and file exchange; lend your own screen; agents borrow a device mid-task with approval; activity log
 - ⬜ Screen code: a screen with a PIN or password asks for it on view, lend and loan approval; wrong tries and the 15-minute lockout; Remote Desktop on Linux and Windows
 - ⬜ Devices: add and claim a device; phone pairing by QR with the 6-digit confirm; sharing and roles; runtime inventory, install and refresh; update a device
-- ⬜ Marketplace: store layout with real logos; apps from the MCP Registry; skills from OpenAI, Anthropic and the community; Installed; "On your devices" bring-in of skills and connectors; log in to an app once in Wisp
-- ⬜ Harness settings: Settings → Harnesses for all ten harnesses; model, plugins, connectors, skills; several accounts per harness and sign-in from Wisp; read-only where a harness can't be edited
+- ⬜ Marketplace: store layout with real logos; apps from the MCP Registry; skills from OpenAI, Anthropic and the community; Installed; "On your devices" bring-in of skills and connectors; log in to an app once in Bubble AI
+- ⬜ Harness settings: Settings → Harnesses for all ten harnesses; model, plugins, connectors, skills; several accounts per harness and sign-in from Bubble AI; read-only where a harness can't be edited
 - ⬜ Settings: 7 sections; "Ask <agent> to change anything"; appearance themes and text size; notifications and web push; voice provider; Access (Tailscale, Funnel); data export; Mods page with "ask an agent to make one"
 - ⬜ Voice calls: hands-free turn-taking, interrupt mid-sentence, on-device voice by default, bring-your-own provider optional
 - ⬜ Search and the command palette; Help page; "hub updated, reload" banner
@@ -32,7 +32,7 @@ Everything the user asked for, gathered from their notes and the commit history 
 ## Desktop app (Electron, apps/desktop)
 - ⬜ Create a server on this computer, or join one; this computer becomes a device; the Welcome page hands the claim to the app
 - ⬜ Menu bar status lines are honest (hub, this computer, service)
-- ⬜ "Let Me Use This Screen from Wisp" asks for a screen code; "Change Screen Code…"
+- ⬜ "Let Me Use This Screen from Bubble AI" asks for a screen code; "Change Screen Code…"
 - ⬜ Desk buddy: the ghost floats on the desktop with bubbles when agents finish or need you; follows theme and motion settings; respects muted channels
 - ⬜ Cloud server setup in your own Hetzner account; a failed one can be resumed after restart
 - ⬜ Updater: finds `desktop-v*` releases, verifies the digest, swaps the app (needs a published release to test end to end)

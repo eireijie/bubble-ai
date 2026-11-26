@@ -238,7 +238,7 @@ describe("/ commands: new, compact, stop", () => {
     expect(startsNewChat("/new")).toBe(true);
     expect(startsNewChat("@nova /new")).toBe(true);
     expect(startsNewChat("/new idea")).toBe(false);
-    // Wisp's /compact replaces a harness's own of the same name
+    // Bubble AI's /compact replaces a harness's own of the same name
     expect(agentCommands([{ name: "compact", kind: "command", via: "raw", builtIn: true }], []).filter((c) => c.name === "compact").map((c) => c.group)).toEqual(["wisp"]);
   });
 });
@@ -254,7 +254,7 @@ describe("/ commands", () => {
     expect(agentCommands([{ name: "context", kind: "command", via: "raw" }], [{ slug: "pdf", description: "PDFs" }]).map((c) => c.kind)).toEqual(["wisp", "wisp", "wisp", "wisp", "wisp", "wisp", "wisp", "wisp-skill"]);
   });
 
-  it("groups the menu: Wisp's, learned skills, the harness's own, then other skills", async () => {
+  it("groups the menu: Bubble AI's, learned skills, the harness's own, then other skills", async () => {
     const { agentCommands } = await import("../src/commands.ts");
     const now = Date.parse("2026-10-29T12:00:00Z");
     const list = agentCommands(
@@ -264,11 +264,11 @@ describe("/ commands", () => {
         { name: "model", kind: "command", via: "raw" },
       ],
       [
-        { slug: "pdf", description: "Wisp PDFs" },
+        { slug: "pdf", description: "Bubble AI PDFs" },
         { slug: "notes", description: "Take notes" },
         { slug: "review", description: "My way", learnedBy: "Ghosty", createdAt: "2026-10-28T00:00:00Z" },
         { slug: "pizza", description: "Order pizza", learnedBy: "Nova", createdAt: "2026-10-01T00:00:00Z" },
-        { slug: "context", description: "A learned name Wisp already uses", learnedBy: "Nova" },
+        { slug: "context", description: "A learned name Bubble AI already uses", learnedBy: "Nova" },
       ],
       now,
     );

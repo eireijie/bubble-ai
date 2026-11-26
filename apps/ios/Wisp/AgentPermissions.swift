@@ -15,8 +15,8 @@ struct AgentPermissions: View {
   @State private var action = FormAction()
 
   static let askBefore: [(key: String, title: String)] = [
-    ("send", "Sending email or messages outside Wisp"), ("spend", "Buying or paying for anything"), ("delete", "Deleting files, data or accounts"),
-    ("post", "Posting publicly"), ("signup", "Signing up for new accounts or services"), ("share", "Sharing files or private information outside Wisp"),
+    ("send", "Sending email or messages outside Bubble AI"), ("spend", "Buying or paying for anything"), ("delete", "Deleting files, data or accounts"),
+    ("post", "Posting publicly"), ("signup", "Signing up for new accounts or services"), ("share", "Sharing files or private information outside Bubble AI"),
   ]
 
   private var current: Agent { store.agent(agent.id) ?? agent }
@@ -32,7 +32,7 @@ struct AgentPermissions: View {
       CardCaption(access.scope(name: current.name, handle: current.handle, device: device?.name))
       if access == .full {
         AgentCard {
-          Label("The agent can run any command as the device's user. The device must opt in with wisp node start --allow-full-access; otherwise it runs with edit access.", systemImage: "exclamationmark.shield")
+          Label("The agent can run any command as the device's user. The device must opt in with bubble-ai node start --allow-full-access; otherwise it runs with edit access.", systemImage: "exclamationmark.shield")
             .font(.system(size: 13)).foregroundStyle(Palette.red)
         }
       }

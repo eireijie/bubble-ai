@@ -1,5 +1,5 @@
 #!/bin/sh
-# Google Chrome the way Wisp's VMs run it, however it's opened (the dock, a link, an agent):
+# Google Chrome the way Bubble AI's VMs run it, however it's opened (the dock, a link, an agent):
 #   --no-sandbox     containers don't give Chrome user namespaces; --test-type hides the bar about it
 #   a profile of its own, because Chrome refuses its debugging port on the default profile; the
 #   port listens only inside the VM, for the agents' browser tools (Playwright MCP)

@@ -98,7 +98,7 @@ function useIsPhone() {
   return phone;
 }
 
-/** Unread messages on the app icon: the Dock in Wisp's desktop app, or the installed PWA's badge. */
+/** Unread messages on the app icon: the Dock in Bubble AI's desktop app, or the installed PWA's badge. */
 function useUnreadBadge() {
   const unread = useStore((s) => s.channels.reduce((n, c) => n + (c.unread || 0), 0));
   useEffect(() => {
@@ -239,7 +239,7 @@ function Workspace() {
     return (
       <div className="h-full grid place-items-center p-6 text-center text-sm">
         <div className="space-y-3">
-          <p>Couldn't reach the Wisp hub: {error}</p>
+          <p>Couldn't reach the Bubble AI hub: {error}</p>
           <button className="underline" onClick={() => location.reload()}>
             Retry
           </button>

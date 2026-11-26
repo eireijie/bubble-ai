@@ -109,7 +109,7 @@ export function AddDeviceContent({ phone = true, only }: { phone?: boolean; only
           </h3>
           <ol className="space-y-4 text-sm list-decimal pl-5 marker:text-muted">
             <li className="pl-1">
-              Get Wisp on it:
+              Get Bubble AI on it:
               <br />
               <a
                 href={RELEASES}
@@ -118,11 +118,11 @@ export function AddDeviceContent({ phone = true, only }: { phone?: boolean; only
                 className="mt-2 inline-flex items-center gap-1.5 text-ink underline"
               >
                 <Download size={15} />
-                Download Wisp
+                Download Bubble AI
               </a>
             </li>
             <li className="pl-1">
-              Pick <strong className="font-medium">Join my Wisp</strong>.
+              Pick <strong className="font-medium">Join my Bubble AI</strong>.
               <span className="block mt-1 text-muted">
                 On this Wi-Fi it finds you.
               </span>
@@ -132,13 +132,13 @@ export function AddDeviceContent({ phone = true, only }: { phone?: boolean; only
           <div className="border-t border-line pt-4 space-y-3">
             <p className="text-sm">
               {reach === "wifi"
-                ? "Not found? Paste this link in Join my Wisp."
+                ? "Not found? Paste this link in Join my Bubble AI."
                 : "Somewhere else? Send it this invite link."}
             </p>
             {invite && !expired && <CopyBlock text={invite.url} />}
             {!allowed && (
               <p className="text-sm text-muted">
-                Ask your Wisp's owner for an invite link.
+                Ask your Bubble AI's owner for an invite link.
               </p>
             )}
             {busy && (
@@ -179,7 +179,7 @@ const ADD_ROWS: { step: Exclude<AddStep, "list">; label: string; icon: ReactNode
 
 /**
  * Add: one list of what can be added, each row leading to its steps. This computer and a cloud
- * computer make a computer for agents; another computer joins this Wisp; a phone pairs.
+ * computer make a computer for agents; another computer joins this Bubble AI; a phone pairs.
  */
 export function AddDeviceDialog({ onClose, start = "list" }: { onClose: () => void; start?: AddStep }) {
   const [step, setStep] = useState<AddStep>(start);

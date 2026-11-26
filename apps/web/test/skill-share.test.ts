@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { skillFile } from "@wisp/core";
+import { skillFile } from "@bubble-ai/core";
 import { readSkillFile, readSkillLink, skillLink } from "../src/skillShare.ts";
 
 const skill = { name: "Weekly report — Fridays", description: "Use when asked for a Friday update.", content: "# Weekly report\n\n1. Read the chats.\n2. Write five lines. ✓\n", tags: ["reports", "weekly"] };
@@ -18,7 +18,7 @@ describe("sharing a skill", () => {
     expect(readSkillLink(`wisp-skill:${btoa(JSON.stringify({ n: "", c: "x" }))}`)).toBeNull();
   });
 
-  it("reads a SKILL.md Wisp wrote", () => {
+  it("reads a SKILL.md Bubble AI wrote", () => {
     const file = skillFile({ slug: "weekly-report", name: "Weekly report", description: "Use when asked for a Friday update.", content: "# Weekly report\n\nWrite it.\n" });
     expect(readSkillFile(file, "weekly-report.md")).toMatchObject({ name: "Weekly report", description: "Use when asked for a Friday update.", content: "# Weekly report\n\nWrite it." });
   });

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import type { Approval } from "@wisp/core";
+import type { Approval } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { AppleApprovalCard } from "./AppleParts.tsx";

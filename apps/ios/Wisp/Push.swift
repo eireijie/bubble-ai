@@ -136,7 +136,7 @@ extension Store {
 
   func pushRegistrationFailed(_ error: Error) {
     pushRegistrationError = "Couldn't register this phone"
-    Logger(subsystem: "ai.wisp.ios", category: "push").error("[Wisp] couldn't register for push: \(error.localizedDescription)")
+    Logger(subsystem: "ai.bubbleai.ios", category: "push").error("[Bubble AI] couldn't register for push: \(error.localizedDescription)")
   }
 
   func retryPushRegistration() {

@@ -3,7 +3,7 @@ import SwiftUI
 /**
  * An agent's avatar: a bubble (Bubble.swift) in its own shape and colour. The name stays from the
  * ghost days so every screen that drew a ghost now draws a bubble. Eyes glance around and look
- * toward your finger; a tap spins it once. Reduce Motion (the system's or Wisp's) stills it.
+ * toward your finger; a tap spins it once. Reduce Motion (the system's or Bubble AI's) stills it.
  */
 struct GhostView: View {
   var look: GhostLook?

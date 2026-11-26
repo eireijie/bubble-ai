@@ -77,7 +77,7 @@ struct ImportAgent: View {
         }
       }
       AgentError(text: loadError)
-      CardCaption("Wisp keeps the agent's own files where they are and adds a handle to it. Imports personality, instructions and supported notes; skills stay on the original device.")
+      CardCaption("Bubble AI keeps the agent's own files where they are and adds a handle to it. Imports personality, instructions and supported notes; skills stay on the original device.")
       PillButton(title: scanning ? "Looking…" : "Look again", kind: .secondary, id: "import-scan") { scan() }.disabled(scanning || !anyOnline)
     }
     .navigationDestination(item: $picked) { pick in ImportDetails(pick: pick, onDone: onImported) }
@@ -130,7 +130,7 @@ private struct ImportDetails: View {
       if !pick.found.summary.isEmpty { CardCaption(pick.found.summary) }
       FieldCard(label: "Handle", text: Binding(get: { handle.isEmpty ? "" : "@" + handle }, set: { handle = ManagementText.typingHandle($0.replacingOccurrences(of: "@", with: "")) }), prompt: "@handle", lowercase: true)
       if taken { AgentError(text: "@\(handle) is taken.") }
-      CardCaption("Its personality, instructions and notes are copied into Wisp's memory. \(pick.found.path)")
+      CardCaption("Its personality, instructions and notes are copied into Bubble AI's memory. \(pick.found.path)")
       CardCaption("Computer")
       CardGroup {
         if node?.capabilities?.vm?.ok == true {
@@ -215,7 +215,7 @@ struct AgentInvite: View {
       HStack(spacing: 14) {
         GhostView(look: look, seed: agent.handle, size: 56, animate: false).frame(width: 56, height: 56)
         VStack(alignment: .leading, spacing: 2) {
-          Text("Invite \(agent.name) to Wisp").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
+          Text("Invite \(agent.name) to Bubble AI").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
           Text("Add this connection to its existing session.").font(.system(size: 13)).foregroundStyle(Palette.faint)
         }
       }

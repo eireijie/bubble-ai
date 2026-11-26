@@ -1,4 +1,4 @@
-import { GITHUB_URL } from "@wisp/core";
+import { GITHUB_URL } from "@bubble-ai/core";
 import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
@@ -78,7 +78,7 @@ export function AboutPage() {
     return (
       <div className="min-h-[60vh] grid place-items-center text-center">
         <div className="max-w-sm space-y-3">
-          <h2 className="t-title">Updating Wisp</h2>
+          <h2 className="t-title">Updating Bubble AI</h2>
           <p className="text-body text-muted">This page reloads by itself when the hub is back.</p>
           <p className="text-sm text-faint" role="status">
             {restarting !== null || u?.state === "restarting" ? "Restarting the hub…" : (u?.log.at(-1) ?? "Updating…")}
@@ -91,7 +91,7 @@ export function AboutPage() {
       <div className="min-h-[60vh] grid place-items-center text-center">
         <div className="max-w-sm space-y-4">
           <h2 className="t-title">The update didn't finish</h2>
-          <p className="text-body text-muted">Wisp is still running the version it had. Nothing was lost.</p>
+          <p className="text-body text-muted">Bubble AI is still running the version it had. Nothing was lost.</p>
           <p className="text-sm text-bad whitespace-pre-wrap">{u.message}</p>
           <div className="flex justify-center gap-2">
             {isOwner && (
@@ -104,10 +104,10 @@ export function AboutPage() {
         </div>
       </div>
     );
-  // in the desktop app its own copy of Wisp updates with the app, so the hub's git check only shows when it can act
+  // in the desktop app its own copy of Bubble AI updates with the app, so the hub's git check only shows when it can act
   const hubShown = !desktop || !!c?.canUpdate;
   const status = !c ? (checking ? "Checking…" : "Not checked") : c.canUpdate ? "Update available" : c.behind === 0 ? "Up to date" : "Can't update here";
-  const version = `Wisp${v?.commit ? ` ${v.commit}` : ""}${v?.date ? ` · ${new Date(v.date).toLocaleDateString()}` : ""}`;
+  const version = `Bubble AI${v?.commit ? ` ${v.commit}` : ""}${v?.date ? ` · ${new Date(v.date).toLocaleDateString()}` : ""}`;
   return (
     <>
       {desktop && <DesktopUpdates />}
@@ -151,7 +151,7 @@ export function AboutPage() {
       </Group>
       {confirm && (
         <Modal title="Update and restart the hub?" onClose={() => setConfirm(false)}>
-          <p className="text-body text-muted mb-5">Everyone will briefly disconnect. Wisp comes back by itself.</p>
+          <p className="text-body text-muted mb-5">Everyone will briefly disconnect. Bubble AI comes back by itself.</p>
           <div className="flex flex-col gap-2">
             <Button variant="primary" className="h-12" onClick={update}>
               Update and restart

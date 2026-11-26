@@ -1,4 +1,4 @@
-import { envVar } from "@wisp/core";
+import { envVar } from "@bubble-ai/core";
 import { execFile, execFileSync, spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -7,7 +7,7 @@ import path from "node:path";
 
 /**
  * How people and devices reach this hub from elsewhere: its home-network addresses, and
- * Tailscale, which Wisp pushes as one of the first steps of setup. Tailscale gives the hub a
+ * Tailscale, which Bubble AI pushes as one of the first steps of setup. Tailscale gives the hub a
  * private https://<computer>.<tailnet>.ts.net address that works from anywhere for devices on the
  * same tailnet (Serve), and optionally a public one for people without Tailscale (Funnel).
  *
@@ -33,7 +33,7 @@ export interface TailscaleStatus {
   funnel: boolean;
   /**
    * the cloud-app door is open: only the connector paths, on CONNECTOR_PORT, are public through
-   * Funnel, while the rest of Wisp (sign-in, the app itself) stays on the private address
+   * Funnel, while the rest of Bubble AI (sign-in, the app itself) stays on the private address
    */
   connectors: boolean;
   /** the sign-in page, while one is pending */
@@ -48,7 +48,7 @@ export interface TailscaleStatus {
  * browser, on the private address.
  */
 export const CONNECTOR_PATHS = ["/mcp", "/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server", "/.well-known/openid-configuration", "/oauth/register", "/oauth/token"] as const;
-/** Funnel only allows 443, 8443 and 10000; 443 stays Wisp's private address. */
+/** Funnel only allows 443, 8443 and 10000; 443 stays Bubble AI's private address. */
 export const CONNECTOR_PORT = 8443;
 
 export type Run = (bin: string, args: string[], timeoutMs: number) => Promise<{ code: number; stdout: string; stderr: string }>;
@@ -63,7 +63,7 @@ const realRun: Run = (bin, args, timeoutMs) =>
 
 /** Where the tailscale command usually is, PATH first. */
 export function tailscaleCandidates(platform = process.platform, envPath = process.env.PATH ?? "", only = envVar("TAILSCALE")): string[] {
-  // WISP_TAILSCALE points at one particular tailscale command (and nothing else is used)
+  // BUBBLE_TAILSCALE points at one particular tailscale command (and nothing else is used)
   if (only) return [only];
   const exe = platform === "win32" ? "tailscale.exe" : "tailscale";
   const onPath = envPath
@@ -86,7 +86,7 @@ export function parseJson(out: string): unknown {
   return JSON.parse(out.slice(at));
 }
 
-/** Turn `tailscale status --json` and `tailscale serve status --json` into what Wisp shows. */
+/** Turn `tailscale status --json` and `tailscale serve status --json` into what Bubble AI shows. */
 export function readStatus(status: unknown, serve: unknown, port: number): Omit<TailscaleStatus, "error"> {
   const s = (status ?? {}) as {
     BackendState?: string;
@@ -128,7 +128,7 @@ type ServeConfig = { Web?: Record<string, { Handlers?: Record<string, { Proxy?: 
 /** A serve handler that proxies `path` to this hub. */
 const ownsPath = (proxy: string | undefined, port: number, path: string) => !!proxy && proxy.replace(/\/+$/, "") === `http://127.0.0.1:${port}${path}`;
 
-/** Anything on CONNECTOR_PORT that isn't Wisp's own connector paths (someone else's use of that port). */
+/** Anything on CONNECTOR_PORT that isn't Bubble AI's own connector paths (someone else's use of that port). */
 export function otherUseOfConnectorPort(serve: unknown, dnsName: string | null, port: number): string | null {
   if (!dnsName) return null;
   const handlers = (serve as ServeConfig | null)?.Web?.[`${dnsName}:${CONNECTOR_PORT}`]?.Handlers ?? {};
@@ -139,7 +139,7 @@ export function otherUseOfConnectorPort(serve: unknown, dnsName: string | null, 
 export function explainTailscaleError(stderr: string, platform = process.platform): string {
   const t = stderr.trim();
   if (/access denied|permission denied|must be root|operator/i.test(t))
-    return platform === "linux" ? "Wisp isn't allowed to change Tailscale on this computer. Run this once in a terminal, then try again: sudo tailscale set --operator=$USER" : "Wisp isn't allowed to change Tailscale on this computer. Open the Tailscale app and try again.";
+    return platform === "linux" ? "Bubble AI isn't allowed to change Tailscale on this computer. Run this once in a terminal, then try again: sudo tailscale set --operator=$USER" : "Bubble AI isn't allowed to change Tailscale on this computer. Open the Tailscale app and try again.";
   if (/funnel.*(not enabled|not allowed|disabled|attribute|not available)/i.test(t)) {
     const link = t.match(/https:\/\/login\.tailscale\.com\/f\/funnel\S*/)?.[0];
     if (link) return `Funnel is off for your tailnet. Turn it on, then try again: ${link}`;
@@ -176,7 +176,7 @@ export class Reach {
   ) { this.cloudflare = new Cloudflare(port, exists, cloudflareOptions); }
 
   private find(): string | null {
-    // looked for again until it's found, so installing Tailscale while Wisp runs is noticed
+    // looked for again until it's found, so installing Tailscale while Bubble AI runs is noticed
     if (!this.bin) this.bin = tailscaleCandidates().find((p) => this.exists(p)) ?? null;
     return this.bin;
   }
@@ -238,7 +238,7 @@ export class Reach {
    */
   async act(action: TailscaleAction): Promise<TailscaleStatus> {
     const bin = this.find();
-    if (!bin) throw new Error("Tailscale isn't installed on the computer running Wisp.");
+    if (!bin) throw new Error("Tailscale isn't installed on the computer running Bubble AI.");
     this.lastError = null;
     const target = `http://127.0.0.1:${this.port}`;
     const https = `--https=${CONNECTOR_PORT}`;
@@ -291,10 +291,10 @@ export class Reach {
     const stillOpen = action === "unserve" ? after.serving || after.funnel || after.connectors : action === "unfunnel" ? after.funnel : action === "unconnectors" ? after.connectors : false;
     if (stillOpen) {
       this.lastError = action === "unserve"
-        ? "Wisp couldn't turn off its Tailscale address. Run: tailscale funnel --https=443 off && tailscale serve --https=443 off"
+        ? "Bubble AI couldn't turn off its Tailscale address. Run: tailscale funnel --https=443 off && tailscale serve --https=443 off"
         : action === "unconnectors"
-          ? `Wisp couldn't close the address for Grok, ChatGPT and Claude. Run: tailscale funnel --https=${CONNECTOR_PORT} off`
-          : "Wisp couldn't turn off public access. Run: tailscale funnel --https=443 off";
+          ? `Bubble AI couldn't close the address for Grok, ChatGPT and Claude. Run: tailscale funnel --https=${CONNECTOR_PORT} off`
+          : "Bubble AI couldn't turn off public access. Run: tailscale funnel --https=443 off";
       return { ...after, error: this.lastError };
     }
     return after;
@@ -356,7 +356,7 @@ export function cloudflaredCandidates(platform = process.platform, envPath = pro
     ...(platform === "darwin" ? ["/opt/homebrew/bin/cloudflared", "/usr/local/bin/cloudflared"] : platform === "win32" ? ["C:\\Program Files (x86)\\cloudflared\\cloudflared.exe"] : ["/usr/bin/cloudflared", "/usr/local/bin/cloudflared"])])];
 }
 
-/** A remotely configured tunnel; its ingress must point at this computer's Wisp. */
+/** A remotely configured tunnel; its ingress must point at this computer's Bubble AI. */
 export class Cloudflare {
   private child: ChildProcess | null = null;
   private configFile: string | null = null;
@@ -368,7 +368,7 @@ export class Cloudflare {
   configure(dataDir: string) {
     this.configFile = path.join(dataDir, "cloudflare.json");
     this.pidFile = path.join(dataDir, "cloudflared.pid");
-    // a tunnel left running by a Wisp that crashed would stay open even after it's turned off
+    // a tunnel left running by a Bubble AI that crashed would stay open even after it's turned off
     endLeftover(this.pidFile);
     try {
       const config = JSON.parse(fs.readFileSync(this.configFile, "utf8"));
@@ -448,7 +448,7 @@ export class Cloudflare {
     if (!(await this.close())) this.value = { state: "error", url: null, error: "Cloudflare didn't stop. Restart this computer to close the tunnel." };
     return this.status();
   }
-  /** Shutdown keeps the saved setting, so the tunnel returns with Wisp. Resolves false if cloudflared won't exit. */
+  /** Shutdown keeps the saved setting, so the tunnel returns with Bubble AI. Resolves false if cloudflared won't exit. */
   close(): Promise<boolean> {
     const child = this.child;
     this.child = null;

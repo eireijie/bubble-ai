@@ -1,7 +1,7 @@
 import { noChartLine, agentRulesOf } from "./channel-rules.ts";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Play, Plus, X } from "lucide-react";
-import { hasSteps, workSteps, type AccessLevel, type Agent, type ChannelNotify, type ChannelTeam } from "@wisp/core";
+import { hasSteps, workSteps, type AccessLevel, type Agent, type ChannelNotify, type ChannelTeam } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { go, href } from "../router.ts";
 import { useNames, useStore, type ChannelInfo } from "../store.ts";

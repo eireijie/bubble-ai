@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fitInto, type KeyCombo } from "@wisp/core";
+import { fitInto, type KeyCombo } from "@bubble-ai/core";
 import { ActionError, cached, type Button, type Direction, type Driver, type Shot, type Size } from "./driver.ts";
 
 /**

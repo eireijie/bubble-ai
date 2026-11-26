@@ -57,7 +57,7 @@ function mockCloud({ hubAfter = 2, ipCert = false, token = "good-token", readOnl
       return json({ needsSetup: true });
     }
     if (url.pathname === "/api/setup" && method === "POST") {
-      if (headers["x-wisp-setup-key"] !== setupKey) return json("This Wisp is being set up by the app that created it.", 403);
+      if (headers["x-wisp-setup-key"] !== setupKey) return json("This Bubble AI is being set up by the app that created it.", 403);
       return json({ token: "session-token", user: { name: body.name } });
     }
     if (url.pathname === "/api/me") return json({ ok: true });
@@ -98,7 +98,7 @@ describe("Hetzner sizes and prices", () => {
   });
 });
 
-describe("creating a Wisp in the person's Hetzner project", () => {
+describe("creating a Bubble AI in the person's Hetzner project", () => {
   it("creates the server with the cloud-init script, waits for HTTPS, then makes the account with the setup key", async () => {
     const mock = mockCloud({ hubAfter: 3 });
     const steps: string[] = [];
@@ -121,7 +121,7 @@ describe("creating a Wisp in the person's Hetzner project", () => {
 
     const setup = mock.calls.find((c) => c.method === "POST" && c.url.endsWith("/api/setup"))!;
     expect(setup.headers["x-wisp-setup-key"]).toBe(mock.key());
-    expect(setup.body).toEqual({ ...account, workspaceName: "Wisp" });
+    expect(setup.body).toEqual({ ...account, workspaceName: "Bubble AI" });
     // the Hetzner token never goes to the new server
     expect(mock.calls.filter((c) => !c.url.includes("api.hetzner.cloud")).some((c) => JSON.stringify(c).includes("good-token"))).toBe(false);
   });
@@ -139,7 +139,7 @@ describe("creating a Wisp in the person's Hetzner project", () => {
     expect(err.server).toBeUndefined();
   });
 
-  it("hands back the server when Wisp never answers, so it can be deleted", async () => {
+  it("hands back the server when Bubble AI never answers, so it can be deleted", async () => {
     const mock = mockCloud({ hubAfter: Infinity });
     const err = await cloud.createWisp({ provider: "hetzner", token: "good-token", type: "cx23", location: "fsn1", account }, { fetchImpl: mock.fetchImpl, sleep, httpsMs: 30 }).catch((e: Error) => e);
     expect(err.message).toMatch(/didn't answer over HTTPS/);

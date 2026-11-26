@@ -1,6 +1,6 @@
 import SwiftUI
 import XCTest
-@testable import Wisp
+@testable import Bubble AI
 
 @MainActor
 final class OrgFeatureTests: XCTestCase {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, Cloud, FileText, KeyRound, Laptop, Loader2, Lock, Monitor, MoreHorizontal, Play, Plus, Power, Trash2 } from "lucide-react";
-import { describeCron, harnessInfo, harnessLabel, nextRun, runsInVm, type Agent, type Routine } from "@wisp/core";
+import { describeCron, harnessInfo, harnessLabel, nextRun, runsInVm, type Agent, type Routine } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";
@@ -13,7 +13,7 @@ import { CARD, Line, LineHead, SELECT, ShowAll, Toggle } from "./AgentSections.t
 import { Button, Field, Input, Menu, Modal, Textarea, cx, timeAgo } from "../components/ui.tsx";
 import { MoreOptions } from "../components/MoreOptions.tsx";
 
-/** Harnesses Wisp starts on a device (natively or over ACP), as opposed to ones that join through MCP. */
+/** Harnesses Bubble AI starts on a device (natively or over ACP), as opposed to ones that join through MCP. */
 export function runsOnDevice(harness: string) {
   return harness.startsWith("acp:") || (harnessInfo(harness)?.protocol ?? "mcp") !== "mcp";
 }
@@ -389,7 +389,7 @@ function MoveTo({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
           icon={<Lock size={16} />}
           title="My own screen"
           value={device.capabilities?.screen.off ? `Off at ${device.name}` : device.capabilities?.screen.ok === false ? device.capabilities.screen.detail : device.name}
-          hint={device.capabilities?.screen.off ? `Turn it on at ${device.name} with: wisp node screen on` : undefined}
+          hint={device.capabilities?.screen.off ? `Turn it on at ${device.name} with: bubble-ai node screen on` : undefined}
           disabled={device.capabilities?.screen.ok === false || others.some((c) => c.kind === "device" && c.nodeId === device.id) || current?.kind === "device"}
           busy={busy === "screen"}
           onClick={quickScreen}

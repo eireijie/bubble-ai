@@ -285,7 +285,7 @@ struct LoginNeedCard: View {
     VStack(alignment: .leading, spacing: 12) {
       NeedHead(agent: agent, title: "\(name) wants to sign in to \(login?.site ?? "a site")",
                sub: [login?.username.flatMap { $0.isEmpty ? nil : "Account \($0)" }, "from your password manager"].compactMap { $0 }.joined(separator: " · "))
-      Text("Wisp types it in on \(name)'s computer, so the password never goes in chat.").font(.system(size: 13)).foregroundStyle(Palette.muted)
+      Text("Bubble AI types it in on \(name)'s computer, so the password never goes in chat.").font(.system(size: 13)).foregroundStyle(Palette.muted)
       if login?.ownerId != store.me?.id {
         Text("Waiting for \(store.members.first { $0.id == login?.ownerId }?.name ?? "whoever connected it"): only they can let agents use their logins.")
           .font(.system(size: 13)).foregroundStyle(Palette.muted)

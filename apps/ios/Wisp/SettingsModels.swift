@@ -1,6 +1,6 @@
 import Foundation
 
-/** A computer asking to join this Wisp; an owner approves it by matching the code. */
+/** A computer asking to join this Bubble AI; an owner approves it by matching the code. */
 struct JoinRequest: Decodable, Identifiable, Equatable {
   var id: String
   var name: String
@@ -16,7 +16,7 @@ struct JoinRequest: Decodable, Identifiable, Equatable {
   }
 }
 
-/** A link a new computer pastes into Join my Wisp. */
+/** A link a new computer pastes into Join my Bubble AI. */
 struct JoinInvite: Decodable { var url: String; var expiresAt: String }
 
 /** How this hub can be reached from outside the home network (GET /api/reach). */
@@ -60,11 +60,11 @@ struct ReachInfo: Decodable {
     parts.path = ""; parts.query = nil; parts.fragment = nil
     return parts.url?.absoluteString
   }
-  /** why those apps can't reach this Wisp yet, the same words as the web */
+  /** why those apps can't reach this Bubble AI yet, the same words as the web */
   var connectorBlocker: String? {
     if connectorOrigin != nil { return nil }
     let place = tailscale.serving == true ? "only on your devices with Tailscale" : "only at home"
-    return "Grok, ChatGPT and Claude connect from their own servers on the internet. Your Wisp works \(place), so they can't reach it yet."
+    return "Grok, ChatGPT and Claude connect from their own servers on the internet. Your Bubble AI works \(place), so they can't reach it yet."
   }
 }
 
@@ -120,7 +120,7 @@ struct HarnessSettings: Decodable, Equatable {
   var skills: [HarnessSettingItem]
   var fixed: [String]?
   var modelChoices: [String]?
-  /** the reasoning effort it thinks with by default; only harnesses whose config has one Wisp can change send it */
+  /** the reasoning effort it thinks with by default; only harnesses whose config has one Bubble AI can change send it */
   var effort: String?
   var hasEffort = false
   var error: String?

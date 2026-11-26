@@ -5,7 +5,7 @@ import { Input } from "./ui.tsx";
 
 /**
  * Codes people typed for their screens in this tab, so watching a screen again doesn't ask again.
- * Only in memory: a reload or another tab asks once more. The device checks them; Wisp keeps none.
+ * Only in memory: a reload or another tab asks once more. The device checks them; Bubble AI keeps none.
  */
 const typed = new Map<string, string>();
 
@@ -39,7 +39,7 @@ export function CodeInput({ kind, value, onChange, onSubmit, autoFocus, classNam
   );
 }
 
-/** Asking for the code before a screen opens: "Screen code", checked on the device, never by Wisp. */
+/** Asking for the code before a screen opens: "Screen code", checked on the device, never by Bubble AI. */
 export function CodePrompt({ computer, error, onSubmit }: { computer: ComputerInfo; error: string | null; onSubmit: (code: string) => void }) {
   const [code, setCode] = useState("");
   const kind = computer.code ?? "pin";

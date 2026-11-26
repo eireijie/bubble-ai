@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ExternalLink, LogIn, MoreHorizontal } from "lucide-react";
-import { SIGN_IN_PROVIDERS, connectorUnsupportedReason, trustLabel, type Agent, type AppCategory, type CatalogConnector, type Connector, type MarketplaceInstall, type SignInOption, type StoreApp } from "@wisp/core";
+import { SIGN_IN_PROVIDERS, connectorUnsupportedReason, trustLabel, type Agent, type AppCategory, type CatalogConnector, type Connector, type MarketplaceInstall, type SignInOption, type StoreApp } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { Button, Menu } from "../components/ui.tsx";
 import { WhoCanUse, whoLine } from "../components/ShopParts.tsx";
@@ -11,13 +11,13 @@ export type AppItem = { key: string; name: string; description: string; category
 
 const HARNESS_NAMES: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", hermes: "Hermes" };
 
-/** Why signing in to an app doesn't work from where Wisp is open, and what to do instead (or, where it does, what happens). */
+/** Why signing in to an app doesn't work from where Bubble AI is open, and what to do instead (or, where it does, what happens). */
 export function howToSignIn(name: string, o: SignInOption): string {
-  if (o.signIn) return `A page opens in your browser to sign in to ${name}. Wisp never sees your password.`;
+  if (o.signIn) return `A page opens in your browser to sign in to ${name}. Bubble AI never sees your password.`;
   return `${o.reason ?? `Signing in to ${name} doesn't work from here.`}${o.key ? " You can use a key instead." : ""}`;
 }
 
-/** Who made an app, where Wisp can say: the maker the registry confirmed, the company its sign-in goes to, else its publisher. */
+/** Who made an app, where Bubble AI can say: the maker the registry confirmed, the company its sign-in goes to, else its publisher. */
 export function appMaker(app: AppItem): string | null {
   if ("registry" in app) {
     const t = trustLabel(app.registry);
@@ -33,7 +33,7 @@ export function appLine(app: AppItem): string {
   return [app.category ?? "App", maker && `by ${maker}`].filter(Boolean).join(" · ");
 }
 
-/** The same line for an added app Wisp has no catalog entry for: one brought in from a harness, or the person's own. */
+/** The same line for an added app Bubble AI has no catalog entry for: one brought in from a harness, or the person's own. */
 export function connectorLine(c: Pick<Connector, "catalogId">): string {
   const id = c.catalogId ?? "";
   return id.startsWith("device:") ? `App · from ${HARNESS_NAMES[id.split(":")[2]] ?? "a computer"}` : "Your own app";
@@ -211,7 +211,7 @@ export function AppPage({
   );
 }
 
-/** Before the browser leaves for an app's sign-in page (Wisp never sees the password); a key instead, where the app takes one. */
+/** Before the browser leaves for an app's sign-in page (Bubble AI never sees the password); a key instead, where the app takes one. */
 export function ConnectSignIn({ connector, onClose, onSignIn, onUseKey }: { connector: { name: string }; onClose: () => void; onSignIn: () => void; onUseKey?: () => void }) {
   return (
     <Dlg title={`Sign in to ${connector.name}`} onClose={onClose}>

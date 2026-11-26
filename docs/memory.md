@@ -1,8 +1,8 @@
 # Memory
 
-Wisp keeps each workspace's memory in a folder of markdown notes backed by git. Notes support `[[wikilinks]]`, backlinks, tags and search, and edits have a history showing who changed what.
+Bubble AI keeps each workspace's memory in a folder of markdown notes backed by git. Notes support `[[wikilinks]]`, backlinks, tags and search, and edits have a history showing who changed what.
 
-Open the folder in [Obsidian](https://obsidian.md) to browse and write, or use Wisp's **Memory** page to search, create, edit and delete notes. **Activity** shows changes across the vault; each note also has history and line authorship. Access rules apply to Wisp's tools and sync gateway; opening the folder directly on disk gives access through that computer's filesystem permissions.
+Open the folder in [Obsidian](https://obsidian.md) to browse and write, or use Bubble AI's **Memory** page to search, create, edit and delete notes. **Activity** shows changes across the vault; each note also has history and line authorship. Access rules apply to Bubble AI's tools and sync gateway; opening the folder directly on disk gives access through that computer's filesystem permissions.
 
 ## Memory permissions
 
@@ -29,30 +29,30 @@ An agent can use `me/notes.md` as shorthand for a note in its own `agents/<id>/`
 
 ## Choosing the vault folder
 
-The first workspace's vault defaults to `<data>/vault`. An owner can choose another folder in **Settings → Memory → Use a different folder**, or set `WISP_VAULT_DIR=/path/to/folder` where the hub runs; the environment variable takes precedence and changes take effect after a restart.
+The first workspace's vault defaults to `<data>/vault`. An owner can choose another folder in **Settings → Memory → Use a different folder**, or set `BUBBLE_VAULT_DIR=/path/to/folder` where the hub runs; the environment variable takes precedence and changes take effect after a restart.
 
 Only the first workspace's vault can move this way. Other workspaces keep separate vaults and search indexes under `<data>/orgs/<id>/vault`.
 
-- An existing Obsidian vault can be adopted in place. Wisp runs `git init` if needed, commits existing notes when starting its history, and keeps an existing repository's history.
-- `.obsidian/` and `.trash/` are added to `.gitignore` and excluded from indexing and normal vault commits. Wisp leaves those folders alone and does not follow symlinks while scanning.
-- Wisp refuses a drive root, your home folder, a folder containing its own data directory, or a path inside its uploaded-files directory. The account running the hub needs write access to the chosen folder.
-- When the location changes, Wisp carries the earlier vault over on the next start. An empty destination gets a copy including git history; a nonempty destination gets only missing files, without the earlier vault's hidden tool folders or `.git` history, and existing files are not overwritten. The earlier folder is left in place; Settings shows its location.
-- In Docker, the vault path must be inside a mounted volume. For example, add `-v ~/Obsidian/Wisp:/vault -e WISP_VAULT_DIR=/vault` to your container configuration and run it as an account that can write there; see [Deploying](deploy.md#docker).
+- An existing Obsidian vault can be adopted in place. Bubble AI runs `git init` if needed, commits existing notes when starting its history, and keeps an existing repository's history.
+- `.obsidian/` and `.trash/` are added to `.gitignore` and excluded from indexing and normal vault commits. Bubble AI leaves those folders alone and does not follow symlinks while scanning.
+- Bubble AI refuses a drive root, your home folder, a folder containing its own data directory, or a path inside its uploaded-files directory. The account running the hub needs write access to the chosen folder.
+- When the location changes, Bubble AI carries the earlier vault over on the next start. An empty destination gets a copy including git history; a nonempty destination gets only missing files, without the earlier vault's hidden tool folders or `.git` history, and existing files are not overwritten. The earlier folder is left in place; Settings shows its location.
+- In Docker, the vault path must be inside a mounted volume. For example, add `-v ~/Obsidian/Bubble AI:/vault -e BUBBLE_VAULT_DIR=/vault` to your container configuration and run it as an account that can write there; see [Deploying](deploy.md#docker).
 
 ## Memory in Obsidian
 
 ### On the hub's computer
 
-Open the vault folder in Obsidian. **Open in Obsidian** on Wisp's Memory page opens the local path, so use it on the computer running the hub.
+Open the vault folder in Obsidian. **Open in Obsidian** on Bubble AI's Memory page opens the local path, so use it on the computer running the hub.
 
-Wisp watches for outside edits, commits them as **Edited in Obsidian**, and updates the search index. A scan every 30 seconds backs up the watcher; opening **Settings → Memory** or pressing **Refresh** in Memory also scans. Agent writes are tracked separately so the watcher does not treat them as outside edits.
+Bubble AI watches for outside edits, commits them as **Edited in Obsidian**, and updates the search index. A scan every 30 seconds backs up the watcher; opening **Settings → Memory** or pressing **Refresh** in Memory also scans. Agent writes are tracked separately so the watcher does not treat them as outside edits.
 
 ### Syncing from another computer
 
 The hub serves the vault through git at `/git/vault.git`; git must be installed on the hub for its HTTP backend. In **Settings → Memory**, create a sync token and copy it when it is shown, then clone the vault:
 
 ```bash
-git clone https://your-hub.example.com/git/vault.git "Wisp memory"
+git clone https://your-hub.example.com/git/vault.git "Bubble AI memory"
 ```
 
 Use any username and the sync token as the password when git asks. Open the cloned folder in Obsidian, install the community **Git** plugin (Vinzent03/obsidian-git), and configure it to pull and push on a schedule. Use HTTPS or a private network such as Tailscale when connecting beyond your own network; the token authenticates every request.
@@ -68,13 +68,13 @@ Reads use a separate bare repository that borrows the vault's git objects. Pushe
 - Only fast-forward updates to the vault's own branch are allowed; branch deletion and other branches are refused, and git checks the received objects.
 - Every changed path is checked against the person's edit access. Hidden paths such as `.obsidian`, symlinks and submodules are refused.
 - Accepted commits enter the vault while it is locked against other writes. A rejected push leaves the vault unchanged by that push and returns a reason.
-- Git commits retain the author configured on the person's computer, while Wisp's Activity, history and line authorship attribute accepted pushes to that person's Wisp name.
+- Git commits retain the author configured on the person's computer, while Bubble AI's Activity, history and line authorship attribute accepted pushes to that person's Bubble AI name.
 
-Wisp commits outside edits on the hub before evaluating a push. If someone edited in Obsidian there at the same time, pull those changes before pushing again.
+Bubble AI commits outside edits on the hub before evaluating a push. If someone edited in Obsidian there at the same time, pull those changes before pushing again.
 
 ## What agents know when they start
 
-Wisp assembles context for each run alongside the conversation and request:
+Bubble AI assembles context for each run alongside the conversation and request:
 
 1. **Soul and instructions:** the agent's personality and the instructions people gave it.
 2. **About the person:** saved preferences, active plans, up to 25 recent activity entries from the last week, and details ranked by relevance to the request, within a size budget. The person is the sender, the last person in the conversation, or the workspace owner as a fallback, and the agent must have access to that person's memory.
@@ -82,7 +82,7 @@ Wisp assembles context for each run alongside the conversation and request:
 4. **Startup notes:** readable notes selected with **Load at startup**, limited to 4,000 characters per note and a shared 16,000-character budget. The prompt lists remaining note paths so the agent can read them when needed.
 5. **Related notes:** up to five search matches with snippets, excluding notes already shown, which the agent can open with `memory_read`.
 
-Agents save information about people with `memory_remember`, and people can inspect, correct or delete it on **About you**. Claude Code's automatic device-local memory is disabled for Wisp runs so this information can be kept in the shared vault.
+Agents save information about people with `memory_remember`, and people can inspect, correct or delete it on **About you**. Claude Code's automatic device-local memory is disabled for Bubble AI runs so this information can be kept in the shared vault.
 
 Sessions connected through `wisp-mcp` receive memory context at initialization and can request fresh context with `memory_context`. Skills assigned to an agent are stored in its private folder and listed in its prompt; see [Connectors and skills](adapters.md#connectors-and-skills).
 

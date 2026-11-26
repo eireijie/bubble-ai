@@ -57,7 +57,7 @@ import {
   type SignInOption,
   type StoreApp,
   type StoreSkill,
-} from "@wisp/core";
+} from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { setFeatures, useFeatures } from "../features.ts";
@@ -72,7 +72,7 @@ import { SkillDetail, SkillEditor, SkillShare, StoreSkillDetail, skillOrigin, ty
 const HARNESS_NAMES: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", hermes: "Hermes" };
 const harnessName = (h: string) => HARNESS_NAMES[h] ?? h;
 
-/** Wisp's own catalog sorted onto the store's shelves. */
+/** Bubble AI's own catalog sorted onto the store's shelves. */
 const BUILT_IN_SHELF: Record<CatalogConnector["category"], AppCategory> = {
   Code: "Developer",
   "Chat & docs": "Docs and notes",
@@ -177,12 +177,12 @@ function skillIcon(text: string, size = 17): ReactNode {
   return <I size={size} strokeWidth={1.7} />;
 }
 
-/** How a shelf skill is known to Wisp once it's brought in. */
+/** How a shelf skill is known to Bubble AI once it's brought in. */
 const deviceSkillId = (nodeId: string, i: ShelfItem) => `device:${nodeId}:${i.harness}:${i.key.split(":skill:")[1] ?? i.name}`;
 
 /** A server a harness has, as something the connector form can fill in: its keys asked for, or a sign-in. */
 function shelfConnector(nodeId: string, i: ShelfItem): CatalogConnector {
-  // an Authorization header is a login: Wisp signs in itself instead (log in once, every agent gets it)
+  // an Authorization header is a login: Bubble AI signs in itself instead (log in once, every agent gets it)
   const headers = (i.headers ?? []).filter((h) => h.toLowerCase() !== "authorization");
   const fields = [...(i.secrets ?? []), ...headers].map((k) => ({ key: k.replace(/[^A-Za-z0-9_]/g, "_").toUpperCase(), label: k, secret: true, hint: "Kept on the device; enter it here once." }));
   return {
@@ -214,7 +214,7 @@ const added = (label = "Added") => (
 );
 
 /**
- * Add: one page for apps (MCP servers from the MCP Registry and Wisp's own list), skills (Wisp's
+ * Add: one page for apps (MCP servers from the MCP Registry and Bubble AI's own list), skills (Bubble AI's
  * library and public SKILL.md repos) and mods. One search over all of it; sections with tiny
  * headers (Added, Found on your computers, Apps, Skills, Mods), each a few rows of tile, name, a
  * few words and one action; and "Make or bring your own" last. A row's name opens the item's page.
@@ -338,11 +338,11 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
   const hit = (sec: AddSection, ...fields: (string | null | undefined)[]) => (whole ? whole === sec : matchWords(words, fields));
 
   // --- apps ---
-  const builtInItem = (c: CatalogConnector): AppItem => ({ key: `b:${c.id}`, name: c.name, description: c.description, category: appCategory(c) ?? BUILT_IN_SHELF[c.category], who: "Wisp", builtIn: c });
+  const builtInItem = (c: CatalogConnector): AppItem => ({ key: `b:${c.id}`, name: c.name, description: c.description, category: appCategory(c) ?? BUILT_IN_SHELF[c.category], who: "Bubble AI", builtIn: c });
   const registryItem = (e: StoreApp): AppItem => ({ key: `r:${e.id}`, name: e.name, description: e.description, category: e.category, who: e.publisher, registry: e });
   const haveConnector = (a: AppItem) => (connectors ?? []).find((c) => c.catalogId === ("registry" in a ? `registry:${a.registry.id}` : a.builtIn.id) || squash(c.name) === squash(a.name));
   const apps: AppItem[] = useMemo(() => {
-    // Wisp's own one-click sign-in beats a registry entry of the same name (often someone else's server)
+    // Bubble AI's own one-click sign-in beats a registry entry of the same name (often someone else's server)
     const signsIn = new Set(CONNECTOR_CATALOG.filter((c) => c.signIn).map((c) => squash(c.name)));
     // the registry's answer to what was typed and, as the category and maker chips did, the well-known ones on that shelf or by that maker
     const shelf = searching && !whole ? featured.filter((e) => matchWords(words, [e.category, e.publisher])) : [];
@@ -369,7 +369,7 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
   // --- skills ---
   const skillItems: SkillItem[] = useMemo(
     () => [
-      ...SKILL_CATALOG.map((e) => ({ key: `w:${e.id}`, name: e.name, description: e.description, who: "Wisp", icon: <CatalogIcon name={e.icon} fallback={Wand2} size={17} />, bigIcon: <CatalogIcon name={e.icon} fallback={Wand2} size={26} />, library: e })),
+      ...SKILL_CATALOG.map((e) => ({ key: `w:${e.id}`, name: e.name, description: e.description, who: "Bubble AI", icon: <CatalogIcon name={e.icon} fallback={Wand2} size={17} />, bigIcon: <CatalogIcon name={e.icon} fallback={Wand2} size={26} />, library: e })),
       ...(store?.skills ?? []).map((s) => ({ key: `s:${s.id}`, name: s.name, description: s.description, who: s.source.label, icon: skillIcon(`${s.id} ${s.name}`), bigIcon: skillIcon(`${s.id} ${s.name}`, 26), store: s })),
     ],
     [store],

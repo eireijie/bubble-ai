@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronLeft, Folder, List, Plus, Search, Share2, X } from "lucide-react";
-import type { AccessRule, Agent } from "@wisp/core";
+import type { AccessRule, Agent } from "@bubble-ai/core";
 import { useStore } from "../store.ts";
 import { href } from "../router.ts";
 import { AgentAvatar, Popover, cx } from "../components/ui.tsx";

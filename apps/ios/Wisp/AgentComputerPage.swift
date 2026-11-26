@@ -29,7 +29,7 @@ struct AgentComputerView: View {
       CardGroup {
         if let device, device.mine == true {
           let blocked = device.capabilities?.screen?.ok == false && place != .screen
-          option("screen", "Your own screen", device.capabilities?.screen?.off == true ? "Off. Turn it on at \(device.name) with: wisp node screen on" : "\(device.name) · this computer",
+          option("screen", "Your own screen", device.capabilities?.screen?.off == true ? "Off. Turn it on at \(device.name) with: bubble-ai node screen on" : "\(device.name) · this computer",
                  icon: "lock.display", on: place == .screen, disabled: blocked || !store.canManage) {
             if let screen = store.computers.first(where: { $0.kind == "device" && $0.nodeId == device.id }) { try await assign(screen) } else { try await quickScreen(device) }
           }
@@ -161,7 +161,7 @@ struct AgentComputerView: View {
       } else if let harness {
         if !harness.possible {
           AgentCard {
-            Text("Directly on \(device.name), where it can reach that device's files. " + (harnessRunsInVM(current.harness) ? "Give it a computer on \(device.name) to run it inside that instead." : "\(label) doesn't come with Wisp's VM yet, so it runs on the device."))
+            Text("Directly on \(device.name), where it can reach that device's files. " + (harnessRunsInVM(current.harness) ? "Give it a computer on \(device.name) to run it inside that instead." : "\(label) doesn't come with Bubble AI's VM yet, so it runs on the device."))
               .font(.system(size: 15)).foregroundStyle(Palette.muted)
           }
         } else {

@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 
 /**
- * What a pairing QR code from Wisp → Settings → Mobile carries:
+ * What a pairing QR code from Bubble AI → Settings → Mobile carries:
  * `wisp://pair?v=1&id=…&s=…&u=http://wisp.local:4747&u=…`, the pairing, its one-time secret,
  * and the addresses this phone might reach the computer at, best first.
  */
@@ -42,7 +42,7 @@ enum Pairing {
     var errorDescription: String? { message }
   }
 
-  /** The first of the QR code's addresses (in its order) that answers as a Wisp hub. */
+  /** The first of the QR code's addresses (in its order) that answers as a Bubble AI hub. */
   static func reachable(_ addresses: [URL]) async -> URL? {
     let answered = await withTaskGroup(of: (Int, Bool).self) { group in
       for (i, url) in addresses.enumerated() {
@@ -77,7 +77,7 @@ enum Pairing {
       case "approved":
         if let token = s.token { return token }
       case "rejected":
-        throw Failure(message: "Your Wisp said no, or nobody answered in time. You can ask again.", denied: true)
+        throw Failure(message: "Your Bubble AI said no, or nobody answered in time. You can ask again.", denied: true)
       case "expired":
         throw Failure(message: "The code expired. Show a new one on your computer and scan again.", denied: true)
       default:

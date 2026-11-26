@@ -272,7 +272,7 @@ extension Wire {
 // --- the real app icons ---------------------------------------------------------------------
 
 /**
- * An Apple app's icon. Wisp ships no Apple artwork: the real icon comes from the Mac through the
+ * An Apple app's icon. Bubble AI ships no Apple artwork: the real icon comes from the Mac through the
  * hub (GET /api/apple/icons/:app), cached; until then a plain line icon on a neutral tile.
  */
 struct AppleIcon: View {

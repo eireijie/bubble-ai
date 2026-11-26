@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, ChevronDown, MoreHorizontal } from "lucide-react";
-import { stepAgentId, workSteps, type FlowLane, type TeamFlow, type TeamStep } from "@wisp/core";
+import { stepAgentId, workSteps, type FlowLane, type TeamFlow, type TeamStep } from "@bubble-ai/core";
 import { TeamEditSession } from "./SessionLazy.tsx";
 import { api } from "../api.ts";
 import { href } from "../router.ts";

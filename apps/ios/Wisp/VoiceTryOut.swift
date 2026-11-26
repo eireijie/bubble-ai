@@ -27,7 +27,7 @@ final class VoiceTryOutModel {
     micResult = nil; micLevel = 0; peak = 0
     micTesting = true
     guard await CallAudio.requestMicrophone() else {
-      finishMic(run, Outcome(ok: false, text: "Microphone access is off. Allow it for Wisp in Settings."))
+      finishMic(run, Outcome(ok: false, text: "Microphone access is off. Allow it for Bubble AI in Settings."))
       return
     }
     do {

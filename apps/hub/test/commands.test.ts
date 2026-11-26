@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
-import { SUMMARY_REQUEST } from "@wisp/core";
+import { SUMMARY_REQUEST } from "@bubble-ai/core";
 import { makeRoomAs } from "./room.ts";
 
 let dir: string;
@@ -78,12 +78,12 @@ afterAll(async () => {
 const post = async (body: string) => (await api("POST", `/api/channels/${general.id}/messages`, { body })).data;
 
 describe("/ commands", () => {
-  it("lists Wisp's commands, then the harness's own, keeping Wisp's names", async () => {
+  it("lists Bubble AI's commands, then the harness's own, keeping Bubble AI's names", async () => {
     const { data } = await api<{ commands: any[] }>("GET", `/api/agents/${atlas.id}/commands`);
     expect(data.commands.map((c) => `${c.name}:${c.kind}:${c.group}`)).toEqual(["context:wisp:wisp", "compact:wisp:wisp", "new:wisp:wisp", "stop:wisp:wisp", "model:wisp:wisp", "effort:wisp:wisp", "harness:wisp:wisp", "compress:command:harness", "humanizer:skill:harness"]);
   });
 
-  it("puts Wisp's commands first, then skills agents learned (with who learned them), and other Wisp skills last", async () => {
+  it("puts Bubble AI's commands first, then skills agents learned (with who learned them), and other Bubble AI skills last", async () => {
     const ws = atlas.workspaceId;
     const learned = hub.skills.create(ws, atlas.id, { name: "Humanizer", slug: "humanizer", description: "My own way", source: "learned", content: "1. Do it", learnedBy: atlas.id });
     hub.skills.attach(learned.id, atlas.id, true);

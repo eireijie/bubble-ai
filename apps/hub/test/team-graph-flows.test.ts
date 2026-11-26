@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { Approval, TeamDraft, TeamFlow, TeamStep } from "@wisp/core";
+import type { Approval, TeamDraft, TeamFlow, TeamStep } from "@bubble-ai/core";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 import { makeRoomAs } from "./room.ts";

@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /**
- * Show me around on the iPhone (2026-11-25 "Wisp, bubbles", board 11): the same 25 stops in 5
+ * Show me around on the iPhone (2026-11-25 "Bubble AI, bubbles", board 11): the same 25 stops in 5
  * chapters as the web (apps/web/src/tour.ts), with the same titles and words. Each stop says where
  * it is on the phone and which real control it points at (`.tourTarget(_:)` names). This file is
  * the list and the arithmetic over it, with no views, so it can be tested; TourRun.swift runs it
@@ -93,7 +93,7 @@ enum Tour {
     Stop(id: "skills", ch: 2, title: "Skills", body: "Jobs agents know how to do. Add them here, or do a task once on a computer and the agent saves it as a skill.", place: .marketplace, targets: ["market-skills", "market-page"], noGuests: true),
     Stop(id: "computers", ch: 2, title: "Computers", body: "Agents work on their own computer, so yours stays free. The dot says how many are on.", place: .computers, targets: ["computers-page"], phoneBody: "Agents work on their own computer, so yours stays free.", noGuests: true),
     Stop(id: "your-computers", ch: 2, title: "Your computers", body: "Watch live or take over. Agents can use your own computers too, only if you say so.", place: .computers, targets: ["computers-list", "computers-page"], noGuests: true),
-    Stop(id: "phone", ch: 2, title: "Your phone", body: "Scan this with the Wisp phone app. Same agents, same chats, approvals on the go.", place: .settings, targets: ["notifications"], phoneBody: "You're in the Wisp phone app. Same agents, same chats. Turn on notifications for approvals on the go.", noGuests: true),
+    Stop(id: "phone", ch: 2, title: "Your phone", body: "Scan this with the Bubble AI phone app. Same agents, same chats, approvals on the go.", place: .settings, targets: ["notifications"], phoneBody: "You're in the Bubble AI phone app. Same agents, same chats. Turn on notifications for approvals on the go.", noGuests: true),
     // Memory and teams
     Stop(id: "vault", ch: 3, title: "Memory vault", body: "Notes agents keep about you and your work.", place: .more, targets: ["more-memory"]),
     Stop(id: "notes", ch: 3, title: "Read every note", body: "Fix or delete anything. Every agent reads these, so you only say it once.", place: .memory, targets: ["memory-page", "memory-search"]),
@@ -106,7 +106,7 @@ enum Tour {
     Stop(id: "agent-page", ch: 4, title: "Agent page", body: "Click an agent's name for its page: look, apps, and what it asks first.", place: .chat, targets: ["agent-pill"]),
     Stop(id: "ai", ch: 4, title: "What runs your agents", body: "Each agent runs on an AI you already use, like Claude Code or Codex. Sign in once.", place: .ai, targets: ["ai-page"], noGuests: true),
     Stop(id: "mods", ch: 4, title: "Mods", body: "Whole extra features, like Tasks, Apple and Storage. Off until you want them.", place: .mods, targets: ["mods-page", "mods-on"], mod: .tasks, noGuests: true),
-    Stop(id: "settings", ch: 4, title: "Settings", body: "Everything else. Show me around lives here too, under Learn Wisp, and in Help.", place: .settings, targets: ["learn-row", "settings-page"]),
+    Stop(id: "settings", ch: 4, title: "Settings", body: "Everything else. Show me around lives here too, under Learn Bubble AI, and in Help.", place: .settings, targets: ["learn-row", "settings-page"]),
   ]
 
   static var total: Int { stops.count }

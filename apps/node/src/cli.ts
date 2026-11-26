@@ -1,13 +1,13 @@
 #!/usr/bin/env -S npx tsx
-import { envVar } from "@wisp/core";
+import { envVar } from "@bubble-ai/core";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
-import { REMOTE_APPS, formatRustdeskId } from "@wisp/core";
-import { deviceAdapters } from "@wisp/adapters";
+import { REMOTE_APPS, formatRustdeskId } from "@bubble-ai/core";
+import { deviceAdapters } from "@bubble-ai/adapters";
 import { detectEngine } from "./computers/index.ts";
 import { ensureImage } from "./computers/docker.ts";
 import { remoteDesktopSupport, setUpRemoteDesktop } from "./computers/remote-desktop.ts";
@@ -16,51 +16,51 @@ import { rustdeskId, rustdeskInstalled, setUpRustdesk } from "./rustdesk.ts";
 import { codeProblem, hashCode, type CodeKind } from "./screen-lock.ts";
 import { installService, isService, serviceStatus, servicePort, uninstallService, type ServiceKind } from "./service.ts";
 import { NodeDaemon, normalizeHubUrl, type NodeConfig } from "./daemon.ts";
-import { REPO_ROOT, RESTART_CODE, checkForUpdate, runUpdate, underKeeper, version, watchForUpdates } from "@wisp/update";
+import { REPO_ROOT, RESTART_CODE, checkForUpdate, runUpdate, underKeeper, version, watchForUpdates } from "@bubble-ai/update";
 
-import { migrateHome, defaultHubDataDir } from "./migrate-home.ts";
+import { migrateHomes, defaultHubDataDir } from "./migrate-home.ts";
 import { migrateServices } from "./migrate-services.ts";
 import { findMovedWisp, joinTarget, joinWisp } from "./join.ts";
 import { doctor } from "./doctor.ts";
 import { Reach } from "../../hub/src/reach.ts";
 
-const HELP = `wisp — start Wisp on this computer, or join your Wisp
+const HELP = `bubble-ai — start Bubble AI on this computer, or join your Bubble AI
 
 Usage:
-  wisp join [invite-link] [--name NAME] [--dir DIR] [--no-service]
-      Join my Wisp: find it on this Wi-Fi, then approve this computer where Wisp lives.
-  wisp doctor
-      Check Wisp, this computer, agent apps, VM engine and Away from home.
-  wisp hub start
-      Start Wisp on this computer (default http://localhost:4747).
-  wisp setup-code
-      Show the code (and link) that makes the first account on a new Wisp.
-  wisp service install hub
-  wisp service install node [--hub URL --token TOKEN | --local] [--name NAME]
-      Start Wisp or this computer's connection again when you log in.
-  wisp service uninstall hub|node
-  wisp service status
-  wisp setup [--yes]
+  bubble-ai join [invite-link] [--name NAME] [--dir DIR] [--no-service]
+      Join my Bubble AI: find it on this Wi-Fi, then approve this computer where Bubble AI lives.
+  bubble-ai doctor
+      Check Bubble AI, this computer, agent apps, VM engine and Away from home.
+  bubble-ai hub start
+      Start Bubble AI on this computer (default http://localhost:4747).
+  bubble-ai setup-code
+      Show the code (and link) that makes the first account on a new Bubble AI.
+  bubble-ai service install hub
+  bubble-ai service install node [--hub URL --token TOKEN | --local] [--name NAME]
+      Start Bubble AI or this computer's connection again when you log in.
+  bubble-ai service uninstall hub|node
+  bubble-ai service status
+  bubble-ai setup [--yes]
       Get agent computers ready; asks before installing a VM engine.
-  wisp node start [--hub URL --token TOKEN] [--name NAME] [--dir DIR] [--allow-full-access]
+  bubble-ai node start [--hub URL --token TOKEN] [--name NAME] [--dir DIR] [--allow-full-access]
       Connect with saved settings; the older --hub and --token flags still work.
-  wisp node screen on|off|code|remote [off]
+  bubble-ai node screen on|off|code|remote [off]
       Control screen sharing and its code on this computer.
-  wisp node rustdesk [off]
+  bubble-ai node rustdesk [off]
       Set up RustDesk to reach this computer from anywhere; its ID shows on this device's page.
-  wisp node pause | wisp node resume
+  bubble-ai node pause | bubble-ai node resume
       Pause or resume agents on this computer.
-  wisp migrate [--json]
-      Move an existing Warren home and services to Wisp. Safe to repeat.
-  wisp update [--check]
-      Update Wisp and restart after agents finish; --check only shows what is new.
+  bubble-ai migrate [--json]
+      Move an existing Warren home and services to Bubble AI. Safe to repeat.
+  bubble-ai update [--check]
+      Update Bubble AI and restart after agents finish; --check only shows what is new.
 
 Settings in DIR/node.json (all optional):
   "harnesses": { "qwen": { "args": ["--experimental-acp"] },
                  "acp:my-bot": { "label": "My bot", "command": "my-bot", "args": ["acp"] } }
       Change how an ACP harness starts here, or add your own ACP agent.
   "vmEngine": "podman"     use Podman instead of Docker for VMs
-  "shareScreen": true      what \`wisp node screen on\` sets
+  "shareScreen": true      what \`bubble-ai node screen on\` sets
   "noScreen": true         never offer this device's own screen, even if shareScreen is on
 `;
 
@@ -82,11 +82,11 @@ const { values, positionals } = parseArgs({
 });
 
 const migrationLines: string[] = [];
-const migration = migrateHome({ home: os.homedir(), log: (line) => migrationLines.push(line) });
+const migration = migrateHomes({ home: os.homedir(), log: (line) => migrationLines.push(line) });
 if (!values.json) for (const line of migrationLines) console.log(line);
 const dir = path.resolve(values.dir ?? envVar("NODE_DIR") ?? migration.dir);
 const configFile = path.join(dir, "node.json");
-/** `node start` exits with this once the hub turns its token down, when $WISP_EXIT_IF_REJECTED asks it to (the desktop app does) */
+/** `node start` exits with this once the hub turns its token down, when $BUBBLE_EXIT_IF_REJECTED asks it to (the desktop app does) */
 const REJECTED_CODE = 78;
 const [cmd, sub] = positionals;
 function isInviteAddress(raw: string): boolean {
@@ -112,7 +112,7 @@ if (values.help || !cmd) {
 } else if (cmd === "setup") {
   await setup(values.yes ?? false);
 } else if (cmd === "setup-code") {
-  if (!printSetupLink()) console.log("This Wisp already has an owner, so it doesn't need a setup code.");
+  if (!printSetupLink()) console.log("This Bubble AI already has an owner, so it doesn't need a setup code.");
 } else if (cmd === "service") {
   await service(sub, positionals[2]);
 } else if (cmd === "node" && sub === "start") {
@@ -126,9 +126,9 @@ if (values.help || !cmd) {
   const kept = underKeeper();
   // two daemons with one token would take turns replacing each other on the hub
   // the installed service uses the default folder, so a device kept in another folder (--dir) is a different device
-  const service = envVar("SERVICE") || dir !== path.join(os.homedir(), ".wisp") ? null : serviceStatus("node", dir);
+  const service = envVar("SERVICE") || dir !== path.join(os.homedir(), ".bubble-ai") ? null : serviceStatus("node", dir);
   if (service?.running && !isService(service)) {
-    console.error(`This computer is already connected to your Wisp in the background, so there's nothing to start. To run it in this terminal instead: wisp service uninstall node`);
+    console.error(`This computer is already connected to your Bubble AI in the background, so there's nothing to start. To run it in this terminal instead: bubble-ai service uninstall node`);
     process.exit(1);
   }
   if (cfg.local && !cfg.token) cfg = await waitForLocalHub(cfg);
@@ -144,8 +144,8 @@ if (values.help || !cmd) {
   if (envVar("EXIT_IF_REJECTED")) daemon.onRejected = () => process.exit(REJECTED_CODE);
   daemon.start();
   watchForUpdates(async () => {
-    if (!kept) return console.log("[wisp] Wisp was updated; restart `wisp node start` to use the new version");
-    console.log("[wisp] Wisp was updated; restarting once no agent is running");
+    if (!kept) return console.log("[wisp] Bubble AI was updated; restart `bubble-ai node start` to use the new version");
+    console.log("[wisp] Bubble AI was updated; restarting once no agent is running");
     await daemon.idle();
     await daemon.stop();
     process.exit(RESTART_CODE);
@@ -167,10 +167,10 @@ if (values.help || !cmd) {
   saved.paused = sub === "pause";
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(configFile, JSON.stringify(saved, null, 2), { mode: 0o600 });
-  console.log(saved.paused ? "Paused. Wisp stops agents and computers on this device within a second or two. `wisp node resume` to continue." : "Resumed.");
+  console.log(saved.paused ? "Paused. Bubble AI stops agents and computers on this device within a second or two. `bubble-ai node resume` to continue." : "Resumed.");
 } else if (cmd === "update") {
   const v = await version();
-  console.log(`Wisp ${v.commit ?? "(not a git checkout)"}${v.date ? ` from ${v.date.slice(0, 10)}` : ""}`);
+  console.log(`Bubble AI ${v.commit ?? "(not a git checkout)"}${v.date ? ` from ${v.date.slice(0, 10)}` : ""}`);
   const check = await checkForUpdate();
   for (const c of check.changes.slice(0, 20)) console.log(`  ${c}`);
   if (check.changes.length > 20) console.log(`  …and ${check.changes.length - 20} more`);
@@ -178,7 +178,7 @@ if (values.help || !cmd) {
   if (values.check || !check.canUpdate) process.exit(check.canUpdate || check.behind === 0 ? 0 : 1);
   try {
     const r = await runUpdate(undefined, { log: (line) => console.log(line) });
-    console.log(`Wisp ${r.from} → ${r.to}. A hub or device running from this folder restarts in a few seconds (a device waits for running agents).`);
+    console.log(`Bubble AI ${r.from} → ${r.to}. A hub or device running from this folder restarts in a few seconds (a device waits for running agents).`);
   } catch (e) {
     console.error((e as Error).message);
     process.exit(1);
@@ -238,7 +238,7 @@ async function pickCode(): Promise<NonNullable<NodeConfig["screenCode"]> | null>
   return null;
 }
 
-/** `wisp node screen on|off|code|remote`: everything about this device's own screen, decided here. */
+/** `bubble-ai node screen on|off|code|remote`: everything about this device's own screen, decided here. */
 async function screen(what: string | undefined, arg: string | undefined) {
   const saved: Partial<NodeConfig> = fs.existsSync(configFile) ? JSON.parse(fs.readFileSync(configFile, "utf8")) : {};
   const save = () => {
@@ -256,22 +256,22 @@ async function screen(what: string | undefined, arg: string | undefined) {
   if (what === "off") {
     saved.shareScreen = false;
     save();
-    return console.log("This screen is off. Nobody in Wisp can see or use it.");
+    return console.log("This screen is off. Nobody in Bubble AI can see or use it.");
   }
 
   if (what === "on") {
     saved.shareScreen = true;
     delete saved.noScreen;
     save();
-    console.log("This screen is on. In Wisp, only the person who connected this device can see or use it, and agents only if they run on this device.");
+    console.log("This screen is on. In Bubble AI, only the person who connected this device can see or use it, and agents only if they run on this device.");
     if (!saved.screenCode) {
-      console.log("\nPick a code. Opening this screen from Wisp will need it, so someone who gets into your Wisp account still can't see this computer.");
+      console.log("\nPick a code. Opening this screen from Bubble AI will need it, so someone who gets into your Bubble AI account still can't see this computer.");
       const code = await pickCode();
       if (code) {
         saved.screenCode = code;
         save();
-        console.log(`   Done. You'll enter this ${code.kind === "pin" ? "PIN" : "password"} in Wisp to watch this screen.`);
-      } else console.log("   No code set, so your Wisp sign-in alone opens this screen. Pick one any time: wisp node screen code");
+        console.log(`   Done. You'll enter this ${code.kind === "pin" ? "PIN" : "password"} in Bubble AI to watch this screen.`);
+      } else console.log("   No code set, so your Bubble AI sign-in alone opens this screen. Pick one any time: bubble-ai node screen code");
     }
     if (!saved.remoteDesktop && remoteDesktopSupport().ok) {
       console.log("");
@@ -280,7 +280,7 @@ async function screen(what: string | undefined, arg: string | undefined) {
           save();
           console.log("   Remote Desktop is on.");
         }
-      } else console.log("   Live view uses screenshots. Turn Remote Desktop on any time: wisp node screen remote");
+      } else console.log("   Live view uses screenshots. Turn Remote Desktop on any time: bubble-ai node screen remote");
     }
     return;
   }
@@ -289,7 +289,7 @@ async function screen(what: string | undefined, arg: string | undefined) {
     if (arg === "off") {
       delete saved.screenCode;
       save();
-      return console.log("This screen has no code now: your Wisp sign-in alone opens it.");
+      return console.log("This screen has no code now: your Bubble AI sign-in alone opens it.");
     }
     const code = await pickCode();
     if (!code) {
@@ -305,26 +305,26 @@ async function screen(what: string | undefined, arg: string | undefined) {
     if (arg === "off") {
       delete saved.remoteDesktop;
       save();
-      return console.log("Remote Desktop is off for Wisp; live view uses screenshots. (The VNC server stays installed; Wisp doesn't run or use it.)");
+      return console.log("Remote Desktop is off for Bubble AI; live view uses screenshots. (The VNC server stays installed; Bubble AI doesn't run or use it.)");
     }
     if (!(await setUpRemote())) process.exit(1);
     save();
-    return console.log(on ? "Remote Desktop is on." : "Remote Desktop is set up. Turn the screen on to use it: wisp node screen on");
+    return console.log(on ? "Remote Desktop is on." : "Remote Desktop is set up. Turn the screen on to use it: bubble-ai node screen on");
   }
 
   console.log(`This screen is ${on ? "on" : "off"}${saved.screenCode ? `, opened with a ${saved.screenCode.kind === "pin" ? "PIN" : "password"}` : ", with no code"}${saved.remoteDesktop ? ", with Remote Desktop" : ""}.`);
-  console.log("Use `wisp node screen on|off`, `wisp node screen code`, or `wisp node screen remote`.");
+  console.log("Use `bubble-ai node screen on|off`, `bubble-ai node screen code`, or `bubble-ai node screen remote`.");
   process.exit(what ? 1 : 0);
 }
 
-/** `wisp node rustdesk [off]`: set RustDesk up here and show its ID in Wisp, or stop showing it. */
-/** `wisp doctor`'s Remote desktop lines (the mod): what else reaches this computer from anywhere. */
+/** `bubble-ai node rustdesk [off]`: set RustDesk up here and show its ID in Bubble AI, or stop showing it. */
+/** `bubble-ai doctor`'s Remote desktop lines (the mod): what else reaches this computer from anywhere. */
 async function remoteDesktopDoctor() {
   let saved: Partial<NodeConfig> = {};
   try { saved = fs.existsSync(configFile) ? JSON.parse(fs.readFileSync(configFile, "utf8")) : {}; } catch {}
   const lines: string[] = [];
   if (saved.rustdesk) lines.push(`RustDesk on, ID ${formatRustdeskId(saved.rustdesk.id)}`);
-  else if (await rustdeskInstalled().catch(() => false)) lines.push("RustDesk installed, not shown in Wisp (`wisp node rustdesk`)");
+  else if (await rustdeskInstalled().catch(() => false)) lines.push("RustDesk installed, not shown in Bubble AI (`bubble-ai node rustdesk`)");
   const others = await detectRemoteApps().catch(() => []);
   if (others.length) lines.push(`Also here: ${others.map((a) => REMOTE_APPS[a].label).join(", ")} (pick it under Remote desktop on this device's page)`);
   if (!lines.length) return;
@@ -341,10 +341,10 @@ async function rustdesk(what: string | undefined) {
   if (what === "off") {
     delete saved.rustdesk;
     save();
-    return console.log("Wisp doesn't show this computer's RustDesk ID anymore. RustDesk itself stays installed and works as before.");
+    return console.log("Bubble AI doesn't show this computer's RustDesk ID anymore. RustDesk itself stays installed and works as before.");
   }
   if (what) {
-    console.log("Use `wisp node rustdesk` or `wisp node rustdesk off`.");
+    console.log("Use `bubble-ai node rustdesk` or `bubble-ai node rustdesk off`.");
     process.exit(1);
   }
   // already set up: just make sure the ID is current
@@ -353,7 +353,7 @@ async function rustdesk(what: string | undefined) {
   if (!r) process.exit(1);
   saved.rustdesk = r;
   save();
-  console.log(known ? `RustDesk is set up. This computer's ID is ${formatRustdeskId(r.id)}.` : "RustDesk is set up. Its ID is on this device's page in Wisp (turn on the Remote desktop mod to see it).");
+  console.log(known ? `RustDesk is set up. This computer's ID is ${formatRustdeskId(r.id)}.` : "RustDesk is set up. Its ID is on this device's page in Bubble AI (turn on the Remote desktop mod to see it).");
 }
 
 /** Run a command with the terminal attached, showing it first. */
@@ -387,7 +387,7 @@ function saveNodeConfig(): NodeConfig {
     return { ...cfg, local: true };
   }
   if (!cfg.hub || !cfg.token) {
-    console.error("Run wisp join to connect this computer to your Wisp.");
+    console.error("Run bubble-ai join to connect this computer to your Bubble AI.");
     process.exit(1);
   }
   try {
@@ -412,7 +412,7 @@ function localDeviceDir(): string {
   return envVar("LOCAL_DEVICE_DIR") ?? hubDataDir();
 }
 
-/** A new Wisp's setup link (apps/hub/src/setup-code.ts), when nobody has made the first account yet. */
+/** A new Bubble AI's setup link (apps/hub/src/setup-code.ts), when nobody has made the first account yet. */
 function printSetupLink(): boolean {
   let code = "";
   try { code = fs.readFileSync(path.join(hubDataDir(), "setup-code"), "utf8").trim(); } catch {}
@@ -433,7 +433,7 @@ async function waitForLocalHub(cfg: NodeConfig): Promise<NodeConfig> {
   if (!fs.existsSync(grant)) {
     fs.mkdirSync(data, { recursive: true });
     fs.writeFileSync(request, JSON.stringify({ name: values.name ?? cfg.name }), { mode: 0o600 });
-    console.log("◌ Waiting for you to finish getting ready in Wisp…");
+    console.log("◌ Waiting for you to finish getting ready in Bubble AI…");
   }
   while (!fs.existsSync(grant)) await new Promise((r) => setTimeout(r, 2000));
   const got = JSON.parse(fs.readFileSync(grant, "utf8")) as { hub: string; token: string; name: string };
@@ -445,7 +445,7 @@ async function waitForLocalHub(cfg: NodeConfig): Promise<NodeConfig> {
   return next;
 }
 
-/** `wisp service`: start the hub or this device at login and keep it running. */
+/** `bubble-ai service`: start the hub or this device at login and keep it running. */
 async function service(action: string | undefined, kind: string | undefined) {
   const kinds: ServiceKind[] = ["hub", "node"];
   if (action === "status") {
@@ -453,19 +453,19 @@ async function service(action: string | undefined, kind: string | undefined) {
     for (const k of kind ? [kind as ServiceKind] : kinds) {
       const s = serviceStatus(k, dir);
       states.push({ kind: k, ...s, ...(k === "hub" ? { port: servicePort(k, dir) } : {}) });
-      if (!values.json) console.log(`${(k === "hub" ? "Wisp" : "This computer").padEnd(13)} ${s.running ? "running" : s.installed ? "installed, not running" : "not installed"}${s.installed ? ` (${s.name}, log: ${s.log})` : ""}`);
+      if (!values.json) console.log(`${(k === "hub" ? "Bubble AI" : "This computer").padEnd(13)} ${s.running ? "running" : s.installed ? "installed, not running" : "not installed"}${s.installed ? ` (${s.name}, log: ${s.log})` : ""}`);
     }
     if (values.json) console.log(JSON.stringify(states));
     return;
   }
   if ((action !== "install" && action !== "uninstall") || !kinds.includes(kind as ServiceKind)) {
-    console.log("Usage: wisp service install|uninstall hub|node, or wisp service status");
+    console.log("Usage: bubble-ai service install|uninstall hub|node, or bubble-ai service status");
     process.exit(1);
   }
   const k = kind as ServiceKind;
   if (action === "uninstall") {
     const s = uninstallService(k, dir);
-    console.log(`Removed ${s.name}. Wisp's data and settings are untouched.`);
+    console.log(`Removed ${s.name}. Bubble AI's data and settings are untouched.`);
     // Tailscale keeps serving the address on its own; left on, it would send visitors to whatever
     // uses this port next
     if (k === "hub") {
@@ -473,7 +473,7 @@ async function service(action: string | undefined, kind: string | undefined) {
       const t = await reach.tailscale(true).catch(() => null);
       if (t?.serving || t?.connectors) {
         const after = await reach.act("unserve").catch(() => null);
-        console.log(after && !after.serving && !after.connectors ? "Turned off Wisp's Tailscale address." : "Turn off Wisp's Tailscale address yourself: tailscale funnel --https=443 off && tailscale serve --https=443 off");
+        console.log(after && !after.serving && !after.connectors ? "Turned off Bubble AI's Tailscale address." : "Turn off Bubble AI's Tailscale address yourself: tailscale funnel --https=443 off && tailscale serve --https=443 off");
       }
     }
     return;
@@ -498,7 +498,7 @@ async function service(action: string | undefined, kind: string | undefined) {
     console.error((e as Error).message);
     process.exit(1);
   }
-  console.log(`✓ ${k === "hub" ? "Started Wisp" : "Started this computer's connection"} (starts again when you log in)`);
+  console.log(`✓ ${k === "hub" ? "Started Bubble AI" : "Started this computer's connection"} (starts again when you log in)`);
   // wait for it to come up, so problems show here instead of in a log nobody reads
   const deadline = Date.now() + 30_000;
   const port = servicePort(k, dir);
@@ -507,7 +507,7 @@ async function service(action: string | undefined, kind: string | undefined) {
     if (k === "hub") {
       const ok = await fetch(`http://127.0.0.1:${port}/healthz`).then((r) => r.ok, () => false);
       if (ok) {
-        console.log(`✓ Wisp is running at http://localhost:${port}`);
+        console.log(`✓ Bubble AI is running at http://localhost:${port}`);
         return void printSetupLink();
       }
     } else if (cfg?.local && !cfg.token) {
@@ -520,7 +520,7 @@ async function service(action: string | undefined, kind: string | undefined) {
   console.log(`It hasn't ${k === "hub" ? "answered yet" : "connected yet"}. Check ${s.log}${process.platform === "linux" ? ` or journalctl ${process.getuid?.() === 0 ? "" : "--user "}-u ${s.name}` : ""}.`);
 }
 
-/** `wisp setup`: harnesses, a VM engine, and the VM image, so agents get their own computers here. */
+/** `bubble-ai setup`: harnesses, a VM engine, and the VM image, so agents get their own computers here. */
 async function setup(yes: boolean) {
   const saved: Partial<NodeConfig> = fs.existsSync(configFile) ? JSON.parse(fs.readFileSync(configFile, "utf8")) : {};
   const askHere = (q: string) => ask(q, yes);
@@ -548,9 +548,9 @@ async function setup(yes: boolean) {
         if (run("brew", ["install", "container"])) run("container", ["system", "start", "--enable-kernel-install"]);
       }
     } else if (process.arch === "arm64") {
-      console.log("   Install Apple's container from https://github.com/apple/container/releases (the .pkg), then run `wisp setup` again.");
+      console.log("   Install Apple's container from https://github.com/apple/container/releases (the .pkg), then run `bubble-ai setup` again.");
     } else {
-      console.log("   On an Intel Mac, install OrbStack (https://orbstack.dev) or Docker Desktop, then run `wisp setup` again.");
+      console.log("   On an Intel Mac, install OrbStack (https://orbstack.dev) or Docker Desktop, then run `bubble-ai setup` again.");
     }
     ({ engine, detail } = await detectEngine(saved.vmEngine));
   } else if (!engine && process.platform === "linux") {
@@ -558,11 +558,11 @@ async function setup(yes: boolean) {
     console.log("     curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER   # then log out and in");
     console.log("     sudo apt-get install -y podman                                             # or this");
   } else if (!engine && process.platform === "win32") {
-    console.log("   Install Docker Desktop (https://www.docker.com/products/docker-desktop/), start it, then run `wisp setup` again.");
+    console.log("   Install Docker Desktop (https://www.docker.com/products/docker-desktop/), start it, then run `bubble-ai setup` again.");
   }
   console.log(`   ${detail}`);
   if (!engine) {
-    console.log("\nAgents can still use an Orgo cloud computer (Settings → Computers in Wisp) until this device can run VMs.");
+    console.log("\nAgents can still use an Orgo cloud computer (Settings → Computers in Bubble AI) until this device can run VMs.");
     process.exit(1);
   }
 
@@ -574,5 +574,5 @@ async function setup(yes: boolean) {
   console.log(`   ready: ${image}`);
 
   console.log("\nThis device is ready to give agents their own computers.");
-  console.log(saved.hub ? "If `wisp node start` is running, Wisp sees it within a few seconds." : "Next: connect it to your hub with the command from Wisp → Devices → Add device.");
+  console.log(saved.hub ? "If `bubble-ai node start` is running, Bubble AI sees it within a few seconds." : "Next: connect it to your hub with the command from Bubble AI → Devices → Add device.");
 }

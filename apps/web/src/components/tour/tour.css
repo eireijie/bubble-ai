@@ -52,7 +52,7 @@
   transition: opacity 0.2s;
 }
 
-/* Learn Wisp: three slow pulses when there's more to see */
+/* Learn Bubble AI: three slow pulses when there's more to see */
 @keyframes learn-pulse {
   0%,
   100% {

@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import WebSocket from "ws";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon, normalizeHubUrl } from "../../node/src/daemon.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
@@ -96,8 +96,8 @@ describe("node daemon", () => {
     expect(calls[0].sessionId).toBeNull();
     expect(calls[1].sessionId).toBe("sess-1");
     // the harness acts as its agent only, never with the device's own token
-    expect(calls[0].mcp?.env.WISP_TOKEN).toMatch(/^wr_agent_/);
-    expect(calls[0].mcp?.env.WISP_AGENT).toBeUndefined();
+    expect(calls[0].mcp?.env.BUBBLE_TOKEN).toMatch(/^wr_agent_/);
+    expect(calls[0].mcp?.env.BUBBLE_AGENT).toBeUndefined();
     expect(calls[0].cwd).toContain(path.join("agents", "bolt"));
   });
 

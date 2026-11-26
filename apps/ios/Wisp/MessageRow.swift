@@ -36,14 +36,14 @@ struct MessageRow: View {
     if message.author.id == "system" { systemLine } else { row }
   }
 
-  /** the task a step Wisp handed out, if this is one of those */
+  /** the task a step Bubble AI handed out, if this is one of those */
   private var handedTask: String? {
     message.parts.lazy.compactMap { if case .task(let id) = $0 { id } else { nil } }.first
   }
 
   /**
-   * Wisp's own notes ("@scout isn't connected to a device yet") as a quiet line, not a person. A
-   * step Wisp handed out is a row that opens its own thread.
+   * Bubble AI's own notes ("@scout isn't connected to a device yet") as a quiet line, not a person. A
+   * step Bubble AI handed out is a row that opens its own thread.
    */
   @ViewBuilder private var systemLine: some View {
     if let taskId = handedTask {
@@ -567,7 +567,7 @@ struct ApprovalDetail: View {
 
 /**
  * "Can I go ahead?" with Approve and Not now. A login request ("Nova wants to use your Zendesk
- * login") is the same card: your password manager signs in for the agent and Wisp never sees the
+ * login") is the same card: your password manager signs in for the agent and Bubble AI never sees the
  * password, so only whoever connected it can answer.
  */
 struct ApprovalBox: View {
@@ -662,7 +662,7 @@ struct ApprovalBox: View {
     VStack(alignment: .leading, spacing: 10) {
       Text(title).font(.system(size: 15, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
       if let login, pending {
-        Text("Your password manager signs in for it. Wisp never sees the password.").font(.system(size: 13)).foregroundStyle(Palette.muted)
+        Text("Your password manager signs in for it. Bubble AI never sees the password.").font(.system(size: 13)).foregroundStyle(Palette.muted)
         HStack(spacing: 8) {
           Image(systemName: "lock").font(.system(size: 13)).foregroundStyle(Palette.muted)
           Text(login.site).lineLimit(1)

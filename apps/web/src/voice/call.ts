@@ -1,4 +1,4 @@
-import type { ClientEvent, Message } from "@wisp/core";
+import type { ClientEvent, Message } from "@bubble-ai/core";
 import type { ListenCallbacks, VoiceListener, VoiceSpeaker } from "./providers.ts";
 import { activityPhrase } from "../components/agentActivity.ts";
 import { isSpeechEcho, spokenReply } from "./text.ts";

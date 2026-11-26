@@ -20,7 +20,7 @@ describe("personal plugins: Codex", () => {
     }
   });
 
-  it("still gives the run Wisp's own tools, set after the switch-offs", () => {
+  it("still gives the run Bubble AI's own tools, set after the switch-offs", () => {
     const a = codexArgs({ ...base, connectors: [{ name: "node_repl", kind: "mcp-stdio", command: "z", args: [] } as never] }, ["node_repl"]);
     expect(a).toContain(`mcp_servers.wisp.command="wisp-mcp"`);
     expect(a.lastIndexOf("mcp_servers.node_repl.enabled=false")).toBeLessThan(a.lastIndexOf(`mcp_servers.node_repl.command="z"`));
@@ -49,7 +49,7 @@ describe("personal plugins: Claude Code", () => {
 });
 
 describe("personal plugins: other harnesses", () => {
-  it("Gemini: no extensions, only Wisp's servers by name", () => {
+  it("Gemini: no extensions, only Bubble AI's servers by name", () => {
     expect(acpIsolationArgs("gemini", base)).toEqual(["-e", "none", "--allowed-mcp-server-names=wisp"]);
   });
   it("harnesses without a known switch get no flags", () => {

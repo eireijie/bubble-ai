@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CONNECTOR_CATALOG, type MarketplaceEntry, type MarketplaceInstall } from "@wisp/core";
+import { CONNECTOR_CATALOG, type MarketplaceEntry, type MarketplaceInstall } from "@bubble-ai/core";
 import { connectBlocked, connectSummary } from "../src/views/ConnectorsView.tsx";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn() }));
@@ -11,18 +11,18 @@ const entry = (o: Partial<MarketplaceEntry>): MarketplaceEntry => ({ id: "com.za
 describe("connectSummary", () => {
   it("names the maker for an official server", () => {
     const s = connectSummary({ entry: entry({}), install });
-    expect(s.runBy).toBe("Made and run by Zapier (zapier.com), not by Wisp.");
+    expect(s.runBy).toBe("Made and run by Zapier (zapier.com), not by Bubble AI.");
     expect(s.can).toContain("use Zapier through this connection");
     expect(s.caution).toBeNull();
   });
   it("says a verified third party is not the app's maker", () => {
     const s = connectSummary({ entry: entry({ id: "com.acme/gmail", name: "Gmail agent", publisher: "com.acme", brand: "acme", domain: "acme.com" }), install });
-    expect(s.runBy).toContain("Run by com.acme (acme.com), not by Wisp");
+    expect(s.runBy).toContain("Run by com.acme (acme.com), not by Bubble AI");
     expect(s.runBy).toContain("doesn't mean Gmail agent's own maker endorses it");
   });
   it("warns plainly for an unverified server", () => {
     const s = connectSummary({ entry: entry({ id: "io.github.bob/gmail", name: "Gmail", publisher: "bob", brand: "bob", domain: null, verified: false }), install });
-    expect(s.runBy).toBe("Run by bob, not by the app's maker or Wisp.");
+    expect(s.runBy).toBe("Run by bob, not by the app's maker or Bubble AI.");
     expect(s.caution).toContain("Only connect if you trust them");
   });
   it("describes keys honestly", () => {
@@ -40,7 +40,7 @@ describe("connectSummary", () => {
   });
   it("describes apps that sign in by the company's own server, not the key fallback", () => {
     const notion = connectSummary({ builtIn: CONNECTOR_CATALOG.find((c) => c.id === "notion")! });
-    expect(notion.runBy).toBe("On Wisp's list of well-known apps. It connects to mcp.notion.com, run by Notion, not by Wisp.");
+    expect(notion.runBy).toBe("On Bubble AI's list of well-known apps. It connects to mcp.notion.com, run by Notion, not by Bubble AI.");
     expect(notion.can).toContain("Reads and edits the pages you pick.");
     expect(connectSummary({ builtIn: CONNECTOR_CATALOG.find((c) => c.id === "gmail")! }).runBy).toContain("gmailmcp.googleapis.com, run by Google");
   });

@@ -2,11 +2,11 @@ import { z } from "zod";
 
 /**
  * A harness's own settings on a device (its model, provider, MCP servers, plugins and skills), read
- * from the harness's config file by the device and changed from Wisp: Settings → Harnesses, or an
+ * from the harness's config file by the device and changed from Bubble AI: Settings → Harnesses, or an
  * agent asked in chat. Only the device's owner changes them; the device writes the file itself.
  */
 
-/** Harnesses whose config Wisp can read and change. */
+/** Harnesses whose config Bubble AI can read and change. */
 export const SETTINGS_HARNESSES = ["hermes", "claude-code", "codex", "gemini", "qwen", "opencode", "goose", "kimi", "cursor", "openclaw"] as const;
 
 /** Model and provider names go into config files as they are, so nothing that could break out of a value. */
@@ -28,7 +28,7 @@ export type HarnessSettingItem = z.infer<typeof HarnessSettingItem>;
 export const HarnessAccount = z.object({
   id: z.string().max(64),
   label: z.string().max(80),
-  /** the harness's own folder (~/.codex, ~/.claude, ~/.hermes): the account people had before Wisp */
+  /** the harness's own folder (~/.codex, ~/.claude, ~/.hermes): the account people had before Bubble AI */
   isDefault: z.boolean(),
   /** null when the device can't tell */
   signedIn: z.boolean().nullable(),
@@ -49,7 +49,7 @@ export const HarnessSettings = z.object({
   multiAccount: z.boolean().default(false),
   /** agents on this device using each account (agent id → account id); the device keeps this */
   agentAccounts: z.record(z.string().max(64)).default({}),
-  /** the file Wisp reads and changes */
+  /** the file Bubble AI reads and changes */
   configPath: z.string().max(1000),
   model: z.string().max(200).nullable(),
   provider: z.string().max(200).nullable(),
@@ -65,7 +65,7 @@ export const HarnessSettings = z.object({
   modelChoices: z.array(z.string().max(200)).max(200).optional(),
   /**
    * The reasoning effort it thinks with by default ("low", "medium", "high"…), null when unset. Only
-   * there for harnesses whose config has one Wisp can change (Codex); absent for the rest.
+   * there for harnesses whose config has one Bubble AI can change (Codex); absent for the rest.
    */
   effort: z.string().max(40).nullable().optional(),
   /** the config couldn't be read (shown instead of the settings) */
@@ -113,7 +113,7 @@ export const HarnessLogin = z.object({
 });
 export type HarnessLogin = z.infer<typeof HarnessLogin>;
 
-/** A skill's file, read from a harness to share it with other agents as a Wisp skill. */
+/** A skill's file, read from a harness to share it with other agents as a Bubble AI skill. */
 export const HarnessSkillFile = z.object({ name: z.string().max(200), description: z.string().max(2000), content: z.string().max(100_000) });
 export type HarnessSkillFile = z.infer<typeof HarnessSkillFile>;
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ChevronDown, ChevronRight, Mic, MicOff, PhoneOff } from "lucide-react";
-import type { Agent } from "@wisp/core";
-import { defaultAppearance } from "@wisp/core/src/appearance.ts";
+import type { Agent } from "@bubble-ai/core";
+import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api, observeEvents } from "../api.ts";
 import { useStore } from "../store.ts";
 import { Ghost } from "../components/Ghost.tsx";
@@ -19,12 +19,12 @@ export interface CallLine { who: "you" | "agent"; text: string }
 /** What stays in the chat when a call ends. */
 export interface CallRecord { agentId: string; seconds: number; lines: CallLine[]; endedAt: number }
 
-/** What to do about a blocked microphone, in the words of the place Wisp is running. */
+/** What to do about a blocked microphone, in the words of the place Bubble AI is running. */
 export function micHelp(agentName: string, desktop = inDesktopApp()): string {
   const where = desktop
-    ? "Allow it in System Settings → Privacy & Security → Microphone → Wisp, then try again."
+    ? "Allow it in System Settings → Privacy & Security → Microphone → Bubble AI, then try again."
     : "Allow it in your browser (the lock beside the address), then try again.";
-  return `Wisp needs your microphone to hear you. ${where} ${agentName} will still answer in chat.`;
+  return `Bubble AI needs your microphone to hear you. ${where} ${agentName} will still answer in chat.`;
 }
 
 /** When no listening engine works, the card says what to set up instead of blaming the microphone. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSteps, type ChannelTeam, type FlowLane, type TeamFlow, type TeamStep } from "@wisp/core";
+import { normalizeSteps, type ChannelTeam, type FlowLane, type TeamFlow, type TeamStep } from "@bubble-ai/core";
 import { backLabel, cardSentence, changeRequest, chipActions, chipState, leadOf, runningStepIds } from "../src/team/flow.ts";
 
 const step = (id: string, extra: Partial<TeamStep> = {}): TeamStep => ({ id, roleId: "", kind: "do", action: id, agentId: "juno", next: null, x: 0, y: 0, ...extra });

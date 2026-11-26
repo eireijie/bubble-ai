@@ -20,7 +20,7 @@ export function RemoveWispRow() {
   return (
     <SRow id="remove" danger>
       <Button variant="danger" onClick={() => void removal?.open()}>
-        Remove Wisp…
+        Remove Bubble AI…
       </Button>
     </SRow>
   );

@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { api } from "./api.ts";
 
 /**
- * Simple (the default): agents work on one shared computer and Wisp places them. Advanced: an
+ * Simple (the default): agents work on one shared computer and Bubble AI places them. Advanced: an
  * owner chose to pick where agents run (Settings → Devices), which adds those choices to an agent's
  * Computer page and to New agent, and nowhere else.
  */

@@ -29,11 +29,11 @@ function runStart(key: string) {
 
 describe("a Cloud server's first boot", () => {
   it("keeps the image's name, with or without a setup key (compose can't pull without it)", () => {
-    for (const key of ["a-key", "__WISP_SETUP_KEY__"]) {
+    for (const key of ["a-key", "__BUBBLE_SETUP_KEY__"]) {
       const s = runStart(key);
-      expect(s.read(".env")).toContain("WISP_REPO=eireijie/wisp");
+      expect(s.read(".env")).toContain("BUBBLE_REPO=eireijie/bubble-ai");
       expect(s.read(".env")).toContain("DOCKER_GID=988");
-      expect(s.read(".env").includes("WISP_SETUP_CODE=a-key")).toBe(key === "a-key");
+      expect(s.read(".env").includes("BUBBLE_SETUP_CODE=a-key")).toBe(key === "a-key");
       expect(s.read("docker.log")).toContain("compose up -d");
       expect(s.read("chown.log")).toContain("1000:1000 device link");
       fs.rmSync(s.dir, { recursive: true });
@@ -41,7 +41,7 @@ describe("a Cloud server's first boot", () => {
   });
   it("runs a device beside the hub, so agents live on the server", () => {
     const d = compose.services.device;
-    expect(d.command).toEqual(["node", "bin/wisp.mjs", "node", "start", "--local"]);
+    expect(d.command).toEqual(["node", "bin/bubble-ai.mjs", "node", "start", "--local"]);
     expect(d.restart).toBe("unless-stopped");
     expect(d.image).toBe(compose.services.wisp.image);
   });
@@ -51,15 +51,15 @@ describe("a Cloud server's first boot", () => {
     expect(d.user).not.toMatch(/^0|root/);
     // the same note folder from both sides
     expect(compose.services.wisp.volumes).toContain("./link:/link");
-    expect(compose.services.wisp.environment.WISP_LOCAL_DEVICE_DIR).toBe("/link");
+    expect(compose.services.wisp.environment.BUBBLE_LOCAL_DEVICE_DIR).toBe("/link");
     expect(d.volumes).toContain("./link:/opt/wisp/link");
-    expect(d.environment.WISP_LOCAL_DEVICE_DIR).toBe("/opt/wisp/link");
+    expect(d.environment.BUBBLE_LOCAL_DEVICE_DIR).toBe("/opt/wisp/link");
   });
   it("lets the device reach the hub without opening it to the internet", () => {
     expect(compose.services.device.network_mode).toBe("host");
     expect(compose.services.wisp.ports).toEqual(["127.0.0.1:4747:4747"]);
   });
-  it("keeps harnesses Wisp installs across image updates, and VM folders at the host's path", () => {
+  it("keeps harnesses Bubble AI installs across image updates, and VM folders at the host's path", () => {
     const d = compose.services.device;
     expect(d.volumes).toContain("./device:/opt/wisp/device");
     expect(d.environment.HOME).toBe("/opt/wisp/device");
@@ -73,7 +73,7 @@ describe("the desktop app's Cloud setup", () => {
     expect(html).toMatch(/setup\.cloudCreate\([^)]*device: true/);
     expect(html).not.toContain("answers.use");
   });
-  it("recommends a size that fits Wisp and an agent's computer", () => {
+  it("recommends a size that fits Bubble AI and an agent's computer", () => {
     const cloudJs = fs.readFileSync(path.join(root, "apps/desktop/src/cloud.cjs"), "utf8");
     expect(cloudJs).toContain("const RECOMMENDED_GB = 4;");
   });

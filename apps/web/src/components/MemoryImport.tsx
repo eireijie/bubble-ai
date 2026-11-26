@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { harnessLabel } from "@wisp/core";
-import { memoryPrompt, parseMemoryAnswer, type MemoryLine } from "@wisp/core/src/memory-import.ts";
+import { harnessLabel } from "@bubble-ai/core";
+import { memoryPrompt, parseMemoryAnswer, type MemoryLine } from "@bubble-ai/core/src/memory-import.ts";
 import { api } from "../api.ts";
 import { Spinner, Tick } from "./SetupShell.tsx";
 
-/** A harness on one of the person's devices that Wisp can ask for them. */
+/** A harness on one of the person's devices that Bubble AI can ask for them. */
 export interface Askable {
   harness: string;
   nodeId: string;
@@ -14,7 +14,7 @@ export interface Askable {
 type Phase = { at: "choose" } | { at: "asking"; harness: string } | { at: "paste" } | { at: "review"; from: string };
 
 /**
- * Bring what your AI already knows: Wisp asks Claude Code or Codex on your computer one question
+ * Bring what your AI already knows: Bubble AI asks Claude Code or Codex on your computer one question
  * (with your OK, reading only its answer), or you copy the prompt into any other app and paste the
  * reply back. The answer becomes a list you tick through; lines marked (unsure) start unticked and
  * lines that look like a secret never show. `onSave` gets the ticked lines.
@@ -41,7 +41,7 @@ export function MemoryImport({ agentName, askable, saveLabel, skipLabel, onSave,
     setAnswer(text);
     setOff(new Set(p.lines.flatMap((l, i) => (l.unsure ? [i] : []))));
     if (!p.lines.length) {
-      setError(p.dropped ? "Everything in that answer looked private, so nothing was kept." : "That answer had nothing Wisp could read. Paste the whole reply, with its headings.");
+      setError(p.dropped ? "Everything in that answer looked private, so nothing was kept." : "That answer had nothing Bubble AI could read. Paste the whole reply, with its headings.");
       return;
     }
     setError(null);
@@ -69,7 +69,7 @@ export function MemoryImport({ agentName, askable, saveLabel, skipLabel, onSave,
   };
 
   const copy = async () => {
-    // a one-time link an agent can send its answer to, when this Wisp can make one
+    // a one-time link an agent can send its answer to, when this Bubble AI can make one
     const l = link ?? (await api<{ id: string; url: string }>("POST", "/api/memory-links").catch(() => null));
     if (l) setLink(l);
     try {
@@ -104,7 +104,7 @@ export function MemoryImport({ agentName, askable, saveLabel, skipLabel, onSave,
             <div className="ob-choice ob-main-choice">
               <div className="flex flex-1 flex-col gap-1">
                 <span className="ob-name">Ask {harnessLabel(first.harness)} for me</span>
-                <span className="ob-sub">Found on {first.device}. Wisp asks it one question and reads only its answer.</span>
+                <span className="ob-sub">Found on {first.device}. Bubble AI asks it one question and reads only its answer.</span>
               </div>
               <button type="button" className="ob-b ob-p" onClick={() => void ask(first)}>
                 Ask it

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Archive Wisp for iPhone and upload it to TestFlight. See docs/signing.md.
+# Archive Bubble AI for iPhone and upload it to TestFlight. See docs/signing.md.
 #   apps/ios/scripts/testflight.sh                      # signs and uploads with the account in Xcode → Settings → Accounts
 #   ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_PATH=~/private_keys/AuthKey_….p8 apps/ios/scripts/testflight.sh   # or with an App Store Connect API key
 # APPLE_TEAM_ID defaults to YuVi LLC. BUILD_NUMBER has to go up with each upload; it defaults to the time.
@@ -36,4 +36,4 @@ cat > "$out/export.plist" <<PLIST
 PLIST
 
 xcodebuild -exportArchive -archivePath "$out/Wisp.xcarchive" -exportPath "$out/export" -exportOptionsPlist "$out/export.plist" "${auth[@]}"
-echo "Wisp $(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$out/Wisp.xcarchive/Products/Applications/Wisp.app/Info.plist") ($build) done"
+echo "Bubble AI $(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$out/Wisp.xcarchive/Products/Applications/Wisp.app/Info.plist") ($build) done"

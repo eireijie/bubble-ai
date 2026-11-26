@@ -15,7 +15,7 @@ export function newSetupCode(): string {
 const normalize = (code: string) => code.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 /**
- * Until the first account exists, whoever reaches this Wisp could make it, and a tunnel can make it
+ * Until the first account exists, whoever reaches this Bubble AI could make it, and a tunnel can make it
  * public before its owner gets there. So making the first account needs a code that's only on this
  * computer: in <data>/setup-code, in the hub's log, and in the link the desktop app and installer open.
  */

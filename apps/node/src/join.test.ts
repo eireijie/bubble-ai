@@ -10,7 +10,7 @@ import { discoverWisps, nearbyWisp, type Advertisement, type DiscoveryClient } f
 
 const temporary: string[] = [];
 afterEach(() => { temporary.splice(0).forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })); });
-function fixture(statuses: unknown[] = [{ status: "approved", nodeId: "n1", nodeToken: "private-key", hubUrl: "http://192.168.1.5:4747", workspaceName: "Yug's Wisp" }]) {
+function fixture(statuses: unknown[] = [{ status: "approved", nodeId: "n1", nodeToken: "private-key", hubUrl: "http://192.168.1.5:4747", workspaceName: "Yug's Bubble AI" }]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wisp-join-")); temporary.push(dir);
   let clock = 0;
   const replies = [{ requestId: "r1", secret: "private-secret", code: "482913", expiresAt: new Date(600_000).toISOString() }, ...statuses];
@@ -20,7 +20,7 @@ function fixture(statuses: unknown[] = [{ status: "approved", nodeId: "n1", node
     expect(JSON.parse(fs.readFileSync(path.join(dir, "node.json"), "utf8")).token).toBe("private-key");
   });
   const deps: JoinDependencies = {
-    fetch: http as typeof fetch, discover: vi.fn(async () => [{ id: "w1", name: "Yug's Wisp", host: "Yug-Mac", url: "http://192.168.1.5:4747" }]),
+    fetch: http as typeof fetch, discover: vi.fn(async () => [{ id: "w1", name: "Yug's Bubble AI", host: "Yug-Mac", url: "http://192.168.1.5:4747" }]),
     say, install, now: () => clock, sleep: vi.fn(async (ms) => { clock += ms; }),
   };
   return { dir, deps, http, say, install };
@@ -37,7 +37,7 @@ describe("join addresses", () => {
 
 describe("join protocol", () => {
   it("discovers, asks, displays the spaced code, polls privately and installs after saving", async () => {
-    const f = fixture([{ status: "pending" }, { status: "approved", nodeId: "n1", nodeToken: "private-key", hubUrl: "http://192.168.1.5:4747", workspaceName: "Yug's Wisp" }]);
+    const f = fixture([{ status: "pending" }, { status: "approved", nodeId: "n1", nodeToken: "private-key", hubUrl: "http://192.168.1.5:4747", workspaceName: "Yug's Bubble AI" }]);
     fs.writeFileSync(path.join(f.dir, "node.json"), JSON.stringify({ shareScreen: true, local: true }));
     await joinWisp({ dir: f.dir, name: "Laptop" }, f.deps);
     expect(f.deps.discover).toHaveBeenCalledOnce();
@@ -66,7 +66,7 @@ describe("join protocol", () => {
       } else {
         expect(req.url).toBe("/api/join/requests/r1");
         expect(req.headers["x-join-secret"]).toBe("private-secret");
-        res.end(JSON.stringify({ status: "approved", nodeId: "n1", nodeToken: "private-key", hubUrl: origin, workspaceName: "Test Wisp" }));
+        res.end(JSON.stringify({ status: "approved", nodeId: "n1", nodeToken: "private-key", hubUrl: origin, workspaceName: "Test Bubble AI" }));
       }
     });
     server.listen(0, "127.0.0.1"); await once(server, "listening");
@@ -76,19 +76,19 @@ describe("join protocol", () => {
       expect(f.install).toHaveBeenCalledOnce();
     } finally { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); }
   });
-  it("keeps the address that worked when the one Wisp suggests can't be reached, and says which folder to start", async () => {
+  it("keeps the address that worked when the one Bubble AI suggests can't be reached, and says which folder to start", async () => {
     const f = fixture();
     const server = createServer(async (req, res) => {
       res.setHeader("content-type", "application/json");
       if (req.method === "POST") res.writeHead(201).end(JSON.stringify({ requestId: "r1", secret: "s", code: "482913", expiresAt: new Date(Date.now() + 600_000).toISOString() }));
-      else res.end(JSON.stringify({ status: "approved", nodeId: "n1", nodeToken: "k", hubUrl: "http://127.0.0.1:1", workspaceName: "Test Wisp" }));
+      else res.end(JSON.stringify({ status: "approved", nodeId: "n1", nodeToken: "k", hubUrl: "http://127.0.0.1:1", workspaceName: "Test Bubble AI" }));
     });
     server.listen(0, "127.0.0.1"); await once(server, "listening");
     const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     try {
       await joinWisp({ dir: f.dir, name: "Laptop", address: origin, service: false }, { ...f.deps, fetch, now: Date.now, sleep: async () => {} });
       expect(JSON.parse(fs.readFileSync(path.join(f.dir, "node.json"), "utf8")).hub).toBe(origin);
-      expect(f.say.mock.calls.flat().join("\n")).toContain(`wisp node start --dir ${JSON.stringify(f.dir)}`);
+      expect(f.say.mock.calls.flat().join("\n")).toContain(`bubble-ai node start --dir ${JSON.stringify(f.dir)}`);
     } finally { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); }
   });
   it("uses an invite without browsing and can save without installing a service", async () => {
@@ -102,7 +102,7 @@ describe("join protocol", () => {
   it.each([[], [{ id: "a", name: "A", host: "a", url: "http://a" }, { id: "b", name: "B", host: "b", url: "http://b" }]].map((found) => [found]))("gives an invite hint instead of guessing: %j", async (found) => {
     const f = fixture();
     f.deps.discover = async () => found;
-    await expect(joinWisp({ dir: f.dir }, f.deps)).rejects.toThrow("wisp join <invite-link>");
+    await expect(joinWisp({ dir: f.dir }, f.deps)).rejects.toThrow("bubble-ai join <invite-link>");
     expect(f.http).not.toHaveBeenCalled();
   });
   it.each(["denied", "expired", "unknown", "approved"])("does not save credentials for %s without a grant", async (status) => {
@@ -128,7 +128,7 @@ describe("join protocol", () => {
   it("retains a one-use grant if service installation fails", async () => {
     const f = fixture();
     f.deps.install = () => { throw new Error("launchd unavailable"); };
-    await expect(joinWisp({ dir: f.dir }, f.deps)).rejects.toThrow("wisp service install node");
+    await expect(joinWisp({ dir: f.dir }, f.deps)).rejects.toThrow("bubble-ai service install node");
     expect(JSON.parse(fs.readFileSync(path.join(f.dir, "node.json"), "utf8")).token).toBe("private-key");
   });
   it("handles HTTP transport failure with a connection fix", async () => {
@@ -139,9 +139,9 @@ describe("join protocol", () => {
 });
 
 describe("mDNS discovery", () => {
-  const service: Advertisement = { name: "Wisp", host: "mac.local", port: 4747, addresses: ["fe80::1", "192.168.1.5"], txt: { v: "1", id: "w1", name: "Yug's Wisp", host: "Yug-Mac" } };
+  const service: Advertisement = { name: "Bubble AI", host: "mac.local", port: 4747, addresses: ["fe80::1", "192.168.1.5"], txt: { v: "1", id: "w1", name: "Yug's Bubble AI", host: "Yug-Mac" } };
   it("reads versioned TXT metadata and chooses a usable address", () => {
-    expect(nearbyWisp(service)).toEqual({ id: "w1", name: "Yug's Wisp", host: "Yug-Mac", url: "http://192.168.1.5:4747" });
+    expect(nearbyWisp(service)).toEqual({ id: "w1", name: "Yug's Bubble AI", host: "Yug-Mac", url: "http://192.168.1.5:4747" });
     expect(nearbyWisp({ ...service, addresses: ["fd00::5"] })?.url).toBe("http://[fd00::5]:4747");
     expect(nearbyWisp({ ...service, txt: { v: "2" } })).toBeNull();
   });
@@ -171,16 +171,16 @@ describe("mDNS discovery", () => {
   });
 });
 
-describe("a Wisp that moved", () => {
+describe("a Bubble AI that moved", () => {
   const me = { hubId: "hub-1", nodeId: "node-1", token: "wr_node_secret" };
-  const wisp = (id: string, url: string) => ({ id, name: "Yug's Wisp", host: "yug-mac", url });
+  const wisp = (id: string, url: string) => ({ id, name: "Yug's Bubble AI", host: "yug-mac", url });
   const hash = crypto.createHash("sha256").update(me.token).digest("hex");
   const prover = (key: string) => vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
     const { nonce } = JSON.parse(String(init?.body));
     return new Response(JSON.stringify({ macs: [crypto.createHmac("sha256", key).update(`wisp-relocate:${nonce}`).digest("hex")] }));
   }) as unknown as typeof fetch;
 
-  it("moves only to the Wisp that proves it holds this computer's credential", async () => {
+  it("moves only to the Bubble AI that proves it holds this computer's credential", async () => {
     const found = async () => [wisp("other", "http://192.168.1.9:4747"), wisp("hub-1", "http://192.168.1.31:4747")];
     const real = prover(hash);
     expect(await findMovedWisp(me, "http://192.168.1.20:4747", found, real)).toBe("http://192.168.1.31:4747");
@@ -193,7 +193,7 @@ describe("a Wisp that moved", () => {
     expect(await findMovedWisp(me, "http://192.168.1.20:4747", found, prover("not-the-hash"))).toBeNull();
     expect(await findMovedWisp(me, "http://192.168.1.20:4747", found, (async () => { throw new Error("refused"); }) as typeof fetch)).toBeNull();
   });
-  it("leaves https addresses, unmoved Wisps and failed lookups alone", async () => {
+  it("leaves https addresses, unmoved Bubbles and failed lookups alone", async () => {
     const discover = vi.fn(async () => [wisp("hub-1", "http://192.168.1.31:4747")]);
     expect(await findMovedWisp(me, "https://yug-mac.tail3c1.ts.net", discover, prover(hash))).toBeNull();
     expect(discover).not.toHaveBeenCalled();

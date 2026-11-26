@@ -89,7 +89,7 @@ struct AddComputerView: View {
             DisclosureGroup(isExpanded: $more) {
               VStack(alignment: .leading, spacing: 12) {
                 kindRow(.orgo, "cloud", "Cloud computer", "Hosted for you with Orgo. Add your Orgo API key in Settings first.",
-                  note: orgoConfigured == nil ? "Checking your Orgo connection…" : orgoConfigured == false ? "Add your Orgo API key on Wisp on your computer (Settings → Agent computers) first." : nil,
+                  note: orgoConfigured == nil ? "Checking your Orgo connection…" : orgoConfigured == false ? "Add your Orgo API key on Bubble AI on your computer (Settings → Agent computers) first." : nil,
                   disabled: orgoConfigured != true)
                 if kind == .orgo {
                   TextField("Or one you already have in Orgo (its ID)", text: $existingOrgo).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -145,7 +145,7 @@ struct AddComputerView: View {
   private var deviceNote: (String, Bool)? {
     guard let caps = device?.capabilities else { return nil }
     if kind == .device {
-      if caps.screen?.off == true { return ("\(device?.name ?? "That device")'s screen is off. Only you can turn it on, at that computer: wisp node screen on", false) }
+      if caps.screen?.off == true { return ("\(device?.name ?? "That device")'s screen is off. Only you can turn it on, at that computer: bubble-ai node screen on", false) }
       guard let s = caps.screen, let detail = s.detail, !detail.isEmpty else { return nil }
       return (detail, s.ok)
     }

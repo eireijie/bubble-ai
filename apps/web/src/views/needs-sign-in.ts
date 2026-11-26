@@ -1,4 +1,4 @@
-import type { HarnessSettings } from "@wisp/core";
+import type { HarnessSettings } from "@bubble-ai/core";
 
 /** The settings of an AI tool whose default account isn't known to be signed in on the device, or null when it is (or isn't in the list). */
 export function signInFor(list: HarnessSettings[], id: string): HarnessSettings | null {

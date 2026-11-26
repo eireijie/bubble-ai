@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { accountsSignedIn, preferSignedIn, type HarnessCatalog } from "@wisp/core";
+import { accountsSignedIn, preferSignedIn, type HarnessCatalog } from "@bubble-ai/core";
 import { openDb } from "../src/db.ts";
 import { Store } from "../src/store.ts";
 import { agentDefaults, saveAgentDefaults } from "../src/agent-defaults.ts";

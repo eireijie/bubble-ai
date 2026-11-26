@@ -374,7 +374,7 @@
   {
     "id": "memory",
     "name": "Knowledge graph",
-    "description": "A small graph memory of people, things and how they relate. (Wisp's vault is the shared memory; this is extra.)",
+    "description": "A small graph memory of people, things and how they relate. (Bubble AI's vault is the shared memory; this is extra.)",
     "icon": "Network",
     "category": "Data",
     "kind": "mcp-stdio",

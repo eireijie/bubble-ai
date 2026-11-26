@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Clock, Plus, Share2, Trash2, UserCheck } from "lucide-react";
-import { stepAgentId, stepGraph, stepOrder, type ChannelTeam, type TeamStep } from "@wisp/core";
+import { stepAgentId, stepGraph, stepOrder, type ChannelTeam, type TeamStep } from "@bubble-ai/core";
 import { useStore } from "../store.ts";
 import { AgentAvatar, agentColor, cx } from "../components/ui.tsx";
 import { nextText, whenText } from "./ScheduleForm.tsx";

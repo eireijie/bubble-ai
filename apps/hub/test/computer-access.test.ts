@@ -2,11 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { FEATURE_PRESETS, resolveFeatures } from "@wisp/core";
+import { FEATURE_PRESETS, resolveFeatures } from "@bubble-ai/core";
 import { buildHub } from "../src/app.ts";
 import { setWorkspaceFeatures } from "../src/features.ts";
 import type { Hub } from "../src/hub.ts";
-import type { Computer } from "@wisp/core";
+import type { Computer } from "@bubble-ai/core";
 
 /** Who can work a VM (control, live view, commands, files) and who can open a terminal on it. */
 

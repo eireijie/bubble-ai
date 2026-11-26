@@ -8,7 +8,7 @@ describe("chat tint", () => {
     expect(inkOn("not-a-colour")).toBe("#161616");
   });
 
-  it("hands the open agent's colour to your bubbles, and leaves a team on the Wisp violet", () => {
+  it("hands the open agent's colour to your bubbles, and leaves a team on the Bubble AI violet", () => {
     const tint = chatTint("#3cc0a6") as Record<string, string>;
     expect(tint["--bubble-me"]).toBe("#3cc0a6");
     expect(tint["--bubble-me-ink"]).toBe("#161616");

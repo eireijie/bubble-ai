@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { SquareTerminal } from "lucide-react";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { AgentAvatar, Menu, cx } from "../components/ui.tsx";
 
 /**

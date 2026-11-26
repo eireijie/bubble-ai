@@ -113,7 +113,7 @@ struct ConnectorEditor: View {
     } else {
       MarketField(label: "URL", placeholder: "https://example.com/mcp", text: $url, mono: true, keyboard: .URL, plain: true)
       MarketField(label: "Headers (Name: value, one per line)", placeholder: "Authorization: Bearer {{API_KEY}}", text: $headers, mono: true, lines: 2...8, plain: true)
-      Text("If the app asks you to sign in, Wisp takes you to its sign-in page next.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
+      Text("If the app asks you to sign in, Bubble AI takes you to its sign-in page next.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
     }
     if locked { EmptyView() }
   }

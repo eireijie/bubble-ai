@@ -35,7 +35,7 @@ export function JoinApproval() {
         // checked every 15 seconds on every screen: no change keeps the list it has, so nothing renders
         if (alive && before === revision) setRequests((cur) => (JSON.stringify(cur) === JSON.stringify(next) ? cur : next));
       } catch {
-        /* An older Wisp has no join requests. Keep listening for live events. */
+        /* An older Bubble AI has no join requests. Keep listening for live events. */
       }
     };
     void refresh();
@@ -72,7 +72,7 @@ export function JoinApproval() {
         </span>
         <div className="min-w-0">
           <h2 className="t-title">{request.name} wants to join</h2>
-          <p className="mt-0.5 text-sm text-muted">Another computer asked to join {workspaceName ?? "your Wisp"}.</p>
+          <p className="mt-0.5 text-sm text-muted">Another computer asked to join {workspaceName ?? "your Bubble AI"}.</p>
         </div>
       </div>
       <div className="my-5 rounded-3xl bg-card p-[18px] text-center">

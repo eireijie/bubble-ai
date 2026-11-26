@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Camera, ChevronLeft, ChevronRight, ClipboardList, Cloud, FolderOpen, Keyboard, Laptop, Loader2, Monitor, MoreHorizontal, Server, Upload, Video, X } from "lucide-react";
-import { type Agent, type PageElement } from "@wisp/core";
+import { type Agent, type PageElement } from "@bubble-ai/core";
 import { api, uploadFile } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";

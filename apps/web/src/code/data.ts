@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Agent, AgentEvent, Approval, Message, Team } from "@wisp/core";
+import type { Agent, AgentEvent, Approval, Message, Team } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { runTaps, useStore, useTeams, type RunEvent } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
 import type { TaskRow } from "../views/TasksView.tsx";
 
 /**
- * Code's data, built from what Wisp already has: a coding task is a task handed to a team that
+ * Code's data, built from what Bubble AI already has: a coding task is a task handed to a team that
  * works in a repo. Its agents are whoever holds a piece of it (the lead, the builders it split the
  * work to, the reviewer), and each agent's pane is drawn from its steps in those tasks' threads.
  */

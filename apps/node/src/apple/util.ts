@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { AppleContact, ApplePermission } from "@wisp/core";
+import type { AppleContact, ApplePermission } from "@bubble-ai/core";
 
 /** 2001-01-01T00:00:00Z, where Apple's dates count from. */
 export const APPLE_EPOCH_MS = Date.UTC(2001, 0, 1);
@@ -138,7 +138,7 @@ export function resolveChat(query: string, chats: ChatRow[], contacts: ContactLi
     if (groups.length > 1) return { ok: false, error: `More than one group chat matches “${q}”: ${groups.slice(0, 5).map((g) => g.displayName).join(", ")}. Say which one.` };
     if (groups.length) return { ok: true, chats: groups };
   }
-  return { ok: false, error: contacts.length ? `No conversation matches “${q}”. Try their phone number or email.` : `No conversation matches “${q}”. Wisp can't look up names until Contacts is allowed, so try their phone number or email.` };
+  return { ok: false, error: contacts.length ? `No conversation matches “${q}”. Try their phone number or email.` : `No conversation matches “${q}”. Bubble AI can't look up names until Contacts is allowed, so try their phone number or email.` };
 }
 
 function dedupe(chats: ChatRow[]): ChatRow[] {
@@ -219,8 +219,8 @@ export function automationPermission(code: number): ApplePermission | null {
 }
 
 /**
- * Who macOS shows in System Settings → Privacy & Security for what `wisp node` does. Permissions go
- * to the "responsible" app: the app bundle the node runs from (the Wisp app, or its own binary as a
+ * Who macOS shows in System Settings → Privacy & Security for what `bubble-ai node` does. Permissions go
+ * to the "responsible" app: the app bundle the node runs from (the Bubble AI app, or its own binary as a
  * launchd service), else the terminal it was started in, else the bare `node` binary of a service.
  */
 export function permissionHolder(
@@ -231,7 +231,7 @@ export function permissionHolder(
 ): string {
   const own = appName(execPath, readFile);
   if (own) return own;
-  // macOS credits the app that started us (Wisp, Terminal, an editor), the outermost .app up the process chain
+  // macOS credits the app that started us (Bubble AI, Terminal, an editor), the outermost .app up the process chain
   const app = appAncestor();
   if (app) return app;
   const service = env.XPC_SERVICE_NAME;
@@ -240,7 +240,7 @@ export function permissionHolder(
     const term = env.__CFBundleIdentifier ?? env.TERM_PROGRAM;
     const known: Record<string, string> = { Apple_Terminal: "Terminal", "com.apple.Terminal": "Terminal", "iTerm.app": "iTerm", "com.googlecode.iterm2": "iTerm", vscode: "Visual Studio Code", "com.microsoft.VSCode": "Visual Studio Code", WarpTerminal: "Warp", "dev.warp.Warp-Stable": "Warp", ghostty: "Ghostty", "com.mitchellh.ghostty": "Ghostty" };
     if (term && known[term]) return known[term];
-    if (term) return "the app you started Wisp from";
+    if (term) return "the app you started Bubble AI from";
   }
   // a bare binary (a launchd service run by Node.js): System Settings lists it by name; its path helps find it with "+"
   return `${path.basename(execPath)} (${execPath})`;

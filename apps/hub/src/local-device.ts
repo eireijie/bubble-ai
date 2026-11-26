@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { envVar } from "@wisp/core";
+import { envVar } from "@bubble-ai/core";
 import { issueToken } from "./auth.ts";
 import type { Hub } from "./hub.ts";
 import { HOME_KEY } from "./shared-computer.ts";
 
 /**
- * The hub's own computer as a device, without tokens: `wisp service install node --local` (the
+ * The hub's own computer as a device, without tokens: `bubble-ai service install node --local` (the
  * installer runs it) leaves a request next to the hub's data, and once the organization has an
  * owner the hub registers this computer as their device and writes back where and how to connect.
  * The device service, waiting on the same computer, picks that up and connects.
@@ -15,7 +15,7 @@ import { HOME_KEY } from "./shared-computer.ts";
 export const REQUEST_FILE = "local-device.request";
 export const GRANT_FILE = "local-device.json";
 
-/** Where those two files go: the hub's data, or $WISP_LOCAL_DEVICE_DIR for a device that mustn't see that data. */
+/** Where those two files go: the hub's data, or $BUBBLE_LOCAL_DEVICE_DIR for a device that mustn't see that data. */
 export const localDeviceDir = (dataDir: string) => envVar("LOCAL_DEVICE_DIR") ?? dataDir;
 
 export interface LocalDeviceGrant {
@@ -42,7 +42,7 @@ export function grantLocalDevice(hub: Hub, dataDir: string, port = Number(proces
     if (typeof asked.name === "string" && asked.name.trim()) name = asked.name.trim().slice(0, 80);
   } catch {}
   const node = hub.store.createNode(ws.id, name, owner.id);
-  // the device Wisp lives on: agents' AI tools and the shared computer go here (shared-computer.ts)
+  // the device Bubble AI lives on: agents' AI tools and the shared computer go here (shared-computer.ts)
   hub.store.setSetting(ws.id, HOME_KEY, node.id);
   const body: LocalDeviceGrant = { hub: `http://127.0.0.1:${port}`, token: issueToken(hub.store.db, "node", node.id, ws.id, name), name };
   fs.writeFileSync(grant, JSON.stringify(body, null, 2), { mode: 0o600 });

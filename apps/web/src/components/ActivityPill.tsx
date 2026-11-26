@@ -1,4 +1,4 @@
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore, type LiveRun } from "../store.ts";
 import { describeTool } from "./AgentCards.tsx";

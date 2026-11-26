@@ -2,13 +2,13 @@ const { envVar } = require("./env.cjs");
 // Keeping the desktop app up to date from GitHub releases, without code signing.
 //
 // electron-updater's Mac half (Squirrel.Mac) only installs updates signed by the same Apple
-// developer as the running app, and Wisp's builds are signed ad hoc for now, so the app does it
+// developer as the running app, and Bubble AI's builds are signed ad hoc for now, so the app does it
 // itself: find the newest `desktop-v*` release, download this platform's build, check it against
-// the digest GitHub publishes, and swap it in when you restart (or quit) Wisp.
+// the digest GitHub publishes, and swap it in when you restart (or quit) Bubble AI.
 //
-//   Mac      Wisp-mac-<arch>.zip      unzip, replace the .app, open it again
-//   Windows  Wisp-win-x64.exe         run the installer silently; it opens Wisp when done
-//   Linux    Wisp-linux-x86_64.AppImage  replace the AppImage you ran (download and install a newer .deb manually)
+//   Mac      Bubble-AI-mac-<arch>.zip      unzip, replace the .app, open it again
+//   Windows  Bubble-AI-win-x64.exe         run the installer silently; it opens Bubble AI when done
+//   Linux    Bubble-AI-linux-x86_64.AppImage  replace the AppImage you ran (download and install a newer .deb manually)
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -18,7 +18,7 @@ const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
 
 const { GITHUB_REPO } = require("./repo.cjs");
-// WISP_UPDATE_FEED points a build at another list of releases (for trying an update locally)
+// BUBBLE_UPDATE_FEED points a build at another list of releases (for trying an update locally)
 const RELEASES = envVar("UPDATE_FEED", process.env) ?? `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=30`;
 const TAG = /^desktop-v(\d+\.\d+\.\d+)$/;
 const FIRST_CHECK_MS = 30_000;
@@ -35,9 +35,9 @@ function compareVersions(a, b) {
 
 /** The release file this computer installs, or null when this kind of install can't update itself. */
 function assetName(platform = process.platform, arch = process.arch, env = process.env) {
-  if (platform === "darwin") return `Wisp-mac-${arch === "x64" ? "x64" : "arm64"}.zip`;
-  if (platform === "win32") return "Wisp-win-x64.exe";
-  if (platform === "linux" && env.APPIMAGE) return "Wisp-linux-x86_64.AppImage";
+  if (platform === "darwin") return `Bubble-AI-mac-${arch === "x64" ? "x64" : "arm64"}.zip`;
+  if (platform === "win32") return "Bubble-AI-win-x64.exe";
+  if (platform === "linux" && env.APPIMAGE) return "Bubble-AI-linux-x86_64.AppImage";
   return null;
 }
 
@@ -101,13 +101,17 @@ async function downloadTo(url, dest, { size, digest }, { fetchImpl = fetch, head
 }
 
 /**
- * The script that swaps a new Mac build in once Wisp (`pid`) has quit. If the new app can't be
- * moved into place, the old one goes back where it was, so Wisp is never left missing.
+ * The script that swaps a new Mac build in once Bubble AI (`pid`) has quit. If the new app can't be
+ * moved into place, the old one goes back where it was, so Bubble AI is never left missing.
+ *
+ * The new app takes its own name when that's free: a Wisp.app from before the rename (which the Wisp
+ * updater filled with Bubble AI) becomes Bubble AI.app on the next update. Otherwise it keeps the old path.
  */
 function macScript({ pid, file, unpacked, bundle, dir, relaunch }) {
   const b = q(bundle);
   const old = q(`${bundle}.old`);
   const open = relaunch ? `/usr/bin/open ${b}` : ":";
+  const openDest = relaunch ? `/usr/bin/open "$DEST"` : ":";
   return [
     "#!/bin/sh",
     `while kill -0 ${pid} 2>/dev/null; do sleep 0.3; done`,
@@ -116,11 +120,14 @@ function macScript({ pid, file, unpacked, bundle, dir, relaunch }) {
     `NEW=$(/usr/bin/find ${q(unpacked)} -maxdepth 1 -name '*.app' | head -n 1)`,
     `[ -n "$NEW" ] || { ${open}; exit 1; }`,
     `/usr/bin/xattr -dr com.apple.quarantine "$NEW" 2>/dev/null`,
+    `DEST=${b}`,
+    `NAME=$(/usr/bin/basename "$NEW")`,
+    `if [ "$NAME" != ${q(path.basename(bundle))} ] && [ ! -e ${q(path.dirname(bundle))}/"$NAME" ]; then DEST=${q(path.dirname(bundle))}/"$NAME"; fi`,
     `rm -rf ${old}`,
     `mv ${b} ${old} || { ${open}; exit 1; }`,
-    `if ! mv "$NEW" ${b}; then rm -rf ${b}; mv ${old} ${b}; ${open}; exit 1; fi`,
+    `if ! mv "$NEW" "$DEST"; then rm -rf "$DEST"; mv ${old} ${b}; ${open}; exit 1; fi`,
     `rm -rf ${old} ${q(dir)}`,
-    open,
+    openDest,
     "",
   ].join("\n");
 }
@@ -137,7 +144,7 @@ function linuxScript({ pid, file, target, relaunch }) {
   ].join("\n");
 }
 
-/** The .app bundle this process runs from (…/Wisp.app/Contents/MacOS/wisp). */
+/** The .app bundle this process runs from (…/Bubble AI.app/Contents/MacOS/bubble-ai). */
 const macBundle = (execPath = process.execPath) => path.resolve(execPath, "..", "..", "..");
 
 /**
@@ -170,14 +177,14 @@ function createUpdater(o) {
     }
     if (state === "checking" || state === "downloading" || installing) return;
     if (state === "ready") {
-      say(`Wisp ${found.version} is ready`, "Restart Wisp to finish updating.");
+      say(`Bubble AI ${found.version} is ready`, "Restart Bubble AI to finish updating.");
       return;
     }
     const name = assetName();
     const stuck = process.platform === "darwin" && !canReplace(macBundle());
     if (stuck) {
-      set("error", "move Wisp to Applications to get updates");
-      say("Move Wisp to Applications", "Wisp can only update itself from your Applications folder.");
+      set("error", "move Bubble AI to Applications to get updates");
+      say("Move Bubble AI to Applications", "Bubble AI can only update itself from your Applications folder.");
       return;
     }
     if (!name) {
@@ -187,12 +194,12 @@ function createUpdater(o) {
     }
     set("checking");
     try {
-      const res = await fetch(RELEASES, { signal: AbortSignal.timeout(30_000), headers: { accept: "application/vnd.github+json", "user-agent": `Wisp/${app.getVersion()}` } });
+      const res = await fetch(RELEASES, { signal: AbortSignal.timeout(30_000), headers: { accept: "application/vnd.github+json", "user-agent": `Bubble-AI/${app.getVersion()}` } });
       if (!res.ok) throw new Error(res.status === 404 ? "the release page isn't public yet" : `GitHub said ${res.status}`);
       const update = pickUpdate(await res.json(), app.getVersion(), name);
       if (!update) {
         set("current");
-        say("Wisp is up to date", `You have the newest version, ${app.getVersion()}.`);
+        say("Bubble AI is up to date", `You have the newest version, ${app.getVersion()}.`);
         return;
       }
       found = update;
@@ -211,14 +218,14 @@ function createUpdater(o) {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
     const dest = path.join(dir, name);
-    await downloadTo(update.url, dest, update, { headers: { "user-agent": `Wisp/${app.getVersion()}` } });
+    await downloadTo(update.url, dest, update, { headers: { "user-agent": `Bubble-AI/${app.getVersion()}` } });
     file = dest;
     set("ready", update.version);
     o.log(`update ${update.version} downloaded to ${dest}`);
-    o.notify(`Wisp ${update.version} is ready`, "It installs when you restart or quit Wisp.");
+    o.notify(`Bubble AI ${update.version} is ready`, "It installs when you restart or quit Bubble AI.");
   }
 
-  /** Swap the new build in after this process exits; `relaunch` opens Wisp again afterwards. */
+  /** Swap the new build in after this process exits; `relaunch` opens Bubble AI again afterwards. */
   async function install(relaunch) {
     if ((state !== "ready" && state !== "error") || !file || installing) return false;
     installing = true;
@@ -227,7 +234,7 @@ function createUpdater(o) {
       if (process.platform === "darwin") {
         await runDetached("/bin/sh", [writeScript(macScript({ pid, file, unpacked: path.join(dir, "unpacked"), bundle: macBundle(), dir, relaunch }))]);
       } else if (process.platform === "win32") {
-        // electron-builder's one-click installer: /S is silent, --force-run opens Wisp when done
+        // electron-builder's one-click installer: /S is silent, --force-run opens Bubble AI when done
         await runDetached(file, relaunch ? ["/S", "--force-run"] : ["/S"]);
       } else {
         await runDetached("/bin/sh", [writeScript(linuxScript({ pid, file, target: process.env.APPIMAGE, relaunch }))]);
@@ -250,7 +257,7 @@ function createUpdater(o) {
     return sh;
   }
 
-  /** Start the installer on its own; if it can't start, say so instead of crashing Wisp. */
+  /** Start the installer on its own; if it can't start, say so instead of crashing Bubble AI. */
   function runDetached(cmd, args) {
     return new Promise((resolve, reject) => {
       const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
@@ -277,7 +284,7 @@ function createUpdater(o) {
     if (await install(true)) app.quit();
   }
 
-  /** Defer quitting until the installer starts; leave Wisp running if it fails. */
+  /** Defer quitting until the installer starts; leave Bubble AI running if it fails. */
   let gaveUp = false; // an install-on-quit that failed: the next quit goes ahead without the update
   function installOnQuit(event) {
     if (installed || gaveUp || !file || (state !== "ready" && state !== "error")) return false;
@@ -297,20 +304,20 @@ function createUpdater(o) {
     },
     stop: () => timer && clearInterval(timer),
     check: () => check({ manual: true }),
-    /** a check asked for from Wisp's own Updates page, which shows the result itself */
+    /** a check asked for from Bubble AI's own Updates page, which shows the result itself */
     checkQuietly: async () => {
       await check({ manual: true, quiet: true });
       return status();
     },
     /** restart into the new version now */
     restart,
-    /** called while quitting: a downloaded update goes in quietly, without reopening Wisp */
+    /** called while quitting: a downloaded update goes in quietly, without reopening Bubble AI */
     installOnQuit,
     status,
     /** the tray's update item(s) */
     menu() {
       if (state === "ready" || (state === "error" && file)) return [{ label: `Restart to Update to ${found.version}`, click: restart }];
-      if (state === "downloading") return [{ label: `Downloading Wisp ${detail}…`, enabled: false }];
+      if (state === "downloading") return [{ label: `Downloading Bubble AI ${detail}…`, enabled: false }];
       return [{ label: state === "checking" ? "Checking for Updates…" : "Check for Updates…", enabled: state !== "checking", click: () => check({ manual: true }) }];
     },
   };

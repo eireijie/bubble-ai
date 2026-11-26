@@ -33,7 +33,7 @@ const mac = (more: Partial<NodeInfo> = {}): NodeInfo => ({
   update: null,
   ...more,
 });
-const vm = { id: "desk", name: "Wisp computer", kind: "vm", nodeId: "mac", online: true, paused: false, agents: [], controller: null, help: null, activity: null, status: "stopped", statusText: "", config: { cpus: 2, memoryGb: 4 }, code: null, ownerId: null, transport: "vnc" } as unknown as ComputerInfo;
+const vm = { id: "desk", name: "Bubble AI computer", kind: "vm", nodeId: "mac", online: true, paused: false, agents: [], controller: null, help: null, activity: null, status: "stopped", statusText: "", config: { cpus: 2, memoryGb: 4 }, code: null, ownerId: null, transport: "vnc" } as unknown as ComputerInfo;
 
 const sheet = (target: Parameters<typeof ComputerSheet>[0]["target"]) => renderToStaticMarkup(createElement(ComputerSheet, { target, refresh: async () => {} }));
 /** The switch with this name, as it was rendered. */
@@ -49,7 +49,7 @@ describe("a computer's sheet", () => {
     expect(inOrder(html, ["This Mac", ">Watch<", ">Take over<", "Run commands and files", "See and use the screen", "Ask me", ">More<"])).toBe(true);
     expect(html).toContain("Ready");
     // what moved behind More is not on the sheet's first page
-    for (const gone of ["Runs VMs", "Headless", "Agent harnesses", "Remove device", "Update Wisp", "wisp node"]) expect(html).not.toContain(gone);
+    for (const gone of ["Runs VMs", "Headless", "Agent harnesses", "Remove device", "Update Bubble AI", "bubble-ai node"]) expect(html).not.toContain(gone);
   });
 
   it("sets the hub's one switch with the first row; the second shows the same value and can't be changed", () => {
@@ -84,7 +84,7 @@ describe("a computer's sheet", () => {
   it("shows a VM's sheet with both switches on, no Ask me, and its status in a few words", () => {
     signIn();
     const html = sheet({ key: "c:desk", kind: "computer", computer: vm, host: mac() });
-    expect(inOrder(html, ["Wisp computer", ">Watch<", ">Take over<", "Run commands and files", "See and use the screen", ">More<"])).toBe(true);
+    expect(inOrder(html, ["Bubble AI computer", ">Watch<", ">Take over<", "Run commands and files", "See and use the screen", ">More<"])).toBe(true);
     expect(html).toContain("Asleep. Wakes when needed.");
     expect(html).not.toContain("Ask me");
     for (const label of ["Run commands and files", "See and use the screen"]) {
@@ -109,7 +109,7 @@ describe("the Computers page", () => {
     expect(html).toContain("Computers");
     expect(html.match(/aria-label="Add a computer or phone"/g)).toHaveLength(1);
     expect(html).toContain('href="#/computers/desk"');
-    expect(inOrder(html, ["Wisp computer", "Asleep. Wakes when needed."])).toBe(true);
+    expect(inOrder(html, ["Bubble AI computer", "Asleep. Wakes when needed."])).toBe(true);
     // no tree, no sections, no count of what is online
     for (const gone of ["Cloud computers", "online", "Your screen", "Phones"]) expect(html).not.toContain(gone);
   });

@@ -6,7 +6,7 @@ import { ASK_OPENS, QUICK, answeredOnce, chatAsk, pingState } from "../src/compo
 import { READY_ITEMS, nextAsk, readyRows } from "../src/onboarding.ts";
 import { readTerms } from "../src/components/onboarding/FirstHello.tsx";
 import { listOf } from "../src/views/HereView.tsx";
-import { CONNECTOR_CATALOG } from "@wisp/core";
+import { CONNECTOR_CATALOG } from "@bubble-ai/core";
 
 afterEach(() => {
   motion.reduced = false;
@@ -23,7 +23,7 @@ describe("pick your agent", () => {
     expect(ids).toEqual(["gmail", "gcal", "gdrive", "slack", "notion", "linear", "jira", "stripe"]);
   });
 
-  it("shows Apple apps only when Wisp lives on a Mac, and says so when they're missing", () => {
+  it("shows Apple apps only when Bubble AI lives on a Mac, and says so when they're missing", () => {
     expect(appsForTypes(["daily"], "", true).map((a) => a.id).slice(0, 4)).toEqual(["messages", "calendar", "reminders", "contacts"]);
     expect(appsForTypes(["daily"], "", false).some((a) => a.how === "mac")).toBe(false);
     expect(missesMac(["daily"], false)).toBe(true);

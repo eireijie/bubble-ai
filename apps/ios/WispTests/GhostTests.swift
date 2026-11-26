@@ -1,7 +1,7 @@
 import XCTest
 import SwiftUI
 import Synchronization
-@testable import Wisp
+@testable import Bubble AI
 
 @MainActor
 final class GhostTests: XCTestCase {

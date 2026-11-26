@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { WispClient } from "@wisp/sdk";
-import { createWispMcp } from "@wisp/mcp/src/server.ts";
+import { WispClient } from "@bubble-ai/sdk";
+import { createWispMcp } from "@bubble-ai/mcp/src/server.ts";
 import { buildHub } from "../src/app.ts";
 import type { Hub } from "../src/hub.ts";
 import { makeRoomFor } from "./room.ts";
@@ -130,14 +130,14 @@ describe("wisp-mcp", () => {
     await call("memory_write", { path: "shared/projects/apollo-launch-plan.md", content: "# Apollo launch plan\nLaunch the rebuilt site on November 3 after the content freeze and QA pass." });
     const r = await call("memory_write", { path: "shared/projects/apollo-launch.md", content: "# Apollo launch\nWe launch the rebuilt site November 3, after QA and the content freeze." });
     expect(r.text).toBe(
-      // it linked nothing, so Wisp linked what it mentions and the note it's closest to
-      "Saved shared/projects/apollo-launch.md.\nIt linked to nothing, so Wisp added \"Related: [[apollo]], [[apollo-launch-plan]]\". Change it if a better note fits.\nSimilar notes (if it's the same idea, merge into one and delete the other):\n- shared/projects/apollo-launch-plan.md (Apollo launch plan)",
+      // it linked nothing, so Bubble AI linked what it mentions and the note it's closest to
+      "Saved shared/projects/apollo-launch.md.\nIt linked to nothing, so Bubble AI added \"Related: [[apollo]], [[apollo-launch-plan]]\". Change it if a better note fits.\nSimilar notes (if it's the same idea, merge into one and delete the other):\n- shared/projects/apollo-launch-plan.md (Apollo launch plan)",
     );
     const saved = (await call("memory_read", { path: "shared/projects/apollo-launch.md" })).text;
     expect(saved).toMatch(/^---\ntype: project\ncreated: \d{4}-\d\d-\d\d\nupdated: \d{4}-\d\d-\d\d\n---\n\n# Apollo launch/);
     expect((await call("memory_append", { path: "me/journal/2026-10-17", text: "- Planned the Apollo launch" })).text).toBe(`Appended to agents/${agentId}/journal/2026-10-17.\nMentions you could link: [[apollo-launch]], [[apollo]]`);
 
-    // a person's edit in Wisp is saved exactly as typed
+    // a person's edit in Bubble AI is saved exactly as typed
     await owner.writeNote("shared/projects/apollo.md", "# Apollo\nEdited by hand.");
     expect((await owner.readNote("shared/projects/apollo.md")).content).toBe("# Apollo\nEdited by hand.");
   });

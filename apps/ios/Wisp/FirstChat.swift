@@ -3,7 +3,7 @@ import UserNotifications
 
 /**
  * The extras in a new agent's first chat. One main next step: a quick reply to its hello. A quiet
- * link to "Here's your Wisp". Notifications are asked about only after its first useful answer,
+ * link to "Here's your Bubble AI". Notifications are asked about only after its first useful answer,
  * when a ping would mean something; Turn on brings up the system's own prompt, and after
  * "Don't Allow" the card links to the exact switch.
  */
@@ -84,7 +84,7 @@ struct FirstChatExtras: View {
     let ask = ping == .ask || ping == .asking
     return SuggestionBanner(
       symbol: "bell",
-      text: ping == .on ? "Pings are on." : ping == .off ? "Pings are off for Wisp." : "Want a ping when this is done?",
+      text: ping == .on ? "Pings are on." : ping == .off ? "Pings are off for Bubble AI." : "Want a ping when this is done?",
       detail: ping == .on ? "Only when something's finished or I need a yes." : ping == .off ? "Only the system switch can turn them back on." : "Only when something's finished or I need a yes.",
       action: ask ? "Turn on" : ping == .off ? "Open the switch" : nil,
       onAction: ask ? { Task { await turnOn() } } : ping == .off ? { if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) } } : nil,

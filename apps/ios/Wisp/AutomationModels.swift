@@ -50,7 +50,7 @@ struct Followup: Decodable, Identifiable {
   var waitingOn: String?
   /** "only if it hasn't gone out" */
   var condition: String?
-  /** "followup", or "checkback" when Wisp set it for a chat that went quiet */
+  /** "followup", or "checkback" when Bubble AI set it for a chat that went quiet */
   var kind: String?
   var channelId: String?
   var messageId: String?

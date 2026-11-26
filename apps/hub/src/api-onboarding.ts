@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { credentialSupport, harnessLabel, type AgentSettings } from "@wisp/core";
-import { MEMORY_ANSWER_MAX, MEMORY_LINES_MAX } from "@wisp/core/src/memory-import.ts";
+import { credentialSupport, harnessLabel, type AgentSettings } from "@bubble-ai/core";
+import { MEMORY_ANSWER_MAX, MEMORY_LINES_MAX } from "@bubble-ai/core/src/memory-import.ts";
 import type { Caller } from "./api.ts";
 import { id } from "./auth.ts";
 import { ComputerError } from "./computers.ts";
@@ -190,7 +190,7 @@ export function registerOnboardingApi(app: FastifyInstance, hub: Hub, h: Helpers
     const recent = (posts.get(ip) ?? []).filter((t) => now - t < 60_000);
     if (recent.length >= POSTS_PER_MINUTE) return reply.code(429).header("retry-after", "60").send({ error: "Try again in a minute." });
     posts.set(ip, [...recent, now]);
-    const gone = () => reply.code(410).send({ error: "This link has run out or was already used. Paste the answer into Wisp instead." });
+    const gone = () => reply.code(410).send({ error: "This link has run out or was already used. Paste the answer into Bubble AI instead." });
     const code = (req.params as { code: string }).code;
     if (!/^[A-Za-z0-9_-]{20,100}$/.test(code)) return gone();
     const lid = byHash.get(sha(code));
@@ -222,7 +222,7 @@ export function registerOnboardingApi(app: FastifyInstance, hub: Hub, h: Helpers
   app.post("/api/onboarding/discover/:part", async (req, reply) => {
     const c = need(req, reply, { hubOwner: true });
     if (!c) return;
-    if (!discoverAvailable()) return reply.code(409).send({ error: "Wisp isn't running on your computer, so it can't look around it." });
+    if (!discoverAvailable()) return reply.code(409).send({ error: "Bubble AI isn't running on your computer, so it can't look around it." });
     const part = (req.params as { part: string }).part;
     if (part === "harnesses") {
       // signed in where the person's own devices run them (the same check the device list uses)

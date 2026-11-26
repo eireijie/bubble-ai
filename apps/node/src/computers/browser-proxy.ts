@@ -162,19 +162,19 @@ export class BrowserProxy {
   }
 }
 
-/** Run as the harness's MCP server: env WISP_URL, WISP_TOKEN, WISP_RUN, WISP_BROWSER_CMD (JSON), WISP_BROWSER_TOOLS. */
+/** Run as the harness's MCP server: env BUBBLE_URL, BUBBLE_TOKEN, BUBBLE_RUN, BUBBLE_BROWSER_CMD (JSON), BUBBLE_BROWSER_TOOLS. */
 export async function main() {
   const env = process.env;
-  const command = JSON.parse(env.WISP_BROWSER_CMD ?? "[]") as string[];
-  const hub = (env.WISP_URL ?? "").replace(/\/+$/, "");
+  const command = JSON.parse(env.BUBBLE_BROWSER_CMD ?? "[]") as string[];
+  const hub = (env.BUBBLE_URL ?? "").replace(/\/+$/, "");
   const proxy = new BrowserProxy({
     command,
-    toolsFile: env.WISP_BROWSER_TOOLS ?? "",
+    toolsFile: env.BUBBLE_BROWSER_TOOLS ?? "",
     write: (m) => process.stdout.write(JSON.stringify(m) + "\n"),
     start: async () => {
       const res = await fetch(`${hub}/api/computers/mine/act`, {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${env.WISP_TOKEN}`, ...(env.WISP_RUN ? { "x-wisp-run": env.WISP_RUN } : {}) },
+        headers: { "content-type": "application/json", authorization: `Bearer ${env.BUBBLE_TOKEN}`, ...(env.BUBBLE_RUN ? { "x-wisp-run": env.BUBBLE_RUN } : {}) },
         body: JSON.stringify({ action: { action: "start" } }),
         signal: AbortSignal.timeout(30 * 60_000),
       });

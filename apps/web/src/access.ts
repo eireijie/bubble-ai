@@ -100,7 +100,7 @@ export function originReach(origin: string): "anywhere" | "network" | "this-comp
 }
 
 /**
- * Who can open a link to this Wisp: anyone, only devices on the same Tailscale account
+ * Who can open a link to this Bubble AI: anyone, only devices on the same Tailscale account
  * (a .ts.net address without Funnel), or only devices on this Wi-Fi.
  */
 export function linkReach(url: string | null | undefined, info: AccessInfo | null): "anywhere" | "tailscale" | "wifi" {

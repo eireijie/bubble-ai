@@ -19,7 +19,7 @@ struct ConnectionInstructions: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
-      CardCaption("On the agent's computer, install Wisp from its repository and run npm install && npm link to get wisp-mcp. Then add this to its MCP settings and restart the session.")
+      CardCaption("On the agent's computer, install Bubble AI from its repository and run npm install && npm link to get wisp-mcp. Then add this to its MCP settings and restart the session.")
       Segments(options: ConnectionFormat.allCases.map { ($0, $0.label) }, selection: $format, id: "connect-format")
       AgentCodeCard(text: config, copied: $copied)
       CardCaption("This contains the agent's connection token. Copy it before leaving; you can make a new one under Connect via MCP.")
@@ -101,7 +101,7 @@ struct AgentConnect: View {
         CardCaption("Add it as a custom connector in Grok, ChatGPT or Claude, then pick @\(current.handle) when you sign in.")
       } else {
         // a private address is never offered: the apps' servers can't reach it
-        CardCaption("\(reach?.connectorBlocker ?? "Checking this Wisp's address…") Turn it on in Settings → Away from home.")
+        CardCaption("\(reach?.connectorBlocker ?? "Checking this Bubble AI's address…") Turn it on in Settings → Away from home.")
       }
 
       CardCaption("Connected")
@@ -141,7 +141,7 @@ struct AgentConnect: View {
 
   private var runsText: String {
     if harnessRunsOnDevice(current.harness) {
-      if let device { return "When someone @mentions @\(current.handle), \(device.name) starts \(label), gives it the Wisp tools, and posts the reply." }
+      if let device { return "When someone @mentions @\(current.handle), \(device.name) starts \(label), gives it the Bubble AI tools, and posts the reply." }
       return "Pick a device for it first so it can answer when it's mentioned."
     }
     return "\(label) doesn't have a headless adapter yet. Connect a running session below."

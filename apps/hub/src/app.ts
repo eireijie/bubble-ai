@@ -7,9 +7,9 @@ import path from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
 import websocket from "@fastify/websocket";
 import fastifyStatic from "@fastify/static";
-import { REPO_ROOT, RESTART_CODE } from "@wisp/update";
-import { Vault } from "@wisp/vault";
-import { envVar } from "@wisp/core";
+import { REPO_ROOT, RESTART_CODE } from "@bubble-ai/update";
+import { Vault } from "@bubble-ai/vault";
+import { envVar } from "@bubble-ai/core";
 import { registerApi } from "./api.ts";
 import { openDb } from "./db.ts";
 import { Hub } from "./hub.ts";
@@ -28,7 +28,7 @@ export interface HubOptions {
   setupCode?: string | false;
 }
 
-/** A data folder from before the rename to Wisp holds warren.db (and maybe its -wal/-shm); take it over once. */
+/** A data folder from before the rename to Bubble AI holds warren.db (and maybe its -wal/-shm); take it over once. */
 export function adoptWarrenDb(dataDir: string) {
   const to = path.join(dataDir, "wisp.db");
   const from = path.join(dataDir, "warren.db");
@@ -75,7 +75,7 @@ export async function buildHub(opts: HubOptions) {
   const moved = carryOverVault(opts.dataDir, location.path);
   const vault = new Vault(location.path, db);
   await vault.init();
-  if (moved && moved.files > 0) await vault.syncFromDisk({ name: "Wisp", email: "wisp@localhost" }, "Brought over memory from the earlier folder");
+  if (moved && moved.files > 0) await vault.syncFromDisk({ name: "Bubble AI", email: "wisp@localhost" }, "Brought over memory from the earlier folder");
   rememberVaultDir(opts.dataDir, location.path);
   const store = new Store(db);
   // each organization's memory: the first keeps this vault, the others get their own under <data>/orgs
@@ -95,7 +95,7 @@ export async function buildHub(opts: HubOptions) {
   hub.background.start();
   hub.watches.start();
   hub.autoMemory.start();
-  // edits made in Obsidian on this machine show up in Wisp
+  // edits made in Obsidian on this machine show up in Bubble AI
   const stopWatching = vault.watch({
     onChange: () => {
       const ws = store.firstWorkspace();
@@ -187,7 +187,7 @@ function registerInstallers(app: FastifyInstance) {
     return (found = /^https:\/\/[^@\s]+$/.test(origin) ? origin : "");
   };
   for (const [file, type, pattern] of [
-    ["install.sh", "text/x-shellscript", /^WISP_REPO=.*$/m],
+    ["install.sh", "text/x-shellscript", /^BUBBLE_REPO=.*$/m],
     ["install.ps1", "text/plain", /^\$Repo = .*$/m],
   ] as const) {
     app.get(`/${file}`, async (_req, reply) => {
@@ -195,13 +195,13 @@ function registerInstallers(app: FastifyInstance) {
       let text = fs.readFileSync(path.join(REPO_ROOT, file), "utf8");
       if (file === "install.sh") text = joinInstaller(text);
       if (repo)
-        text = text.replace(pattern, file === "install.sh" ? `WISP_REPO="\${WISP_REPO-\${WARREN_REPO-${repo}}}"` : `$Repo = if (Test-Path Env:WISP_REPO) { $env:WISP_REPO } elseif (Test-Path Env:WARREN_REPO) { $env:WARREN_REPO } else { "${repo}" }`);
+        text = text.replace(pattern, file === "install.sh" ? `BUBBLE_REPO="\${BUBBLE_REPO-\${WISP_REPO-\${WARREN_REPO-${repo}}}}"` : `$Repo = if (Test-Path Env:BUBBLE_REPO) { $env:BUBBLE_REPO } elseif (Test-Path Env:WISP_REPO) { $env:WISP_REPO } elseif (Test-Path Env:WARREN_REPO) { $env:WARREN_REPO } else { "${repo}" }`);
       return reply.type(`${type}; charset=utf-8`).header("cache-control", "no-cache").send(text);
     });
   }
 }
 
-/** Compatibility for older checkouts; the canonical installer is maintained separately. */
+/** Compatibility for older checkouts (from before the rename, so their command is still `wisp`); the canonical installer is maintained separately. */
 export function joinInstaller(source: string): string {
   let text = source;
   if (!/^\s*join\)/m.test(text)) {
@@ -213,7 +213,7 @@ export function joinInstaller(source: string): string {
 elif [ "$MODE" = hub ]; then`);
   }
   // The documented command pipes to sh; parse the actual installer with Bash on every platform.
-  let delimiter = "WISP_INSTALLER_BASH";
+  let delimiter = "BUBBLE_INSTALLER_BASH";
   while (text.split("\n").includes(delimiter)) delimiter += "_";
   return `#!/usr/bin/env bash\nexec bash -s -- "$@" <<'${delimiter}'\n${text}\n${delimiter}\n`;
 }

@@ -22,7 +22,7 @@ class WispMessagingService : FirebaseMessagingService() {
         val d = message.data
         val kind = d["kind"] ?: "message"
         val title = d["title"]?.takeIf { it.isNotBlank() } ?: return
-        // the person is looking at Wisp: they'll see it there (a test is the exception)
+        // the person is looking at Bubble AI: they'll see it there (a test is the exception)
         if (Push.foreground && kind != "test") return
         if (!Push.hasPermission(this)) return
         val manager = getSystemService(NotificationManager::class.java)

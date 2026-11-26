@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Check, Hash, Lock, Plus, Search, UserPlus, X } from "lucide-react";
-import { teamProblem, type ChannelNotify, type ChannelTeam, type Section } from "@wisp/core";
+import { teamProblem, type ChannelNotify, type ChannelTeam, type Section } from "@bubble-ai/core";
 import { EMPTY_TEAM, TeamChart, addToTeam, liveTeam } from "./TeamChart.tsx";
 import { api } from "../api.ts";
 import { useNames, useStore, type ChannelInfo } from "../store.ts";
@@ -477,8 +477,8 @@ export function PlainChartDialog({ channel, onClose }: { channel: ChannelInfo; o
 }
 
 interface PinRow {
-  message: import("@wisp/core").Message;
-  pinnedBy: import("@wisp/core").Actor;
+  message: import("@bubble-ai/core").Message;
+  pinnedBy: import("@bubble-ai/core").Actor;
   pinnedAt: string;
 }
 
@@ -498,7 +498,7 @@ export function ChannelPins({ channel, onClose }: { channel: ChannelInfo; onClos
       live = false;
     };
   }, [channel.id, key]);
-  const who = (a: import("@wisp/core").Actor) => (a.kind === "agent" ? names.agent(a.id)?.name : names.member(a.id)?.name) ?? "Someone";
+  const who = (a: import("@bubble-ai/core").Actor) => (a.kind === "agent" ? names.agent(a.id)?.name : names.member(a.id)?.name) ?? "Someone";
   if (error) return <p className="text-sm text-bad">{error}</p>;
   if (!pins) return null;
   if (!pins.length) return <p className="px-1 py-2 text-[13px] text-muted">Nothing pinned</p>;

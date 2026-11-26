@@ -1,6 +1,6 @@
 import XCTest
 
-/** Walks every settings page of a signed-in workspace and saves a screenshot of each (set WISP_HUB, WISP_TOKEN, WISP_SHOTS). */
+/** Walks every settings page of a signed-in workspace and saves a screenshot of each (set BUBBLE_HUB, BUBBLE_TOKEN, BUBBLE_SHOTS). */
 @MainActor
 final class SettingsShotsTests: XCTestCase {
   private let app = XCUIApplication()
@@ -9,11 +9,11 @@ final class SettingsShotsTests: XCTestCase {
     let environment = ProcessInfo.processInfo.environment
     guard let hub = envVar("HUB", in: environment), hub.hasPrefix("http"),
           let token = envVar("TOKEN", in: environment), !token.isEmpty else {
-      throw XCTSkip("Set WISP_HUB and WISP_TOKEN to walk the settings pages.")
+      throw XCTSkip("Set BUBBLE_HUB and BUBBLE_TOKEN to walk the settings pages.")
     }
     continueAfterFailure = true
-    app.launchEnvironment["WISP_HUB"] = hub
-    app.launchEnvironment["WISP_TOKEN"] = token
+    app.launchEnvironment["BUBBLE_HUB"] = hub
+    app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
     XCTAssertTrue(app.tabBars.buttons["Chats"].waitForExistence(timeout: 30))
     app.buttons["profile-button"].firstMatch.tap()
@@ -64,7 +64,7 @@ final class SettingsShotsTests: XCTestCase {
     let screenshot = app.screenshot()
     let image = XCTAttachment(screenshot: screenshot)
     image.name = name; image.lifetime = .keepAlways; add(image)
-    if let folder = ProcessInfo.processInfo.environment["WISP_SHOTS"], !folder.isEmpty {
+    if let folder = ProcessInfo.processInfo.environment["BUBBLE_SHOTS"], !folder.isEmpty {
       try? screenshot.pngRepresentation.write(to: URL(fileURLWithPath: folder).appendingPathComponent("\(name).png"))
     }
   }

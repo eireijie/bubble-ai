@@ -1,6 +1,6 @@
 /** Everything about the project that more than one page needs. The domain lives in astro.config.mjs. */
 
-export const GITHUB_REPO = "eireijie/wisp";
+export const GITHUB_REPO = "eireijie/bubble-ai";
 export const REPO = `https://github.com/${GITHUB_REPO}`;
 /** Where people reach us: there's no email, questions go to GitHub Issues. */
 export const CONTACT = `${REPO}/issues`;
@@ -8,13 +8,13 @@ export const RELEASES = `${REPO}/releases`;
 const latest = (name: string) => `${RELEASES}/latest/download/${name}`;
 
 export const DOWNLOADS = {
-  mac: latest("Wisp-mac-arm64.dmg"),
-  macIntel: latest("Wisp-mac-x64.dmg"),
-  windows: latest("Wisp-win-x64.exe"),
-  linuxAppImage: latest("Wisp-linux-x86_64.AppImage"),
-  linuxDeb: latest("Wisp-linux-amd64.deb"),
-  /** a preview to install directly, until Wisp is on Google Play */
-  android: latest("Wisp-android.apk"),
+  mac: latest("Bubble-AI-mac-arm64.dmg"),
+  macIntel: latest("Bubble-AI-mac-x64.dmg"),
+  windows: latest("Bubble-AI-win-x64.exe"),
+  linuxAppImage: latest("Bubble-AI-linux-x86_64.AppImage"),
+  linuxDeb: latest("Bubble-AI-linux-amd64.deb"),
+  /** a preview to install directly, until Bubble AI is on Google Play */
+  android: latest("Bubble-AI-android.apk"),
 };
 
 export const INSTALL_UNIX = `curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.sh | bash`;
@@ -24,7 +24,7 @@ export const INSTALL_DOCKER =
 
 /** The docs, in reading order. Slugs match the markdown files' names. */
 export const DOC_ORDER = [
-  { slug: "install", title: "Installing Wisp", blurb: "Step by step, for a person or an AI agent doing it for you." },
+  { slug: "install", title: "Installing Bubble AI", blurb: "Step by step, for a person or an AI agent doing it for you." },
   { slug: "deploy", title: "Deploying", blurb: "Docker, keeping devices connected, HTTPS for phones, settings." },
   { slug: "computers", title: "Computers", blurb: "Agents' VMs, your own screen, watching and taking control." },
   { slug: "memory", title: "Memory", blurb: "Vault permissions, startup context and Obsidian sync." },

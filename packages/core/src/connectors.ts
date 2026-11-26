@@ -63,7 +63,7 @@ export function connectorSlug(name: string): string {
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
-  // "wisp" and "browser" are the servers Wisp itself gives every agent
+  // "wisp" and "browser" are the servers Bubble AI itself gives every agent
   return !s ? "connector" : s === "wisp" || s === "browser" ? `${s}-2` : s;
 }
 
@@ -72,7 +72,7 @@ export function fillTemplate(s: string, env: Record<string, string>): string {
   return s.replace(/\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g, (m, k: string) => env[k] ?? m);
 }
 
-/** How a harness talks to Wisp: from the harness list, "acp" for acp:<name> ones, else "mcp". */
+/** How a harness talks to Bubble AI: from the harness list, "acp" for acp:<name> ones, else "mcp". */
 function harnessProtocol(harnessId: string): "native" | "acp" | "mcp" {
   return harnessInfo(harnessId)?.protocol ?? (harnessId.startsWith("acp:") ? "acp" : "mcp");
 }
@@ -110,7 +110,7 @@ export interface CatalogField {
   link?: string;
 }
 
-/** Who runs the sign-in page for a connector Wisp signs in to through its own app with that company. */
+/** Who runs the sign-in page for a connector Bubble AI signs in to through its own app with that company. */
 export type SignInProvider = "github" | "slack" | "google";
 
 export const SIGN_IN_PROVIDERS: Record<SignInProvider, { name: string; authorize: string; token: string }> = {
@@ -129,7 +129,7 @@ export type CatalogSignIn =
    * Those pages only send people back to an https address or this computer (localhost);
    * `localOnly` ones only to this computer. */
   | { via: "mcp"; url: string; scope?: string; localOnly?: boolean }
-  /** Through Wisp's own app with that company (see docs/sign-in.md). Scopes are read-only where the company offers them. */
+  /** Through Bubble AI's own app with that company (see docs/sign-in.md). Scopes are read-only where the company offers them. */
   | { via: "app"; provider: SignInProvider; url: string; scopes: string[]; headers?: Record<string, string> };
 
 export interface CatalogConnector {
@@ -372,7 +372,7 @@ export const CONNECTOR_CATALOG: CatalogConnector[] = [
   {
     id: "memory",
     name: "Knowledge graph",
-    description: "A small graph memory of people, things and how they relate. (Wisp's vault is the shared memory; this is extra.)",
+    description: "A small graph memory of people, things and how they relate. (Bubble AI's vault is the shared memory; this is extra.)",
     icon: "Network",
     category: "Data",
     kind: "mcp-stdio",
@@ -526,7 +526,7 @@ export function catalogConnector(id: string): CatalogConnector | undefined {
   return CONNECTOR_CATALOG.find((c) => c.id === id);
 }
 
-/** What `GET /api/connectors/sign-in` says about one catalog app, from where Wisp is open. */
+/** What `GET /api/connectors/sign-in` says about one catalog app, from where Bubble AI is open. */
 export interface SignInOption {
   /** Sign in works from here */
   signIn: boolean;
@@ -553,7 +553,7 @@ export function signInReturnsTo(origin: string, localOnly = false): boolean {
 export interface EverydayApp {
   name: string;
   aliases: string[];
-  /** built-in catalog id when Wisp's catalog has it, else connected through Zapier */
+  /** built-in catalog id when Bubble AI's catalog has it, else connected through Zapier */
   catalogId: string | null;
   /** one plain line: what the helper will be able to do */
   does: string;

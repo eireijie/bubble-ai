@@ -4,9 +4,9 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import WebSocket from "ws";
-import type { HarnessAdapter, RunInput } from "@wisp/adapters";
-import type { HubToNode, NodeToHub } from "@wisp/core";
-import { WispClient } from "@wisp/sdk";
+import type { HarnessAdapter, RunInput } from "@bubble-ai/adapters";
+import type { HubToNode, NodeToHub } from "@bubble-ai/core";
+import { WispClient } from "@bubble-ai/sdk";
 import { NodeDaemon } from "../../node/src/daemon.ts";
 import { readSecret } from "../../node/src/model-login.ts";
 import { buildHub } from "../src/app.ts";
@@ -35,7 +35,7 @@ const calls: RunInput[] = [];
 const jwt = (claims: object) => `x.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.y`;
 const chatgpt = (refresh: string, at = new Date().toISOString()) => ({ auth_mode: "chatgpt", OPENAI_API_KEY: null, tokens: { id_token: jwt({ email: "me@example.com", "https://api.openai.com/auth": { chatgpt_plan_type: "pro" } }), access_token: `a-${refresh}`, refresh_token: refresh, account_id: "acct" }, last_refresh: at });
 
-/** Codex as far as Wisp can tell: reads its sign-in where it was put, renews it when asked, reports plan usage. */
+/** Codex as far as Bubble AI can tell: reads its sign-in where it was put, renews it when asked, reports plan usage. */
 const fakeCodex: HarnessAdapter = {
   id: "codex",
   label: "Codex",

@@ -2,7 +2,7 @@ import { Bubble } from "./Bubble.tsx";
 import type { ReactNode } from "react";
 
 /**
- * Wisp's own line icons for the four places (Inbox, Chats, Agents, Computers), drawn like the
+ * Bubble AI's own line icons for the four places (Inbox, Chats, Agents, Computers), drawn like the
  * approved design: 24px grid, 1.8 stroke, round caps. Everything else uses lucide.
  */
 function Line({ size = 22, children, className }: { size?: number; children: ReactNode; className?: string }) {
@@ -41,13 +41,13 @@ export const ComputersIcon = (p: { size?: number; className?: string }) => (
   </Line>
 );
 
-/** Wisp's ghost, filled: the mark on the rail's top button. */
+/** Bubble AI's ghost, filled: the mark on the rail's top button. */
 export function WispGhost({ size = 34, className }: { size?: number; className?: string }) {
-  // Wisp's mark: its violet bubble, still (2026-11-25 "Wisp, bubbles")
+  // Bubble AI's mark: its violet bubble, still (2026-11-25 "Bubble AI, bubbles")
   return <Bubble look={{ color: "#a59bff" }} size={size} animate={false} label="" className={className} />;
 }
 
-/** A line icon of a bubble with two eyes: "agents" in Wisp's own menus (lucide-sized, stroke). */
+/** A line icon of a bubble with two eyes: "agents" in Bubble AI's own menus (lucide-sized, stroke). */
 export function BubbleIcon({ size = 18, strokeWidth = 1.8, className }: { size?: number; strokeWidth?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" aria-hidden className={className}>

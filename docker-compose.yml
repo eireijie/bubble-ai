@@ -1,6 +1,6 @@
-# The Wisp hub. `docker compose up -d` pulls the published image; in a checkout of the repo,
+# The Bubble AI hub. `docker compose up -d` pulls the published image; in a checkout of the repo,
 # `docker compose up -d --build` builds it from source instead. Update with `docker compose pull && docker compose up -d`.
-x-wisp-image: &wisp-image ghcr.io/${WISP_REPO-${WARREN_REPO-eireijie/wisp}}:latest
+x-wisp-image: &wisp-image ghcr.io/${BUBBLE_REPO-${WISP_REPO-${WARREN_REPO-eireijie/bubble-ai}}}:latest
 
 # Stable Compose identity: changing it leaves the existing hub running as an orphan.
 # Retain this recorded container identity so upgrades reuse its data and published port.

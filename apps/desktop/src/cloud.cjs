@@ -1,10 +1,10 @@
 const { envVar } = require("./env.cjs");
-// "Cloud": a Wisp server in the person's own account at a cloud provider, billed to them by that
+// "Cloud": a Bubble AI server in the person's own account at a cloud provider, billed to them by that
 // provider. The app asks the provider for a server with docker/cloud-init.yaml as its first-boot
 // script, waits until the hub answers over HTTPS, and makes the first account with the setup key
 // only this app knows. The API token is only ever passed in, used and dropped: nothing here keeps or
 // saves it. Each provider is one module in cloud-providers/ with the same five calls, so another
-// one (a future Wisp Cloud included) is one more module.
+// one (a future Bubble AI Cloud included) is one more module.
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -12,11 +12,11 @@ const { CloudError, timedOut, timeoutError } = require("./cloud-providers/shared
 const PROVIDERS = require("./cloud-providers/index.cjs");
 const { nearestLocation } = require("./cloud-providers/places.cjs");
 
-const PLACEHOLDER = "__WISP_SETUP_KEY__";
+const PLACEHOLDER = "__BUBBLE_SETUP_KEY__";
 
 function provider(id = PROVIDERS[0].id) {
   const p = PROVIDERS.find((x) => x.id === id);
-  if (!p) throw new CloudError(`Wisp doesn't know the cloud provider "${id}".`);
+  if (!p) throw new CloudError(`Bubble AI doesn't know the cloud provider "${id}".`);
   return p;
 }
 
@@ -69,11 +69,11 @@ function userData(key, file = templatePath()) {
   return text.replace(line, `content: "${key}"`);
 }
 
-/** In a built app, the copy of Wisp inside it; from source, this repo. */
+/** In a built app, the copy of Bubble AI inside it; from source, this repo. */
 function templatePath() {
   const dirs = [envVar("RUNTIME", process.env), process.resourcesPath && path.join(process.resourcesPath, "wisp"), path.resolve(__dirname, "../../..")];
   for (const d of dirs) if (d && fs.existsSync(path.join(d, "docker", "cloud-init.yaml"))) return path.join(d, "docker", "cloud-init.yaml");
-  throw new CloudError("This copy of Wisp is missing docker/cloud-init.yaml. Download Wisp again.");
+  throw new CloudError("This copy of Bubble AI is missing docker/cloud-init.yaml. Download Bubble AI again.");
 }
 
 /** Where a server's hub answers: its IP address (Let's Encrypt IP certificate), then the sslip.io name. */
@@ -85,7 +85,7 @@ function hubUrls(ip) {
 const sleepFor = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Create a Wisp in the person's cloud account and make its first account. `onStep(id)` hears
+ * Create a Bubble AI in the person's cloud account and make its first account. `onStep(id)` hears
  * "create", "boot", "https" and "account" as each starts. On failure after the server exists, the
  * error carries it (`err.server`) and its setup key (`err.key`), so the person can delete it, or keep
  * waiting: `resume: { server, key }` picks the same server up again instead of creating another,
@@ -120,7 +120,7 @@ async function createWisp({ provider: id, token, type, location, account }, { fe
 
     onStep("https");
     const url = await waitForHub(server.ip, { fetchImpl, sleep, ms: httpsMs });
-    if (!url) throw new CloudError("The server started, but Wisp didn't answer over HTTPS in time. It may still be installing.");
+    if (!url) throw new CloudError("The server started, but Bubble AI didn't answer over HTTPS in time. It may still be installing.");
     server.url = url;
 
     onStep("account");
@@ -133,7 +133,7 @@ async function createWisp({ provider: id, token, type, location, account }, { fe
   }
 }
 
-/** Poll the server's addresses until one is a Wisp over valid HTTPS. */
+/** Poll the server's addresses until one is a Bubble AI over valid HTTPS. */
 async function waitForHub(ip, { fetchImpl = fetch, sleep = sleepFor, ms = 15 * 60_000 } = {}) {
   for (const until = Date.now() + ms; Date.now() <= until; await sleep(5000)) {
     for (const url of hubUrls(ip)) {
@@ -153,12 +153,12 @@ async function claim(url, key, { name, email, password }, { fetchImpl = fetch, t
     const res = await fetchImpl(new URL("/api/setup", url), {
       method: "POST",
       headers: { "content-type": "application/json", "x-wisp-setup-key": key },
-      body: JSON.stringify({ name, email, password, workspaceName: "Wisp" }),
+      body: JSON.stringify({ name, email, password, workspaceName: "Bubble AI" }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     const body = await res.json().catch((err) => { if (timedOut(err)) throw err; return {}; });
     if (res.status === 409) throw new CloudError("Someone already made the first account on this server.");
-    if (!res.ok || !body.token) throw new CloudError(body.error ? `Wisp said: ${body.error}` : `Wisp said ${res.status}`);
+    if (!res.ok || !body.token) throw new CloudError(body.error ? `Bubble AI said: ${body.error}` : `Bubble AI said ${res.status}`);
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (timezone)
       await fetchImpl(new URL("/api/me", url), { method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${body.token}` }, body: JSON.stringify({ timezone }), signal: AbortSignal.timeout(timeoutMs) }).catch(() => {});

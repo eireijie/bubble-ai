@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { frameOutside, harnessInfo, harnessLabel, SETUP_STEPS, signInProblem, WATCH_SERVICES, type Agent, type AgentSetup, type Message, type SetupStep, type WatchService } from "@wisp/core";
+import { frameOutside, harnessInfo, harnessLabel, SETUP_STEPS, signInProblem, WATCH_SERVICES, type Agent, type AgentSetup, type Message, type SetupStep, type WatchService } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { glanceApps } from "./glance.ts";
 import type { Hub } from "./hub.ts";
@@ -11,7 +11,7 @@ import { importDir } from "./memory-import.ts";
  * person sees it even when the model is slow, failing or not signed in yet. Then the agent leads
  * a short setup in its own voice: what they want done (narrowed down, with a role it offers),
  * the accounts involved, a look at what's signed in on its computer, check-ins, what to ask
- * about first, and how to talk. It records each step with setup_step; Wisp keeps those (and
+ * about first, and how to talk. It records each step with setup_step; Bubble AI keeps those (and
  * what the person wrote) on the agent and in every prompt, so the setup changes how it works
  * even if a model never saved a thing.
  */
@@ -24,7 +24,7 @@ const REPLY_CHARS = 600;
 const STEP_CHARS = 400;
 
 interface StepGuide {
-  /** the question in plain words, as Wisp asks it when the agent can't; null when it's work, not a question */
+  /** the question in plain words, as Bubble AI asks it when the agent can't; null when it's work, not a question */
   ask: string | null;
   /** how the agent runs the step and where what it learns goes */
   how: (ctx: { computer: boolean; logins: boolean }) => string;
@@ -38,12 +38,12 @@ const GUIDE: Record<SetupStep, StepGuide> = {
   },
   role: {
     ask: null,
-    how: () => `Offer the role that fits, in plain words ("I can be your business manager"). If they agree, record it with setup_step role (a short job title); Wisp makes it your role.`,
+    how: () => `Offer the role that fits, in plain words ("I can be your business manager"). If they agree, record it with setup_step role (a short job title); Bubble AI makes it your role.`,
   },
   accounts: {
     ask: "Which accounts should I work with? For example Google, Meta or Instagram.",
     how: () =>
-      `Ask which accounts or sites the work needs (Google, Meta, Instagram…). Record them with setup_step accounts. Save them as a preference. Where Wisp has an app for one (Marketplace → Apps), say they can connect it there.`,
+      `Ask which accounts or sites the work needs (Google, Meta, Instagram…). Record them with setup_step accounts. Save them as a preference. Where Bubble AI has an app for one (Marketplace → Apps), say they can connect it there.`,
   },
   signins: {
     ask: null,
@@ -59,7 +59,7 @@ const GUIDE: Record<SetupStep, StepGuide> = {
   checkins: {
     ask: "How often should I check in with you, and are there hours I should stay quiet?",
     how: () =>
-      `Ask how often to check in and when to stay quiet, and offer to keep an eye on the accounts they named ("Want me to keep an eye on Google Ads and Instagram?"). Apply the check-ins with settings_read then settings_change (background work on, how often, quiet hours). Only after they say yes to watching, in the reply to that yes, list the accounts in setup_step watch: the app's service (${WATCH_SERVICES.filter((s) => s !== "browser" && s !== "apple").join(", ")}), or "browser" with the site's url and what to look for (Google Ads, Instagram and other sites). Wisp starts the watches and tells you which worked; say so in a line. Don't watch anything they didn't say yes to. If they'd rather you only answer when asked, turn background work off. Save it as a preference.`,
+      `Ask how often to check in and when to stay quiet, and offer to keep an eye on the accounts they named ("Want me to keep an eye on Google Ads and Instagram?"). Apply the check-ins with settings_read then settings_change (background work on, how often, quiet hours). Only after they say yes to watching, in the reply to that yes, list the accounts in setup_step watch: the app's service (${WATCH_SERVICES.filter((s) => s !== "browser" && s !== "apple").join(", ")}), or "browser" with the site's url and what to look for (Google Ads, Instagram and other sites). Bubble AI starts the watches and tells you which worked; say so in a line. Don't watch anything they didn't say yes to. If they'd rather you only answer when asked, turn background work off. Save it as a preference.`,
   },
   boundaries: {
     ask: "Is there anything I should never do without asking you first?",
@@ -82,7 +82,7 @@ export function roleOf(hub: Hub, agent: Agent): string {
   return "";
 }
 
-/** The hello, written by Wisp in the agent's name. */
+/** The hello, written by Bubble AI in the agent's name. */
 export function greetingText(agent: Pick<Agent, "name" | "harness">, signIn: { device: string } | null): string {
   const hello = `Hey, I'm ${agent.name}! What would you like me to do?`;
   if (signIn) {
@@ -106,7 +106,7 @@ const remaining = (s: AgentSetup) => SETUP_STEPS.filter((k) => s.steps[k] === un
 /**
  * Say hello in the DM with the person it works for and start the setup. Only once per agent:
  * an agent that already has a setup (or greeted before a restart) is left alone. Agents another
- * app runs (Grok, ChatGPT through MCP) speak for themselves, so Wisp doesn't put words in their mouth.
+ * app runs (Grok, ChatGPT through MCP) speak for themselves, so Bubble AI doesn't put words in their mouth.
  */
 export function greetNewAgent(hub: Hub, agent: Agent, userId: string | null | undefined): Message | null {
   const started = startSetup(hub, agent, userId);
@@ -129,7 +129,7 @@ function startSetup(hub: Hub, agent: Agent, userId: string | null | undefined): 
   return { agent: store.agent(fresh.id)!, channelId: dm.id };
 }
 
-/** Wisp's hello in the agent's name, with a sign-in note when its harness isn't signed in where it runs. */
+/** Bubble AI's hello in the agent's name, with a sign-in note when its harness isn't signed in where it runs. */
 function staticGreeting(hub: Hub, agent: Agent): string {
   const signIn = hub.signInNeeded(agent);
   return greetingText(agent, signIn ? { device: signIn.where } : null);
@@ -155,7 +155,7 @@ function postGreeting(hub: Hub, agentId: string, body: string, read = false): Me
   return msg;
 }
 
-/** How long Wisp waits for an agent to write its own hello before saying the plain one for it. */
+/** How long Bubble AI waits for an agent to write its own hello before saying the plain one for it. */
 export const GREET_WAIT_MS = 3 * 60_000;
 const GREETING_CHARS = 2000;
 /** What it brought with it (imported notes) that its hello prompt shows, at most. */
@@ -171,7 +171,7 @@ export type GreetResult = { status: "already"; messageId: string | null } | { st
  * hello can be tried again once the person signs in.
  */
 function greetFailedOnSignIn(hub: Hub, agent: Agent): { channelId: string } | null {
-  // any other failure already posted Wisp's plain hello, so a failed run with no hello was a sign-in
+  // any other failure already posted Bubble AI's plain hello, so a failed run with no hello was a sign-in
   // (whatever AI it ran on; the person may have picked another since)
   if (hub.store.agent(agent.id)?.settings.setup?.greetingId) return null;
   const last = hub.store.db.prepare("SELECT channel_id AS channelId, status FROM runs WHERE agent_id = ? AND kind = 'greet' ORDER BY created_at DESC LIMIT 1").get(agent.id) as { channelId: string; status: string } | undefined;
@@ -183,7 +183,7 @@ export function greetSignInFailed(agent: Agent | undefined, error: string): bool
   return !!agent && !!signInProblem(agent.harness, error);
 }
 
-/** Start the hello run; Wisp's plain hello goes instead if it takes longer than GREET_WAIT_MS. */
+/** Start the hello run; Bubble AI's plain hello goes instead if it takes longer than GREET_WAIT_MS. */
 function startGreetRun(hub: Hub, a: Agent, channelId: string, userId: string): GreetResult {
   const { store } = hub;
   const runId = store.createRun({ agentId: a.id, channelId, threadId: null, triggerMessageId: "", hop: 0, requestedBy: userId, kind: "greet" });
@@ -205,9 +205,9 @@ function startGreetRun(hub: Hub, a: Agent, channelId: string, userId: string): G
 
 /**
  * Say hello with what the agent now knows about the person (POST /api/agents/:id/greet, after the
- * memory import): the agent writes it in a run of its own, from Wisp's prompt (greetingPrompt), and
+ * memory import): the agent writes it in a run of its own, from Bubble AI's prompt (greetingPrompt), and
  * its reply is the setup's first message. When it can't run (device away, not signed in) or the run
- * fails or takes longer than GREET_WAIT_MS, Wisp's plain hello goes instead, so there's always one.
+ * fails or takes longer than GREET_WAIT_MS, Bubble AI's plain hello goes instead, so there's always one.
  */
 export function greetWithMemory(hub: Hub, agent: Agent, userId: string): GreetResult {
   const { store } = hub;
@@ -234,7 +234,7 @@ export function greetWithMemory(hub: Hub, agent: Agent, userId: string): GreetRe
   return startGreetRun(hub, a, started.channelId, userId);
 }
 
-/** A hello run ended (hub.finishRun): its reply is the hello, or Wisp's plain one when it has none. */
+/** A hello run ended (hub.finishRun): its reply is the hello, or Bubble AI's plain one when it has none. */
 export function greetingWritten(hub: Hub, run: { agentId: string }, text: string | null): void {
   const agent = hub.store.agent(run.agentId);
   if (!agent) return;
@@ -274,7 +274,7 @@ export async function greetingPrompt(hub: Hub, agentId: string, userId: string |
   // does it know anything about them yet? (an empty memory still has its "Nothing saved yet." section)
   const knows = !!brought || !!memory.replace(/## What you know about[\s\S]*?Nothing saved yet\./, "").trim();
   return [
-    `You are @${agent.handle} ("${agent.name}"), a new agent in the Wisp workspace "${store.workspace(agent.workspaceId)?.name}"${role ? `, working as their ${role}` : ""}.`,
+    `You are @${agent.handle} ("${agent.name}"), a new agent in the Bubble AI workspace "${store.workspace(agent.workspaceId)?.name}"${role ? `, working as their ${role}` : ""}.`,
     soul ? `\n## Your soul (me/SOUL.md): who you are\n${soul}` : "",
     agent.instructions ? `\n## Your instructions (from your owner): your job\n${agent.instructions}` : "",
     memory ? `\n${memory}` : "",
@@ -284,11 +284,11 @@ export async function greetingPrompt(hub: Hub, agentId: string, userId: string |
       : "",
     `\n## Say hello`,
     looked.length
-      ? `This is your first message to ${name}; nothing has been said yet. Write it now, in your own voice. Say hi with your name. Mention one or two specific things from what you just looked at in their apps (never a list), then offer the single most useful next step, ending with one yes/no question. Keep it under 70 words. Never say you sent, changed or did anything: you only looked. Anything that would change something (sending, replying, creating, paying) waits for their yes. Don't explain Wisp. Ask that one question once, at the very end.`
+      ? `This is your first message to ${name}; nothing has been said yet. Write it now, in your own voice. Say hi with your name. Mention one or two specific things from what you just looked at in their apps (never a list), then offer the single most useful next step, ending with one yes/no question. Keep it under 70 words. Never say you sent, changed or did anything: you only looked. Anything that would change something (sending, replying, creating, paying) waits for their yes. Don't explain Bubble AI. Ask that one question once, at the very end.`
       : knows
-      ? `This is your first message to ${name}; nothing has been said yet. Write it now, in your own voice. Say hi with your name. In one sentence, show you know them: mention one or two specifics from your notes above (a project, a date, a preference), never a list. Then offer the single most useful thing you can do today from what they want help with, in one sentence, ending with a yes/no question. Keep it under 70 words. Don't explain Wisp. Ask that one question once, at the very end.`
+      ? `This is your first message to ${name}; nothing has been said yet. Write it now, in your own voice. Say hi with your name. In one sentence, show you know them: mention one or two specifics from your notes above (a project, a date, a preference), never a list. Then offer the single most useful thing you can do today from what they want help with, in one sentence, ending with a yes/no question. Keep it under 70 words. Don't explain Bubble AI. Ask that one question once, at the very end.`
       : `This is your first message to ${name}; nothing has been said yet. Write it now, in your own voice: say hello in 2 to 3 short sentences. End with one question about what to start on, asked once.`,
-    `Plain text only: no headings, lists or links, and no tools. Don't mention this note, Wisp's setup or where the notes came from. Reply with just the message.`,
+    `Plain text only: no headings, lists or links, and no tools. Don't mention this note, Bubble AI's setup or where the notes came from. Reply with just the message.`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -428,7 +428,7 @@ async function saveSetupNote(hub: Hub, agentId: string) {
   const steps = SETUP_STEPS.filter((k) => s.steps[k]).map((k) => `- **${STEP_TITLE[k]}:** ${s.steps[k]!.replace(/\s+/g, " ")}`);
   const said = s.replies.map((r) => `- ${r.replace(/\s+/g, " ")}`);
   const note = [`# Getting to know ${name}`, "", `What ${name} and @${agent.handle} worked out in their first chat.`, "", ...(steps.length ? [...steps, ""] : []), `## In ${name}'s words`, "", ...said, ""].join("\n");
-  await hub.vault(agent.workspaceId).write(setupNotePath(agent.id), note, { name: "Wisp", email: "wisp@localhost" }, `Setup notes for @${agent.handle}`);
+  await hub.vault(agent.workspaceId).write(setupNotePath(agent.id), note, { name: "Bubble AI", email: "wisp@localhost" }, `Setup notes for @${agent.handle}`);
 }
 
 /**

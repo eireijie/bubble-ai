@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2, Plus } from "lucide-react";
-import { MODEL_PROVIDER_INFO, harnessLabel, providerLabel, type ModelConnection, type ModelProvider } from "@wisp/core";
+import { MODEL_PROVIDER_INFO, harnessLabel, providerLabel, type ModelConnection, type ModelProvider } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { AgentAvatar, cx } from "../../components/ui.tsx";

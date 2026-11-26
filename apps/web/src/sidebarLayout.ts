@@ -1,9 +1,9 @@
-import { MAX_PINS, type Section, type SidebarLayout } from "@wisp/core";
+import { MAX_PINS, type Section, type SidebarLayout } from "@bubble-ai/core";
 
 /**
- * The sidebar's pins and sections (2026-11-25 "Wisp, bubbles", board 7). Kept per person in the
+ * The sidebar's pins and sections (2026-11-25 "Bubble AI, bubbles", board 7). Kept per person in the
  * hub (UserPrefs.sidebar) so a phone shows the same list. Until someone changes anything, the
- * layout is read from what Wisp kept before: starred chats are the pins, the workspace's sections
+ * layout is read from what Bubble AI kept before: starred chats are the pins, the workspace's sections
  * and each chat's section are the sections. Every change here returns a new layout to save.
  */
 

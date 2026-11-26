@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import { completeSetupStep, setDismissed, setReadyItem, stepsFinished, type StepId } from "../onboarding.ts";
 import { usableDevices, useDevices } from "../devices.ts";
 import { useStore } from "../store.ts";

@@ -1,14 +1,14 @@
-import type { FeatureKey } from "@wisp/core";
+import type { FeatureKey } from "@bubble-ai/core";
 import type { SettingsPage } from "../../router.ts";
 
 /**
- * Settings is five pages, and Learn Wisp. Every setting is one row on one of them: shown by default, or under that
+ * Settings is five pages, and Learn Bubble AI. Every setting is one row on one of them: shown by default, or under that
  * page's "Show all". The 24 old routes (SETTINGS_PAGES) still open: each lands on the row that holds
  * its content now. This file is the whole map, with no React in it, so it can be tested.
  */
 export const FIVE = ["you", "agents", "computers", "privacy", "about", "learn"] as const;
 export type Five = (typeof FIVE)[number];
-export const FIVE_LABEL: Record<Five, string> = { you: "You", agents: "Agents", computers: "Computers", privacy: "Privacy and data", about: "About", learn: "Learn Wisp" };
+export const FIVE_LABEL: Record<Five, string> = { you: "You", agents: "Agents", computers: "Computers", privacy: "Privacy and data", about: "About", learn: "Learn Bubble AI" };
 /** The route that opens each page at its top. */
 export const FIVE_ROUTE: Record<Five, SettingsPage> = { you: "profile", agents: "agents", computers: "devices", privacy: "security", about: "updates", learn: "learn" };
 
@@ -57,7 +57,7 @@ export const ROWS: SettingRow[] = [
   row("agents", "asks", "Ask me before", "agents", "approvals asks first permissions allow rules sending paying deleting posting sign up sharing", { ...A, sheet: true }),
   row("agents", "learn", "Learn skills on their own", "agents", "learned skill teach", A),
   row("agents", "accounts", "AI accounts and keys", "harnesses", "api key keys model models provider subscription plan sign in claude chatgpt openai anthropic", { ...A, sheet: true }),
-  // shown by default with every mod off: chats, follow-ups and check-backs use tokens without the background mod, and Wisp's own usage warnings link here
+  // shown by default with every mod off: chats, follow-ups and check-backs use tokens without the background mod, and Bubble AI's own usage warnings link here
   row("agents", "usage", "Usage and daily limit", "usage", "limits cost spend tokens budget allowance", { ...A, sheet: true }),
   row("agents", "lead", "Lead agent", "agents", "default nobody assigned", { ...A, all: true }),
   row("agents", "makers", "Agents making agents", "agents", "leads create agents sub-agents", { ...A, all: true }),
@@ -98,11 +98,11 @@ export const ROWS: SettingRow[] = [
   row("about", "help", "Help", "updates", "support guide stuck"),
   row("about", "source", "Open source, Apache-2.0", "updates", "source code github license"),
   row("about", "hub", "Hub address", "updates", "url server", { ...A, all: true }),
-  row("about", "welcome", "See the welcome again", "updates", "intro replay what is wisp", { all: true }),
-  row("about", "remove", "Remove Wisp from this computer", "updates", "uninstall delete app", { ...A, all: true }),
+  row("about", "welcome", "See the welcome again", "updates", "intro replay what is bubble ai wisp", { all: true }),
+  row("about", "remove", "Remove Bubble AI from this computer", "updates", "uninstall delete app", { ...A, all: true }),
 
   // Show me around, and what setup left to do (it used to be its own "Finish setup" page)
-  row("learn", "tour", "Show me around", "learn", "tour learn wisp guide how does it work finish setup getting started"),
+  row("learn", "tour", "Show me around", "learn", "tour learn bubble ai wisp guide how does it work finish setup getting started"),
 ];
 
 /** Where each of the 24 routes lands: the row that holds what its page used to show. */

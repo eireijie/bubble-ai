@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Folder, FolderOpen, Lock, MoreHorizontal, PencilLine, Trash2 } from "lucide-react";
-import type { AccessRule } from "@wisp/core";
+import type { AccessRule } from "@bubble-ai/core";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { Menu, cx } from "../../components/ui.tsx";

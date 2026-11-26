@@ -1,4 +1,4 @@
-import { envVar, frameOutside, type AppEvent } from "@wisp/core";
+import { envVar, frameOutside, type AppEvent } from "@bubble-ai/core";
 import { inQuietHours } from "./background.ts";
 import { featureOn } from "./features.ts";
 import type { Hub } from "./hub.ts";
@@ -9,7 +9,7 @@ export const TRIAGE_THREAD = "triage";
 export const SORT_TIMEOUT_MS = 10 * 60_000;
 /** Kinds that are addressed to the person: always worth a full look, so sorting them would only add a call. */
 const DIRECT = /mention|review_requested|assigned|direct|dm\b|invite/i;
-/** In a browser check's preview: what to look for, then this, then the lines Wisp saw added (watches.ts). */
+/** In a browser check's preview: what to look for, then this, then the lines Bubble AI saw added (watches.ts). */
 const NEW_ON_PAGE = "\n[new on the page]\n";
 /** Changes shown to the sorter; the rest ride along with the decision. */
 const MAX_LINES = 40;
@@ -25,7 +25,7 @@ const MAX_NOTES = 20;
  * it can't read, or a failed run all count as yes. A yes still obeys what holds any check (the
  * plan, the day's limits, quiet hours, background work turned off): then the changes wait, already sorted.
  *
- * Notes that changed inside Wisp are sorted the same way when they are the only reason for a check.
+ * Notes that changed inside Bubble AI are sorted the same way when they are the only reason for a check.
  */
 export class Triage {
   /** the notes a note sort is about, and the time it looked at them (not kept across a restart: the next look sorts again) */
@@ -117,7 +117,7 @@ export class Triage {
     }
   }
 
-  /** The whole prompt of a sorting run: a few lines, nothing about Wisp's tools. */
+  /** The whole prompt of a sorting run: a few lines, nothing about Bubble AI's tools. */
   prompt(run: { id: string; agentId: string; requestedBy: string | null }): string {
     const { store, watches } = this.hub;
     const agent = store.agent(run.agentId);
@@ -132,7 +132,7 @@ export class Triage {
     if (noted) {
       count = noted.paths.length;
       // its own folder reads "me/" to it everywhere else; other folders keep their names
-      for (const p of noted.paths.slice(0, MAX_NOTES)) lines.push(cut(`- a note in Wisp's memory changed: ${p}`));
+      for (const p of noted.paths.slice(0, MAX_NOTES)) lines.push(cut(`- a note in Bubble AI's memory changed: ${p}`));
     } else {
       const events = watches.eventsForRun(run.id);
       count = events.length;
@@ -154,7 +154,7 @@ export class Triage {
       raised.length ? `${who} already told ${name} about these (the same thing again is a no, unless something really new happened): ${raised.map((m) => m.about).join("; ")}` : "",
       `The changes${count > shown ? ` (the first ${shown} of ${count})` : ""}:`,
       // written by whoever sent them or by a website, never by the person: data, not instructions
-      frameOutside(noted ? "names of notes in Wisp's memory" : "watched apps and websites", lines.join("\n")),
+      frameOutside(noted ? "names of notes in Bubble AI's memory" : "watched apps and websites", lines.join("\n")),
       `Answer with one line of JSON and nothing else: {"wake": true or false, "why": "a few words"}. If you can't tell, answer true. Don't use any tools.`,
     ]
       .filter(Boolean)

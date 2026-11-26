@@ -1,4 +1,4 @@
-import type { AccessRule, MemoryLevel, Subject } from "@wisp/core";
+import type { AccessRule, MemoryLevel, Subject } from "@bubble-ai/core";
 
 /** How the Memory page lays out its notes. */
 export type MemoryView = "list" | "folders" | "graph";
@@ -144,7 +144,7 @@ export function accessWord(read: string): string {
   return words[0]!.toUpperCase() + words.slice(1);
 }
 
-/** Folders Wisp itself keeps (Shared, each agent's and person's notes, team folders): shared, never renamed or deleted. */
+/** Folders Bubble AI itself keeps (Shared, each agent's and person's notes, team folders): shared, never renamed or deleted. */
 export function fixedFolder(path: string): boolean {
   const parts = path.split("/").filter(Boolean);
   const top = parts[0]?.toLowerCase();

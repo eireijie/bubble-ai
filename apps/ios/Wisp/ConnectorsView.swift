@@ -66,9 +66,9 @@ struct ConnectResultSheet: View {
   private func signIn(_ c: AppConnector) -> some View {
     MarketSheet(title: "Connect \(c.name)", busy: action.busy) {
       CardGroup {
-        MarketRow(symbol: "powerplug", tile: 50, title: "Sign in to \(c.name)", subtitle: "A page opens in your browser. Choose the account and allow Wisp to use \(c.name) for your agents.")
+        MarketRow(symbol: "powerplug", tile: 50, title: "Sign in to \(c.name)", subtitle: "A page opens in your browser. Choose the account and allow Bubble AI to use \(c.name) for your agents.")
       }
-      Text("Wisp never sees or keeps your password.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
+      Text("Bubble AI never sees or keeps your password.").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 4)
       InlineError(error: action.error)
       HStack(spacing: 10) {
         Button { dismiss() } label: { Text("Not now").frame(maxWidth: .infinity) }.secondaryButton()
@@ -178,10 +178,10 @@ struct ConnectorCatalogDetail: View {
     let labels = (entry.fields ?? []).map(\.label)
     if entry.kind == "secret" || !labels.isEmpty {
       let them = labels.count > 1 ? "them" : "it"
-      return "You enter \(labels.isEmpty ? "the key" : labels.joined(separator: ", ")) once. Wisp keeps \(them) and gives \(them) only to the agents you pick."
+      return "You enter \(labels.isEmpty ? "the key" : labels.joined(separator: ", ")) once. Bubble AI keeps \(them) and gives \(them) only to the agents you pick."
     }
     if entry.kind == "mcp-stdio" { return "\(entry.name) runs as a program on each agent's own computer.\(entry.needs.map { " It needs \($0)." } ?? "") After that you choose which agents can use it." }
-    return "If \(entry.name) asks you to sign in, a page opens in your browser. Wisp never sees your password. After that you choose which agents can use \(entry.name)."
+    return "If \(entry.name) asks you to sign in, a page opens in your browser. Bubble AI never sees your password. After that you choose which agents can use \(entry.name)."
   }
 
   var body: some View {
@@ -191,7 +191,7 @@ struct ConnectorCatalogDetail: View {
         MarketTile(symbol: "powerplug", size: 56)
         VStack(alignment: .leading, spacing: 6) {
           Text(entry.name).font(.system(size: 22, weight: .semibold)).lineLimit(2)
-          if let trust { TrustBadge(trust: trust) } else { MarketPill(text: "On Wisp's list", tone: .blue) }
+          if let trust { TrustBadge(trust: trust) } else { MarketPill(text: "On Bubble AI's list", tone: .blue) }
         }
         Spacer(minLength: 0)
       }

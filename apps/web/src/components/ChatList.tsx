@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { createPortal } from "react-dom";
 import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
-import { harnessLabel, teamIconAgentIds, type Agent, type Approval, type Section } from "@wisp/core";
+import { harnessLabel, teamIconAgentIds, type Agent, type Approval, type Section } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore, usePrefs, useWaitingOnYou, type ChannelInfo, type ComputerInfo, type LiveRun } from "../store.ts";
 import { liveShape } from "../liveShape.ts";

@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { FEATURE_INFO, FEATURE_KEYS, MODS_NEED_OK, UNLISTED_FEATURES, type Agent, type Approval, type BackgroundWork, type FeatureKey, type MessagePart } from "@wisp/core";
+import { FEATURE_INFO, FEATURE_KEYS, MODS_NEED_OK, UNLISTED_FEATURES, type Agent, type Approval, type BackgroundWork, type FeatureKey, type MessagePart } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { DEFAULT_DAILY_CAP, DEFAULT_AGENT_DAILY_TOKENS, parseWhen } from "./background.ts";
 import { setWorkspaceFeatures, workspaceFeatures } from "./features.ts";
@@ -320,7 +320,7 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
     );
     if (!body) return;
     const run = hub.runFor(c.actor.id, req.headers["x-wisp-run"]);
-    if (!run) return reply.code(409).send({ error: "only while answering someone (if you're answering several people at once, update Wisp on your device)" });
+    if (!run) return reply.code(409).send({ error: "only while answering someone (if you're answering several people at once, update Bubble AI on your device)" });
     const r = hub.loops.setStatus(run, { status: body.status, summary: body.summary, wrap: { did: body.did, saved: body.saved, next: body.next }, checkBackInMinutes: body.checkBackInMinutes });
     if ("error" in r) return reply.code(400).send(r);
     return r;
@@ -509,7 +509,7 @@ export function registerBackgroundApi(app: FastifyInstance, hub: Hub, h: Helpers
   app.post("/api/push/test", async (req, reply) => {
     const c = need(req, reply, { user: true });
     if (!c) return;
-    const sent = await hub.push.notify(c.workspaceId, [c.actor.id], { title: "Wisp", body: "Notifications reach this device.", tag: "test", url: "/#/settings/notifications" });
+    const sent = await hub.push.notify(c.workspaceId, [c.actor.id], { title: "Bubble AI", body: "Notifications reach this device.", tag: "test", url: "/#/settings/notifications" });
     return { sent };
   });
 }

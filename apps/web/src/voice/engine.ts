@@ -17,8 +17,8 @@ export interface ListenPlan {
   problem: string | null;
 }
 
-export const NEEDS_KEY_DESKTOP = "Wisp can't hear you yet. Add your OpenAI key in Settings → Voice so calls can listen.";
-export const NEEDS_KEY_BROWSER = "This browser can't listen on its own. Add your OpenAI key in Settings → Voice, or open Wisp in Chrome or Safari.";
+export const NEEDS_KEY_DESKTOP = "Bubble AI can't hear you yet. Add your OpenAI key in Settings → Voice so calls can listen.";
+export const NEEDS_KEY_BROWSER = "This browser can't listen on its own. Add your OpenAI key in Settings → Voice, or open Bubble AI in Chrome or Safari.";
 
 export function planListening({ chosen, desktop, recognition, hasKey }: ListenInput): ListenPlan {
   const device = !desktop && recognition;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Message } from "@wisp/core";
+import type { Message } from "@bubble-ai/core";
 import { chatName, startsChat } from "./chatFormat.ts";
 
 const msg = (id: string, conversationId?: string): Message => ({ id, channelId: "c", threadId: null, author: { kind: "user", id: "u" }, body: "", parts: [], hop: 0, createdAt: "2026-11-01T09:00:00Z", ...(conversationId ? { conversationId } : {}) });

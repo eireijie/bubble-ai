@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { planFromWindows, type AccessLevel, type AgentEvent, type HarnessCatalog, type ModelOption, type PlanUsage, type PlanWindow } from "@wisp/core";
+import { planFromWindows, type AccessLevel, type AgentEvent, type HarnessCatalog, type ModelOption, type PlanUsage, type PlanWindow } from "@bubble-ai/core";
 import type { AdapterEvent, CatalogPlace, HarnessAdapter, RunInput, RunResult } from "./types.ts";
 import { codexCommands } from "./commands.ts";
 import { commandVersion, execCommand, launched, runJsonl } from "./process.ts";
@@ -43,7 +43,7 @@ export function codexMcpConfig(input: RunInput): { overrides: string[]; env: Rec
     // exec mode can't prompt, so pre-approve these tools (the hub enforces what the agent may touch; the browser is its own VM's)
     set(`${key}.default_tools_approval_mode`, `"approve"`);
     // Codex starts a turn without a server that's slow to come up (a busy or small computer), and the agent then
-    // works with no way to message, follow up or ask: wait for Wisp's own tools, and fail the run if they can't start.
+    // works with no way to message, follow up or ask: wait for Bubble AI's own tools, and fail the run if they can't start.
     // Its computer's browser gets the same time to start, but a broken one doesn't fail every run, chat included.
     if (name === "wisp") set(`${key}.required`, "true");
     set(`${key}.startup_timeout_sec`, String(MCP_STARTUP_SECONDS));
@@ -60,7 +60,7 @@ export function codexMcpConfig(input: RunInput): { overrides: string[]; env: Rec
       // each header's value lives in a variable named after the connector and header
       const headers = Object.entries(c.headers ?? {});
       if (headers.length) {
-        const byVar = Object.fromEntries(headers.map(([h, v]) => [`WISP_HEADER_${(c.name + "_" + h).toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`, v]));
+        const byVar = Object.fromEntries(headers.map(([h, v]) => [`BUBBLE_HEADER_${(c.name + "_" + h).toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`, v]));
         Object.assign(env, byVar);
         set(`${key}.env_http_headers`, `{${headers.map(([h], i) => `${tomlKey(h)}=${tomlString(Object.keys(byVar)[i])}`).join(",")}}`);
       }
@@ -72,7 +72,7 @@ export function codexMcpConfig(input: RunInput): { overrides: string[]; env: Rec
   return { overrides, env };
 }
 
-/** How long a tool server may take to start before a run goes on (or, for Wisp's own, fails). Codex's default is a few seconds. */
+/** How long a tool server may take to start before a run goes on (or, for Bubble AI's own, fails). Codex's default is a few seconds. */
 export const MCP_STARTUP_SECONDS = 180;
 
 /** Features of Codex that bring in the person's own plugins, connected apps and screen/browser control. */
@@ -89,7 +89,7 @@ export function codexConfiguredServers(toml: string): string[] {
 
 /**
  * What keeps the person's own Codex plugins, connected apps, MCP servers, Computer Use helper and
- * turn-end notifier out of a run: overrides that turn them off. Wisp's own servers and the run's
+ * turn-end notifier out of a run: overrides that turn them off. Bubble AI's own servers and the run's
  * connectors are set after these, so they still load. `personal` is the server names in the
  * config the run reads. Exported for tests.
  */
@@ -136,7 +136,7 @@ export function codexEnv(input: RunInput): Record<string, string> {
   return { ...input.env, ...codexMcpConfig(input).env };
 }
 
-/** Turn `codex debug models` output into Wisp model options (listed models only). Exported for tests. */
+/** Turn `codex debug models` output into Bubble AI model options (listed models only). Exported for tests. */
 export function parseCodexCatalog(raw: string): ModelOption[] {
   const data = JSON.parse(raw);
   const models: any[] = Array.isArray(data) ? data : (data.models ?? []);
@@ -333,7 +333,7 @@ export const codex: HarnessAdapter = {
   },
 };
 
-/** Translate one `codex exec --json` event into Wisp events. Exported for tests. */
+/** Translate one `codex exec --json` event into Bubble AI events. Exported for tests. */
 export function parseCodexLine(m: any): AdapterEvent[] {
   switch (m.type) {
     case "thread.started":

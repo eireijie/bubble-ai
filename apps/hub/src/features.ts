@@ -1,4 +1,4 @@
-import { FEATURE_KEYS, resolveFeatures, type FeatureKey, type Features } from "@wisp/core";
+import { FEATURE_KEYS, resolveFeatures, type FeatureKey, type Features } from "@bubble-ai/core";
 import type { Store } from "./store.ts";
 
 const KEY = "features";

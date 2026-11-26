@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronRight, Plug, Trash2, Wand2 } from "lucide-react";
-import type { AccessRule, Agent, Connector, Routine, Skill } from "@wisp/core";
+import type { AccessRule, Agent, Connector, Routine, Skill } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go, href, type AgentTab } from "../router.ts";

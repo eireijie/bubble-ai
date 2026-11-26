@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AppWindow, BellOff, Check, ChevronDown, ChevronRight, CircleDot, EyeOff, FolderInput, LogOut, PenLine, Pin, PinOff, Plus, Settings2, Trash2, X } from "lucide-react";
-import { MAX_PINS, type SidebarLayout } from "@wisp/core";
+import { MAX_PINS, type SidebarLayout } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { go, href } from "../router.ts";
@@ -13,7 +13,7 @@ import { ConfirmDialog } from "./InboxParts.tsx";
 import { cx } from "./ui.tsx";
 
 /**
- * The list of agents and teams (2026-11-25 "Wisp, bubbles", boards 3 and 7), the same on desktops
+ * The list of agents and teams (2026-11-25 "Bubble AI, bubbles", boards 3 and 7), the same on desktops
  * (in the sidebar) and phones (the Chats page): up to 9 pins in a 3×3 grid, an All / Your turn
  * filter, then the person's own sections (rename in place, fold, drag agents and teams between
  * them) and "No section". Right-click (press and hold on a phone) for the menu. Pins and sections

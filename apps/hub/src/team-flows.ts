@@ -18,7 +18,7 @@ import {
   type TeamFlow,
   type TeamFlowPiece,
   type TeamStep,
-} from "@wisp/core";
+} from "@bubble-ai/core";
 import { id } from "./auth.ts";
 import type { Hub } from "./hub.ts";
 
@@ -59,7 +59,7 @@ const live = (l: FlowLane) => l.status === "running" || l.status === "waiting";
  * to, all at once. Each step is a task for its agent (or a question for a person, a request to
  * another team, a yes/no decision). A step with several inputs waits for all of them and gets their
  * results; a repeat step approves or sends the work back (up to its rounds, then a person decides);
- * a hand-out's pieces each get checked before the flow moves on. Wisp moves the work along, not
+ * a hand-out's pieces each get checked before the flow moves on. Bubble AI moves the work along, not
  * the agents.
  */
 export class TeamFlows {

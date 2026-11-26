@@ -1,7 +1,7 @@
 import { toolKey } from "./agentActivity.ts";
 import { useEffect, useState } from "react";
 import { CalendarClock, Check, ListChecks, LockKeyhole, Monitor, Pencil, RotateCcw, X } from "lucide-react";
-import { describeCron, type Agent, type Approval, type Routine } from "@wisp/core";
+import { describeCron, type Agent, type Approval, type Routine } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { usePrefs, useStore } from "../store.ts";
 import { undoChange, useChanges } from "../changes.ts";
@@ -62,7 +62,7 @@ function Settled({ approval, className }: { approval: Approval; className?: stri
 }
 
 const PILL = "m-press h-8 md:h-10 rounded-full px-4 md:px-5 text-[13px] md:text-[15px] disabled:opacity-50";
-/** Allow wears the open agent's colour (the Wisp violet in a team), like your bubbles and the send button. */
+/** Allow wears the open agent's colour (the Bubble AI violet in a team), like your bubbles and the send button. */
 const ALLOW = cx(PILL, "bg-[var(--bubble-me)] font-semibold text-[var(--bubble-me-ink)] transition-[filter,transform] duration-150 hover:brightness-[0.94]");
 const NOT_NOW = cx(PILL, "border border-line2 font-medium hover:bg-hover");
 
@@ -127,7 +127,7 @@ export function ApprovalCard({ id }: { id: string }) {
 
 /**
  * "Nova wants to use your Zendesk login": only whoever connected the password manager answers,
- * once, always for this agent, or no. Wisp fills it on the agent's computer; nobody sees the password.
+ * once, always for this agent, or no. Bubble AI fills it on the agent's computer; nobody sees the password.
  */
 function LoginApprovalCard({ approval }: { approval: Approval }) {
   const login = approval.login!;

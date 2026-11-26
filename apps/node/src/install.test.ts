@@ -19,10 +19,10 @@ function fixture(oldNode = false) {
   script("npm", 'printf "%s\\n" "$*" >> "$HOME/npm-calls"');
   script("git", `if [ "$1" = clone ]; then
     mkdir -p "$3/.git" "$3/bin"
-    printf '%s\\n' 'console.log(JSON.stringify(process.argv.slice(2)))' > "$3/bin/wisp.mjs"
+    printf '%s\\n' 'console.log(JSON.stringify(process.argv.slice(2)))' > "$3/bin/bubble-ai.mjs"
   fi`);
   script("curl", 'exit 0');
-  return { dir, home, fake, script, env: { ...process.env, HOME: home, WISP_DIR: path.join(home, "wisp"), PATH: `${fake}:${process.env.PATH}`, SHELL: "/bin/zsh" } };
+  return { dir, home, fake, script, env: { ...process.env, HOME: home, BUBBLE_DIR: path.join(home, "wisp"), PATH: `${fake}:${process.env.PATH}`, SHELL: "/bin/zsh" } };
 }
 function run(f: ReturnType<typeof fixture>, args: string[]) {
   return execFileSync("/bin/sh", [path.join(root, "install.sh"), ...args], { env: f.env, encoding: "utf8", timeout: 15_000, stdio: ["ignore", "pipe", "pipe"] });
@@ -39,22 +39,22 @@ describe.skipIf(process.platform === "win32")("POSIX installer", () => {
   it("runs with sh, defaults to start mode without questions and creates persistent aliases", () => {
     const f = fixture();
     const output = run(f, ["--no-service", "--no-open"]);
-    expect(output).toContain("Wisp\n"); expect(output).toContain("✓ Downloaded Wisp"); expect(output).toContain("Stuck? → wisp doctor");
+    expect(output).toContain("Bubble AI\n"); expect(output).toContain("✓ Downloaded Bubble AI"); expect(output).toContain("Stuck? → bubble-ai doctor");
     expect(output).not.toMatch(/Choose|\[Y\/n\]/);
     expect(fs.readFileSync(path.join(f.home, "npm-calls"), "utf8")).toContain("run build --silent");
     expect(fs.readFileSync(path.join(f.home, "npm-calls"), "utf8")).toContain("ci --prefix bin");
     const bin = path.join(f.home, ".local/bin");
     expect(execFileSync(path.join(bin, "wisp"), ["doctor"], { env: f.env, encoding: "utf8" }).trim()).toBe('["doctor"]');
-    expect(fs.readFileSync(path.join(bin, "wisp-hub"), "utf8")).toContain("wisp-hub.mjs");
+    expect(fs.readFileSync(path.join(bin, "wisp-hub"), "utf8")).toContain("bubble-ai-hub.mjs");
     expect(fs.existsSync(path.join(bin, "warren"))).toBe(false);
     expect(fs.readFileSync(path.join(f.home, ".zshrc"), "utf8")).toContain('export PATH="$HOME/.local/bin:$PATH"');
   }, 30_000);
-  it("defaults to starting Wisp and the local device service", () => {
+  it("defaults to starting Bubble AI and the local device service", () => {
     const f = fixture();
     const output = run(f, ["--no-open"]);
-    expect(output).toContain("✓ Started Wisp (starts again when you log in)");
-    expect(output).toContain("Opening Wisp in your browser… http://localhost:");
-    const log = fs.readFileSync(path.join(f.home, ".wisp/install.log"), "utf8");
+    expect(output).toContain("✓ Started Bubble AI (starts again when you log in)");
+    expect(output).toContain("Opening Bubble AI in your browser… http://localhost:");
+    const log = fs.readFileSync(path.join(f.home, ".bubble-ai/install.log"), "utf8");
     expect(log).toContain('["service","install","hub"]');
     expect(log).toContain('["service","install","node","--local"]');
   }, 30_000);
@@ -82,11 +82,11 @@ describe.skipIf(process.platform === "win32")("POSIX installer", () => {
     const output = run(f, ["--no-service"]);
     expect(output).toContain("✓ Downloaded Node 22");
     const command = path.join(f.home, ".local/bin/wisp");
-    expect(fs.readFileSync(command, "utf8")).toContain(".wisp/runtime/node/bin/node");
+    expect(fs.readFileSync(command, "utf8")).toContain(".bubble-ai/runtime/node/bin/node");
     expect(execFileSync(command, ["doctor"], { encoding: "utf8" }).trim()).toBe('["doctor"]');
     // The existing bundled runtime works on subsequent installs without downloading again.
     f.script("curl", "exit 99");
-    expect(run(f, ["--no-service"])).toContain("✓ Downloaded Wisp");
+    expect(run(f, ["--no-service"])).toContain("✓ Downloaded Bubble AI");
   }, 30_000);
   it("rejects a runtime download with a mismatched checksum", () => {
     const f = fixture(true);
@@ -94,12 +94,12 @@ describe.skipIf(process.platform === "win32")("POSIX installer", () => {
     f.script("curl", `case "$2" in *SHASUMS256.txt) printf '%s\\n' '0000  node-v22.23.4-${process.platform}-${arch}.tar.gz' > "$4" ;; *) printf 'incomplete' > "$4" ;; esac`);
     try { run(f, ["--no-service"]); throw new Error("expected failure"); }
     catch (error) { expect(String((error as { stderr: string }).stderr)).toContain("Node 22 download was incomplete"); }
-    expect(fs.existsSync(path.join(f.home, ".wisp/runtime/node"))).toBe(false);
+    expect(fs.existsSync(path.join(f.home, ".bubble-ai/runtime/node"))).toBe(false);
   }, 30_000);
   it("keeps the old connection flags working", () => {
     const f = fixture();
     run(f, ["--hub", "http://mac:4747", "--token", "test-device-key", "--name", "Laptop"]);
-    expect(fs.readFileSync(path.join(f.home, ".wisp/install.log"), "utf8")).toContain('["service","install","node","--hub","http://mac:4747","--token","test-device-key","--name","Laptop"]');
+    expect(fs.readFileSync(path.join(f.home, ".bubble-ai/install.log"), "utf8")).toContain('["service","install","node","--hub","http://mac:4747","--token","test-device-key","--name","Laptop"]');
   }, 30_000);
   it("rejects incomplete legacy flags with an actionable message", () => {
     const f = fixture();

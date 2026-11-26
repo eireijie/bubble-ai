@@ -1,7 +1,7 @@
 /**
- * Wisp's sign-in relay, shared by the three Pages Functions under functions/ (see docs/sign-in.md).
+ * Bubble AI's sign-in relay, shared by the three Pages Functions under functions/ (see docs/sign-in.md).
  *
- * GitHub, Slack and Google only send people back to an address registered with Wisp's app, and
+ * GitHub, Slack and Google only send people back to an address registered with Bubble AI's app, and
  * every self-hosted hub has its own address. The relay is that registered address:
  *
  * - `/oauth/callback` gets the one-time code and sends the browser on to the hub named in `state`.
@@ -68,13 +68,13 @@ export function isThisComputer(u: URL): boolean {
 
 const esc = (t: string) => t.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 
-/** The page shown before sending a code to a hub on the internet: whose Wisp it is going to. */
+/** The page shown before sending a code to a hub on the internet: whose Bubble AI it is going to. */
 export function confirmPage(hub: URL, next: string): string {
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Finish signing in</title>
 <style>:root{color-scheme:light dark;--bg:#fff;--fg:#141414;--mute:#5c5c66;--line:#e4e4e8;--btn:#141414;--btnfg:#fff}@media(prefers-color-scheme:dark){:root{--bg:#121214;--fg:#ededf0;--mute:#a0a0aa;--line:#2a2a30;--btn:#ededf0;--btnfg:#121214}}
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,sans-serif}main{max-width:380px;padding:24px 16px}h1{font-size:19px;font-weight:600;margin:0 0 8px}p{margin:0 0 16px;color:var(--mute)}code{color:var(--fg);font:14px ui-monospace,monospace;word-break:break-all}
 .row{display:flex;gap:12px;align-items:center}a.go{background:var(--btn);color:var(--btnfg);text-decoration:none;padding:8px 14px;border-radius:8px;font-weight:500}a.no{color:var(--mute)}</style>
-<main><h1>Finish signing in</h1><p>This sign-in goes back to the Wisp at <code>${esc(hub.host)}</code>. Continue only if that's your Wisp.</p>
+<main><h1>Finish signing in</h1><p>This sign-in goes back to the Bubble AI at <code>${esc(hub.host)}</code>. Continue only if that's your Bubble AI.</p>
 <div class="row"><a class="go" href="${esc(next)}">Continue</a><a class="no" href="/">Cancel</a></div></main></html>`;
 }
 
@@ -92,7 +92,7 @@ export function callback(request: Request): Response {
   const url = new URL(request.url);
   const hub = hubFromState(url.searchParams.get("state"));
   const headers = { "cache-control": "no-store", "referrer-policy": "no-referrer" };
-  if (!hub) return new Response("This sign-in link isn't from a Wisp. Start it again from Wisp.", { status: 400, headers: { ...headers, "content-type": "text/plain; charset=utf-8" } });
+  if (!hub) return new Response("This sign-in link isn't from a Bubble AI. Start it again from Bubble AI.", { status: 400, headers: { ...headers, "content-type": "text/plain; charset=utf-8" } });
   const next = forwardUrl(hub, url.searchParams);
   if (isThisComputer(hub)) return new Response(null, { status: 302, headers: { ...headers, location: next } });
   return new Response(confirmPage(hub, next), { headers: { ...headers, "content-type": "text/html; charset=utf-8", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'" } });
@@ -111,7 +111,7 @@ export async function token(request: Request, env: Env, fetchFn: typeof fetch = 
   const p = body.provider as Provider;
   if (!PROVIDERS.includes(p)) return json(400, { error: "invalid_request", error_description: "unknown provider" });
   const a = app(env, p);
-  if (!a) return json(404, { error: "not_configured", error_description: "Wisp's app for this isn't set up yet" });
+  if (!a) return json(404, { error: "not_configured", error_description: "Bubble AI's app for this isn't set up yet" });
   const str = (k: string) => (typeof body[k] === "string" && (body[k] as string).length <= 4000 ? (body[k] as string) : "");
   const form = new URLSearchParams({ client_id: a.id, client_secret: a.secret });
   if (body.grant_type === "authorization_code") {

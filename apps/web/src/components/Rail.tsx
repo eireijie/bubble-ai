@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { Apple, Bell, BookOpen, Building2, ChevronDown, FolderPlus, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
 import { useReadyChecklist } from "../onboarding.ts";
-import type { FeatureKey, Section } from "@wisp/core";
+import type { FeatureKey, Section } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useFeatures } from "../features.ts";
 import { logout } from "../logout.ts";
@@ -250,7 +250,7 @@ function useMedia(query: string, fallback: boolean): boolean {
 }
 
 /**
- * The desktop sidebar (2026-11-22 "Wisp, decluttered"): only your agents and teams, like a
+ * The desktop sidebar (2026-11-22 "Bubble AI, decluttered"): only your agents and teams, like a
  * contacts list, always docked beside the page. Search and the plus at the top right, "Needs you"
  * when something waits, then the rows; your picture (its menu holds everything else) and
  * Computers at the foot. Drag its edge to make it wider or narrower and it stays there; pulled
@@ -420,8 +420,8 @@ export function Rail({ route }: { route: Route }) {
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
     ...(!isGuest && features.tasks ? [place("Tasks", <ListTodo {...icon} />, { view: "tasks" })] : []),
     ...(!isGuest ? MOD_NAV.filter((m) => features[m.feature]).map((m) => place(m.label, m.icon(18), m.to)) : []),
-    // what setup left to do and the tour are one list now: Settings › Learn Wisp
-    ...(((ready.started && ready.left > 0) || toLearn) && !isGuest ? [place("Learn Wisp", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
+    // what setup left to do and the tour are one list now: Settings › Learn Bubble AI
+    ...(((ready.started && ready.left > 0) || toLearn) && !isGuest ? [place("Learn Bubble AI", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
     place("Help", <LifeBuoy {...icon} />, { view: "help" }),
     ...(orgs.length > 1
       ? [
@@ -476,7 +476,7 @@ export function Rail({ route }: { route: Route }) {
 
   return (
     <div className="relative z-30 flex shrink-0">
-      <nav ref={navRef} aria-label="Wisp" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(11px,env(safe-area-inset-top))] pb-[11px]" style={{ width, transition }}>
+      <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(11px,env(safe-area-inset-top))] pb-[11px]" style={{ width, transition }}>
         {/* search and New; nothing else up here */}
         <div className={cx("side-top mb-2.5 flex shrink-0 items-center gap-2", wide ? "h-[36px] px-[11px]" : "flex-col gap-2.5")}>
           {wide ? (

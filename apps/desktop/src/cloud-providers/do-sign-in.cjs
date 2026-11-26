@@ -10,7 +10,7 @@ const { CloudError } = require("./shared.cjs");
 const base = () => envVar("DIGITALOCEAN_OAUTH", process.env) ?? "https://cloud.digitalocean.com/v1/oauth";
 const SCOPES = ["droplet:create", "droplet:read", "droplet:delete", "sizes:read", "regions:read", "image:read"];
 
-const DONE_PAGE = (ok) => `<!doctype html><meta charset="utf-8"><title>Wisp</title><body style="font:15px -apple-system,system-ui,sans-serif;display:grid;place-items:center;height:90vh;color:#17171a"><p>${ok ? "Signed in. You can close this tab and go back to Wisp." : "Sign-in didn't finish. Go back to Wisp and try again."}</p></body>`;
+const DONE_PAGE = (ok) => `<!doctype html><meta charset="utf-8"><title>Bubble AI</title><body style="font:15px -apple-system,system-ui,sans-serif;display:grid;place-items:center;height:90vh;color:#17171a"><p>${ok ? "Signed in. You can close this tab and go back to Bubble AI." : "Sign-in didn't finish. Go back to Bubble AI and try again."}</p></body>`;
 
 async function post(url, body, { fetchImpl = fetch, form = false } = {}) {
   let res;
@@ -70,9 +70,9 @@ function signIn({ openExternal, fetchImpl = fetch, timeoutMs = 10 * 60_000 } = {
     server.listen(0, "127.0.0.1", async () => {
       redirect = `http://127.0.0.1:${server.address().port}/callback`;
       try {
-        const client = await post(`${base()}/register`, { client_name: "Wisp", client_uri: "https://github.com/eireijie/wisp", redirect_uris: [redirect], token_endpoint_auth_method: "none", grant_types: ["authorization_code"], response_types: ["code"] }, { fetchImpl });
+        const client = await post(`${base()}/register`, { client_name: "Bubble AI", client_uri: "https://github.com/eireijie/bubble-ai", redirect_uris: [redirect], token_endpoint_auth_method: "none", grant_types: ["authorization_code"], response_types: ["code"] }, { fetchImpl });
         clientId = client.client_id;
-        if (!clientId) throw new CloudError("DigitalOcean didn't register Wisp for sign-in. Try again.");
+        if (!clientId) throw new CloudError("DigitalOcean didn't register Bubble AI for sign-in. Try again.");
         const auth = new URL(`${base()}/authorize`);
         for (const [k, v] of Object.entries({ client_id: clientId, redirect_uri: redirect, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", scope: SCOPES.join(" "), state }))
           auth.searchParams.set(k, v);

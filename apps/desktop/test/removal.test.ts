@@ -30,7 +30,7 @@ esac
 [ -f "$STUB_DIR/fail-$(basename "$0")-$1" ] && exit 1
 exit 0`;
 
-/** A whole Wisp on a made-up computer: a temp HOME, system folders, and stand-ins for every command. */
+/** A whole Bubble AI on a made-up computer: a temp HOME, system folders, and stand-ins for every command. */
 function computer(platform: "darwin" | "linux" = process.platform === "linux" ? "linux" : "darwin") {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "wisp-removal-"))); roots.push(root);
   const home = path.join(root, "home"), stubs = path.join(root, "stubs"), outside = path.join(root, "outside");
@@ -44,17 +44,19 @@ function computer(platform: "darwin" | "linux" = process.platform === "linux" ? 
   write(path.join(stubs, "ts-serve.json"), JSON.stringify({ Web: { "mac.tail.ts.net:443": { Handlers: { "/": { Proxy: "http://127.0.0.1:4747" } } } } }));
   if (platform === "darwin") {
     for (const s of LIST.launchAgents) W(`Library/LaunchAgents/${s}.plist`);
-    for (const b of ["Wisp", "Warren"]) write(path.join(root, `Applications/${b}.app/Contents/Info.plist`), `<string>ai.${b.toLowerCase()}.desktop</string>`);
-    W("Library/Logs/Wisp/hub.log"); W("Library/Preferences/ai.wisp.desktop.plist"); W("Library/Caches/ai.wisp.desktop/c"); W("Library/Saved Application State/ai.wisp.desktop.savedState/s");
+    for (const [b, id] of LIST.products) write(path.join(root, `Applications/${b}.app/Contents/Info.plist`), `<string>ai.${id}.desktop</string>`);
+    W("Library/Logs/Bubble AI/hub.log"); W("Library/Preferences/ai.bubbleai.desktop.plist"); W("Library/Caches/ai.bubbleai.desktop/c"); W("Library/Saved Application State/ai.bubbleai.desktop.savedState/s");
   } else for (const s of LIST.systemdUnits) W(`.config/systemd/user/${s}.service`);
+  W(path.relative(home, path.join(appData, "Bubble AI/desktop.json")));
   W(path.relative(home, path.join(appData, "Wisp/desktop.json")));
   W(path.relative(home, path.join(appData, "Warren/desktop.json")));
   fs.mkdirSync(path.join(home, ".local/bin"), { recursive: true });
   for (const c of LIST.commands) fs.symlinkSync("/nowhere", path.join(home, ".local/bin", c));
   W(".local/bin/not-ours");
-  W(".wisp/node.json"); W(".wisp/data/wisp.db"); W(".wisp/agents/a/f");
+  W(".bubble-ai/node.json"); W(".bubble-ai/data/wisp.db"); W(".bubble-ai/agents/a/f");
   W("wisp/package.json", '{ "name": "wisp" }'); W("wisp/data/wisp.db"); W("wisp/apps/x");
   W("warren/package.json", '{ "name": "warren" }');
+  fs.symlinkSync(path.join(home, ".bubble-ai"), path.join(home, ".wisp"));
   fs.symlinkSync(path.join(home, ".wisp"), path.join(home, ".warren"));
   W("Documents/keep.txt");
   write(path.join(outside, "precious"));
@@ -84,7 +86,7 @@ describe("what's on this computer", () => {
     expect(byId.vms.label).toBe("Agent computers · 3");
     expect(byId.vms.detail).toContain("1 with old warren names");
     expect(byId.data.group).toBe("lost");
-    expect(byId.state.detail).toBe("~/.wisp, ~/.warren");
+    expect(byId.state.detail).toBe("~/.bubble-ai, ~/.wisp, ~/.warren");
     expect(byId.install.detail).toBe("~/wisp, ~/warren");
     expect(scan.tailscale).toBe(true);
   });
@@ -95,7 +97,7 @@ describe("what's on this computer", () => {
     r.W("wisp/package.json", '{ "name": "my-own-project" }');
     const scan = await (await realSpawnless(r)).scan({});
     expect(scan.items.find((i: any) => i.id === "install")).toBeUndefined();
-    expect(scan.items.find((i: any) => i.id === "data").detail).toContain("~/.wisp/data");
+    expect(scan.items.find((i: any) => i.id === "data").detail).toContain("~/.bubble-ai/data");
     expect(scan.items.find((i: any) => i.id === "data").detail).not.toContain("~/wisp/data");
   });
 
@@ -121,45 +123,45 @@ describe("what's on this computer", () => {
 describe("the allow-list", () => {
   const refused = (removal: any, file: string) => expect(() => removal.guard(file), file).toThrow(/Refused/);
 
-  it("refuses everything that isn't Wisp's", async () => {
+  it("refuses everything that isn't Bubble AI's", async () => {
     const r = computer();
     const removal = await realSpawnless(r);
-    for (const file of [r.home, path.dirname(r.home), "/", path.join(r.home, "Documents"), path.join(r.home, "Documents/keep.txt"), path.join(r.home, ".wisp/../Documents"), path.join(r.home, ".local/bin/not-ours"), path.join(r.home, ".local/bin"), path.join(r.home, "Library"), path.join(r.outside, "precious"), "relative/.wisp", "", path.join(r.home, ".wisp2"), path.join(r.root, "Applications/Other.app"), path.join(r.root, "var/lib/wisp")]) refused(removal, file);
+    for (const file of [r.home, path.dirname(r.home), "/", path.join(r.home, "Documents"), path.join(r.home, "Documents/keep.txt"), path.join(r.home, ".bubble-ai/../Documents"), path.join(r.home, ".local/bin/not-ours"), path.join(r.home, ".local/bin"), path.join(r.home, "Library"), path.join(r.outside, "precious"), "relative/.bubble-ai", "", path.join(r.home, ".wisp2"), path.join(r.root, "Applications/Other.app"), path.join(r.root, "var/lib/wisp")]) refused(removal, file);
     refused(removal, undefined as unknown as string);
   });
 
   it("deletes a link and never what it points at", async () => {
     const r = computer();
-    fs.rmSync(path.join(r.home, ".wisp"), { recursive: true });
-    fs.symlinkSync(r.outside, path.join(r.home, ".wisp"));
+    fs.rmSync(path.join(r.home, ".bubble-ai"), { recursive: true });
+    fs.symlinkSync(r.outside, path.join(r.home, ".bubble-ai"));
     fs.rmSync(path.join(r.home, "wisp"), { recursive: true });
     fs.symlinkSync(r.outside, path.join(r.home, "wisp"));
     const removal = await realSpawnless(r);
-    refused(removal, path.join(r.home, ".wisp/precious"));
+    refused(removal, path.join(r.home, ".bubble-ai/precious"));
     await removal.scan({});
     const { steps } = await removal.start(allIds, WORD);
     expect(steps.filter((s: any) => s.state === "failed")).toEqual([]);
     expect(fs.existsSync(path.join(r.outside, "precious"))).toBe(true);
-    expect(fs.existsSync(path.join(r.home, ".wisp"))).toBe(false);
+    expect(fs.existsSync(path.join(r.home, ".bubble-ai"))).toBe(false);
     expect(fs.existsSync(path.join(r.home, "wisp"))).toBe(false);
   });
 
   it("doesn't follow a link inside a folder it deletes", async () => {
     const r = computer();
-    fs.symlinkSync(r.outside, path.join(r.home, ".wisp/agents/link"));
+    fs.symlinkSync(r.outside, path.join(r.home, ".bubble-ai/agents/link"));
     const removal = await realSpawnless(r);
     await removal.scan({});
     await removal.start(allIds, WORD);
     expect(fs.existsSync(path.join(r.outside, "precious"))).toBe(true);
-    expect(fs.existsSync(path.join(r.home, ".wisp"))).toBe(false);
+    expect(fs.existsSync(path.join(r.home, ".bubble-ai"))).toBe(false);
   });
 
-  it("refuses an app bundle that isn't Wisp, and a folder swapped after the scan", async () => {
+  it("refuses an app bundle that isn't Bubble AI, and a folder swapped after the scan", async () => {
     const r = computer();
     if (r.platform !== "darwin") return;
     const removal = await realSpawnless(r);
     await removal.scan({});
-    r.write(path.join(r.root, "Applications/Wisp.app/Contents/Info.plist"), "com.other.app");
+    r.write(path.join(r.root, "Applications/Bubble AI.app/Contents/Info.plist"), "com.other.app");
     r.W("wisp/package.json", '{ "name": "someone-else" }');
     expect(() => removal.finish()).toThrow(/Refused|nothing left/);
     const { steps } = await removal.start(["install"], WORD);
@@ -173,19 +175,19 @@ describe("the allow-list", () => {
     expect(() => createRemoval({ platform: "darwin", home: os.homedir(), appData: "/x", root: r.root })).toThrow(/temp folder/);
   });
 
-  it("takes the running copy only when it's really an installed Wisp", async () => {
+  it("takes the running copy only when it's really an installed Bubble AI", async () => {
     const r = computer();
     if (r.platform !== "darwin") return;
-    r.write(path.join(r.home, "Downloads/Wisp.app/Contents/Info.plist"), "ai.wisp.desktop");
-    const packaged = r.make({ packaged: true, execPath: path.join(r.home, "Downloads/Wisp.app/Contents/MacOS/Wisp") });
-    expect(packaged.guard(path.join(r.home, "Downloads/Wisp.app"))).toBeTruthy();
-    r.write(path.join(r.root, "Applications/wisp.app/Contents/Info.plist"), "ai.wisp.desktop");
-    const lower = r.make({ packaged: true, execPath: path.join(r.root, "Applications/wisp.app/Contents/MacOS/Wisp") });
+    r.write(path.join(r.home, "Downloads/Bubble AI.app/Contents/Info.plist"), "ai.bubbleai.desktop");
+    const packaged = r.make({ packaged: true, execPath: path.join(r.home, "Downloads/Bubble AI.app/Contents/MacOS/Bubble AI") });
+    expect(packaged.guard(path.join(r.home, "Downloads/Bubble AI.app"))).toBeTruthy();
+    r.write(path.join(r.root, "Applications/wisp.app/Contents/Info.plist"), "ai.bubbleai.desktop");
+    const lower = r.make({ packaged: true, execPath: path.join(r.root, "Applications/wisp.app/Contents/MacOS/Bubble AI") });
     expect(lower.guard(path.join(r.root, "Applications/wisp.app"))).toBeTruthy();
     expect((await lower.scan({})).items.find((i: any) => i.id === "app").detail.match(/wisp\.app/gi)).toHaveLength(1);
-    const onDisk = r.make({ packaged: true, execPath: "/Volumes/Wisp/Wisp.app/Contents/MacOS/Wisp" });
+    const onDisk = r.make({ packaged: true, execPath: "/Volumes/Bubble AI/Bubble AI.app/Contents/MacOS/Bubble AI" });
     expect((await onDisk.scan({})).manual.map((m: any) => m.label)).toContain("This copy of the app");
-    expect(() => onDisk.guard("/Volumes/Wisp/Wisp.app")).toThrow(/Refused/);
+    expect(() => onDisk.guard("/Volumes/Bubble AI/Bubble AI.app")).toThrow(/Refused/);
   });
 });
 
@@ -196,7 +198,7 @@ describe("removing", () => {
     await removal.scan({});
     await expect(removal.start(allIds, "remove")).rejects.toThrow(/REMOVE/);
     expect(r.calls().some((c) => / rm /.test(c))).toBe(false);
-    expect(fs.existsSync(path.join(r.home, ".wisp"))).toBe(true);
+    expect(fs.existsSync(path.join(r.home, ".bubble-ai"))).toBe(true);
   });
 
   it("removes only what's ticked, and what relies on a service takes the service", async () => {
@@ -205,7 +207,7 @@ describe("removing", () => {
     await removal.scan({});
     await removal.start(["install"], WORD);
     expect(fs.readdirSync(path.join(r.home, "wisp"))).toEqual(["data"]);
-    expect(fs.existsSync(path.join(r.home, ".wisp/node.json"))).toBe(true);
+    expect(fs.existsSync(path.join(r.home, ".bubble-ai/node.json"))).toBe(true);
     expect(fs.lstatSync(path.join(r.home, ".local/bin/wisp")).isSymbolicLink()).toBe(true);
     expect(r.calls().some((c) => c.startsWith("container rm"))).toBe(false);
     expect(r.calls().some((c) => c.startsWith("launchctl bootout") || c.startsWith("systemctl --user disable"))).toBe(true);
@@ -217,9 +219,9 @@ describe("removing", () => {
     await removal.scan({});
     const { steps } = await removal.start(allIds.filter((id) => id !== "data"), WORD);
     expect(steps.filter((s: any) => s.state === "failed")).toEqual([]);
-    expect(fs.existsSync(path.join(r.home, ".wisp/data/wisp.db"))).toBe(true);
+    expect(fs.existsSync(path.join(r.home, ".bubble-ai/data/wisp.db"))).toBe(true);
     expect(fs.existsSync(path.join(r.home, "wisp/data/wisp.db"))).toBe(true);
-    expect(fs.existsSync(path.join(r.home, ".wisp/node.json"))).toBe(false);
+    expect(fs.existsSync(path.join(r.home, ".bubble-ai/node.json"))).toBe(false);
     expect(fs.readdirSync(path.join(r.home, "wisp"))).toEqual(["data"]);
   });
 
@@ -236,7 +238,7 @@ describe("removing", () => {
     expect(steps.find((s: any) => s.id === "state").state).toBe("done");
     expect(steps.at(-1)).toMatchObject({ id: "app", state: "later" });
     finishNow(r, removal);
-    const report = fs.readFileSync(path.join(r.home, "Wisp removal report.txt"), "utf8");
+    const report = fs.readFileSync(path.join(r.home, "Bubble AI removal report.txt"), "utf8");
     expect(report).toContain("wisp-cmp_new");
     expect(r.calls().join("\n")).toContain("except for");
   });
@@ -246,10 +248,10 @@ describe("removing", () => {
     const removal = await realSpawnless(r);
     await removal.scan({});
     await removal.start(allIds, WORD);
-    expect(fs.existsSync(path.join(r.appData, "Wisp"))).toBe(true);
+    expect(fs.existsSync(path.join(r.appData, "Bubble AI"))).toBe(true);
     finishNow(r, removal);
-    expect(fs.existsSync(path.join(r.appData, "Wisp"))).toBe(false);
-    expect(fs.existsSync(path.join(r.home, "Wisp removal report.txt"))).toBe(false);
+    expect(fs.existsSync(path.join(r.appData, "Bubble AI"))).toBe(false);
+    expect(fs.existsSync(path.join(r.home, "Bubble AI removal report.txt"))).toBe(false);
     expect(fs.existsSync(path.join(r.home, "Documents/keep.txt"))).toBe(true);
   });
 });
@@ -308,7 +310,7 @@ describe("Tailscale", () => {
     expect(off(r.calls())).toEqual(["tailscale serve --https=443 --set-path=/ off"]);
   });
 
-  it("closes the door for Grok, ChatGPT and Claude, and only Wisp's paths on it", async () => {
+  it("closes the door for Grok, ChatGPT and Claude, and only Bubble AI's paths on it", async () => {
     const r = computer();
     const door = { "/mcp": { Proxy: "http://127.0.0.1:4747/mcp" }, "/oauth/token": { Proxy: "http://127.0.0.1:4747/oauth/token" }, "/theirs": { Proxy: "http://127.0.0.1:9000/theirs" } };
     r.write(path.join(r.stubs, "ts-serve.json"), JSON.stringify({ Web: { "mac.tail.ts.net:443": { Handlers: { "/": { Proxy: "http://127.0.0.1:4747" } } }, "mac.tail.ts.net:8443": { Handlers: door } }, AllowFunnel: { "mac.tail.ts.net:8443": true } }));
@@ -334,13 +336,13 @@ describe("backups", () => {
   it("copies the data folder, with the database through the snapshot, and not into what's going", async () => {
     const r = computer();
     const removal = await realSpawnless(r);
-    r.W(".wisp/data/vault/note.md", "hello");
-    r.W(".wisp/data/wisp.db-wal", "torn");
+    r.W(".bubble-ai/data/vault/note.md", "hello");
+    r.W(".bubble-ai/data/wisp.db-wal", "torn");
     fs.rmSync(path.join(r.home, "wisp/data"), { recursive: true });
     await removal.scan({});
-    await expect(removal.backup(path.join(r.home, ".wisp/backups"), async () => {})).rejects.toThrow(/isn't about to remove/);
+    await expect(removal.backup(path.join(r.home, ".bubble-ai/backups"), async () => {})).rejects.toThrow(/isn't about to remove/);
     const out = await removal.backup(path.join(r.home, "Documents"), async (_from: string, to: string) => fs.writeFileSync(to, "snapshot"), "2026-11-01");
-    expect(out).toBe(path.join(r.home, "Documents/Wisp backup 2026-11-01"));
+    expect(out).toBe(path.join(r.home, "Documents/Bubble AI backup 2026-11-01"));
     expect(fs.readFileSync(path.join(out, "vault/note.md"), "utf8")).toBe("hello");
     expect(fs.readFileSync(path.join(out, "wisp.db"), "utf8")).toBe("snapshot");
     expect(fs.existsSync(path.join(out, "wisp.db-wal"))).toBe(false);
@@ -349,7 +351,7 @@ describe("backups", () => {
 
 describe("the same list as uninstall.sh", () => {
   it("names everything on the shared list, for every platform's script branch", () => {
-    for (const name of [...LIST.launchAgents, ...LIST.systemdUnits, ...LIST.commands, ...LIST.stateDirs.map((d: string) => `$HOME/${d}`), ...LIST.products]) expect(script, name).toContain(name);
+    for (const name of [...LIST.launchAgents, ...LIST.systemdUnits, ...LIST.commands, ...LIST.stateDirs.map((d: string) => `$HOME/${d}`), ...LIST.products.flat()]) expect(script, name).toContain(name);
     for (const dir of LIST.systemDirs) expect(script, dir).toContain(`$ROOT${dir}`);
     expect(script).toContain("(wisp|warren)-cmp_");
     expect(script).toContain("(wisp|warren)-computer");
@@ -359,21 +361,22 @@ describe("the same list as uninstall.sh", () => {
   it("names what the README and the service code say on Windows", () => {
     const readme = fs.readFileSync(path.join(repo, "README.md"), "utf8");
     const at = locations({ platform: "win32", home: "C:\\Users\\a", appData: "C:\\Users\\a\\AppData\\Roaming" });
-    for (const needle of ["%USERPROFILE%\\wisp", "%USERPROFILE%\\.wisp", "%APPDATA%\\Wisp", "**Wisp hub**", "**Wisp node**"]) expect(readme).toContain(needle);
-    expect(at.installDirs[0]).toBe("C:\\Users\\a\\wisp");
-    expect(at.stateDirs[0]).toBe("C:\\Users\\a\\.wisp");
-    expect(at.appFiles[0]).toBe("C:\\Users\\a\\AppData\\Roaming\\Wisp");
+    for (const needle of ["%USERPROFILE%\\bubble-ai", "%USERPROFILE%\\.bubble-ai", "%APPDATA%\\Bubble AI", "%USERPROFILE%\\wisp", "%USERPROFILE%\\.wisp", "%APPDATA%\\Wisp", "**Wisp hub**", "**Wisp node**"]) expect(readme).toContain(needle);
+    expect(at.installDirs[0]).toBe("C:\\Users\\a\\bubble-ai");
+    expect(at.stateDirs[0]).toBe("C:\\Users\\a\\.bubble-ai");
+    expect(at.appFiles[0]).toBe("C:\\Users\\a\\AppData\\Roaming\\Bubble AI");
+    expect(at.commands).toContain("C:\\Users\\a\\.local\\bin\\bubble-ai.cmd");
     expect(at.commands).toContain("C:\\Users\\a\\.local\\bin\\wisp.cmd");
     expect(at.commands).toContain("C:\\Users\\a\\.local\\bin\\wisp-entry.ps1");
     expect(LIST.scheduledTasks).toEqual(["Wisp hub", "Wisp node", "Warren hub", "Warren node"]);
     const install = fs.readFileSync(path.join(repo, "install.ps1"), "utf8");
-    expect(install).toContain('@("wisp", "wisp-mcp", "wisp-hub")');
+    expect(install).toContain('@("bubble-ai", "bubble-ai-mcp", "bubble-ai-hub", "wisp", "wisp-mcp", "wisp-hub")');
     expect(install).toContain("$Alias-entry.ps1");
   });
 
   it("leaves exactly the same files as the script on the same computer", async () => {
     const a = computer(), b = computer();
-    const scripted = spawnSync("bash", [path.join(repo, "uninstall.sh"), "--yes"], { env: { ...a.env, WISP_UNINSTALL_ROOT: a.root } as NodeJS.ProcessEnv, encoding: "utf8" });
+    const scripted = spawnSync("bash", [path.join(repo, "uninstall.sh"), "--yes"], { env: { ...a.env, BUBBLE_UNINSTALL_ROOT: a.root } as NodeJS.ProcessEnv, encoding: "utf8" });
     expect(scripted.status, scripted.stderr).toBe(0);
     const removal = await realSpawnless(b);
     await removal.scan({});
@@ -383,28 +386,28 @@ describe("the same list as uninstall.sh", () => {
     const vmCalls = (calls: string[]) => calls.filter((c) => /^(container rm|docker rm|container image rm|docker rmi|tailscale \w+ --https)/.test(c)).sort();
     expect(vmCalls(b.calls())).toEqual(vmCalls(a.calls()));
     expect(a.tree()).toContain("/home/Documents/keep.txt");
-    expect(a.tree()).not.toContain("/home/.wisp");
+    expect(a.tree()).not.toContain("/home/.bubble-ai");
   });
 
   it("the script's dry run changes nothing", () => {
     const a = computer();
     const before = a.tree();
-    spawnSync("bash", [path.join(repo, "uninstall.sh"), "--dry-run"], { env: { ...a.env, WISP_UNINSTALL_ROOT: a.root } as NodeJS.ProcessEnv, encoding: "utf8" });
+    spawnSync("bash", [path.join(repo, "uninstall.sh"), "--dry-run"], { env: { ...a.env, BUBBLE_UNINSTALL_ROOT: a.root } as NodeJS.ProcessEnv, encoding: "utf8" });
     expect(a.tree()).toEqual(before);
   });
 });
 
 describe("the helper on Windows", () => {
   it("quotes paths, waits for the app and runs only the uninstaller it's given", () => {
-    const text = helperScript({ platform: "win32", pid: 42, paths: ["C:\\Users\\o'neil\\AppData\\Roaming\\Wisp"], uninstaller: "C:\\Programs\\Wisp\\Uninstall Wisp.exe", failures: ["it's stuck"], report: "C:\\Users\\o'neil\\Wisp removal report.txt" });
+    const text = helperScript({ platform: "win32", pid: 42, paths: ["C:\\Users\\o'neil\\AppData\\Roaming\\Bubble AI"], uninstaller: "C:\\Programs\\Bubble AI\\Uninstall Bubble AI.exe", failures: ["it's stuck"], report: "C:\\Users\\o'neil\\Bubble AI removal report.txt" });
     expect(text).toContain("Wait-Process -Id 42");
-    expect(text).toContain("'C:\\Users\\o''neil\\AppData\\Roaming\\Wisp'");
-    expect(text).toContain("Start-Process -Wait -FilePath 'C:\\Programs\\Wisp\\Uninstall Wisp.exe' -ArgumentList '/S'");
+    expect(text).toContain("'C:\\Users\\o''neil\\AppData\\Roaming\\Bubble AI'");
+    expect(text).toContain("Start-Process -Wait -FilePath 'C:\\Programs\\Bubble AI\\Uninstall Bubble AI.exe' -ArgumentList '/S'");
     expect(text).toContain("[void]$fail.Add('it''s stuck')");
   });
   it("quotes paths in the shell helper too", () => {
-    const text = helperScript({ platform: "linux", pid: 7, paths: ["/home/o'neil/$(reboot)/.config/Wisp"], failures: [], report: "/home/o'neil/r.txt" });
-    expect(text).toContain(`remove '/home/o'\\''neil/$(reboot)/.config/Wisp'`);
+    const text = helperScript({ platform: "linux", pid: 7, paths: ["/home/o'neil/$(reboot)/.config/Bubble AI"], failures: [], report: "/home/o'neil/r.txt" });
+    expect(text).toContain(`remove '/home/o'\\''neil/$(reboot)/.config/Bubble AI'`);
     expect(text).toContain("zenity");
   });
 });

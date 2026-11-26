@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import WebSocket from "ws";
-import { WispClient } from "@wisp/sdk";
+import { WispClient } from "@bubble-ai/sdk";
 import { buildHub } from "../src/app.ts";
 
 let dir: string;

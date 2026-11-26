@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import WebSocket from "ws";
-import { MAX_MODEL_ID_LENGTH, type HubToNode, type Message, type NodeToHub } from "@wisp/core";
+import { MAX_MODEL_ID_LENGTH, type HubToNode, type Message, type NodeToHub } from "@bubble-ai/core";
 import Database from "better-sqlite3";
 import { fileName, limitParam } from "../src/api.ts";
 import { buildHub } from "../src/app.ts";
@@ -12,7 +12,7 @@ import type { Hub } from "../src/hub.ts";
 import { Store } from "../src/store.ts";
 import { workspaceLead } from "../src/lead.ts";
 import { foldTeams } from "../src/fold-teams.ts";
-import { teamProblem } from "@wisp/core";
+import { teamProblem } from "@bubble-ai/core";
 import { makeRoom } from "./room.ts";
 
 let dir: string;
@@ -929,7 +929,7 @@ describe("agent context", () => {
   it("shows the model, effort, context window and permissions you're talking to", async () => {
     const dm = (await api("POST", `/api/dm/${atlas.id}`)).data;
     await api("POST", `/api/channels/${dm.id}/messages`, { body: "hello" });
-    // past atlas's hello, which Wisp wrote when it was made
+    // past atlas's hello, which Bubble AI wrote when it was made
     await waitFor(async () => (await api<{ messages: Message[] }>("GET", `/api/channels/${dm.id}/messages`)).data.messages.find((m) => m.author.id === atlas.id && m.body.includes("heard")));
     const ctx = (await api("GET", `/api/agents/${atlas.id}/context?channel=${dm.id}`)).data;
     expect(ctx).toMatchObject({ harness: "claude-code", model: "fake-1", modelIsDefault: true, effort: "medium", effortIsDefault: true, access: "edit", contextUsed: 4321, contextWindow: 200000 });

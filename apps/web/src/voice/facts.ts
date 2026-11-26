@@ -1,4 +1,4 @@
-import type { Agent } from "@wisp/core";
+import type { Agent } from "@bubble-ai/core";
 import type { CallPhase, CallState } from "./call.ts";
 import { clock, phaseLabel } from "./prefs.ts";
 

@@ -19,7 +19,7 @@ struct ProfileSettingsView: View {
       VStack(spacing: 6) {
         InitialsDot(name: store.me?.preferredName ?? store.me?.name ?? "", size: 84)
         Text(store.me?.name ?? "").font(.system(size: 20, weight: .semibold)).foregroundStyle(Palette.text).padding(.top, 6)
-        Text("\(roleName) · \(store.workspace?.name ?? "Wisp")").font(.system(size: 13)).foregroundStyle(Palette.faint)
+        Text("\(roleName) · \(store.workspace?.name ?? "Bubble AI")").font(.system(size: 13)).foregroundStyle(Palette.faint)
       }.padding(.vertical, 4)
       if store.role == "guest" {
         Text("You're a guest in \(store.workspace?.name ?? "this workspace"). You can chat in the teams you're added to and use the shared folder in memory. Agents, computers and people belong to the owner.")
@@ -142,7 +142,7 @@ struct NotificationSettingsView: View {
     SettingsPage("Notifications", id: "notifications") {
       CardLabel("Notifications on this phone")
       CardGroup {
-        ToggleRow(title: authorized ? "You'll get notifications on this phone, even with Wisp closed." : "Get notifications on this phone, even with Wisp closed.", isOn: Binding(get: { authorized }, set: { on in
+        ToggleRow(title: authorized ? "You'll get notifications on this phone, even with Bubble AI closed." : "Get notifications on this phone, even with Bubble AI closed.", isOn: Binding(get: { authorized }, set: { on in
           if on { Task { await store.enableNotifications() } }
           else if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
         }), id: "notify-phone")
@@ -151,17 +151,17 @@ struct NotificationSettingsView: View {
         Button { action.run { try await store.connection().post("/api/me/push/test", Empty()); sent = true } } label: { RowLabel(title: "Send a test notification", chevron: false) }
           .buttonStyle(.plain).disabled(!store.pushAvailable || action.busy)
       }
-      if !store.pushAvailable { CardHint("This Wisp isn't set up to send notifications. Its owner can add an Apple push key.") }
+      if !store.pushAvailable { CardHint("This Bubble AI isn't set up to send notifications. Its owner can add an Apple push key.") }
       if let error = store.pushRegistrationError {
         CardHint(error)
         Button("Try again") { store.retryPushRegistration() }.buttonStyle(.pill(.secondary, small: true))
       }
       if store.notificationStatus == .denied {
-        CardHint("Notifications are blocked for Wisp in iPhone settings.")
+        CardHint("Notifications are blocked for Bubble AI in iPhone settings.")
         Button("iPhone notification settings") { if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) } }.buttonStyle(.pill(.secondary, small: true))
       }
       if sent { CardHint("Sent. You should see it now.") }
-      CardLabel("While Wisp is open")
+      CardLabel("While Bubble AI is open")
       CardGroup {
         ToggleRow(title: "Show notifications while open", isOn: $enabled)
         ToggleRow(title: "Only when I'm away", isOn: $onlyAway)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MODEL_PROVIDER_INFO, harnessLabel, providerLabel, type AccessLevel, type Agent, type ConnectionModel, type HarnessCatalog, type ModelConnection, type ModelProvider, type ModelProviderInfo, type CredentialSupport, type PlanUsage } from "@wisp/core";
+import { MODEL_PROVIDER_INFO, harnessLabel, providerLabel, type AccessLevel, type Agent, type ConnectionModel, type HarnessCatalog, type ModelConnection, type ModelProvider, type ModelProviderInfo, type CredentialSupport, type PlanUsage } from "@bubble-ai/core";
 import { api } from "./api.ts";
 import { useStore } from "./store.ts";
 
@@ -139,7 +139,7 @@ export function connectionsFor(harness: string, connections: ModelConnection[]):
 }
 
 /**
- * The provider a harness signs in to through Wisp (a connection the hub keeps and hands to each
+ * The provider a harness signs in to through Bubble AI (a connection the hub keeps and hands to each
  * run), when that's the harness's own provider: Claude Code → Claude, Codex → ChatGPT. null for
  * harnesses that keep their sign-in where they run (Hermes, Gemini, Kimi…).
  */

@@ -147,7 +147,7 @@ export type NotifyKey = "on" | "off" | "blocked" | "ask" | "unsupported";
 
 /** What notifications are doing on THIS device, in plain words. */
 export function notifyStatus(perm: NotificationPermission | "unsupported", enabled: boolean): { key: NotifyKey; label: string; hint: string } {
-  if (perm === "unsupported") return { key: "unsupported", label: "Not available in this browser", hint: "This browser can't show notifications. On an iPhone, add Wisp to your Home Screen first (Share, then Add to Home Screen)." };
+  if (perm === "unsupported") return { key: "unsupported", label: "Not available in this browser", hint: "This browser can't show notifications. On an iPhone, add Bubble AI to your Home Screen first (Share, then Add to Home Screen)." };
   if (perm === "denied") return { key: "blocked", label: "Blocked by your browser", hint: "Your browser is blocking them for this site. Allow notifications in the site's settings (the icon left of the address), then reload." };
   if (perm === "default") return { key: "ask", label: "Not asked yet", hint: "Your browser will ask for permission when you turn them on." };
   return enabled ? { key: "on", label: "On", hint: "You'll get notifications on this device." } : { key: "off", label: "Off", hint: "Switched off on this device. Switch it on to get them." };
@@ -201,7 +201,7 @@ function BrowserNotifyValue() {
 }
 
 export function NotificationsPage() {
-  // Wisp's Android app: a web view can't do Web Push, so the app's own push is shown instead
+  // Bubble AI's Android app: a web view can't do Web Push, so the app's own push is shown instead
   if (androidPush()) return <AndroidNotificationsPage />;
   return <BrowserNotificationsPage />;
 }
@@ -216,7 +216,7 @@ function AndroidNotificationsPage() {
     push.hubReady === null
       ? { label: "Checking…", hint: null }
       : !push.hubReady
-        ? { label: "Not set up", hint: "The owner of this Wisp hasn't connected Firebase yet, so phones can't be notified while the app is closed. See the deploy guide's Android push section." }
+        ? { label: "Not set up", hint: "The owner of this Bubble AI hasn't connected Firebase yet, so phones can't be notified while the app is closed. See the deploy guide's Android push section." }
         : !push.allowed
           ? { label: "Off", hint: null }
           : push.registered
@@ -226,7 +226,7 @@ function AndroidNotificationsPage() {
     setBusy(true);
     setNote(null);
     const ok = await push.test();
-    setNote(ok ? "Sent." : "Nothing was sent. Check that notifications are on for Wisp in your phone's settings.");
+    setNote(ok ? "Sent." : "Nothing was sent. Check that notifications are on for Bubble AI in your phone's settings.");
     setBusy(false);
   };
   return (
@@ -271,7 +271,7 @@ function BrowserNotificationsPage() {
     try {
       const p = await enableNotifications();
       setPerm(p);
-      // so they also arrive while Wisp is closed; if that can't be done, say why but keep going
+      // so they also arrive while Bubble AI is closed; if that can't be done, say why but keep going
       if (p === "granted" && pushSupported()) await push.change(true);
     } finally {
       setStarting(false);
@@ -280,7 +280,7 @@ function BrowserNotificationsPage() {
   const toggle = (k: keyof NotifyPrefs) => (v: boolean) => setNotifyPrefs({ [k]: v });
   // one test: here, and a push too while push is on
   const sendTest = () => {
-    show("Wisp", "Notifications work on this device.", undefined, { test: true });
+    show("Bubble AI", "Notifications work on this device.", undefined, { test: true });
     if (push.on) void push.test();
   };
   const events: [keyof NotifyPrefs, string][] = [
@@ -305,7 +305,7 @@ function BrowserNotificationsPage() {
           {perm === "granted" && <Toggle label="Notifications on this device" on={prefs.enabled} onChange={toggle("enabled")} />}
         </Row>
         {canPush && (
-          <Row label="When Wisp is closed">
+          <Row label="When Bubble AI is closed">
             <Toggle label="Push to this device" on={!!push.on} disabled={push.busy} onChange={(v) => void push.change(v)} />
           </Row>
         )}
