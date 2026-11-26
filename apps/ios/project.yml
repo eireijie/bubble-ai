@@ -33,7 +33,7 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: Bubble AI connects to Bubble AI on your computer over your own network.
-        INFOPLIST_KEY_NSCameraUsageDescription: Bubble AI uses the camera to scan the pairing code on your computer.
+        INFOPLIST_KEY_NSCameraUsageDescription: Bubble AI uses the camera to scan the pairing code on your computer and to take photos you send.
         INFOPLIST_KEY_NSMicrophoneUsageDescription: Bubble AI uses the microphone so you can talk with your agents in a voice call.
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Bubble AI turns what you say into text so your agent can answer.
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: When an agent asks where you are, Bubble AI tells it. Only when it asks, never a running track.

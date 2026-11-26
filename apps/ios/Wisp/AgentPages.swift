@@ -223,7 +223,7 @@ struct AgentActivityPage: View {
     AgentFrame(title: "Activity", subtitle: agent.name) {
       if let runs {
         if runs.isEmpty {
-          AgentCard { Text("No activity yet.").font(.system(size: 15)).foregroundStyle(Palette.muted) }
+          AgentCard { Text("Nothing yet. Message \(agent.name) and its work shows up here.").font(.system(size: 15)).foregroundStyle(Palette.muted) }
         } else {
           CardGroup {
             ForEach(runs) { run in
@@ -237,7 +237,6 @@ struct AgentActivityPage: View {
       }
       AgentError(text: error)
       if error != nil { PillButton(title: "Try again", kind: .secondary) { Task { await load() } } }
-      CardCaption("Nothing yet? Message the agent and its work will show up here.")
     }
     .task(id: agent.status) { await load() }
     .bubbleRefresh { await load() }
@@ -248,6 +247,9 @@ struct AgentActivityPage: View {
       VStack(alignment: .leading, spacing: 3) {
         Text(RunLine.title(run)).font(.system(size: 15)).foregroundStyle(Palette.text).lineLimit(2).multilineTextAlignment(.leading)
         Text(when(run)).font(.system(size: 13)).foregroundStyle(Palette.faint).lineLimit(1)
+        if let why = RunLine.reason(run, harness: agent.harness, device: device?.name) {
+          Text(why).font(.system(size: 13)).foregroundStyle(Palette.statusProblemText).lineLimit(2)
+        }
       }
       Spacer(minLength: 8)
       VStack(alignment: .trailing, spacing: 3) {
@@ -262,10 +264,16 @@ struct AgentActivityPage: View {
   }
 
   private func when(_ run: AgentRun) -> String {
-    let place = run.channelName.map { " · in \($0)" } ?? ""
+    let place = placeName(run).map { " · in \($0)" } ?? ""
     if run.status == "running" { return "Now" + place }
     guard let date = run.createdAt.flatMap(Wire.date) else { return place.isEmpty ? "" : String(place.dropFirst(3)) }
     return RunLine.day(date) + place
+  }
+
+  private var device: AgentNode? { store.nodes.first { $0.id == (store.agent(agent.id) ?? agent).nodeId } }
+
+  private func placeName(_ run: AgentRun) -> String? {
+    RunLine.place(channelName: run.channelName, title: run.channelId.flatMap { id in store.channels.first { $0.id == id } }.map { store.title(of: $0) })
   }
 
   private func load() async {
@@ -300,14 +308,14 @@ struct AgentRunPage: View {
     AgentFrame(title: "Run", subtitle: RunLine.title(run)) {
       CardGroup {
         info("Status", RunLine.status(run))
-        if let name = run.channelName { info("Where", channel.map { store.title(of: $0) } ?? name) }
+        if let place = RunLine.place(channelName: run.channelName, title: channel.map { store.title(of: $0) }) { info("Where", place) }
         if let device { info("Ran on", device.name) }
         if let time = RunLine.duration(from: run.createdAt, to: run.finishedAt) { info("Took", time) }
       }
       CardCaption("What it did")
       AgentCard {
         VStack(alignment: .leading, spacing: 0) {
-          step(symbol: "bubble.left", title: asked, detail: [started, run.channelName.map { "from \($0)" }].compactMap { $0 }.joined(separator: " · "), last: false)
+          step(symbol: "bubble.left", title: asked, detail: [started, RunLine.place(channelName: run.channelName, title: channel.map { store.title(of: $0) }).map { "from \($0)" }].compactMap { $0 }.joined(separator: " · "), last: false)
           if run.status == "running" {
             step(symbol: "ellipsis", title: store.activity[agent.id].flatMap { $0 == "started" ? nil : $0 } ?? "Working on it", detail: RunLine.duration(from: run.createdAt, to: nil).map { "\($0) so far" } ?? "", last: true)
           } else {
@@ -331,7 +339,7 @@ struct AgentRunPage: View {
   private var started: String? { run.createdAt.flatMap(Wire.date).map { RunLine.day($0) } }
 
   private var outcome: String {
-    if RunLine.isBad(run) { return run.hint ?? (run.error?.isEmpty == false ? run.error! : "It couldn't finish") }
+    if let why = RunLine.reason(run, harness: agent.harness, device: device?.name) { return why }
     return RunLine.status(run) == "Stopped" ? "Stopped before it finished" : "Finished"
   }
 

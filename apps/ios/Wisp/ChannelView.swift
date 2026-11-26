@@ -24,6 +24,8 @@ struct ChannelView: View {
   @State private var attachTrigger = 0
   @State private var tool: ChatTool?
   @State private var searching = false
+  /** the message bar has focus: the extras over it step aside, so nothing covers the slash menu or the last message */
+  @State private var typing = false
   @State private var jumpTo: String?
   @State private var screen: String?
   /** what the agent in a DM runs on: the line over the message box and the ring in the header */
@@ -113,11 +115,13 @@ struct ChannelView: View {
       } else {
         VStack(spacing: 6) {
           // a new agent's first chat: one-tap answers, pings after its first answer, and what it set up
-          SetupTourChat(channel: current)
-          FirstChatExtras(channel: current)
+          if !typing {
+            SetupTourChat(channel: current)
+            FirstChatExtras(channel: current)
+          }
           ActivityPill(channel: current)
           VStack(alignment: .leading, spacing: 0) {
-            if let agent = store.dmAgent(current), run.context != nil {
+            if !typing, let agent = store.dmAgent(current), run.context != nil {
               RunSummaryLine(agent: agent, info: run) { showRun = true }
                 .padding(.leading, 82).padding(.trailing, 18)
                 .transition(.opacity)
@@ -199,7 +203,7 @@ struct ChannelView: View {
   private var composer: some View {
     Composer(placeholder: placeholder, channelId: channel.id, refresh: list.count, draft: draft, attachTrigger: attachTrigger, send: { text, files, replyTo in
             try await store.send(text, in: channel.id, files: files, replyTo: replyTo)
-          }, onModelCommand: store.dmAgent(current).map { _ in { showRun = true } }, callLive: call != nil)
+          }, onModelCommand: store.dmAgent(current).map { _ in { showRun = true } }, callLive: call != nil, onFocus: { on in withAnimation(Motion.pick(Motion.soft, reduceMotion)) { typing = on } })
     .tourTarget("composer")
     // Show me around starts from the chat that's open
     .onAppear { TourRun.shared.openChannel = channel.id }
@@ -689,6 +693,8 @@ struct Composer: View {
   var onModelCommand: (() -> Void)? = nil
   /** a call is on: dictating would take the microphone and speaker away from it */
   var callLive = false
+  /** told when the field gains or loses focus (the chat tucks its extras away while you type) */
+  var onFocus: (Bool) -> Void = { _ in }
   @State private var dictation = Dictation()
   @State private var dictationBase = ""
   @State private var text = ""
@@ -699,6 +705,7 @@ struct Composer: View {
   @State private var error: String?
   @State private var pickingPhotos = false
   @State private var pickingFiles = false
+  @State private var takingPhoto = false
   @State private var photos: [PhotosPickerItem] = []
   @State private var slash = SlashMenuModel()
   @FocusState private var focused: Bool
@@ -754,6 +761,7 @@ struct Composer: View {
       // a round +, a pill-shaped field with dictation inside, and a round send button outside it
       HStack(alignment: .bottom, spacing: 8) {
         Menu {
+          if UIImagePickerController.isSourceTypeAvailable(.camera) { Button("Camera", systemImage: "camera") { takingPhoto = true } }
           Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
           Button("Files", systemImage: "folder") { pickingFiles = true }
           if chatAgent == nil { Button("Mention an agent", systemImage: "at") { text += (text.isEmpty || text.hasSuffix(" ") ? "@" : " @"); focused = true } }
@@ -835,7 +843,16 @@ struct Composer: View {
     }
     .onChange(of: attachTrigger) { pickingFiles = true }
     .onChange(of: callLive) { _, live in if live { dictation.stop() } }
+    .onChange(of: focused) { _, on in onFocus(on) }
     .onChange(of: store.replying) { _, _ in if replyTarget != nil { focused = true } }
+    .fullScreenCover(isPresented: $takingPhoto) {
+      CameraPicker { image in
+        guard let jpeg = image.jpegData(compressionQuality: 0.85) else { return }
+        let stamp = Date().formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false)).replacingOccurrences(of: ":", with: "-")
+        upload("Photo") { (jpeg, "Photo \(stamp).jpg", "image/jpeg") }
+      }
+      .ignoresSafeArea()
+    }
     .photosPicker(isPresented: $pickingPhotos, selection: $photos, maxSelectionCount: 10, matching: .any(of: [.images, .videos]))
     .onChange(of: photos) { _, items in
       guard !items.isEmpty else { return }
