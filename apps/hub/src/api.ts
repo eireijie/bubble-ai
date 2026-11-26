@@ -1409,6 +1409,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (body.computerId) body.settings = { ...body.settings, headless: false };
     const updated = store.updateAgent(agent.id, body)!;
     hub.broadcast(c.workspaceId, { type: "agents_changed" });
+    // work that waited for a device goes now that it has one
+    if (moved && updated.nodeId) hub.dispatchQueued(updated.id);
     return agentView(updated);
   });
 

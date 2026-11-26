@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AddComputer, DEFAULT_SIZE, orgoStatus, startKind } from "../src/views/ComputersView.tsx";
 import { AddDeviceDialog } from "../src/components/AddDevice.tsx";
-import type { DeviceInfo } from "../src/devices.ts";
+import { ownComputerPlace, type DeviceInfo } from "../src/devices.ts";
 import { useStore } from "../src/store.ts";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn(() => new Promise(() => {})), uploadFile: vi.fn() }));
@@ -86,5 +86,20 @@ describe("the Add list", () => {
     const rows = ["This computer", "A Linux computer", "Another computer", "A phone", "A cloud computer"];
     for (const row of rows) expect(html).toContain(row);
     expect(rows.map((r) => html.indexOf(r))).toEqual([...rows.map((r) => html.indexOf(r))].sort((a, b) => a - b));
+  });
+});
+
+describe("an agent's own computer", () => {
+  const box: DeviceInfo = { ...mac, id: "box", name: "box", capabilities: { ...mac.capabilities!, vm: { ok: false, detail: "This device can't run VMs yet. Run `bubble-ai setup` to install Apple's container (free, from Apple), or install OrbStack or Docker Desktop." } } };
+
+  it("goes on a device that can run it, even when the agent has none yet", () => {
+    expect(ownComputerPlace([null, null], [mac])).toEqual({ nodeId: "mac" });
+    expect(ownComputerPlace(["box"], [box, mac])).toEqual({ nodeId: "mac" });
+  });
+
+  it("says why it can't, in plain words, with the one step that fixes it", () => {
+    expect(ownComputerPlace(["box"], [box])).toEqual({ problem: "box can't run its own computer yet.", fix: "On box, run: bubble-ai setup" });
+    expect(ownComputerPlace([null], [])).toEqual({ problem: "Connect a computer first.", fix: null });
+    expect(ownComputerPlace(["mac"], [{ ...mac, online: false }])).toMatchObject({ problem: "This Mac is offline." });
   });
 });

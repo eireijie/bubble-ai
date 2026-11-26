@@ -38,7 +38,7 @@ import { foldTeams } from "./fold-teams.ts";
 import { TeamFlows } from "./team-flows.ts";
 import type { RunKind, Store } from "./store.ts";
 import { guestEvent } from "./guest-computers.ts";
-import { adoptShared } from "./shared-computer.ts";
+import { adoptShared, placeWaitingAgents } from "./shared-computer.ts";
 import { DeviceUse } from "./device-use.ts";
 
 const CONTEXT_MESSAGES = 20;
@@ -644,6 +644,8 @@ export class Hub {
       case "hello": {
         store.touchNode(conn.nodeId, msg.nodeName);
         this.updates.deviceConnected(conn.nodeId, msg.version);
+        // agents made before any device could run them (first-run setup) get this one; their queued work goes below
+        if (placeWaitingAgents(this, conn.workspaceId, conn.nodeId).length && store.nodeCapabilities(conn.nodeId)?.vm.ok) adoptShared(this, conn.workspaceId);
         for (const a of store.agentsOnNode(conn.nodeId)) this.broadcast(conn.workspaceId, { type: "agent_status", agentId: a.id, status: this.agentStatus(a) });
         for (const r of store.queuedRunsForNode(conn.nodeId)) this.dispatchRun(r.id);
         this.computers.nodeBack(conn.nodeId);
@@ -1405,6 +1407,11 @@ export class Hub {
     if (held?.timer) clearTimeout(held.timer);
     this.keyboard.set(agent.id, { userId, workspaceId: agent.workspaceId });
     if (held?.userId !== userId) this.broadcast(agent.workspaceId, { type: "keyboard", agentId: agent.id, userId });
+  }
+
+  /** Send an agent's queued runs, oldest first (it got a device, say). Ones that still can't go keep waiting. */
+  dispatchQueued(agentId: string) {
+    for (const q of this.store.activeRuns(agentId)) if (this.store.run(q.id)?.status === "queued") this.dispatchRun(q.id);
   }
 
   /** The agent has its keyboard back: what waited for it runs now. */

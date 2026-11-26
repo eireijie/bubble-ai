@@ -4,7 +4,7 @@ import { describeCron, harnessInfo, harnessLabel, nextRun, runsInVm, type Agent,
 import { api } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";
-import { agentReadiness, computerKindLabel, computerSummary, useDevices, type DeviceInfo } from "../devices.ts";
+import { agentReadiness, computerKindLabel, computerSummary, ownComputerPlace, useDevices, type DeviceInfo } from "../devices.ts";
 import { AddComputer, useComputerState } from "./ComputersView.tsx";
 import { ScreenThumb } from "../components/Screen.tsx";
 import { useComputerMode } from "../computerMode.ts";
@@ -93,7 +93,8 @@ function ComputerLine({ agent, nodes, current, advanced, sharedId }: { agent: Ag
   const refreshAgents = useStore((s) => s.refreshAgents);
   const isOwner = useStore((s) => s.me?.role === "owner");
   const [busy, setBusy] = useState<"shared" | "own" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // what went wrong, in plain words, and the one step that fixes it
+  const [error, setError] = useState<{ problem: string; fix: string | null } | null>(null);
   const onShared = !!current && (current.id === sharedId || !!(current.config as { shared?: boolean }).shared);
 
   const move = async (to: "shared" | "own") => {
@@ -103,15 +104,16 @@ function ComputerLine({ agent, nodes, current, advanced, sharedId }: { agent: Ag
       let target: ComputerInfo;
       if (to === "shared") target = await api<ComputerInfo>("POST", "/api/computers/shared");
       else {
-        // its own: one it already has from before, else a new one beside the shared computer
-        const nodeId = current?.nodeId ?? agent.nodeId;
-        const mine = computers.find((c) => c.kind === "vm" && c.id !== sharedId && !(c.config as { shared?: boolean }).shared && c.agents.length === 0 && c.nodeId === nodeId && c.name === `${agent.name}'s computer`);
-        target = mine ?? (await api<ComputerInfo>("POST", "/api/computers", { kind: "vm", nodeId, name: `${agent.name}'s computer` }));
+        // its own: one it already has from before, else a new one on a device that can run it
+        const place = ownComputerPlace([current?.nodeId, agent.nodeId], nodes);
+        if (!("nodeId" in place)) return setError(place);
+        const mine = computers.find((c) => c.kind === "vm" && c.id !== sharedId && !(c.config as { shared?: boolean }).shared && c.agents.length === 0 && c.nodeId === place.nodeId && c.name === `${agent.name}'s computer`);
+        target = mine ?? (await api<ComputerInfo>("POST", "/api/computers", { kind: "vm", nodeId: place.nodeId, name: `${agent.name}'s computer` }));
       }
       await api("PATCH", `/api/agents/${agent.id}`, { computerId: target.id });
       await Promise.all([refreshAgents(), useStore.getState().refreshComputers()]);
     } catch (e) {
-      setError((e as Error).message);
+      setError({ problem: (e as Error).message, fix: null });
     } finally {
       setBusy(null);
     }
@@ -120,12 +122,8 @@ function ComputerLine({ agent, nodes, current, advanced, sharedId }: { agent: Ag
   const none = agent.settings.headless ? "No computer" : "None yet";
   if (advanced || (current && current.kind !== "vm")) return <Line label="Computer" value={current ? computerSummary(current, nodes, advanced) : none} />;
   return (
+    <>
     <Line label="Computer">
-      {error && (
-        <span className="truncate text-bad" title={error}>
-          {error}
-        </span>
-      )}
       {busy && <Loader2 size={14} className="shrink-0 animate-spin" />}
       <select aria-label="Computer" className={SELECT} disabled={!!busy} value={!current ? "" : onShared ? "shared" : "own"} onChange={(e) => e.target.value && void move(e.target.value as "shared" | "own")}>
         {!current && (
@@ -138,11 +136,16 @@ function ComputerLine({ agent, nodes, current, advanced, sharedId }: { agent: Ag
             Shared computer
           </option>
         )}
-        <option value="own" disabled={!current && !agent.nodeId}>
-          Its own computer
-        </option>
+        <option value="own">Its own computer</option>
       </select>
     </Line>
+    {error && (
+      <p role="alert" className="px-3.5 py-2 text-[13px]">
+        <span className="text-bad">{error.problem}</span>
+        {error.fix && <span className="block text-muted">{error.fix}</span>}
+      </p>
+    )}
+    </>
   );
 }
 
