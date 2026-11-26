@@ -132,6 +132,15 @@ describe("who answers in a channel", () => {
     nova = (await api("POST", "/api/agents", { handle: "nova", name: "Nova", harness: "custom" })).data;
   });
 
+  it("in a DM, an @mention of another agent goes to them, not to the DM's agent as well", async () => {
+    const dm = (await api("POST", `/api/dm/${atlas.id}`)).data;
+    expect(hub.targets(await post(dm.id, "what's next?"), dm.workspaceId)).toEqual([atlas.id]);
+    expect(hub.targets(await post(dm.id, "@nova can you look?"), dm.workspaceId)).toEqual([nova.id]);
+    expect(hub.targets(await post(dm.id, "@atlas and @nova, both of you"), dm.workspaceId).sort()).toEqual([atlas.id, nova.id].sort());
+    // an address that isn't an agent's handle doesn't count as asking someone else
+    expect(hub.targets(await post(dm.id, "mail me at someone@example.com"), dm.workspaceId)).toEqual([atlas.id]);
+  });
+
   it("only wakes @mentioned agents until the channel has a default agent", async () => {
     const ch = room({ name: "support" }).data;
     expect(ch.settings).toEqual({ defaultAgentId: null, replyInThread: false, instructions: "", team: null });

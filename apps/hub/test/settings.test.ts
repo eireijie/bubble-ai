@@ -60,6 +60,19 @@ afterAll(async () => {
 });
 
 describe("your settings", () => {
+  it("tells the agent about files on the new message and earlier ones, with ids it can open", async () => {
+    const agent = (await api("POST", "/api/agents", { handle: "filer", name: "Filer", harness: "custom" })).data;
+    const general = (await api<any[]>("GET", "/api/channels")).data.find((c) => c.name === "general");
+    const me = (await api("GET", "/api/me")).data;
+    const author = { kind: "user" as const, id: me.user?.id ?? me.id };
+    await hub.postMessage({ channelId: general.id, threadId: null, author, body: "@filer the old one", parts: [{ type: "file", fileId: "fil_old", name: "old.csv" }] });
+    const msg = await hub.postMessage({ channelId: general.id, threadId: null, author, body: "", parts: [{ type: "file", fileId: "fil_pic", name: "photo.png" }] });
+    const prompt = await hub.buildPrompt(agent.id, general.id, null, msg.id);
+    const latest = prompt.slice(prompt.lastIndexOf("New message from"));
+    expect(latest).toContain("[Attached: photo.png (file id fil_pic; open it with file_view)]");
+    expect(prompt.slice(0, prompt.lastIndexOf("New message from"))).toContain("[Attached: old.csv (file id fil_old");
+  });
+
   it("keeps your profile and preferences, and agents see your name and local time", async () => {
     const me = (await api("PATCH", "/api/me", { preferredName: "Alex", timezone: "America/New_York" })).data;
     expect(me).toMatchObject({ name: "Alex Morgan", preferredName: "Alex", timezone: "America/New_York" });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TEAM_TEMPLATES, describeFlow, stepPrompt, stepsProblem, type ChannelTeam, type TeamFlow, type TeamStep } from "@bubble-ai/core";
-import { ADD_KINDS, addStep, lanesOf, prepareTeam, waitingLanes, connecting, disconnecting, emptyTeam, fillTemplate, fromCanvas, inputIds, movingAfter, numberOf, relayout, removingStep, retype, rowInputs, insertingBetween, settingInputs, stepProblems, stepRows, toCanvas, updating } from "../src/team/flow.ts";
+import { ADD_KINDS, addStep, castFrom, lanesOf, prepareTeam, waitingLanes, connecting, disconnecting, emptyTeam, fillTemplate, fromCanvas, inputIds, movingAfter, numberOf, relayout, removingStep, retype, rowInputs, insertingBetween, settingInputs, stepProblems, stepRows, toCanvas, updating } from "../src/team/flow.ts";
 
 const agents = [
   { id: "nova", harness: "claude-code" },
@@ -255,5 +255,17 @@ describe("adding a step from the phone's flow", () => {
     expect(ask.inputs).toEqual(["a"]);
     expect(next.steps!.find((s) => s.id === "ship")!.inputs).toEqual(["ask"]);
     expect(next.steps!.find((s) => s.id === "end")!.inputs).toEqual(["b"]);
+  });
+});
+
+describe("a template on a new team", () => {
+  it("casts the agents picked for the team, not everyone in the workspace", () => {
+    const all = [{ id: "a1", harness: "codex" }, { id: "a2", harness: "codex" }, { id: "a3", harness: "codex" }, { id: "picked1", harness: "codex" }, { id: "picked2", harness: "codex" }];
+    const t = TEAM_TEMPLATES.find((x) => x.id === "build-review") ?? TEAM_TEMPLATES[0];
+    const team = fillTemplate(t, castFrom(all, ["picked1", "picked2"]));
+    const used = new Set((team.steps ?? []).map((s) => s.agentId).filter(Boolean));
+    expect([...used].every((id) => id === "picked1" || id === "picked2")).toBe(true);
+    expect(castFrom(all, [])).toEqual(all);
+    expect(castFrom(all, ["gone"])).toEqual(all);
   });
 });

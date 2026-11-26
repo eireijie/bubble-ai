@@ -273,7 +273,7 @@ private struct Running: View {
     switch k {
     case .background: "Background checks"
     case .routines: "Routines"
-    case .tasks: "Tasks"
+    case .tasks: "Tasks board"
     default: k.rawValue.capitalized
     }
   }

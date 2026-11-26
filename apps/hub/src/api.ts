@@ -1118,6 +1118,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       const running = db.prepare("SELECT hop FROM runs WHERE agent_id = ? AND status = 'running' ORDER BY created_at DESC LIMIT 1").get(c.actor.id) as { hop: number } | undefined;
       hop = (running?.hop ?? 0) + 1;
     }
+    // a background check talks to its person (message_person), not into teams and chats it isn't in:
+    // it once answered another team's request it found while looking around
+    if (c.actor.kind === "agent" && !store.isMember(ch.id, c.actor) && db.prepare("SELECT 1 FROM runs WHERE agent_id = ? AND status = 'running' AND kind = 'background' LIMIT 1").get(c.actor.id))
+      return reply.code(403).send({ error: `You're on a background check and aren't in #${ch.name}. Tell the person with message_person instead.` });
     store.addChannelMember(ch.id, c.actor);
     // a file it posts here itself isn't attached to its reply again
     if (c.actor.kind === "agent" && files.length) hub.detachFromRun(c.actor.id, files.map((f) => f!.id));

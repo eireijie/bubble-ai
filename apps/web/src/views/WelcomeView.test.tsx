@@ -190,6 +190,13 @@ describe("what's already signed in", () => {
     expect(foundOn(device, [])).toBeNull();
     expect(foundOn(undefined, [])).toBeNull();
   });
+  it("finds each AI's own sign-in, so ChatGPT uses Codex's even when Claude Code is signed in too", () => {
+    const both = { ...device, harnesses: [{ id: "claude-code", version: null, accounts: { default: true } }, { id: "codex", version: null, accounts: { default: true } }] } as DeviceInfo;
+    expect(foundOn(both, [])).toEqual({ harness: "claude-code", connectionId: null });
+    expect(foundOn(both, [], "codex")).toEqual({ harness: "codex", connectionId: null, share: true });
+    expect(foundOn(both, [conn({})], "codex")).toEqual({ harness: "codex", connectionId: null, share: true });
+    expect(foundOn(device, [], "codex")).toBeNull();
+  });
   it("offers to ask Claude Code or Codex only on your own computer, where they're installed, connected ones first", () => {
     const mac = { ...device, harnesses: [{ id: "claude-code", version: null }, { id: "codex", version: null }, { id: "hermes", version: null }] } as DeviceInfo;
     expect(askableOn(mac, [{ harness: "codex", connectionId: "mc2" }])).toEqual([

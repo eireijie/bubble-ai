@@ -1,7 +1,7 @@
 import SwiftUI
 import VisionKit
 
-/** Signed out: connect to Bubble AI on your computer by scanning the QR code in Settings → Mobile (or pasting its link). */
+/** Signed out: connect to Bubble AI on your computer by scanning the QR code in Settings → Computers → Phone (or pasting its link). */
 struct PairView: View {
   @Environment(Store.self) private var store
   @State private var step: Step = .start
@@ -66,7 +66,7 @@ struct PairView: View {
         scannerFrame
         DisclosureGroup {
           VStack(alignment: .leading, spacing: 16) {
-            StepRow(n: 1, title: "Open Bubble AI on your computer", text: "Go to Settings → Mobile and click Start pairing.")
+            StepRow(n: 1, title: "Open Bubble AI on your computer", text: "Go to Settings → Computers → Phone and click Start pairing.")
             StepRow(n: 2, title: "Scan the QR code", text: "Your phone needs to be on the same Wi-Fi, unless your Bubble AI is set up to be reached from anywhere.")
             StepRow(n: 3, title: "Check the code", text: "Confirm on your computer that both show the same six digits.")
           }
@@ -169,7 +169,7 @@ struct PairView: View {
         Spacer()
       }
       Text("Paste a pairing link").font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text).padding(.top, 18)
-      Text("In Bubble AI on your computer: Settings → Mobile → Start pairing → Copy pairing link. Then paste it here.")
+      Text("In Bubble AI on your computer: Settings → Computers → Phone → Start pairing → Copy pairing link. Then paste it here.")
         .font(.system(size: 15)).foregroundStyle(Palette.muted).lineSpacing(3).padding(.top, 8)
       VStack(alignment: .leading, spacing: 7) {
         Text("Pairing link").font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.muted).padding(.leading, 6)
@@ -210,7 +210,7 @@ struct PairView: View {
 
   private func use(_ text: String) {
     guard let link = PairLink(text) else {
-      step = .failed("That isn't a Bubble AI pairing code. Scan the code in Bubble AI → Settings → Mobile.", unreachable: false)
+      step = .failed("That isn't a Bubble AI pairing code. Scan the code in Bubble AI → Settings → Computers → Phone.", unreachable: false)
       return
     }
     pair(link)

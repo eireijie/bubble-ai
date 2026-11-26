@@ -57,6 +57,9 @@ export const SETTINGS_REDIRECTS: Record<string, SettingsPage> = { models: "harne
 export const MARKET_SECTIONS = ["all", "apps", "skills", "devices", "installed"] as const;
 export type MarketSection = (typeof MARKET_SECTIONS)[number];
 
+/** Sent just before Settings (popped over a page) closes back to that page, so the page can tell a close from a visit. */
+export const SETTINGS_CLOSING = "wisp:settings-closing";
+
 export function routeForRole(route: Route, role?: "owner" | "member" | "guest"): Route {
   // computers and terminals (Code) are for people who can change devices: not guests
   return role === "guest" && (route.view === "computers" || route.view === "code") ? { view: "dashboard" } : route;

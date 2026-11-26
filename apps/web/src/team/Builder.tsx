@@ -16,7 +16,7 @@ import { StepForm, stepHeading } from "./StepForm.tsx";
 import { TemplateBrowser } from "./Templates.tsx";
 import { useIsPhone } from "./parts.tsx";
 import { CreateAgentContext, NewAgentForTeam } from "./NewAgent.tsx";
-import { addStep, changeRequest, fillTemplate, leadOf, relayout, removingStep, isStepDeleteKey, stepById, stepNeedsConfirm, stepProblems, teamFromSteps, updating, withChart, type AddAt, type AddKind } from "./flow.ts";
+import { addStep, castFrom, changeRequest, fillTemplate, leadOf, relayout, removingStep, isStepDeleteKey, stepById, stepNeedsConfirm, stepProblems, teamFromSteps, updating, withChart, type AddAt, type AddKind } from "./flow.ts";
 
 export interface BuilderProps {
   team: ChannelTeam;
@@ -36,6 +36,8 @@ export interface BuilderProps {
   select?: string | null;
   /** who the field at the bottom talks to while the steps name nobody */
   leadId?: string | null;
+  /** the agents picked for a new team by name: a template casts them, not everyone in the workspace */
+  pool?: string[];
   onBack: () => void;
   onDone: () => void;
 }
@@ -52,7 +54,7 @@ const TRIES = ["One builds, one reviews", "Research, then I approve", "Triage, r
  * one is picked; and one field at the bottom to tell the lead how the team should work. At phone
  * width the steps run top to bottom and a step opens as a sheet.
  */
-export function TeamBuilder({ team, onChange, name, channelId, saving = false, error = null, doneLabel = "Done", allowEmpty = false, blocked = null, select = null, leadId = null, onBack, onDone }: BuilderProps) {
+export function TeamBuilder({ team, onChange, name, channelId, saving = false, error = null, doneLabel = "Done", allowEmpty = false, blocked = null, select = null, leadId = null, pool, onBack, onDone }: BuilderProps) {
   const phone = useIsPhone();
   const overlayId = useRef(Symbol("builder")).current;
   useOverlay(overlayId, "builder");
@@ -131,7 +133,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
 
   const useTemplate = (t: TeamTemplate) => {
     manual.current.clear();
-    onChange(fillTemplate(t, agents, team));
+    onChange(fillTemplate(t, castFrom(agents, pool), team));
     setTemplates(false);
     setSel(null);
     setFitKey((k) => k + 1);
