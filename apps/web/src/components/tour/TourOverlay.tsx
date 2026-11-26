@@ -8,7 +8,7 @@ import { motionReduced, useMotionReduced } from "../../theme.ts";
 import { setFeatures, useFeatures } from "../../features.ts";
 import { Bubble } from "../Bubble.tsx";
 import { cx } from "../ui.tsx";
-import { bubbleSpot, cardSpot, curveControl, curvePoint, easeInOut, flightMs, stopBody, stopTitle, stopsFor, type Box, type Place, type Stop } from "../../tour.ts";
+import { bubbleSpot, cardSpot, curveControl, curvePoint, dwellMs, easeInOut, flightMs, stopBody, stopTitle, stopsFor, type Box, type Place, type Stop } from "../../tour.ts";
 import { goStop, markSeen, stopTour, useTour, type TourRun } from "./tourRun.ts";
 import "./tour.css";
 import { LAYER } from "../layers.ts";
@@ -364,7 +364,7 @@ function Running({ run }: { run: TourRun }) {
     if (!tried || !stop) return;
     markSeen(stop.id);
     if (run.i >= stops.length - 1) return void stopTour();
-    const t = setTimeout(() => goStop(run.i + 1), 900);
+    const t = setTimeout(() => goStop(run.i + 1), dwellMs(stop.doIt));
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tried]);

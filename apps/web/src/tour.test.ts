@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHAPTERS, STOPS, TOTAL, bubbleSpot, cardSpot, cleanSeen, curveControl, curvePoint, flightMs, resumeIndex, resumeLabel, seenCount, stopBody, stopTitle, stopsFor, withSeen } from "./tour.ts";
+import { CHAPTERS, STOPS, TOTAL, bubbleSpot, cardSpot, cleanSeen, curveControl, curvePoint, flightMs, resumeIndex, resumeLabel, seenCount, stopBody, stopTitle, stopsFor, withSeen, dwellMs } from "./tour.ts";
 
 const view = { w: 1440, h: 900 };
 
@@ -109,5 +109,12 @@ describe("where the bubble and card go", () => {
     const low = { left: 10, top: 780, width: 370, height: 50 };
     expect(cardSpot(bubbleSpot(high, "right", 46, phone), high, { w: 366, h: 150 }, 46, phone).docked).toBe("bottom");
     expect(cardSpot(bubbleSpot(low, "top", 46, phone), low, { w: 366, h: 150 }, 46, phone).docked).toBe("top");
+  });
+
+  it("keeps stops that open something up long enough to see it before moving on", () => {
+    expect(dwellMs("slash")).toBeGreaterThanOrEqual(3000);
+    expect(dwellMs("yourturn")).toBeGreaterThanOrEqual(2000);
+    for (const s of STOPS) expect(dwellMs(s.doIt)).toBeGreaterThanOrEqual(900);
+    expect(dwellMs("slash")).toBeGreaterThan(dwellMs("click"));
   });
 });

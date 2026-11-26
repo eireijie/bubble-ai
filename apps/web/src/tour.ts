@@ -66,6 +66,16 @@ export const STOPS: Stop[] = [
   { id: "new", ch: 0, place: "side", phonePlace: { view: "chats" }, targets: [t("new")], side: "right", doIt: "click", noGuests: true, title: "Make another", body: "Another agent, or a team of them." },
 ];
 
+/**
+ * How long a finished stop stays up, in ms, before the tour moves on by itself. The trigger (a
+ * keypress, a tab click) fires before the result is drawn, and leaving the stop puts back what
+ * it opened (the / popup is closed again), so the stops that open something stay long enough to
+ * read it. Next is always there to go sooner.
+ */
+export function dwellMs(doIt: DoIt): number {
+  return { send: 1800, slash: 4500, at: 4500, yourturn: 3000, click: 900 }[doIt];
+}
+
 /** A stop's title with the agent's name in it. */
 export function stopTitle(stop: Pick<Stop, "title">, agent: string): string {
   return stop.title.replace("{agent}", agent || "your agent");
