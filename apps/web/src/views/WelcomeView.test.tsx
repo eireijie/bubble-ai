@@ -7,7 +7,7 @@ import { api } from "../api.ts";
 import { askableOn, finishedSteps, firstRunAgent, makeFirstAgent, NO_NODE, welcomeScreen } from "./WelcomeView.tsx";
 import { AgentStep, JOBS, nextLook, saveNamedAgent, shapeOf, suggestedName } from "./onboarding/AgentStep.tsx";
 import { AIStep, checkAI, foundOn } from "./onboarding/AIStep.tsx";
-import { sampleMessage } from "./onboarding/BubbleSetup.tsx";
+import { connectableFor, sampleMessage } from "./onboarding/BubbleSetup.tsx";
 import { lookOf, pointAgentAt } from "./onboarding/firstAgent.ts";
 import { TRACK } from "../components/SetupShell.tsx";
 import { devicesLine, serverAddress, stepsFinished } from "../onboarding.ts";
@@ -298,5 +298,13 @@ describe("Make it yours: the preview message", () => {
     expect(sampleMessage(["cal", "code"], "balanced", "morning")).toMatch(/^Morning\. [A-Z]/);
     expect(sampleMessage(["cal"], "brief", "needed")).toMatch(/^Heads up: [a-z]/);
     expect(sampleMessage([], "detailed", "evening")).toBe("Today's wrap-up: Nothing needs you yet.");
+  });
+});
+
+describe("Connect recommends only apps that can sign in now", () => {
+  it("keeps the goals' apps whose sign-in works, in the goals' order, and none when nothing can", () => {
+    const opts = { linear: { signIn: true }, notion: { signIn: true }, vercel: { signIn: true }, gmail: { signIn: false }, github: { signIn: false, key: true } } as never;
+    expect(connectableFor(["code", "research"], opts)).toEqual(["notion", "linear", "vercel"]);
+    expect(connectableFor(["inbox", "cal"], opts)).toEqual([]);
   });
 });

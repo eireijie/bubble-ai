@@ -1,6 +1,6 @@
-import { useState } from "react";
-import type { Agent } from "@bubble-ai/core";
-import { completeSetupStep, setDismissed, setReadyItem, stepsFinished, type StepId } from "../onboarding.ts";
+import { useEffect, useRef, useState } from "react";
+import type { Agent, SignInOption } from "@bubble-ai/core";
+import { completeSetupStep, featuresForExperience, setDismissed, setReadyItem, stepsFinished, type StepId } from "../onboarding.ts";
 import { usableDevices, useDevices } from "../devices.ts";
 import { useStore } from "../store.ts";
 import { go } from "../router.ts";
@@ -8,10 +8,12 @@ import { openDm } from "../openDm.ts";
 import { loadAnswers, saveAnswers } from "../onboardingV3.ts";
 import type { GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api } from "../api.ts";
+import { signInOptions } from "../appSignIn.ts";
+import { setFeatures } from "../features.ts";
 import { FAMILY_COLORS } from "../ghostFamily.ts";
 import { AgentStep, nextLook } from "./onboarding/AgentStep.tsx";
 import { AIStep } from "./onboarding/AIStep.tsx";
-import { ConnectStep, SETUP_GOALS, StartStep, YoursStep, yoursInstructions, type CheckIn, type SetupPath, type Talk } from "./onboarding/BubbleSetup.tsx";
+import { ConnectStep, connectableFor, SETUP_GOALS, StartStep, YoursStep, yoursInstructions, type CheckIn, type SetupPath, type Talk } from "./onboarding/BubbleSetup.tsx";
 import { lookOf } from "./onboarding/firstAgent.ts";
 import { Stage } from "./onboarding/Stage.tsx";
 import { startSetupTour, type SetupTourState } from "../components/onboarding/SetupTour.tsx";
@@ -92,11 +94,25 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     if (agent) startSetupTour({ agentId: agent.id, ...tour });
     finish(chatId);
   };
+  /** Simple or Advanced also sets the organization's features (an owner's choice; it changes nothing for a member). */
+  const startNext = () => {
+    if (me.role === "owner") void setFeatures(featuresForExperience(path)).catch(() => {});
+    goTo("ai");
+  };
+  // which apps can sign in from here right now (fetched early, so Connect never waits on it)
+  const signIns = useRef<Promise<Record<string, SignInOption>> | null>(null);
+  const [connectable, setConnectable] = useState<string[]>([]);
+  useEffect(() => {
+    signIns.current = signInOptions().catch(() => ({}));
+  }, []);
   const saveYours = async () => {
-    if (!agent) return goTo("recs");
     setBusy(true);
-    await api("PATCH", `/api/agents/${agent.id}`, { instructions: yoursInstructions(agent.name, me.user.name, goals, talk, when) }).catch(() => {});
+    if (agent) await api("PATCH", `/api/agents/${agent.id}`, { instructions: yoursInstructions(agent.name, me.user.name, goals, talk, when) }).catch(() => {});
+    const apps = connectableFor(goals, (await signIns.current) ?? {});
     setBusy(false);
+    // nothing these goals use can sign in yet: straight to the chat, no empty Connect page
+    if (!apps.length) return toChat({ path: "advanced", on: [], off: [] });
+    setConnectable(apps);
     goTo("recs");
   };
 
@@ -107,8 +123,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
 
   let page;
   if (screen === "goals" && agent) page = <YoursStep look={agent.settings.appearance} seed={agent.id} name={called} goals={goals} onGoals={setGoals} talk={talk} onTalk={setTalk} when={when} onWhen={setWhen} onNext={() => void saveYours()} busy={busy} />;
-  else if (screen === "recs" && agent) page = <ConnectStep name={called} goals={goals} onNext={(on, off) => toChat({ path: "advanced", on, off })} />;
-  else if (screen === "start" && agent) page = <StartStep name={called} path={path} onPath={setPath} onNext={() => goTo("ai")} />;
+  else if (screen === "recs" && agent) page = <ConnectStep name={called} apps={connectable} onNext={(on, off) => toChat({ path: "advanced", on, off })} />;
+  else if (screen === "start" && agent) page = <StartStep name={called} path={path} onPath={setPath} onNext={startNext} />;
   else if (screen === "ai" && agent)
     page = (
       <AIStep

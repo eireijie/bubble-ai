@@ -72,6 +72,19 @@ export function Stage({
     return () => window.removeEventListener("keydown", k);
   }, [onBack]);
 
+  // the app behind the stage (its sidebar, header) is out of reach and out of the accessibility tree
+  const stageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const hidden: HTMLElement[] = [];
+    for (let el: HTMLElement | null = stageRef.current; el && el.parentElement && el !== document.body; el = el.parentElement)
+      for (const sib of Array.from(el.parentElement.children))
+        if (sib !== el && sib instanceof HTMLElement && !sib.inert && sib.tagName !== "SCRIPT") {
+          sib.inert = true;
+          hidden.push(sib);
+        }
+    return () => hidden.forEach((h) => (h.inert = false));
+  }, []);
+
   // --- the travelling bubble -------------------------------------------------------------------
   const box = useRef<HTMLDivElement>(null);
   const bub = useRef<HTMLDivElement>(null);
@@ -190,7 +203,7 @@ export function Stage({
   ];
 
   return (
-    <div className="ob-stage fixed inset-0 z-40 overflow-y-auto overflow-x-hidden bg-panel text-ink" data-testid="setup">
+    <div ref={stageRef} className="ob-stage fixed inset-0 z-40 overflow-y-auto overflow-x-hidden bg-panel text-ink" data-testid="setup">
       <BackgroundBubbles />
       <div className="ob-progress" aria-hidden>
         <span style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, progress))})` }} />

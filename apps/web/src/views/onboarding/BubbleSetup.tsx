@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
-import { catalogConnector, type Connector, type SignInOption } from "@bubble-ai/core";
+import type { Connector, SignInOption } from "@bubble-ai/core";
 import { api } from "../../api.ts";
-import { connectApps, signInOptions } from "../../appSignIn.ts";
+import { connectApps } from "../../appSignIn.ts";
 import { brandLogo } from "../../brandLogos.ts";
 import { BrandTile } from "../../components/MarketParts.tsx";
 import { cx } from "../../components/ui.tsx";
@@ -15,7 +15,8 @@ import type { GhostAppearance } from "@bubble-ai/core";
  * The first run's pages after "Your agent" (2026-11-26 canvas): How it starts (Simple or Advanced,
  * each shown as a small loop of what it's like), then for Advanced, Make it yours (what it helps
  * with, how it talks, when it checks in, with the message it would send) and Connect (each app
- * connects right there: sign in, or a key, and the row says when it's connected).
+ * connects right there with its own sign-in, and the row says when it's connected; only apps that
+ * can sign in now are recommended).
  * They sit on the one Stage (Stage.tsx); the bubble above each is the stage's own.
  */
 
@@ -38,7 +39,7 @@ export const SETUP_GOALS: SetupGoal[] = [
   { id: "support", label: "Customers", icon: "M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z", apps: ["slack", "gmail"], news: "2 customers are waiting" },
   { id: "orders", label: "Orders", icon: "M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8", apps: ["stripe"], news: "4 orders are ready to ship" },
   { id: "research", label: "Research", icon: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5", apps: ["notion", "brave-search"], news: "I found 5 sources on your question" },
-  { id: "code", label: "Code", icon: "m16 18 6-6-6-6M8 6l-6 6 6 6", apps: ["github", "linear"], news: "the build on main failed" },
+  { id: "code", label: "Code", icon: "m16 18 6-6-6-6M8 6l-6 6 6 6", apps: ["github", "linear", "vercel"], news: "the build on main failed" },
 ];
 
 export const SETUP_APPS: Record<string, { name: string }> = {
@@ -51,6 +52,7 @@ export const SETUP_APPS: Record<string, { name: string }> = {
   github: { name: "GitHub" },
   linear: { name: "Linear" },
   "brave-search": { name: "Brave Search" },
+  vercel: { name: "Vercel" },
 };
 
 /** The apps the picked goals call for, each once, in pick order. */
@@ -87,11 +89,11 @@ export function StartStep({ name, path, onPath, onNext }: { name: string; path: 
         </button>
         <button type="button" role="radio" aria-checked={path === "advanced"} onClick={() => onPath("advanced")} className="ob-tile flex flex-col gap-3 p-3">
           <div className="ob-demo ob-demo-adv" aria-hidden>
-            <span className="chip c1">Email</span>
-            <span className="chip c2">Calendar</span>
-            <span className="chip c3">Code</span>
-            <span className="chip r1">Gmail ✓</span>
-            <span className="chip r2">GitHub ✓</span>
+            <span className="chip c1">Research</span>
+            <span className="chip c2">Code</span>
+            <span className="chip c3">Email</span>
+            <span className="chip r1">Notion ✓</span>
+            <span className="chip r2">Linear ✓</span>
           </div>
           <span className="px-1 pb-1">
             <span className="block text-[15px] font-semibold">Advanced</span>
@@ -201,14 +203,14 @@ function Seg<T extends string>({ label, value, options, onPick }: { label: strin
 
 // --- Connect -------------------------------------------------------------------------------------
 
-type Way = "signin" | "key" | "none";
-type ConnState = "idle" | "out" | "key" | "saving" | "on" | { error: string };
+type ConnState = "idle" | "out" | "on" | { error: string };
 
-/** How an app connects from here: its own sign-in when the hub can do it, else a key when it takes one, else not yet. */
-export function wayFor(id: string, opt: SignInOption | undefined): Way {
-  if (opt?.signIn) return "signin";
-  const entry = catalogConnector(id);
-  return entry?.fields.some((f) => f.secret) ? "key" : "none";
+/**
+ * The apps to recommend for these goals: only ones that can sign in from here right now (the hub's
+ * sign-in list says which). Google, GitHub and Slack join by themselves once their sign-in exists.
+ */
+export function connectableFor(goals: readonly string[], opts: Record<string, SignInOption>): string[] {
+  return appsFor(goals).filter((a) => opts[a]?.signIn);
 }
 
 /** Already connected: signed in, or made with its key. */
@@ -216,29 +218,11 @@ export function isConnected(c: Pick<Connector, "catalogId" | "auth" | "kind">, i
   return c.catalogId === id && (c.auth ? c.auth.signedIn : true);
 }
 
-/** Make a catalog app from a pasted key, the way Apps does. */
-async function addWithKey(id: string, values: Record<string, string>): Promise<void> {
-  const e = catalogConnector(id);
-  if (!e) throw new Error("Unknown app");
-  const env = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim()).map(([k, v]) => [k, v.trim()]));
-  const body = e.kind === "mcp-http" ? { kind: e.kind, name: e.name, url: e.url, headers: e.headers ?? {}, env } : { kind: e.kind, name: e.name, command: e.command, args: e.args ?? [], env };
-  const made = await api<Connector>("POST", "/api/connectors", { ...body, catalogId: id, agentIds: [], allAgents: true });
-  // the hub tries the key straight away: a server that still asks for a sign-in turned the key down
-  if (made?.auth?.required && !made.auth.signedIn) {
-    await api("DELETE", `/api/connectors/${made.id}`).catch(() => {});
-    throw new Error("That key didn't work");
-  }
-}
-
-export function ConnectStep({ name, goals, onNext }: { name: string; goals: string[]; onNext: (on: string[], off: string[]) => void }) {
-  const apps = appsFor(goals.length ? goals : ["inbox", "cal"]);
+export function ConnectStep({ name, apps, onNext }: { name: string; apps: string[]; onNext: (on: string[], off: string[]) => void }) {
   const [conn, setConn] = useState<Record<string, ConnState>>({});
-  const [opts, setOpts] = useState<Record<string, SignInOption> | null>(null);
-  const [keys, setKeys] = useState<Record<string, Record<string, string>>>({});
   const tries = useRef<Record<string, number>>({});
   useEffect(() => {
     let live = true;
-    signInOptions().then((o) => live && setOpts(o), () => live && setOpts({}));
     // anything already connected shows so
     api<Connector[]>("GET", "/api/connectors").then(
       (list) => live && setConn((c) => ({ ...Object.fromEntries(apps.filter((a) => list.some((x) => isConnected(x, a))).map((a) => [a, "on" as const])), ...c })),
@@ -260,15 +244,6 @@ export function ConnectStep({ name, goals, onNext }: { name: string; goals: stri
     tries.current[id] = (tries.current[id] ?? 0) + 1;
     setConn((c) => ({ ...c, [id]: "idle" }));
   };
-  const saveKey = async (id: string) => {
-    setConn((c) => ({ ...c, [id]: "saving" }));
-    try {
-      await addWithKey(id, keys[id] ?? {});
-      setConn((c) => ({ ...c, [id]: "on" }));
-    } catch (e) {
-      setConn((c) => ({ ...c, [id]: { error: (e as Error).message } }));
-    }
-  };
   const on = apps.filter((a) => conn[a] === "on");
   const names = (ids: string[]) => ids.map((a) => SETUP_APPS[a]?.name ?? a);
 
@@ -276,85 +251,35 @@ export function ConnectStep({ name, goals, onNext }: { name: string; goals: stri
     <div className="flex w-full max-w-[520px] flex-col items-center">
       <BubbleSlot size={72} />
       <h1 className="ob-title mt-4">Connect what {name} needs</h1>
-      <div className="mt-7 w-full rounded-xl bg-panel shadow-[inset_0_0_0_1px_var(--line2)]">
+      <div className="mt-7 w-full rounded-xl bg-panel shadow-[inset_0_0_0_1px_var(--line2)]" role="list">
         {apps.map((id, i) => {
           const app = SETUP_APPS[id];
           const logo = brandLogo(id, app?.name);
           const state = conn[id] ?? "idle";
-          const way = opts ? wayFor(id, opts[id]) : null;
-          const entry = catalogConnector(id);
-          const fields = entry?.fields.filter((f) => !f.optional) ?? [];
-          const ready = fields.every((f) => (keys[id]?.[f.key] ?? "").trim());
           return (
-            <div key={id} className={cx("flex flex-col px-3.5", i > 0 && "shadow-[inset_0_1px_0_var(--line)]")}>
-              <div className="flex min-h-[60px] items-center gap-3 py-2.5">
-                {logo ? <BrandTile logo={logo} size={36} /> : <span className="size-9 rounded-lg bg-card" />}
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold">{app?.name ?? id}</span>
-                  {typeof state === "object" && <span className="block text-[12.5px] leading-4 text-bad">{state.error}</span>}
+            <div key={id} role="listitem" className={cx("flex min-h-[60px] items-center gap-3 px-3.5 py-2.5", i > 0 && "shadow-[inset_0_1px_0_var(--line)]")}>
+              {logo ? <BrandTile logo={logo} size={36} /> : <span className="size-9 rounded-lg bg-card" />}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold">{app?.name ?? id}</span>
+                {typeof state === "object" && <span className="block text-[12.5px] leading-4 text-bad">{state.error}</span>}
+              </span>
+              {state === "on" ? (
+                <span className="ob-conn flex items-center gap-1.5 text-[13.5px] font-semibold text-ok">
+                  <Check size={15} strokeWidth={2.8} aria-hidden />
+                  Connected
                 </span>
-                {state === "on" ? (
-                  <span className="ob-conn flex items-center gap-1.5 text-[13.5px] font-semibold text-ok">
-                    <Check size={15} strokeWidth={2.8} aria-hidden />
-                    Connected
-                  </span>
-                ) : state === "out" ? (
-                  <span className="ob-conn flex items-center gap-2 text-[13px] text-muted">
-                    <Loader2 size={15} className="animate-spin" aria-hidden />
-                    Finish in your browser
-                    <button type="button" onClick={() => cancel(id)} className="ob-quiet -mr-2">
-                      Cancel
-                    </button>
-                  </span>
-                ) : way === null ? (
-                  <Loader2 size={15} className="animate-spin text-faint" aria-label="Checking" />
-                ) : way === "none" ? (
-                  <span className="text-[13px] text-faint">Soon</span>
-                ) : state === "key" || state === "saving" ? (
+              ) : state === "out" ? (
+                <span className="ob-conn flex items-center gap-2 text-[13px] text-muted" role="status">
+                  <Loader2 size={15} className="animate-spin" aria-hidden />
+                  Finish in your browser
                   <button type="button" onClick={() => cancel(id)} className="ob-quiet -mr-2">
                     Cancel
                   </button>
-                ) : (
-                  <button type="button" onClick={() => (way === "signin" ? void signIn(id) : setConn((c) => ({ ...c, [id]: "key" })))} className="ob-conn h-8 shrink-0 rounded-lg px-3 text-[13.5px] font-semibold text-ink shadow-[inset_0_0_0_1px_var(--line2)] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40">
-                    {typeof state === "object" ? "Try again" : way === "signin" ? "Connect" : "Add key"}
-                  </button>
-                )}
-              </div>
-              {(state === "key" || state === "saving") && (
-                <form
-                  className="ob-panel flex flex-col gap-2 pb-3.5"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (ready) void saveKey(id);
-                  }}
-                >
-                  {fields.map((f, n) => (
-                    <input
-                      key={f.key}
-                      autoFocus={n === 0}
-                      type={f.secret ? "password" : "text"}
-                      autoComplete="off"
-                      aria-label={f.label}
-                      placeholder={f.placeholder ?? f.label}
-                      value={keys[id]?.[f.key] ?? ""}
-                      onChange={(e) => setKeys((k) => ({ ...k, [id]: { ...k[id], [f.key]: e.target.value } }))}
-                      className="h-9 rounded-lg bg-card px-3 text-[14px] outline-none placeholder:text-faint focus-visible:ring-2 focus-visible:ring-ring/40"
-                    />
-                  ))}
-                  <div className="flex items-center justify-between">
-                    {fields[0]?.link ? (
-                      <a href={fields[0].link} target="_blank" rel="noreferrer" className="text-[12.5px] text-muted underline-offset-2 hover:text-ink hover:underline">
-                        Get a key
-                      </a>
-                    ) : (
-                      <span />
-                    )}
-                    <button type="submit" disabled={!ready || state === "saving"} className="ob-primary h-8 px-3.5 text-[13px]">
-                      {state === "saving" && <Loader2 size={14} className="animate-spin" aria-hidden />}
-                      Save
-                    </button>
-                  </div>
-                </form>
+                </span>
+              ) : (
+                <button type="button" onClick={() => void signIn(id)} aria-label={`${typeof state === "object" ? "Try again" : "Connect"} ${app?.name ?? id}`} className="ob-conn h-8 shrink-0 rounded-lg px-3 text-[13.5px] font-semibold text-ink shadow-[inset_0_0_0_1px_var(--line2)] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40">
+                  {typeof state === "object" ? "Try again" : "Connect"}
+                </button>
               )}
             </div>
           );

@@ -114,6 +114,8 @@ export function AIStep({ agentId, device, onDone, onBusy }: { agentId: string; d
   // what failed, to try again
   const [last, setLast] = useState<(() => void) | null>(null);
   const [leaving, setLeaving] = useState(false);
+  // installed here a moment ago, before the device list has caught up
+  const [justInstalled, setJustInstalled] = useState<string[]>([]);
   const [dialog, setDialog] = useState<{ Dialog: ComponentType<Parameters<typeof HarnessSignInDialog>[0]>; device: HarnessesResponse["device"]; settings: HarnessSettings } | null>(null);
   const run = useRef(0);
   const alive = useRef(true);
@@ -224,6 +226,25 @@ export function AIStep({ agentId, device, onDone, onBusy }: { agentId: string; d
     }
   };
 
+  /** Install a harness on this computer, with progress, and stay on the page (its sign-in comes next). */
+  const install = async (id: string) => {
+    run.current++;
+    setProblem(null);
+    setLast(() => () => void install(id));
+    if (!device) return fail("Waiting for a computer to connect.");
+    setPhase("checking");
+    setStage("install");
+    setHarness(id);
+    try {
+      await api("POST", `/api/nodes/${device.id}/install`, { harness: id });
+      await api("POST", `/api/nodes/${device.id}/refresh`).catch(() => {});
+      setJustInstalled((s) => [...s, id]);
+      setPhase("idle");
+    } catch (e) {
+      fail(unavailable(e, harnessLabel(id)));
+    }
+  };
+
   /** A key or sign-in made on Hermes's model picker: Hermes runs it unless it can't. */
   const connected = async (connectionId: string | null, h: string) => {
     reload();
@@ -245,6 +266,17 @@ export function AIStep({ agentId, device, onDone, onBusy }: { agentId: string; d
     setProblem(null);
     setPhase("checking");
     setStage("opening");
+    // it stays unfinished, but on this computer and on an AI app that's really here (signed in first),
+    // not "Claude Code, no device yet"
+    if (device) {
+      const a = useStore.getState().agents.find((x) => x.id === agentId);
+      const ready = foundOn(device, connections ?? []);
+      const here = HARNESSES.find((h) => h.protocol !== "mcp" && device.harnesses?.some((x) => x.id === h.id))?.id;
+      const harness = ready?.harness ?? here ?? a?.harness;
+      const patch = { ...(harness && harness !== a?.harness ? { harness } : {}), ...(a && !a.nodeId ? { nodeId: device.id } : {}), ...(ready?.connectionId ? { settings: { connectionId: ready.connectionId } } : {}) };
+      if (Object.keys(patch).length) await api("PATCH", `/api/agents/${agentId}`, patch).catch(() => {});
+      await useStore.getState().refreshAgents().catch(() => {});
+    }
     await api("POST", `/api/agents/${agentId}/greet`).catch(() => {});
     const channelId = await chatOf();
     if (alive.current) onDone(channelId);
@@ -253,6 +285,7 @@ export function AIStep({ agentId, device, onDone, onBusy }: { agentId: string; d
   const rest = HARNESSES.filter((h) => h.protocol !== "mcp" && !FEATURED.some((f) => f.harness === h.id));
   const signedIn = (id: string) => !!foundOn(device, connections ?? [], id);
   const feat = FEATURED.find((f) => f.harness === sel);
+  const installed = (id: string) => justInstalled.includes(id) || !!device?.harnesses?.some((x) => x.id === id);
 
   return (
     <div className="flex w-full max-w-[640px] flex-col items-center">
@@ -260,7 +293,7 @@ export function AIStep({ agentId, device, onDone, onBusy }: { agentId: string; d
       <h1 className="ob-title mt-4">Which AI app runs {name}?</h1>
       <div role="radiogroup" aria-label="AI app" className="mt-7 grid w-full grid-cols-3 gap-2">
         {FEATURED.map((f) => (
-          <button key={f.harness} type="button" role="radio" aria-checked={sel === f.harness} disabled={checking && harness !== f.harness} onClick={() => pick(f.harness)} className="ob-tile flex min-h-[104px] flex-col items-start gap-2.5 p-3.5 disabled:opacity-40">
+          <button key={f.harness} type="button" role="radio" aria-checked={sel === f.harness} aria-label={`${harnessLabel(f.harness)}, runs ${f.sub}${signedIn(f.harness) ? ", signed in" : ""}`} disabled={checking && harness !== f.harness} onClick={() => pick(f.harness)} className="ob-tile flex min-h-[104px] flex-col items-start gap-2.5 p-3.5 disabled:opacity-40">
             <HarnessLogo harness={f.harness} size={28} />
             <span>
               <span className="block text-[15px] font-semibold">{harnessLabel(f.harness)}</span>
@@ -272,7 +305,7 @@ export function AIStep({ agentId, device, onDone, onBusy }: { agentId: string; d
       </div>
       <div role="radiogroup" aria-label="More AI apps" className="mt-2 grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
         {rest.map((h) => (
-          <button key={h.id} type="button" role="radio" aria-checked={sel === h.id} disabled={checking && harness !== h.id} onClick={() => pick(h.id)} className="ob-tile flex h-11 items-center gap-2.5 px-3 disabled:opacity-40">
+          <button key={h.id} type="button" role="radio" aria-checked={sel === h.id} aria-label={`${h.label}${signedIn(h.id) ? ", signed in" : ""}`} disabled={checking && harness !== h.id} onClick={() => pick(h.id)} className="ob-tile flex h-11 items-center gap-2.5 px-3 disabled:opacity-40">
             <HarnessLogo harness={h.id} size={18} />
             <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{h.label}</span>
             {signedIn(h.id) && <SignedDot />}
@@ -310,6 +343,9 @@ export function AIStep({ agentId, device, onDone, onBusy }: { agentId: string; d
             ) : feat?.provider ? (
               signedIn(sel) ? (
                 <UseIt label={harnessLabel(sel)} onClick={() => void takeFound(foundOn(device, connections ?? [], sel))} />
+              ) : device && !installed(sel) ? (
+                // its sign-in runs on a computer that has it: install it here first
+                <UseIt label={harnessLabel(sel)} verb="Install" where={device.name} note="Not on" onClick={() => void install(sel)} />
               ) : (
                 <div className="flex flex-col gap-2">
                   {/* Claude's sign-in runs `claude setup-token` in a terminal on the device, which Windows can't do yet */}
@@ -362,10 +398,10 @@ function SignedDot() {
 }
 
 /** One button for an app that's ready or installs on the computer. */
-function UseIt({ label, verb = "Use", where, onClick }: { label: string; verb?: string; where?: string; onClick: () => void }) {
+function UseIt({ label, verb = "Use", where, note, onClick }: { label: string; verb?: string; where?: string; note?: string; onClick: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[13.5px] text-muted">{where ? `Installs and signs in on ${where}` : "Signed in"}</span>
+      <span className="text-[13.5px] text-muted">{where ? `${note ?? "Installs and signs in on"} ${where}` : "Signed in"}</span>
       <button type="button" onClick={onClick} className="ob-primary h-9 px-4">
         {verb} {label}
       </button>
