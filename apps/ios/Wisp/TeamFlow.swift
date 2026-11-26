@@ -576,7 +576,7 @@ struct FlowLine: Codable, Hashable, Identifiable {
 
 enum FlowWords {
   private static let verbs = Set(
-    "plan research build draft write review check find fix test run read collect gather sort triage reproduce verify approve ship send deliver design create make summarize summarise analyze analyse compare study explore investigate prepare publish post update edit clean translate propose pick choose answer reply respond report hand split merge deploy release schedule book call email notify tell ask look search scan list rank score rewrite refactor implement develop code debug document outline brainstorm decide confirm validate monitor track measure label tag file open close assign sign pay order buy sell collect extract fetch pull push upload download share present explain teach polish format proofread fact-check".split(separator: " ").map(String.init))
+    "plan research build draft write review check find fix test run read collect gather sort triage reproduce verify approve ship send deliver design create make summarize summarise analyze analyse compare study explore investigate prepare publish post update edit clean translate propose pick choose answer reply respond report hand split merge deploy release schedule book call email notify tell ask look search scan list rank score rewrite refactor implement develop code debug document outline brainstorm decide confirm validate monitor track measure label tag file open close assign sign pay order buy sell collect extract fetch pull push upload download share present explain teach polish format proofread fact-check challenge question audit flag spot hand".split(separator: " ").map(String.init))
 
   private static func third(_ word: String) -> String {
     func matches(_ p: String) -> Bool { word.range(of: p, options: [.regularExpression, .caseInsensitive]) != nil }
@@ -604,7 +604,20 @@ enum FlowWords {
           let w = Range(m.range(at: 1), in: t), let rest = Range(m.range(at: 2), in: t) else { return nil }
     let word = t[w].lowercased()
     guard verbs.contains(word) else { return nil }
-    return (third(word) + t[rest], word + t[rest])
+    return (third(word) + laterVerbs(String(t[rest])), word + t[rest])
+  }
+
+  /** "gaps, challenge the plan" → "gaps, challenges the plan": verbs after a comma, "and" or "then" agree too. */
+  private static func laterVerbs(_ rest: String) -> String {
+    guard let re = try? NSRegularExpression(pattern: "(,\\s+|\\s+and\\s+|\\s+then\\s+)([A-Za-z-]+)\\b") else { return rest }
+    var out = rest
+    for m in re.matches(in: rest, range: NSRange(rest.startIndex..., in: rest)).reversed() {
+      guard let w = Range(m.range(at: 2), in: rest) else { continue }
+      let word = rest[w].lowercased()
+      guard verbs.contains(word), let target = Range(m.range(at: 2), in: out) else { continue }
+      out.replaceSubrange(target, with: third(word))
+    }
+    return out
   }
 
   static func capitalized(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
@@ -659,9 +672,10 @@ extension ChannelTeam {
         let max = s.maxRounds ?? Self.defaultRounds
         rest = "\(verb?.third ?? "checks the work")\(what.isEmpty ? "" : " using \(what)"). If it isn't good enough it goes back to step \(num(s.sendBackTo)), up to \(max) round\(max == 1 ? "" : "s"), then it asks you"
       case .handOut:
-        let names = (s.handTo ?? []).compactMap { r in role(r)?.name }
-        let checker = (s.reviewBy ?? "").isEmpty ? nil : role(s.reviewBy)?.name
-        rest = "\(verb?.third ?? "splits the work")\(names.isEmpty ? "" : " between \(FlowWords.join(names))")\(checker.map { "; the \($0) checks each piece" } ?? "")"
+        // only roles someone fills are named; an empty role is not on the team
+        let names = (s.handTo ?? []).compactMap { r in role(r)?.agentId.flatMap { $0.isEmpty ? nil : nameOf($0) } }
+        let checker = role(s.reviewBy)?.agentId.flatMap { $0.isEmpty ? nil : nameOf($0) }
+        rest = "\(verb?.third ?? "splits the work")\(names.isEmpty ? "" : " between \(FlowWords.join(names))")\(checker.map { "; \($0) checks each piece" } ?? "")"
       default:
         if let verb { rest = what.isEmpty ? verb.third : "uses \(what) to \(verb.base)" }
         else { rest = what.isEmpty ? "works on “\(title.isEmpty ? "this step" : title)”" : "uses \(what) for “\(title.isEmpty ? "this step" : title)”" }

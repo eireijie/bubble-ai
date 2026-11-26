@@ -225,7 +225,7 @@ struct ChannelView: View {
 
   private var placeholder: String {
     if let agent = store.dmAgent(current) { return "Ask \(agent.name)" }
-    return "Message \(current.name)"
+    return "Message \(current.label)"
   }
 
   /** a voice call is on offer in a chat with one agent when voice is on */
@@ -259,7 +259,7 @@ struct ChannelView: View {
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .accessibilityLabel(store.dmAgent(current) != nil ? "\(store.title(of: current)), open profile" : "\(current.name), team info")
+      .accessibilityLabel(store.dmAgent(current) != nil ? "\(store.title(of: current)), open profile" : "\(current.label), team info")
       .accessibilityIdentifier("chat-title")
       .tourTarget(store.dmAgent(current) != nil ? "agent-pill" : "team-pill")
     } trailing: {
@@ -636,7 +636,7 @@ struct EmptyChannel: View {
       } else {
         let team = channel.team(agents: store.agents)
         TeamGhosts(agents: channel.iconAgents(store.agents), seed: channel.name, size: 64, iconFileId: channel.settings?.iconFileId)
-        Text(channel.name).font(.system(size: 20, weight: .semibold))
+        Text(channel.label).font(.system(size: 20, weight: .semibold))
         Text(intro(team)).font(.system(size: 15)).foregroundStyle(Palette.muted)
         if channel.archivedAt == nil {
           CardGroup {

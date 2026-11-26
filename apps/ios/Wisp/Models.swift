@@ -589,3 +589,14 @@ enum Wire {
   static func date(_ s: String) -> Date? { isoFrac.date(from: s) ?? iso.date(from: s) ?? (s.count == 10 ? day.date(from: s) : nil) }
   static func now() -> String { isoFrac.string(from: Date()) }
 }
+
+extension Channel {
+  /** The name people read: a slug like "audit-crew" reads "Audit crew"; a name someone typed stays as typed. */
+  var label: String { Channel.label(name) }
+
+  static func label(_ name: String) -> String {
+    guard !name.contains(" "), name == name.lowercased(), name.contains(where: { $0 == "-" || $0 == "_" }) else { return name }
+    let words = name.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
+    return words.prefix(1).uppercased() + words.dropFirst()
+  }
+}

@@ -21,10 +21,10 @@ struct AgentDoing: Equatable {
 
 /** Plain logic behind the Inbox sections (the web's DashboardView and useWaitingOnYou). */
 extension Store {
-  func chatName(_ c: Channel) -> String { c.isDM ? dmAgent(c)?.name ?? "Direct message" : c.name }
+  func chatName(_ c: Channel) -> String { c.isDM ? dmAgent(c)?.name ?? "Direct message" : c.label }
   private func channelLabel(_ id: String?) -> String? {
     guard let id, let c = channels.first(where: { $0.id == id }) else { return nil }
-    return c.isDM ? "in a DM" : "in \(c.name)"
+    return c.isDM ? "in a DM" : "in \(c.label)"
   }
 
   /** One line per busy agent, from the most specific source: its task, then the chat step it's on. */

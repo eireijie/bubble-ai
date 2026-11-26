@@ -374,7 +374,6 @@ private struct PreviewPage: View {
 
   var body: some View {
     let team = model.team
-    let lines = model.draft?.lines ?? team.flowLines(store)
     PageFrame(title: "Preview", back: back) {
       ScrollView {
         VStack(alignment: .leading, spacing: 18) {
@@ -382,13 +381,6 @@ private struct PreviewPage: View {
           VStack(spacing: 10) {
             ForEach(team.orderedSteps) { s in PreviewStepRow(team: team, step: s) }
           }
-          Text("How it works").font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.horizontal, 6).padding(.top, 6)
-          VStack(alignment: .leading, spacing: 14) {
-            ForEach(lines) { line in TeamHowLine(team: team, line: line, size: 26) }
-          }
-          .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-          .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
           if let problem = team.createProblem ?? error {
             Text(problem).font(.system(size: 15)).foregroundStyle(Palette.red).padding(.horizontal, 6)
           }
@@ -456,7 +448,7 @@ private struct ReviewPage: View {
           HStack(spacing: 14) {
             TeamGhosts(agents: agents, seed: slug, size: 56)
             VStack(alignment: .leading, spacing: 4) {
-              Text(model.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? slug : model.name.trimmingCharacters(in: .whitespacesAndNewlines)).font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text)
+              Text(model.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Channel.label(slug) : model.name.trimmingCharacters(in: .whitespacesAndNewlines)).font(.system(size: 22, weight: .semibold)).foregroundStyle(Palette.text)
               if !model.topic.isEmpty { Text(model.topic).font(.system(size: 15)).foregroundStyle(Palette.muted) }
             }
           }
