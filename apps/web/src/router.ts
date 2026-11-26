@@ -87,7 +87,7 @@ export function parseRoute(hash: string): Route {
       if (parts[1] === "mods") return { view: "mods" };
     {
       // "/for/<agentId>" at the end: adding for one agent (on the list and on an app's page)
-      const forAt = parts.length >= 4 && parts[parts.length - 2] === "for" ? parts.length - 2 : -1;
+      const forAt = parts.length >= 3 && parts[parts.length - 2] === "for" ? parts.length - 2 : -1;
       const forAgent = forAt > 0 ? parts[forAt + 1] : null;
       const rest = forAt > 0 ? parts.slice(0, forAt) : parts;
       const extra = forAgent ? { forAgent } : {};
