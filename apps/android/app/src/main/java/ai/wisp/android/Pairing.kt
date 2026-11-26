@@ -15,14 +15,55 @@ import java.util.concurrent.TimeUnit
  * and the addresses this phone might reach the computer at, best first).
  */
 data class PairLink(val id: String, val secret: String, val addresses: List<String>) {
+    /** Where it will try first, as people know it: `wisp.local:4747`. */
+    val firstPlace: String get() = addresses.firstOrNull()?.substringAfter("://") ?: ""
+
+    sealed class Check {
+        object Empty : Check()
+        /** the start of a pairing link, still being typed */
+        object Typing : Check()
+        data class Ok(val link: PairLink) : Check()
+        /** starts like a pairing link but is missing a part (cut short when copied) */
+        object Incomplete : Check()
+        /** just a computer's address: it has no secret, so the computer can't tell it's you */
+        object Address : Check()
+        object Wrong : Check()
+    }
+
     companion object {
+        /**
+         * The link on its own, or the first `wisp://pair…` / `warren://pair…` inside longer text (a pasted
+         * message), with the scheme in any case.
+         */
         fun parse(text: String?): PairLink? {
-            val uri = text?.trim()?.let(Uri::parse) ?: return null
-            if (uri.scheme !in listOf("wisp", "warren") || uri.host != "pair") return null
+            val uri = text?.let(::find)?.let(Uri::parse) ?: return null
+            if (uri.scheme?.lowercase() !in listOf("wisp", "warren") || uri.host?.lowercase() != "pair") return null
             val id = uri.getQueryParameter("id") ?: return null
             val secret = uri.getQueryParameter("s") ?: return null
             val addresses = uri.getQueryParameters("u").mapNotNull(::normalize)
             return if (addresses.isEmpty()) null else PairLink(id, secret, addresses)
+        }
+
+        private val LINK = Regex("""\b(wisp|warren)://pair[^\s"'<>`]*""", RegexOption.IGNORE_CASE)
+
+        /** The first pairing link in some text, without the punctuation a sentence puts after it. */
+        fun find(text: String): String? = LINK.find(text)?.value?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}')
+
+        /** What the "Type a link" field holds, checked as it's typed. */
+        fun check(text: String): Check {
+            val t = text.trim()
+            if (t.isEmpty()) return Check.Empty
+            parse(t)?.let { return Check.Ok(it) }
+            val lower = t.lowercase()
+            for (start in listOf("wisp://pair", "warren://pair")) {
+                if (start.startsWith(lower)) return Check.Typing
+                if (lower.startsWith(start)) return Check.Incomplete
+            }
+            if (t.none(Char::isWhitespace)) {
+                val host = (normalize(t) ?: normalize("http://$t"))?.let { Uri.parse(it).host }
+                if (host != null && (host == "localhost" || '.' in host)) return Check.Address
+            }
+            return Check.Wrong
         }
 
         /** "http://wisp.local:4747/" → "http://wisp.local:4747"; anything else that isn't http(s) → null */

@@ -11,4 +11,18 @@
     <color name="on_ink">#FFFFFF</color>
     <!-- Bubble AI violet, deep enough for marks on white -->
     <color name="accent">#7A5BDC</color>
+
+    <!-- the welcome screen (canvas "Phone welcome": the Calm background) and its "Type a link" sheet -->
+    <color name="welcome_ground">#F5F5F7</color>
+    <color name="welcome_word">#141414</color>
+    <color name="welcome_tag">#6B6A72</color>
+    <color name="welcome_button">#141414</color>
+    <color name="welcome_button_text">#FFFFFF</color>
+    <color name="welcome_link">#3A3940</color>
+    <color name="sheet_bg">#FFFFFF</color>
+    <color name="sheet_ink">#141414</color>
+    <color name="sheet_muted">#6B6A70</color>
+    <color name="sheet_field">#F2F2F4</color>
+    <color name="sheet_line">#E2E1E6</color>
+    <color name="ok_green">#2FB37A</color>
 </resources>
