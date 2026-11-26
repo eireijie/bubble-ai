@@ -146,6 +146,8 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
   const fixHere = !!next && next.href.startsWith(`#/agents/${agent.id}/`);
 
   const content = useRef<HTMLDivElement>(null);
+  // phones: once the page scrolls, the bar behind Back gets a line and (on the top page) the agent's name
+  const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const el = content.current;
     if (!el) return;
@@ -203,15 +205,22 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       {/* phones: back, and over a part its title with the agent's name under it */}
-      <header className="md:hidden shrink-0 flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+      <header className={cx("md:hidden relative z-10 shrink-0 flex items-center gap-3 bg-panel px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 border-b transition-colors duration-200", scrolled ? "border-line" : "border-transparent")}>
         <a href={part ? top : "#/agents"} className="circle" aria-label={part ? `Back to ${agent.name}` : "Back to agents"}>
           <ChevronLeft size={22} />
         </a>
-        {part && (
+        {part ? (
           <>
             <div className="flex-1 min-w-0 text-center">
               <div className="text-[14px] font-semibold truncate">{TAB_TITLES[part]}</div>
               <div className="text-[13px] text-muted truncate">{agent.name}</div>
+            </div>
+            <span className="w-11" aria-hidden />
+          </>
+        ) : (
+          <>
+            <div className={cx("flex-1 min-w-0 text-center text-[15px] font-semibold truncate transition-opacity duration-200", scrolled ? "opacity-100" : "opacity-0")} aria-hidden={!scrolled}>
+              {agent.name}
             </div>
             <span className="w-11" aria-hidden />
           </>
@@ -237,7 +246,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
           <PopNav label={`${agent.name}'s settings`} current={group} items={AGENT_GROUPS.map((g) => ({ key: g, label: GROUP_TITLES[g], icon: GROUP_ICON[g], onSelect: () => pick(g), dot: unsaved(g) ? "unsaved" : g === "works" && !readiness.ready ? "needs" : null }))} />
         </aside>
         {/* md:px-8 is the room a part's save bar (-mx-8) reaches into */}
-        <div ref={content} className="flex-1 min-w-0 overflow-y-auto px-5 md:pl-10 md:pr-16 pt-1 md:pt-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <div ref={content} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 96)} className="flex-1 min-w-0 overflow-y-auto px-5 md:pl-10 md:pr-16 pt-1 md:pt-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div className="max-w-[720px] max-md:mx-auto">
             {!part && (
               <div className="space-y-6">

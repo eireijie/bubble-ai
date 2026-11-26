@@ -20,7 +20,7 @@ import { MoreOptions } from "../components/MoreOptions.tsx";
 import { useFeature } from "../features.ts";
 import { useComputerMode } from "../computerMode.ts";
 import { LookEditorScreen, LookOptions } from "./LookEditor.tsx";
-import { Button, Field, harnessLabel, Input, Modal, Pill, Textarea, cx } from "../components/ui.tsx";
+import { Button, Field, harnessLabel, Input, Modal, Pill, Textarea, cx, touchFirst } from "../components/ui.tsx";
 
 export function ComputerPicker({
   value,
@@ -304,10 +304,12 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   useEffect(() => {
     const body = bodyRef.current;
     body?.scrollTo?.({ top: 0 });
-    const first = body?.querySelector<HTMLElement>("input") ?? body?.querySelector<HTMLElement>("h1");
-    first?.focus();
+    // phones: the heading, so no keyboard opens over the sheet (and a stray tap can't type over the name)
+    const touch = touchFirst();
+    const first = (!touch && body?.querySelector<HTMLElement>("input")) || body?.querySelector<HTMLElement>("h1");
+    first?.focus({ preventScroll: true });
     // the suggested name is selected, so typing replaces it
-    if (view === "form") (first as Partial<HTMLInputElement> | undefined)?.select?.();
+    if (view === "form" && !touch) (first as Partial<HTMLInputElement> | undefined)?.select?.();
   }, [view]);
 
   // who it is
@@ -798,7 +800,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                 )}
               </fieldset>
 
-              <div className="flex flex-wrap items-center gap-2 border-t border-line px-5 py-3 sm:px-6">
+              <div className="flex flex-wrap items-center gap-2 border-t border-line bg-panel px-5 py-3 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
                 <div className="-ml-2.5 flex min-w-0 flex-1 flex-wrap gap-x-1">
                   {invite ? (
                     <button type="button" className={QUIET} disabled={busy || !!created} onClick={() => setInvite(false)}>

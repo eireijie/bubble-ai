@@ -287,6 +287,12 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
           <div className="flex flex-col items-center gap-3 px-3 py-6">
             <MotionMark size={40} mood="drift" />
             <p className="text-sm text-muted text-center">{page ? "No agents yet" : "No chats yet. Tap + to start one."}</p>
+            {/* a phone paired before setup was finished: start the first agent from here */}
+            {page && !isGuest && !agents.length && (
+              <a href={href({ view: "welcome", intro: true })} className="btn btn-primary mt-1 h-11 px-5 text-[15px]">
+                Make your first agent
+              </a>
+            )}
           </div>
         )}
         {needle && shown.length === 0 && <p className="px-3 py-2 text-sm text-faint">No chats match.</p>}

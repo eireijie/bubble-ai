@@ -325,9 +325,13 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
           ) : (
             <nav data-tour="settings-home" aria-label="Settings" className="rounded-[12px] bg-card divide-y divide-line overflow-hidden">
               {pages.map((p) => (
-                <a key={p} href={pageTop(p)} className="flex items-center gap-3 px-4 min-h-[52px] text-body hover:bg-hover">
+                <a key={p} href={pageTop(p)} className="flex items-center gap-3.5 px-4 min-h-[52px] text-body hover:bg-hover">
+                  {/* the same line icons as the account page's rows */}
+                  <span className="grid size-5 shrink-0 place-items-center text-muted" aria-hidden>
+                    {FIVE_ICON[p]}
+                  </span>
                   <span className="flex-1">{FIVE_LABEL[p]}</span>
-                  <ChevronRight size={15} className="text-faint" aria-hidden />
+                  <ChevronRight size={16} className="text-faint" aria-hidden />
                 </a>
               ))}
             </nav>

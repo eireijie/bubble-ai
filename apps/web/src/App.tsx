@@ -20,7 +20,7 @@ import { DashboardView } from "./views/DashboardView.tsx";
 import { primeTasks } from "./notifications.ts";
 import { Loader, cx } from "./components/ui.tsx";
 import { enterDeskPane, enterPane, staggerRows, usePresence } from "./motion.ts";
-import { setupProgress, useDismissed, useOnboarding } from "./onboarding.ts";
+import { noteAppPage, setupProgress, useDismissed, useOnboarding } from "./onboarding.ts";
 import { useFeatures } from "./features.ts";
 import { useDesktopAgents } from "./desktop.ts";
 import { lazyView, preloadViews, type LazyView } from "./lazy.tsx";
@@ -223,7 +223,9 @@ function Workspace() {
 
   useEffect(() => {
     if (route.view === "chat") rememberChat(route.channelId);
-  }, [route]);
+    // the first run, opened from inside the app, has a Back to where it was opened from
+    if (asked.view !== "welcome") noteAppPage(location.hash);
+  }, [route, asked]);
 
   // the phone-only pages have desktop equivalents, and the bare root is the chats list on phones
   useEffect(() => {

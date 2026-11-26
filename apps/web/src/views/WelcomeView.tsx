@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Agent, SignInOption } from "@bubble-ai/core";
-import { completeSetupStep, featuresForExperience, setDismissed, setReadyItem, stepsFinished, type StepId } from "../onboarding.ts";
+import { completeSetupStep, featuresForExperience, setDismissed, setReadyItem, stepsFinished, welcomeReturn, type StepId } from "../onboarding.ts";
 import { usableDevices, useDevices } from "../devices.ts";
 import { useStore } from "../store.ts";
 import { go } from "../router.ts";
@@ -119,7 +119,10 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const steps = path === "advanced" ? ORDER : ORDER.slice(0, 3);
   const at = Math.max(0, steps.indexOf(screen));
   const back: Partial<Record<WelcomeScreen, WelcomeScreen>> = { start: "agent", ai: "start", goals: "ai", recs: "goals" };
-  const onBack = busy || (screen === "ai" && chatId) ? null : back[screen] ? () => goTo(back[screen]!) : null;
+  // the first screen goes back to the page it was opened from (the chats list, Settings), when it was opened from one
+  const from = welcomeReturn();
+  const leave = screen === "agent" && from ? () => void (location.hash = from) : null;
+  const onBack = busy || (screen === "ai" && chatId) ? null : back[screen] ? () => goTo(back[screen]!) : leave;
 
   let page;
   if (screen === "goals" && agent) page = <YoursStep look={agent.settings.appearance} seed={agent.id} name={called} goals={goals} onGoals={setGoals} talk={talk} onTalk={setTalk} when={when} onWhen={setWhen} onNext={() => void saveYours()} busy={busy} />;
