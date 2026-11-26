@@ -106,7 +106,7 @@ const MOD_WORDS: Record<FeatureKey, string> = {
   routines: "Work on a timer",
   teach: "Show it once",
   tasks: "Hand out work",
-  buddy: "Ghost on your desktop",
+  buddy: "Bubble on your desktop",
   invite: "Bring people in",
   remoteDesktop: "Reach your computers",
   storage: "Files on your drive",
