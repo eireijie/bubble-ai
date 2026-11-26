@@ -1,5 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="github_repo" translatable="false">eireijie/bubble-ai</string>
-    <string name="pair_help">New to Bubble AI? Get it at github.com/%1$s</string>
+
+    <!-- the welcome screen: only this screen says "Bubble" -->
+    <string name="welcome_name" translatable="false">Bubble</string>
+    <string name="welcome_tagline">Your agents, on your phone.</string>
+    <string name="welcome_scan">Scan a QR code</string>
+    <string name="welcome_type">Type a link</string>
+    <string name="welcome_or_type">or <u>type a link</u></string>
+
+    <!-- the "Type a link" sheet -->
+    <string name="link_title">Type a link</string>
+    <string name="link_where">On your computer: Settings → Computers → Phone → Copy pairing link.</string>
+    <string name="link_label">Pairing link</string>
+    <string name="link_copied">Copied link</string>
+    <string name="link_use">Use</string>
+    <string name="link_connect">Connect</string>
+    <string name="link_will_try">Will try %1$s</string>
+    <string name="link_will_try_more">Will try %1$s and %2$d more</string>
+    <string name="link_incomplete">Part of the link is missing. Copy it again from Settings → Computers → Phone.</string>
+    <string name="link_address">That\'s your computer\'s address. Pairing needs the whole link, which has a one-time code in it.</string>
+    <string name="link_wrong">That isn\'t a pairing link. Copy it again from Settings → Computers → Phone.</string>
 </resources>

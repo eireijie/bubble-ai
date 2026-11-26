@@ -11,9 +11,13 @@ struct PairLink: Equatable {
   var secret: String
   var addresses: [URL]
 
+  /**
+   * Takes the link on its own, or the first `wisp://pair…` / `warren://pair…` inside longer text
+   * (a pasted message), with the scheme in any case.
+   */
   init?(_ text: String) {
-    guard let c = URLComponents(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
-          ["wisp", "warren"].contains(c.scheme ?? ""), c.host == "pair" else { return nil }
+    guard let found = Self.find(in: text), let c = URLComponents(string: found),
+          ["wisp", "warren"].contains(c.scheme?.lowercased() ?? ""), c.host?.lowercased() == "pair" else { return nil }
     let items = c.queryItems ?? []
     guard let id = items.first(where: { $0.name == "id" })?.value,
           let secret = items.first(where: { $0.name == "s" })?.value else { return nil }
@@ -22,6 +26,47 @@ struct PairLink: Equatable {
     self.id = id
     self.secret = secret
     self.addresses = addresses
+  }
+
+  /** The first pairing link in some text, without the punctuation a sentence puts after it. */
+  static func find(in text: String) -> String? {
+    guard let r = text.range(of: #"\b(wisp|warren)://pair[^\s"'<>`]*"#, options: [.regularExpression, .caseInsensitive]) else { return nil }
+    var link = String(text[r])
+    while let last = link.last, ".,;:!?)]}".contains(last) { link.removeLast() }
+    return link
+  }
+
+  /** Where it will try first, as people know it: `wisp.local:4747`. */
+  var firstPlace: String {
+    guard let url = addresses.first, let host = url.host() else { return "" }
+    return url.port.map { "\(host):\($0)" } ?? host
+  }
+
+  /** What the "Type a link" field holds, checked as it's typed. */
+  enum Check: Equatable {
+    case empty
+    /** the start of a pairing link, still being typed */
+    case typing
+    case ok(PairLink)
+    /** starts like a pairing link but is missing a part (cut short when copied) */
+    case incomplete
+    /** just a computer's address: it has no secret, so the computer can't tell it's you */
+    case address
+    case wrong
+  }
+
+  static func check(_ text: String) -> Check {
+    let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if t.isEmpty { return .empty }
+    if let link = PairLink(t) { return .ok(link) }
+    let lower = t.lowercased()
+    for start in ["wisp://pair", "warren://pair"] {
+      if start.hasPrefix(lower) { return .typing }
+      if lower.hasPrefix(start) { return .incomplete }
+    }
+    if !t.contains(where: \.isWhitespace), let url = API.normalize(t), let host = url.host(),
+       host == "localhost" || host.contains(".") || host.contains(":") { return .address }
+    return .wrong
   }
 }
 

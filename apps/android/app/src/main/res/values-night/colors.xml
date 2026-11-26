@@ -10,4 +10,17 @@
     <color name="bad">#FF6B60</color>
     <color name="on_ink">#121212</color>
     <color name="accent">#BBA5FA</color>
+
+    <color name="welcome_ground">#0E0E11</color>
+    <color name="welcome_word">#F4F4F2</color>
+    <color name="welcome_tag">#9D9BA6</color>
+    <color name="welcome_button">#F4F4F2</color>
+    <color name="welcome_button_text">#141414</color>
+    <color name="welcome_link">#D8D7DC</color>
+    <color name="sheet_bg">#1C1C1E</color>
+    <color name="sheet_ink">#F4F4F2</color>
+    <color name="sheet_muted">#9A99A0</color>
+    <color name="sheet_field">#2A2A2D</color>
+    <color name="sheet_line">#38383C</color>
+    <color name="ok_green">#2FB37A</color>
 </resources>

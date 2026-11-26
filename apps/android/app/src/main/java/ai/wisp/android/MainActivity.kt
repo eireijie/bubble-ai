@@ -3,7 +3,9 @@ package ai.wisp.android
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.animation.ValueAnimator
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -12,14 +14,25 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Bitmap
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.text.InputType
+import android.text.Editable
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.TextWatcher
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
+import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.view.WindowManager
+import android.view.animation.PathInterpolator
+import android.view.inputmethod.EditorInfo
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
@@ -33,6 +46,7 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.webkit.WebViewCompat
@@ -114,7 +128,7 @@ class MainActivity : Activity() {
         val v = web
         if (v == null) {
             val (s, code, error) = shown
-            showPairing()
+            screen = Screen.None
             step(s, code, error)
             return
         }
@@ -152,30 +166,93 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- pairing
 
+    /** Signed out: the welcome screen, which scanning or typing a link moves on from. */
     private fun showPairing() {
         web?.destroy()
         web = null
-        setContentView(R.layout.pair)
-        findViewById<TextView>(R.id.pairHelp).text = getString(R.string.pair_help, getString(R.string.github_repo))
-        fitSystemBars(findViewById(R.id.root))
-        systemBars(getColor(R.color.bg), resources.getBoolean(R.bool.light_bars))
-        findViewById<Button>(R.id.scan).setOnClickListener { scan() }
-        findViewById<Button>(R.id.paste).setOnClickListener { askForLink() }
-        findViewById<Button>(R.id.cancel).setOnClickListener { pairing++; step(Step.Start) }
+        screen = Screen.None
         step(Step.Start)
     }
 
     private enum class Step { Start, Connecting, Code }
+    private enum class Screen { None, Welcome, Steps }
+
+    /** which pairing layout is up, so a step only inflates when it changes */
+    private var screen = Screen.None
+
+    /**
+     * The welcome screen (canvas "Phone welcome", round 2): the bubbles, "Bubble" and one line, then
+     * "Scan a QR code" and "or type a link". A phone without a camera gets "Type a link" as the big button.
+     * A pairing that didn't work comes back here with why under the line.
+     */
+    private fun showWelcome(error: String?) {
+        setContentView(R.layout.welcome)
+        screen = Screen.Welcome
+        val density = resources.displayMetrics.density
+        val root = findViewById<View>(R.id.welcome)
+        val words = findViewById<View>(R.id.words)
+        val actions = findViewById<View>(R.id.actions)
+        val opening = !welcomed
+        welcomed = true
+        findViewById<BubbleFieldView>(R.id.field).opening = opening
+        systemBars(getColor(R.color.welcome_ground), resources.getBoolean(R.bool.light_bars))
+        // the bubbles go under the bars; only the buttons keep clear of them
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val pad = actions.paddingBottom
+            root.setOnApplyWindowInsetsListener { _, insets ->
+                val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                actions.setPadding(actions.paddingLeft + bars.left, actions.paddingTop, actions.paddingRight + bars.right, pad + bars.bottom)
+                insets
+            }
+        }
+        // the words sit under the big bubble, which floats 42% of the way down
+        root.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> words.translationY = v.height * 0.42f + 118 * density }
+
+        val camera = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+        val scan = findViewById<View>(R.id.scan)
+        val type = findViewById<Button>(R.id.typeLink)
+        type.text = getText(R.string.welcome_or_type)
+        type.setOnClickListener { askForLink() }
+        if (camera) {
+            scan.setOnClickListener { scan() }
+        } else {
+            findViewById<ImageView>(R.id.scanIcon).setImageResource(R.drawable.ic_link)
+            findViewById<TextView>(R.id.scanText).setText(R.string.welcome_type)
+            scan.setOnClickListener { askForLink() }
+            type.visibility = View.GONE
+        }
+        findViewById<TextView>(R.id.error).apply {
+            text = error ?: ""
+            visibility = if (error == null) View.GONE else View.VISIBLE
+        }
+
+        // first time in a run: "Bubble" at 550 ms, the line at 700 ms, the buttons at 850 ms
+        if (opening) {
+            val moving = ValueAnimator.areAnimatorsEnabled()
+            val ease = PathInterpolator(0.2f, 0.8f, 0.2f, 1f)
+            for ((id, delay) in listOf(R.id.name to 550L, R.id.tagline to 700L, R.id.actions to 850L)) {
+                val v = findViewById<View>(id)
+                v.alpha = 0f
+                if (moving) v.translationY = 14 * density
+                v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(if (moving) 700 else 300).setInterpolator(ease).start()
+            }
+        }
+    }
 
     private fun step(s: Step, code: String? = null, error: String? = null) {
         if (web != null) return
         shown = Triple(s, code, error)
+        if (s == Step.Start) return showWelcome(error)
+        if (screen != Screen.Steps) {
+            setContentView(R.layout.pair)
+            screen = Screen.Steps
+            fitSystemBars(findViewById(R.id.root))
+            systemBars(getColor(R.color.bg), resources.getBoolean(R.bool.light_bars))
+            findViewById<Button>(R.id.cancel).setOnClickListener { pairing++; step(Step.Start) }
+        }
         fun show(id: Int, on: Boolean) { findViewById<View>(id).visibility = if (on) View.VISIBLE else View.GONE }
-        show(R.id.start, s == Step.Start)
         show(R.id.connecting, s == Step.Connecting)
         show(R.id.codeBox, s == Step.Code)
-        // the "get Bubble AI" line is for people who haven't started; it goes once pairing does
-        show(R.id.pairHelp, s == Step.Start)
         findViewById<TextView>(R.id.title).text = if (s == Step.Code) "Check the code" else "Pair with your computer"
         findViewById<TextView>(R.id.lede).text =
             if (s == Step.Code) "Confirm on your computer if it shows the same code." else "In Bubble AI on your computer, open Settings → Computers → Phone."
@@ -191,40 +268,89 @@ class MainActivity : Activity() {
         GmsBarcodeScanning.getClient(this, options)
             .startScan()
             .addOnSuccessListener { use(it.rawValue) }
-            .addOnFailureListener { step(Step.Start, error = "Couldn't open the scanner. Paste the link instead.") }
+            .addOnFailureListener { step(Step.Start, error = "Couldn't open the scanner. Type the link instead.") }
     }
 
+    /**
+     * "Type a link": a bottom sheet with one field, checked as it's typed. A pairing link already on the
+     * clipboard is offered as a one-tap suggestion; Connect stays dimmed until the field holds a link that works.
+     */
     private fun askForLink() {
-        val density = resources.displayMetrics.density
-        val input = EditText(this).apply {
-            hint = "wisp://pair?…"
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            isSingleLine = true
-            textSize = 15f
-            setTextColor(getColor(R.color.ink))
-            setHintTextColor(getColor(R.color.muted))
-            background = getDrawable(R.drawable.field)
-            val pad = (14 * density).toInt()
-            setPadding(pad, pad, pad, pad)
+        val sheet = layoutInflater.inflate(R.layout.type_link, null)
+        val dialog = Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar)
+        dialog.setContentView(sheet)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+            setGravity(Gravity.BOTTOM)
+            setDimAmount(0.38f)
+            setWindowAnimations(android.R.style.Animation_InputMethod)
+            setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         }
-        val box = FrameLayout(this).apply {
-            val pad = (24 * density).toInt()
-            setPadding(pad, (8 * density).toInt(), pad, 0)
-            addView(input)
+        val input = sheet.findViewById<EditText>(R.id.linkField)
+        val copied = sheet.findViewById<View>(R.id.copied)
+        val status = sheet.findViewById<View>(R.id.status)
+        val ok = sheet.findViewById<View>(R.id.statusOk)
+        val line = sheet.findViewById<TextView>(R.id.statusText)
+        val connect = sheet.findViewById<Button>(R.id.connect)
+        var link: PairLink? = null
+
+        val clip = runCatching {
+            (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()
+        }.getOrNull()
+        val suggestion = clip?.let(PairLink::find)?.takeIf { PairLink.parse(it) != null }
+
+        fun refresh() {
+            val check = PairLink.check(input.text.toString())
+            link = (check as? PairLink.Check.Ok)?.link
+            input.isActivated = link != null
+            connect.isEnabled = link != null
+            connect.alpha = if (link != null) 1f else 0.38f
+            copied.visibility = if (suggestion != null && input.text.toString().trim() != suggestion) View.VISIBLE else View.GONE
+            status.visibility = View.VISIBLE
+            ok.visibility = View.GONE
+            line.setTextColor(getColor(R.color.sheet_muted))
+            when (check) {
+                is PairLink.Check.Ok -> {
+                    val place = check.link.firstPlace
+                    val more = check.link.addresses.size - 1
+                    val text = if (more > 0) getString(R.string.link_will_try_more, place, more) else getString(R.string.link_will_try, place)
+                    val start = text.indexOf(place)
+                    line.text = SpannableString(text).apply {
+                        if (start >= 0) {
+                            setSpan(StyleSpan(Typeface.BOLD), start, start + place.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            setSpan(ForegroundColorSpan(getColor(R.color.sheet_ink)), start, start + place.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        }
+                    }
+                    line.isSingleLine = true
+                    ok.visibility = View.VISIBLE
+                }
+                PairLink.Check.Incomplete -> { line.isSingleLine = false; line.setText(R.string.link_incomplete) }
+                PairLink.Check.Address -> { line.isSingleLine = false; line.setText(R.string.link_address); line.setTextColor(getColor(R.color.bad)) }
+                PairLink.Check.Wrong -> { line.isSingleLine = false; line.setText(R.string.link_wrong); line.setTextColor(getColor(R.color.bad)) }
+                PairLink.Check.Empty, PairLink.Check.Typing -> status.visibility = View.GONE
+            }
         }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Paste link")
-            .setMessage("On your computer: Settings → Computers → Phone → Copy pairing link.")
-            .setView(box)
-            .setPositiveButton("Connect") { _, _ -> use(input.text.toString()) }
-            .setNegativeButton("Cancel", null)
-            .create()
-        dialog.setOnShowListener {
-            // fill it in when a pairing link is already on the clipboard
-            val clip = (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()
-            if (PairLink.parse(clip) != null) input.setText(clip)
-            input.requestFocus()
+        fun go() {
+            val l = link ?: return
+            dialog.dismiss()
+            pair(l)
         }
+
+        sheet.findViewById<TextView>(R.id.copiedLink).text = suggestion
+        sheet.findViewById<Button>(R.id.useCopied).setOnClickListener {
+            input.setText(suggestion)
+            input.setSelection(input.text.length)
+        }
+        input.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) = refresh()
+        })
+        input.setOnEditorActionListener { _, action, _ -> if (action == EditorInfo.IME_ACTION_GO) { go(); true } else false }
+        connect.setOnClickListener { go() }
+        refresh()
+        dialog.setOnShowListener { input.requestFocus() }
         dialog.show()
     }
 
@@ -578,6 +704,9 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        /** the welcome screen's opening plays once a run, not on coming back to it */
+        private var welcomed = false
+
         /** the hash route a tapped notification opens (see WispMessagingService) */
         const val ROUTE = "route"
 

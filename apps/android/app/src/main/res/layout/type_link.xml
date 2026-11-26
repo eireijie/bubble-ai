@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Type a link": a Material bottom sheet with one field, a copied link offered as a one-tap suggestion,
+     a check as you type, and Connect (dimmed until the field holds a pairing link). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/sheet_bg"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="24dp">
+
+    <View
+        android:layout_width="32dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="20dp"
+        android:background="@drawable/sheet_grab" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/link_title"
+        android:textColor="@color/sheet_ink"
+        android:textSize="24sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:lineSpacingMultiplier="1.15"
+        android:text="@string/link_where"
+        android:textColor="@color/sheet_muted"
+        android:textSize="15sp" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="22dp">
+
+        <EditText
+            android:id="@+id/linkField"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/field_outlined"
+            android:fontFamily="monospace"
+            android:hint="wisp://pair?…"
+            android:imeOptions="actionGo"
+            android:importantForAutofill="no"
+            android:inputType="textUri"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:singleLine="true"
+            android:textColor="@color/sheet_ink"
+            android:textColorHint="@color/sheet_muted"
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:background="@color/sheet_bg"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:text="@string/link_label"
+            android:textColor="@color/sheet_muted"
+            android:textSize="12sp"
+            android:translationY="-8dp" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/copied"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:background="@drawable/chip_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_link"
+            android:tint="@color/sheet_muted" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/link_copied"
+                android:textColor="@color/sheet_muted"
+                android:textSize="12.5sp" />
+
+            <TextView
+                android:id="@+id/copiedLink"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="middle"
+                android:fontFamily="monospace"
+                android:singleLine="true"
+                android:textColor="@color/sheet_ink"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/useCopied"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/chip_use"
+            android:fontFamily="sans-serif-medium"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:stateListAnimator="@null"
+            android:text="@string/link_use"
+            android:textAllCaps="false"
+            android:textColor="@color/welcome_button_text"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/statusOk"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="8dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_check" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="middle"
+            android:textColor="@color/sheet_muted"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/connect"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_marginTop="18dp"
+        android:background="@drawable/pill_welcome"
+        android:fontFamily="sans-serif-medium"
+        android:stateListAnimator="@null"
+        android:text="@string/link_connect"
+        android:textAllCaps="false"
+        android:textColor="@color/welcome_button_text"
+        android:textSize="17sp" />
+</LinearLayout>

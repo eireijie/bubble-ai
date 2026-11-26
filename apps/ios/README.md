@@ -9,7 +9,7 @@ A native SwiftUI app for your Bubble AI hub:
 
 It connects by **pairing with Bubble AI on your computer**: open **Settings → Computers → Phone → Start pairing** there, scan the QR code with the app (or with the Camera app, which opens Bubble AI), check that both screens show the same six digits, and confirm on the computer. The phone gets a sign-in of its own, kept in the Keychain, which shows under **Settings → Advanced → Security → Where you're signed in** and can be signed out there. There's no address or password to type. Create, edit, archive and delete channels and sections from the **+** menu and a channel's details. Devices, memory, tasks, routines and skills are also available in the app.
 
-The QR code is a `wisp://pair` link with the pairing's one-time secret and the addresses the phone might reach the hub at (the address the page was opened at, then the computer's Wi-Fi and Tailscale addresses); the app tries them in order. On a device without a camera (like the Simulator), click **Copy pairing link** on the computer and choose **Paste a pairing link instead**. In the Simulator you can also open it directly: `xcrun simctl openurl booted 'wisp://pair?...'`.
+The QR code is a `wisp://pair` link with the pairing's one-time secret and the addresses the phone might reach the hub at (the address the page was opened at, then the computer's Wi-Fi and Tailscale addresses); the app tries them in order. On a device without a camera (like the Simulator), click **Copy pairing link** on the computer and choose **Type a link** and tap Paste. In the Simulator you can also open it directly: `xcrun simctl openurl booted 'wisp://pair?...'`.
 
 ## Run it
 
