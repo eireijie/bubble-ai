@@ -90,7 +90,7 @@ enum Tour {
     Stop(id: "usage", ch: 1, title: "Usage and limits", body: "See what agents used, and set a daily limit for work they do on their own.", place: .usage, targets: ["usage-page"], noGuests: true),
     // Tools
     Stop(id: "apps", ch: 2, title: "Apps", body: "Connect the apps agents use. Sign-ins go through your password manager.", place: .marketplace, targets: ["market-apps", "market-page"], noGuests: true),
-    Stop(id: "skills", ch: 2, title: "Skills", body: "Jobs agents know how to do. Add them here, or do a task once on a computer and the agent learns it.", place: .marketplace, targets: ["market-skills", "market-page"], noGuests: true),
+    Stop(id: "skills", ch: 2, title: "Skills", body: "Jobs agents know how to do. Add them here, or do a task once on a computer and the agent saves it as a skill.", place: .marketplace, targets: ["market-skills", "market-page"], noGuests: true),
     Stop(id: "computers", ch: 2, title: "Computers", body: "Agents work on their own computer, so yours stays free. The dot says how many are on.", place: .computers, targets: ["computers-page"], phoneBody: "Agents work on their own computer, so yours stays free.", noGuests: true),
     Stop(id: "your-computers", ch: 2, title: "Your computers", body: "Watch live or take over. Agents can use your own computers too, only if you say so.", place: .computers, targets: ["computers-list", "computers-page"], noGuests: true),
     Stop(id: "phone", ch: 2, title: "Your phone", body: "Scan this with the Wisp phone app. Same agents, same chats, approvals on the go.", place: .settings, targets: ["notifications"], phoneBody: "You're in the Wisp phone app. Same agents, same chats. Turn on notifications for approvals on the go.", noGuests: true),
