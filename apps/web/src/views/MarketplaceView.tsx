@@ -61,7 +61,7 @@ import {
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { setFeatures, useFeatures } from "../features.ts";
-import { go, href, type MarketSection, type Route } from "../router.ts";
+import { go, href, SETTINGS_CLOSING, type MarketSection, type Route } from "../router.ts";
 import { Button, Loader, cx } from "../components/ui.tsx";
 import { Add, AddRow, AppTile, Circle, Dlg, FactRow, Item, ItemHead, NeedDot, Panel, RemoveBtn, Rows, SearchBox, SectionHead, TextBtn, Tile, matchWords, queryWords, rowsShown, sectionWord, type AddSection } from "../components/MarketParts.tsx";
 import { CatalogIcon } from "../components/ShopParts.tsx";
@@ -242,6 +242,24 @@ export function MarketplaceView({ section, onBack }: { section: MarketSection | 
   const [retry, setRetry] = useState(0);
   // the item whose page is open, and the dialogs on top
   const [detail, setDetail] = useState<Detail | null>(null);
+  // coming here from another page (an "Add it" link, the menu) opens the list, not the last item looked at;
+  // closing Settings on top of an item (App's closePop says so first) keeps it open
+  useEffect(() => {
+    let closing = false;
+    const close = () => (closing = true);
+    const arrived = () => {
+      // Settings opening over this page leaves it as it is
+      if (location.hash.startsWith("#/settings")) return;
+      if (!closing) setDetail(null);
+      closing = false;
+    };
+    window.addEventListener(SETTINGS_CLOSING, close);
+    window.addEventListener("hashchange", arrived);
+    return () => {
+      window.removeEventListener(SETTINGS_CLOSING, close);
+      window.removeEventListener("hashchange", arrived);
+    };
+  }, []);
   const [form, setForm] = useState<{ entry?: CatalogConnector; existing?: Connector; presetEnv?: Record<string, string>; title?: string } | null>(null);
   const [signInFor, setSignInFor] = useState<string | null>(null);
   // catalog apps with one-click sign-in: whether it works from this address
