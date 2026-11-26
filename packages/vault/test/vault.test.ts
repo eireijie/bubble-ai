@@ -18,6 +18,10 @@ beforeEach(async () => {
 afterEach(() => fs.rm(dir, { recursive: true, force: true }));
 
 describe("parseNote", () => {
+  it("doesn't take numbers like order #1001 for tags", () => {
+    expect(parseNote("a.md", "Order #1001 and #1002, see #q3-budget and #2026/plans\n").tags.sort()).toEqual(["2026/plans", "q3-budget"]);
+  });
+
   it("parses frontmatter, wikilinks, tags", () => {
     const n = parseNote("shared/a.md", "---\ntitle: Alpha\ntags: [x, y]\n---\nSee [[Beta|b]] and ![[img.png]] #todo\n");
     expect(n.title).toBe("Alpha");

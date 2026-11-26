@@ -25,7 +25,7 @@ export function parseNote(path: string, raw: string): ParsedNote {
   // (a target never starts with "[", so YAML like `[[[a]], [[b]]]` still finds a and b)
   for (const m of (fm?.[1] ?? "").matchAll(/\[\[([^[\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g)) links.add(normalizeTarget(m[1]));
   const tags = new Set<string>();
-  for (const m of body.replace(/```[\s\S]*?```/g, "").matchAll(/(^|\s)#([\w/-]+)/g)) tags.add(m[2]);
+  for (const m of body.replace(/```[\s\S]*?```/g, "").matchAll(/(^|\s)#([\w/-]+)/g)) if (/[^\d\W]/.test(m[2])) tags.add(m[2]); // "#1001" is an order number, not a tag
   const fmTags = frontmatter.tags;
   for (const t of Array.isArray(fmTags) ? fmTags : fmTags ? [fmTags] : []) tags.add(t);
 
