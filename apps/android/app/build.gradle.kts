@@ -11,16 +11,30 @@ android {
         applicationId = "ai.bubbleai.android"
         minSdk = 26
         targetSdk = 35
-        // release builds get these from the tag (see .github/workflows/desktop-release.yml)
+        // release builds get these from the tag (see .github/workflows/android-release.yml)
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = (project.findProperty("versionName") as String?) ?: "0.1.0"
+    }
+
+    // A real release key when the build is given one (CI decodes the ANDROID_KEYSTORE_BASE64 secret, see
+    // .github/workflows/android-release.yml); otherwise release builds are signed with the debug key so testers
+    // can still sideload them.
+    val keystore = System.getenv("ANDROID_KEYSTORE_PATH")?.takeIf { it.isNotBlank() && file(it).exists() }
+    signingConfigs {
+        if (keystore != null) {
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // signed with the debug key until there's a Play Console upload key, so testers can sideload it
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (keystore != null) "release" else "debug")
         }
     }
     compileOptions {
