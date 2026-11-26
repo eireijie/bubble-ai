@@ -178,7 +178,7 @@ struct DeleteOrgView: View {
   }
 }
 
-/** Settings → Mobile (set-Mobile.dc.html): pair another phone with this Bubble AI by scanning a QR code, then matching a code. */
+/** Settings → Computers → Phone (set-Mobile.dc.html): pair another phone with this Bubble AI by scanning a QR code, then matching a code. */
 struct MobileSettingsView: View {
   @Environment(Store.self) private var store
   @State private var started: Started?

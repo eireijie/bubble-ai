@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 
 /**
- * What a pairing QR code from Bubble AI → Settings → Mobile carries:
+ * What a pairing QR code from Bubble AI → Settings → Computers → Phone carries:
  * `wisp://pair?v=1&id=…&s=…&u=http://wisp.local:4747&u=…`, the pairing, its one-time secret,
  * and the addresses this phone might reach the computer at, best first.
  */

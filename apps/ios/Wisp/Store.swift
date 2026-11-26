@@ -162,7 +162,7 @@ final class Store {
   /** A pairing link that opened the app (from the Camera app); the pairing screen picks it up. */
   var pendingPair: PairLink?
 
-  /** Signed in by pairing with Bubble AI on a computer (Settings → Mobile). */
+  /** Signed in by pairing with Bubble AI on a computer (Settings → Computers → Phone). */
   func adopt(hub: URL, token: String, session: URLSession = .shared) async throws {
     do { try persistToken(token) } catch {
       _ = try? await API(base: hub, token: token, session: session).post("/api/auth/logout", Empty())
