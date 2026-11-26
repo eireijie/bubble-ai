@@ -16,7 +16,7 @@ struct API {
   }
 
   struct AuthenticationExpired: LocalizedError {
-    var errorDescription: String? { "Signed out: sign in again" }
+    var errorDescription: String? { "You were signed out. Scan the code again to come back." }
   }
 
   struct Failure: LocalizedError, CustomStringConvertible {

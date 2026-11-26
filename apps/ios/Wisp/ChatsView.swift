@@ -19,7 +19,7 @@ struct ChatEntry: Identifiable, Hashable {
   var name: String {
     switch kind {
     case .agent(let a): a.name
-    case .team(let c): c.name
+    case .team(let c): c.label
     }
   }
   var isTeam: Bool { if case .team = kind { true } else { false } }
@@ -37,15 +37,20 @@ struct ChatEntry: Identifiable, Hashable {
 
 /** What the Chats list shows and in what order. Pure, so it can be tested. */
 enum ChatList {
+  /** the newest message with words or files: a system line like "queued" says nothing a row can show */
+  static func said(_ list: [Message]) -> Message? {
+    list.last { $0.deletedAt == nil && (!$0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !$0.files.isEmpty) } ?? list.last
+  }
+
   /** Agents' chats and teams in one flat list: pinned first, then the most recent, then by name. */
   static func entries(agents: [Agent], channels: [Channel], messages: [String: [Message]], dmAgent: (Channel) -> Agent?) -> [ChatEntry] {
     var out: [ChatEntry] = []
     for agent in agents {
       let dm = channels.first { $0.isDM && dmAgent($0)?.id == agent.id }
-      out.append(ChatEntry(kind: .agent(agent), channel: dm, last: dm.flatMap { messages[$0.id]?.last }))
+      out.append(ChatEntry(kind: .agent(agent), channel: dm, last: dm.flatMap { messages[$0.id].flatMap(Self.said) }))
     }
     for c in channels where !c.isDM && c.joined == true && c.archivedAt == nil {
-      out.append(ChatEntry(kind: .team(c), channel: c, last: messages[c.id]?.last))
+      out.append(ChatEntry(kind: .team(c), channel: c, last: messages[c.id].flatMap(Self.said)))
     }
     return out.sorted { a, b in
       if a.pinned != b.pinned { return a.pinned }

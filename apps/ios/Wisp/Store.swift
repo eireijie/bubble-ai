@@ -236,7 +236,7 @@ final class Store {
   func authenticationExpired(generation: Int) {
     guard generation == session else { return }
     signOut()
-    sessionMessage = "Signed out: sign in again"
+    sessionMessage = "You were signed out. Scan the code again to come back."
   }
 
   func recordSyncError(_ error: Error) {
