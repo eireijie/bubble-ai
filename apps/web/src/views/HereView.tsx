@@ -12,6 +12,7 @@ import { morningPlan, turnOnMorningPlan } from "../onboardingSetup.ts";
 import { cx } from "../components/ui.tsx";
 import { KnowSheet, PhoneSheet } from "../components/onboarding/AskSheets.tsx";
 import { ASK_OPENS } from "../components/onboarding/FirstChat.tsx";
+import { copyText } from "../clipboard.ts";
 
 /**
  * Setup (#/here[/<agentId>], "Finish setup" in the account menu): the four things the first run no
@@ -183,7 +184,7 @@ export function FinishSetupList({ agent: given }: { agent?: Agent }) {
   const address = serverAddress(access)?.url ?? null;
   const copy = () => {
     if (!address) return;
-    void navigator.clipboard?.writeText(address);
+    void copyText(address).catch(() => {});
     setCopied(true);
   };
   if (me.role === "guest") return null;

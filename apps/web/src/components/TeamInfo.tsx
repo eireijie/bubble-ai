@@ -16,6 +16,7 @@ import { nextText, whenText } from "../team/ScheduleForm.tsx";
 import { TeamEditSession } from "../team/SessionLazy.tsx";
 import { lazyView } from "../lazy.tsx";
 import { teamAgentIds } from "../team/flow.ts";
+import { copyText } from "../clipboard.ts";
 
 // the builder's file, fetched only when a team is saved as a template
 const SaveTemplate = lazyView(() => import("../team/Builder.tsx").then((m) => m.SaveTemplate));
@@ -287,7 +288,7 @@ function HowSheet({ channel, canEdit, agentCount }: { channel: ChannelInfo; canE
   const works = team?.nodes.length ? [leads.length ? `${leads.join(" and ")} ${leads.length > 1 ? "lead" : "leads"}.` : "", others.length ? `${others.join(", ")} ${others.length > 1 ? "help" : "helps"}.` : ""].filter(Boolean).join(" ") : noChartLine(agentCount);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(linesText(lines));
+      await copyText(linesText(lines));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

@@ -14,6 +14,7 @@ import { SheetHead, StartProblem, TilePicture, startComputer, toneText, useAddFl
 import { ASK_LEVELS, activityDot, askLevel, screenOffText, screenSwitch, sizeLine, updateExists, watchBlock, watchHref, type HubVersion, type SheetTarget } from "./computerState.ts";
 import { connectionLine, type NodeInfo } from "./deviceBits.tsx";
 import { AgentAvatar, Button, CopyBlock, Field, Input, Menu, Modal, Problem, cx, timeAgo } from "../components/ui.tsx";
+import { copyText } from "../clipboard.ts";
 
 const CARD = "overflow-hidden rounded-[12px] bg-card divide-y divide-line";
 const ROW = "flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px]";
@@ -720,7 +721,7 @@ function RemoteDesktop({ node: n, onChange }: { node: NodeInfo; onChange: () => 
 function RemoteRow({ label, value, copy, link, onChange, onRemove }: { label: string; value: string; copy: string; link: string | null; onChange?: () => void; onRemove?: () => void }) {
   const [copied, setCopied] = useState(false);
   const doCopy = async () => {
-    await navigator.clipboard.writeText(copy).catch(() => {});
+    await copyText(copy).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };

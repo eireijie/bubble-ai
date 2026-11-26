@@ -4,6 +4,7 @@ import { pairingLink } from "../../pairing.ts";
 import { Check, Copy, Smartphone } from "lucide-react";
 import { api } from "../../api.ts";
 import { Button, cx } from "../../components/ui.tsx";
+import { copyText } from "../../clipboard.ts";
 
 type State = "waiting" | "claimed" | "approved" | "rejected" | "expired";
 interface Pairing {
@@ -129,7 +130,7 @@ export function PhonePairing({ autoStart = false, compact = false }: { autoStart
     setCopied(false);
     setError(null);
     try {
-      await navigator.clipboard.writeText(started.link);
+      await copyText(started.link);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch (e) {

@@ -3,6 +3,7 @@ import { harnessLabel } from "@bubble-ai/core";
 import { memoryPrompt, parseMemoryAnswer, type MemoryLine } from "@bubble-ai/core/src/memory-import.ts";
 import { api } from "../api.ts";
 import { Spinner, Tick } from "./SetupShell.tsx";
+import { copyText } from "../clipboard.ts";
 
 /** A harness on one of the person's devices that Bubble AI can ask for them. */
 export interface Askable {
@@ -73,7 +74,7 @@ export function MemoryImport({ agentName, askable, saveLabel, skipLabel, onSave,
     const l = link ?? (await api<{ id: string; url: string }>("POST", "/api/memory-links").catch(() => null));
     if (l) setLink(l);
     try {
-      await navigator.clipboard.writeText(memoryPrompt(l?.url));
+      await copyText(memoryPrompt(l?.url));
       setCopied(true);
     } catch {
       setError("Couldn't copy. Select the prompt and copy it.");

@@ -9,6 +9,7 @@ import { readSkillFile, readSkillLink, skillLink, type SharedSkill } from "../sk
 import { Button, Loader, Menu } from "../components/ui.tsx";
 import { AreaBox, Chip, Dlg, FactRow, Item, Label, Labeled, ItemHead, Panel, Prim, RemoveBtn, Rows, Sec, Seg, TextBox, Tile } from "../components/MarketParts.tsx";
 import { AgentPicker, CatalogIcon, WhoCanUse } from "../components/ShopParts.tsx";
+import { copyText } from "../clipboard.ts";
 
 export const SOURCE: Record<Skill["source"], string> = { catalog: "From the library", custom: "Made here", taught: "Taught", learned: "Learned" };
 
@@ -390,7 +391,7 @@ export function TryDialog({ skill, agents, onClose }: { skill: { name: string; d
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       setCopied(true);
       setError(null);
       clearTimeout(timer.current);
@@ -632,7 +633,7 @@ export function SkillShare({ skill, agents, canEdit, onClose, onBrought, onDevic
   async function copyLink() {
     if (!shared) return;
     try {
-      await navigator.clipboard.writeText(skillLink(shared));
+      await copyText(skillLink(shared));
       setNote("Link copied");
     } catch {
       setError("Couldn't copy the link.");

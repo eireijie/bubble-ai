@@ -235,7 +235,7 @@ A hub in Docker can't update itself: pull the new image and recreate the contain
 
 **Tailscale is built in.** Setup's first step, **Use Bubble AI from anywhere**, and **Settings → Access** walk the owner through it with buttons: install Tailscale on the computer running Bubble AI, sign in, then **Turn on the address**, which runs `tailscale serve` for the hub and gives it `https://<computer>.<tailnet>.ts.net`. From then on every link Bubble AI hands out (invites, devices joining, install commands, phone pairing) uses that address. **Let people without Tailscale in** turns on Tailscale Funnel for the same address, for a friend who isn't on your tailnet. On Linux, if Tailscale refuses Bubble AI's changes, run `sudo tailscale set --operator=$USER` once. A hub in Docker can't see Tailscale on its host; use one of the other ways below.
 
-The Bubble AI apps for iPhone and Android pair with your hub by QR code: in Bubble AI on a computer, open **Settings → Mobile → Start pairing** and scan the code with the app. The code carries Bubble AI's Tailscale address when it's on, then the address you opened Bubble AI at plus the hub machine's Wi-Fi and Tailscale addresses, and the phone uses the first one it can reach.
+The Bubble AI apps for iPhone and Android pair with your hub by QR code: in Bubble AI on a computer, open **Settings → Computers → Phone → Start pairing** and scan the code with the app. The code carries Bubble AI's Tailscale address when it's on, then the address you opened Bubble AI at plus the hub machine's Wi-Fi and Tailscale addresses, and the phone uses the first one it can reach.
 
 The PWA needs HTTPS to install on iPhone and to use notifications. Pick one:
 

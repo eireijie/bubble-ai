@@ -13,6 +13,7 @@ import { agentMood } from "../ghostMood.ts";
 import { EASE, play, useOnChange, usePresence, useSheetBackdrop } from "../motion.ts";
 import { motionReduced } from "../theme.ts";
 import { isTopOverlay, useOverlay } from "../overlays.ts";
+import { copyText } from "../clipboard.ts";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -285,7 +286,7 @@ export function CopyBlock({ text }: { text: string }) {
   return (
     <div className="relative group">
       <pre className="bg-code rounded-lg p-3 pr-16 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">{text}</pre>
-      <button className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md bg-panel border border-line hover:bg-hover" onClick={() => navigator.clipboard?.writeText(text)}>
+      <button className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md bg-panel border border-line hover:bg-hover" onClick={() => void copyText(text).catch(() => {})}>
         Copy
       </button>
     </div>

@@ -10,6 +10,9 @@ import { Button, Field, IconButton, Input, cx, timeAgo } from "../../components/
 import { Card, Row, SavedNote, Toggle, useSavedFlash } from "./parts.tsx";
 import { Group, SRow, Seg } from "./rows.tsx";
 import { useFeature } from "../../features.ts";
+import { GITHUB_URL } from "@bubble-ai/core";
+
+const ANDROID_PUSH_DOC = `${GITHUB_URL}/blob/main/docs/deploy.md#push-notifications-for-the-android-app`;
 
 const ZONES: string[] = (() => {
   try {
@@ -212,11 +215,21 @@ function AndroidNotificationsPage() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // only the state that needs the owner to act keeps its sentence
-  const status =
+  const status: { label: string; hint: ReactNode } =
     push.hubReady === null
       ? { label: "Checking…", hint: null }
       : !push.hubReady
-        ? { label: "Not set up", hint: "The owner of this Bubble AI hasn't connected Firebase yet, so phones can't be notified while the app is closed. See the deploy guide's Android push section." }
+        ? {
+            label: "Not set up",
+            hint: (
+              <>
+                Push isn't set up on this Bubble AI yet.{" "}
+                <a href={ANDROID_PUSH_DOC} target="_blank" rel="noreferrer" className="text-ink underline underline-offset-2">
+                  How to set it up
+                </a>
+              </>
+            ),
+          }
         : !push.allowed
           ? { label: "Off", hint: null }
           : push.registered

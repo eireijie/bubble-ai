@@ -7,6 +7,7 @@ import { useStore } from "../store.ts";
 import { href } from "../router.ts";
 import { Menu, cx } from "../components/ui.tsx";
 import { TerminalPane, type ShellTarget } from "../components/TerminalPane.tsx";
+import { uuid } from "../uuid.ts";
 import { useFeatures } from "../features.ts";
 import { MAX_PANES, MAX_TABS, allLeaves, layout, leaves, neighbor, newSession, removePane, restore, setRatio, splitPane, type Leaf, type Tab, type Workspace } from "./layout.ts";
 
@@ -56,7 +57,7 @@ function Shells({ lead, note, store }: { lead?: ReactNode; note?: string | null;
   const [targets, setTargets] = useState<ShellTarget[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // the layout saved before layouts were kept per workspace is taken once, by the first one opened
-  const [ws, setWs] = useState<Workspace>(() => restore(read(store) ?? read(STORE), read(OLD_STORE), () => crypto.randomUUID()));
+  const [ws, setWs] = useState<Workspace>(() => restore(read(store) ?? read(STORE), read(OLD_STORE), () => uuid()));
   const [notice, setNotice] = useState<string | null>(null);
   const pruned = useRef(false);
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
@@ -121,7 +122,7 @@ function Shells({ lead, note, store }: { lead?: ReactNode; note?: string | null;
 
   const leafFor = (target: ShellTarget, launch?: string): Leaf => ({
     kind: "pane",
-    key: crypto.randomUUID(),
+    key: uuid(),
     computerId: target.id,
     session: newSession(launch ?? target.name, target.id, allLeaves(ws)),
     ...(launch ? { launch } : {}),
@@ -160,7 +161,7 @@ function Shells({ lead, note, store }: { lead?: ReactNode; note?: string | null;
   const newTab = (target: ShellTarget | undefined = defaultTarget(), launch?: string) => {
     if (!target || ws.tabs.length >= MAX_TABS) return;
     const leaf = leafFor(target, launch);
-    const t: Tab = { id: crypto.randomUUID(), root: leaf, focus: leaf.key };
+    const t: Tab = { id: uuid(), root: leaf, focus: leaf.key };
     setWs((w) => ({ tabs: [...w.tabs, t], active: t.id }));
   };
 

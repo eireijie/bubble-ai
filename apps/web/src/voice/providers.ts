@@ -1,7 +1,7 @@
 import type { AgentSettings } from "@bubble-ai/core";
 import { getToken } from "../api.ts";
 import { voiceIndex } from "./text.ts";
-import { planListening, type ListenPlan } from "./engine.ts";
+import { MIC_NEEDS_SECURE, micAvailable, planListening, type ListenPlan } from "./engine.ts";
 
 export interface VoiceSettings {
   listen: "device" | "openai";
@@ -70,7 +70,7 @@ class Microphone {
   private generation = 0;
   async start(level: (value: number) => void, activity: (active: boolean) => void): Promise<MediaStream | null> {
     const generation = ++this.generation;
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access needs HTTPS or localhost. Open Bubble AI on a secure connection to call.");
+    if (!micAvailable()) throw new Error(MIC_NEEDS_SECURE);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     if (generation !== this.generation) { stream.getTracks().forEach((t) => t.stop()); return null; }
     this.stream = stream;

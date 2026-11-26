@@ -4,11 +4,11 @@ Bubble AI on Android phones and tablets. It pairs with Bubble AI on your compute
 
 ## Pair it
 
-1. In Bubble AI on your computer, open **Settings → Mobile** and click **Start pairing**.
+1. In Bubble AI on your computer, open **Settings → Computers → Phone** and click **Start pairing**.
 2. In the app, tap **Scan QR code** (Google's scanner from Play services reads it; Bubble AI itself never gets camera access). Scanning with the camera app also works: the code is a `wisp://pair` link, which opens Bubble AI.
 3. Check that both screens show the same six digits and click **Yes, pair it** on the computer.
 
-The phone must be able to reach the computer: the same Wi-Fi, Tailscale, or a public address (see [Deploying](../../docs/deploy.md)). Plain `http://` is allowed, since most Bubble AI hubs live on a home network. Without a camera (like in the emulator), click **Copy pairing link** on the computer and choose **Paste a pairing link instead**, or send it with `adb shell am start -a android.intent.action.VIEW -d '"wisp://pair?..."'`.
+The phone must be able to reach the computer: the same Wi-Fi, Tailscale, or a public address (see [Deploying](../../docs/deploy.md)). Plain `http://` is allowed, since most Bubble AI hubs live on a home network. Without a camera (like in the emulator), click **Copy pairing link** on the computer and choose **Paste link**, or send it with `adb shell am start -a android.intent.action.VIEW -d '"wisp://pair?..."'`.
 
 Signing out in Bubble AI, or signing the phone out from the computer (**Settings → Security → Sign-ins**), brings the app back to the pairing screen.
 

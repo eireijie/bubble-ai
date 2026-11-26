@@ -5,6 +5,7 @@ import { TAPBACKS, type Message, type Reaction } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { Modal, cx } from "./ui.tsx";
+import { copyText } from "../clipboard.ts";
 
 /**
  * What you can do with a message: Reply, Reply in thread, Copy, Pin, Edit, Delete. The menu from
@@ -28,7 +29,7 @@ export function useMessageActionList(m: Message, opts: { onReply: () => void; on
   const list: MessageAction[] = [];
   if (writable) list.push({ id: "reply", label: "Reply", icon: <CornerUpLeft size={16} />, run: opts.onReply });
   if (opts.onThread) list.push({ id: "thread", label: "Reply in thread", icon: <MessageSquare size={16} />, run: opts.onThread });
-  if (m.body) list.push({ id: "copy", label: "Copy", icon: <Copy size={16} />, run: () => void navigator.clipboard?.writeText(m.body) });
+  if (m.body) list.push({ id: "copy", label: "Copy", icon: <Copy size={16} />, run: () => void copyText(m.body).catch(() => {}) });
   if (canPin) list.push({ id: "pin", label: pinned ? "Unpin" : "Pin to team", icon: pinned ? <PinOff size={16} /> : <Pin size={16} />, run: () => void api(pinned ? "DELETE" : "PUT", `/api/messages/${m.id}/pin`).catch((e) => alert((e as Error).message)) });
   if (mine && writable && m.body) list.push({ id: "edit", label: "Edit", icon: <Pencil size={16} />, run: opts.onEdit });
   if ((mine || owner) && writable) list.push({ id: "delete", label: "Delete", icon: <Trash2 size={16} />, danger: true, run: opts.onDelete });
