@@ -170,10 +170,13 @@ export class Routines {
    * Older hubs turned Teach a task into a routine that stayed "learning" until the agent saved
    * steps. Each one still learning becomes a skill made from its recording (no model run). One
    * with a schedule stays a routine whose steps follow that skill; the rest go away. The
-   * recording note stays.
+   * recording note stays. While saving skills is off in a workspace its learning routines stay as
+   * they are; they're converted when skills are turned back on. Pass a workspace to do only that one.
    */
-  async migrateLearning() {
+  async migrateLearning(workspaceId?: string) {
     for (const r of this.hub.store.learningRoutines()) {
+      if (workspaceId && r.workspaceId !== workspaceId) continue;
+      if (!agentPolicy(this.hub, r.workspaceId).learnSkills) continue;
       const agent = this.hub.store.agent(r.agentId);
       if (!agent) {
         this.hub.store.deleteRoutine(r.id);

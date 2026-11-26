@@ -401,7 +401,10 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (body.leadsCreateAgents !== undefined) store.setSetting(c.workspaceId, "agents.leadsCreateAgents", String(body.leadsCreateAgents));
     if (body.subAgents !== undefined) store.setSetting(c.workspaceId, "agents.subAgents", String(body.subAgents));
     if (body.maxAgentMade) store.setSetting(c.workspaceId, "agents.maxAgentMade", String(body.maxAgentMade));
+    const learnedWasOff = !agentPolicy(hub, c.workspaceId).learnSkills;
     if (body.learnSkills !== undefined) store.setSetting(c.workspaceId, "agents.learnSkills", String(body.learnSkills));
+    // Tasks taught on an older hub wait as "learning" routines while skills are off; turning skills on makes them skills.
+    if (body.learnSkills && learnedWasOff) await hub.routines.migrateLearning(c.workspaceId);
     if (body.autoMemory !== undefined) store.setSetting(c.workspaceId, "agents.autoMemory", String(body.autoMemory));
     if (body.planReserve) store.setSetting(c.workspaceId, "agents.planReserve", String(body.planReserve));
     return agentPolicy(hub, c.workspaceId);
