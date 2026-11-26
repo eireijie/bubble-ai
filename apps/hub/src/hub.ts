@@ -69,6 +69,13 @@ interface LiveRun {
  * The hub runtime: fans events out to browsers, keeps node connections,
  * and turns messages into agent runs.
  */
+/** A message's text with the files it carries, so the agent knows they're there and can open them. */
+export function withFiles(m: Pick<Message, "parts">, body: string): string {
+  const files = m.parts.flatMap((p) => (p.type === "file" ? [p] : []));
+  if (!files.length) return body;
+  return [body, ...files.map((f) => `[Attached: ${f.name} (file id ${f.fileId}; open it with file_view)]`)].filter(Boolean).join("\n");
+}
+
 export class Hub {
   /** Stable across restarts and address changes; joined computers use it to find this Bubble AI again. */
   id = "";
@@ -1740,7 +1747,7 @@ export class Hub {
   historyLine(m: Message): string {
     const part = m.parts.find((p) => p.type === "approval");
     const a = part && part.type === "approval" ? this.store.approval(part.approvalId) : undefined;
-    if (!a) return m.body;
+    if (!a) return withFiles(m, m.body);
     return `${m.body}${a.details ? `\n${a.details}` : ""}\n(${a.status === "pending" ? "not answered yet" : a.status}${a.note ? `: ${a.note}` : ""})`;
   }
 
@@ -1974,7 +1981,7 @@ export class Hub {
       history.length ? `\nRecent conversation:\n${history.map((m) => `${this.displayName(m.author)}: ${this.historyLine(m)}`).join("\n")}` : "",
       background ? "" : trigger.replyTo ? `\nThis message replies to ${this.displayName(trigger.replyTo.author)}'s earlier message${trigger.replyTo.deleted ? " (since deleted)" : `: "${trigger.replyTo.snippet}"`}.` : "",
       background || !isVoiceMessage(trigger) ? "" : `\n${VOICE_CALL_NOTE}`,
-      background ? "" : `\nNew message from ${this.displayName(trigger.author)}:\n${command?.via === "prompt" ? skillRequest(command.name, command.args) : trigger.body}${taskInstructions(store, agent.id, trigger)}`,
+      background ? "" : `\nNew message from ${this.displayName(trigger.author)}:\n${withFiles(trigger, command?.via === "prompt" ? skillRequest(command.name, command.args) : trigger.body)}${taskInstructions(store, agent.id, trigger)}`,
     ]
       .filter(Boolean)
       .join("\n");
