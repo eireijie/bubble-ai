@@ -98,7 +98,7 @@ jobs:
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$BT/apksigner" verify --print-certs Bubble-AI-android.apk | tee certs.txt
-          "$BT/aapt2" dump badging Bubble-AI-android.apk | grep -E "^(package|application-label|application-icon-160|sdkVersion|targetSdkVersion)" | tee badging.txt
+          "$BT/aapt2" dump badging Bubble-AI-android.apk | grep -E "^(package|application-label:|application-icon-160|sdkVersion|targetSdkVersion)" | tee badging.txt
           grep -q "name='ai.bubbleai.android'" badging.txt
           if [ "$SIGNED" = debug ]; then
             grep -q "CN=Android Debug" certs.txt
