@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Info, Monitor, Search, ShieldCheck, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Compass, Info, Monitor, Search, ShieldCheck, UserRound } from "lucide-react";
+import { LearnPage } from "../components/tour/Learn.tsx";
 import { BubbleIcon } from "../components/icons.tsx";
 import { useStore } from "../store.ts";
 import { go, href, useRoute, type SettingsPage } from "../router.ts";
@@ -42,6 +43,7 @@ const FIVE_PAGE: Record<Five, () => ReactNode> = {
   computers: () => <ComputersFive />,
   privacy: () => <PrivacyFive />,
   about: () => <AboutPage />,
+  learn: () => <LearnPage />,
 };
 
 /** What each sheet row opens, by row id. (Apps is the Add page's "installed" list, which fills the pane itself.) */
@@ -102,6 +104,7 @@ const FIVE_ICON: Record<Five, ReactNode> = {
   computers: <Monitor size={20} strokeWidth={1.8} />,
   privacy: <ShieldCheck size={20} strokeWidth={1.8} />,
   about: <Info size={20} strokeWidth={1.8} />,
+  learn: <Compass size={20} strokeWidth={1.8} />,
 };
 
 /** The top of You: your picture, your name, your role and workspace. */
@@ -207,7 +210,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
 
   const pageBody = (p: Five) => (
     <FiveContext.Provider value={{ page: p, guest, features, showAll, landed: row && !sheet ? row.id : null, target }}>
-      <div className="space-y-4">{FIVE_PAGE[p]()}</div>
+      <div data-tour="settings-page" className="space-y-4">{FIVE_PAGE[p]()}</div>
     </FiveContext.Provider>
   );
   const sheetBody = (r: SettingRow) =>
@@ -250,7 +253,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
                       <ChevronLeft size={15} aria-hidden /> {FIVE_LABEL[current!]}
                     </a>
                     <h1 className="t-title mb-4">{sheet.label}</h1>
-                    {sheetBody(sheet)}
+                    <div data-tour="settings-sheet">{sheetBody(sheet)}</div>
                   </>
                 ) : (
                   <>
@@ -282,13 +285,13 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
       <div key={`${current}:${sheet?.id ?? ""}`} className="flex-1 min-h-0 overflow-y-auto">
         <div className={cx("px-4 pt-2", bottom)}>
           {sheet ? (
-            sheetBody(sheet)
+            <div data-tour="settings-sheet">{sheetBody(sheet)}</div>
           ) : current ? (
             pageBody(current)
           ) : query ? (
             results
           ) : (
-            <nav aria-label="Settings" className="rounded-[14px] bg-card divide-y divide-line overflow-hidden">
+            <nav data-tour="settings-home" aria-label="Settings" className="rounded-[14px] bg-card divide-y divide-line overflow-hidden">
               {pages.map((p) => (
                 <a key={p} href={pageTop(p)} className="flex items-center gap-3 px-4 min-h-[52px] text-body hover:bg-hover">
                   <span className="flex-1">{FIVE_LABEL[p]}</span>

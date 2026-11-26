@@ -8,15 +8,15 @@ const { SETTINGS_PAGES } = await import("../src/router.ts");
 const { FIVE, FIVE_LABEL, ROWS, fivePages, settingsLanding } = await import("../src/views/settings/map.ts");
 
 describe("settings navigation", () => {
-  it("is five pages: You, Agents, Computers, Privacy and data, About", () => {
-    expect(fivePages(false, FEATURE_PRESETS.everything).map((p) => FIVE_LABEL[p])).toEqual(["You", "Agents", "Computers", "Privacy and data", "About"]);
+  it("is six pages: You, Agents, Computers, Privacy and data, About, Learn Wisp", () => {
+    expect(fivePages(false, FEATURE_PRESETS.everything).map((p) => FIVE_LABEL[p])).toEqual(["You", "Agents", "Computers", "Privacy and data", "About", "Learn Wisp"]);
   });
 
   it("has a sheet to open for every row that says it opens one, and no others", () => {
     expect([...SHEET_IDS].sort()).toEqual(ROWS.filter((r) => r.sheet).map((r) => r.id).sort());
   });
 
-  it("still opens every route (SETTINGS_PAGES) on one of the five", () => {
+  it("still opens every route (SETTINGS_PAGES) on one of the six", () => {
     for (const page of SETTINGS_PAGES) expect(FIVE).toContain(settingsLanding(page).page);
   });
 
@@ -26,7 +26,7 @@ describe("settings navigation", () => {
   });
 
   it("leaves out the pages guests can't use", () => {
-    expect(fivePages(true, FEATURE_PRESETS.everything)).toEqual(["you", "privacy", "about"]);
+    expect(fivePages(true, FEATURE_PRESETS.everything)).toEqual(["you", "privacy", "about", "learn"]);
   });
 });
 

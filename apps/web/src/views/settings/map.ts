@@ -2,15 +2,15 @@ import type { FeatureKey } from "@wisp/core";
 import type { SettingsPage } from "../../router.ts";
 
 /**
- * Settings is five pages. Every setting is one row on one of them: shown by default, or under that
+ * Settings is five pages, and Learn Wisp. Every setting is one row on one of them: shown by default, or under that
  * page's "Show all". The 24 old routes (SETTINGS_PAGES) still open: each lands on the row that holds
  * its content now. This file is the whole map, with no React in it, so it can be tested.
  */
-export const FIVE = ["you", "agents", "computers", "privacy", "about"] as const;
+export const FIVE = ["you", "agents", "computers", "privacy", "about", "learn"] as const;
 export type Five = (typeof FIVE)[number];
-export const FIVE_LABEL: Record<Five, string> = { you: "You", agents: "Agents", computers: "Computers", privacy: "Privacy and data", about: "About" };
+export const FIVE_LABEL: Record<Five, string> = { you: "You", agents: "Agents", computers: "Computers", privacy: "Privacy and data", about: "About", learn: "Learn Wisp" };
 /** The route that opens each page at its top. */
-export const FIVE_ROUTE: Record<Five, SettingsPage> = { you: "profile", agents: "agents", computers: "devices", privacy: "security", about: "updates" };
+export const FIVE_ROUTE: Record<Five, SettingsPage> = { you: "profile", agents: "agents", computers: "devices", privacy: "security", about: "updates", learn: "learn" };
 
 export interface SettingRow {
   id: string;
@@ -100,6 +100,9 @@ export const ROWS: SettingRow[] = [
   row("about", "hub", "Hub address", "updates", "url server", { ...A, all: true }),
   row("about", "welcome", "See the welcome again", "updates", "intro replay what is wisp", { all: true }),
   row("about", "remove", "Remove Wisp from this computer", "updates", "uninstall delete app", { ...A, all: true }),
+
+  // Show me around, and what setup left to do (it used to be its own "Finish setup" page)
+  row("learn", "tour", "Show me around", "learn", "tour learn wisp guide how does it work finish setup getting started"),
 ];
 
 /** Where each of the 24 routes lands: the row that holds what its page used to show. */
@@ -128,6 +131,7 @@ export const ROUTE_ROW: Record<SettingsPage, string> = {
   connections: "outside",
   data: "backup",
   updates: "version",
+  learn: "tour",
 };
 
 const BY_ID = new Map(ROWS.map((r) => [r.id, r]));

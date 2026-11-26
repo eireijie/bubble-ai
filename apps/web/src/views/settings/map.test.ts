@@ -5,7 +5,7 @@ import { FIVE, FIVE_ROUTE, ROUTE_ROW, ROWS, fivePages, pageRows, rowById, rowTar
 
 const everything = { ...FEATURE_PRESETS.everything, storage: true, apple: true };
 
-describe("where the 24 settings routes land", () => {
+describe("where the 25 settings routes land", () => {
   // route, the page it opens, the row it shows (null = the top of the page), opened as a sheet, under Show all
   const expected: [SettingsPage, Five, string | null, boolean, boolean][] = [
     ["profile", "you", null, false, false],
@@ -32,6 +32,7 @@ describe("where the 24 settings routes land", () => {
     ["data", "privacy", "backup", true, false],
     ["general", "privacy", "workspace", true, true],
     ["updates", "about", null, false, false],
+    ["learn", "learn", null, false, false],
   ];
 
   it("covers every route, each on the page that holds its content now", () => {
@@ -72,7 +73,8 @@ describe("settings rows", () => {
   });
 
   it("shows 4 to 7 by default on every page, the rest under Show all", () => {
-    for (const page of FIVE) {
+    // Learn Wisp is the tour and what setup left to do, drawn by the page itself, not rows
+    for (const page of FIVE.filter((p) => p !== "learn")) {
       const shown = pageRows(page, false, everything).length;
       expect(shown, page).toBeGreaterThanOrEqual(4);
       expect(shown, page).toBeLessThanOrEqual(7);
@@ -84,8 +86,8 @@ describe("settings rows", () => {
     for (const page of FIVE) expect(settingsLanding(FIVE_ROUTE[page])).toEqual({ page, row: null, sheet: false, all: false });
   });
 
-  it("gives guests only what they can use: You, their password and sign-ins, About", () => {
-    expect(fivePages(true, everything)).toEqual(["you", "privacy", "about"]);
+  it("gives guests only what they can use: You, their password and sign-ins, About, Learn Wisp", () => {
+    expect(fivePages(true, everything)).toEqual(["you", "privacy", "about", "learn"]);
     expect(pageRows("privacy", true, everything).map((r) => r.id)).toEqual(["password", "sessions"]);
     expect(fivePages(false, everything)).toEqual([...FIVE]);
   });

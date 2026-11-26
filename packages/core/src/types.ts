@@ -35,6 +35,14 @@ export interface UserPrefs {
   experience?: "simple" | "advanced";
   /** the desktop sidebar and phone list: pins and named sections, the same on every device */
   sidebar?: SidebarLayout;
+  /** Show me around (Learn Wisp): which tour stops this person has seen, the same on every device */
+  learn?: LearnProgress;
+}
+
+/** Progress through Show me around: stop ids seen, and whether the tour was ever started. */
+export interface LearnProgress {
+  seen: string[];
+  started?: boolean;
 }
 
 /**

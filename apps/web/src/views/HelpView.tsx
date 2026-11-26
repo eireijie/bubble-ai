@@ -1,5 +1,6 @@
 import { GITHUB_URL } from "@wisp/core";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleHelp, ExternalLink } from "lucide-react";
+import { startTour } from "../components/tour/tourRun.ts";
 import { helperChecklist, pickHelper, type HelperCheck } from "../onboarding.ts";
 import { useDevices } from "../devices.ts";
 import { go, href } from "../router.ts";
@@ -12,7 +13,7 @@ const ISSUES_URL = `${GITHUB_URL}/issues`;
 const linkClass = "text-accent-text hover:underline rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 const rowClass = "w-full min-h-14 px-4 flex items-center gap-3 text-left text-[14px] font-medium text-ink hover:bg-hover outline-none focus-visible:bg-hover";
 
-/** Help, short: ask your agent first, then why it might not be answering, the welcome again, and where to report a problem. */
+/** Help, short: ask your agent first, then why it might not be answering, Show me around, the welcome again, and where to report a problem. */
 export function HelpView({ onBack }: { onBack?: () => void }) {
   const agents = useStore((s) => s.agents);
   const devices = useDevices();
@@ -50,6 +51,10 @@ export function HelpView({ onBack }: { onBack?: () => void }) {
           </section>
 
           <div className="rounded-[14px] bg-card divide-y divide-line overflow-hidden">
+            <button type="button" className={rowClass} onClick={() => startTour()}>
+              <span className="flex-1">Show me around</span>
+              <ChevronRight size={15} className="text-muted" aria-hidden />
+            </button>
             <a className={rowClass} href={href({ view: "welcome", intro: true })}>
               <span className="flex-1">See the welcome again</span>
               <ChevronRight size={15} className="text-muted" aria-hidden />

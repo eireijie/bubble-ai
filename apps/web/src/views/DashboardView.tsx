@@ -173,7 +173,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[584px] min-h-full px-4 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:pb-10 flex flex-col">
           {count > 0 ? (
-            <ul data-stagger aria-label="Needs you" className="flex flex-col divide-y divide-line">
+            <ul data-stagger data-tour="needs-you" aria-label="Needs you" className="flex flex-col divide-y divide-line">
               {asks.map((a) => (
                 <ApprovalNeed key={a.id} approval={a} text={approvalLine(a, agentName(a.agentId))} />
               ))}
@@ -192,7 +192,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
             </ul>
           ) : (
             <div className="flex-1 grid place-items-center py-16">
-              <div className="flex flex-col items-center gap-3 text-center">
+              <div data-tour="needs-you" className="flex flex-col items-center gap-3 text-center">
                 <Ghost look={sleeper} size={96} mood="asleep" label="" />
                 <div>
                   <p className="text-[17px] font-semibold leading-6">All caught up</p>
