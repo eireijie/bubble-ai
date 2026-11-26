@@ -1,12 +1,12 @@
 import SwiftUI
 
 /**
- * Right after the first run on the phone, in the new agent's chat (the web's SetupTour). Advanced:
- * the agent says what got done ("Great! I can see all that you've done." and which apps are
- * connected, or a plain line when none are), then Show me around starts on its own; when the tour
- * ends or is skipped it asks "What should I start on?". Simple: nothing starts; the tour waits in
- * Settings › Learn Bubble AI and Help. A tour already started on another device isn't repeated. It all
- * goes away once the person writes their first message.
+ * Right after the first run on the phone, in the new agent's chat (the web's SetupTour). The agent
+ * says what got done (Advanced: "Great! I can see all that you've done." and which apps the first
+ * run connected, or a plain line when none; Simple: that apps can be added anytime), then the
+ * four-stop Show me around starts on its own; when the tour ends or is skipped it asks "What should
+ * I start on?". A tour already started on another device isn't repeated. It all goes away once the
+ * person writes their first message.
  */
 @MainActor enum SetupTour {
   struct State: Codable, Equatable {
@@ -60,12 +60,21 @@ struct SetupTourChat: View {
     guard let s = state else { return false }
     return (store.messages[channel.id] ?? []).contains { $0.author.kind == .user && (Wire.date($0.createdAt) ?? .distantPast) > s.at }
   }
-  private var mine: Bool { state?.channelId == channel.id && !spoke && SetupTour.advanced(store.prefs) }
+  /** stays while the tour runs (its first stop is a message), so it's here to ask once it ends */
+  private var mine: Bool { state?.channelId == channel.id && (state?.stage == "tour" || !spoke) }
+  /** what the first run connected (not every app this Bubble AI has), and how it started */
+  private var answers: OnboardingAnswers? { store.workspace.map { OnboardingAnswers.load($0.id) } }
+  private var lines: [String] {
+    guard let answers, answers.path != SetupPath.simple.rawValue else {
+      return ["No apps yet. Ask \(store.dmAgent(channel)?.name ?? "me") to add any, anytime."]
+    }
+    return SetupTour.opening(connected: answers.appleApps.compactMap { AppleApp(rawValue: $0)?.name } + answers.appNames)
+  }
 
   var body: some View {
     if mine, let s = state {
       VStack(alignment: .leading, spacing: 3) {
-        let lines = SetupTour.opening(connected: store.connectors.map(\.name))
+        let lines = lines
         ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
           Bubble(side: .theirs, tail: i == lines.count - 1) { Text(line).font(.system(size: 16)) }
         }
@@ -88,12 +97,16 @@ struct SetupTourChat: View {
   private func set(_ stage: String) {
     guard var s = state else { return }
     s.stage = stage
+    // the tour's first stop has you send a message: only what's written after it ends counts as speaking
+    if stage == "done" { s.at = .now }
     SetupTour.save(s)
     withAnimation(Motion.pick(Motion.pop, reduceMotion)) { state = s }
   }
 
   /** "ask": in 1.8 s the agent leaves to show you around, unless you've started the tour already. */
   private func advance() async {
+    // hidden while the chat box had the keyboard (the tour's first stop), it missed the tour ending
+    if state?.stage == "tour", !TourRun.shared.active { set("done"); return }
     guard state?.stage == "ask" else { return }
     if store.prefs?.learn?.started == true { set("done"); return }
     try? await Task.sleep(for: .milliseconds(1800))

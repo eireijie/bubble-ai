@@ -33,8 +33,11 @@ final class TourRun {
   private(set) var teamChannel: String?
   /** typed into the chat box by Try it: the box puts it in and takes the keyboard */
   private(set) var composerRequest: ComposerRequest?
-  /** what the chat box holds, while the tour runs (for "That's it.") */
+  /** what the chat box holds, while the tour runs (typing / finishes that stop) */
   var composerText = ""
+  /** bumps each time a finger goes down on the control a stop points at (Make another finishes on it) */
+  private(set) var holeTaps = 0
+  func holeTapped() { if run != nil { holeTaps &+= 1 } }
   /** the chat open on screen, if any (ChannelView sets it) */
   @ObservationIgnored var openChannel: String?
 
@@ -170,9 +173,17 @@ final class TourWindow: UIWindow {
   var passThrough: CGRect?
   /** the card, which keeps its touches even where it covers the cut-out */
   var card: CGRect = .zero
+  private var lastHoleTouch: TimeInterval = -1
 
   override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-    if let hole = passThrough, hole.contains(point), !card.contains(point) { return nil }
+    if let hole = passThrough, hole.contains(point), !card.contains(point) {
+      // a new touch on the real control: the stop that asks for a tap is done (hit-testing runs more than once per touch)
+      if let event, event.type == .touches, event.timestamp != lastHoleTouch {
+        lastHoleTouch = event.timestamp
+        TourRun.shared.holeTapped()
+      }
+      return nil
+    }
     return super.hitTest(point, with: event) ?? rootViewController?.view
   }
 }
