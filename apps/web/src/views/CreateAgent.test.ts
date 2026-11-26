@@ -379,6 +379,7 @@ describe("new agent sheet", () => {
   const submit = (m: Mounted) => find(m.render(), (el) => el.type === "form")!.props.onSubmit({ preventDefault() {} });
   const createButton = (m: Mounted) => find(m.render(), (el) => el.type.name === "Button" && el.props.type === "submit")!;
   const textButton = (m: Mounted, text: string) => find(m.render(), (el) => el.type === "button" && el.props.children === text)!;
+  const moreOptions = (m: Mounted) => find(m.render(), (el) => el.type === "button" && el.props.className === "na-more")!;
   const alertLine = (m: Mounted) => find(m.render(), (el) => el.props.role === "alert")?.props.children;
 
   it("suggests a name nobody has, and numbers one once they are all used", () => {
@@ -415,13 +416,22 @@ describe("new agent sheet", () => {
     const suggested = field(m.tree, "Name").props.value as string;
     expect(AGENT_NAMES).toContain(suggested);
     expect(suggested).not.toBe("Nova");
-    // every choice is in view, nothing folded away
-    for (const label of ["Handle", "What it does", "Instructions", "AI", "Effort", "Start from"]) expect(field(m.tree, label)).toBeDefined();
+    // in view: who it is, its look rows, what it does and its AI on one row
+    for (const label of ["Handle", "What it does", "Model", "Effort", "Start from"]) expect(field(m.tree, label)).toBeDefined();
+    expect(named(m.tree, "LookRows")).toBeDefined();
+    // the rest is folded under More options, whose closed row says what's picked
+    expect(field(m.tree, "Instructions")).toBeUndefined();
+    expect(named(m.tree, "PlacePicker")).toBeUndefined();
+    const more = moreOptions(m);
+    expect(more.props["aria-expanded"]).toBe(false);
+    expect(find(more.props.children, (el) => el.props.className === "na-more-sum")!.props.children).toMatch(/^Computer: The shared computer( · Only me)?$/);
+    more.props.onClick();
+    expect(field(m.render(), "Instructions")).toBeDefined();
     expect(named(m.tree, "PlacePicker").props.value).toEqual({ kind: "auto" });
-    expect(named(m.tree, "LookOptions")).toBeDefined();
-    expect(textButton(m, "More options")).toBeUndefined();
-    // the defaults' AI is the one picked
-    expect(find(m.tree, (el) => el.props.role === "radio" && el.props["aria-checked"] === true && el.props.children?.[1]?.props?.children?.[0]?.props?.children === "Codex")).toBeDefined();
+    // the defaults' AI is the one picked, and every AI it can run with is in the picker
+    const ai = named(m.tree, "AiPicker");
+    expect(ai.props.value).toBe("codex");
+    expect(ai.props.list.map((h: { id: string }) => h.id)).toEqual(expect.arrayContaining(["claude-code", "codex"]));
     expect(createButton(m).props.disabled).toBe(false);
     submit(m);
     await tick();
@@ -453,7 +463,7 @@ describe("new agent sheet", () => {
     const after = named(m.render(), "Ghost").props.look;
     expect(after.bubble).not.toBe(before.bubble);
     // a hat picked in the look's options
-    named(m.render(), "LookOptions").props.onChange({ ...after, hat: "crown" });
+    named(m.render(), "LookRows").props.onChange({ ...after, hat: "crown" });
     const worn = named(m.render(), "Ghost").props.look;
     expect(worn.hat).toBe("crown");
     submit(m);
@@ -461,14 +471,16 @@ describe("new agent sheet", () => {
     expect(creates()[0][2]).toMatchObject({ settings: { appearance: worn } });
   });
 
-  it("on a phone, puts the name and what it does first: its look is a small preview that opens the editor", async () => {
+  it("on a phone, its look is a small preview that opens the editor, with the look rows under the name", async () => {
     vi.stubGlobal("window", Object.assign(new EventTarget(), { matchMedia: () => ({ matches: true }) }));
     hub();
     const m = mount(() => CreateAgent({ nodes: [], onClose() {} }));
     await tick();
     const tree = m.render();
-    expect(named(tree, "LookOptions")).toBeUndefined();
+    expect(named(tree, "LookRows")).toBeDefined();
     expect(named(tree, "Ghost").props.size).toBeLessThan(100);
+    // the title and close come first on a phone
+    expect(find(tree, (el) => el.type === "h1")!.props.children).toBe("New agent");
     expect(field(tree, "What it does")).toBeDefined();
     field(tree, "Change its look").props.onClick();
     expect(named(m.render(), "LookEditorScreen")).toBeDefined();
@@ -479,11 +491,12 @@ describe("new agent sheet", () => {
     hub();
     const m = mount(() => CreateAgent({ nodes: [mac], onClose() {} }));
     await tick();
-    const tile = (id: string) => find(m.render(), (e) => e.props?.role === "radio" && (e as unknown as { key: string }).key === id);
-    const says = (e: El | undefined, text: string) => !!e && !!find(e.props.children, (x) => x.props?.children === text);
-    expect(says(tile("kimi"), "Not installed")).toBe(true);
-    expect(says(tile("codex"), "Not installed")).toBe(false);
-    tile("kimi")!.props.onClick();
+    const choice = (id: string) => named(m.render(), "AiPicker").props.list.find((h: { id: string }) => h.id === id);
+    expect(choice("kimi").notInstalled).toBe(true);
+    expect(choice("codex").notInstalled).toBe(false);
+    // the installed one comes first
+    expect(named(m.tree, "AiPicker").props.list[0].id).toBe("codex");
+    named(m.tree, "AiPicker").props.onPick("kimi");
     const install = find(m.render(), (e) => e.type?.name === "Button" && Array.isArray(e.props.children) && e.props.children.includes("Install"));
     expect(install).toBeDefined();
     vi.mocked(api).mockImplementation(async () => ({}));
@@ -548,14 +561,18 @@ describe("new agent sheet", () => {
     // a template fills in what it does and turns on its apps that are here
     find(m.render(), (el) => el.props.role === "radio" && el.props["aria-checked"] === false && find(el.props.children, (c) => c.props.children === "Work") !== undefined)!.props.onClick();
     expect(field(m.render(), "What it does").props.value).toBe("Keep work moving");
-    expect(find(m.tree, (el) => el.type.name === "Chip" && el.props.children === "Mail")!.props.on).toBe(true);
     field(m.render(), "What it does").props.onChange({ target: { value: "Finds things" } });
+    // pick the AI and its effort here
+    named(m.render(), "AiPicker").props.onPick("claude-code");
+    field(m.render(), "Effort").props.onChange({ target: { value: "high" } });
+    // the rest under More options
+    moreOptions(m).props.onClick();
+    expect(find(m.render(), (el) => el.type.name === "Chip" && el.props.children === "Mail")!.props.on).toBe(true);
     field(m.render(), "Instructions").props.onChange({ target: { value: "Look twice." } });
     find(m.render(), (el) => el.type.name === "Chip" && el.props.children === "Charts")!.props.onClick();
-    // pick the AI and its effort here
-    find(m.render(), (el) => el.props.role === "radio" && find(el.props.children, (c) => c.props.children === "Claude Code") !== undefined)!.props.onClick();
-    find(m.render(), (el) => el.props.role === "radio" && el.props.children === "High")!.props.onClick();
     named(m.render(), "PlacePicker").props.onChange({ kind: "headless" });
+    moreOptions(m).props.onClick();
+    expect(find(moreOptions(m).props.children, (el) => el.props.className === "na-more-sum")!.props.children).toBe("Instructions · Computer: No computer · 1 app · 1 skill · Only me");
     submit(m);
     await tick();
     expect(creates()[0][2]).toMatchObject({ name: "Scout", handle: "scout", instructions: "Look twice.", harness: "claude-code", nodeId: "node", computerId: null, settings: { role: "Finds things", headless: true, effort: "high" } });
@@ -572,8 +589,11 @@ describe("new agent sheet", () => {
     await tick();
     m.render();
     expect(field(m.tree, "What it does").props.value).toBe("Help with my code");
-    expect(find(m.tree, (el) => el.type.name === "Chip" && el.props.children === "GitHub")!.props.on).toBe(true);
-    find(m.render(), (el) => el.props.role === "radio" && find(el.props.children, (c) => c.props.children === "Claude Code") !== undefined)!.props.onClick();
+    // its apps are folded under More options
+    expect(find(moreOptions(m).props.children, (el) => el.props.className === "na-more-sum")!.props.children).toContain("1 app");
+    moreOptions(m).props.onClick();
+    expect(find(m.render(), (el) => el.type.name === "Chip" && el.props.children === "GitHub")!.props.on).toBe(true);
+    named(m.render(), "AiPicker").props.onPick("claude-code");
     submit(m);
     await tick();
     expect(creates()[0][2]).toMatchObject({ useDefaults: true, harness: "claude-code", settings: { role: "Help with my code" } });
