@@ -20,7 +20,7 @@ export const TAB_TITLES: Record<AgentTab, string> = {
   device: "Works on",
   computer: "Works on",
   access: "Who can ask it",
-  routines: "Schedules",
+  routines: "Routines",
   background: "Background checks",
   memory: "Knows",
   skills: "Can use",
@@ -369,7 +369,7 @@ export function More({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
           <Line label="Notifications">
             <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
           </Line>
-          {features.routines && <Line label="Schedules" value={routines ? (on ? `${on} on` : "None") : ""} to={to("routines")} />}
+          {features.routines && <Line label="Routines" value={routines ? (on ? `${on} on` : "None") : ""} to={to("routines")} />}
           {features.background && <Line label="Background checks" to={to("background")} />}
         </div>
       </Sub>
@@ -477,7 +477,7 @@ export function RemoveConfirm({ agent, onClose }: { agent: Agent; onClose: () =>
   return (
     <ConfirmDialog
       title={`Remove ${agent.name}?`}
-      body={error ? <span className="text-bad">{error}</span> : "Its notes and personality stay in memory. Its schedules and chats stop."}
+      body={error ? <span className="text-bad">{error}</span> : "Its notes and personality stay in memory. Its routines and chats stop."}
       confirm={busy ? "Removing…" : "Remove"}
       keep="Cancel"
       danger

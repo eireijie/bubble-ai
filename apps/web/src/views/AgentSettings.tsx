@@ -828,14 +828,23 @@ function RunsPanel({ agent, active }: { agent: FullAgent; active: boolean }) {
   return <RunList runs={runs} />;
 }
 
+/** How long a run took, in words ("under a second", "12 seconds", "3 minutes"). */
+export function tookFor(ms: number): string {
+  const secs = Math.round(Math.max(0, ms) / 1000);
+  if (secs < 1) return "under a second";
+  if (secs < 60) return secs === 1 ? "1 second" : `${secs} seconds`;
+  const mins = Math.round(secs / 60);
+  return mins === 1 ? "1 minute" : `${mins} minutes`;
+}
+
 function RunList({ runs }: { runs: RunRow[] | null }) {
   if (!runs) return <p className="px-1 text-[13px] text-muted">Loading…</p>;
   if (!runs.length) return <p className="px-1 text-[13px] text-muted">Nothing yet</p>;
   return (
     <div className={CARD}>
       {runs.map((r) => {
-        const secs = r.finishedAt ? Math.max(0, Math.round((new Date(r.finishedAt).getTime() - new Date(r.createdAt).getTime()) / 1000)) : null;
-        const channel = r.channelKind === "dm" ? "DM" : `#${r.channelName ?? ""}`;
+        const took = r.finishedAt ? tookFor(new Date(r.finishedAt).getTime() - new Date(r.createdAt).getTime()) : null;
+        const channel = r.channelKind === "dm" ? "Chat" : `#${r.channelName ?? ""}`;
         const why = r.hint || r.error;
         return (
           <div key={r.id} className="px-3.5 py-2.5 text-sm">
@@ -848,7 +857,7 @@ function RunList({ runs }: { runs: RunRow[] | null }) {
                 {why && <span className="block text-xs text-bad break-words">{why.replace(/`/g, "")}</span>}
               </span>
               <span className="text-xs text-muted shrink-0 hidden sm:inline">{channel}</span>
-              {secs !== null && <span className="text-xs text-faint shrink-0 tabular-nums w-10 text-right">{secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`}</span>}
+              {took && <span className="text-xs text-faint shrink-0 tabular-nums text-right">{took}</span>}
               {r.status === "failed" && r.channelName !== null && (
                 <button type="button" className="text-xs font-medium text-ink underline underline-offset-2 shrink-0" onClick={() => void api("POST", `/api/runs/${r.id}/retry`).catch((e) => alert((e as Error).message))}>
                   Try again
@@ -863,12 +872,12 @@ function RunList({ runs }: { runs: RunRow[] | null }) {
                   <li>
                     You asked: {runTitle(r.trigger) || "a message"} <span className="text-faint">· {channel}</span>
                   </li>
-                  <li className={r.status === "failed" ? "text-bad" : undefined}>{r.status === "failed" ? `Didn't finish${why ? `: ${why}` : ""}` : r.status === "done" ? `Done${secs !== null ? ` in ${secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`}` : ""}` : runStatusLabel(r.status)}</li>
+                  <li className={r.status === "failed" ? "text-bad" : undefined}>{r.status === "failed" ? `Didn't finish${why ? `: ${why}` : ""}` : r.status === "done" ? `Done${took ? ` in ${took}` : ""}` : runStatusLabel(r.status)}</li>
                 </ol>
                 <div>
                   Run id: <span className="font-mono break-all">{r.id}</span>
                 </div>
-                <div>Channel: {channel}</div>
+                <div>Where: {channel}</div>
                 {r.trigger && <div className="whitespace-pre-wrap break-words max-h-32 overflow-y-auto rounded-lg bg-hover px-2 py-1.5">{r.trigger}</div>}
               </div>
             </details>
@@ -887,11 +896,11 @@ function ConnectPanel({ agent }: { agent: FullAgent }) {
   return (
     <div className="space-y-6">
       <section className="space-y-2.5">
-        <h3 className="px-1 text-[13px] font-semibold text-muted">A running session</h3>
+        <h3 className="px-1 text-[13px] font-semibold text-muted">From an app that's already open</h3>
         {token ? (
           <ConnectionInstructions token={token} harness={agent.harness} />
         ) : (
-          <Button onClick={async () => setToken((await api<{ token: string }>("POST", `/api/agents/${agent.id}/token`)).token)}>Create token</Button>
+          <Button onClick={async () => setToken((await api<{ token: string }>("POST", `/api/agents/${agent.id}/token`)).token)}>Get a sign-in key</Button>
         )}
       </section>
       <RemoteMcp agent={agent} />
@@ -911,7 +920,7 @@ function RemoteMcp({ agent }: { agent: FullAgent }) {
   useEffect(load, [load]);
   return (
     <section className="space-y-2.5">
-      <h3 className="px-1 text-[13px] font-semibold text-muted">By URL</h3>
+      <h3 className="px-1 text-[13px] font-semibold text-muted">From an app that connects by link</h3>
       {origin ? (
         <CopyBlock text={`${origin}/mcp`} />
       ) : (
