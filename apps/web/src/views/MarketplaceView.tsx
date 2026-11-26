@@ -64,6 +64,7 @@ import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { setFeatures, useFeatures } from "../features.ts";
 import { go, href, SETTINGS_CLOSING, type MarketSection, type Route } from "../router.ts";
+import { useInPopup } from "../components/SettingsDialog.tsx";
 import { Button, Loader, cx } from "../components/ui.tsx";
 import { Add, AddRow, AppTile, Circle, Dlg, FactRow, Item, ItemHead, NeedDot, Panel, RemoveBtn, Rows, SearchBox, SectionHead, TextBtn, Tile, matchWords, queryWords, rowsShown, sectionWord, type AddSection } from "../components/MarketParts.tsx";
 import { CatalogIcon } from "../components/ShopParts.tsx";
@@ -236,6 +237,8 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   const me = useStore((s) => s.me);
   const agents = useStore((s) => s.agents);
   const forA = forAgent ? agents.find((a) => a.id === forAgent) : undefined;
+  // its own pop-up (desktops), not the list inside Settings
+  const popup = !!useInPopup() && !embedded;
   /** who gets what is added here: the agent this was opened for, or every agent */
   const who = forA ? { agentIds: [forA.id], allAgents: false } : { agentIds: [] as string[], allAgents: true };
   const features = useFeatures();
@@ -819,7 +822,8 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
 
   const list = (
     <>
-      <h1 className="sr-only">Add</h1>
+      {/* in the pop-up the place's name is its title, as in the sidebar */}
+      {popup ? <h1 className="t-title pb-3">Apps and skills</h1> : <h1 className="sr-only">Add</h1>}
       <div className="flex items-center gap-2 pb-1">
         {onBack && (
           <Circle label="Back" wrap="md:hidden" onClick={onBack}>
@@ -938,9 +942,9 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
 
   return (
     <div className="flex min-h-0 flex-1">
-      {routed && <SectionNav section={section} canEdit={canEdit} forAgent={forA?.id} />}
+      {routed && <SectionNav section={section} canEdit={canEdit} forAgent={forA?.id} top={popup ? "pt-6" : "pt-9"} />}
       <div className="min-w-0 flex-1 overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]" onWheel={stopAuto} onTouchMove={stopAuto}>
-        <div className="mx-auto w-full max-w-[592px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-9">
+        <div className={cx("mx-auto w-full max-w-[592px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))]", popup ? "md:pt-6" : "md:pt-9")}>
           {detail || (routed && appKey) ? (
             <div className="space-y-4">
               <button type="button" className="circle circle-sm" aria-label="Back to Add" onClick={() => setDetail(null)}>
@@ -1047,12 +1051,12 @@ const navItems = (canEdit: boolean) => NAV.filter((n) => canEdit || !n.editors);
 const navHref = (id: MarketSection, forAgent?: string | null) => href({ view: "marketplace", section: id === "all" ? null : id, forAgent });
 
 /** The side list on desktops: All, Apps, Skills, On your devices, Installed. */
-function SectionNav({ section, canEdit, forAgent }: { section: MarketSection | "mods"; canEdit: boolean; forAgent?: string | null }) {
+function SectionNav({ section, canEdit, forAgent, top = "pt-9" }: { section: MarketSection | "mods"; canEdit: boolean; forAgent?: string | null; top?: string }) {
   const on = section === "mods" ? "all" : section;
   return (
-    <nav aria-label="Add sections" className="hidden w-52 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-line px-2.5 pb-5 pt-9 md:flex">
+    <nav aria-label="Add sections" className={cx("hidden w-[200px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-line px-2.5 pb-5 md:flex", top)}>
       {navItems(canEdit).map(({ id, label, icon: I }) => (
-        <a key={id} href={navHref(id, forAgent)} aria-current={on === id ? "page" : undefined} className={cx("flex h-9 items-center gap-2.5 rounded-[10px] px-3 text-[14px] font-medium transition-colors", on === id ? "bg-side-active text-ink" : "text-muted hover:bg-side-hover hover:text-ink")}>
+        <a key={id} href={navHref(id, forAgent)} aria-current={on === id ? "page" : undefined} className={cx("flex h-[34px] items-center gap-2.5 rounded-[8px] px-2.5 text-[length:var(--t-row)] transition-colors", on === id ? "bg-hover font-medium text-ink" : "text-ink/80 hover:bg-hover hover:text-ink")}>
           <I size={16} strokeWidth={1.8} aria-hidden className="shrink-0" />
           {label}
         </a>

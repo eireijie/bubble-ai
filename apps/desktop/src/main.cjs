@@ -862,12 +862,16 @@ function appMenu() {
     {
       label: "Go",
       submenu: [
-        { label: "Inbox", accelerator: "CmdOrCtrl+1", click: go("dashboard") },
-        { label: "Chats", accelerator: "CmdOrCtrl+2", click: go("chats") },
-        { label: "Agents", accelerator: "CmdOrCtrl+3", click: go("agents") },
-        { label: "Computers", accelerator: "CmdOrCtrl+4", click: go("computers") },
+        // ⌘1 to ⌘5 are the sidebar's strip, in its order (the web app answers the same keys)
+        { label: "Computers", accelerator: "CmdOrCtrl+1", click: go("computers") },
+        { label: "Memory", accelerator: "CmdOrCtrl+2", click: go("vault") },
+        { label: "Apps and skills", accelerator: "CmdOrCtrl+3", click: go("marketplace") },
+        { label: "Tasks", accelerator: "CmdOrCtrl+4", click: go("tasks") },
+        { label: "Code", accelerator: "CmdOrCtrl+5", click: go("code") },
         { type: "separator" },
-        { label: "Memory", accelerator: "CmdOrCtrl+5", click: go("vault") },
+        { label: "Inbox", click: go("dashboard") },
+        { label: "Chats", click: go("chats") },
+        { label: "Agents", click: go("agents") },
         { type: "separator" },
         { label: "Back", accelerator: "CmdOrCtrl+[", click: () => mainWin()?.webContents.navigationHistory.goBack() },
         { label: "Forward", accelerator: "CmdOrCtrl+]", click: () => mainWin()?.webContents.navigationHistory.goForward() },

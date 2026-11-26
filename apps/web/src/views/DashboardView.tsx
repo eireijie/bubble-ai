@@ -66,7 +66,7 @@ export function agentNeed(agent: Pick<Agent, "id" | "nodeId" | "harness" | "name
  * due. Under them, Later (what they put off) and Earlier (what was answered and what finished).
  * Everything else the Inbox listed lives in the sidebar. Fed live by the store's websocket events.
  */
-export function DashboardView({ onBack }: { onBack?: () => void }) {
+export function DashboardView({ onBack, popover = false }: { onBack?: () => void; /** desktops: drawn in the popover beside the sidebar's Needs you row, which carries the title */ popover?: boolean }) {
   const me = useStore((s) => s.me)!;
   const agents = useStore((s) => s.agents);
   const teams = useTeams();
@@ -165,6 +165,52 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
   useEffect(() => () => useStore.setState({ needsYouCount: null }), []);
   const earlier = useEarlier(Object.values(approvals).filter((a) => !held.includes(a.id)), tasks);
 
+  if (popover)
+    return (
+      <div className="flex flex-col [--need-size:14px] [--need-lh:20px]">
+        {count > 0 ? (
+          <ul data-tour="needs-you" aria-label="Needs you" className="flex flex-col divide-y divide-line [&>li]:py-2.5">
+            {asks.map((a) => (
+              <ApprovalNeed key={a.id} approval={a} text={approvalLine(a, agentName(a.agentId))} />
+            ))}
+            {helpNow.map((c) => (
+              <HelpNeed key={c.id} computer={c} text={helpLine(c, agentName(c.help!.agentId))} />
+            ))}
+            {stopped.map((n) => (
+              <TeamNeed key={`${n.flow.id}-${n.lane.stepId}`} flow={n.flow} lane={n.lane} />
+            ))}
+            {due.map((f) => (
+              <ReminderNeed key={f.id} reminder={f} />
+            ))}
+            {unready.map(({ agent, need }) => (
+              <AgentNeed key={agent.id} agent={agent} need={need} small />
+            ))}
+            {failed.map((f) => (
+              <FailedNeed key={f.runId} failure={f} onDone={reloadFailures} />
+            ))}
+          </ul>
+        ) : (
+          <div data-tour="needs-you" className="flex items-center gap-3 py-3">
+            <MotionMark size={40} mood="drift" />
+            <div>
+              <p className="text-[14px] font-semibold leading-5">All caught up</p>
+              <p className="text-[13px] leading-5 text-muted">Nothing needs you.</p>
+            </div>
+          </div>
+        )}
+        {laterCount > 0 && (
+          <Fold label={`Later · ${laterCount}`} centred={false}>
+            {helpLater.map((c) => (
+              <HelpNeed key={c.id} computer={c} text={helpLine(c, agentName(c.help!.agentId))} later />
+            ))}
+            {later.map((f) => (
+              <ReminderNeed key={f.id} reminder={f} later />
+            ))}
+          </Fold>
+        )}
+      </div>
+    );
+
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <header className="shrink-0 px-4 md:px-8 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-[max(56px,env(safe-area-inset-top))] pb-2 md:pb-3">
@@ -174,7 +220,7 @@ export function DashboardView({ onBack }: { onBack?: () => void }) {
               <ChevronRight size={22} className="rotate-180" aria-hidden />
             </button>
           )}
-          <h1 className="text-[22px] md:text-[24px] leading-[30px] font-[650] tracking-[-0.01em]">Needs you</h1>
+          <h1 className="t-title">Needs you</h1>
           {count > 0 && <span key={count} className="m-fade-in grid h-6 min-w-6 place-items-center rounded-[6px] bg-st-needs/15 px-2 text-[13px] font-semibold tabular-nums text-st-needs">{count}</span>}
         </div>
       </header>
@@ -284,10 +330,10 @@ function TeamNeed({ flow, lane }: { flow: TeamFlow; lane: FlowLane }) {
 }
 
 /** An agent that can't work until the person does one thing: the button does it, the sentence opens its chat. */
-function AgentNeed({ agent, need }: { agent: Agent; need: NonNullable<ReturnType<typeof agentNeed>> }) {
+function AgentNeed({ agent, need, small }: { agent: Agent; need: NonNullable<ReturnType<typeof agentNeed>>; small?: boolean }) {
   const chat = () => void openDm(agent.id);
   return (
-    <NeedRow avatar={<AgentAvatar agent={agent} size={48} live />} text={need.text} onOpen={chat} meta={[agent.name]}>
+    <NeedRow avatar={<AgentAvatar agent={agent} size={small ? 30 : 48} live />} text={need.text} onOpen={chat} meta={[agent.name]}>
       <div>
         <CardButton tone="primary" onClick={() => (need.href ? void (location.hash = need.href) : chat())}>
           {need.action}

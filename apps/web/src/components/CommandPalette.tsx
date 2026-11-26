@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AudioLines, Bell, Building2, CornerDownLeft, FileText, FolderPlus, LogOut, MessageSquare, Minimize2, Monitor, PanelLeft, Plus, RotateCcw, Search, SquarePen, Users, type LucideIcon } from "lucide-react";
-import type { Agent, Channel, Message } from "@bubble-ai/core";
+import { resolveFeatures, type Agent, type Channel, type Message } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useInboxCount, useStore, useTeams, type ChannelInfo } from "../store.ts";
 import { go, href, parseRoute } from "../router.ts";
@@ -11,7 +11,7 @@ import { SIDEBAR, loadSidebar, toggleSidebar } from "../sidebarWidth.ts";
 import { NewOrgDialog, OrgList } from "./OrgSwitcher.tsx";
 import { ChatAvatar, shortTime, startNewAgent } from "./ChatList.tsx";
 import { SectionDialog } from "./Channels.tsx";
-import { chatsTarget } from "./Rail.tsx";
+import { shortcutTarget } from "./Rail.tsx";
 import { Button, Modal, cx } from "./ui.tsx";
 import { findByWords, openSearch, placesFor, wordMatch } from "./searchIndex.ts";
 import { isTopOverlay, toBody, useOverlay } from "../overlays.ts";
@@ -41,6 +41,9 @@ interface Row {
 
 /** Things the palette opens after it closes: they outlive it. */
 type After = "org" | "orgs" | "section" | "signout" | null;
+
+/** The places the sidebar's strip has, with their shortcuts (Rail.tsx stripPlaces). */
+const PLACE_KEYS: Record<string, number> = { computers: 1, memory: 2, add: 3, tasks: 4, code: 5 };
 
 /** How many of each kind show at most. */
 const MOST = { recent: 7, chats: 8, messages: 5, places: 8, notes: 5 };
@@ -140,9 +143,11 @@ export function CommandPalette() {
         setOpen(!useStore.getState().paletteOpen);
         return;
       }
-      // ⌘1 Inbox, ⌘2 Chats, ⌘3 Agents, ⌘4 Computers, ⌘, Settings
-      const guest = useStore.getState().me?.role === "guest";
-      const target = { "1": href({ view: "dashboard" }), "2": chatsTarget(), "3": href({ view: "agents", agentId: null }), "4": guest ? null : href({ view: "computers", computerId: null }), ",": href({ view: "settings", page: null }) }[e.key];
+      // ⌘1 Computers, ⌘2 Memory, ⌘3 Apps and skills, ⌘4 Tasks, ⌘5 Code (the sidebar's strip, in order), ⌘, Settings
+      const state = useStore.getState();
+      const on = resolveFeatures(state.me?.features ?? null);
+      const flags = { guest: state.me?.role === "guest", tasks: !!on.tasks, code: !!on.code };
+      const target = /^[1-5]$/.test(e.key) ? shortcutTarget(Number(e.key), flags) : e.key === "," ? href({ view: "settings", page: null }) : null;
       if (target) {
         e.preventDefault();
         useStore.getState().setPalette(false);
@@ -303,7 +308,7 @@ function Palette({ onClose, onAfter }: { onClose: () => void; onAfter: (after: A
     // found by "inbox" or "approvals" too, even with nothing waiting, so the page always opens from here
     if (wordMatch(typed, "Needs you", "inbox waiting approvals allow dashboard") > 0) out.push(needsYou);
 
-    for (const p of findByWords(typed, placesFor(guest, features)).slice(0, MOST.places)) out.push({ key: `p:${p.key}`, group: "Places", icon: line(p.icon), label: p.label, meta: p.where, run: () => go(p.to) });
+    for (const p of findByWords(typed, placesFor(guest, features)).slice(0, MOST.places)) out.push({ key: `p:${p.key}`, group: "Places", icon: line(p.icon), label: p.label, meta: p.where ?? (PLACE_KEYS[p.key] ? `⌘${PLACE_KEYS[p.key]}` : undefined), run: () => go(p.to) });
 
     for (const n of (results?.notes ?? []).slice(0, MOST.notes)) {
       out.push({

@@ -13,7 +13,7 @@ let router: typeof import("./router.ts");
 beforeEach(async () => {
   vi.resetModules();
   changed.mockClear();
-  const url = new URL("https://wisp.test/?keep=1#/vault/note.md");
+  const url = new URL("https://wisp.test/?keep=1#/c/ch0/t/note");
   vi.stubGlobal("location", url);
   vi.stubGlobal("window", new EventTarget());
   vi.stubGlobal("history", {
@@ -46,12 +46,12 @@ describe("hash routing", () => {
     // Back/Forward can emit both events for the same transition.
     window.dispatchEvent(new Event(event === "popstate" ? "hashchange" : "popstate"));
     expect(confirm).toHaveBeenCalledTimes(1);
-    expect(location.hash).toBe("#/vault/note.md");
+    expect(location.hash).toBe("#/c/ch0/t/note");
     expect(location.search).toBe("?keep=1");
-    expect(history.replaceState).toHaveBeenCalledWith({ keep: true }, "", "/?keep=1#/vault/note.md");
+    expect(history.replaceState).toHaveBeenCalledWith({ keep: true }, "", "/?keep=1#/c/ch0/t/note");
     expect(changed).not.toHaveBeenCalled();
-    expect(router.appHashBeforeSettings()).toBe("#/vault/note.md");
-    expect(router.useRoute()).toEqual({ view: "vault", path: "note.md" });
+    expect(router.appHashBeforeSettings()).toBe("#/c/ch0/t/note");
+    expect(router.useRoute()).toEqual({ view: "chat", channelId: "ch0", threadId: "note" });
   });
 
   it.each(["go", "hashchange", "popstate"])("asks once for accepted navigation via %s", (event) => {
@@ -67,26 +67,45 @@ describe("hash routing", () => {
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(changed).toHaveBeenCalledTimes(1);
     expect(router.useRoute()).toEqual({ view: "settings", page: null });
-    expect(router.appHashBeforeSettings()).toBe("#/vault/note.md");
+    expect(router.appHashBeforeSettings()).toBe("#/c/ch0/t/note");
   });
 
-  it("opens Settings and an agent's settings as the pop-up over the last page that wasn't one", () => {
-    expect(router.isDialogRoute(router.parseRoute("#/settings/voice"))).toBe(true);
-    expect(router.isDialogRoute(router.parseRoute("#/agents/agt1/look"))).toBe(true);
-    // the list of agents is a page of its own, not the pop-up
-    expect(router.isDialogRoute(router.parseRoute("#/agents"))).toBe(false);
-    expect(router.isDialogRoute(router.parseRoute("#/c/ch1"))).toBe(false);
+  it("opens most places as a pop-up over the last page that wasn't one", () => {
+    for (const hash of ["#/settings/voice", "#/agents/agt1/look", "#/agents", "#/dashboard", "#/vault", "#/vault/shared/a.md", "#/tasks", "#/marketplace", "#/marketplace/app/b:gmail", "#/connectors", "#/skills", "#/mods", "#/help", "#/templates", "#/about", "#/computers", "#/computers/d/node1"])
+      expect(router.isDialogRoute(router.parseRoute(hash)), hash).toBe(true);
+    // chats, Code, a computer's live screen and Teach, onboarding and the phone pages stay pages
+    expect(router.isDialogRoute(router.parseRoute("#/computers/pc1")), "a computer's sheet").toBe(true);
+    for (const hash of ["#/", "#/c/ch1", "#/code", "#/computers/pc1/watch", "#/computers/pc1/teach/agt1", "#/welcome", "#/here", "#/chats", "#/buddy"])
+      expect(router.isDialogRoute(router.parseRoute(hash)), hash).toBe(false);
     router.go({ view: "chat", channelId: "ch1", threadId: null });
-    router.go({ view: "agents", agentId: "agt1", tab: "look" });
+    router.go({ view: "computers", computerId: null });
+    router.go({ view: "vault", path: null });
     router.go({ view: "settings", page: "voice" });
     // moving between pop-ups keeps the page under them: closing lands back in the chat
     expect(router.appHashBeforeSettings()).toBe("#/c/ch1");
   });
 
+  it("sizes pop-ups: large for the busy places, medium for lists, a popover for Needs you", () => {
+    const size = (hash: string) => router.popupSize(router.parseRoute(hash));
+    for (const hash of ["#/settings", "#/computers", "#/marketplace", "#/tasks", "#/vault", "#/agents/agt1/look"]) expect(size(hash), hash).toBe("large");
+    for (const hash of ["#/agents", "#/help", "#/templates", "#/about"]) expect(size(hash), hash).toBe("medium");
+    expect(size("#/dashboard")).toBe("popover");
+    // the marketplace's sections and app pages are one pop-up: moving inside it isn't a swap
+    expect(router.popupKey(router.parseRoute("#/marketplace/app/b:gmail"))).toBe(router.popupKey(router.parseRoute("#/skills")));
+    expect(router.popupKey(router.parseRoute("#/computers"))).not.toBe(router.popupKey(router.parseRoute("#/vault")));
+  });
+
+  it("puts the last chat under a pop-up opened straight from a link", async () => {
+    vi.resetModules();
+    vi.stubGlobal("location", new URL("https://wisp.test/#/computers"));
+    const fresh = await import("./router.ts");
+    expect(fresh.appHashBeforeSettings()).toBe("#/");
+  });
+
   it("keeps go guarded and supports unregistering a guard", () => {
     const remove = router.guardLeaving(() => "Discard changes?");
     router.go({ view: "dashboard" });
-    expect(location.hash).toBe("#/vault/note.md");
+    expect(location.hash).toBe("#/c/ch0/t/note");
     expect(changed).not.toHaveBeenCalled();
     remove();
     router.go({ view: "dashboard" });
@@ -117,6 +136,8 @@ describe("device pages", () => {
     expect(router.href({ view: "computers", computerId: null, deviceId: "box" })).toBe("#/computers/d/box");
     expect(router.parseRoute("#/nodes/box")).toEqual({ view: "computers", computerId: null, deviceId: "box" });
     expect(router.parseRoute("#/nodes")).toEqual({ view: "computers", computerId: null });
+    expect(router.parseRoute("#/computers/vm/watch")).toEqual({ view: "computers", computerId: "vm", teach: null, watch: true });
+    expect(router.href(router.parseRoute("#/computers/vm/watch"))).toBe("#/computers/vm/watch");
   });
 
   it("sends the old Marketplace Agents address to All", () => {
