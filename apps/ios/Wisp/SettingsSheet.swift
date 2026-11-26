@@ -32,6 +32,8 @@ struct SettingsSheet: View {
   @State private var confirmSignOut = false
   @State private var orgs = false
   @State private var policyAction = FormAction()
+  /** the page Show me around opened */
+  @State private var tourPage: Tour.Place?
 
   private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "" }
 
@@ -39,9 +41,11 @@ struct SettingsSheet: View {
     NavigationStack {
       VStack(spacing: 0) {
         SheetHeader { dismiss() }
+        ScrollViewReader { scroller in
         ScrollView {
           VStack(spacing: 14) {
             primary
+            LearnWispCard().id("learn-row")
             if store.role == "guest" {
               guestNote
             }
@@ -61,6 +65,7 @@ struct SettingsSheet: View {
             }
             CardGroup {
               ToggleRow(title: "Notifications", symbol: "bell", isOn: notifications, id: "you-notifications")
+                .tourTarget("notifications")
               NavigationLink { AppearanceSettingsView() } label: { RowLabel(title: "Appearance", value: themeName, leading: { rowIcon("paintpalette") }) }
                 .accessibilityIdentifier("settings-appearance")
               if store.role != "guest" {
@@ -69,6 +74,7 @@ struct SettingsSheet: View {
                 NavigationLink { NativeSettingsView() } label: { RowLabel(title: "Settings", leading: { rowIcon("gearshape") }) }.accessibilityIdentifier("you-settings")
               }
             }
+            .id("notifications")
             CardGroup {
               Button { confirmSignOut = true } label: { RowLabel(title: "Sign out", chevron: false, tint: Palette.red) }
                 .buttonStyle(.plain).accessibilityIdentifier("you-sign-out")
@@ -77,10 +83,24 @@ struct SettingsSheet: View {
           }
           .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 30)
         }
+        // Show me around: bring the row the stop points at into the middle of the screen
+        .task(id: TourRun.shared.run?.i) {
+          guard let stop = TourRun.shared.run?.stop, let id = stop.targets.first(where: { $0 == "notifications" || $0 == "learn-row" }) else { return }
+          try? await Task.sleep(for: .milliseconds(350)) // wait for the sheet to lay out
+          guard !Task.isCancelled else { return }
+          withAnimation(.easeInOut(duration: 0.3)) { scroller.scrollTo(id, anchor: .center) }
+        }
+        }
       }
       .background(Palette.sheet.ignoresSafeArea())
       .toolbar(.hidden, for: .navigationBar)
       .chatDestinations()
+      .navigationDestination(isPresented: tourShows(.usage)) { UsageView() }
+      .navigationDestination(isPresented: tourShows(.ai)) { HarnessesView() }
+    }
+    .onChange(of: TourRun.shared.nav, initial: true) {
+      guard TourRun.shared.active, let place = TourRun.shared.place, place.inSettings else { return }
+      tourPage = place == .settings ? nil : place
     }
     .tint(Palette.text)
     .presentationBackground(Palette.sheet)
@@ -95,6 +115,10 @@ struct SettingsSheet: View {
   }
 
   private var themeName: String { AppTheme.named(theme).name }
+
+  private func tourShows(_ page: Tour.Place) -> Binding<Bool> {
+    Binding(get: { tourPage == page }, set: { if !$0 && tourPage == page { tourPage = nil } })
+  }
 
   /** the switch for "Ask before risky actions": on when any action asks first */
   private var askBefore: Binding<Bool> {

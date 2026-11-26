@@ -103,6 +103,7 @@ struct ChannelView: View {
       } else {
         VStack(spacing: 6) {
           // a new agent's first chat: one-tap answers, pings after its first answer, and what it set up
+          SetupTourChat(channel: current)
           FirstChatExtras(channel: current)
           ActivityPill(channel: current)
           VStack(alignment: .leading, spacing: 0) {
@@ -185,6 +186,10 @@ struct ChannelView: View {
     Composer(placeholder: placeholder, channelId: channel.id, refresh: list.count, draft: draft, attachTrigger: attachTrigger, send: { text, files, replyTo in
             try await store.send(text, in: channel.id, files: files, replyTo: replyTo)
           }, onModelCommand: store.dmAgent(current).map { _ in { showRun = true } }, callLive: call != nil)
+    .tourTarget("composer")
+    // Show me around starts from the chat that's open
+    .onAppear { TourRun.shared.openChannel = channel.id }
+    .onDisappear { if TourRun.shared.openChannel == channel.id { TourRun.shared.openChannel = nil } }
   }
 
   /** only really leaving the chat hangs up; opening a thread, the profile or the full-screen call doesn't */
@@ -238,10 +243,12 @@ struct ChannelView: View {
       .buttonStyle(.plain)
       .accessibilityLabel(store.dmAgent(current) != nil ? "\(store.title(of: current)), open profile" : "\(current.name), team info")
       .accessibilityIdentifier("chat-title")
+      .tourTarget(store.dmAgent(current) != nil ? "agent-pill" : "team-pill")
     } trailing: {
       HStack(spacing: 6) {
       if let agent = store.dmAgent(current), canCall, call == nil {
         CircleButton(symbol: "phone", label: "Call \(agent.name)", id: "chat-call", tint: Palette.call) { startCall() }
+          .tourTarget("call")
       }
       if store.dmAgent(current) != nil, let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { showRun = true } }
       Menu {
@@ -267,6 +274,7 @@ struct ChannelView: View {
         }
       } label: { CircleLabel(symbol: "ellipsis") }
         .accessibilityLabel("More").accessibilityIdentifier("chat-more")
+        .tourTarget("chat-more")
       }
     }
     .background(alignment: .top) {
@@ -737,6 +745,7 @@ struct Composer: View {
           if chatAgent == nil { Button("Mention an agent", systemImage: "at") { text += (text.isEmpty || text.hasSuffix(" ") ? "@" : " @"); focused = true } }
         } label: { CircleLabel(symbol: "plus", size: 42, weight: .regular) }
           .accessibilityLabel("Attach").accessibilityIdentifier("composer-attach")
+          .tourTarget("attach", enabled: channelId != nil && thread == nil)
         HStack(alignment: .bottom, spacing: 2) {
           TextField(replyTarget.map { "Reply to \($0.name)" } ?? placeholder, text: $text, selection: $selection, axis: .vertical)
             .font(.system(size: 16))
@@ -800,7 +809,16 @@ struct Composer: View {
       guard text.isEmpty else { return }
       if !draft.isEmpty { text = draft } else if let draftKey { text = ComposerDrafts.load(draftKey) }
     }
-    .onChange(of: text) { _, new in if let draftKey { ComposerDrafts.save(new, key: draftKey) } }
+    .onChange(of: text) { _, new in
+      if let draftKey { ComposerDrafts.save(new, key: draftKey) }
+      if TourRun.shared.active && thread == nil && channelId == TourRun.shared.run?.homeChannel { TourRun.shared.composerText = new }
+    }
+    // Show me around's Try it types / or @ here
+    .onChange(of: TourRun.shared.composerRequest) { _, r in
+      guard let r, thread == nil, r.channelId == channelId else { return }
+      text = r.text
+      focused = r.focus
+    }
     .onChange(of: attachTrigger) { pickingFiles = true }
     .onChange(of: callLive) { _, live in if live { dictation.stop() } }
     .onChange(of: store.replying) { _, _ in if replyTarget != nil { focused = true } }

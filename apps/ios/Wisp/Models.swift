@@ -23,7 +23,7 @@ struct Workspace: Codable, Hashable {
 }
 
 struct Me: Codable {
-  struct Prefs: Codable { var experience: String?; var sendWith: String?; var clock: String?; var toolCalls: String?; var sidebar: SidebarLayout? }
+  struct Prefs: Codable { var experience: String?; var sendWith: String?; var clock: String?; var toolCalls: String?; var sidebar: SidebarLayout?; var learn: LearnProgress? }
   var prefs: Prefs?
   var kind: String
   var user: User?

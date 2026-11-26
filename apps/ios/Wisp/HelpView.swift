@@ -35,6 +35,12 @@ struct HelpView: View {
     let done = steps.filter(\.done).count
     let next = steps.first { !$0.done }
     SettingsPage("Help", id: "help") {
+      CardGroup {
+        Button { TourRun.shared.start(store) } label: {
+          RowLabel(title: "Show me around", value: Tour.resumeLabel(store.prefs?.learn, Tour.stops(guest: store.role == "guest")) == "Resume" ? "Resume" : nil, leading: { rowIcon("map") })
+        }
+        .buttonStyle(.plain).accessibilityIdentifier("help-tour")
+      }
       CardLabel("Finish setup")
       VStack(alignment: .leading, spacing: 12) {
         HStack {

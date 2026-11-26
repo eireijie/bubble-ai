@@ -124,12 +124,22 @@ struct MainTabs: View {
     .fullScreenCover(item: Binding(get: { onboarding.map(OnboardingRun.init) }, set: { onboarding = $0?.id })) { run in
       OnboardingFlow(workspaceId: run.id) { channelId in
         onboarding = nil
-        // its hello is waiting in its chat
-        if let channelId { store.route = .chat(channelId: channelId, threadId: nil) }
+        // its hello is waiting in its chat; in Advanced, Show me around follows (SetupTourChat)
+        if let channelId {
+          SetupTour.begin(channelId: channelId)
+          store.route = .chat(channelId: channelId, threadId: nil)
+        }
       }
       .environment(store)
     }
     .task(id: store.workspace?.id) { onboarding = store.wantsOnboarding() ? store.workspace?.id : nil }
+    // Show me around: the tab and the Settings sheet its stop is on
+    .onChange(of: TourRun.shared.nav) {
+      guard TourRun.shared.active, let place = TourRun.shared.place else { return }
+      if place.tab != .computers || store.canViewComputers { tab = place.tab }
+      settings = place.inSettings
+      orgs = false
+    }
     .onChange(of: store.canViewComputers) { _, allowed in
       if !allowed && tab == .computers { tab = .chats }
     }

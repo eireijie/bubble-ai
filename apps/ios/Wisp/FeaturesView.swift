@@ -13,11 +13,11 @@ struct FeaturesView: View {
     SettingsPage("Mods", id: "mods") {
       if !on.isEmpty {
         CardLabel("On")
-        CardGroup { ForEach(on) { row($0) } }
+        CardGroup { ForEach(on) { row($0) } }.tourTarget("mods-on")
       }
       if !off.isEmpty {
         CardLabel(on.isEmpty ? "Mods" : "More mods")
-        CardGroup { ForEach(off) { row($0) } }
+        CardGroup { ForEach(off) { row($0) } }.tourTarget("mods-page")
       }
       if !store.isOwner { OwnersOnlyNote() }
       StatusLine(error: action.error)

@@ -175,6 +175,7 @@ private struct UsageContent: View {
       .accessibilityElement(children: .combine)
       stat("Resets", UsageFormat.until(bg.resetsAt, now: now), "Midnight, \(UsageFormat.city(report.tz))")
     }
+    .tourTarget("usage-page")
     UsageChart(report: report)
     agentsCard
     modelsCard

@@ -4,6 +4,8 @@ import SwiftUI
 struct MoreTab: View {
   @Environment(Store.self) private var store
   @Environment(\.openSettings) private var openSettings
+  /** the page Show me around opened */
+  @State private var tourPage: Tour.Place?
 
   var body: some View {
     NavigationStack {
@@ -26,6 +28,7 @@ struct MoreTab: View {
           CardGroup {
             NavigationLink { MemoryView() } label: { RowLabel(title: "Memory", value: store.role == "guest" ? "Shared folder" : nil, leading: { rowIcon("book") }) }
               .accessibilityIdentifier("you-memory")
+              .tourTarget("more-memory")
             if store.role != "guest" {
               if store.features.tasks {
                 NavigationLink { TasksView() } label: { RowLabel(title: "Tasks", leading: { rowIcon("checklist") }) }
@@ -53,6 +56,17 @@ struct MoreTab: View {
       .background(Palette.sheet.ignoresSafeArea())
       .toolbar(.hidden, for: .navigationBar)
       .chatDestinations()
+      .navigationDestination(isPresented: tourShows(.memory)) { MemoryView() }
+      .navigationDestination(isPresented: tourShows(.marketplace)) { MarketplaceView() }
+      .navigationDestination(isPresented: tourShows(.mods)) { FeaturesView() }
     }
+    .onChange(of: TourRun.shared.nav, initial: true) {
+      guard TourRun.shared.active, let place = TourRun.shared.place, place.tab == .more else { return }
+      tourPage = place == .more ? nil : place
+    }
+  }
+
+  private func tourShows(_ page: Tour.Place) -> Binding<Bool> {
+    Binding(get: { tourPage == page }, set: { if !$0 && tourPage == page { tourPage = nil } })
   }
 }

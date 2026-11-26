@@ -37,7 +37,7 @@ struct InboxView: View {
       } trailing: {
         if canNewTask { CircleButton(symbol: "plus", label: "New task", id: "inbox-new-task") { creating = true } }
       }
-      switcher
+      switcher.tourTarget("needs-you")
       ScrollView {
         StaggeredStack(spacing: 12) {
           if mode == .needs { needs } else { InboxDone() }
@@ -49,6 +49,7 @@ struct InboxView: View {
     .background(Palette.ground.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)
     .task { await load() }
+    .onChange(of: TourRun.shared.nav, initial: true) { if TourRun.shared.active && TourRun.shared.place == .inbox { mode = .needs } }
     .refreshable {
       await store.refreshApprovals()
       await store.refreshComputers()

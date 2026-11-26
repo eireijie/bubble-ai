@@ -122,6 +122,7 @@ struct MarketplaceView: View {
   var body: some View {
     MarketScreen(title: "Marketplace", screenId: "marketplace") {
       MarketSearch(text: $query, prompt: installedPage ? "Search apps" : "Search apps and skills")
+        .tourTarget("market-page")
       ChipRow(options: tabs.map(\.rawValue), selection: section.rawValue, counts: [MarketSection.devices.rawValue: pending.count, MarketSection.installed.rawValue: store.connectors.count + store.skills.count]) { section = MarketSection(rawValue: $0) ?? .all }
       InlineError(error: action.error)
       switch section {
@@ -161,9 +162,9 @@ struct MarketplaceView: View {
     }
     if needle.isEmpty {
       shelfHeader("Popular apps", to: .apps)
-      appRows(apps, limit: 3)
+      appRows(apps, limit: 3).tourTarget("market-apps")
       shelfHeader("Skills", to: .skills)
-      skillRows(takeTurns(shownSkills), limit: 3)
+      skillRows(takeTurns(shownSkills), limit: 3).tourTarget("market-skills")
       makeYourOwn
     } else {
       shelfHeader("Apps", to: .apps)

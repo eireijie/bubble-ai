@@ -91,6 +91,7 @@ struct MemoryHome: View {
       if let agent = viewingAgent { ViewingBanner(agent: agent) { browse.viewAs = nil } }
       InlineError(error: action.error).padding(.horizontal, 4)
       MemorySearchField(prompt: "Search every note…", text: $query, id: "memory-search")
+        .tourTarget("memory-search")
       if canView && viewingAgent == nil {
         Button { picking = true } label: {
           HStack(spacing: 8) {
@@ -165,6 +166,7 @@ struct MemoryHome: View {
           }.buttonStyle(.plain).accessibilityIdentifier("memory-folder")
         }
       }
+      .tourTarget("memory-page")
       if let agent = viewingAgent {
         let hidden = topFolders(store.notes).count - folders.count
         if hidden > 0 { CardCaption("\(hidden) \(hidden == 1 ? "folder" : "folders") hidden from \(agent.name)") }

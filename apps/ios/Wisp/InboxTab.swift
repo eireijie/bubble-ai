@@ -32,6 +32,7 @@ struct InboxTab: View {
     NavigationStack(path: $path) {
       InboxView().chatDestinations()
     }
+    .onChange(of: TourRun.shared.nav, initial: true) { if TourRun.shared.active && TourRun.shared.place == .inbox { path = NavigationPath() } }
     .task(id: store.route) {
       // a tapped approval notification opens that approval
       guard case .approval(let id) = store.route else { return }

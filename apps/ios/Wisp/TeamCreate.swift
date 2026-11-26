@@ -99,6 +99,7 @@ struct NewChannel: View {
               Text(exists ? "\(slug) already exists." : slug).font(.system(size: 13)).foregroundStyle(exists ? Palette.red : Palette.faint).padding(.horizontal, 18)
             }
           }
+          .tourTarget("new-team")
           VStack(alignment: .leading, spacing: 8) {
             Text("What is it for?").font(.system(size: 15)).foregroundStyle(Palette.muted).padding(.horizontal, 18)
             TextField("Ship releases on time, checked before they go out.", text: $model.topic, axis: .vertical).lineLimit(3...8)

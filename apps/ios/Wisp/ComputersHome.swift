@@ -144,13 +144,14 @@ struct ComputersView: View {
         } trailing: {
           if store.canManage { CircleButton(symbol: "plus", label: "Add", id: "computers-add") { chooser = true } }
         }
+        .tourTarget("computers-page")
         ScrollView {
           StaggeredStack(spacing: 14) {
             if let c = asking { helpBanner(c) }
             if let loadError { Text(loadError).font(.footnote).foregroundStyle(Palette.red).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 4) }
-            if devices.isEmpty && store.computers.isEmpty && phones == 0 { empty }
-            ForEach(devices) { node in deviceGroup(node) }
-            if !cloud.isEmpty { cloudGroup }
+            if devices.isEmpty && store.computers.isEmpty && phones == 0 { empty.tourTarget("computers-list") }
+            ForEach(devices) { node in deviceGroup(node).tourTarget("computers-list", enabled: node.id == devices.first?.id) }
+            if !cloud.isEmpty { cloudGroup.tourTarget("computers-list", enabled: devices.isEmpty) }
             if phones > 0 { phonesCard }
           }
           .padding(.horizontal, 18).padding(.top, 10).padding(.bottom, 30)
@@ -177,6 +178,7 @@ struct ComputersView: View {
       .sheet(isPresented: $giving) { AddComputerView { path = [.computer($0.id)] } }
     }
     .tint(Palette.text)
+    .onChange(of: TourRun.shared.nav, initial: true) { if TourRun.shared.active && TourRun.shared.place == .computers { path = [] } }
     .task { await poll() }
     .task(id: store.route) {
       // a tapped "needs you on its computer" notification, or a link to a device

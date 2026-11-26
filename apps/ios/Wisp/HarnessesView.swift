@@ -27,7 +27,7 @@ struct HarnessesView: View {
   var body: some View {
     SettingsPage("Harnesses", subtitle: "What runs your agents on each computer. Pick the model separately.", id: "harnesses") {
       if let computers {
-        if computers.isEmpty { MarketNote(text: "No computers yet. Connect one from Devices.") }
+        if computers.isEmpty { MarketNote(text: "No computers yet. Connect one from Devices.").tourTarget("ai-page") }
         ForEach(computers) { computer in
           GroupCaption(title: computer.name, note: computer.isVM ? "VM on \(store.nodes.first { $0.id == computer.nodeId }?.name ?? "a device")" : (computer.online ? "Device" : "Device · offline"))
           if computer.harnesses.isEmpty {
@@ -36,6 +36,7 @@ struct HarnessesView: View {
             CardGroup {
               ForEach(computer.harnesses) { h in row(computer, h) }
             }
+            .tourTarget("ai-page", enabled: computer.id == computers.first { !$0.harnesses.isEmpty }?.id)
           }
         }
         if store.canManage && !devices.isEmpty {

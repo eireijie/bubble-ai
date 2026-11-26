@@ -149,6 +149,7 @@ struct ChatsView: View {
       .managementAlert(action)
     }
     .task(id: store.route) { await open(store.route) }
+    .onChange(of: TourRun.shared.nav, initial: true) { tourMove() }
     .task(id: entries.count) { await warmPreviews() }
   }
 
@@ -193,6 +194,7 @@ struct ChatsView: View {
           if !guest { Button("New section", systemImage: "folder.badge.plus") { newSection() } }
         } label: { CircleLabel(symbol: "plus", size: 38, weight: .regular) }
           .accessibilityLabel("New chat, agent or team").accessibilityIdentifier("new-menu")
+          .tourTarget("new")
       }
     }
     .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 8)
@@ -247,20 +249,23 @@ struct ChatsView: View {
       plain(SuggestionBanner(symbol: "pin", text: notice, onClose: { self.notice = nil }, closeLabel: "OK").padding(.horizontal, -12).padding(.bottom, 8))
     }
     let pins = placed.pins.compactMap { byKey[$0] }
-    if !pins.isEmpty { plain(pinGrid(pins, layout: l)) }
+    if !pins.isEmpty { plain(pinGrid(pins, layout: l).tourTarget("pins")) }
     plain(filterTabs(all))
+    let firstNeeds = all.first(where: needsYou)?.id
     if filter == "turn" {
       let waiting = all.filter(needsYou)
-      ForEach(Array(waiting.enumerated()), id: \.element.id) { i, e in rowView(e, i, layout: l) }
+      ForEach(Array(waiting.enumerated()), id: \.element.id) { i, e in rowView(e, i, layout: l, needsFirst: e.id == firstNeeds) }
       plain(Text(waiting.isEmpty ? "Nobody is waiting on you." : "Everyone else is under All.")
         .font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 6).padding(.top, 10).padding(.bottom, 6))
     } else {
       let shown = placed.sections.filter { !$0.isNone || !$0.keys.isEmpty || placed.sections.count == 1 }
+      let firstNamed = shown.first { !$0.isNone }?.id
+      let firstRow = shown.first { !$0.folded && !$0.keys.isEmpty }.flatMap { $0.keys.first }
       ForEach(shown) { section in
         let rows = section.keys.compactMap { byKey[$0] }
-        if !(section.isNone && l.sections.isEmpty) { plain(sectionHeader(section, count: rows.count, layout: l)) }
+        if !(section.isNone && l.sections.isEmpty) { plain(sectionHeader(section, count: rows.count, layout: l).tourTarget("sections", enabled: section.id == firstNamed)) }
         if !section.folded {
-          ForEach(Array(rows.enumerated()), id: \.element.id) { i, e in rowView(e, i, layout: l) }
+          ForEach(Array(rows.enumerated()), id: \.element.id) { i, e in rowView(e, i, layout: l, needsFirst: e.id == firstNeeds, first: e.key == firstRow) }
           if !section.isNone && rows.isEmpty {
             plain(Text("Hold an agent or team, then choose Move to section")
               .font(.system(size: 13)).foregroundStyle(Palette.muted)
@@ -274,7 +279,7 @@ struct ChatsView: View {
         plain(Button { newSection() } label: {
           Label("New section", systemImage: "plus").font(.system(size: 14)).foregroundStyle(Palette.muted)
             .frame(maxWidth: .infinity, alignment: .leading).frame(height: 40).padding(.horizontal, 6).contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityIdentifier("new-section"))
+        }.buttonStyle(.plain).accessibilityIdentifier("new-section").tourTarget("new-section"))
       }
     }
   }
@@ -340,6 +345,7 @@ struct ChatsView: View {
         .buttonStyle(.plain)
         .accessibilityAddTraits(filter == f ? [.isSelected] : [])
         .accessibilityIdentifier(f == "all" ? "filter-all" : "filter-turn")
+        .tourTarget("yourturn", enabled: f == "turn")
       }
     }
     .padding(3)
@@ -349,10 +355,12 @@ struct ChatsView: View {
 
   // MARK: rows and sections
 
-  private func rowView(_ entry: ChatEntry, _ index: Int = 0, layout l: SidebarLayout? = nil) -> some View {
+  private func rowView(_ entry: ChatEntry, _ index: Int = 0, layout l: SidebarLayout? = nil, needsFirst: Bool = false, first: Bool = false) -> some View {
     ChatRow(entry: entry, unread: l.map { isUnread(entry, $0) } ?? (entry.badge > 0), open: { openEntry(entry) }, path: $path) {
       if let l { menu(entry, layout: l) }
     }
+    .tourTarget("needs-row", enabled: needsFirst)
+    .tourTarget("chat-row", enabled: first)
     .rowEntrance(index)
     .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
     .listRowSeparator(.hidden)
@@ -592,6 +600,29 @@ struct ChatsView: View {
       }
       search = ""
       searchFocused = false
+    }
+  }
+
+  /** Show me around moved on: open its chat, the list, or the New team sheet. */
+  private func tourMove() {
+    let tour = TourRun.shared
+    guard tour.active, let place = tour.place else { return }
+    let chat: String? = place == .chat ? tour.run?.homeChannel : place == .team ? tour.teamChannel : nil
+    switch place {
+    case .chat, .team:
+      if sheet == "team" { sheet = nil }
+      if let chat, let ch = store.channels.first(where: { $0.id == chat }) {
+        var p = NavigationPath(); p.append(ch); path = p
+      } else { path = NavigationPath() }
+    case .chats:
+      if sheet == "team" { sheet = nil }
+      search = ""; searchFocused = false
+      path = NavigationPath()
+    case .newTeam:
+      path = NavigationPath()
+      sheet = "team"
+    default:
+      if sheet == "team" { sheet = nil }
     }
   }
 
