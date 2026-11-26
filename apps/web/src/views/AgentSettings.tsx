@@ -230,7 +230,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
       </header>
       <div className="flex-1 min-h-0 flex">
         {/* desktops (the pop-up): the live ghost, its name and what it does, how it is, Message, then its sections */}
-        <aside className="hidden md:flex w-[280px] shrink-0 flex-col overflow-y-auto border-r border-line bg-sidebar px-4 pt-8 pb-6">
+        <aside className="hidden md:flex w-[240px] shrink-0 flex-col overflow-y-auto border-r border-line bg-panel px-2.5 pt-6 pb-5">
           <div className="mb-4 flex flex-col items-start gap-2.5 px-2">
             {ghost(76)}
             <div className="w-full min-w-0">
@@ -248,7 +248,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
           <PopNav label={`${agent.name}'s settings`} current={group} items={AGENT_GROUPS.map((g) => ({ key: g, label: GROUP_TITLES[g], icon: GROUP_ICON[g], onSelect: () => pick(g), dot: unsaved(g) ? "unsaved" : g === "works" && !readiness.ready ? "needs" : null }))} />
         </aside>
         {/* md:px-8 is the room a part's save bar (-mx-8) reaches into */}
-        <div ref={content} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 96)} className="flex-1 min-w-0 overflow-y-auto px-5 md:pl-10 md:pr-16 pt-1 md:pt-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <div ref={content} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 96)} className="flex-1 min-w-0 overflow-y-auto px-5 md:pl-8 md:pr-16 pt-1 md:pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div className="max-w-[720px] max-md:mx-auto">
             {!part && (
               <div className="space-y-6">

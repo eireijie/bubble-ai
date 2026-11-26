@@ -13,6 +13,8 @@ const world = vi.hoisted(() => ({ store: {} as any, waiting: 0, features: {} as 
 vi.mock("react", async (original) => ({
   ...await original<typeof import("react")>(),
   useEffect: vi.fn(), useState: vi.fn(),
+  // views drawn as plain functions here are never inside a pop-up
+  useContext: () => null,
   useMemo: (fn: () => unknown) => fn(),
   useCallback: (fn: unknown) => fn,
   useRef: (initial: unknown) => ({ current: initial }),
@@ -233,6 +235,13 @@ describe("typing", () => {
     expect(draw("").labels).not.toContain("Settings");
     expect(draw("zzz").rows).toEqual([]);
     expect(draw("comp").labels).toContain("Computers");
+  });
+
+  it("shows the sidebar strip's shortcuts beside its places", () => {
+    expect(draw("comp").row("Computers")!.meta).toBe("⌘1");
+    expect(draw("memory").row("Memory")!.meta).toBe("⌘2");
+    expect(draw("add apps").row("Add apps and skills")!.meta).toBe("⌘3");
+    expect(draw("tasks").row("Tasks")!.meta).toBe("⌘4");
   });
 
   it("leaves out what a guest or a switched-off mod can't open", () => {

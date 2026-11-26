@@ -28,14 +28,14 @@ export function Group({ children, className, title }: { children?: ReactNode; cl
   if (!title) return card;
   return (
     <section aria-label={title} className="has-[>div:empty]:hidden">
-      <h2 className="px-1 pb-1.5 text-[13px] font-medium text-muted">{title}</h2>
+      <h2 className="px-1 pb-1.5 t-label">{title}</h2>
       {card}
     </section>
   );
 }
 
 export const rowDomId = (id: string) => `setting-${id}`;
-const ROW = "flex items-center gap-3 px-4 min-h-[52px] md:min-h-[60px] text-body";
+const ROW = "flex items-center gap-3 px-4 min-h-[52px] md:min-h-[44px] text-body leading-5";
 
 /**
  * One setting, named by its id in the map: the label on the left, its value or control on the
@@ -85,7 +85,7 @@ export function Seg<T extends string>({ value, options, onChange, label, disable
           aria-checked={value === v}
           disabled={disabled}
           onClick={() => onChange(v)}
-          className={cx("relative h-[26px] px-3 rounded-[6px] text-[13px] leading-[18px] whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-medium" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-panel")}
+          className={cx("relative h-[26px] md:h-6 px-3 md:px-2.5 rounded-[6px] text-[13px] md:text-[length:var(--t-seg)] leading-[18px] whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-medium" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-panel")}
         >
           {text}
         </button>
@@ -97,7 +97,7 @@ export function Seg<T extends string>({ value, options, onChange, label, disable
 /** A line under a card: an error, or the one sentence that has to stay. */
 export function Note({ children, bad }: { children: ReactNode; bad?: boolean }) {
   return (
-    <p role={bad ? "alert" : undefined} className={cx("px-1 -mt-2 text-[13px] leading-snug", bad ? "text-bad" : "text-muted")}>
+    <p role={bad ? "alert" : undefined} className={cx("px-1 -mt-2 text-[13px] leading-snug md:t-cap", bad ? "text-bad" : "text-muted")}>
       {children}
     </p>
   );

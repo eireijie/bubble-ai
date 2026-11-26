@@ -1,11 +1,12 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, Brain, Building2, ChevronLeft, LifeBuoy, ListTodo, SquarePen, ChevronRight, LogOut, Moon, Settings, Sparkles, Store, Sun, SunMoon, Blocks, X } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { api, connectEvents, getToken, setToken } from "./api.ts";
 import { useInboxCount, useStore } from "./store.ts";
-import { appHashBeforeSettings, go, href, isDialogRoute, parseRoute, routeForRole, SETTINGS_CLOSING, useRoute, type Route } from "./router.ts";
+import { closePopup, go, href, isDialogRoute, parseRoute, popupKey, popupSize, routeForRole, appHashBeforeSettings, useRoute, type Route } from "./router.ts";
 import { useAppearance, type ModeChoice } from "./theme.ts";
 import { ChatList, NewChatPicker } from "./components/ChatList.tsx";
-import { Rail, rememberChat } from "./components/Rail.tsx";
+import { Rail, homeChat, rememberChat } from "./components/Rail.tsx";
+import { NeedsPopover } from "./components/NeedsPopover.tsx";
 import { OfflineBanner, UpdatedBanner } from "./components/Banners.tsx";
 import { OrgList, useOrgs } from "./components/OrgSwitcher.tsx";
 import { ChannelBrowser } from "./components/Channels.tsx";
@@ -111,18 +112,6 @@ function useUnreadBadge() {
   }, [unread]);
 }
 
-/** The chat or team with the newest message: where the Chats item lands when you haven't been in one yet. */
-function newestChat(): string | null {
-  const { channels } = useStore.getState();
-  let best: { id: string; at: number } | null = null;
-  for (const c of channels) {
-    if (c.archivedAt || (c.kind === "channel" && !c.joined)) continue;
-    const at = Date.parse(c.last?.at ?? c.createdAt);
-    if (!best || at > best.at) best = { id: c.id, at };
-  }
-  return best?.id ?? null;
-}
-
 /** Which page a route belongs to. Moving between groups animates; moving within one doesn't. */
 function tabGroup(route: Route): string {
   switch (route.view) {
@@ -164,11 +153,16 @@ function Workspace() {
   const waiting = useInboxCount();
   const asked = routeForRole(useRoute(), me?.role);
   const phone = useIsPhone();
-  // desktops: Settings and an agent's settings pop up over the page you were on, which stays under them
+  // desktops: most places pop up over the page you were on (the chat), which stays under them
   const popped = !phone && isDialogRoute(asked);
-  const route = popped ? routeForRole(parseRoute(appHashBeforeSettings()), me?.role) : asked;
-  const popPresence = usePresence(popped, 200);
+  const under = popped ? routeForRole(parseRoute(appHashBeforeSettings()), me?.role) : asked;
+  // desktops open on the chat you were last in (#/), never on a list of places
+  const home = useStore((s) => (phone ? null : homeChat(s.channels)));
+  const route: Route = !phone && under.view === "chat" && !under.channelId && home ? { view: "chat", channelId: home, threadId: null } : under;
+  const popPresence = usePresence(popped, 140);
   const heldPop = useRef<{ route: Route; node: ReactNode } | null>(null);
+  // Memory's graph asks for the whole window while it shows (it is a canvas you drag around)
+  const [popFull, setPopFull] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -229,17 +223,20 @@ function Workspace() {
 
   // the phone-only pages have desktop equivalents, and the bare root is the chats list on phones
   useEffect(() => {
-    // the bare root on desktops: what needs you when something does, else the chat you were last in
-    // (replace, so Back doesn't bounce here again). Only once the chats are in: deciding before that
-    // always landed on Needs you (the desktop app opens on the bare root, so it always did)
-    if (!phone && loaded && route.view === "chat" && !route.channelId) {
-      const newest = waiting > 0 ? null : newestChat();
-      location.replace(newest ? href({ view: "chat", channelId: newest, threadId: null }) : href({ view: "dashboard" }));
-    }
+    // the bare root on desktops: the chat you were last in (replace, so Back doesn't bounce here
+    // again). Not while a pop-up is open over it: that would close it
+    if (!phone && loaded && !popped && asked.view === "chat" && !asked.channelId && home) location.replace(href({ view: "chat", channelId: home, threadId: null }));
     if (!phone && asked.view === "you") go({ view: "settings" });
-    if (!phone && asked.view === "more") go({ view: "dashboard" });
+    if (!phone && asked.view === "more") go({ view: "chat", channelId: null, threadId: null });
+    // Mods live in Settings on desktops
+    if (!phone && asked.view === "mods") location.replace(href({ view: "settings", page: "mods" }));
     if (phone && route.view === "chat" && !route.channelId) go({ view: "chats" });
-  }, [phone, route, asked, loaded, waiting]);
+  }, [phone, route, asked, loaded, popped, home]);
+  // a different pop-up starts at its own size
+  const popKey = popped ? popupKey(asked) : null;
+  useEffect(() => {
+    if (popKey !== "vault") setPopFull(false);
+  }, [popKey]);
 
   if (error)
     return (
@@ -261,17 +258,22 @@ function Workspace() {
   const viewFor = (route: Route): ReactNode => {
     switch (route.view) {
       case "chat":
-        // the bare root: the Inbox on desktops, the chats list on phones (the effect above fixes the URL)
+        // the bare root: the chats list on phones; on desktops the last chat (above), or with no chats at all, what needs you
         if (!route.channelId) return phone ? <ChatsPage route={route} /> : <DashboardView />;
-        return <ChannelView route={route} onBack={phone ? toChats : undefined} />;
+        // the chat keeps its own type sizes (tokens.css)
+        return (
+          <div className="type-chat contents">
+            <ChannelView route={route} onBack={phone ? toChats : undefined} />
+          </div>
+        );
       case "chats":
-        return phone ? <ChatsPage route={route} /> : <DesktopChats route={route} />;
+        return <div className="type-chat contents">{phone ? <ChatsPage route={route} /> : <DesktopChats route={route} />}</div>;
       case "you":
         return <YouPage />;
       case "more":
         return <MorePage />;
       case "dashboard":
-        return <DashboardView onBack={phone ? toChats : undefined} />;
+        return <DashboardView onBack={phone ? toChats : undefined} popover={!phone} />;
       case "marketplace":
         return <MarketplaceView section={route.section ?? "all"} app={route.app ?? null} forAgent={route.forAgent ?? null} onBack={phone ? toYou : undefined} />;
       // older addresses: a sign-in coming back lands on what's installed
@@ -330,15 +332,21 @@ function Workspace() {
   const chatLayer = chatOpen || chatPresence.mounted;
   // the pop-up keeps what it showed while it closes
   if (popped) heldPop.current = { route: asked, node: <Suspense fallback={<div className="flex-1" />}>{viewFor(asked)}</Suspense> };
-  const closePop = () => {
-    window.dispatchEvent(new Event(SETTINGS_CLOSING));
-    location.hash = appHashBeforeSettings();
-  };
-  const pop = (popped || popPresence.mounted) && heldPop.current && (
-    <SettingsDialog label={heldPop.current.route.view === "agents" ? "Agent settings" : "Settings"} closing={!popped} onClose={closePop}>
-      {heldPop.current.node}
-    </SettingsDialog>
-  );
+  const held = heldPop.current?.route;
+  const popSize = held ? popupSize(held) : "large";
+  const pop =
+    (popped || popPresence.mounted) &&
+    heldPop.current &&
+    held &&
+    (popSize === "popover" ? (
+      <NeedsPopover count={waiting} closing={!popped} onClose={closePopup}>
+        {heldPop.current.node}
+      </NeedsPopover>
+    ) : (
+      <SettingsDialog label={popupLabel(held)} closing={!popped} onClose={closePopup} size={popFull && held.view === "vault" ? "full" : popSize === "medium" ? "medium" : "large"} swapKey={popupKey(held)} setFull={setPopFull}>
+        {heldPop.current.node}
+      </SettingsDialog>
+    ));
   const dialogs = (
     <>
       <CommandPalette />
@@ -360,10 +368,10 @@ function Workspace() {
   return (
     <div ref={shellRef} className="h-full flex overflow-hidden bg-app">
       <div className="titlebar-drag" aria-hidden />
-      {!phone && <Rail route={route} />}
+      {!phone && <Rail route={route} popup={popped ? asked : null} />}
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="relative flex-1 min-h-0 flex">
-          <main ref={mainRef} inert={popped} className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel overflow-hidden">
+          <main ref={mainRef} inert={popped && popupSize(asked) !== "popover"} className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel overflow-hidden">
             <OfflineBanner phone={phone} />
             {phone ? (
               // phones: the page, and over it the open chat. The page shifts back 96px and dims as the chat slides in
@@ -388,6 +396,33 @@ function Workspace() {
       {pop}
     </div>
   );
+}
+
+/** What a pop-up is called, for people who can't see it. */
+function popupLabel(r: Route): string {
+  switch (r.view) {
+    case "agents":
+      return r.agentId ? "Agent settings" : "All agents";
+    case "computers":
+      return "Computers";
+    case "vault":
+      return "Memory";
+    case "tasks":
+      return "Tasks";
+    case "marketplace":
+    case "connectors":
+    case "skills":
+    case "mods":
+      return "Apps and skills";
+    case "help":
+      return "Help";
+    case "templates":
+      return "Templates";
+    case "about":
+      return "What agents know";
+    default:
+      return "Settings";
+  }
 }
 
 /**

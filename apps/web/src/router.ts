@@ -22,8 +22,11 @@ import { useMemo, useSyncExternalStore } from "react";
  *   #/mods                           mods: optional parts of Bubble AI, switched on or off
  *   #/here[/<agentId>]               "Here's your Bubble AI": what setup turned on, each undoable (onboarding's last page)
  *   #/code                           Code (a mod): terminals on your computers
- *   #/                               the dashboard on desktops, the chats list on phones (App.tsx)
- *   #/chats                          channel list (phones; desktops go to the dashboard)
+ *   #/                               the chat you were last in on desktops, the chats list on phones (App.tsx)
+ *   #/chats                          channel list (phones; desktops show every chat)
+ *
+ * Desktops open most places as a pop-up over the chat (isDialogRoute): the address is the pop-up,
+ * and the page under it is the last address that wasn't one.
  *   #/you                            account menu (phones)
  */
 export type Route =
@@ -35,7 +38,7 @@ export type Route =
   | { view: "agents"; agentId: string | null; tab?: AgentTab | null }
   | { view: "about" }
   | { view: "tasks" }
-  | { view: "computers"; computerId: string | null; teach?: string | null; deviceId?: string | null }
+  | { view: "computers"; computerId: string | null; teach?: string | null; deviceId?: string | null; /** its live screen (#/computers/<id>/watch) */ watch?: boolean }
   | { view: "marketplace"; section?: MarketSection | null; app?: string | null; /** adding for one agent: what is added goes to it alone */ forAgent?: string | null }
   | { view: "connectors" }
   | { view: "skills" }
@@ -112,7 +115,7 @@ export function parseRoute(hash: string): Route {
       return { view: "tasks" };
     case "computers":
       if (parts[1] === "d") return { view: "computers", computerId: null, deviceId: parts[2] ?? null };
-      return { view: "computers", computerId: parts[1] ?? null, teach: parts[2] === "teach" ? (parts[3] ?? null) : null };
+      return { view: "computers", computerId: parts[1] ?? null, teach: parts[2] === "teach" ? (parts[3] ?? null) : null, ...(parts[1] && parts[2] === "watch" ? { watch: true } : {}) };
     case "nodes":
       // devices live inside Computers now
       return { view: "computers", computerId: null, ...(parts[1] ? { deviceId: parts[1] } : {}) };
@@ -172,7 +175,7 @@ export function href(r: Route): string {
     case "tasks":
       return "#/tasks";
     case "computers":
-      return "#/computers" + (r.deviceId ? `/d/${r.deviceId}` : r.computerId ? `/${r.computerId}${r.teach ? `/teach/${r.teach}` : ""}` : "");
+      return "#/computers" + (r.deviceId ? `/d/${r.deviceId}` : r.computerId ? `/${r.computerId}${r.teach ? `/teach/${r.teach}` : r.watch ? "/watch" : ""}` : "");
     case "settings":
       return "#/settings" + (r.page ? `/${r.page}${r.item ? `/${encodeURIComponent(r.item)}` : ""}` : "");
     case "welcome":
@@ -222,11 +225,60 @@ export function go(r: Route) {
 }
 
 /**
- * Desktops open Settings and one agent's settings as a pop-up over the app, not as a page: these
- * addresses are the pop-up, and the page under it is the last address that wasn't one.
+ * Desktops open most places as a pop-up over the chat, not as a page (canvas "Calmer layout",
+ * board B): these addresses are the pop-up, and the page under it is the last address that wasn't
+ * one. What stays a page: chats, Code, a computer's live screen and Teach, onboarding, sign-in,
+ * join, authorize and the desk buddy.
  */
 export function isDialogRoute(r: Route): boolean {
-  return r.view === "settings" || (r.view === "agents" && !!r.agentId);
+  switch (r.view) {
+    case "settings":
+    case "agents":
+    case "dashboard":
+    case "vault":
+    case "tasks":
+    case "marketplace":
+    case "connectors":
+    case "skills":
+    case "mods":
+    case "help":
+    case "templates":
+    case "about":
+      return true;
+    case "computers":
+      // the list and one computer's or device's sheet; a computer's live screen and Teach need the whole window
+      return !r.teach && !r.watch;
+    default:
+      return false;
+  }
+}
+
+export type PopupSize = "large" | "medium" | "popover";
+
+/**
+ * How big a pop-up is: large 960 x min(680, window - 96) for Settings, Computers, Apps and skills,
+ * Tasks and Memory; medium 640 for All agents, Help, Templates and What agents know; Needs you is a
+ * popover beside its row. One agent's settings is large, like Settings.
+ */
+export function popupSize(r: Route): PopupSize {
+  if (r.view === "dashboard") return "popover";
+  if ((r.view === "agents" && !r.agentId) || r.view === "help" || r.view === "templates" || r.view === "about") return "medium";
+  return "large";
+}
+
+/** Which pop-up an address shows: moving inside one (a section, an app's page) isn't a swap. */
+export function popupKey(r: Route): string {
+  switch (r.view) {
+    case "marketplace":
+    case "connectors":
+    case "skills":
+    case "mods":
+      return "marketplace";
+    case "agents":
+      return r.agentId ? `agent:${r.agentId}` : "agents";
+    default:
+      return r.view;
+  }
 }
 
 /** The last place in the app outside the Settings pop-up, for closing it (and Settings' "Back to app"). */
@@ -261,7 +313,14 @@ if (typeof window !== "undefined") {
   window.addEventListener("popstate", on);
 }
 export function appHashBeforeSettings(): string {
-  return lastAppHash ?? href({ view: "dashboard" });
+  // opened straight from a link: the chat you were last in sits under it (App.tsx picks it)
+  return lastAppHash ?? "#/";
+}
+
+/** Close the pop-up: back to the page under it (pages that care hear SETTINGS_CLOSING first). */
+export function closePopup(): void {
+  window.dispatchEvent(new Event(SETTINGS_CLOSING));
+  location.hash = appHashBeforeSettings();
 }
 
 export function useRoute(): Route {

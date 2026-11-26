@@ -90,7 +90,7 @@ function Head({ onBack, onNew }: { onBack?: () => void; onNew?: () => void }) {
           <ChevronLeft size={22} strokeWidth={2} />
         </button>
       )}
-      <h1 className="flex-1 truncate text-[22px] md:text-[24px] font-[650] leading-tight tracking-[-0.02em] max-md:text-center">Tasks</h1>
+      <h1 className="t-title flex-1 truncate max-md:text-center">Tasks</h1>
       {onNew ? (
         <button onClick={onNew} aria-label="New task" title="New task" className="m-press size-11 md:size-[34px] shrink-0 rounded-[8px] grid place-items-center bg-chip text-ink hover:bg-hover outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Plus size={18} strokeWidth={2} />

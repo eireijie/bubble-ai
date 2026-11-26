@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ExternalLink, ListFilter, MoreHorizontal, Pencil, P
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
 import { Input, Menu, Popover, Textarea, cx } from "../components/ui.tsx";
+import { useInPopup } from "../components/SettingsDialog.tsx";
 import { iconBtn, menuRow, pageCol, pageTitle, pill, pillPrimary, useIsPhone, whoIs } from "./memory/parts.tsx";
 import { shortWhen } from "./memory/logic.ts";
 
@@ -64,6 +65,8 @@ export function aboutSections(items: Item[], only: Kind | "all" = "all"): { pinn
  */
 export function AboutView({ onBack }: { onBack?: () => void }) {
   const me = useStore((s) => s.me)!;
+  // in the pop-up (desktops): the whole width, room for its close button
+  const popup = useInPopup();
   const members = useStore((s) => s.members);
   const [userId, setUserId] = useState(me.user.id);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -159,7 +162,7 @@ export function AboutView({ onBack }: { onBack?: () => void }) {
   const nothing = !!profile && !pinned.length && !sections.length && !journal.length;
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className={cx(pageCol, "md:pb-6")}>
+      <div className={cx(popup ? "w-full px-7" : pageCol, "md:pb-6")}>
         {phone ? (
           <>
             <div className="flex items-center gap-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -174,7 +177,7 @@ export function AboutView({ onBack }: { onBack?: () => void }) {
             <h1 className={cx(pageTitle, "px-1 pt-2.5 pb-3")}>{title}</h1>
           </>
         ) : (
-          <div className="flex items-center gap-2 pt-9 pb-3.5">
+          <div className={cx("flex items-center gap-2 pb-3.5", popup ? "pt-6 pr-10" : "pt-9")}>
             <h1 className={cx(pageTitle, "flex-1 min-w-0 truncate")}>{title}</h1>
             {filter}
           </div>

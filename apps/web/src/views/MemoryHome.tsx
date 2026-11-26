@@ -1,9 +1,10 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronLeft, Folder, List, Plus, Search, Share2, X } from "lucide-react";
 import type { AccessRule, Agent } from "@bubble-ai/core";
 import { useStore } from "../store.ts";
 import { href } from "../router.ts";
 import { AgentAvatar, Popover, cx } from "../components/ui.tsx";
+import { useInPopup } from "../components/SettingsDialog.tsx";
 import { type GraphData } from "../components/MemoryGraph.tsx";
 import { MemoryGraphView } from "./MemoryGraphView.tsx";
 import { FolderList } from "./memory/Panels.tsx";
@@ -159,6 +160,16 @@ export function MemoryHome({
     return hits.filter((h) => mine.has(h.path));
   }, [hits, by, rows]);
 
+  // in the pop-up (desktops): the whole width, room for its close button; the graph asks for the whole window
+  const popup = useInPopup();
+  const setFull = popup?.setFull;
+  useEffect(() => {
+    if (!setFull) return;
+    setFull(view === "graph");
+    return () => setFull(false);
+  }, [setFull, view]);
+  const col = popup ? "w-full px-7" : pageCol;
+
   const current = VIEWS.find((v) => v.view === view)!;
   const viewMenu = (
     <Popover
@@ -201,7 +212,7 @@ export function MemoryHome({
         <h1 className={cx(pageTitle, "px-1 pt-2.5 pb-3")}>Memory</h1>
       </>
     ) : (
-      <div className="flex items-center gap-2 pt-9 pb-3.5">
+      <div className={cx("flex items-center gap-2 pb-3.5", popup ? "pt-6 pr-10" : "pt-9")}>
         <h1 className={cx(pageTitle, "flex-1")}>Memory</h1>
         {buttons}
       </div>
@@ -232,7 +243,7 @@ export function MemoryHome({
         onOpen={onOpen}
         onWrite={onWrite}
         header={(filter) => (
-          <div className={cx(pageCol, "shrink-0")}>
+          <div className={cx(col, "shrink-0")}>
             {head(filter)}
             {chips}
           </div>
@@ -243,9 +254,9 @@ export function MemoryHome({
   const empty = (text: string) => <p className="border-t border-line px-1.5 py-4 text-[13px] text-muted">{text}</p>;
   return (
     <div className="h-full overflow-y-auto">
-      <div data-tour="vault-list" className={cx(pageCol, "pb-[max(1.5rem,env(safe-area-inset-bottom))]")}>
+      <div data-tour="vault-list" className={cx(col, "pb-[max(1.5rem,env(safe-area-inset-bottom))]")}>
         {head()}
-        <div className="mb-3 flex h-12 items-center gap-2.5 rounded-[20px] bg-chip px-4 focus-within:ring-2 focus-within:ring-ring/30">
+        <div className={cx("mb-3 flex items-center gap-2.5 bg-chip focus-within:ring-2 focus-within:ring-ring/30", popup ? "h-9 rounded-[8px] px-3" : "h-12 rounded-[20px] px-4")}>
           <Search size={16} className="shrink-0 text-muted" aria-hidden />
           <input
             value={query}

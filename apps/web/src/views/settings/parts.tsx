@@ -15,8 +15,8 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
   if (!merged && !children) return null;
   return (
     <div className={merged ? "mb-3 mt-7" : "mb-4"}>
-      {merged && <h3 className="px-1 text-[13px] md:text-[14px] font-semibold text-muted">{title}</h3>}
-      {children && <p className="mt-1.5 px-1 text-sm leading-snug text-muted max-w-xl">{children}</p>}
+      {merged && <h3 className="px-1 text-[13px] md:text-[12px] font-semibold md:font-medium text-muted">{title}</h3>}
+      {children && <p className="mt-1.5 px-1 text-sm md:text-[13px] leading-snug text-muted max-w-xl">{children}</p>}
     </div>
   );
 }
@@ -27,8 +27,8 @@ export function Section({ title, description, action, children }: { title: strin
     <section className="mb-7">
       <div className="mb-2 px-1 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-[13px] md:text-[14px] font-semibold text-faint tracking-wide">{title}</h3>
-          {description && <p className="mt-0.5 text-[13px] md:text-[14px] leading-snug text-faint">{description}</p>}
+          <h3 className="text-[13px] md:text-[12px] font-semibold md:font-medium text-faint md:text-muted tracking-wide md:tracking-normal">{title}</h3>
+          {description && <p className="mt-0.5 text-[13px] md:t-cap leading-snug text-faint">{description}</p>}
         </div>
         {action && <div className="shrink-0">{action}</div>}
       </div>
@@ -45,10 +45,10 @@ export function Card({ children, className }: { children: ReactNode; className?:
 /** One setting: what it is on the left, the control on the right (stacked on phones). */
 export function Row({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children?: ReactNode; className?: string }) {
   return (
-    <div className={cx("px-4 py-1.5 min-h-[52px] md:min-h-[60px] flex flex-wrap items-center gap-x-4 gap-y-1", className)}>
+    <div className={cx("px-4 py-1.5 min-h-[52px] md:min-h-[44px] flex flex-wrap items-center gap-x-4 gap-y-1", className)}>
       <div className="min-w-[6.5rem] flex-1">
-        <div className="text-body">{label}</div>
-        {hint && <div className="mt-0.5 text-[13px] md:text-[14px] leading-snug text-faint">{hint}</div>}
+        <div className="text-body leading-5">{label}</div>
+        {hint && <div className="mt-0.5 text-[13px] leading-snug md:t-cap text-faint">{hint}</div>}
       </div>
       {children !== undefined && <div className="shrink-0 flex items-center gap-2">{children}</div>}
     </div>
@@ -64,9 +64,9 @@ export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChang
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!on)}
-      className={cx("relative inline-flex h-[30px] w-[52px] shrink-0 items-center rounded-full transition-colors disabled:opacity-40", on ? "m-switch-on" : "bg-ink/20")}
+      className={cx("relative inline-flex h-[30px] w-[52px] md:h-5 md:w-[34px] shrink-0 items-center rounded-full transition-colors disabled:opacity-40", on ? "m-switch-on" : "bg-ink/20")}
     >
-      <span className={cx("m-knob inline-block size-6 rounded-full shadow bg-white ml-[3px]", on && "translate-x-[22px]")} />
+      <span className={cx("m-knob inline-block size-6 md:size-4 rounded-full shadow bg-white ml-[3px] md:ml-[2px]", on && "translate-x-[22px] md:translate-x-[14px]")} />
     </button>
   );
 }
@@ -85,7 +85,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, d
           aria-checked={value === v}
           disabled={disabled}
           onClick={() => onChange(v)}
-          className={cx("relative h-[28px] px-3.5 rounded-[6px] text-[13.5px] inline-flex items-center gap-1.5 whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-medium" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-panel")}
+          className={cx("relative h-[28px] md:h-6 px-3.5 md:px-2.5 rounded-[6px] text-[13.5px] md:text-[length:var(--t-seg)] inline-flex items-center gap-1.5 whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-medium" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-panel")}
         >
           {text}
         </button>
@@ -96,7 +96,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, d
 
 export function Select({ value, onChange, children, label, disabled, className }: { value: string; onChange: (v: string) => void; children: ReactNode; label: string; disabled?: boolean; className?: string }) {
   return (
-    <select aria-label={label} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={cx("h-9 rounded-xl border border-control-line bg-control px-2.5 text-sm disabled:opacity-60", className)}>
+    <select aria-label={label} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={cx("h-9 md:h-8 rounded-xl md:rounded-[8px] border border-control-line bg-control px-2.5 text-sm md:text-[13px] disabled:opacity-60", className)}>
       {children}
     </select>
   );

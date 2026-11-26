@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { CHAPTERS, STOPS, TOTAL, bubbleSpot, cardSpot, cleanSeen, curveControl, curvePoint, flightMs, resumeIndex, resumeLabel, seenCount, stopBody, stopTitle, stopsFor, withSeen, dwellMs } from "./tour.ts";
 
 const view = { w: 1440, h: 900 };
@@ -116,5 +118,32 @@ describe("where the bubble and card go", () => {
     expect(dwellMs("yourturn")).toBeGreaterThanOrEqual(2000);
     for (const s of STOPS) expect(dwellMs(s.doIt)).toBeGreaterThanOrEqual(900);
     expect(dwellMs("slash")).toBeGreaterThan(dwellMs("click"));
+  });
+});
+
+describe("what the stops point at", () => {
+  /** every data-tour name the app's source sets (directly, or as a place's tour: "…") */
+  const names = (() => {
+    const out = new Set<string>();
+    const walk = (dir: string) => {
+      for (const f of readdirSync(dir)) {
+        const p = join(dir, f);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.tsx$/.test(f) && !/\.test\./.test(f)) for (const m of readFileSync(p, "utf8").matchAll(/data-tour=(?:"([\w-]+)"|\{[^}]*?"([\w-]+)")|\btour: "([\w-]+)"/g)) out.add(m[1] ?? m[2] ?? m[3]);
+      }
+    };
+    walk(new URL(".", import.meta.url).pathname);
+    return out;
+  })();
+
+  it("is still on the page: every stop's target is set somewhere", () => {
+    for (const s of STOPS) {
+      const wanted = s.targets.map((t) => /^\[data-tour="([\w-]+)"\]$/.exec(t)?.[1]).filter(Boolean);
+      expect(wanted.some((n) => names.has(n!)), s.id).toBe(true);
+    }
+  });
+
+  it("keeps Computers and Memory findable in the sidebar's strip and in their pop-ups", () => {
+    for (const n of ["computers", "vault", "computers-page", "vault-page", "computers-list", "vault-list", "needs-you", "new", "yourturn"]) expect(names.has(n), n).toBe(true);
   });
 });

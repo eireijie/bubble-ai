@@ -7,6 +7,7 @@ import { href } from "../router.ts";
 import { AddDeviceDialog, type AddStep } from "../components/AddDevice.tsx";
 import { ScreenThumb } from "../components/Screen.tsx";
 import { AgentAvatar, Button, agentColor, cx } from "../components/ui.tsx";
+import { useInPopup } from "../components/SettingsDialog.tsx";
 import { computerTiles, tileStatus, type ComputerTile, type Tone } from "./computerState.ts";
 import type { NodeInfo } from "./deviceBits.tsx";
 
@@ -152,11 +153,13 @@ export function ComputersHome({ nodes, open, children }: { nodes: NodeInfo[] | n
   const phones = usePhones();
   const add = useAddFlow();
   const tiles = computerTiles(nodes ?? [], computers, phones);
+  // in the pop-up (desktops): its padding, room for its close button, and the sheet always beside the grid
+  const pop = !!useInPopup();
   return (
     <div className="flex min-h-0 flex-1">
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <div data-tour="computers-list" className="mx-auto max-w-[1120px] space-y-5 px-5 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-12 md:pt-10">
-          <header className="flex items-center gap-3">
+        <div data-tour="computers-list" className={cx("mx-auto space-y-5 pb-[max(2rem,env(safe-area-inset-bottom))]", pop ? "px-7 pt-6" : "max-w-[1120px] px-5 pt-6 md:px-12 md:pt-10")}>
+          <header className={cx("flex items-center gap-3", pop && !children && "pr-10")}>
             <h1 className="t-title min-w-0 flex-1 truncate">Computers</h1>
             {/* when there are none, the empty state's own button is the only way in */}
             {!(nodes && tiles.length === 0) && <button type="button" onClick={() => add.start()} aria-label="Add a computer or phone" className="m-press grid h-[34px] w-[35px] shrink-0 place-items-center rounded-[8px] bg-side-active text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40 max-md:size-11">
@@ -171,7 +174,7 @@ export function ComputersHome({ nodes, open, children }: { nodes: NodeInfo[] | n
               </Button>
             </div>
           ) : (
-            <div className={cx("grid gap-x-[18px] gap-y-5 sm:grid-cols-2 sm:gap-y-6", children ? "2xl:grid-cols-3" : "xl:grid-cols-3")}>
+            <div className={cx("grid gap-x-[18px] gap-y-5 sm:grid-cols-2 sm:gap-y-6", pop ? (children ? "" : "lg:grid-cols-3") : children ? "2xl:grid-cols-3" : "xl:grid-cols-3")}>
               {tiles.map((t) => (
                 <Tile key={t.key} tile={t} open={open === t.key} />
               ))}
@@ -181,9 +184,9 @@ export function ComputersHome({ nodes, open, children }: { nodes: NodeInfo[] | n
       </div>
       {/* the open computer's sheet: 310 px beside the grid on desktops (it pushes the grid as it opens), the whole screen on phones */}
       {children && (
-        <aside aria-label="Computer details" className="m-details fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden bg-panel safe-top lg:relative lg:inset-auto lg:z-auto lg:w-[310px] lg:shrink-0 lg:border-l lg:border-line">
+        <aside aria-label="Computer details" className={cx("m-details flex min-h-0 flex-col overflow-hidden bg-panel", pop ? "relative w-[310px] shrink-0 border-l border-line pt-10" : "fixed inset-0 z-40 safe-top lg:relative lg:inset-auto lg:z-auto lg:w-[310px] lg:shrink-0 lg:border-l lg:border-line")}>
           {/* its own 310 px, so nothing reflows while the sheet opens */}
-          <div className="flex min-h-0 flex-1 flex-col lg:w-[310px]">{children}</div>
+          <div className={cx("flex min-h-0 flex-1 flex-col", pop ? "w-[310px]" : "lg:w-[310px]")}>{children}</div>
         </aside>
       )}
       {add.element}
@@ -194,6 +197,8 @@ export function ComputersHome({ nodes, open, children }: { nodes: NodeInfo[] | n
 /** The top of a computer's sheet: its name and Close (Back on phones). `back` is set while one of its rows is open in place. */
 export function SheetHead({ title, back }: { title: string; back?: { label: string; onClick: () => void } }) {
   const list = href({ view: "computers", computerId: null });
+  // in the pop-up its own close sits above the sheet, so the sheet closes with Back to Computers
+  const pop = !!useInPopup();
   return (
     <div className="flex h-14 shrink-0 items-center gap-2 px-3">
       {back ? (
@@ -201,14 +206,16 @@ export function SheetHead({ title, back }: { title: string; back?: { label: stri
           <ChevronLeft size={18} />
         </button>
       ) : (
-        <a href={list} className="circle circle-sm lg:hidden" aria-label="Back to Computers">
+        <a href={list} className={cx("circle circle-sm", !pop && "lg:hidden")} aria-label="Back to Computers">
           <ChevronLeft size={18} />
         </a>
       )}
       <h2 className={cx("min-w-0 flex-1 truncate font-semibold", back ? "text-center text-[14px]" : "text-[15px] lg:pl-1")}>{title}</h2>
-      <a href={list} className="circle circle-sm max-lg:hidden" aria-label="Close">
-        <X size={16} />
-      </a>
+      {!pop && (
+        <a href={list} className="circle circle-sm max-lg:hidden" aria-label="Close">
+          <X size={16} />
+        </a>
+      )}
       {/* phones: keeps a centred title centred, with no Close beside it */}
       {back && <span className="w-11 shrink-0 lg:hidden" aria-hidden />}
     </div>
