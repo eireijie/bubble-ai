@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Bot, Check, ChevronRight, Cloud, Download, Laptop, Loader2, Lock, Monitor, Plus, Search, UserPlus, X } from "lucide-react";
-import { randomAppearance, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
+import { ArrowLeft, ArrowRight, Bot, Check, ChevronRight, Cloud, Download, Laptop, Loader2, Lock, MessageSquare, Monitor, Plus, Search, UserPlus, Users, X } from "lucide-react";
+import { newBubbleLook, shuffleBubbleLook, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { Ghost } from "../components/Ghost.tsx";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx";
-import { prettyModel } from "../components/EffortSlider.tsx";
+import { effortName, prettyModel } from "../components/EffortSlider.tsx";
+import { AppTile } from "../components/MarketParts.tsx";
+import { AGENT_TYPES, START_APPS, type AgentType, type AgentTypeId } from "./onboarding/agentTypes.ts";
 import { HARNESSES, accountsSignedIn, preferSignedIn, runsInVm, type Agent, type AgentSignIn, type Connector, type DiscoveredAgent, type Skill } from "@bubble-ai/core";
 import { HarnessSignInButton } from "../components/HarnessSignInButton.tsx";
 import { api } from "../api.ts";
@@ -17,7 +19,7 @@ import { defaultComputer, resolveComputer, vmOnDevice, withComputer, type Comput
 import { MoreOptions } from "../components/MoreOptions.tsx";
 import { useFeature } from "../features.ts";
 import { useComputerMode } from "../computerMode.ts";
-import { LookEditorScreen } from "./LookEditor.tsx";
+import { LookEditorScreen, LookOptions } from "./LookEditor.tsx";
 import { Button, Field, harnessLabel, Input, Modal, Pill, Textarea, cx } from "../components/ui.tsx";
 
 export function ComputerPicker({
@@ -199,7 +201,7 @@ export interface AgentDefaults {
 export const defaultsNeedPicking = (d: AgentDefaults | "error" | null) => d === "error" || (d !== null && !d.harness);
 
 type View = "form" | "look" | "external" | "discover" | "invitation";
-type RespondTo = "me" | "anyone" | "people";
+export type RespondTo = "me" | "anyone" | "people";
 
 /** "Claude Code · Sonnet 5.5" and "Its own computer on my-mac": the defaults in a line each. */
 export function defaultsSummary(d: AgentDefaults, nodes: Pick<NodeInfo, "id" | "name">[], simple = false): { ai: string; computer: string } {
@@ -251,19 +253,46 @@ export function nameProblem(name: string, typedHandle: string, agents: Named[]):
 
 const LABEL = "block text-[13px] font-medium text-muted";
 const QUIET = "h-9 px-2.5 rounded-[8px] text-[13px] text-muted hover:text-ink outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-50 disabled:pointer-events-none";
-const SEG = "flex rounded-xl bg-chip p-0.5";
-const SELECT = "h-10 w-full rounded-xl border border-input bg-panel px-2.5 text-sm";
+const SELECT = "h-9 w-full rounded-[10px] border border-input bg-panel px-2.5 text-[13px]";
 const CHOICE = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover outline-none focus-visible:bg-hover";
+/** a picked tile or chip: inked outline, no fill change, so the picks read at a glance */
+const TILE = "relative flex items-center gap-2.5 rounded-[12px] border px-3 text-left outline-none transition-[border-color,background-color,box-shadow] duration-200 focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-45 disabled:pointer-events-none";
+const TILE_ON = "border-ink bg-panel shadow-[inset_0_0_0_0.5px_var(--ink)]";
+const TILE_OFF = "border-line bg-panel hover:bg-hover";
+
+/** Where a new agent works: Automatic follows your defaults (the shared computer, in Simple), or one picked here. */
+type Place = { kind: "auto" } | ComputerChoice;
+
+/** The efforts a model offers, else its harness's, else the usual three. */
+function effortsFor(h: { models?: { id: string; efforts?: string[] }[]; efforts?: string[]; defaultModel?: string } | undefined, model: string): string[] {
+  const m = h?.models?.find((x) => x.id === (model || h?.defaultModel));
+  const list = m?.efforts ?? h?.efforts ?? [];
+  return list.length ? list : ["low", "medium", "high"];
+}
+
+const lowerFirst = (s: string) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+const listOf = (names: string[]) => (names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
+
+/** What the new agent will say first, from what's picked so far: the preview under its bubble. */
+export function sampleGreeting({ name, role, apps, instructions }: { name: string; role: string; apps: string[]; instructions: string }): string {
+  const lines = [`Hi, I'm ${name.trim() || "your new agent"}.`];
+  const job = role.trim().replace(/[.\s]+$/, "");
+  if (job) lines.push(`I'm here to ${lowerFirst(job).replace(/\bmy\b/g, "your")}.`);
+  if (apps.length) lines.push(`I can use ${listOf(apps.slice(0, 3))}${apps.length > 3 ? ` and ${apps.length - 3} more` : ""}.`);
+  if (instructions.trim()) lines.push("I've read your instructions.");
+  lines.push("What should I start on?");
+  return lines.join(" ");
+}
 
 /**
- * New agent: one small sheet. Its ghost (click it for another look), its name with one suggested
- * already, and Create; it uses your defaults and opens its chat, where it says hello and asks for
- * the rest. "More options" unfolds everything else in the same sheet: what it does, instructions,
- * which AI and computer, handle, who it answers, apps and skills, the look editor, and bringing in
- * an agent that already runs somewhere. "Make it a team" opens the new-team flow instead.
+ * New agent, on one sheet: everything is in view and already filled in, so Create works at once.
+ * On the left, its bubble, name and handle, the first thing it will say (which changes as you
+ * pick), and its look. On the right: a template to start from, what it does, instructions, its AI
+ * (harness, model, effort), the computer it works on, apps, skills and who it answers. "Bring one
+ * in" and "Make it a team" sit by Create.
  */
-/** `onCreated`: hand the new agent back (to a team being built, say) instead of opening its page. `nodeId`: start on this device. */
-export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringIn }: { nodes: NodeInfo[]; onClose: () => void; onCreated?: (agent: Agent) => void; nodeId?: string; bringIn?: boolean }) {
+/** `onCreated`: hand the new agent back (to a team being built, say) instead of opening its page. `nodeId`: start on this device. `template`: start from one of the agent templates. */
+export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringIn, template: startTemplate }: { nodes: NodeInfo[]; onClose: () => void; onCreated?: (agent: Agent) => void; nodeId?: string; bringIn?: boolean; template?: AgentTypeId }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
   const agents = useStore((s) => s.agents);
   const computers = useStore((s) => s.computers);
@@ -274,7 +303,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const body = bodyRef.current;
-    body?.scrollTo({ top: 0 });
+    body?.scrollTo?.({ top: 0 });
     const first = body?.querySelector<HTMLElement>("input") ?? body?.querySelector<HTMLElement>("h1");
     first?.focus();
     // the suggested name is selected, so typing replaces it
@@ -283,64 +312,69 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
 
   // who it is
   const [name, setName] = useState(() => suggestName(agents));
-  // only what was typed under More options; without it a free handle follows the name
+  // only what was typed; without it a free handle follows the name
   const [handle, setHandle] = useState("");
   const [role, setRole] = useState("");
   const [instructions, setInstructions] = useState("");
-  // every new agent gets a look of its own, picked once (typing its name doesn't change it)
-  const [appearance, setAppearance] = useState<GhostAppearance>(randomAppearance);
+  const [templateId, setTemplateId] = useState<AgentTypeId | null>(null);
+  // every new agent gets a bubble of its own: round, in one of the bubble colours
+  const [appearance, setAppearance] = useState<GhostAppearance>(() => newBubbleLook());
 
   // which AI and computer
   const [defaults, setDefaults] = useState<AgentDefaults | null | "error">(null);
-  // a device picked already (its page's "Add an agent here") overrides the default device
-  const [mode, setMode] = useState<"defaults" | "custom">(startOn ? "custom" : "defaults");
   const [harness, setHarness] = useState("claude-code");
   const [model, setModel] = useState("");
+  const [effort, setEffort] = useState("");
   const usable = usableDevices(nodes);
   const [nodeId, setNodeId] = useState((startOn && usable.some((n) => n.id === startOn) ? startOn : null) ?? usable.find((n) => n.online)?.id ?? usable[0]?.id ?? "");
-  const [computer, setComputer] = useState<ComputerChoice>(() => defaultComputer(nodes.find((n) => n.id === nodeId), computers));
+  // a device picked already (its page's "Add an agent here") starts on a computer there
+  const [place, setPlace] = useState<Place>(() => (startOn ? defaultComputer(nodes.find((n) => n.id === nodeId), computers) : { kind: "auto" }));
   const createdVm = useRef<{ id: string; nodeId: string } | null>(null);
   const [invite, setInvite] = useState(false);
-  const touched = useRef(false);
+  // the AI was picked here: send it, rather than leave it to the defaults
+  const aiPicked = useRef(false);
+  const placePicked = useRef(false);
   // devices can arrive after the dialog opened with none: settle on one then
   const firstUsable = usable.find((n) => n.online)?.id ?? usable[0]?.id;
   useEffect(() => {
     if (nodeId || !firstUsable) return;
     setNodeId(firstUsable);
-    setComputer(defaultComputer(nodes.find((n) => n.id === firstUsable), computers));
+    if (place.kind !== "auto") setPlace(defaultComputer(nodes.find((n) => n.id === firstUsable), computers));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstUsable]);
   useEffect(() => {
     let live = true;
-    // no default AI to use: start on one that's signed in on its device (the pick is under More options)
+    // no default AI to use: start on one that's signed in on its device
     const startSignedIn = () => {
       const on = nodes.find((n) => n.id === nodeId);
       const pick = preferSignedIn((on?.harnesses ?? []).map((h) => h.id), (id) => accountsSignedIn(on?.harnesses?.find((h) => h.id === id)?.accounts));
-      if (pick && !touched.current) setHarness(pick);
+      if (pick && !aiPicked.current) setHarness(pick);
+    };
+    // without defaults, it works where the device offers (its own computer there, usually)
+    const placeHere = (id: string) => {
+      if (!placePicked.current) setPlace(defaultComputer(nodes.find((n) => n.id === id), computers));
     };
     api<AgentDefaults>("GET", "/api/settings/agent-defaults").then(
       (d) => {
         if (!live) return;
         setDefaults(d);
         if (defaultsNeedPicking(d)) {
-          setMode("custom");
+          aiPicked.current = true;
           startSignedIn();
         }
-        // Customize starts from the defaults, unless you already changed something
-        if (touched.current) return;
-        if (d.harness) setHarness(d.harness);
-        if (d.model) setModel(d.model);
-        if (d.nodeId && !startOn && usable.some((n) => n.id === d.nodeId)) {
-          setNodeId(d.nodeId);
-          setComputer(d.computer === "none" ? { kind: "headless" } : defaultComputer(nodes.find((n) => n.id === d.nodeId), computers));
+        if (!aiPicked.current) {
+          if (d.harness) setHarness(d.harness);
+          if (d.model) setModel(d.model);
         }
+        if (d.nodeId && !startOn && usable.some((n) => n.id === d.nodeId)) setNodeId(d.nodeId);
       },
       () => {
         if (!live) return;
         // an older hub has no defaults: pick here instead
         setDefaults("error");
-        setMode("custom");
+        aiPicked.current = true;
         startSignedIn();
+        placeHere(nodeId);
       },
     );
     return () => {
@@ -348,21 +382,26 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const chooseComputer = (choice: ComputerChoice) => {
-    touched.current = true;
-    setComputer(choice);
+  const choosePlace = (choice: Place) => {
+    placePicked.current = true;
+    setPlace(choice);
     if (choice.kind === "existing") {
       const c = computers.find((c) => c.id === choice.id);
       if (c?.kind === "vm" && c.nodeId && usable.some((n) => n.id === c.nodeId)) setNodeId(c.nodeId);
     }
   };
+  const pickAi = (patch: { harness?: string; model?: string; effort?: string }) => {
+    aiPicked.current = true;
+    if (patch.harness !== undefined && patch.harness !== harness) {
+      setHarness(patch.harness);
+      // a model belongs to its harness: the new one starts on its own default
+      setModel("");
+      setEffort("");
+    }
+    if (patch.model !== undefined) setModel(patch.model);
+    if (patch.effort !== undefined) setEffort(patch.effort);
+  };
 
-  // More options: everything past the name
-  const [advanced, setAdvanced] = useState(false);
-  const optionsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (advanced) optionsRef.current?.scrollIntoView?.({ block: "nearest" });
-  }, [advanced]);
   const [respondTo, setRespondTo] = useState<RespondTo>("me");
   const [respondPeople, setRespondPeople] = useState<string[]>([]);
   const [connectors, setConnectors] = useState<Connector[] | null>(null);
@@ -370,10 +409,25 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   const [pickedApps, setPickedApps] = useState<string[]>([]);
   const [pickedSkills, setPickedSkills] = useState<string[]>([]);
   useEffect(() => {
-    if (!advanced || connectors) return;
-    api<Connector[]>("GET", "/api/connectors").then(setConnectors, () => setConnectors([]));
-    api<Skill[]>("GET", "/api/skills").then(setSkills, () => setSkills([]));
-  }, [advanced, connectors]);
+    api<Connector[]>("GET", "/api/connectors").then((c) => setConnectors(Array.isArray(c) ? c : []), () => setConnectors([]));
+    api<Skill[]>("GET", "/api/skills").then((s) => setSkills(Array.isArray(s) ? s : []), () => setSkills([]));
+  }, []);
+
+  /** A template fills in what it does and turns on the apps of its kind that are already here. */
+  const applyTemplate = (t: AgentType, list = connectors) => {
+    setTemplateId(t.id);
+    setRole(t.role.replace(/[.\s]+$/, "").slice(0, 60));
+    const wanted = new Set(t.apps.map((a) => START_APPS[a]?.catalogId).filter(Boolean));
+    setPickedApps((list ?? []).filter((c) => !c.allAgents && c.catalogId && wanted.has(c.catalogId)).map((c) => c.id));
+  };
+  const templated = useRef(false);
+  useEffect(() => {
+    if (templated.current || !startTemplate || connectors === null) return;
+    templated.current = true;
+    const t = AGENT_TYPES.find((x) => x.id === startTemplate);
+    if (t) applyTemplate(t, connectors);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectors, startTemplate]);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -388,17 +442,19 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
     ...declared.map((h) => ({ id: h.id, label: h.id.slice(4), protocol: "acp" as const, note: "Available on a connected device", binary: "" })),
     HARNESSES.find((h) => h.id === "custom")!,
   ];
-  // Simple (the default): Bubble AI places it, so only the AI is a choice here; Advanced picks where it runs too
+  // the ones it can really run on here: installed on the device, or in a computer (which comes with them)
+  const runnable = harnesses.filter((h) => h.protocol !== "mcp" && (installed.has(h.id) || runsInVm(h.id) || h.id === harness));
   const { advanced: pickWhere } = useComputerMode();
-  const simple = !pickWhere && defaults !== "error";
-  const useDefaults = (mode === "defaults" || simple) && !invite && defaults !== null && defaults !== "error";
-  const effectiveHarness = mode === "defaults" && useDefaults ? ((defaults as AgentDefaults).harness ?? harness) : harness;
-  const selectedHarness = harnesses.find((h) => h.id === effectiveHarness) ?? harnesses[0];
+  const useDefaults = place.kind === "auto" && !invite && defaults !== null && defaults !== "error";
+  const selectedHarness = harnesses.find((h) => h.id === harness) ?? harnesses[0];
   const external = invite || selectedHarness.protocol === "mcp";
   // the AI picked is known not to be signed in on its device: say so, with Sign in, before it's made
   const signedInOn = (id: string) => accountsSignedIn(node?.harnesses?.find((h) => h.id === id)?.accounts);
   const signInFirst: AgentSignIn | null = node?.mine && !external && signedInOn(selectedHarness.id) === false ? { harness: selectedHarness.id, where: node.name, nodeId: node.id, computerId: null, account: "default" } : null;
   const noneSignedIn = !!signInFirst && !(node?.harnesses ?? []).some((h) => accountsSignedIn(h.accounts) !== false);
+  const catalog = node?.harnesses?.find((h) => h.id === harness);
+  const models = catalog?.models ?? [];
+  const efforts = effortsFor(catalog, model);
 
   const cleanName = name.trim();
   const typedHandle = slug(handle);
@@ -410,6 +466,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
 
   const others = people.filter((p) => p.id !== me?.user.id);
   const togglePick = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+  const appNames = (connectors ?? []).filter((c) => c.allAgents || pickedApps.includes(c.id)).map((c) => c.name);
 
   const finish = () => {
     if (created && onCreated) return onCreated(created);
@@ -423,8 +480,6 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   };
   const startInvite = () => {
     setInvite(true);
-    // which harness it joins from is picked under More options
-    setAdvanced(true);
     setView("form");
   };
 
@@ -438,17 +493,19 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
         const settings = {
           appearance,
           ...(role.trim() ? { role: role.trim().slice(0, 60) } : {}),
-          ...(inviteOn ? { respondTo, ...(respondTo === "people" ? { respondPeople } : {}) } : {}),
+          ...(effort && !external ? { effort } : {}),
+          ...(inviteOn || others.length ? { respondTo, ...(respondTo === "people" ? { respondPeople } : {}) } : {}),
         };
         const common = { name: cleanName, handle: finalHandle, instructions };
         if (useDefaults) {
-          // Customize in Simple: the AI picked here, the rest placed by Bubble AI
-          const ai = mode === "custom" && !external ? { harness, ...(model.trim() ? { model: model.trim() } : {}) } : {};
+          // the AI picked here, the rest placed by your defaults
+          const ai = aiPicked.current && !external ? { harness, ...(model.trim() ? { model: model.trim() } : {}) } : {};
           a = await api<Agent>("POST", "/api/agents", { ...common, ...ai, useDefaults: true, settings });
         } else {
+          const computer: ComputerChoice = place.kind === "auto" ? { kind: "later" } : place;
           const computerId = external ? null : await resolveComputer(computer, nodeId, cleanName);
           // Keep a newly created computer selected if creating the agent needs a retry.
-          if (computerId && (computer.kind === "vm" || computer.kind === "screen")) setComputer({ kind: "existing", id: computerId });
+          if (computerId && (computer.kind === "vm" || computer.kind === "screen")) setPlace({ kind: "existing", id: computerId });
           if (computerId && computer.kind === "vm") createdVm.current = { id: computerId, nodeId };
           const vmHere = vmOnDevice(computer, nodeId, computers) || (createdVm.current?.id === computerId && createdVm.current?.nodeId === nodeId);
           a = await api<Agent>("POST", "/api/agents", {
@@ -465,7 +522,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
           });
         }
         setCreated(a);
-        // apps and skills picked under More options; ones on for all agents already include it
+        // apps and skills picked here; ones on for all agents already include it
         const agentId = a.id;
         await Promise.all([
           ...pickedApps.flatMap((id) => {
@@ -495,311 +552,281 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
     }
   };
 
-  const summary = defaults && defaults !== "error" ? defaultsSummary(defaults, nodes, simple) : null;
+  const summary = defaults && defaults !== "error" ? defaultsSummary(defaults, nodes, !pickWhere) : null;
   const failed = error ? `${error}${created ? " Your agent was created. Retry to finish its invitation." : ""}` : null;
-  // the line under the name: what is wrong when something is, else the one thing to know
-  const handleProblem = problem && typedHandle && advanced ? problem : null;
-  const underName = handleProblem ? null : (problem ?? (advanced ? null : failed));
-  const width = view === "look" ? "sm:max-w-[920px]!" : view === "external" || (view === "form" && !advanced) ? "sm:max-w-[420px]!" : "sm:max-w-[560px]!";
+  const handleProblem = problem && typedHandle ? problem : null;
+  const underName = handleProblem ? null : problem;
+  const width = view === "look" ? "sm:max-w-[920px]!" : view === "form" ? "sm:max-w-[900px]!" : "sm:max-w-[460px]!";
+  const placeLine = place.kind === "auto" ? (summary?.computer ?? "Automatic") : place.kind === "vm" ? "Its own computer" : place.kind === "screen" ? "Your screen" : place.kind === "headless" ? "No computer" : place.kind === "later" ? "Computer later" : (computers.find((c) => c.id === place.id)?.name ?? "Computer");
 
   return (
     <Modal title="New agent" label="New agent" onClose={busy ? () => {} : onClose} headerless className={cx("sm:rounded-[18px]! transition-[max-width] duration-300 ease-[cubic-bezier(.165,.84,.44,1)] motion-reduce:transition-none", width)} contentClassName="p-0!">
       <div ref={bodyRef}>
         {view === "form" && (
           <form
-            className="relative flex flex-col items-center px-6 sm:px-8 pt-9 pb-5"
+            className="flex flex-col md:h-[min(760px,calc(92vh-2px))] md:flex-row"
             onSubmit={(e) => {
               e.preventDefault();
               void submit();
             }}
           >
-            <button type="button" onClick={onClose} disabled={busy} className="circle circle-sm absolute right-3 top-3 border-0! bg-chip text-muted hover:text-ink" aria-label="Close">
-              <X size={16} />
-            </button>
-            {/* its ghost: a click gives it another look */}
-            <button type="button" disabled={busy || !!created} onClick={() => setAppearance(randomAppearance())} aria-label="Change its look" className="rounded-[20px] outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none">
-              <Ghost look={look} size={132} trackPointer label="" />
-            </button>
+            {/* who it is: its bubble, name and handle, what it will say first, and its look */}
+            <aside className="flex shrink-0 flex-col items-center border-line bg-card/50 px-5 pb-5 pt-7 md:w-[330px] md:overflow-y-auto md:border-r">
+              <button type="button" disabled={busy || !!created} onClick={() => setAppearance(shuffleBubbleLook())} aria-label="Change its look" title="Shuffle its look" className="rounded-[20px] outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none">
+                <Ghost look={look} seed={finalHandle} size={124} trackPointer label="" />
+              </button>
+              <fieldset disabled={busy || !!created} className="w-full min-w-0">
+                <input
+                  aria-label="Name"
+                  placeholder="Name"
+                  maxLength={80}
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="off"
+                  className="w-full bg-transparent pt-2 text-center text-[24px] leading-8 font-[650] outline-none placeholder:text-faint border-b border-transparent focus-visible:border-line2"
+                />
+                <label className="mx-auto flex w-fit max-w-full items-center text-[13px] text-muted">
+                  <span aria-hidden>@</span>
+                  <input
+                    value={handle}
+                    // loose while typing (a dash can be followed by more); the handle used is its tidy form
+                    onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^[^a-z]+/, "").slice(0, 32))}
+                    placeholder={finalHandle}
+                    aria-label="Handle"
+                    aria-invalid={!!handleProblem}
+                    size={Math.max(4, (handle || finalHandle).length)}
+                    className="min-w-0 bg-transparent outline-none placeholder:text-muted focus:text-ink"
+                  />
+                </label>
+                {(underName || handleProblem) && (
+                  <p role="alert" className="pt-1 text-center text-[13px] text-bad">
+                    {underName ?? handleProblem}
+                  </p>
+                )}
+              </fieldset>
 
-            <fieldset disabled={busy || !!created} className="w-full min-w-0">
-              <input
-                aria-label="Name"
-                placeholder="Name"
-                maxLength={80}
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="off"
-                className="w-full bg-transparent pt-2.5 pb-0.5 text-center text-[28px] leading-9 font-[650] outline-none placeholder:text-faint border-b border-transparent focus-visible:border-line2"
-              />
-              {underName ? (
-                <p role="alert" className="pt-1.5 pb-[18px] text-center text-sm text-bad">
-                  {underName}
-                </p>
-              ) : (
-                <p className="pt-1.5 pb-[18px] text-center text-sm text-muted">{external ? "It joins with an invitation." : "It says hello and sets itself up in the chat."}</p>
-              )}
+              {/* the first thing it will say, from what's picked */}
+              <div className="mt-4 w-full" aria-live="polite">
+                <div className="bubble them tail relative max-w-full! text-[14px] leading-[21px]">{external ? `Hi, I'm ${cleanName || "your agent"}. I'll join once you send the invitation.` : sampleGreeting({ name: cleanName, role, apps: appNames, instructions })}</div>
+                {!external && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 pl-1 text-[12px] text-muted">
+                    <span className="inline-flex items-center gap-1.5">
+                      <HarnessLogo harness={harness} size={13} />
+                      {selectedHarness.label}
+                      {model ? ` · ${prettyModel(models.find((m) => m.id === model)?.label ?? model)}` : ""}
+                      {effort ? ` · ${effortName(effort)}` : ""}
+                    </span>
+                    <span aria-hidden>·</span>
+                    <span>{placeLine}</span>
+                  </div>
+                )}
+              </div>
 
-              {advanced && (
-                <div ref={optionsRef} className="space-y-4 pb-5 text-left">
-                  <label className="block space-y-1.5">
-                    <span className={LABEL}>What it does</span>
-                    <Input maxLength={60} value={role} onChange={(e) => setRole(e.target.value)} aria-label="What it does" className="h-10!" />
-                  </label>
-                  <label className="block space-y-1.5">
-                    <span className={LABEL}>Instructions</span>
-                    <Textarea rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} aria-label="Instructions" />
-                  </label>
+              <div className="mt-5 w-full">
+                <LookOptions value={look} onChange={setAppearance} name={finalHandle} dense />
+                <button type="button" className={cx(QUIET, "-ml-2.5 mt-1")} onClick={() => setView("look")}>
+                  Bigger preview
+                </button>
+              </div>
+            </aside>
 
-                  {invite ? (
-                    <div className="space-y-1.5">
-                      <span className={LABEL}>Joins from</span>
-                      <HarnessGrid list={harnesses} harness={harness} onPick={setHarness} label="Agent harness" />
+            {/* what it does and what it works with */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="flex items-center gap-3 px-5 pt-5 sm:px-6">
+                <h1 tabIndex={-1} className="t-title min-w-0 flex-1 truncate outline-none">
+                  {invite ? "Invite an agent" : "New agent"}
+                </h1>
+                <button type="button" onClick={onClose} disabled={busy} className="circle circle-sm border-0! bg-chip text-muted hover:text-ink" aria-label="Close">
+                  <X size={16} />
+                </button>
+              </div>
+              <fieldset disabled={busy || !!created} className="min-h-0 min-w-0 flex-1 space-y-5 px-5 pb-5 pt-4 sm:px-6 md:overflow-y-auto">
+                {!invite && (
+                  <section className="space-y-2">
+                    <span className={LABEL}>Start from</span>
+                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="radiogroup" aria-label="Start from">
+                      {AGENT_TYPES.filter((t) => t.id !== "other").map((t) => (
+                        <button key={t.id} type="button" role="radio" aria-checked={templateId === t.id} onClick={() => applyTemplate(t)} className={cx(TILE, "h-11", templateId === t.id ? TILE_ON : TILE_OFF)}>
+                          <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted" aria-hidden>
+                            <path d={t.icon} />
+                          </svg>
+                          <span className="min-w-0 truncate text-[13px] font-medium">{t.name.replace(/ assistant$/, "")}</span>
+                        </button>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span className={LABEL}>AI and computer</span>
-                        {defaults !== "error" && (
-                          <div className={SEG} role="radiogroup" aria-label="AI and computer">
-                            {(
-                              [
-                                ["defaults", "Use my defaults"],
-                                ["custom", "Customize"],
-                              ] as const
-                            ).map(([m, label]) => (
-                              <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={cx("h-8 px-3.5 rounded-[10px] text-[13px] font-medium", mode === m ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
-                                {label}
+                  </section>
+                )}
+
+                <label className="block space-y-1.5">
+                  <span className={LABEL}>What it does</span>
+                  <Input maxLength={60} value={role} onChange={(e) => (setRole(e.target.value), setTemplateId(null))} aria-label="What it does" placeholder="Keeps my inbox in order" className="h-10!" />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className={LABEL}>Instructions</span>
+                  <Textarea rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} aria-label="Instructions" placeholder="How it should work, what to ask first, what to leave alone" />
+                </label>
+
+                {invite ? (
+                  <div className="space-y-1.5">
+                    <span className={LABEL}>Joins from</span>
+                    <HarnessGrid list={harnesses} harness={harness} onPick={setHarness} label="Agent harness" />
+                  </div>
+                ) : (
+                  <>
+                    <section className="space-y-2">
+                      <span className={LABEL}>AI</span>
+                      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="radiogroup" aria-label="AI">
+                        {runnable.map((h) => {
+                          const on = harness === h.id;
+                          const signed = signedInOn(h.id);
+                          return (
+                            <button key={h.id} type="button" role="radio" aria-checked={on} onClick={() => pickAi({ harness: h.id })} className={cx(TILE, "h-11", on ? TILE_ON : TILE_OFF)}>
+                              <HarnessLogo harness={h.id} size={18} />
+                              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{h.label}</span>
+                              {node?.mine && signed === false && <span className="size-1.5 shrink-0 rounded-full bg-warn" title="Not signed in" aria-label="Not signed in" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+                        <label className="space-y-1">
+                          <span className="block text-[12px] text-muted">Model</span>
+                          {models.length ? (
+                            <select aria-label="Model" value={model} onChange={(e) => pickAi({ model: e.target.value })} className={SELECT}>
+                              <option value="">Automatic</option>
+                              {models.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {prettyModel(m.label)}
+                                </option>
+                              ))}
+                              {model && !models.some((m) => m.id === model) && <option value={model}>{model}</option>}
+                            </select>
+                          ) : (
+                            <Input aria-label="Model" value={model} onChange={(e) => pickAi({ model: e.target.value })} placeholder="Automatic" className="h-9! text-[13px]!" />
+                          )}
+                        </label>
+                        <div className="space-y-1">
+                          <span className="block text-[12px] text-muted">Effort</span>
+                          <div className="flex rounded-[10px] bg-chip p-0.5" role="radiogroup" aria-label="Effort">
+                            {["", ...efforts].map((x) => (
+                              <button key={x || "default"} type="button" role="radio" aria-checked={effort === x} onClick={() => pickAi({ effort: x })} className={cx("h-8 min-w-0 flex-1 truncate rounded-[8px] px-1.5 text-[12px] font-medium transition-colors", effort === x ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
+                                {x ? effortName(x) : "Auto"}
                               </button>
                             ))}
                           </div>
-                        )}
+                        </div>
                       </div>
-                      {mode === "defaults" && defaults !== "error" ? (
-                        <div className="rounded-[12px] bg-card px-3.5 py-1.5 text-[14px]">
-                          <div className="flex h-9 items-center gap-3">
-                            <span className="shrink-0 font-medium">AI</span>
-                            <span className="min-w-0 flex-1 flex items-center justify-end gap-1.5 text-[13px] text-muted">
-                              {defaults?.harness && <HarnessLogo harness={defaults.harness} size={15} />}
-                              <span className="truncate">{summary ? summary.ai : "Loading…"}</span>
-                            </span>
-                          </div>
-                          <div className="flex h-9 items-center gap-3">
-                            <span className="shrink-0 font-medium">Computer</span>
-                            <span className="min-w-0 flex-1 truncate text-right text-[13px] text-muted">{summary ? summary.computer : "Loading…"}</span>
-                          </div>
-                          <div className="flex h-9 items-center justify-end">
-                            <a href="#/settings/agent-defaults" onClick={onClose} className="text-[13px] text-muted hover:text-ink underline underline-offset-2">
-                              Change defaults
-                            </a>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="grid sm:grid-cols-2 gap-3">
-                            <label className="space-y-1.5">
-                              <span className={LABEL}>Runs on</span>
-                              <select
-                                value={harness}
-                                onChange={(e) => {
-                                  touched.current = true;
-                                  setHarness(e.target.value);
-                                }}
-                                className={SELECT}
-                              >
-                                {harnesses.map((h) => (
-                                  <option key={h.id} value={h.id}>
-                                    {h.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="space-y-1.5">
-                              <span className={LABEL}>Model</span>
-                              <Input
-                                value={model}
-                                onChange={(e) => {
-                                  touched.current = true;
-                                  setModel(e.target.value);
-                                }}
-                                placeholder="Automatic"
-                                list="new-agent-models"
-                                className="h-10!"
-                              />
-                              <datalist id="new-agent-models">{defaults && defaults !== "error" && defaults.model && <option value={defaults.model} />}</datalist>
-                            </label>
-                            {/* only ask which device when there's a real choice, and only in Advanced */}
-                            {simple ? null : usable.length < 2 ? (
-                              <div className="space-y-1.5">
-                                <span className={LABEL}>Device</span>
-                                <div className="h-10 flex items-center text-sm">{usable[0] ? `${usable[0].name}${usable[0].online ? "" : " (offline)"}` : "None yet. Connect one under Devices."}</div>
-                              </div>
-                            ) : (
-                              <label className="space-y-1.5">
-                                <span className={LABEL}>Device</span>
-                                <select
-                                  value={nodeId}
-                                  onChange={(e) => {
-                                    touched.current = true;
-                                    setNodeId(e.target.value);
-                                    setComputer(defaultComputer(nodes.find((n) => n.id === e.target.value), computers));
-                                  }}
-                                  className={SELECT}
-                                >
-                                  <option value="">Decide later</option>
-                                  {usable.map((n) => (
-                                    <option key={n.id} value={n.id}>
-                                      {n.name} ({n.online ? "online" : "offline"})
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            )}
-                          </div>
-                          {selectedHarness.protocol !== "mcp" && !simple && <ComputerPicker value={computer} onChange={chooseComputer} node={node} nodes={nodes} />}
-                          {!simple && node && !runsInVm(harness) && !installed.has(harness) && selectedHarness.protocol !== "mcp" && (
-                            <p className="text-xs text-muted">
-                              Install {selectedHarness.label} on {node.name} first.
-                            </p>
-                          )}
-                          {!simple && node && !node.online && (
-                            <p role="status" className="text-xs text-warn">
-                              {node.name} is offline. It answers once {node.name} reconnects.
-                            </p>
-                          )}
-                        </div>
-                      )}
                       {signInFirst && (
                         <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-card px-3.5 py-2.5 text-[13px]">
                           <span className="min-w-0 flex-1">{noneSignedIn ? `No AI is signed in on ${signInFirst.where} yet.` : `${harnessLabel(signInFirst.harness)} isn't signed in on ${signInFirst.where}.`}</span>
                           <HarnessSignInButton signIn={signInFirst} />
                         </div>
                       )}
-                    </div>
-                  )}
+                    </section>
 
-                  <label className="block space-y-1.5">
-                    <span className={LABEL}>Handle</span>
-                    <Input
-                      value={handle}
-                      // loose while typing (a dash can be followed by more); the handle used is its tidy form
-                      onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^[^a-z]+/, "").slice(0, 32))}
-                      placeholder={finalHandle}
-                      aria-label="Handle"
-                      aria-invalid={!!handleProblem}
-                      className="h-10!"
-                    />
-                    {handleProblem && (
-                      <span role="alert" className="block text-xs text-bad">
-                        {handleProblem}
-                      </span>
+                    {selectedHarness.protocol !== "mcp" && (
+                      <PlacePicker value={place} onChange={choosePlace} node={node} nodes={nodes} usable={usable} nodeId={nodeId} onNode={(id) => (setNodeId(id), choosePlace(place.kind === "auto" ? place : defaultComputer(nodes.find((n) => n.id === id), computers)))} auto={defaults !== "error" ? (summary?.computer ?? "Automatic") : null} advanced={pickWhere} />
                     )}
-                  </label>
-                  {inviteOn && (
-                    <div className="space-y-1.5">
-                      <span className={LABEL}>Answers</span>
-                      <div className={SEG} role="radiogroup" aria-label="Who it answers">
-                        {(
-                          [
-                            ["me", "Only me"],
-                            ["anyone", "Anyone"],
-                            ["people", "Picked people"],
-                          ] as const
-                        ).map(([v, label]) => (
-                          <button key={v} type="button" role="radio" aria-checked={respondTo === v} onClick={() => setRespondTo(v)} className={cx("flex-1 h-8 px-2 rounded-[10px] text-[13px] font-medium whitespace-nowrap", respondTo === v ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                      {respondTo === "people" &&
-                        (others.length ? (
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {others.map((p) => (
-                              <Chip key={p.id} small on={respondPeople.includes(p.id)} onClick={() => setRespondPeople(togglePick(respondPeople, p.id))}>
-                                {p.name}
-                              </Chip>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted">Nobody else is here yet.</p>
-                        ))}
-                    </div>
-                  )}
-                  <div className="space-y-1.5">
-                    <span className={LABEL}>Apps</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {connectors === null && <span className="text-xs text-muted">Loading…</span>}
-                      {connectors?.map((c) =>
-                        c.allAgents ? (
-                          <span key={c.id} className="h-8 px-2.5 rounded-lg bg-chip text-[13px] font-medium inline-flex items-center gap-1" title="On for all agents">
-                            <Check size={13} /> {c.name}
-                          </span>
-                        ) : (
-                          <Chip key={c.id} small on={pickedApps.includes(c.id)} onClick={() => setPickedApps(togglePick(pickedApps, c.id))}>
-                            {c.name}
-                          </Chip>
-                        ),
-                      )}
-                      <AddChip onClick={() => (onClose(), go({ view: "connectors" }))} />
-                    </div>
-                    {!canUseConnectedApps(selectedHarness) && <p className="text-xs text-muted">{selectedHarness.label} can't use apps yet.</p>}
+                    {place.kind !== "auto" && node && !runsInVm(harness) && !installed.has(harness) && selectedHarness.protocol !== "mcp" && (
+                      <p className="text-xs text-muted">
+                        Install {selectedHarness.label} on {node.name} first.
+                      </p>
+                    )}
+                    {place.kind !== "auto" && node && !node.online && (
+                      <p role="status" className="text-xs text-warn">
+                        {node.name} is offline. It answers once {node.name} reconnects.
+                      </p>
+                    )}
+                  </>
+                )}
+
+                <section className="space-y-2">
+                  <span className={LABEL}>Apps</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {connectors === null && <span className="text-xs text-muted">Loading…</span>}
+                    {connectors?.map((c) =>
+                      c.allAgents ? (
+                        <span key={c.id} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-chip pl-1.5 pr-2.5 text-[13px] font-medium" title="On for all agents">
+                          <AppTile name={c.name} size={20} /> {c.name}
+                        </span>
+                      ) : (
+                        <Chip key={c.id} small on={pickedApps.includes(c.id)} onClick={() => setPickedApps(togglePick(pickedApps, c.id))} icon={<AppTile name={c.name} size={20} />}>
+                          {c.name}
+                        </Chip>
+                      ),
+                    )}
+                    <AddChip onClick={() => (onClose(), go({ view: "connectors" }))} />
                   </div>
-                  <div className="space-y-1.5">
-                    <span className={LABEL}>Skills</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {skills === null && <span className="text-xs text-muted">Loading…</span>}
-                      {skills?.map((sk) =>
-                        sk.allAgents ? (
-                          <span key={sk.id} className="h-8 px-2.5 rounded-lg bg-chip text-[13px] font-medium inline-flex items-center gap-1" title="On for all agents">
-                            <Check size={13} /> {sk.name}
-                          </span>
-                        ) : (
-                          <Chip key={sk.id} small on={pickedSkills.includes(sk.id)} onClick={() => setPickedSkills(togglePick(pickedSkills, sk.id))} title={sk.description}>
-                            {sk.name}
-                          </Chip>
-                        ),
-                      )}
-                      <AddChip onClick={() => (onClose(), go({ view: "skills" }))} />
-                    </div>
+                  {!canUseConnectedApps(selectedHarness) && <p className="text-xs text-muted">{selectedHarness.label} can't use apps yet.</p>}
+                </section>
+                <section className="space-y-2">
+                  <span className={LABEL}>Skills</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {skills === null && <span className="text-xs text-muted">Loading…</span>}
+                    {skills?.map((sk) =>
+                      sk.allAgents ? (
+                        <span key={sk.id} className="inline-flex h-8 items-center gap-1 rounded-lg bg-chip px-2.5 text-[13px] font-medium" title="On for all agents">
+                          <Check size={13} /> {sk.name}
+                        </span>
+                      ) : (
+                        <Chip key={sk.id} small on={pickedSkills.includes(sk.id)} onClick={() => setPickedSkills(togglePick(pickedSkills, sk.id))} title={sk.description}>
+                          {sk.name}
+                        </Chip>
+                      ),
+                    )}
+                    <AddChip onClick={() => (onClose(), go({ view: "skills" }))} />
                   </div>
-                  <div className="-mx-2.5 flex flex-wrap gap-x-2">
-                    <button type="button" className={QUIET} onClick={() => setView("look")}>
-                      Edit look
+                </section>
+                {(inviteOn || others.length > 0) && (
+                  <section className="space-y-2">
+                    <span className={LABEL}>Who can ask it</span>
+                    <RespondPicker value={respondTo} onChange={setRespondTo} />
+                    {respondTo === "people" &&
+                      (others.length ? (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {others.map((p) => (
+                            <Chip key={p.id} small on={respondPeople.includes(p.id)} onClick={() => setRespondPeople(togglePick(respondPeople, p.id))}>
+                              {p.name}
+                            </Chip>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted">Nobody else is here yet.</p>
+                      ))}
+                  </section>
+                )}
+              </fieldset>
+
+              <div className="flex flex-wrap items-center gap-2 border-t border-line px-5 py-3 sm:px-6">
+                <div className="-ml-2.5 flex min-w-0 flex-1 flex-wrap gap-x-1">
+                  {invite ? (
+                    <button type="button" className={QUIET} disabled={busy || !!created} onClick={() => setInvite(false)}>
+                      New agent instead
                     </button>
-                    {!invite && (
-                      <button type="button" className={QUIET} onClick={() => setView("external")}>
+                  ) : (
+                    <>
+                      {!onCreated && (
+                        <button type="button" className={QUIET} disabled={busy || !!created} onClick={makeTeam}>
+                          Make it a team
+                        </button>
+                      )}
+                      <button type="button" className={QUIET} disabled={busy || !!created} onClick={() => setView("external")}>
                         Bring one in
                       </button>
-                    )}
-                  </div>
+                    </>
+                  )}
                 </div>
-              )}
-            </fieldset>
-
-            {advanced && failed && (
-              <p role="alert" className="w-full pb-3 text-center text-sm text-bad">
-                {failed}
-              </p>
-            )}
-            <Button type="submit" variant="primary" disabled={busy || (!created && (!validName || (mode === "defaults" && !invite && defaults === null)))} className="w-full h-11! text-[15px]">
-              {busy && <Loader2 size={16} className="animate-spin" />}
-              {external ? "Create invitation" : "Create"}
-            </Button>
-            <div className="flex flex-wrap justify-center gap-x-2 pt-2">
-              <button type="button" className={QUIET} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
-                {advanced ? "Fewer options" : "More options"}
-              </button>
-              {invite ? (
-                <button type="button" className={QUIET} disabled={busy || !!created} onClick={() => setInvite(false)}>
-                  New agent instead
-                </button>
-              ) : (
-                !onCreated && (
-                  <button type="button" className={QUIET} disabled={busy || !!created} onClick={makeTeam}>
-                    Make it a team
-                  </button>
-                )
-              )}
+                {failed && (
+                  <p role="alert" className="w-full text-sm text-bad sm:order-none sm:w-auto">
+                    {failed}
+                  </p>
+                )}
+                <Button type="submit" variant="primary" disabled={busy || (!created && (!validName || (place.kind === "auto" && !invite && defaults === null)))} className="h-10! min-w-[120px] text-[15px]">
+                  {busy && <Loader2 size={16} className="animate-spin" />}
+                  {external ? "Create invitation" : "Create"}
+                </Button>
+              </div>
             </div>
           </form>
         )}
@@ -870,9 +897,73 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   );
 }
 
-function Chip({ on, onClick, children, title, small }: { on: boolean; onClick: () => void; children: React.ReactNode; title?: string; small?: boolean }) {
+/** Only me / Anyone / Picked people: who an agent answers. Also on the agent's page. */
+export function RespondPicker({ value, onChange, disabled }: { value: RespondTo; onChange: (v: RespondTo) => void; disabled?: boolean }) {
   return (
-    <button type="button" role={small ? undefined : "radio"} aria-checked={small ? undefined : on} aria-pressed={small ? on : undefined} onClick={onClick} title={title} className={cx("rounded-[8px] border font-medium transition-colors", small ? "h-8 px-2.5 text-[13px] rounded-lg" : "h-8 px-3.5 text-[13px]", on ? "bg-ink text-bg border-ink" : "bg-panel text-ink border-line hover:bg-hover")}>
+    <div className="flex rounded-[10px] bg-chip p-0.5" role="radiogroup" aria-label="Who it answers">
+      {(
+        [
+          ["me", "Only me"],
+          ["anyone", "Anyone"],
+          ["people", "Picked people"],
+        ] as const
+      ).map(([v, label]) => (
+        <button key={v} type="button" role="radio" disabled={disabled} aria-checked={value === v} onClick={() => onChange(v)} className={cx("h-8 flex-1 whitespace-nowrap rounded-[8px] px-2 text-[13px] font-medium transition-colors", value === v ? "bg-panel text-ink shadow-sm" : "text-muted hover:text-ink")}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Where a new agent works, as tiles: Automatic (your defaults: the shared computer in Simple), its
+ * own computer, your screen, or none. In Advanced, also the computers already here and the device.
+ */
+function PlacePicker({ value, onChange, node, nodes, usable, nodeId, onNode, auto, advanced }: { value: Place; onChange: (p: Place) => void; node: NodeInfo | undefined; nodes: NodeInfo[]; usable: NodeInfo[]; nodeId: string; onNode: (id: string) => void; auto: string | null; advanced: boolean }) {
+  const computers = useStore((s) => s.computers);
+  const screenExists = computers.some((c) => c.kind === "device" && c.nodeId === node?.id);
+  const same = (p: Place) => value.kind === p.kind && (p.kind !== "existing" || (value.kind === "existing" && value.id === p.id));
+  const tile = (p: Place, icon: React.ReactNode, title: string, sub?: string, disabled?: boolean) => (
+    <button key={p.kind === "existing" ? p.id : p.kind} type="button" role="radio" aria-checked={same(p)} disabled={disabled} title={sub} onClick={() => onChange(p)} className={cx(TILE, "h-14", same(p) ? TILE_ON : TILE_OFF)}>
+      <span className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-chip text-muted">{icon}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] font-medium">{title}</span>
+        {sub && <span className="block truncate text-[11.5px] text-muted">{sub}</span>}
+      </span>
+    </button>
+  );
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className={cx(LABEL, "flex-1")}>Computer</span>
+        {advanced && usable.length > 1 && (
+          <select aria-label="Device" value={nodeId} onChange={(e) => onNode(e.target.value)} className="h-8 rounded-[8px] border border-input bg-panel px-2 text-[12px]">
+            {usable.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.name}
+                {n.online ? "" : " (offline)"}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Computer">
+        {auto !== null && tile({ kind: "auto" }, <Users size={15} />, auto === "The shared computer" ? "Shared computer" : "Automatic", auto === "The shared computer" ? "With your other agents" : auto === "Automatic" ? "Your defaults" : auto)}
+        {node && tile({ kind: "vm" }, <Monitor size={15} />, "Its own computer", node.capabilities?.vm.ok ? `A desktop on ${node.name}` : (node.capabilities?.vm.detail ?? "Connect the device to check"), !node.capabilities?.vm.ok)}
+        {node?.mine && !screenExists && tile({ kind: "screen" }, <Laptop size={15} />, "My screen", node.capabilities?.screen.ok ? `Works on ${node.name}` : (node.capabilities?.screen.detail ?? "Off"), node.capabilities?.screen.ok !== true)}
+        {advanced &&
+          computers.map((c) => tile({ kind: "existing", id: c.id }, c.kind === "orgo" ? <Cloud size={15} /> : c.kind === "vm" ? <Monitor size={15} /> : <Laptop size={15} />, c.name, computerKindLabel(c, nodes)))}
+        {tile({ kind: "headless" }, <MessageSquare size={15} />, "No computer", "Chat and files only")}
+      </div>
+    </section>
+  );
+}
+
+function Chip({ on, onClick, children, title, small, icon }: { on: boolean; onClick: () => void; children: React.ReactNode; title?: string; small?: boolean; icon?: React.ReactNode }) {
+  return (
+    <button type="button" role={small ? undefined : "radio"} aria-checked={small ? undefined : on} aria-pressed={small ? on : undefined} onClick={onClick} title={title} className={cx("inline-flex items-center gap-1.5 border font-medium transition-colors duration-150", small ? "h-8 rounded-lg text-[13px]" : "h-8 rounded-[8px] px-3.5 text-[13px]", small && (icon ? "pl-1.5 pr-2.5" : "px-2.5"), on ? "bg-ink text-bg border-ink" : "bg-panel text-ink border-line hover:bg-hover")}>
+      {icon}
       {children}
     </button>
   );

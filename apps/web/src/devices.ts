@@ -24,7 +24,17 @@ export interface DeviceInfo {
   agents: string[];
   capabilities?: DeviceCapabilities | null;
   discovered?: DiscoveredAgent[];
-  harnesses?: { id: string; version: string | null; accounts?: Record<string, boolean | null>; agentAccounts?: Record<string, string> }[];
+  harnesses?: {
+    id: string;
+    version: string | null;
+    accounts?: Record<string, boolean | null>;
+    agentAccounts?: Record<string, string>;
+    /** the models and efforts it offers there (new agents pick from these) */
+    models?: { id: string; label: string; efforts?: string[]; defaultEffort?: string }[];
+    efforts?: string[];
+    defaultModel?: string;
+    defaultEffort?: string;
+  }[];
   /** what's signed in inside each of its VMs (computer id → harness → signed in) */
   vmSignIns?: Record<string, Record<string, boolean | null>>;
   /** the Bubble AI version it runs */

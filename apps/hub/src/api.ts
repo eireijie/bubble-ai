@@ -124,6 +124,7 @@ const APPEARANCE = z
     accessory: z.enum(GHOST_ACCESSORIES),
     motion: z.enum(GHOST_MOTIONS),
     bubble: z.enum(BUBBLE_SHAPES).optional(),
+    parts: z.boolean().optional(),
   })
   .strict();
 const SETTINGS = z
@@ -1574,7 +1575,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
       remoteDesktop: n.ownerId === c.actor.id ? store.nodeRemoteDesktop(n.id) : null,
       // what else lives on someone's device is theirs to see
       discovered: n.ownerId === c.actor.id || n.shared ? store.nodeDiscovered(n.id) : [],
-      harnesses: store.nodeCatalog(n.id).map((h) => ({ id: h.harness, version: h.version, accounts: h.accounts, agentAccounts: h.agentAccounts })),
+      harnesses: store.nodeCatalog(n.id).map((h) => ({ id: h.harness, version: h.version, accounts: h.accounts, agentAccounts: h.agentAccounts, models: h.models.map((m) => ({ id: m.id, label: m.label, efforts: m.efforts, defaultEffort: m.defaultEffort })), efforts: h.efforts, defaultModel: h.defaultModel, defaultEffort: h.defaultEffort })),
       // what's signed in inside each of its VMs (computer id → harness → signed in)
       vmSignIns: Object.fromEntries(store.computersOnNode(n.id).flatMap((vm) => { const list = vm.kind === "vm" ? store.computerCatalog(n.id, vm.id) : null; return list ? [[vm.id, Object.fromEntries(list.map((h) => [h.harness, h.accounts?.default ?? null]))]] : []; })),
       version: hub.updates.deviceVersion(n.id),

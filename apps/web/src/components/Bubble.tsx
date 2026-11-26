@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { BUBBLE_SHAPES, type BubbleShape, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
+import { BubbleFaceWear, BubbleHat, BubbleMouth, BubbleNeckwear } from "./BubbleParts.tsx";
 import { useMotionReduced, motionReduced } from "../theme.ts";
 import { useGhostActivity } from "../ghostActivity.ts";
 import { familyColor } from "../ghostFamily.ts";
@@ -18,26 +19,45 @@ interface Part {
   r: string;
   rot?: number;
 }
-interface ShapeDef {
+export interface ShapeDef {
   name: string;
   parts: Part[];
   /** where the face sits, in % of the bubble, from the centre */
   face: [number, number];
+  /** what's worn on it, in % of the bubble: the top of the head, the bottom, and how wide the head is */
+  top: [number, number];
+  bottom: [number, number];
+  width: number;
 }
 
 const P = (l: number, t: number, w: number, h: number, r: string, rot?: number): Part => ({ l, t, w, h, r, rot });
 
 /** The eight shapes of board 6 ("Bubble shapes, in each agent's Look"). */
 export const BUBBLE_DEFS: Record<BubbleShape, ShapeDef> = {
-  round: { name: "Round", parts: [P(0, 0, 100, 100, "50%")], face: [0, 0] },
-  squircle: { name: "Squircle", parts: [P(2, 2, 96, 96, "40%")], face: [0, 0] },
-  egg: { name: "Egg", parts: [P(7, 0, 86, 100, "50% 50% 50% 50% / 58% 58% 42% 42%")], face: [0, 4] },
-  drop: { name: "Drop", parts: [P(10, 14, 80, 80, "50% 0 50% 50%", -45)], face: [0, 9] },
-  blob: { name: "Blob", parts: [P(0, 4, 100, 92, "58% 42% 54% 46% / 46% 58% 42% 54%")], face: [0, 2] },
-  capsule: { name: "Capsule", parts: [P(0, 16, 100, 70, "999px")], face: [0, 2] },
-  double: { name: "Double", parts: [P(0, 18, 82, 82, "50%"), P(60, 0, 40, 40, "50%")], face: [-9, 10] },
-  cluster: { name: "Cluster", parts: [P(2, 26, 72, 72, "50%"), P(50, 6, 44, 44, "50%"), P(64, 54, 34, 34, "50%")], face: [-12, 15] },
+  round: { name: "Round", parts: [P(0, 0, 100, 100, "50%")], face: [0, 0], top: [50, 0], bottom: [50, 100], width: 100 },
+  squircle: { name: "Squircle", parts: [P(2, 2, 96, 96, "40%")], face: [0, 0], top: [50, 2], bottom: [50, 98], width: 96 },
+  egg: { name: "Egg", parts: [P(7, 0, 86, 100, "50% 50% 50% 50% / 58% 58% 42% 42%")], face: [0, 4], top: [50, 0], bottom: [50, 100], width: 86 },
+  drop: { name: "Drop", parts: [P(10, 14, 80, 80, "50% 0 50% 50%", -45)], face: [0, 9], top: [50, 10], bottom: [50, 94], width: 72 },
+  blob: { name: "Blob", parts: [P(0, 4, 100, 92, "58% 42% 54% 46% / 46% 58% 42% 54%")], face: [0, 2], top: [50, 4], bottom: [50, 96], width: 100 },
+  capsule: { name: "Capsule", parts: [P(0, 16, 100, 70, "999px")], face: [0, 2], top: [50, 16], bottom: [50, 86], width: 90 },
+  double: { name: "Double", parts: [P(0, 18, 82, 82, "50%"), P(60, 0, 40, 40, "50%")], face: [-9, 10], top: [41, 18], bottom: [41, 100], width: 82 },
+  cluster: { name: "Cluster", parts: [P(2, 26, 72, 72, "50%"), P(50, 6, 44, 44, "50%"), P(64, 54, 34, 34, "50%")], face: [-12, 15], top: [38, 26], bottom: [38, 98], width: 72 },
 };
+
+/** What a bubble can wear, as saved in a look. */
+export type BubbleLook = Pick<GhostAppearance, "color"> & Partial<Pick<GhostAppearance, "color2" | "bubble" | "eyes" | "mouth" | "hat" | "accessory" | "motion" | "parts">>;
+
+/** A look's eyes, mouth, hat, accessory and motion; looks saved before these came back get plain eyes and nothing else. */
+export function bubbleParts(look: BubbleLook | undefined): Required<Pick<GhostAppearance, "eyes" | "mouth" | "hat" | "accessory" | "motion">> {
+  const on = !!look?.parts;
+  return {
+    eyes: (on && look?.eyes) || "dots",
+    mouth: (on && look?.mouth) || "none",
+    hat: (on && look?.hat) || "none",
+    accessory: (on && look?.accessory) || "none",
+    motion: (on && look?.motion) || "float",
+  };
+}
 
 /** A look's bubble shape: saved looks from before bubbles have none and are round. */
 export const bubbleShape = (look: Pick<GhostAppearance, "bubble"> | undefined): BubbleShape => (look?.bubble && (BUBBLE_SHAPES as readonly string[]).includes(look.bubble) ? look.bubble : "round");
@@ -139,7 +159,7 @@ export function Bubble({
   className,
   style,
 }: {
-  look: Pick<GhostAppearance, "color" | "color2" | "bubble"> | undefined;
+  look: BubbleLook | undefined;
   seed?: string;
   size?: number;
   mood?: BubbleMood;
@@ -164,6 +184,11 @@ export function Bubble({
   const shape = bubbleShape(look);
   const color = bubbleColor(look, seed);
   const def = BUBBLE_DEFS[shape];
+  const worn = bubbleParts(look);
+  // a hat or something to wear needs some size to read; tiny bubbles keep just their eyes
+  const hat = size >= 20 ? worn.hat : "none";
+  const accessory = size >= 20 ? worn.accessory : "none";
+  const mouth = size >= 24 ? worn.mouth : "none";
   // bubbles in one list don't blink or glance all at once
   const delay = useMemo(() => `${-(Math.random() * 12).toFixed(2)}s`, []);
   // idle eyes rest to one side, steadily per agent
@@ -206,6 +231,9 @@ export function Bubble({
     "bub",
     `bub-${shape}`,
     size <= 80 && "bub-small",
+    `bub-eyes-${worn.eyes}`,
+    `bub-m-${worn.motion}`,
+    hat !== "none" && "bub-hatted",
     moodClass,
     moving && "bub-move",
     lite && "bub-lite",
@@ -234,11 +262,32 @@ export function Bubble({
       <span className="bub-w">
         <BubbleBody shape={shape} color={color} />
         <span className="bub-face" style={def.face[0] || def.face[1] ? { transform: `translate(${def.face[0]}%, ${def.face[1]}%)` } : undefined}>
-          <i className="bub-e bub-e1" />
-          <i className="bub-e bub-e2" />
+          <BubbleEyes eyes={worn.eyes} />
+          {mouth !== "none" && <BubbleMouth kind={mouth} />}
+          {accessory !== "none" && <BubbleFaceWear kind={accessory} />}
         </span>
+        {/* worn things sit on the body, so they wobble, hop and spin with it and never slide on their own */}
+        {accessory !== "none" && <BubbleNeckwear kind={accessory} def={def} />}
+        {hat !== "none" && <BubbleHat kind={hat} def={def} animate={moving} />}
       </span>
       <span className="bub-flag" />
     </span>
+  );
+}
+
+/** Two eyes in the look's style. Arcs (happy, a wink) are drawn; the others are round eyes with their own shine (bubble.css). */
+export function BubbleEyes({ eyes }: { eyes: string }) {
+  const arc = (
+    <svg viewBox="0 0 10 6" aria-hidden>
+      <path d="M1.2 5 Q5 -1.2 8.8 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+  const happy = eyes === "happy";
+  const second = happy || eyes === "wink";
+  return (
+    <>
+      <i className={happy ? "bub-e bub-e1 bub-arc" : "bub-e bub-e1"}>{happy && arc}</i>
+      <i className={second ? "bub-e bub-e2 bub-arc" : "bub-e bub-e2"}>{second && arc}</i>
+    </>
   );
 }

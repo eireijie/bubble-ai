@@ -1,5 +1,4 @@
-import type { GhostAppearance } from "@bubble-ai/core";
-import { Bubble, type BubbleMood } from "./Bubble.tsx";
+import { Bubble, type BubbleLook, type BubbleMood } from "./Bubble.tsx";
 
 /** How an agent's bubble feels right now (the name stays from when agents were ghosts). */
 export type GhostMood = BubbleMood;
@@ -7,7 +6,8 @@ export type GhostMood = BubbleMood;
 /**
  * An agent's avatar. Agents were ghosts until 2026-11-25; every caller now gets a bubble
  * (Bubble.tsx) with the same props, so saved looks keep working: their colour tints the bubble
- * and a look without a bubble shape is round. Hats, mouths and arms are no longer drawn.
+ * and a look without a bubble shape is round. Eyes, a mouth, a hat, something to wear and the idle
+ * motion come back for looks saved with `parts` (the bubble Look editor, 2026-11-26).
  */
 export function Ghost({
   look,
@@ -24,7 +24,7 @@ export function Ghost({
   talking = false,
   hop = false,
 }: {
-  look: Pick<GhostAppearance, "color" | "color2" | "bubble"> | undefined;
+  look: BubbleLook | undefined;
   happy?: boolean;
   talking?: boolean;
   hop?: boolean;

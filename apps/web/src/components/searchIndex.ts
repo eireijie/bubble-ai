@@ -1,4 +1,4 @@
-import { Blocks, BookOpen, Brain, LifeBuoy, ListChecks, ListTodo, Monitor, Settings, SlidersHorizontal, SquareTerminal, Store, type LucideIcon } from "lucide-react";
+import { Blocks, BookOpen, Brain, LifeBuoy, ListChecks, ListTodo, Monitor, Settings, SlidersHorizontal, SquareTerminal, Store, type LucideIcon, LayoutTemplate } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
 import type { FeatureKey } from "@bubble-ai/core";
 import type { Route, SettingsPage } from "../router.ts";
@@ -52,6 +52,7 @@ export const PLACES: Place[] = [
   { key: "mods", label: "Mods", words: "features optional extras addons add-ons", icon: Blocks, to: { view: "mods" } },
   { key: "help", label: "Help", words: "support guide stuck not answering", icon: LifeBuoy, to: { view: "help" } },
   { key: "agents", label: "All agents", words: "manage list every agent", icon: BubbleIcon as unknown as LucideIcon, to: { view: "agents", agentId: null } },
+  { key: "templates", label: "Agent templates", words: "new agent start from template assistant coding research business", icon: LayoutTemplate, to: { view: "templates" }, noGuests: true },
   { key: "about", label: "About you", words: "profile what agents remember me", icon: Brain, to: { view: "about" } },
   { key: "setup", label: "Setup", words: "finish checklist get started turned on undo welcome", icon: ListChecks, to: { view: "here" }, noGuests: true },
   { key: "settings", label: "Settings", words: "preferences options", icon: Settings, to: { view: "settings" } },

@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, Plug, Trash2, Wand2 } from "lucide-react";
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Check, ChevronDown, ChevronRight, Plug, Plus, Wand2 } from "lucide-react";
 import type { AccessRule, Agent, Connector, Routine, Skill } from "@bubble-ai/core";
 import { api } from "../api.ts";
-import { useStore } from "../store.ts";
+import { useStore, useTeams } from "../store.ts";
+import { lazyView } from "../lazy.tsx";
+import { ConfirmDialog } from "../components/InboxParts.tsx";
+import { AgentWatches } from "./AgentWatches.tsx";
 import { go, href, type AgentTab } from "../router.ts";
 import { setChannelPrefs } from "../components/Channels.tsx";
 import { LEVEL_LABEL, pathLabel, subjectLabel } from "../components/AccessDialog.tsx";
 import { whoCanAsk, type DeviceInfo } from "../devices.ts";
 import { useFeatures } from "../features.ts";
-import { AgentAvatar, cx, timeAgo } from "../components/ui.tsx";
+import { cx, timeAgo } from "../components/ui.tsx";
 
 /** What each part of the agent's page is called: a group's name for the tabs that are its rows, the part's own for the ones it opens. */
 export const TAB_TITLES: Record<AgentTab, string> = {
@@ -189,11 +192,8 @@ interface Usable {
   kind: "skills" | "connectors";
 }
 
-/** How many apps and how many skills show before "Show all". */
-const CAN_USE_FIRST = 3;
-
-/** Apps and skills in one list, a switch each: the ones it has first, the rest and Add behind "Show all". */
-export function CanUse({ agent, all }: { agent: Agent; all?: boolean }) {
+/** Apps and skills in one list, a switch each, the ones it has first; Add opens the marketplace for this agent alone. */
+export function CanUse({ agent }: { agent: Agent }) {
   const [skills, setSkills] = useState<Skill[] | null>(null);
   const [apps, setApps] = useState<Connector[] | null>(null);
   const skillsVersion = useStore((s) => s.skillsVersion);
@@ -235,17 +235,12 @@ export function CanUse({ agent, all }: { agent: Agent; all?: boolean }) {
       )}
     </Line>
   );
-  const rest = [...appRows.slice(CAN_USE_FIRST), ...skillRows.slice(CAN_USE_FIRST)];
   return (
     <>
       <div className={CARD}>
-        {appRows.slice(0, CAN_USE_FIRST).map(row)}
-        {skillRows.slice(0, CAN_USE_FIRST).map(row)}
-        {appRows.length + skillRows.length === 0 && <Line label="Nothing added yet" />}
-        <ShowAll open={all}>
-          {rest.map(row)}
-          <Line label="Add" to={href({ view: "marketplace" })} />
-        </ShowAll>
+        {appRows.map(row)}
+        {skillRows.map(row)}
+        <Line label="Add an app or skill" icon={<Plus size={16} />} to={href({ view: "marketplace", forAgent: agent.id })} />
       </div>
       {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
     </>
@@ -260,7 +255,7 @@ interface NoteRow {
   updatedAt?: number;
 }
 
-/** Its notes, its personality and its instructions; the newest notes and who can read them behind "Show all". */
+/** Its notes, its personality and its instructions, then the newest notes and who can read them. */
 export function Knows({ agent }: { agent: Agent }) {
   const to = (tab: AgentTab) => href({ view: "agents", agentId: agent.id, tab });
   return (
@@ -268,10 +263,8 @@ export function Knows({ agent }: { agent: Agent }) {
       <Line label="Notes" to={`#/vault/agents/${agent.id}`} />
       <Line label="Personality" to={to("soul")} />
       <Line label="Instructions" value={agent.settings.role} to={to("instructions")} />
-      <ShowAll>
-        <RecentNotes agent={agent} />
-        <NotesAccess agent={agent} />
-      </ShowAll>
+      <RecentNotes agent={agent} />
+      <NotesAccess agent={agent} />
     </div>
   );
 }
@@ -330,10 +323,27 @@ function NotesAccess({ agent }: { agent: Agent }) {
 
 // --- More ---------------------------------------------------------------------------
 
-/** The rest of the agent: its look and voice, who it answers, what it does by itself, its activity; connecting another app and removing it last. */
+const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallOptions));
+
+/** A heading inside a group, over its own card. */
+function Sub({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section aria-label={title} className="space-y-2">
+      <h3 className="px-1 text-[13px] font-medium text-muted">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * The rest of the agent, everything in view: how it looks and what it's called, who it answers and
+ * when it works by itself, what it watches, how calls sound, what it has done and connecting to it,
+ * then Remove (a confirm with Cancel).
+ */
 export function More({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
   const channels = useStore((s) => s.channels);
   const routinesVersion = useStore((s) => s.routinesVersion);
+  const teams = useTeams();
   const features = useFeatures();
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   useEffect(() => {
@@ -343,25 +353,44 @@ export function More({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
   const on = routines?.filter((r) => r.enabled).length ?? 0;
   const dm = channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agent.id}`));
   const respond = whoCanAsk(agent, nodes.find((n) => n.id === agent.nodeId));
+  const onTeams = teams.filter((t) => t.members.some((m) => m.agentId === agent.id)).map((t) => t.name);
   return (
-    <>
-      <div className={CARD}>
-        <Line label="Look and voice" to={to("look")} />
-        <Line label="Who can ask it" value={respond === "me" ? "Only me" : respond === "people" ? "Picked people" : "Anyone"} to={to("access")} />
-        {features.routines && <Line label="Routines" value={routines ? (on ? `${on} on` : "None") : ""} to={to("routines")} />}
-        {features.background && <Line label="Background checks" to={to("background")} />}
-        <Line label="Notifications">
-          <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
-        </Line>
-        <Line label="Activity" to={to("runs")} />
-        <ShowAll>
+    <div className="space-y-5">
+      <Sub title="Profile">
+        <div className={CARD}>
+          <Line label="Look and voice" to={to("look")} />
+          <HandleLine agent={agent} />
+          {onTeams.length > 0 && <Line label="Teams" value={onTeams.join(", ")} />}
+        </div>
+      </Sub>
+      <Sub title="Who and when">
+        <div className={CARD}>
+          <Line label="Who can ask it" value={respond === "me" ? "Only me" : respond === "people" ? "Picked people" : "Anyone"} to={to("access")} />
+          <Line label="Notifications">
+            <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
+          </Line>
+          {features.routines && <Line label="Routines" value={routines ? (on ? `${on} on` : "None") : ""} to={to("routines")} />}
+          {features.background && <Line label="Background checks" to={to("background")} />}
+        </div>
+      </Sub>
+      <AgentWatches agent={agent} />
+      <Sub title="Calls">
+        <div className="rounded-[14px] bg-card p-3.5">
+          <Suspense fallback={null}>
+            <CallOptions />
+          </Suspense>
+        </div>
+      </Sub>
+      <Sub title="History and connections">
+        <div className={CARD}>
+          <Line label="Activity" to={to("runs")} />
           <Line label="Connect" to={to("connect")} />
-        </ShowAll>
-      </div>
+        </div>
+      </Sub>
       <a href={to("remove")} className="inline-flex h-9 items-center px-1 text-[13px] font-medium text-bad hover:underline">
         Remove {agent.name}
       </a>
-    </>
+    </div>
   );
 }
 
@@ -428,7 +457,8 @@ export function AccessPanel({ agent, device }: { agent: Agent; device: DeviceInf
 
 // --- Remove -----------------------------------------------------------------------------
 
-export function RemovePanel({ agent }: { agent: Agent }) {
+/** Removing it: a confirm over the page, with Cancel. */
+export function RemoveConfirm({ agent, onClose }: { agent: Agent; onClose: () => void }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -445,14 +475,15 @@ export function RemovePanel({ agent }: { agent: Agent }) {
     }
   };
   return (
-    <div className="flex max-w-md flex-col items-center gap-3 pt-2 text-center max-md:mx-auto md:items-start md:text-left">
-      <AgentAvatar agent={agent} size={64} />
-      <h3 className="text-[19px] font-semibold leading-[26px]">Remove {agent.name}?</h3>
-      <p className="text-[14px] leading-[22px] text-muted">Its notes and personality stay in memory. Its schedules and chats stop.</p>
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <button onClick={remove} disabled={busy} className="mt-1 inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-bad px-5 text-sm font-medium text-white disabled:opacity-60">
-        <Trash2 size={16} /> Remove {agent.name}
-      </button>
-    </div>
+    <ConfirmDialog
+      title={`Remove ${agent.name}?`}
+      body={error ? <span className="text-bad">{error}</span> : "Its notes and personality stay in memory. Its routines and chats stop."}
+      confirm={busy ? "Removing…" : "Remove"}
+      keep="Cancel"
+      danger
+      busy={busy}
+      onConfirm={() => void remove()}
+      onClose={onClose}
+    />
   );
 }

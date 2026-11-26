@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { accessScope, runStatusLabel, runTitle } from "../src/views/AgentSettings.tsx";
+import { accessScope, runStatusLabel, runTitle, tookFor } from "../src/views/AgentSettings.tsx";
 
 vi.mock("../src/theme.ts", () => ({ motionReduced: () => false, useMotionReduced: () => false }));
 
@@ -53,5 +53,15 @@ describe("accessScope", () => {
     expect(accessScope("edit", "Nova", at("shared", true))).toContain("~/files/nova");
     expect(accessScope("edit", "Nova", at("own"))).toContain("its computer's files");
     expect(accessScope("edit", "Nova", at(null, true))).toContain("~/.bubble-ai/agents/nova");
+  });
+});
+
+describe("tookFor", () => {
+  it("says how long in words, never 0s", () => {
+    expect(tookFor(0)).toBe("under a second");
+    expect(tookFor(400)).toBe("under a second");
+    expect(tookFor(1000)).toBe("1 second");
+    expect(tookFor(12_000)).toBe("12 seconds");
+    expect(tookFor(180_000)).toBe("3 minutes");
   });
 });

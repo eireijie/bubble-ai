@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Brain, ChevronLeft, GitCommitHorizontal, Monitor, MessageSquare, MoreHorizontal, Plug, ShieldAlert, ShieldCheck } from "lucide-react";
-import type { AccessLevel, Agent, HarnessCatalog } from "@bubble-ai/core";
+import { HARNESSES, VM_HARNESSES, runsInVm, type AccessLevel, type Agent, type HarnessCatalog } from "@bubble-ai/core";
+import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { soulPath, soulTemplate } from "@bubble-ai/core/src/soul.ts";
 import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx";
 import { useAccess } from "../access.ts";
@@ -12,10 +13,11 @@ import { LookPanel } from "./LookEditor.tsx";
 import { effortName, prettyModel } from "../components/EffortSlider.tsx";
 import { SaveBar } from "./SettingsParts.tsx";
 import { useFeatures } from "../features.ts";
-import { AccessPanel, CARD, CanUse, Group, HandleLine, InPlace, Knows, Line, More, RemovePanel, SELECT, ShowAll, TAB_TITLES, Toggle } from "./AgentSections.tsx";
+import { AccessPanel, CARD, CanUse, Group, InPlace, Knows, Line, More, RemoveConfirm, SELECT, TAB_TITLES, Toggle } from "./AgentSections.tsx";
 import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, Pill, StatusDot, Textarea, cx, timeAgo, AGENT_STATUS } from "../components/ui.tsx";
 import { PopNav } from "../components/SettingsDialog.tsx";
-import { RoutinesPanel, WorksOn, runsOnDevice } from "./AgentComputer.tsx";
+import { RoutinesPanel, runsOnDevice } from "./AgentComputer.tsx";
+import { RunsOn } from "./AgentRunsOn.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
 import { agentReadiness, isSharedComputer, useDevices, type DeviceInfo } from "../devices.ts";
 import { useComputerMode } from "../computerMode.ts";
@@ -60,7 +62,7 @@ const TAB_GROUP: Record<AgentTab, AgentGroup | null> = {
   remove: "more",
 };
 /** Tabs that are a part of their group, opened from one of its rows; the others are the group's own rows. */
-const PARTS: readonly AgentTab[] = ["soul", "instructions", "look", "access", "background", "routines", "connect", "runs", "remove"];
+const PARTS: readonly AgentTab[] = ["soul", "instructions", "look", "access", "background", "routines", "connect", "runs"];
 
 /** Where an address of the old 12-tab page lands: its group, and the part of it to open (null when the group's rows are the thing). */
 export function agentPlace(tab: AgentTab | null | undefined): { group: AgentGroup | null; part: AgentTab | null } {
@@ -183,9 +185,9 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
   const body = (g: AgentGroup): ReactNode => {
     switch (g) {
       case "thinks":
-        return <ThinksWith agent={agent} />;
+        return <ThinksWith agent={agent} nodes={nodes} />;
       case "works":
-        return <WorksOn agent={agent} nodes={nodes} problem={readiness.ready ? null : (readiness.problem ?? "Setup incomplete")} fix={fixHere ? null : next} all={fixHere && next?.action === "Sign in"} />;
+        return <RunsOn agent={agent} nodes={nodes} problem={readiness.ready ? null : (readiness.problem ?? "Setup incomplete")} fix={fixHere ? null : next} />;
       case "can":
         return <CanUse agent={agent} />;
       case "asks":
@@ -287,11 +289,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
             <Panel show={part === "runs"}>
               <RunsPanel agent={agent} active={part === "runs"} />
             </Panel>
-            {part === "remove" && (
-              <div className="m-panel">
-                <RemovePanel agent={agent} />
-              </div>
-            )}
+            {active === "remove" && <RemoveConfirm agent={agent} onClose={() => go({ view: "agents", agentId: agent.id, tab: "overview" })} />}
           </div>
         </div>
       </div>
@@ -511,12 +509,28 @@ function InstructionsPanel({ agent, onDirty, active }: { agent: FullAgent; onDir
 // --- Thinks with --------------------------------------------------------------
 
 /**
- * What it thinks with, as rows: its AI, the model, the effort, and Fast when the model has it. Each
- * saves as it changes. A model that isn't on the list is typed in ("Other model…"); its handle is
- * behind "Show all".
+ * The AIs an agent can switch to: the ones installed where it runs (its device, or the computer it
+ * runs inside), and the one it has now. Agents that join from outside keep theirs.
  */
-function ThinksWith({ agent }: { agent: FullAgent }) {
+export function harnessChoices(agent: Pick<Agent, "harness" | "computerId" | "settings">, device: Pick<DeviceInfo, "harnesses" | "vmSignIns"> | undefined): string[] {
+  const inVm = runsInVm(agent.harness) && agent.settings.runIn === "computer" && !!agent.computerId;
+  const vm = inVm ? Object.keys(device?.vmSignIns?.[agent.computerId!] ?? {}) : [];
+  const here = inVm ? (vm.length ? vm : VM_HARNESSES) : (device?.harnesses ?? []).map((h) => h.id);
+  const list = [...new Set([agent.harness, ...here])].filter((id) => id === agent.harness || runsOnDevice(id));
+  // the order Bubble AI lists them in everywhere, then any a device declared itself
+  const order = HARNESSES.map((h) => h.id);
+  return list.sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+}
+
+/**
+ * What it thinks with, as rows: its AI (switch it here, as /harness does in chat), the model, the
+ * effort, and Fast when the model has it. Each saves as it changes. A model that isn't on the list is
+ * typed in ("Other model…"); its handle is behind "Show all".
+ */
+function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
+  const device = nodes.find((n) => n.id === agent.nodeId);
+  const choices = harnessChoices(agent, device);
   const [info, setInfo] = useState<{ device: { name: string; online: boolean } | null; catalog: HarnessCatalog | null } | null>(null);
   const [custom, setCustom] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -540,9 +554,6 @@ function ThinksWith({ agent }: { agent: FullAgent }) {
       <div className={CARD}>
         <Line label="AI" value={hLabel} />
         <Line label="Model" value={`Set in ${hLabel}`} />
-        <ShowAll>
-          <HandleLine agent={agent} />
-        </ShowAll>
       </div>
     );
 
@@ -567,6 +578,12 @@ function ThinksWith({ agent }: { agent: FullAgent }) {
       throw e;
     }
   };
+  // a new AI starts on its own default model and effort; its memory, skills and chats stay
+  const setHarness = (id: string) => {
+    if (id === agent.harness) return;
+    setCustom(false);
+    void patch({ harness: id, model: null, settings: { effort: null, fast: false } }).catch(() => {});
+  };
   // an effort the new model doesn't offer goes back to the default with it
   const setModel = (id: string) => patch({ model: id.trim() || null, ...(effort && !offered(id.trim()).efforts.includes(effort) ? { settings: { effort: null } } : {}) });
 
@@ -584,7 +601,16 @@ function ThinksWith({ agent }: { agent: FullAgent }) {
   return (
     <>
       <div className={CARD}>
-        <Line label="AI" value={hLabel} />
+        <Line label="AI">
+          <HarnessLogo harness={agent.harness} size={16} />
+          <select aria-label="AI" value={agent.harness} onChange={(e) => setHarness(e.target.value)} disabled={choices.length < 2} title={choices.length < 2 ? "Nothing else is installed where it runs" : undefined} className={SELECT}>
+            {choices.map((id) => (
+              <option key={id} value={id}>
+                {harnessLabel(id)}
+              </option>
+            ))}
+          </select>
+        </Line>
         <Line label="Model">
           <select
             aria-label="Model"
@@ -629,9 +655,6 @@ function ThinksWith({ agent }: { agent: FullAgent }) {
             <Toggle label="Fast mode" on={!!agent.settings.fast} onChange={(v) => void patch({ settings: { fast: v } }).catch(() => {})} />
           </Line>
         )}
-        <ShowAll>
-          <HandleLine agent={agent} />
-        </ShowAll>
       </div>
       {effortDropped && (
         <p className="px-1 text-[13px] text-st-needs">
@@ -720,14 +743,12 @@ function AsksFirst({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
           <Toggle label={`Let @${agent.handle} refine its own personality`} on={!agent.settings.soulLocked} onChange={(v) => void patch({ soulLocked: !v })} />
         </Line>
         <Line label="Approvals" value="For all agents" to={href({ view: "settings", page: "agents" })} />
-        <ShowAll>
-          {canOwnPlugins && (
-            <Line label={`My own ${harnessLabel(agent.harness)} plugins`}>
-              <Toggle label={`Use my own ${harnessLabel(agent.harness)} plugins`} on={ownPlugins} onChange={(v) => void patch({ ownPlugins: v })} />
-            </Line>
-          )}
-          <Line label="Edits its instructions" value="Only people" />
-        </ShowAll>
+        {canOwnPlugins && (
+          <Line label={`My own ${harnessLabel(agent.harness)} plugins`}>
+            <Toggle label={`Use my own ${harnessLabel(agent.harness)} plugins`} on={ownPlugins} onChange={(v) => void patch({ ownPlugins: v })} />
+          </Line>
+        )}
+        <Line label="Edits its instructions" value="Only people" />
       </div>
       {access === "full" && (
         <p className="flex gap-2 px-1 text-[13px] text-bad">
@@ -807,14 +828,23 @@ function RunsPanel({ agent, active }: { agent: FullAgent; active: boolean }) {
   return <RunList runs={runs} />;
 }
 
+/** How long a run took, in words ("under a second", "12 seconds", "3 minutes"). */
+export function tookFor(ms: number): string {
+  const secs = Math.round(Math.max(0, ms) / 1000);
+  if (secs < 1) return "under a second";
+  if (secs < 60) return secs === 1 ? "1 second" : `${secs} seconds`;
+  const mins = Math.round(secs / 60);
+  return mins === 1 ? "1 minute" : `${mins} minutes`;
+}
+
 function RunList({ runs }: { runs: RunRow[] | null }) {
   if (!runs) return <p className="px-1 text-[13px] text-muted">Loading…</p>;
   if (!runs.length) return <p className="px-1 text-[13px] text-muted">Nothing yet</p>;
   return (
     <div className={CARD}>
       {runs.map((r) => {
-        const secs = r.finishedAt ? Math.max(0, Math.round((new Date(r.finishedAt).getTime() - new Date(r.createdAt).getTime()) / 1000)) : null;
-        const channel = r.channelKind === "dm" ? "DM" : `#${r.channelName ?? ""}`;
+        const took = r.finishedAt ? tookFor(new Date(r.finishedAt).getTime() - new Date(r.createdAt).getTime()) : null;
+        const channel = r.channelKind === "dm" ? "Chat" : `#${r.channelName ?? ""}`;
         const why = r.hint || r.error;
         return (
           <div key={r.id} className="px-3.5 py-2.5 text-sm">
@@ -827,7 +857,7 @@ function RunList({ runs }: { runs: RunRow[] | null }) {
                 {why && <span className="block text-xs text-bad break-words">{why.replace(/`/g, "")}</span>}
               </span>
               <span className="text-xs text-muted shrink-0 hidden sm:inline">{channel}</span>
-              {secs !== null && <span className="text-xs text-faint shrink-0 tabular-nums w-10 text-right">{secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`}</span>}
+              {took && <span className="text-xs text-faint shrink-0 tabular-nums text-right">{took}</span>}
               {r.status === "failed" && r.channelName !== null && (
                 <button type="button" className="text-xs font-medium text-ink underline underline-offset-2 shrink-0" onClick={() => void api("POST", `/api/runs/${r.id}/retry`).catch((e) => alert((e as Error).message))}>
                   Try again
@@ -842,12 +872,12 @@ function RunList({ runs }: { runs: RunRow[] | null }) {
                   <li>
                     You asked: {runTitle(r.trigger) || "a message"} <span className="text-faint">· {channel}</span>
                   </li>
-                  <li className={r.status === "failed" ? "text-bad" : undefined}>{r.status === "failed" ? `Didn't finish${why ? `: ${why}` : ""}` : r.status === "done" ? `Done${secs !== null ? ` in ${secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`}` : ""}` : runStatusLabel(r.status)}</li>
+                  <li className={r.status === "failed" ? "text-bad" : undefined}>{r.status === "failed" ? `Didn't finish${why ? `: ${why}` : ""}` : r.status === "done" ? `Done${took ? ` in ${took}` : ""}` : runStatusLabel(r.status)}</li>
                 </ol>
                 <div>
                   Run id: <span className="font-mono break-all">{r.id}</span>
                 </div>
-                <div>Channel: {channel}</div>
+                <div>Where: {channel}</div>
                 {r.trigger && <div className="whitespace-pre-wrap break-words max-h-32 overflow-y-auto rounded-lg bg-hover px-2 py-1.5">{r.trigger}</div>}
               </div>
             </details>
@@ -866,11 +896,11 @@ function ConnectPanel({ agent }: { agent: FullAgent }) {
   return (
     <div className="space-y-6">
       <section className="space-y-2.5">
-        <h3 className="px-1 text-[13px] font-semibold text-muted">A running session</h3>
+        <h3 className="px-1 text-[13px] font-semibold text-muted">From an app that's already open</h3>
         {token ? (
           <ConnectionInstructions token={token} harness={agent.harness} />
         ) : (
-          <Button onClick={async () => setToken((await api<{ token: string }>("POST", `/api/agents/${agent.id}/token`)).token)}>Create token</Button>
+          <Button onClick={async () => setToken((await api<{ token: string }>("POST", `/api/agents/${agent.id}/token`)).token)}>Get a sign-in key</Button>
         )}
       </section>
       <RemoteMcp agent={agent} />
@@ -890,7 +920,7 @@ function RemoteMcp({ agent }: { agent: FullAgent }) {
   useEffect(load, [load]);
   return (
     <section className="space-y-2.5">
-      <h3 className="px-1 text-[13px] font-semibold text-muted">By URL</h3>
+      <h3 className="px-1 text-[13px] font-semibold text-muted">From an app that connects by link</h3>
       {origin ? (
         <CopyBlock text={`${origin}/mcp`} />
       ) : (

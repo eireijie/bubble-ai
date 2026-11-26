@@ -72,7 +72,9 @@ describe("agent page", () => {
   it("opens a part for the tabs that need room, and the group's own rows for the rest", async () => {
     const { agentPlace } = await import("../src/views/AgentSettings.tsx");
     const { AGENT_TABS } = await import("../src/router.ts");
-    expect(AGENT_TABS.filter((t) => agentPlace(t).part)).toEqual(["look", "soul", "instructions", "access", "background", "routines", "connect", "runs", "remove"]);
+    expect(AGENT_TABS.filter((t) => agentPlace(t).part)).toEqual(["look", "soul", "instructions", "access", "background", "routines", "connect", "runs"]);
+    // Remove is a confirm over More, not a page of its own
+    expect(agentPlace("remove")).toEqual({ group: "more", part: null });
     for (const t of AGENT_TABS) expect(agentPlace(t).part ?? t).toBe(t);
   });
 
