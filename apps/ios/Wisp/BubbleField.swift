@@ -114,15 +114,15 @@ final class SoapBubbles {
     b.x = b.x0
   }
 
-  /** With Reduce Motion the bubbles stand still, so keep them off the big bubble and the words under it. */
+  /** Starts a bubble clear of the big bubble, the words and the buttons (the first ones, and still ones with Reduce Motion). */
   private func spawn(_ b: inout Bubble, first: Bool, clear: Bool) {
     spawn(&b, first: first)
     guard clear else { return }
     for _ in 0..<8 {
       let h = home
       let onMascot = hypot(b.x0 - h.x, b.y - h.y) < Self.mascot / 2 + b.r + 6
-      let onWords = abs(b.y - (h.y + 150)) < 50 + b.r && abs(b.x0 - h.x) < 150
-      if !onMascot && !onWords { return }
+      let onWords = b.y > wordsTop - b.r - 6 && b.y < wordsBottom + b.r + 6 && abs(b.x0 - h.x) < wordsHalf + b.r
+      if !onMascot && !onWords && b.y < size.height - Self.buttons { return }
       spawn(&b, first: first)
     }
   }
@@ -139,7 +139,7 @@ final class SoapBubbles {
       bubbles = (0..<Self.count).map { _ in Bubble() }
       bubbles[4].face = true
       bubbles[17].face = true
-      for i in bubbles.indices { spawn(&bubbles[i], first: true, clear: still) }
+      for i in bubbles.indices { spawn(&bubbles[i], first: true, clear: true) }
       bubbles[4].r = max(bubbles[4].r, 13)
       bubbles[17].r = max(bubbles[17].r, 10)
       start = t
@@ -174,6 +174,7 @@ final class SoapBubbles {
           b.dvy += ddy / d * f * dt
         }
       }
+      avoid(&b, dt: CGFloat(dt))
       let damp = CGFloat(exp(-1.4 * dt))
       b.vx *= damp; b.dvy *= damp
       b.dx += b.vx * dt
@@ -207,6 +208,46 @@ final class SoapBubbles {
     var c = home
     c.y += 6 * CGFloat(sin(clock * 0.33))
     return c
+  }
+
+  /** the words under the big bubble ("Bubble" and the line), as a box to keep clear */
+  private var wordsTop: CGFloat { home.y + 108 }
+  private var wordsBottom: CGFloat { home.y + 188 }
+  private let wordsHalf: CGFloat = 165
+  /** how far up from the bottom the buttons reach: bubbles fade out below it */
+  static let buttons: CGFloat = 160
+
+  /**
+   * Bubbles steer sideways around the big bubble's face and the words under it, starting a little before
+   * they reach them, so nothing rises across the eyes or the text.
+   */
+  private func avoid(_ b: inout Bubble, dt: CGFloat) {
+    let h = home
+    let side: CGFloat = b.x > h.x || (b.x == h.x && b.phase > 3.14) ? 1 : -1
+    // the big bubble
+    let reach = Self.mascot / 2 + b.r + 10
+    let ddy = b.y - h.y
+    if ddy > -reach, ddy < reach + 40 {
+      let half = sqrt(max(0, reach * reach - min(reach, abs(ddy)) * min(reach, abs(ddy))))
+      let wide = max(half, reach * 0.6)
+      let ddx = abs(b.x - h.x)
+      if ddx < wide { b.vx += side * (1 - ddx / wide) * 520 * dt }
+    }
+    // the words
+    let half = wordsHalf + b.r + 6
+    // soft walls: a bubble pushed aside stays on the screen instead of leaving it
+    if b.x < b.r + 4, b.vx < 0 { b.vx *= -0.3 }
+    if b.x > size.width - b.r - 4, b.vx > 0 { b.vx *= -0.3 }
+    if b.y > wordsTop - b.r - 6, b.y < wordsBottom + b.r + 50 {
+      let ddx = abs(b.x - h.x)
+      if ddx < half { b.vx += side * (1 - ddx / half) * 520 * dt }
+    }
+  }
+
+  /** Bubbles show above the buttons only: they fade out as they go behind them. */
+  private func overButtons(_ y: CGFloat) -> Double {
+    let edge = size.height - Self.buttons
+    return Double(min(1, max(0, (edge + 40 - y) / 50)))
   }
 
   /** A finger came down: pop the bubble under it, or make the big bubble hop. */
@@ -243,7 +284,7 @@ final class SoapBubbles {
   private func drawBubble(_ base: GraphicsContext, _ b: Bubble, _ t: Double, _ dark: Bool) {
     let r = b.r
     let fade = min(1, b.age / 0.8)
-    let a = Double(0.4 + 0.6 * b.z) * fade
+    let a = Double(0.4 + 0.6 * b.z) * fade * overButtons(b.y)
     guard a > 0.01 else { return }
     var ctx = base
     ctx.translateBy(x: b.x, y: b.y)
@@ -318,7 +359,7 @@ final class SoapBubbles {
     var ctx = base
     ctx.translateBy(x: b.x, y: b.y)
     var ring = ctx
-    ring.opacity = Double(1 - k) * 0.7
+    ring.opacity = Double(1 - k) * 0.7 * overButtons(b.y)
     let rr = b.r * (1 + k * 0.45)
     ring.stroke(Path(ellipseIn: CGRect(x: -rr, y: -rr, width: rr * 2, height: rr * 2)),
                 with: .color(dark ? Color(red: 235 / 255, green: 240 / 255, blue: 1, opacity: 0.9) : Color(red: 90 / 255, green: 100 / 255, blue: 150 / 255, opacity: 0.6)), lineWidth: 1)
@@ -404,23 +445,6 @@ final class SoapBubbles {
          .init(color: Color(red: 70 / 255, green: 80 / 255, blue: 120 / 255, opacity: 0.26), location: 0.96), .init(color: Color(red: 70 / 255, green: 80 / 255, blue: 120 / 255, opacity: 0.06), location: 1)]
     glass.fill(Path(box), with: .radialGradient(Gradient(stops: edge), center: mid, startRadius: 0, endRadius: s / 2))
 
-    // a swirl of film in the lower right, turning slowly the other way
-    var swirlCtx = glass
-    swirlCtx.blendMode = .screen
-    swirlCtx.opacity = dark ? 0.45 : 0.32
-    swirlCtx.drawLayer { layer in
-      let swirl = Gradient(stops: [.init(color: .clear, location: 0), .init(color: Color(hex: "#ffb3e0"), location: 0.12), .init(color: Color(hex: "#9fd0ff"), location: 0.24),
-                                   .init(color: Color(hex: "#a6f5d8"), location: 0.36), .init(color: .clear, location: 0.5), .init(color: .clear, location: 1)])
-      layer.fill(Path(box), with: .conicGradient(swirl, center: CGPoint(x: s * 0.6, y: s * 0.7), angle: .degrees(200 - 360 * GhostAnimation.phase(t, 31))))
-      // only a soft patch of it shows, fading out from the lower right (the canvas's ellipse mask)
-      var mask = layer
-      mask.blendMode = .destinationIn
-      mask.translateBy(x: s * 0.64, y: s * 0.74)
-      mask.scaleBy(x: s * 0.6, y: s * 0.4)
-      mask.fill(Path(CGRect(x: -3, y: -3, width: 6, height: 6)), with: .radialGradient(
-        Gradient(stops: [.init(color: .black, location: 0), .init(color: .clear, location: 0.7)]), center: .zero, startRadius: 0, endRadius: 1))
-    }
-
     // the rainbow film at the rim: clear inside, strongest just inside the edge
     body.drawLayer { layer in
       layer.opacity = dark ? 0.8 : 0.6
@@ -430,17 +454,6 @@ final class SoapBubbles {
       let ring = Gradient(stops: [.init(color: .clear, location: 0.78), .init(color: .black, location: 0.91), .init(color: .black, location: 0.96), .init(color: .clear, location: 1)])
       layer.fill(outline, with: .radialGradient(ring, center: mid, startRadius: 0, endRadius: s * 0.52))
     }
-
-    // a faint window reflection, lower right
-    var refl = body
-    refl.translateBy(x: mid.x, y: mid.y)
-    refl.rotate(by: .degrees(18))
-    let rr = s * 0.39
-    var bottom = Path(), right = Path()
-    bottom.addArc(center: .zero, radius: rr, startAngle: .degrees(45), endAngle: .degrees(135), clockwise: false)
-    right.addArc(center: .zero, radius: rr, startAngle: .degrees(-45), endAngle: .degrees(45), clockwise: false)
-    refl.stroke(bottom, with: .color(.white.opacity(0.42)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-    refl.stroke(right, with: .color(.white.opacity(0.26)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
 
     // a soft highlight, upper left, and a small glint
     var hl = body

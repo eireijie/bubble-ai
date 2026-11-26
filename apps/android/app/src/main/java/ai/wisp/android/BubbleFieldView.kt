@@ -115,11 +115,11 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
             b.age = if (first) rnd() * b.life * 0.8f else 0f
             b.pop = -1f
             b.x = b.x0
-            // held still, they stay off the big bubble and the words under it
+            // the first ones, and still ones, start clear of the big bubble, the words and the buttons
             if (!clear) return
             val onMascot = hypot(b.x0 - homeX, b.y - homeY) < mascot / 2 + b.r + 6 * dp
-            val onWords = abs(b.y - (homeY + 150 * dp)) < 50 * dp + b.r && abs(b.x0 - homeX) < 150 * dp
-            if (!onMascot && !onWords) return
+            val onWords = b.y > wordsTop - b.r - 6 * dp && b.y < wordsBottom + b.r + 6 * dp && abs(b.x0 - homeX) < wordsHalf + b.r
+            if (!onMascot && !onWords && b.y < height - buttons) return
         }
     }
 
@@ -129,7 +129,7 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
         if (!seeded) {
             bubbles[4].face = true
             bubbles[17].face = true
-            bubbles.forEach { spawn(it, true, still) }
+            bubbles.forEach { spawn(it, true, true) }
             bubbles[4].r = max(bubbles[4].r, 13 * dp)
             bubbles[17].r = max(bubbles[17].r, 10 * dp)
             seeded = true
@@ -191,6 +191,7 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
                     b.dvy += ddy / d * f * dt
                 }
             }
+            avoid(b, dt)
             val damp = exp(-1.4f * dt)
             b.vx *= damp; b.dvy *= damp
             b.dx += b.vx * dt
@@ -215,6 +216,39 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
             gy += (ty / len - gy) * k
         }
     }
+
+    /** the words under the big bubble, as a box to keep clear, and how far up the buttons reach */
+    private val wordsTop get() = homeY + 108 * dp
+    private val wordsBottom get() = homeY + 188 * dp
+    private val wordsHalf = 165 * dp
+    private val buttons = 170 * dp
+
+    /**
+     * Bubbles steer sideways around the big bubble's face and the words under it, starting a little before
+     * they reach them, so nothing rises across the eyes or the text.
+     */
+    private fun avoid(b: Bubble, dt: Float) {
+        val side = if (b.x > homeX || (b.x == homeX && b.phase > 3.14f)) 1f else -1f
+        val reach = mascot / 2 + b.r + 10 * dp
+        val ddy = b.y - homeY
+        if (ddy > -reach && ddy < reach + 40 * dp) {
+            val dy = min(reach, abs(ddy))
+            val wide = max(sqrt(max(0f, reach * reach - dy * dy)), reach * 0.6f)
+            val ddx = abs(b.x - homeX)
+            if (ddx < wide) b.vx += side * (1 - ddx / wide) * 520 * dp * dt
+        }
+        // soft walls: a bubble pushed aside stays on the screen instead of leaving it
+        if (b.x < b.r + 4 * dp && b.vx < 0) b.vx *= -0.3f
+        if (b.x > width - b.r - 4 * dp && b.vx > 0) b.vx *= -0.3f
+        val half = wordsHalf + b.r + 6 * dp
+        if (b.y > wordsTop - b.r - 6 * dp && b.y < wordsBottom + b.r + 50 * dp) {
+            val ddx = abs(b.x - homeX)
+            if (ddx < half) b.vx += side * (1 - ddx / half) * 520 * dp * dt
+        }
+    }
+
+    /** Bubbles show above the buttons only: they fade out as they go behind them. */
+    private fun overButtons(y: Float): Float = ((height - buttons + 40 * dp - y) / (50 * dp)).coerceIn(0f, 1f)
 
     // ---------------------------------------------------------------- touch
 
@@ -299,7 +333,7 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
     private val oval = RectF()
 
     private fun drawBubble(c: Canvas, b: Bubble, t: Double, dark: Boolean, fade: Float) {
-        val a = (0.4f + 0.6f * b.z) * min(1f, b.age / 0.8f) * fade
+        val a = (0.4f + 0.6f * b.z) * min(1f, b.age / 0.8f) * fade * overButtons(b.y)
         if (a < 0.01f) return
         val k = b.r / U
         val squash = 0.03f * sin(t * 1.9 + b.phase).toFloat()
@@ -368,12 +402,12 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
         val k = min(1f, b.pop / 0.25f)
         line.shader = null
         line.color = if (dark) argb(0.9, 235, 240, 255) else argb(0.6, 90, 100, 150)
-        line.alpha = alpha((1 - k) * 0.7f * fade * Color.alpha(line.color) / 255f)
+        line.alpha = alpha((1 - k) * 0.7f * fade * overButtons(b.y) * Color.alpha(line.color) / 255f)
         line.strokeWidth = dp
         c.drawCircle(b.x, b.y, b.r * (1 + k * 0.45f), line)
         fill.shader = null
         fill.color = if (dark) 0xFFE8ECFF.toInt() else 0xFF8F9AC0.toInt()
-        fill.alpha = alpha(fade)
+        fill.alpha = alpha(fade * overButtons(b.y))
         val dr = max(0.6f * dp, b.r * 0.05f) * (1 - k)
         for (i in 0 until 7) {
             val ang = i * 0.9 + b.phase; val d = b.r * (1 + k * 0.9f)
@@ -385,8 +419,6 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
     private val edgeLight = radial(floatArrayOf(0.62f, 0.8f, 0.96f, 1f), intArrayOf(0, argb(0.10, 160, 175, 220), argb(0.26, 70, 80, 120), argb(0.06, 70, 80, 120)), 0.5f)
     private val edgeDark = radial(floatArrayOf(0.62f, 0.8f, 0.96f, 1f), intArrayOf(0, argb(0.07, 200, 210, 255), argb(0.30, 235, 240, 255), argb(0.05, 235, 240, 255)), 0.5f)
     private val ringMask = RadialGradient(0f, 0f, 0.52f * U, intArrayOf(0, Color.BLACK, Color.BLACK, 0), floatArrayOf(0.78f, 0.91f, 0.96f, 1f), Shader.TileMode.CLAMP)
-    private val swirl = SweepGradient(0f, 0f, intArrayOf(0, 0xFFFFB3E0.toInt(), 0xFF9FD0FF.toInt(), 0xFFA6F5D8.toInt(), 0, 0), floatArrayOf(0f, 0.12f, 0.24f, 0.36f, 0.5f, 1f))
-    private val swirlMask = RadialGradient(0f, 0f, U, intArrayOf(Color.BLACK, 0), floatArrayOf(0f, 0.7f), Shader.TileMode.CLAMP)
     private val shadowLight = RadialGradient(0f, 0f, U, argb(0.16, 120, 110, 200), 0, Shader.TileMode.CLAMP)
     private val shadowDark = RadialGradient(0f, 0f, U, argb(0.18, 160, 150, 255), 0, Shader.TileMode.CLAMP)
     private val mask = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
@@ -451,20 +483,6 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
         fill.shader = if (dark) edgeDark else edgeLight
         fill.alpha = a
         c.drawCircle(0f, 0f, U * 0.5f, fill)
-        // a swirl of film in the lower right, turning slowly the other way
-        val sl = c.saveLayer(layer, null)
-        local.setRotate((200 - 360 * (t / 31 % 1)).toFloat())
-        local.postTranslate(U * 0.1f, U * 0.2f)
-        swirl.setLocalMatrix(local)
-        fill.shader = swirl
-        fill.alpha = alpha(alpha * if (dark) 0.45f else 0.32f)
-        c.drawCircle(0f, 0f, U * 0.5f, fill)
-        local.setScale(0.6f, 0.4f)
-        local.postTranslate(U * 0.14f, U * 0.24f)
-        swirlMask.setLocalMatrix(local)
-        mask.shader = swirlMask
-        c.drawRect(layer, mask)
-        c.restoreToCount(sl)
         c.restore()
 
         // the rainbow film at the rim: clear inside, strongest just inside the edge
@@ -478,19 +496,6 @@ class BubbleFieldView @JvmOverloads constructor(context: Context, attrs: Attribu
         mask.shader = ringMask
         c.drawRect(layer, mask)
         c.restoreToCount(fl)
-
-        // a faint window reflection, lower right
-        c.save()
-        c.rotate(18f)
-        line.shader = null
-        line.color = Color.WHITE
-        line.strokeWidth = 2 * dp / s
-        oval.set(-U * 0.39f, -U * 0.39f, U * 0.39f, U * 0.39f)
-        line.alpha = alpha(alpha * 0.42f)
-        c.drawArc(oval, 45f, 90f, false, line)
-        line.alpha = alpha(alpha * 0.26f)
-        c.drawArc(oval, -45f, 90f, false, line)
-        c.restore()
 
         // a soft highlight, upper left, and a small glint
         c.save()
