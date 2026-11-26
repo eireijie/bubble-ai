@@ -155,7 +155,7 @@ struct StorageView: View {
     }
     .sheet(isPresented: $adding) { AddStorageSheet(apps: list?.apps ?? [:]) { Task { await load() } } }
     .task { await load() }
-    .refreshable { await load() }
+    .bubbleRefresh { await load() }
     // back from signing in to Google or Dropbox in the browser
     .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await load() } } }
   }

@@ -346,6 +346,7 @@ struct MarketScreen<Trailing: View, Content: View>: View {
         VStack(alignment: .leading, spacing: 14) { content }
           .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 40)
       }
+      .bubbleRefreshSlot()
     }
     .background(Palette.sheet.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)

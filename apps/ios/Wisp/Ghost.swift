@@ -30,6 +30,7 @@ struct GhostView: View {
     let shape = BubbleForm(look)
     let color = BubbleColors.color(look, seed: seed)
     let phase = Double(GhostLook.hash(seed) % 10_000) / 1000
+    let rest = BubblePainter.rest(seed)
     let overflow = max(8, size * 0.3)
     let dark = colorScheme == .dark
     let rendered = TimelineView(.animation(minimumInterval: size >= 60 ? 1.0 / 60 : 1.0 / 30, paused: !animated)) { timeline in
@@ -38,7 +39,7 @@ struct GhostView: View {
         context.translateBy(x: overflow, y: overflow)
         let now = timeline.date.timeIntervalSinceReferenceDate
         BubblePainter(shape: shape, color: color, mood: currentMood, size: size, dark: dark,
-          time: animated ? now + phase : 0, animated: animated, gaze: animated ? eyes(now) : nil,
+          time: animated ? now + phase : 0, animated: animated, gaze: animated ? eyes(now, rest: rest, mood: currentMood) : nil, rest: rest,
           spin: animated ? spunAt.map { timeline.date.timeIntervalSince($0) } : nil,
           ground: Palette.ground).draw(context)
       }
@@ -59,14 +60,16 @@ struct GhostView: View {
   }
 
   /** Where the eyes look while a finger is on the screen (the web's pointer follow), eased. */
-  private func eyes(_ now: TimeInterval) -> CGPoint? {
+  private func eyes(_ now: TimeInterval, rest: CGPoint, mood: GhostMood) -> CGPoint? {
     let f = gaze.frame
     var target = CGPoint.zero
     let touching = BubbleTouch.point != nil && f.width > 0
     if let p = BubbleTouch.point, f.width > 0 {
       let dx = (p.x - f.midX) / (f.width / 2), dy = (p.y - (f.minY + f.height * 0.45)) / (f.height / 2)
       let d = hypot(dx, dy), k = d > 1 ? 1 / d : 1
-      target = CGPoint(x: dx * k * size * 0.08, y: dy * k * size * 0.06)
+      // the offset is from where the eyes rest, so following starts and ends there
+      let eye = BubblePainter.eyeSize(mood, size: size)
+      target = CGPoint(x: dx * k * size * 0.08 - rest.x * eye.width, y: dy * k * size * 0.06 - rest.y * eye.height)
     }
     let dt = gaze.last == 0 ? 1 : min(1, now - gaze.last)
     gaze.last = now

@@ -108,7 +108,7 @@ struct LoginsView: View {
     }
     .sheet(isPresented: $connecting) { ConnectOnePasswordSheet { Task { view = try? await store.logins(fresh: true) } } }
     .task { view = try? await store.logins() }
-    .refreshable { view = try? await store.logins(fresh: true) }
+    .bubbleRefresh { view = try? await store.logins(fresh: true) }
   }
 
   private var connectedBy: String? { view?.source.flatMap { s in store.members.first { $0.id == s.connectedBy }?.name } }

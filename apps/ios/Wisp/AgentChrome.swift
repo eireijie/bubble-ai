@@ -39,6 +39,7 @@ struct AgentFrame<Trailing: View, Content: View>: View {
             .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 120)
         }
         .scrollDismissesKeyboard(.interactively)
+        .bubbleRefreshSlot()
       } else {
         content
       }

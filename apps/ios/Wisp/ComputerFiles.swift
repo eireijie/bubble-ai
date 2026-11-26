@@ -99,7 +99,7 @@ struct ComputerFilesView: View {
             .disabled(busy != nil || folder == nil)
         }
       }
-      .refreshable { await load(path) }
+      .bubbleRefresh { await load(path) }
       .task { await load(path) }
       .alert("New folder", isPresented: $naming) {
         TextField("Folder name", text: $folderName).textInputAutocapitalization(.never)

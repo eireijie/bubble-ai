@@ -155,12 +155,39 @@ struct BubblePainter {
   var dark: Bool
   var time: Double
   var animated: Bool
-  /** eyes toward the finger, in points (already eased) */
+  /** eyes toward the finger, in points from where they rest (already eased) */
   var gaze: CGPoint?
+  /** where the eyes rest, as fractions of one eye's width and height (`BubblePainter.rest`) */
+  var rest: CGPoint = .zero
   /** seconds since a tap made it spin */
   var spin: Double?
   /** the colour behind the bubble, for the ring around the orange dot */
   var ground: Color
+
+  /**
+   * Where idle eyes rest: never dead centre, but to one side or to the side and a little up (owner,
+   * 2026-11-25). Picked steadily from the agent's id with FNV-1a 32-bit, the same hash and table as
+   * the web's `restingGaze`, so an agent looks the same way on both. Fractions of one eye's size.
+   */
+  static let restingGaze: [CGPoint] = [
+    CGPoint(x: 0.60, y: 0), CGPoint(x: 0.55, y: -0.30), CGPoint(x: -0.60, y: 0), CGPoint(x: -0.55, y: -0.30),
+  ]
+  static func rest(_ seed: String) -> CGPoint {
+    var h: UInt32 = 0x811c_9dc5
+    for c in seed.utf16 { h = (h ^ UInt32(c)) &* 0x0100_0193 }
+    return restingGaze[Int(h % UInt32(restingGaze.count))]
+  }
+  /** One eye's width and height in points for a mood. */
+  static func eyeSize(_ mood: GhostMood, size s: CGFloat) -> CGSize {
+    let height: CGFloat
+    switch mood {
+    case .waiting: height = 0.21
+    case .listening: height = 0.20
+    case .asleep: height = 0.12
+    default: height = 0.17
+    }
+    return CGSize(width: s * 0.11, height: s * height)
+  }
 
   private static let rim: [Color] = ["#ff7cc4", "#7fb0ff", "#6fe8c0", "#ffe27a", "#ff9c80", "#bf86ff", "#ff7cc4"].map { Color(hex: $0) }
   private var small: Bool { size <= 80 }
@@ -333,18 +360,21 @@ struct BubblePainter {
     }
     let w = s * 0.11, h = s * height
     var blink: CGFloat = 1
-    var look = CGPoint.zero
+    // everything starts and ends where the eyes rest
+    var look = CGPoint(x: rest.x * w, y: rest.y * h)
     if animated {
       let blinkD = mood == .asleep ? 7.0 : 5.2
       let p = GhostAnimation.phase(time, blinkD)
       let working = mood == .working || mood == .thinking
       if !working { blink = CGFloat(GhostAnimation.key(p, [(0, 1), (0.93, 1), (0.95, 0.12), (1, 1)])) }
       if working {
-        look.x = CGFloat(-0.45 + 0.9 * GhostAnimation.wave(time, 1.8)) * w
+        // scan from the resting side across to the other and back
+        look.x = rest.x * w * CGFloat(1 - 2 * GhostAnimation.wave(time, 1.8))
       } else if gaze == nil, mood == .awake || mood == .done || mood == .asleep {
+        // a glance across to the other side, then a little down, then back to rest (web: LOOK)
         let q = GhostAnimation.phase(time, mood == .asleep ? 16 : 12)
-        look.x = CGFloat(GhostAnimation.key(q, [(0, 0), (0.38, 0), (0.44, -0.4), (0.56, -0.4), (0.62, 0.4), (0.74, 0.4), (1, 0)])) * w
-        look.y = CGFloat(GhostAnimation.key(q, [(0, 0), (0.38, 0), (0.44, -0.15), (0.56, -0.15), (0.62, 0.1), (0.74, 0.1), (1, 0)])) * h
+        look.x += CGFloat(GhostAnimation.key(q, [(0, 0), (0.38, 0), (0.44, -1.8), (0.56, -1.8), (0.62, 0), (1, 0)])) * rest.x * w
+        look.y += CGFloat(GhostAnimation.key(q, [(0, 0), (0.38, 0), (0.44, 0.08), (0.56, 0.08), (0.62, 0.14), (0.74, 0.14), (1, 0)])) * h
       }
     }
     if let gaze { look.x += gaze.x; look.y += gaze.y }

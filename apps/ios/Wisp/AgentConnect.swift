@@ -127,7 +127,7 @@ struct AgentConnect: View {
       AgentError(text: appsError ?? action.error)
     }
     .task { reach = try? await store.reach(); await loadApps() }
-    .refreshable { await loadApps() }
+    .bubbleRefresh { await loadApps() }
     .confirmationDialog("Disconnect \(revoking?.name ?? "this app")?", isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }), titleVisibility: .visible) {
       Button("Disconnect", role: .destructive) {
         guard let app = revoking else { return }

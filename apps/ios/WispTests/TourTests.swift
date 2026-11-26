@@ -1,5 +1,5 @@
 import XCTest
-@testable import Bubble AI
+@testable import Wisp
 
 /** Show me around on the phone: the web's stops and words (apps/web/src/tour.ts), its progress rules, and where the card and bubble go. */
 @MainActor

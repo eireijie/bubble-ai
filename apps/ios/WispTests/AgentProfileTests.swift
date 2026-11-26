@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import Bubble AI
+@testable import Wisp
 
 /** The words and little rules behind an agent's profile and its pages (agent-*.dc.html). */
 @MainActor

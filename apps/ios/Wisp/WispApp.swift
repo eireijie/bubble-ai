@@ -7,6 +7,8 @@ struct WispApp: App {
   private var store: Store { delegate.store }
   @Environment(\.scenePhase) private var scenePhase
 
+  init() { BubbleRefresh.hideSystemSpinner() }
+
   var body: some Scene {
     WindowGroup {
       RootView()
@@ -27,18 +29,33 @@ struct WispApp: App {
 
 struct RootView: View {
   @Environment(Store.self) private var store
+  /** the launch bubble stays over the app until it has hopped and stopped */
+  @State private var splash = false
+  @ReduceMotion private var reduceMotion
 
   var body: some View {
+    ZStack {
+      // the app is built once the bubble has stopped, so building it can't make the whoosh stutter
+      if splash { Palette.ground.ignoresSafeArea() } else { phaseView }
+      if splash {
+        LaunchSplash(loading: store.phase == .loading) {
+          withAnimation(Motion.pick(.easeOut(duration: 0.22), reduceMotion)) { splash = false }
+        }
+        .transition(.opacity)
+        .zIndex(1)
+      }
+    }
+    .onChange(of: store.phase, initial: true) { _, phase in
+      if phase == .loading { splash = true }
+    }
+  }
+
+  @ViewBuilder private var phaseView: some View {
     switch store.phase {
     case .signedOut:
       PairView()
     case .loading:
-      VStack(spacing: 14) {
-        Image("Mark").resizable().frame(width: 56, height: 56).accessibilityHidden(true)
-        ProgressView()
-      }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .background(Palette.ground.ignoresSafeArea())
+      Palette.ground.ignoresSafeArea()
     case .failed(let msg):
       ContentUnavailableView {
         Label("Can't reach Bubble AI", systemImage: "wifi.exclamationmark")
@@ -70,6 +87,43 @@ struct RootView: View {
           Text("You're signed in to \(store.workspace?.name ?? "a Bubble AI"). Pairing signs you out of it first.")
         }
     }
+  }
+}
+
+/**
+ * Launch and loading: the bubble whooshes in, then works (drifts, bobs, spins) until loading ends. Then it
+ * finishes its turn, hops once and stops, and the splash fades to the app. With reduced motion it fades in,
+ * stays still and the splash fades out as soon as loading ends.
+ */
+struct LaunchSplash: View {
+  var loading: Bool
+  var finished: () -> Void
+  @State private var mark = MarkMotion(size: 72)
+  @State private var ending = false
+  @ReduceMotion private var reduceMotion
+
+  var body: some View {
+    MarkView(motion: mark)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(Palette.ground.ignoresSafeArea())
+      .accessibilityElement()
+      .accessibilityLabel("Loading")
+      .onAppear {
+        mark.launch(reduced: reduceMotion)
+        if !loading { end() }
+      }
+      .task {
+        // after the landing and its first blink, it works until loading ends
+        try? await Task.sleep(for: .seconds(1.7))
+        if loading && !ending { mark.work(reduced: reduceMotion) }
+      }
+      .onChange(of: loading) { _, now in if !now { end() } }
+  }
+
+  private func end() {
+    guard !ending else { return }
+    ending = true
+    mark.finish(reduced: reduceMotion) { finished() }
   }
 }
 

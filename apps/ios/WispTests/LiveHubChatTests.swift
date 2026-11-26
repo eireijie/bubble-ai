@@ -1,6 +1,6 @@
 import SwiftUI
 import XCTest
-@testable import Bubble AI
+@testable import Wisp
 
 /**
  * Chat against a real, seeded hub (skipped without BUBBLE_HUB and BUBBLE_TOKEN): the cards, files,

@@ -47,7 +47,7 @@ struct AppleView: View {
       }
     }
     .task { await load() }
-    .refreshable { await load() }
+    .bubbleRefresh { await load() }
   }
 
   // MARK: Location

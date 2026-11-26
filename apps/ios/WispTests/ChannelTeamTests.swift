@@ -1,5 +1,5 @@
 import XCTest
-@testable import Bubble AI
+@testable import Wisp
 
 /** A channel's team chart follows the same rules as teamProblem in packages/core. */
 final class ChannelTeamTests: XCTestCase {

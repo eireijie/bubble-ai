@@ -1,5 +1,5 @@
 import XCTest
-@testable import Bubble AI
+@testable import Wisp
 
 final class ChatBubbleTests: XCTestCase {
   private func msg(_ id: String, at: String, author: Actor = Actor(kind: .user, id: "u1"), body: String = "hi") -> Message {

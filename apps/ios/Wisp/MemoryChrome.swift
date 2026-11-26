@@ -37,6 +37,7 @@ struct MemoryScreen<Trailing: View, Content: View>: View {
             .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 120)
             .frame(maxWidth: .infinity, alignment: .leading)
         }.scrollDismissesKeyboard(.interactively)
+        .bubbleRefreshSlot()
       } else {
         content
       }

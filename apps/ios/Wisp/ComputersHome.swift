@@ -156,7 +156,7 @@ struct ComputersView: View {
           }
           .padding(.horizontal, 18).padding(.top, 10).padding(.bottom, 30)
         }
-        .refreshable { await refresh() }
+        .bubbleRefresh { await refresh() }
       }
       .background(Palette.ground.ignoresSafeArea())
       .toolbar(.hidden, for: .navigationBar)

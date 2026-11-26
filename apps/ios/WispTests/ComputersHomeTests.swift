@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import Bubble AI
+@testable import Wisp
 
 /** The merged Computers tab: states, groups, the add flows and where the old Devices links go. */
 @MainActor
