@@ -47,11 +47,14 @@ export function failTaskOfRun(hub: Hub, run: { agentId: string; channelId: strin
   const agent = store.agent(run.agentId);
   // the agent by name, not @handle: the note is routed, and an @mention would wake the agent that just failed
   const result = `${agent?.name ?? "The agent"}'s run failed: ${reason.trim().replace(/\.+$/, "")}`;
+  // a team's step: the team says what happened and offers Try again itself, so no second note here
+  const teamStep = hub.flows.inFlow(task);
   store.updateTask(task.id, "failed", result);
   hub.broadcast(task.workspaceId, { type: "tasks_changed" });
   hub.flows.taskFinished(store.task(task.id)!, null);
   const from = task.from.kind === "agent" ? store.agent(task.from.id) : undefined;
   const parent = task.parentId ? store.task(task.parentId) : undefined;
+  if (teamStep && !from) return;
   hub.postMessage({
     channelId: run.channelId,
     threadId: run.threadId,

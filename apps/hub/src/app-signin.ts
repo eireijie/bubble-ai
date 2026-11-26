@@ -128,10 +128,11 @@ export class AppSignIn {
   }
 
   /** Whether signing in with this company works from this hub, and if not, why (in plain words). */
-  async available(provider: SignInProvider): Promise<{ ok: true } | { ok: false; reason: string }> {
+  async available(provider: SignInProvider): Promise<{ ok: true } | { ok: false; reason: string; soon?: boolean }> {
     if (await this.source(provider)) return { ok: true };
     const name = SIGN_IN_PROVIDERS[provider].name;
-    return { ok: false, reason: relayUrl() ? `Signing in with ${name} isn't set up for Bubble AI yet.` : `Signing in with ${name} needs Bubble AI's sign-in service, which this hub has turned off.` };
+    // Bubble AI's own app with that company isn't made yet: it's coming, not broken
+    return relayUrl() ? { ok: false, reason: `Signing in with ${name} is coming soon.`, soon: true } : { ok: false, reason: `Signing in with ${name} needs Bubble AI's sign-in service, which this hub has turned off.` };
   }
 
   /**

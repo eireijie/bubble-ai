@@ -271,7 +271,7 @@ function Workspace() {
       case "dashboard":
         return <DashboardView onBack={phone ? toChats : undefined} />;
       case "marketplace":
-        return <MarketplaceView section={route.section ?? "all"} forAgent={route.forAgent ?? null} onBack={phone ? toYou : undefined} />;
+        return <MarketplaceView section={route.section ?? "all"} app={route.app ?? null} forAgent={route.forAgent ?? null} onBack={phone ? toYou : undefined} />;
       // older addresses: a sign-in coming back lands on what's installed
       case "connectors":
         return <MarketplaceView section={new URLSearchParams(location.search).has("signin") ? "installed" : "apps"} onBack={phone ? toYou : undefined} />;

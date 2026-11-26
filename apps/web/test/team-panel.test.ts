@@ -8,7 +8,7 @@ vi.mock("../src/markdown.ts", () => ({ renderMarkdown: (s: string) => s }));
 
 // the app loads Channels first, and it and the team panel import each other: neither may use the other while loading
 const { ChannelSettings } = await import("../src/components/Channels.tsx");
-const { newTeamProblem, newTeamSettings, teamSlug } = await import("../src/team/Create.tsx");
+const { newTeamProblem, newTeamSettings, teamName, teamSlug } = await import("../src/team/Create.tsx");
 const { knowsLine, repoName, scheduleLine } = await import("../src/components/TeamInfo.tsx");
 
 const step = (id: string, extra: Partial<TeamStep> = {}): TeamStep => ({ id, roleId: "", kind: "do", action: id, agentId: "juno", next: null, x: 0, y: 0, ...extra });
@@ -17,6 +17,9 @@ const team = (steps: TeamStep[]): ChannelTeam => ({ nodes: [], edges: [], roles:
 describe("making a team: Done on the builder creates it", () => {
   it("names a team in lower case with dashes", () => {
     expect(teamSlug("  Launch Crew! ")).toBe("launch-crew");
+    // names are kept as typed now: one line, no colon, no leading # or @
+    expect(teamName("  Launch Crew! ")).toBe("Launch Crew!");
+    expect(teamName("#ops: night\nshift")).toBe("ops night shift");
   });
   it("with no steps, the agents picked by name become a plain team: the first one leads", () => {
     const made = newTeamSettings(team([]), ["juno", "atlas", "pip"])!;
@@ -34,11 +37,12 @@ describe("making a team: Done on the builder creates it", () => {
   });
   it("with no steps and fewer than two agents there is nothing to make yet", () => {
     expect(newTeamSettings(team([]), ["juno"])).toBeNull();
-    expect(newTeamProblem(team([]), ["juno"])).toBe("Add a step first");
+    expect(newTeamProblem(team([]), ["juno"])).toBe("A team needs 2 agents");
+    expect(newTeamProblem(team([]), [])).toBe("Add a step first");
   });
   it("with steps, the steps are the team, and it still needs two agents", () => {
     const one = team([step("plan"), step("build")]);
-    expect(newTeamProblem(one, ["juno", "atlas"])).toBe("Pick at least 2 agents");
+    expect(newTeamProblem(one, ["juno", "atlas"])).toBe("A team needs 2 agents");
     const two = team([step("plan"), step("build", { agentId: "atlas" })]);
     expect(newTeamProblem(two, [])).toBeNull();
     expect(newTeamSettings(two, [])!.steps).toHaveLength(2);

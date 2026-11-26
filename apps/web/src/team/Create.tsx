@@ -9,10 +9,14 @@ import { EMPTY_TEAM, addToTeam } from "../components/TeamChart.tsx";
 import { TeamBuilder } from "./Builder.tsx";
 import { emptyTeam, teamAgentIds, withChart } from "./flow.ts";
 
+/** The old way a typed name became a channel name; names are kept as typed now (`teamName`). */
 export const teamSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
+/** A team's name as typed: trimmed, on one line, without the characters a name can't have. */
+export const teamName = (s: string) => s.replace(/[\r\n:]+/g, " ").replace(/^[\s#@]+/, "").replace(/\s+/g, " ").trim().slice(0, 80);
+
 /** Shown wherever a team can't be made yet for want of agents. */
-const NEEDS_AGENTS = `Pick at least ${MIN_TEAM_AGENTS} agents`;
+const NEEDS_AGENTS = `A team needs ${MIN_TEAM_AGENTS} agents`;
 
 /**
  * What Done makes of a new team. With steps on the chart, the steps. With none, the agents picked
@@ -27,7 +31,7 @@ export function newTeamSettings(team: ChannelTeam, picked: string[]): ChannelTea
 /** Why Done can't be pressed on a new team yet, or null when it can. */
 export function newTeamProblem(team: ChannelTeam, picked: string[]): string | null {
   if (team.steps?.length) return teamSizeProblem(team) ? NEEDS_AGENTS : null;
-  return picked.length >= MIN_TEAM_AGENTS ? null : "Add a step first";
+  return picked.length >= MIN_TEAM_AGENTS ? null : picked.length ? NEEDS_AGENTS : "Add a step first";
 }
 
 /**
@@ -45,8 +49,8 @@ export function NewTeamFlow({ onClose, sectionId = null, initialName = "", initi
   const [team, setTeam] = useState<ChannelTeam>(emptyTeam);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const id = teamSlug(name);
-  const exists = channels.some((c) => c.name === id);
+  const id = teamName(name);
+  const exists = channels.some((c) => c.name.toLowerCase() === id.toLowerCase());
   const valid = !!id && !exists;
 
   async function create() {
@@ -82,8 +86,8 @@ export function NewTeamFlow({ onClose, sectionId = null, initialName = "", initi
           if (valid) setPage("builder");
         }}
       >
-        <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="release-crew" aria-label="Name" autoCapitalize="none" autoCorrect="off" maxLength={80} className="h-11 w-full rounded-[12px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />
-        {id && (exists || id !== name) && <p className={cx("px-1 text-xs", exists ? "text-bad" : "text-faint")}>{exists ? `${id} already exists` : id}</p>}
+        <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Release crew" aria-label="Name" autoCorrect="off" maxLength={80} className="h-11 w-full rounded-[12px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />
+        {id && exists && <p className="px-1 text-xs text-bad">{id} already exists</p>}
         {agents.length > 0 && (
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Agents on the team">
             {agents.map((a) => {

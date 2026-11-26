@@ -192,6 +192,9 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
     }
   };
 
+  // why Done waits, said beside it (the steps' own problems already show in the banner over the chart)
+  const reason = !ready && !saving && !drawing && !(steps.length > 0 && problems.lines.length > 0) ? problem : null;
+
   const banner = (error || (problems.lines.length > 0 && steps.length > 0)) && (
     <p role="alert" aria-label="Problems" className="mx-auto w-fit max-w-full rounded-[8px] bg-bad/12 px-3.5 py-1.5 text-center text-[13px] text-bad">
       {error ?? problems.lines[0]}
@@ -227,16 +230,26 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
           <ChevronLeft size={19} />
         </button>
         <h1 className={cx("min-w-0 flex-1 truncate text-[15px] font-semibold", phone ? "text-center" : "pl-1")}>{name}</h1>
+        {reason && !phone && (
+          <span role="status" className="max-w-[18rem] truncate text-[13px] text-muted">
+            {reason}
+          </span>
+        )}
         {menu}
         <Button type="button" variant="primary" onClick={onDone} disabled={!ready || saving || drawing} title={problem ?? undefined} className="shrink-0 px-4">
           {saving ? <Loader2 size={15} className="animate-spin" aria-label="Saving" /> : doneLabel}
         </Button>
       </header>
+      {reason && phone && (
+        <p role="status" className="-mt-1 shrink-0 px-4 pb-1.5 text-center text-[13px] text-muted">
+          {reason}
+        </p>
+      )}
 
       <div className="relative flex min-h-0 flex-1">
         {phone ? (
           <div className="min-w-0 flex-1 overflow-y-auto">
-            {steps.length === 0 ? <div className="relative h-full">{empty}</div> : <PhoneFlow team={team} problems={problems.byStep} working={working} banner={banner ? <div className="mb-4 w-full">{banner}</div> : null} onOpen={open} onHold={setHolding} onAdd={setAdding} />}
+            {steps.length === 0 ? <div className="relative h-full">{empty}</div> : <PhoneFlow team={team} problems={problems.byStep} working={working} banner={banner ? <div className="mb-4 w-full">{banner}</div> : null} onOpen={open} onHold={setHolding} onAdd={setAdding} onSchedule={() => add("schedule", {})} />}
           </div>
         ) : (
           <>

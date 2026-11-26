@@ -101,7 +101,13 @@ export interface Caller {
 }
 
 const HANDLE = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/, "lowercase letters, digits and dashes; must start with a letter");
-const CHANNEL_NAME = z.string().regex(/^[a-z0-9][a-z0-9-_]{0,79}$/, "lowercase, no spaces");
+/** A team's name as the person typed it ("Release crew"): one line, no ":" (chats with an agent use it), not starting with # or @. Older names are slugs, which still fit. */
+const CHANNEL_NAME = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .regex(/^[^#@:\s][^:\r\n]*$/, "a name on one line, without a colon");
 /** One emoji (or a short emoji sequence); no text, markup or whitespace. */
 const EMOJI = z
   .string()
@@ -724,7 +730,8 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     // a chat with an agent can only be filed in a section (the chats list's Move to section); nothing else about it changes
     if (ch.kind !== "channel" && (Object.keys(body).some((k) => k !== "sectionId") || !store.isMember(ch.id, c.actor))) return reply.code(404).send({ error: "channel not found" });
     if (body.sectionId && store.section(body.sectionId)?.workspaceId !== c.workspaceId) return reply.code(400).send({ error: "unknown section" });
-    if (body.name && body.name !== ch.name && store.channelByName(c.workspaceId, body.name)) return reply.code(409).send({ error: "channel exists" });
+    // a name in another case is the same name: fine for this team ("release crew" to "Release crew"), taken for another
+    if (body.name && body.name !== ch.name && (store.channelByName(c.workspaceId, body.name)?.id ?? ch.id) !== ch.id) return reply.code(409).send({ error: "channel exists" });
     if (body.name && body.name !== ch.name && ch.name === "general") return reply.code(409).send({ error: "#general can't be renamed: everyone in the workspace lands there" });
     if (body.settings?.team && hasSteps(ch.settings.team) && body.settings.team.roles === undefined && body.settings.team.steps === undefined) {
       // an app that only draws the chart can move people around it, not change who's on the team

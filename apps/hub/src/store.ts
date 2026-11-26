@@ -592,7 +592,8 @@ export class Store {
   }
 
   channelByName(workspaceId: string, name: string): Channel | undefined {
-    return this.toChannel(this.db.prepare(`SELECT ${Store.CHANNEL_COLS} FROM channels WHERE workspace_id = ? AND name = ?`).get(workspaceId, name) as never);
+    // names keep the case they were typed in ("Release crew"); finding one doesn't care
+    return this.toChannel(this.db.prepare(`SELECT ${Store.CHANNEL_COLS} FROM channels WHERE workspace_id = ? AND lower(name) = lower(?)`).get(workspaceId, name.trim()) as never);
   }
 
   channels(workspaceId: string): Channel[] {

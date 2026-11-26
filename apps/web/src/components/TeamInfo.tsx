@@ -230,7 +230,7 @@ function NameLabel({ channel, canEdit }: { channel: ChannelInfo; canEdit: boolea
         <input
           autoFocus
           value={value}
-          onChange={(e) => setValue(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
+          onChange={(e) => setValue(e.target.value)}
           onBlur={() => void save()}
           onKeyDown={(e) => (e.key === "Enter" ? (e.currentTarget as HTMLInputElement).blur() : e.key === "Escape" && (e.stopPropagation(), setValue(channel.name), setEditing(false)))}
           maxLength={80}

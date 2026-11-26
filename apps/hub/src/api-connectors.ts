@@ -175,7 +175,7 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
   // --- one-click sign-in for catalog apps ----------------------------------------------------------
 
   /** How each catalog app with a sign-in can be connected from where this person opened Bubble AI. */
-  async function signInOption(entry: CatalogConnector, origin: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+  async function signInOption(entry: CatalogConnector, origin: string): Promise<{ ok: true } | { ok: false; reason: string; soon?: boolean }> {
     const s = entry.signIn!;
     if (s.via === "app") return connectors.auth.apps.available(s.provider);
     if (signInReturnsTo(origin, s.localOnly)) return { ok: true };
@@ -190,7 +190,7 @@ export function registerConnectorApi(app: FastifyInstance, hub: Hub, h: Helpers)
     const out: Record<string, SignInOption> = {};
     for (const entry of CONNECTOR_CATALOG_WITH_SIGN_IN()) {
       const o = await signInOption(entry, origin);
-      out[entry.id] = { signIn: o.ok, ...(o.ok ? {} : { reason: o.reason }), ...(entry.signInReads ? { reads: entry.signInReads } : {}), key: entry.fields.some((f) => f.secret) };
+      out[entry.id] = { signIn: o.ok, ...(o.ok ? {} : { reason: o.reason, ...(o.soon ? { soon: true } : {}) }), ...(entry.signInReads ? { reads: entry.signInReads } : {}), key: entry.fields.some((f) => f.secret) };
     }
     return out;
   });

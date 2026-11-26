@@ -12,6 +12,7 @@ import { useMemo, useSyncExternalStore } from "react";
  *   #/computers[/<id>[/teach/<agentId>]]  devices and their agents' computers, live view, teaching a task
  *   #/computers/d/<nodeId>           one device's page (#/nodes[/<nodeId>] still lands here)
  *   #/marketplace[/<section>][/for/<agentId>]  apps and skills to get, and what devices already have (MARKET_SECTIONS); "for" adds to one agent
+ *   #/marketplace/app/<key>[/for/<agentId>]  one app's page (b:<catalog id>, r:<registry name>, c:<added app id>)
  *   #/connectors, #/skills           older addresses of the marketplace (installed apps, skills)
  *   #/settings[/<page>[/<item>]]     your settings and the organization's (see SETTINGS_PAGES); full window on desktops; <item> opens one thing in a page (a skill)
  *   #/join/<code>                    accept an invite (signed out)
@@ -35,7 +36,7 @@ export type Route =
   | { view: "about" }
   | { view: "tasks" }
   | { view: "computers"; computerId: string | null; teach?: string | null; deviceId?: string | null }
-  | { view: "marketplace"; section?: MarketSection | null; /** adding for one agent: what is added goes to it alone */ forAgent?: string | null }
+  | { view: "marketplace"; section?: MarketSection | null; app?: string | null; /** adding for one agent: what is added goes to it alone */ forAgent?: string | null }
   | { view: "connectors" }
   | { view: "skills" }
   | { view: "settings"; page?: SettingsPage | null; item?: string | null }
@@ -85,9 +86,14 @@ export function parseRoute(hash: string): Route {
       // mods have one home now: their own page
       if (parts[1] === "mods") return { view: "mods" };
     {
-      const at = parts.indexOf("for");
-      const forAgent = at > 0 ? (parts[at + 1] ?? null) : null;
-      return { view: "marketplace", section: MARKET_SECTIONS.find((x) => x === parts[1]) ?? null, ...(forAgent ? { forAgent } : {}) };
+      // "/for/<agentId>" at the end: adding for one agent (on the list and on an app's page)
+      const forAt = parts.length >= 4 && parts[parts.length - 2] === "for" ? parts.length - 2 : -1;
+      const forAgent = forAt > 0 ? parts[forAt + 1] : null;
+      const rest = forAt > 0 ? parts.slice(0, forAt) : parts;
+      const extra = forAgent ? { forAgent } : {};
+      // one app's page; a registry name has slashes in it, so it's encoded as one part
+      if (rest[1] === "app") return rest[2] ? { view: "marketplace", section: null, app: rest.slice(2).join("/"), ...extra } : { view: "marketplace", section: null, ...extra };
+      return { view: "marketplace", section: MARKET_SECTIONS.find((x) => x === rest[1]) ?? null, ...extra };
     }
     case "connectors":
       return { view: "connectors" };
@@ -152,7 +158,7 @@ export function href(r: Route): string {
     case "dashboard":
       return "#/dashboard";
     case "marketplace":
-      return "#/marketplace" + (r.section && r.section !== "all" ? `/${r.section}` : "") + (r.forAgent ? `/for/${encodeURIComponent(r.forAgent)}` : "");
+      return (r.app ? `#/marketplace/app/${encodeURIComponent(r.app)}` : "#/marketplace" + (r.section && r.section !== "all" ? `/${r.section}` : "")) + (r.forAgent ? `/for/${encodeURIComponent(r.forAgent)}` : "");
     case "connectors":
       return "#/connectors";
     case "skills":

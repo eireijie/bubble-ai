@@ -91,7 +91,7 @@ function StepCard({ team, step, wide, problem, working, onOpen, onHold }: { team
 }
 
 /** The flow at phone width: top to bottom, steps that run together side by side. */
-export function PhoneFlow({ team, problems, working, banner, onOpen, onHold, onAdd }: { team: ChannelTeam; problems: Map<string, string>; /** the steps a request is on right now */ working?: ReadonlySet<string>; banner: React.ReactNode; onOpen: (id: string) => void; onHold: (id: string) => void; onAdd: (at: AddAt) => void }) {
+export function PhoneFlow({ team, problems, working, banner, onOpen, onHold, onAdd, onSchedule }: { team: ChannelTeam; problems: Map<string, string>; /** the steps a request is on right now */ working?: ReadonlySet<string>; banner: React.ReactNode; onOpen: (id: string) => void; onHold: (id: string) => void; onAdd: (at: AddAt) => void; /** start the team on a schedule too (from the "A message comes in" chip) */ onSchedule?: () => void }) {
   const rows = stepRows(team.steps ?? []);
   const last = rows.at(-1) ?? [];
   // a schedule box heads the chart instead (its form says a message still starts the team)
@@ -99,7 +99,7 @@ export function PhoneFlow({ team, problems, working, banner, onOpen, onHold, onA
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center px-4 pb-6 pt-2">
       {banner}
-      {!scheduled && <MessageChip />}
+      {!scheduled && <MessageChip onSchedule={onSchedule} />}
       {rows.map((row, i) => {
         const before = i === 0 ? 0 : rows[i - 1].length;
         return (

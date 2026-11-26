@@ -4,7 +4,7 @@ import { stepAgentId, type Agent, type ChannelTeam, type TeamStep, type TeamStep
 import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { Ghost } from "../components/Ghost.tsx";
 import { useStore } from "../store.ts";
-import { AgentAvatar, cx } from "../components/ui.tsx";
+import { AgentAvatar, Menu, cx } from "../components/ui.tsx";
 import { numberOf, titleOf } from "./flow.ts";
 import { useCreateAgent } from "./createAgentContext.ts";
 
@@ -41,10 +41,29 @@ export function KindIcon({ kind, size = 16 }: { kind: TeamStepKind | "beside" | 
   }
 }
 
-export function MessageChip({ className }: { className?: string }) {
-  return (
-    <span className={cx("inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-line bg-card px-3.5 text-[13px] text-muted", className)}>
+/**
+ * What starts the team: "A message comes in". With `onSchedule` it is a button whose menu also
+ * starts it on a schedule (a Schedule step, opened to set its times).
+ */
+export function MessageChip({ className, onSchedule }: { className?: string; onSchedule?: () => void }) {
+  const cls = cx("inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-line bg-card px-3.5 text-[13px] text-muted", className);
+  const inner = (
+    <>
       <MessageSquare size={14} aria-hidden /> A message comes in
+    </>
+  );
+  if (!onSchedule) return <span className={cls}>{inner}</span>;
+  // the menu is drawn in a portal, but its presses still bubble through React to the canvas, which would grab the pointer
+  return (
+    <span data-ui className="inline-flex" onPointerDown={(e) => e.stopPropagation()}>
+      <Menu
+        items={[{ label: "Also on a schedule", icon: <Clock size={15} aria-hidden />, onSelect: onSchedule }]}
+        trigger={(open, toggle) => (
+          <button type="button" data-ui onClick={toggle} aria-haspopup="menu" aria-expanded={open} aria-label="What starts the team: a message comes in" className={cx(cls, "outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring", open && "bg-hover text-ink")}>
+            {inner}
+          </button>
+        )}
+      />
     </span>
   );
 }

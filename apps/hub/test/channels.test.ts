@@ -191,6 +191,17 @@ describe("who answers in a channel", () => {
     expect(members).toEqual(["Alex", "Sam", "Atlas", "Nova"]);
     expect((await api("POST", "/api/channels", { name: "ops-team-2", settings: { team }, members: [{ kind: "agent", id: "agt_nope" }] })).status).toBe(400);
   });
+
+  it("keeps a team's name as typed, and finds it whatever the case", async () => {
+    const team = { nodes: [{ agentId: nova.id, lead: true, x: 0, y: 0 }, { agentId: atlas.id, lead: false, x: 0, y: 0 }], edges: [{ from: nova.id, to: atlas.id }] };
+    const res = await api("POST", "/api/channels", { name: "  Release Crew ", settings: { team } });
+    expect(res.status).toBe(200);
+    expect(res.data.name).toBe("Release Crew");
+    expect(hub.store.channelByName(res.data.workspaceId, "release crew")?.id).toBe(res.data.id);
+    expect((await api("POST", "/api/channels", { name: "release crew", settings: { team } })).status).toBe(409);
+    expect((await api("PATCH", `/api/channels/${res.data.id}`, { name: "Release crew" })).status).toBe(200);
+    for (const bad of ["#ops", "@ops", "a: b", "two\nlines", ""]) expect((await api("POST", "/api/channels", { name: bad, settings: { team } })).status).toBe(400);
+  });
 });
 
 describe("private channels", () => {
