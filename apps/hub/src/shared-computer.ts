@@ -1,4 +1,4 @@
-import type { Computer } from "@bubble-ai/core";
+import { harnessInfo, type Computer } from "@bubble-ai/core";
 import type { Hub } from "./hub.ts";
 import type { Store } from "./store.ts";
 
@@ -84,6 +84,29 @@ export function sharedComputer(hub: Hub, workspaceId: string, create = true): Co
 export function simplePlacement(hub: Hub, workspaceId: string): { nodeId: string | null; computerId: string | null; waits: boolean } {
   const shared = sharedComputer(hub, workspaceId);
   return shared ? { nodeId: shared.nodeId, computerId: shared.id, waits: false } : { nodeId: homeDevice(hub.store, workspaceId), computerId: null, waits: true };
+}
+
+/**
+ * A device connected: agents made before there was any device to run them (first-run setup makes
+ * one before the person's computer joins) get it, when it's their maker's or open to them. Only
+ * agents still waiting (waitsForShared, no device), not headless ones or ones that connect from
+ * outside (MCP). Returns the agents it placed; their queued work can go now.
+ */
+export function placeWaitingAgents(hub: Hub, workspaceId: string, nodeId: string): string[] {
+  const { store } = hub;
+  const node = store.node(nodeId);
+  if (!node || node.workspaceId !== workspaceId) return [];
+  const placed: string[] = [];
+  for (const a of store.agents(workspaceId)) {
+    if (a.nodeId || a.settings.headless || !a.settings.waitsForShared) continue;
+    if (harnessInfo(a.harness)?.protocol === "mcp") continue;
+    const maker = a.settings.createdBy ?? null;
+    if (node.ownerId && !node.shared && node.ownerId !== maker) continue;
+    store.updateAgent(a.id, { nodeId });
+    placed.push(a.id);
+  }
+  if (placed.length) hub.broadcast(workspaceId, { type: "agents_changed" });
+  return placed;
 }
 
 /** Set once an organization's agents from before the shared computer were moved onto it. */

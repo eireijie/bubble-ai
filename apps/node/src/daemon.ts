@@ -1,6 +1,6 @@
 import { migrateHomes } from "./migrate-home.ts";
 import { migrateServices } from "./migrate-services.ts";
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -23,7 +23,7 @@ import { ModelLogins } from "./model-login.ts";
 import { importCodexSignin, SharedSignins } from "./shared-signin.ts";
 import { recipeTag, type DockerVm } from "./computers/docker.ts";
 import { mcpBundle } from "./vm-tools.ts";
-import { NO_NODE, findNpmDir, withDir } from "./npm.ts";
+import { NO_NODE, findNpmDir, harnessPrefix, npmInstall, prefixBin, withDir, withHarnessBin } from "./npm.ts";
 import { discoverAgents, readDiscovered } from "./discover.ts";
 import { agentFolder } from "./agent-dir.ts";
 import { runFailed, withReason } from "./run-failure.ts";
@@ -174,6 +174,8 @@ export class NodeDaemon {
     }
     this.cfg = cfg = { ...cfg, hub: normalizeHubUrl(cfg.hub) };
     fs.mkdirSync(cfg.dir, { recursive: true });
+    // harnesses Bubble AI installed: found after the person's own, with the node they run on
+    if (fs.existsSync(harnessPrefix(cfg.dir))) for (const dir of [prefixBin(harnessPrefix(cfg.dir)), findNpmDir()]) if (dir) process.env.PATH = withHarnessBin(dir, process.env.PATH);
     this.sessions = readJson(this.sessionsFile, {});
     this.sessionHarness = readJson(path.join(cfg.dir, "session-harness.json"), {});
     this.agentTokens = readJson(this.tokensFile, {});
@@ -1079,27 +1081,14 @@ export class NodeDaemon {
     if (!npmDir) throw new Error(`${NO_NODE}, and ${harnessLabel(id)} is installed with it. Install Node.js from https://nodejs.org, then try again.`);
     const npm = process.platform === "win32" ? "npm.cmd" : path.join(npmDir, "npm");
     const env = withDir(npmDir);
-    this.log(`installing ${harnessLabel(id)} (${pkg})`);
-    const out = await new Promise<{ code: number | null; text: string }>((resolve) => {
-      const child = spawn(npm, ["install", "-g", "--no-audit", "--no-fund", pkg], { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32", env });
-      let text = "";
-      child.stdout.on("data", (d) => (text = (text + d).slice(-8000)));
-      child.stderr.on("data", (d) => (text = (text + d).slice(-8000)));
-      const timer = setTimeout(() => child.kill("SIGKILL"), 15 * 60_000);
-      child.on("error", (e) => (clearTimeout(timer), resolve({ code: -1, text: (e as NodeJS.ErrnoException).code === "ENOENT" ? "ENOENT" : e.message })));
-      child.on("close", (code) => (clearTimeout(timer), resolve({ code, text })));
-    });
-    if (out.code !== 0) {
-      if (out.text === "ENOENT") throw new Error(`${NO_NODE}, and ${harnessLabel(id)} is installed with it. Install Node.js from https://nodejs.org, then try again.`);
-      const last = out.text.trim().split("\n").slice(-6).join("\n");
-      throw new Error(/EACCES|permission denied/i.test(out.text) ? `npm can't write its global folder on ${this.cfg.name} (permission denied). Install it there yourself: npm install -g ${pkg}` : `npm install -g ${pkg} failed:\n${last}`);
-    }
-    // npm's global bin may not be on this process's PATH (a background service starts with a short one)
-    const prefix = await new Promise<string>((resolve) => execFile(npm, ["prefix", "-g"], { env, shell: process.platform === "win32" }, (err, stdout) => resolve(err ? "" : stdout.trim())));
-    const bin = prefix && (process.platform === "win32" ? prefix : path.join(prefix, "bin"));
-    for (const dir of [bin, npmDir]) if (dir && !(process.env.PATH ?? "").split(path.delimiter).includes(dir)) process.env.PATH = `${dir}${path.delimiter}${process.env.PATH ?? ""}`;
+    // into Bubble AI's own folder, never npm's global one (Homebrew's or the system's)
+    const prefix = harnessPrefix(this.cfg.dir);
+    this.log(`installing ${harnessLabel(id)} (${pkg}) into ${prefix}`);
+    const output = await npmInstall({ npm, env, prefix, pkg, label: harnessLabel(id), device: this.cfg.name });
+    // its commands, and the node they run with, after whatever the person has (their own install wins)
+    for (const dir of [prefixBin(prefix), npmDir]) process.env.PATH = withHarnessBin(dir, process.env.PATH);
     this.log(`installed ${harnessLabel(id)}`);
-    return out.text.trim().split("\n").slice(-3).join("\n");
+    return output;
   }
 
   /**

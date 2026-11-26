@@ -201,3 +201,17 @@ describe("who can open one", () => {
     expect(code).toBe(4401);
   });
 });
+
+describe("a connected device nobody has watched yet", () => {
+  it("still offers its owner a shell, and nobody else", async () => {
+    hub.store.deleteComputer(device.id);
+    const theirs = (await api("GET", "/api/terminals", undefined, member)).data as { kind: string }[];
+    expect(theirs.filter((t) => t.kind === "device")).toEqual([]);
+    expect(hub.store.computersOnNode(device.nodeId!).some((c) => c.kind === "device")).toBe(false);
+    const list = (await api("GET", "/api/terminals")).data as { kind: string; nodeId: string; online: boolean }[];
+    expect(list.find((t) => t.kind === "device" && t.nodeId === device.nodeId)).toMatchObject({ online: true });
+    // asking again doesn't make another
+    await api("GET", "/api/terminals");
+    expect(hub.store.computersOnNode(device.nodeId!).filter((c) => c.kind === "device")).toHaveLength(1);
+  });
+});

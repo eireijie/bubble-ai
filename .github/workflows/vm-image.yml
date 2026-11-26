@@ -2,11 +2,19 @@ name: VM image
 # Publishes the agents' VM image (docker/computer) for Intel and ARM, tagged with a hash of its
 # recipe. Devices pull the tag that matches their own copy of the recipe and build it themselves
 # when there isn't one. The package has to be public for devices to pull it without signing in.
+# App releases call this too (desktop-release.yml), so every released app finds its image ready
+# instead of building it on the person's computer; a tag that's already published is skipped.
 on:
   push:
     branches: [main]
     paths: ["docker/computer/**"]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      publish:
+        description: Push the image (a dry run only builds it)
+        type: boolean
+        default: true
 permissions:
   contents: read
   packages: write
@@ -27,9 +35,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      # this recipe's image is already published (an earlier push or release): nothing to do
+      - id: exists
+        run: |
+          if docker buildx imagetools inspect "${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"; echo "Already published"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.exists.outputs.found != 'true'
+        uses: docker/build-push-action@v6
         with:
           context: docker/computer
           platforms: linux/amd64,linux/arm64
-          push: true
+          # inputs.publish is unset on a push or a run by hand (publish), and false on an app release's dry run
+          push: ${{ format('{0}', inputs.publish) != 'false' }}
           tags: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}

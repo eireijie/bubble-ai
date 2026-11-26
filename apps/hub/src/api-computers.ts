@@ -8,6 +8,7 @@ import { OrgoClient, OrgoError } from "./orgo.ts";
 import { TeachRefused, routineSlug } from "./routines.ts";
 import type { Hub } from "./hub.ts";
 import { sessionName } from "./terminals.ts";
+import { featureOn } from "./features.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
 import { greetNewAgent } from "./greeting.ts";
 import { ADVANCED_KEY, adoptShared, advancedOn, sharedComputer } from "./shared-computer.ts";
@@ -288,6 +289,14 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
   app.get("/api/terminals", async (req, reply) => {
     const c = need(req, reply, { member: true });
     if (!c) return;
+    // a connected device of yours offers a shell before anyone watched its screen (which is what made
+    // its computer until now): its computer is made here, like the first Watch makes it
+    if (featureOn(store, c.workspaceId, "code") && c.actor.kind === "user")
+      for (const n of store.nodes(c.workspaceId)) {
+        if (!hub.isNodeOnline(n.id) || (n.ownerId ? n.ownerId !== c.actor.id : c.viewer.role !== "owner")) continue;
+        if (store.computersOnNode(n.id).some((x) => x.kind === "device")) continue;
+        computers.changed(store.createComputer({ workspaceId: c.workspaceId, name: n.name, kind: "device", nodeId: n.id, config: {} }).id);
+      }
     return store
       .computers(c.workspaceId)
       .filter((x) => !hub.terminals.refusal(x, c.actor.id))

@@ -12,7 +12,7 @@ export function computerState(c: ComputerInfo, meId: string | undefined, agents:
   if (!c.online) return { label: "Offline", tone: "neutral", working: false };
   if (c.paused) return { label: "Paused at the device", tone: "neutral", working: false };
   if (c.status === "starting") return { label: c.statusText || "Starting…", tone: "info", working: false };
-  if (c.status === "error") return { label: "Problem", tone: "bad", working: false };
+  if (c.status === "error") return { label: c.kind === "device" ? "Problem" : "Couldn't start", tone: "bad", working: false };
   if (c.controller) return { label: c.controller.id === meId ? "You're in control" : `${memberName(c.controller.id)} is in control`, tone: "warn", working: false };
   const recent = c.activity && Date.now() - new Date(c.activity.at).getTime() < 30_000;
   const busy = agents.some((a) => c.agents.includes(a.id) && a.status === "busy");
@@ -127,7 +127,7 @@ export function tileStatus(t: Pick<ComputerTile, "kind" | "device" | "computer">
     const state = computerState(c, meId, agents, memberName);
     if (c.controller) return is(state.label, "warn");
     if (c.status === "starting") return is("Starting", "info");
-    if (c.status === "error") return is("Problem", "bad");
+    if (c.status === "error") return is(c.kind === "device" ? "Problem" : "Couldn't start", "bad");
     if (state.working) {
       const on = agents.filter((a) => c.agents.includes(a.id));
       const agent = on.find((a) => a.id === c.activity?.agentId) ?? on.find((a) => a.status === "busy") ?? on[0];
@@ -140,6 +140,25 @@ export function tileStatus(t: Pick<ComputerTile, "kind" | "device" | "computer">
   const here = d ? agents.find((a) => a.nodeId === d.id && a.status === "busy" && (!a.computerId || a.computerId === c?.id)) : undefined;
   if (here) return { text: `${here.name} is working`, tone: "info", working: true, agent: here };
   return is("Ready", "ok");
+}
+
+/** A device's own screen that's turned off at the device: only someone there can turn it on. */
+export const screenOffText = (name: string) => `${name}'s screen is off. Turn it on at ${name}: Let Me Use This Screen, in the Bubble AI menu.`;
+
+/**
+ * Why Watch can't show a computer's screen right now, and whether Start fixes that; null when it
+ * can (or when it couldn't start, which StartProblem says). A device's own screen turned off can
+ * only be turned on at the device.
+ */
+export function watchBlock(c: ComputerInfo, device?: Pick<DeviceInfo, "name" | "capabilities">): { text: string; start: boolean; starting: boolean } | null {
+  if (!c.online || c.paused) return null;
+  if (c.kind === "device") {
+    const name = device?.name ?? c.name;
+    return device?.capabilities?.screen.off ? { text: screenOffText(name), start: false, starting: false } : null;
+  }
+  if (c.status === "stopped") return { text: `${c.name} is off.`, start: true, starting: false };
+  if (c.status === "starting") return { text: c.statusText || "Starting…", start: false, starting: true };
+  return null;
 }
 
 /** What an address under #/computers opens beside the grid. `key` is its tile's. */

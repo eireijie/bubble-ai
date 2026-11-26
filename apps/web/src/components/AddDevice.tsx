@@ -4,6 +4,7 @@ import {
   Download,
   Laptop,
   Monitor,
+  Server,
   RefreshCw,
   ShieldCheck,
   Smartphone,
@@ -164,27 +165,29 @@ export function AddDeviceContent({ phone = true, only }: { phone?: boolean; only
   );
 }
 
-/** The dialog that makes an agent's computer: loaded when "This computer" or "A cloud computer" is picked. */
+/** The dialog that makes an agent's computer: loaded when "This computer", "A Linux computer" or "A cloud computer" is picked. */
 const AddComputer = lazy(() => import("../views/ComputersView.tsx").then((m) => ({ default: m.AddComputer })));
 
 /** Where the Add dialog is: the list of what can be added, or one thing's steps. */
-export type AddStep = "list" | "here" | "computer" | "phone" | "cloud";
+export type AddStep = "list" | "here" | "linux" | "computer" | "phone" | "cloud";
 
 const ADD_ROWS: { step: Exclude<AddStep, "list">; label: string; icon: ReactNode }[] = [
   { step: "here", label: "This computer", icon: <Laptop size={18} strokeWidth={1.8} /> },
+  { step: "linux", label: "A Linux computer", icon: <Server size={18} strokeWidth={1.8} /> },
   { step: "computer", label: "Another computer", icon: <Monitor size={18} strokeWidth={1.8} /> },
   { step: "phone", label: "A phone", icon: <Smartphone size={18} strokeWidth={1.8} /> },
   { step: "cloud", label: "A cloud computer", icon: <Cloud size={18} strokeWidth={1.8} /> },
 ];
 
 /**
- * Add: one list of what can be added, each row leading to its steps. This computer and a cloud
- * computer make a computer for agents; another computer joins this Bubble AI; a phone pairs.
+ * Add: one list of what can be added, each row leading to its steps. This computer, a Linux
+ * computer (a VM on one of your devices) and a cloud computer make a computer for agents; another
+ * computer joins this Bubble AI; a phone pairs.
  */
 export function AddDeviceDialog({ onClose, start = "list" }: { onClose: () => void; start?: AddStep }) {
   const [step, setStep] = useState<AddStep>(start);
   const devices = useDevices();
-  if (step === "here" || step === "cloud")
+  if (step === "here" || step === "linux" || step === "cloud")
     return (
       <Suspense fallback={null}>
         <AddComputer devices={devices ?? []} only={step} onClose={onClose} onCreated={(c) => (onClose(), go({ view: "computers", computerId: c.id }))} />
