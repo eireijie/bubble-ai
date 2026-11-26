@@ -268,20 +268,17 @@ struct ChannelView: View {
         CircleButton(symbol: "phone", label: "Call \(agent.name)", id: "chat-call", tint: Palette.call) { startCall() }
           .tourTarget("call")
       }
-      if store.dmAgent(current) != nil, let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { showRun = true } }
+      // the ring opens how full the conversation is; the harness and model open only from the chip over the message bar
+      if let agent = store.dmAgent(current), let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { tool = .context(agent) } }
       Menu {
         if let agent = store.dmAgent(current) {
-          if canCall, call == nil { Button("Call \(agent.name)", systemImage: "phone") { startCall() }.tint(Palette.call) }
-          Button("About \(agent.name)", systemImage: "person.crop.circle") { showDetails = true }
           Button("What it can do", systemImage: "shield") { tool = .access(agent) }
-          Button("Context window", systemImage: "gauge.with.dots.needle.33percent") { tool = .context(agent) }
           if let computer = agent.computerId, store.canViewComputers { Button("See its screen", systemImage: "display") { screen = computer } }
           Button("Search in chat", systemImage: "magnifyingglass") { searching = true }
           Button(current.isMuted ? "Unmute" : "Mute", systemImage: current.isMuted ? "bell" : "bell.slash") {
             Task { try? await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(current.isMuted ? "default" : "mute")]) }
           }
         } else {
-          Button("Team info", systemImage: "person.2") { showDetails = true }
           Menu("Notify me", systemImage: "bell") {
             Picker("Notify me", selection: Binding(get: { current.notify ?? "default" }, set: { v in Task { try? await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(v)]) } })) {
               Text("Every message").tag("all")

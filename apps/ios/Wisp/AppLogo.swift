@@ -76,7 +76,8 @@ struct BrandLogo: View {
   }
 }
 
-private extension View {
+extension View {
+  /** a brand mark's light rounded tile */
   func logoTile(_ size: CGFloat) -> some View {
     frame(width: size, height: size)
       .background(Color.white, in: RoundedRectangle(cornerRadius: size * 0.27, style: .continuous))
