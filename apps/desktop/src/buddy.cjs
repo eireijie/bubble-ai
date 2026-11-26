@@ -127,7 +127,8 @@ module.exports = function deskBuddy({ config, save, mainWindow, open, refresh })
     ready,
     connect(url) { if (origin !== url) { destroy(); agents = []; leadId = null; origin = url; } },
     destroy,
-    menu: () => ({ label: "Desk buddy", submenu: [
+    // the page sends no agents while the Desk buddy mod is off (or nobody is signed in): no menu then
+    menu: () => ({ label: "Desk buddy", visible: agents.length > 0, submenu: [
       { label: "Off", type: "radio", checked: config.buddyEnabled === false, click: () => choose(choice(), false) },
       { label: "Lead / first agent", type: "radio", checked: config.buddyEnabled !== false && !choice(), click: () => choose(null) },
       ...agents.map((a) => ({ label: a.name, type: "radio", checked: config.buddyEnabled !== false && choice() === a.id, click: () => choose(a.id) })),

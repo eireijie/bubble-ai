@@ -54,6 +54,8 @@ const save = () => {
 
 /** @type {BrowserWindow | null} */
 let win = null;
+/** The main window while it's alive: null once it's gone (a page's window.close() destroys it). */
+const mainWin = () => (win && !win.isDestroyed?.() ? win : null);
 /** @type {Tray | null} */
 let tray = null;
 let quitting = false;
@@ -68,7 +70,7 @@ let deviceSignedOut = false;
 let deviceStatusTimer = null;
 let deviceWaiting = false; // added as soon as someone signs in
 const buddy = require("./buddy.cjs")({
-  config, save, mainWindow: () => win, refresh,
+  config, save, mainWindow: mainWin, refresh,
   open: (route) => {
     if (!hubOrigin) return;
     showWindow();
@@ -132,14 +134,14 @@ const TITLE_BAR =
 
 // the page tells us its colours so the Windows buttons blend in, light or dark
 ipcMain.on("titlebar:colors", (e, bg, fg) => {
-  if (process.platform !== "win32" || !win || e.sender !== win.webContents) return;
+  if (process.platform !== "win32" || !mainWin() || e.sender !== win.webContents) return;
   if (typeof bg !== "string" || typeof fg !== "string" || !/^#[0-9a-f]{6}$/i.test(bg) || !/^#[0-9a-f]{6}$/i.test(fg)) return;
   try { win.setTitleBarOverlay({ color: bg, symbolColor: fg }); } catch {}
 });
 
 function createWindow() {
   const b = config.bounds;
-  win = new BrowserWindow({
+  const w = (win = new BrowserWindow({
     width: b?.width ?? 1280,
     height: b?.height ?? 820,
     x: b?.x,
@@ -152,7 +154,7 @@ function createWindow() {
     backgroundColor: "#ffffff",
     ...TITLE_BAR,
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true, spellcheck: true, backgroundThrottling: false }, // so notifications keep coming while the window is hidden
-  });
+  }));
   win.once("ready-to-show", () => win?.show());
   const remember = () => {
     if (!win || win.isMinimized() || win.isFullScreen()) return;
@@ -172,6 +174,16 @@ function createWindow() {
     win?.hide();
     if (process.platform === "darwin") app.dock?.hide();
   });
+  // A page's window.close() destroys the window without a "close" to stop: forget it at once (so the
+  // device check and menus never touch a destroyed window) and open Bubble AI again in a new one.
+  const gone = () => {
+    if (win !== w) return;
+    win = null;
+    if (quitting || removing) return;
+    setTimeout(() => { if (!win && !quitting && !removing) showWindow(); }, 0);
+  };
+  w.webContents.once("destroyed", gone);
+  w.once("closed", gone);
   win.webContents.setWindowOpenHandler(({ url }) => {
     // about:blank: setup opens a window first (browsers only allow that right on the click), then points it at a computer's screen
     if (onOrigin(url, hubOrigin) || url === "about:blank") return { action: "allow" };
@@ -202,10 +214,18 @@ function createWindow() {
   });
 }
 
+/** Make the main window if there's none (or the old one was destroyed); true when it's new and empty. */
+function ensureWindow() {
+  if (mainWin()) return false;
+  createWindow();
+  return true;
+}
+
 function showWindow() {
   if (removing) return removeWin?.focus();
-  if (!win) createWindow();
+  const fresh = ensureWindow();
   if (resumeOnShow) { resumeOnShow = false; connect(); }
+  else if (fresh) hubOrigin ? win.loadURL(hubOrigin + "/") : connect();
   if (process.platform === "darwin") app.dock?.show();
   if (win.isMinimized()) win.restore();
   win.show();
@@ -217,7 +237,7 @@ function showSetup(state = {}) {
   joinClient.cancel();
   resumeOnShow = false;
   pendingCloudOpen = false;
-  if (!win) createWindow();
+  ensureWindow();
   win.loadFile(SETUP_PAGE, { query: { state: JSON.stringify(state) } });
   showWindow();
 }
@@ -255,7 +275,7 @@ function openHub(url, route = "") {
   pendingCloudOpen = false;
   hubOrigin = new URL(url).origin;
   buddy.connect(hubOrigin);
-  if (!win) createWindow();
+  ensureWindow();
   const target = hubOrigin + "/" + route;
   // leaving the setup page: its card fades out first (the page waits out its own fade), so the app
   // arrives on a clean page instead of a cut
@@ -267,7 +287,7 @@ function openHub(url, route = "") {
       ),
     )
       .catch(() => {})
-      .then(() => w === win && !w.isDestroyed?.() && w.loadURL(target));
+      .then(() => mainWin() === w && w.loadURL(target));
   else w.loadURL(target);
   if (pendingPairing && startupComplete) showPairing();
   refresh();
@@ -336,9 +356,10 @@ function needs() {
 
 /** The session token the web app keeps, so the app can add this device for the person signed in. */
 async function sessionToken() {
-  if (!win || !onOrigin(win.webContents.getURL(), hubOrigin)) return null;
+  const w = mainWin();
+  if (!w || !onOrigin(w.webContents.getURL(), hubOrigin)) return null;
   try {
-    return await win.webContents.executeJavaScript('localStorage.getItem("wisp.token")', true);
+    return await w.webContents.executeJavaScript('localStorage.getItem("wisp.token")', true);
   } catch {
     return null;
   }
@@ -706,7 +727,7 @@ removalCall("removal:start", async (ids, word) => {
   stopWaiting();
   clearInterval(deviceStatusTimer);
   updater.stop();
-  win?.hide();
+  mainWin()?.hide();
   hub.stop();
   device.stop();
   try {
@@ -738,7 +759,7 @@ function finishRemoval() {
   hubOrigin = null;
   deviceBy = "";
   updater.start();
-  deviceStatusTimer = setInterval(() => void readDeviceStatus(), 15_000);
+  deviceStatusTimer = setInterval(() => void readDeviceStatus().catch(() => {}), 15_000);
   connect();
 }
 
@@ -847,10 +868,9 @@ function appMenu() {
         { label: "Computers", accelerator: "CmdOrCtrl+4", click: go("computers") },
         { type: "separator" },
         { label: "Memory", accelerator: "CmdOrCtrl+5", click: go("vault") },
-        { label: "Devices", accelerator: "CmdOrCtrl+6", click: go("nodes") },
         { type: "separator" },
-        { label: "Back", accelerator: "CmdOrCtrl+[", click: () => win?.webContents.navigationHistory.goBack() },
-        { label: "Forward", accelerator: "CmdOrCtrl+]", click: () => win?.webContents.navigationHistory.goForward() },
+        { label: "Back", accelerator: "CmdOrCtrl+[", click: () => mainWin()?.webContents.navigationHistory.goBack() },
+        { label: "Forward", accelerator: "CmdOrCtrl+]", click: () => mainWin()?.webContents.navigationHistory.goForward() },
       ],
     },
     { role: "windowMenu" },
@@ -881,9 +901,9 @@ function makeTray() {
 // ---------------------------------------------------------------- setup page and the web app
 
 /** Setup calls only from the app's own setup page in the main window, never from a hub's pages. */
-const fromSetup = (e) => isPage(mainFrameUrl(e, win) ?? "", SETUP_PAGE);
+const fromSetup = (e) => isPage(mainFrameUrl(e, mainWin()) ?? "", SETUP_PAGE);
 /** Device calls only from the hub the window opened, in its main frame. */
-const fromHub = (e) => onOrigin(mainFrameUrl(e, win) ?? "", hubOrigin);
+const fromHub = (e) => onOrigin(mainFrameUrl(e, mainWin()) ?? "", hubOrigin);
 const setup = (name, fn) => ipcMain.handle(name, (e, ...args) => (fromSetup(e) ? fn(...args) : null));
 
 setup("setup:check", async () => {
@@ -1000,7 +1020,7 @@ setup("setup:cloud-create", async (providerId, token, { type, location, account,
   try {
     const r = await cloud.createWisp(
       { provider: which, token: String(token || "").trim(), type, location, account },
-      { onStep: (step) => win?.webContents.send("setup:cloud-step", step), resume: pending },
+      { onStep: (step) => mainWin()?.webContents.send("setup:cloud-step", step), resume: pending },
     );
     const { id, name, ip } = r.server;
     config.cloudPending = undefined;
@@ -1057,11 +1077,12 @@ setup("setup:rustdesk-install", async () => {
 
 /** The account was made by the app, so hand its session to the web app when the hub first opens. */
 function signInOnOpen(url, session) {
-  if (!win) createWindow();
+  ensureWindow();
+  const w = win;
   const origin = new URL(url).origin;
-  win.webContents.once("did-finish-load", () => {
-    if (!onOrigin(win.webContents.getURL(), origin)) return;
-    win.webContents.executeJavaScript(`localStorage.setItem("wisp.token", ${JSON.stringify(session)}); location.hash = "#/welcome/intro"; location.reload();`);
+  w.webContents.once("did-finish-load", () => {
+    if (w.isDestroyed?.() || !onOrigin(w.webContents.getURL(), origin)) return;
+    w.webContents.executeJavaScript(`localStorage.setItem("wisp.token", ${JSON.stringify(session)}); location.hash = "#/welcome/intro"; location.reload();`);
   });
 }
 
@@ -1126,7 +1147,7 @@ app.whenReady().then(async () => {
   if (config.cloudPending && !config.cloudPending.dismissed) showPendingCloud();
   else connect();
   updater.start();
-  deviceStatusTimer = setInterval(() => void readDeviceStatus(), 15_000);
+  deviceStatusTimer = setInterval(() => void readDeviceStatus().catch(() => {}), 15_000);
 }).catch((err) => {
   dialog.showErrorBox("Couldn’t migrate Bubble AI", err.message);
   app.quit();
