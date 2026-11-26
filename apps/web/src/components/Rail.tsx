@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { STOPS, TOTAL, seenCount } from "../tour.ts";
 import { createPortal } from "react-dom";
-import { Apple, Bell, BookOpen, Building2, ChevronDown, FolderPlus, HardDrive, LayoutGrid, LifeBuoy, ListChecks, ListTodo, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
+import { Apple, Bell, BookOpen, Building2, ChevronDown, FolderPlus, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
 import { useReadyChecklist } from "../onboarding.ts";
 import type { FeatureKey, Section } from "@wisp/core";
@@ -273,6 +274,8 @@ export function Rail({ route }: { route: Route }) {
   const features = useFeatures();
   const chats = useSideChats();
   const ready = useReadyChecklist();
+  // stops of Show me around not seen yet
+  const toLearn = useStore((s) => s.me?.role !== "guest" && seenCount(s.me?.prefs.learn, STOPS) < TOTAL);
   const notes = useNoteCount(isGuest);
   const [orgAt, setOrgAt] = useState<CSSProperties | null>(null);
   const [newOrg, setNewOrg] = useState(false);
@@ -417,7 +420,8 @@ export function Rail({ route }: { route: Route }) {
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
     ...(!isGuest && features.tasks ? [place("Tasks", <ListTodo {...icon} />, { view: "tasks" })] : []),
     ...(!isGuest ? MOD_NAV.filter((m) => features[m.feature]).map((m) => place(m.label, m.icon(18), m.to)) : []),
-    ...(ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <ListChecks {...icon} />, { view: "here" })] : []),
+    // what setup left to do and the tour are one list now: Settings › Learn Wisp
+    ...(((ready.started && ready.left > 0) || toLearn) && !isGuest ? [place("Learn Wisp", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
     place("Help", <LifeBuoy {...icon} />, { view: "help" }),
     ...(orgs.length > 1
       ? [

@@ -217,7 +217,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
     <Menu
       align="right"
       trigger={(isOpen, t) => (
-        <button onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label={page ? "New agent or team" : "New chat, agent or team"} className="circle">
+        <button data-tour="new" onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label={page ? "New agent or team" : "New chat, agent or team"} className="circle">
           <Plus size={page ? 22 : 20} strokeWidth={2} />
         </button>
       )}
