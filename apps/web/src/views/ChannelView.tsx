@@ -2,7 +2,7 @@ import { Suspense, createContext, memo, useCallback, useContext, useEffect, useL
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { SquarePen, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Phone } from "lucide-react";
+import { SquarePen, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { SCHEDULE_MARK, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -39,7 +39,6 @@ import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
 import { HarnessSignInButton, SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
-import { HelpMenu, LearnHeader } from "../components/tour/Learn.tsx";
 import { SetupTour } from "../components/onboarding/SetupTour.tsx";
 import { FirstChatExtras, isFirstChat } from "../components/onboarding/FirstChat.tsx";
 import { GhostLanding, useFirstHelloHtml } from "../components/onboarding/FirstHello.tsx";
@@ -203,7 +202,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
       <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         <BannerSlot.Provider value={bannerSlot}>
         {/* only the name pill, centred: it opens the panel that holds everything else */}
-        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] grid grid-cols-[1fr_auto_1fr] items-center gap-2 safe-top box-content">
+        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] pt-[env(safe-area-inset-top)] md:pt-4 md:pb-1 grid grid-cols-[1fr_auto_1fr] items-center gap-2 box-content">
           <div className="flex items-center">
             {onBack && (
               <span className="md:hidden">
@@ -213,8 +212,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
               </span>
             )}
             {/* round new-chat button in the top-left corner (desktop; phones keep Back there) */}
-            <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
-              <SquarePen size={16} strokeWidth={1.8} />
+            <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="m-press hidden size-[34px] place-items-center rounded-[8px] text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
+              <SquarePen size={17} strokeWidth={1.7} />
             </button>
           </div>
           {dmAgent ? (
@@ -228,15 +227,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <TeamPill channel={channel} open={infoOpen} onClick={toggleInfo} />
           )}
           <div className="flex items-center justify-end gap-2">
-            <LearnHeader />
-            <HelpMenu />
+            {/* calls start from the composer's round button; Help and the tour live in the account menu */}
             {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
-            {/* round floating call button in the top corner */}
-            {dmAgent && !calling && (
-              <button type="button" data-tour="call" onClick={() => setCalling(true)} aria-label={`Call ${dmAgent.name}`} title={`Call ${dmAgent.name}`} className="m-press hidden size-[36px] place-items-center rounded-full bg-[var(--bubble-them)] text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
-                <Phone size={17} strokeWidth={1.8} />
-              </button>
-            )}
           </div>
         </header>
         {/* one suggested step sits here, under the header, in its own space (SuggestionBanner) */}
@@ -274,12 +266,12 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
   const m = Math.floor(record.seconds / 60);
   const length = `${String(m).padStart(2, "0")}:${String(record.seconds % 60).padStart(2, "0")}`;
   return (
-    <div className="shrink-0 px-3 md:px-5 w-full max-w-3xl md:max-w-[840px] mx-auto">
+    <div className="shrink-0 px-4 md:px-11 w-full max-w-3xl md:max-w-[808px] mx-auto">
       <section className="call-record overflow-hidden rounded-[18px] border border-line bg-card" aria-label={`Call with ${agent.name}`}>
         <div className="flex h-11 items-center gap-2 border-b border-line pl-3.5 pr-2 text-[14px] text-muted">
           <AudioLines size={15} strokeWidth={1.7} aria-hidden />
           <span className="flex-1 truncate">Call with {agent.name} · {length}</span>
-          <button type="button" onClick={onHide} aria-label="Hide" title="Hide" className="grid size-7 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink"><X size={14} strokeWidth={1.8} /></button>
+          <button type="button" onClick={onHide} aria-label="Hide" title="Hide" className="grid size-7 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink"><X size={14} strokeWidth={1.8} /></button>
         </div>
         {record.lines.length > 0 && (
           <div className="flex max-h-48 flex-col gap-2 overflow-y-auto px-3.5 py-3">
@@ -296,7 +288,7 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
 /** A team's name in a pill at the top of its chat, with its agents' ghosts; opens its info page. */
 function TeamPill({ channel, open, onClick }: { channel: ChannelInfo; open: boolean; onClick: () => void }) {
   return (
-    <button data-tour="team-pill" onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-12 max-w-[min(22rem,60vw)] rounded-full pl-2 pr-5 inline-flex items-center gap-2.5 text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
+    <button data-tour="team-pill" onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-12 max-w-[min(22rem,60vw)] rounded-[8px] pl-2 pr-5 inline-flex items-center gap-2.5 text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
       <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={34} />
       <span className="min-w-0 truncate font-semibold">{channel.name}</span>
       {channel.archivedAt && <span className="shrink-0 text-xs text-muted">Archived</span>}
@@ -337,7 +329,7 @@ function ArchivedBar({ channel }: { channel: ChannelInfo }) {
           <span className="block text-body font-medium">Archived</span>
         </span>
         {canManage && (
-          <button className="h-10 rounded-full bg-accent px-4 text-sm font-medium text-accent-ink" onClick={() => setArchived(channel, false).catch((e) => setError((e as Error).message))}>
+          <button className="h-10 rounded-[8px] bg-accent px-4 text-sm font-medium text-accent-ink" onClick={() => setArchived(channel, false).catch((e) => setError((e as Error).message))}>
             Unarchive
           </button>
         )}
@@ -375,7 +367,7 @@ function ContextCard({ usage }: { usage: ContextUsage | null }) {
       )}
       <p className="mt-2 text-[14px] text-muted">{used !== null ? `${tokens(used)}${window ? ` of ${tokens(window)}` : ""} used. Older messages are summarized when it fills up.` : "This shows up after its first reply here."}</p>
       {shrink && used !== null && (
-        <button className="mt-2.5 h-10 rounded-full border border-control-line bg-control px-4 text-sm font-medium" onClick={run}>
+        <button className="mt-2.5 h-10 rounded-[8px] border border-control-line bg-control px-4 text-sm font-medium" onClick={run}>
           {shrink.name === "compact" ? "Compact" : "Compress"}
         </button>
       )}
@@ -543,7 +535,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
           if (bottom) setNewSince(0);
         }}
       >
-        <div className="mx-auto w-full max-w-3xl md:max-w-[840px]">
+        <div className="mx-auto w-full max-w-3xl md:max-w-[808px] md:px-6">
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
@@ -574,7 +566,7 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
             ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
             setNewSince(0);
           }}
-          className="glass absolute bottom-3 left-1/2 -translate-x-1/2 h-9 px-3.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 hover:bg-hover"
+          className="glass absolute bottom-3 left-1/2 -translate-x-1/2 h-9 px-3.5 rounded-[8px] text-xs font-medium inline-flex items-center gap-1.5 hover:bg-hover"
         >
           <ArrowDown size={13} /> {newSince > 0 ? `${newSince} new ${newSince === 1 ? "message" : "messages"}` : "Jump to latest"}
         </button>
@@ -721,7 +713,7 @@ function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo
       <h2 className="mt-3 t-title">{channel.name}</h2>
       {channel.topic && <p className="mt-1 max-w-sm text-body text-muted">{channel.topic}</p>}
       {cards.length > 0 && (
-        <div className="mt-5 w-full max-w-xs overflow-hidden rounded-[14px] bg-card divide-y divide-line text-left">
+        <div className="mt-5 w-full max-w-xs overflow-hidden rounded-[12px] bg-card divide-y divide-line text-left">
           {cards.map((c) => (
             <button key={c.title} type="button" onClick={c.onClick} className="flex h-[46px] w-full items-center gap-3 px-3.5 text-left hover:bg-hover">
               <span className="shrink-0 text-muted">{c.icon}</span>
@@ -793,7 +785,7 @@ function SystemItem({ m, replies, onReplies, working = [] }: { m: Message; repli
 function ScheduleRow({ m, replies, onReplies }: { m: Message; replies?: number; onReplies?: () => void }) {
   return (
     <div className="flex gap-3 px-5 py-2" data-message-id={m.id}>
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-chip text-muted">
+      <span className="grid size-8 shrink-0 place-items-center rounded-[8px] bg-chip text-muted">
         <Clock size={16} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
@@ -845,7 +837,7 @@ function HandoffRow({ m, taskId, replies, working, onOpen }: { m: Message; taskI
       <button
         onClick={onOpen}
         title={task?.title}
-        className="inline-flex max-w-full items-center gap-2 h-9 rounded-full border border-control-line bg-control pl-3 pr-3.5 text-[14px] hover:bg-hover"
+        className="inline-flex max-w-full items-center gap-2 h-9 rounded-[8px] border border-control-line bg-control pl-3 pr-3.5 text-[14px] hover:bg-hover"
       >
         <ChevronRight size={14} className="shrink-0 text-muted" />
         <span className="truncate">
@@ -932,7 +924,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         openMenu({ x: e.clientX, y: e.clientY });
       }}
       onWheel={swipe.handlers.onWheel}
-      className={cx("msg-press relative px-3 md:px-5 flex items-end gap-2 rounded-lg transition-colors", mine ? "justify-end" : "justify-start", last ? "pb-1.5" : "pb-[3px]", !grouped && "pt-1", m.reactions?.some((r) => r.actors.length) && "pt-3.5")}
+      className={cx("msg-press relative px-3 md:px-5 flex items-end gap-2 rounded-lg transition-colors", mine ? "justify-end" : "justify-start", last ? "pb-1.5" : "pb-[3px]", !grouped && "pt-2.5", m.reactions?.some((r) => r.actors.length) && "pt-3.5")}
     >
       {showAvatar && (
         <div className="w-8 shrink-0 self-end">
@@ -1026,7 +1018,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         {!m.deletedAt &&
           cards.map((c) => (
             <a key={c.url} href={c.url} target="_blank" rel="noreferrer" className="mt-1 flex w-full max-w-sm items-center gap-3 rounded-3xl bg-card px-3.5 py-2.5 hover:bg-hover">
-              <span className="size-9 rounded-full bg-chip grid place-items-center text-muted">{c.kind === "PR" ? <GitPullRequest size={16} /> : <CircleDot size={16} />}</span>
+              <span className="size-9 rounded-[8px] bg-chip grid place-items-center text-muted">{c.kind === "PR" ? <GitPullRequest size={16} /> : <CircleDot size={16} />}</span>
               <span className="min-w-0">
                 <span className="block text-[11px] text-muted">GitHub · {c.kind === "PR" ? "Pull request" : "Issue"}</span>
                 <span className="block text-sm font-medium truncate">
@@ -1045,7 +1037,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         {(!!replies || working.length > 0) && onReplies && !inThread && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {!!replies && (
-              <button onClick={onReplies} className="h-8 px-3 rounded-full border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
+              <button onClick={onReplies} className="h-8 px-3 rounded-[8px] border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
                 <MessageSquare size={13} /> {replies} {replies === 1 ? "reply" : "replies"} <ChevronRight size={13} className="text-muted" />
               </button>
             )}
@@ -1053,7 +1045,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
           </div>
         )}
         {(!!replies || working.length > 0) && onReplies && inThread && (
-          <button onClick={onReplies} className="mt-1 h-8 px-3 rounded-full border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
+          <button onClick={onReplies} className="mt-1 h-8 px-3 rounded-[8px] border border-control-line bg-control text-[14px] hover:bg-hover inline-flex items-center gap-1.5">
             <MessageSquare size={13} /> {replies ? `${replies} ${replies === 1 ? "reply" : "replies"}` : "Working"} <ChevronRight size={13} className="text-muted" />
           </button>
         )}
@@ -1170,7 +1162,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
               <SkillLines parts={parts} />
               <Remembered saved={saved} />
               {shown.length > 0 && (
-                <div className="mt-1.5 overflow-hidden rounded-[14px] bg-card divide-y divide-line">
+                <div className="mt-1.5 overflow-hidden rounded-[12px] bg-card divide-y divide-line">
                   {/* one line of what it did, like "Searched the web · read 6 pages"; then each tool call */}
                   <div className="px-4 py-2 text-[14px] font-medium text-muted">{summary}</div>
                   {shown.map(
@@ -1529,7 +1521,7 @@ function ThreadWork({ runs, threadId, onClick }: { runs: LiveRun[]; threadId: st
   const deeper = runs.every((r) => r.threadId !== threadId);
   const who = agents.length === 1 ? agents[0].name : agents.length === 2 ? `${agents[0].name} and ${agents[1].name}` : `${agents[0].name} and ${agents.length - 1} more`;
   return (
-    <button onClick={onClick} className="h-8 pl-1.5 pr-3 rounded-full bg-chip hover:bg-hover text-[14px] inline-flex items-center gap-1.5" title={deeper ? "Working in a sub-thread" : "Working in this thread"}>
+    <button onClick={onClick} className="h-8 pl-1.5 pr-3 rounded-[8px] bg-chip hover:bg-hover text-[14px] inline-flex items-center gap-1.5" title={deeper ? "Working in a sub-thread" : "Working in this thread"}>
       <span className="flex">
         {agents.slice(0, 3).map((a, i) => (
           <span key={a.id} className={cx("rounded-full ring-2 ring-chip", i > 0 && "-ml-1.5")}>
@@ -1897,7 +1889,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   // the icon pops in when what you've typed swaps it (not when the composer first opens)
   const swapped = useChangedSinceMount(action);
   return (
-    <div className="shrink-0 px-3 md:px-5 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-3xl md:max-w-[840px] mx-auto flex flex-col">
+    <div className="shrink-0 px-4 md:px-11 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-3xl md:max-w-[808px] mx-auto flex flex-col">
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       {/* who's working here and on what, in one line; it opens their panel */}
@@ -1907,13 +1899,13 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
         </div>
       )}
       {replyTo && (
-        <div className="mb-2 flex items-center gap-3 rounded-[14px] bg-card pl-4 pr-1.5 py-1.5">
+        <div className="mb-2 flex items-center gap-3 rounded-[12px] bg-card pl-4 pr-1.5 py-1.5">
           <CornerUpLeft size={15} className="shrink-0 text-muted" />
           <div className="min-w-0 flex-1 border-l-2 border-accent pl-2.5 leading-tight">
             <div className="text-[14px] font-medium">Replying to {replyTo.name}</div>
             <div className="truncate text-[14px] text-muted">{replyTo.snippet}</div>
           </div>
-          <button onClick={() => updateDraft((d) => ({ ...d, replyTo: null }))} className="size-9 shrink-0 rounded-full grid place-items-center text-muted hover:bg-hover hover:text-ink" aria-label="Cancel reply">
+          <button onClick={() => updateDraft((d) => ({ ...d, replyTo: null }))} className="size-9 shrink-0 rounded-[8px] grid place-items-center text-muted hover:bg-hover hover:text-ink" aria-label="Cancel reply">
             <X size={16} />
           </button>
         </div>
@@ -1924,7 +1916,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             <span key={f.id} className="flex h-9 min-w-0 max-w-[15rem] items-center gap-2 rounded-[10px] bg-card pl-3 pr-1" title={fileSize(f.size) || undefined}>
               <FileText size={15} className="shrink-0 text-muted" />
               <span className="min-w-0 truncate text-[14px] font-medium">{f.name}</span>
-              <button onClick={() => setFiles(files.filter((x) => x.id !== f.id))} aria-label={`Remove ${f.name}`} className="size-7 shrink-0 rounded-full grid place-items-center text-muted hover:bg-hover">
+              <button onClick={() => setFiles(files.filter((x) => x.id !== f.id))} aria-label={`Remove ${f.name}`} className="size-7 shrink-0 rounded-[8px] grid place-items-center text-muted hover:bg-hover">
                 <X size={14} />
               </button>
             </span>
@@ -1940,7 +1932,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
       <div className="relative" onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), attach(e.dataTransfer.files))}>
         {slash.open && !suggestions.length && slash.render(pickCommand)}
         {suggestions.length > 0 && (
-          <div className="glass absolute bottom-full mb-2 left-0 w-80 max-w-full rounded-[14px] p-1.5 z-10" role="listbox" aria-label="Mention an agent">
+          <div className="glass absolute bottom-full mb-2 left-0 w-80 max-w-full rounded-[12px] p-1.5 z-10" role="listbox" aria-label="Mention an agent">
             {suggestions.map((a, i) => {
               const node = channel?.settings.team?.nodes.find((n) => n.agentId === a.id);
               return (
@@ -1970,7 +1962,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
         <div className={cx("grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-2", tall && "gap-y-1.5")}>
           <span className={cx("col-start-1 shrink-0", tall ? "row-start-2" : "row-start-1")}>
             <Popover
-              className="w-60 p-1.5 !rounded-[14px]"
+              className="w-60 p-1.5 !rounded-[12px]"
               trigger={(open, toggle) => (
                 <button type="button" data-tour="attach" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("m-press size-[42px] rounded-full grid place-items-center bg-[var(--bubble-them)] text-ink hover:bg-hover", open && "bg-hover")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}

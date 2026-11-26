@@ -15,7 +15,7 @@ import { ASK_LEVELS, activityDot, askLevel, screenSwitch, sizeLine, updateExists
 import { connectionLine, type NodeInfo } from "./deviceBits.tsx";
 import { AgentAvatar, Button, CopyBlock, Field, Input, Menu, Modal, cx, timeAgo } from "../components/ui.tsx";
 
-const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+const CARD = "overflow-hidden rounded-[12px] bg-card divide-y divide-line";
 const ROW = "flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px]";
 
 /** A row that opens something (a sheet in place, another computer: it has a chevron), or does something right away (`act`: no chevron). */
@@ -663,7 +663,7 @@ function RemoteDesktop({ node: n, onChange }: { node: NodeInfo; onChange: () => 
     if (confirm(`Stop showing ${own ? REMOTE_APPS[own.app].label : "this app"} here? The app itself isn't changed.`)) void save(null).catch((e) => alert((e as Error).message));
   };
   return (
-    <section className="rounded-[14px] bg-card p-3.5">
+    <section className="rounded-[12px] bg-card p-3.5">
       {rustdesk && <RemoteRow label="RustDesk" value={formatRustdeskId(rustdesk.id)} copy={rustdesk.id} link={`rustdesk://${encodeURIComponent(rustdesk.id)}`} />}
       {own && !editing && <RemoteRow label={own.app === "other" && own.name ? own.name : REMOTE_APPS[own.app].label} value={REMOTE_APPS[own.app].field === "id" ? formatRustdeskId(own.value) : own.value} copy={own.value} link={remoteDesktopLink(own)} onChange={() => setEditing(true)} onRemove={remove} />}
       {editing ? (
@@ -722,7 +722,7 @@ function RemoteRow({ label, value, copy, link, onChange, onRemove }: { label: st
           {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? "Copied" : "Copy"}
         </Button>
         {link && (
-          <a href={link} target={link.startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-accent text-accent-ink text-sm font-medium whitespace-nowrap hover:bg-accent/90">
+          <a href={link} target={link.startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-[8px] bg-accent text-accent-ink text-sm font-medium whitespace-nowrap hover:bg-accent/90">
             <ExternalLink size={15} /> Open
           </a>
         )}

@@ -256,7 +256,7 @@ export function TeamChart({
                   </div>
                   {readOnly ? (
                     n.lead && (
-                      <span className="absolute -top-2.5 left-3 h-5 px-1.5 rounded-full bg-ink text-panel text-[10px] font-medium inline-flex items-center gap-1">
+                      <span className="absolute -top-2.5 left-3 h-5 px-1.5 rounded-[6px] bg-ink text-panel text-[10px] font-medium inline-flex items-center gap-1">
                         <Crown size={10} /> Lead
                       </span>
                     )
@@ -267,7 +267,7 @@ export function TeamChart({
                         onClick={() => toggleLead(n)}
                         aria-pressed={n.lead}
                         title={n.lead ? "Lead" : "Make lead"}
-                        className={cx("absolute -top-2.5 left-3 h-5 px-1.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1 border", n.lead ? "bg-ink text-panel border-ink" : "bg-panel text-muted border-line opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-coarse:opacity-100")}
+                        className={cx("absolute -top-2.5 left-3 h-5 px-1.5 rounded-[6px] text-[10px] font-medium inline-flex items-center gap-1 border", n.lead ? "bg-ink text-panel border-ink" : "bg-panel text-muted border-line opacity-0 group-hover:opacity-100 focus:opacity-100 pointer-coarse:opacity-100")}
                       >
                         <Crown size={10} /> {n.lead ? "Lead" : "Make lead"}
                       </button>

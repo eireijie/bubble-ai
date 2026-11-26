@@ -430,10 +430,10 @@ function ConnectionPage({ conn, isOwner, onBack, onChange }: { conn: StorageConn
             <div className="flex flex-wrap items-center gap-1.5 px-1 text-sm">
               <span className="text-faint">Change files without asking:</span>
               {conn.always.map((a) => (
-                <span key={`${a.agentId}${a.folder}`} className="inline-flex h-7 items-center gap-1 rounded-full bg-chip pl-2.5 pr-1">
+                <span key={`${a.agentId}${a.folder}`} className="inline-flex h-7 items-center gap-1 rounded-[8px] bg-chip pl-2.5 pr-1">
                   {agentName(a.agentId)} in {a.folder === "/" ? "everything" : a.folder.slice(1)}
                   {isOwner && (
-                    <button type="button" onClick={() => void forget(a.agentId, a.folder)} className="grid size-5 place-items-center rounded-full text-muted hover:text-ink" aria-label={`${agentName(a.agentId)} asks again in ${a.folder}`}>
+                    <button type="button" onClick={() => void forget(a.agentId, a.folder)} className="grid size-5 place-items-center rounded-[8px] text-muted hover:text-ink" aria-label={`${agentName(a.agentId)} asks again in ${a.folder}`}>
                       <X size={12} />
                     </button>
                   )}
@@ -469,7 +469,7 @@ function ConnectionPage({ conn, isOwner, onBack, onChange }: { conn: StorageConn
                     aria-pressed={on}
                     disabled={!isOwner}
                     onClick={() => void save({ agentIds: on ? conn.agentIds.filter((x) => x !== a.id) : [...conn.agentIds, a.id] })}
-                    className={cx("h-8 rounded-full px-3 text-sm disabled:opacity-60", on ? "bg-ink text-panel" : "border border-control-line bg-control hover:bg-hover")}
+                    className={cx("h-8 rounded-[8px] px-3 text-sm disabled:opacity-60", on ? "bg-ink text-panel" : "border border-control-line bg-control hover:bg-hover")}
                   >
                     @{a.handle}
                   </button>

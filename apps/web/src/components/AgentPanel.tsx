@@ -33,7 +33,7 @@ export const panelSheet = (tab: string | null | undefined): AgentPanelTab => (ta
 
 const ACCESS_LABEL: Record<AccessLevel, string> = { "read-only": "Read only", edit: "Can edit files", full: "Full access" };
 
-const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+const CARD = "overflow-hidden rounded-[12px] bg-card divide-y divide-line";
 const ROW = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover disabled:hover:bg-transparent";
 
 /**
@@ -296,7 +296,7 @@ function MoreSheet({ agent, page }: { agent: Agent; page: (t: AgentTab) => strin
         {onTeams.length > 0 && <FactRow label="Teams" value={onTeams.join(", ")} />}
       </div>
       <h3 className="px-1 pt-1 text-[13px] font-semibold text-muted">Calls</h3>
-      <div className="rounded-[14px] bg-card p-3.5">
+      <div className="rounded-[12px] bg-card p-3.5">
         <Suspense fallback={null}>
           <CallOptions />
         </Suspense>
@@ -449,19 +449,19 @@ export function ComputerFullscreen({ agent, computer: c, onClose }: { agent: Age
         <span className="font-medium truncate">{c.name}</span>
         {!mine && (state.working ? <WorkingBadge text={c.activity?.text ?? "Working"} /> : <Pill tone={state.tone}>{state.label}</Pill>)}
         {mine && (
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 inline-flex items-center gap-2 rounded-full bg-info text-white pl-3.5 pr-1 h-9 text-sm font-medium shadow-panel" role="status">
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 inline-flex items-center gap-2 rounded-[8px] bg-info text-white pl-3.5 pr-1 h-9 text-sm font-medium shadow-panel" role="status">
             <Hand size={15} /> You are in control
-            <button onClick={() => control(false)} className="h-7 px-3 rounded-full bg-white/20 hover:bg-white/30 text-xs font-medium">
+            <button onClick={() => control(false)} className="h-7 px-3 rounded-[8px] bg-white/20 hover:bg-white/30 text-xs font-medium">
               Hand back
             </button>
           </div>
         )}
         {teach && canControl && !someoneElse && (
-          <button onClick={() => go({ view: "computers", computerId: c.id, teach: agent.id })} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-white/20 text-sm font-medium hover:bg-white/10" title={`Do a task once while ${agent.name} watches; it saves it as a routine`}>
+          <button onClick={() => go({ view: "computers", computerId: c.id, teach: agent.id })} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-[8px] border border-white/20 text-sm font-medium hover:bg-white/10" title={`Do a task once while ${agent.name} watches; it saves it as a routine`}>
             <Video size={15} /> Teach a task
           </button>
         )}
-        <button onClick={close} className={cx(!(teach && canControl && !someoneElse) && "ml-auto", "size-9 rounded-full hover:bg-white/10 grid place-items-center")} aria-label="Exit full screen" title="Exit full screen">
+        <button onClick={close} className={cx(!(teach && canControl && !someoneElse) && "ml-auto", "size-9 rounded-[8px] hover:bg-white/10 grid place-items-center")} aria-label="Exit full screen" title="Exit full screen">
           <Minimize2 size={18} />
         </button>
       </div>

@@ -342,7 +342,7 @@ export function NoteView({
   );
 
   const version = viewing && (
-    <div className="mt-4 rounded-[14px] bg-chip px-3.5 py-2.5 text-[13px] flex items-center gap-2">
+    <div className="mt-4 rounded-[12px] bg-chip px-3.5 py-2.5 text-[13px] flex items-center gap-2">
       <span className="flex-1">Version from {new Date(viewing.commit.date).toLocaleString()}</span>
       <button className="font-medium underline underline-offset-2" onClick={() => setViewing(null)}>
         Back to current
@@ -429,13 +429,13 @@ export function NoteView({
           {(type || tags.length > 0) && (
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {type && (
-                <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-chip text-xs font-medium capitalize">
+                <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-[6px] bg-chip text-xs font-medium capitalize">
                   {kind && <span className="size-2 rounded-full" style={{ background: kindColor(kind) }} title={kindLabel(kind)} />}
                   {type}
                 </span>
               )}
               {tags.map((t) => (
-                <span key={t} className="inline-flex items-center gap-0.5 h-6 px-2.5 rounded-full bg-chip text-xs font-medium text-muted">
+                <span key={t} className="inline-flex items-center gap-0.5 h-6 px-2.5 rounded-[6px] bg-chip text-xs font-medium text-muted">
                   <Hash size={11} /> {t}
                 </span>
               ))}
@@ -478,9 +478,9 @@ export function NoteView({
 
 function Segmented({ mode, setMode, labels }: { mode: "read" | "authors"; setMode: (m: "read" | "authors") => void; labels: [string, string] }) {
   return (
-    <div role="tablist" className="p-1 rounded-full bg-card flex gap-1">
+    <div role="tablist" className="p-[2px] rounded-[8px] bg-side-active flex gap-0.5">
       {(["read", "authors"] as const).map((m, i) => (
-        <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={cx("flex-1 h-10 rounded-full text-[14px] font-medium transition-colors", mode === m ? "bg-control text-ink shadow-sm border border-control-line" : "text-muted hover:text-ink")}>
+        <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={cx("flex-1 h-8 rounded-[6px] text-[13.5px] font-medium transition-colors", mode === m ? "bg-panel text-ink shadow-[0_1px_2px_rgba(0,0,0,.1),0_0_0_0.5px_var(--line2)]" : "text-muted hover:text-ink")}>
           {labels[i]}
         </button>
       ))}
@@ -494,7 +494,7 @@ function HistoryList({ history, viewing, canEdit, onView, onRestore }: { history
   if (!history) return <p className="text-sm text-muted px-1">Loading…</p>;
   if (!history.length) return <p className="text-sm text-muted px-1">Not saved yet.</p>;
   return (
-    <Cards className="rounded-[14px]!">
+    <Cards className="rounded-[12px]!">
         {history.map((c, i) => {
           const w = whoIs(c.author, agents, members, 28);
           const on = viewing?.commit.hash === c.hash;
@@ -511,7 +511,7 @@ function HistoryList({ history, viewing, canEdit, onView, onRestore }: { history
                 <span className="text-xs text-muted">Current</span>
               ) : (
                 canEdit && (
-                  <button onClick={() => confirm("Bring this version back as a new change? Nothing is lost.") && onRestore(c)} className="h-8 px-3 rounded-full border border-control-line bg-control text-[13px] font-medium hover:bg-hover">
+                  <button onClick={() => confirm("Bring this version back as a new change? Nothing is lost.") && onRestore(c)} className="h-8 px-3 rounded-[8px] border border-control-line bg-control text-[13px] font-medium hover:bg-hover">
                     Restore
                   </button>
                 )
@@ -536,7 +536,7 @@ function Blame({ blocks }: { blocks: BlameBlock[] | null }) {
   };
   return (
     <div>
-      <div className="rounded-[14px] bg-card overflow-hidden">
+      <div className="rounded-[12px] bg-card overflow-hidden">
         {shown.map((b, i) => {
           const w = whoIs(b.author, agents, members, 18);
           return (
@@ -595,7 +595,7 @@ function NearbyDialog({ path, graph, onClose, onOpen }: { path: string; graph: G
   }, [graph, path]);
   return (
     <MemoryDialog title="Nearby" onClose={onClose}>
-      <div className="relative h-72 overflow-hidden rounded-[14px] bg-card">
+      <div className="relative h-72 overflow-hidden rounded-[12px] bg-card">
         {local && local.nodes.length > 1 ? (
           <MemoryGraph graph={local} variant="local" active={path} onOpen={(n) => n.path && onOpen(n.path)} className="absolute inset-0" label={`${local.nodes.length - 1} notes linked with this one`} />
         ) : (
@@ -625,7 +625,7 @@ function Properties({ frontmatter, resolve }: { frontmatter: Record<string, stri
   const nice = (k: string) => k.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
   return (
     <MoreOptions className="mt-8" title="Properties">
-      <dl className="rounded-[14px] bg-card px-4 py-3 grid grid-cols-[minmax(5rem,auto)_1fr] gap-x-6 gap-y-2 text-sm" aria-label="Properties">
+      <dl className="rounded-[12px] bg-card px-4 py-3 grid grid-cols-[minmax(5rem,auto)_1fr] gap-x-6 gap-y-2 text-sm" aria-label="Properties">
         {entries.map(([k, v]) => (
           <div key={k} className="contents">
             <dt className="text-muted">{nice(k)}</dt>
@@ -708,7 +708,7 @@ function Editor({ draft, setDraft, saving, dirty, onSave, onCancel }: { draft: s
           }}
           spellCheck
           aria-label="Note text"
-          className="w-full h-[min(68vh,640px)] resize-none rounded-[14px] bg-card px-4 py-3.5 font-mono text-[14px] leading-relaxed outline-none focus:ring-2 focus:ring-ring/30"
+          className="w-full h-[min(68vh,640px)] resize-none rounded-[12px] bg-card px-4 py-3.5 font-mono text-[14px] leading-relaxed outline-none focus:ring-2 focus:ring-ring/30"
         />
       </div>
     </div>

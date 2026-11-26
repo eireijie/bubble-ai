@@ -105,10 +105,10 @@ export function LoginsPage() {
                       </span>
                       <span role="cell" className="flex flex-wrap items-center gap-1.5 text-sm max-md:pl-[52px]">
                         {l.always.map((a) => (
-                          <span key={a} className="inline-flex h-7 items-center gap-1 rounded-full bg-chip pl-2.5 pr-1">
+                          <span key={a} className="inline-flex h-7 items-center gap-1 rounded-[8px] bg-chip pl-2.5 pr-1">
                             {agentName(a)}
                             {isOwner && (
-                              <button onClick={() => forget(l.id, a)} className="grid size-5 place-items-center rounded-full text-muted hover:text-ink" aria-label={`Stop letting ${agentName(a)} use it without asking`}>
+                              <button onClick={() => forget(l.id, a)} className="grid size-5 place-items-center rounded-[8px] text-muted hover:text-ink" aria-label={`Stop letting ${agentName(a)} use it without asking`}>
                                 <X size={12} />
                               </button>
                             )}

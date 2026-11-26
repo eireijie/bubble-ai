@@ -1,8 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { STOPS, TOTAL, seenCount } from "../tour.ts";
 import { createPortal } from "react-dom";
-import { Apple, Bell, BookOpen, Building2, ChevronDown, FolderPlus, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
+import { Apple, Bell, BookOpen, Building2, ChevronDown, ExternalLink, FolderPlus, Sparkles, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, LogOut, Plus, Search, Settings, SquareTerminal, Store, Users } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
+import { GITHUB_URL } from "@bubble-ai/core";
+import { startTour } from "./tour/tourRun.ts";
 import { useReadyChecklist } from "../onboarding.ts";
 import type { FeatureKey, Section } from "@bubble-ai/core";
 import { api } from "../api.ts";
@@ -89,7 +91,7 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
 }
 
 /** A round sidebar button, 40px with a soft fill: search, the plus, Computers on the rail. */
-const ROUND = "relative grid size-[36px] shrink-0 place-items-center rounded-full text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
+const ROUND = "relative grid size-[36px] shrink-0 place-items-center rounded-[10px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
 const SOFT = "bg-side-active";
 /** A row of the wide sidebar (60px, a big wisp, a rounded tile when it's the open one), and its square on the rail. Hover eases in; a press gives a little. */
 const ITEM = "relative flex h-[60px] w-full items-center gap-3 rounded-[12px] px-2 text-left text-[16px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
@@ -275,7 +277,8 @@ export function Rail({ route }: { route: Route }) {
   const chats = useSideChats();
   const ready = useReadyChecklist();
   // stops of Show me around not seen yet
-  const toLearn = useStore((s) => s.me?.role !== "guest" && seenCount(s.me?.prefs.learn, STOPS) < TOTAL);
+  const learnSeen = useStore((s) => seenCount(s.me?.prefs.learn, STOPS));
+  const toLearn = !isGuest && learnSeen < TOTAL;
   const notes = useNoteCount(isGuest);
   const [orgAt, setOrgAt] = useState<CSSProperties | null>(null);
   const [newOrg, setNewOrg] = useState(false);
@@ -420,9 +423,8 @@ export function Rail({ route }: { route: Route }) {
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
     ...(!isGuest && features.tasks ? [place("Tasks", <ListTodo {...icon} />, { view: "tasks" })] : []),
     ...(!isGuest ? MOD_NAV.filter((m) => features[m.feature]).map((m) => place(m.label, m.icon(18), m.to)) : []),
-    // what setup left to do and the tour are one list now: Settings › Learn Bubble AI
-    ...(((ready.started && ready.left > 0) || toLearn) && !isGuest ? [place("Learn Bubble AI", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
-    place("Help", <LifeBuoy {...icon} />, { view: "help" }),
+    // what setup left to do and the tour are one list now: Settings › Learn Bubble AI (Help and the tour are in the account menu)
+    ...(ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
     ...(orgs.length > 1
       ? [
           {
@@ -457,12 +459,27 @@ export function Rail({ route }: { route: Route }) {
   );
   const firstName = me.user.name.trim().split(/\s+/)[0] || me.user.name;
   const settingsOn = route.view === "settings" && (route.page as string | null) !== "vault";
+  // your name in the corner opens the account menu: settings, help, the tour, what's new
+  const accountItems = [
+    { label: "Settings", icon: <Settings {...icon} />, onSelect: () => go({ view: "settings", page: null }) },
+    { label: "Help", icon: <LifeBuoy {...icon} />, onSelect: () => go({ view: "help" }) },
+    ...(!isGuest ? [{ label: toLearn ? `Show me around · ${learnSeen} of ${TOTAL}` : "Show me around", icon: <Compass {...icon} />, onSelect: () => startTour(learnSeen >= TOTAL ? 0 : undefined) }] : []),
+    { label: "What's new", icon: <Sparkles {...icon} />, onSelect: () => go({ view: "settings", page: "updates", item: "news" }) },
+    { label: "Report a problem", icon: <ExternalLink {...icon} />, onSelect: () => window.open(`${GITHUB_URL}/issues`, "_blank", "noreferrer") },
+  ];
   const you = (
-    <a data-tour="you" href={href({ view: "settings", page: null })} aria-label="You and settings" title={wide ? undefined : "You and settings"} aria-current={settingsOn ? "page" : undefined} className={cx("relative flex h-[34px] min-w-0 shrink-0 items-center gap-2 rounded-full text-[15px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "max-w-[46%] pl-[3px] pr-3" : "w-[36px] justify-center", settingsOn ? "bg-line2" : SOFT)}>
-      <span className={cx("grid size-[28px] shrink-0 place-items-center rounded-full text-[13px] font-semibold", wide ? "bg-panel shadow-[0_0_0_1px_var(--line)]" : "")}>{(firstName[0] ?? "?").toUpperCase()}</span>
-      {wide && <span className="truncate font-medium">{firstName}</span>}
-      {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
-    </a>
+    <Menu
+      up
+      align="left"
+      items={accountItems}
+      trigger={(open, t) => (
+        <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" title={wide ? undefined : "Account, settings and help"} className={cx("relative flex h-[36px] min-w-0 shrink-0 items-center gap-2 rounded-[10px] text-[14px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "max-w-full pl-1 pr-3" : "w-[36px] justify-center", open || settingsOn ? "bg-line2" : SOFT)}>
+          <span className={cx("grid size-[26px] shrink-0 place-items-center rounded-full text-[12px] font-semibold", wide ? "bg-panel shadow-[0_0_0_1px_var(--line)]" : "")}>{(firstName[0] ?? "?").toUpperCase()}</span>
+          {wide && <span className="truncate font-medium">{firstName}</span>}
+          {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
+        </button>
+      )}
+    />
   );
   const computersTo = href({ view: "computers", computerId: null });
   const computersOn = route.view === "computers";
@@ -472,15 +489,15 @@ export function Rail({ route }: { route: Route }) {
   const vaultOn = vaultPage ? route.view === "settings" && (route.page as string | null) === "vault" : route.view === "vault";
   const onCount = computers.filter((c) => c.status !== "offline").length;
   const computersLabel = `Computers, ${onCount} on${working ? ", one is working" : ""}`;
-  const half = "flex h-full min-w-0 flex-1 items-center gap-2 rounded-full px-3 outline-none transition-colors duration-150 hover:bg-line2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
+  const half = "flex h-full min-w-0 flex-1 items-center gap-2 rounded-[10px] px-3 outline-none transition-colors duration-150 hover:bg-line2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
 
   return (
     <div className="relative z-30 flex shrink-0">
-      <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(11px,env(safe-area-inset-top))] pb-[11px]" style={{ width, transition }}>
+      <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(20px,env(safe-area-inset-top))] pb-4" style={{ width, transition }}>
         {/* search and New; nothing else up here */}
-        <div className={cx("side-top mb-2.5 flex shrink-0 items-center gap-2", wide ? "h-[36px] px-[11px]" : "flex-col gap-2.5")}>
+        <div className={cx("side-top mb-4 flex shrink-0 items-center gap-2", wide ? "h-[36px] px-4" : "flex-col gap-2.5")}>
           {wide ? (
-            <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[36px] min-w-0 flex-1 items-center gap-2 rounded-full pl-3 pr-3 text-[15px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
+            <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[36px] min-w-0 flex-1 items-center gap-2 rounded-[8px] pl-3 pr-3 text-[15px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
               <Search size={17} strokeWidth={1.9} aria-hidden />
               <span className="flex-1 truncate text-left">Search</span>
               <kbd className="font-sans text-[12px] text-faint">⌘K</kbd>
@@ -493,7 +510,7 @@ export function Rail({ route }: { route: Route }) {
           {plus(false)}
         </div>
 
-        <div className={cx("side-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden", wide ? "px-[9px]" : "px-3")}>
+        <div className={cx("side-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden", wide ? "px-3" : "px-3")}>
           {wide ? (
             <SideList chats={chats} lines={lines} active={active} />
           ) : (
@@ -502,10 +519,10 @@ export function Rail({ route }: { route: Route }) {
         </div>
 
         {wide ? (
-          <div ref={footRef} className="flex shrink-0 items-center gap-2 px-[11px] pt-2.5">
+          <div ref={footRef} className="flex shrink-0 items-center gap-2 px-4 pt-3">
             {you}
             {!isGuest && (
-              <div className={cx("flex h-[34px] min-w-0 flex-1 items-center rounded-full p-0", SOFT)}>
+              <div className={cx("flex h-[36px] min-w-0 flex-1 items-center rounded-[10px] p-0", SOFT)}>
                 <a data-tour="computers" href={computersTo} aria-label={computersLabel} aria-current={computersOn ? "page" : undefined} className={cx(half, computersOn && "bg-line2")}>
                   <span aria-hidden className={cx("size-2 shrink-0 rounded-full", onCount > 0 ? "bg-[#30d158]" : "bg-muted opacity-50")} />
                   <span className="truncate text-[14px]">{onCount} on</span>

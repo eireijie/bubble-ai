@@ -250,7 +250,7 @@ export function nameProblem(name: string, typedHandle: string, agents: Named[]):
 }
 
 const LABEL = "block text-[13px] font-medium text-muted";
-const QUIET = "h-9 px-2.5 rounded-full text-[13px] text-muted hover:text-ink outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-50 disabled:pointer-events-none";
+const QUIET = "h-9 px-2.5 rounded-[8px] text-[13px] text-muted hover:text-ink outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-50 disabled:pointer-events-none";
 const SEG = "flex rounded-xl bg-chip p-0.5";
 const SELECT = "h-10 w-full rounded-xl border border-input bg-panel px-2.5 text-sm";
 const CHOICE = "flex h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover outline-none focus-visible:bg-hover";
@@ -576,7 +576,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                         )}
                       </div>
                       {mode === "defaults" && defaults !== "error" ? (
-                        <div className="rounded-[14px] bg-card px-3.5 py-1.5 text-[14px]">
+                        <div className="rounded-[12px] bg-card px-3.5 py-1.5 text-[14px]">
                           <div className="flex h-9 items-center gap-3">
                             <span className="shrink-0 font-medium">AI</span>
                             <span className="min-w-0 flex-1 flex items-center justify-end gap-1.5 text-[13px] text-muted">
@@ -670,7 +670,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                         </div>
                       )}
                       {signInFirst && (
-                        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] bg-card px-3.5 py-2.5 text-[13px]">
+                        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-card px-3.5 py-2.5 text-[13px]">
                           <span className="min-w-0 flex-1">{noneSignedIn ? `No AI is signed in on ${signInFirst.where} yet.` : `${harnessLabel(signInFirst.harness)} isn't signed in on ${signInFirst.where}.`}</span>
                           <HarnessSignInButton signIn={signInFirst} />
                         </div>
@@ -822,7 +822,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
         {view === "external" && (
           <div className="p-5 sm:p-6 space-y-4">
             <BackHeader title="Bring one in" onBack={() => setView("form")} />
-            <div className="rounded-[14px] bg-card overflow-hidden">
+            <div className="rounded-[12px] bg-card overflow-hidden">
               <button type="button" onClick={startInvite} className={CHOICE}>
                 <UserPlus size={17} className="shrink-0 text-muted" aria-hidden />
                 <span className="min-w-0 flex-1 truncate font-medium">Invite an agent</span>
@@ -872,7 +872,7 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
 
 function Chip({ on, onClick, children, title, small }: { on: boolean; onClick: () => void; children: React.ReactNode; title?: string; small?: boolean }) {
   return (
-    <button type="button" role={small ? undefined : "radio"} aria-checked={small ? undefined : on} aria-pressed={small ? on : undefined} onClick={onClick} title={title} className={cx("rounded-full border font-medium transition-colors", small ? "h-8 px-2.5 text-[13px] rounded-lg" : "h-8 px-3.5 text-[13px]", on ? "bg-ink text-bg border-ink" : "bg-panel text-ink border-line hover:bg-hover")}>
+    <button type="button" role={small ? undefined : "radio"} aria-checked={small ? undefined : on} aria-pressed={small ? on : undefined} onClick={onClick} title={title} className={cx("rounded-[8px] border font-medium transition-colors", small ? "h-8 px-2.5 text-[13px] rounded-lg" : "h-8 px-3.5 text-[13px]", on ? "bg-ink text-bg border-ink" : "bg-panel text-ink border-line hover:bg-hover")}>
       {children}
     </button>
   );
@@ -1030,7 +1030,7 @@ export function ImportAgent({
 
   if (!found.length)
     return (
-      <div className="rounded-[14px] bg-card p-4 space-y-3 text-sm">
+      <div className="rounded-[12px] bg-card p-4 space-y-3 text-sm">
         <p className="font-medium">No saved setups found yet</p>
         <p className="text-muted">
           {usableDevices(nodes).some((n) => n.online) ? "Bubble AI checks known folders on your connected devices." : "Connect a device first."}
@@ -1123,7 +1123,7 @@ export function ImportAgent({
         </p>
       )}
       {fresh.length > 0 && (fresh.length > 1 || imported.current.size > 0) && !pick && (
-        <div className="flex items-center gap-3 rounded-[14px] bg-card px-3.5 py-2.5 text-sm">
+        <div className="flex items-center gap-3 rounded-[12px] bg-card px-3.5 py-2.5 text-sm">
           <span className="flex-1">{fresh.length} agents found</span>
           <Button variant="primary" disabled={busy} onClick={bringAll}>
             {busy ? (
@@ -1135,7 +1135,7 @@ export function ImportAgent({
           </Button>
         </div>
       )}
-      <div className="rounded-[14px] bg-card overflow-hidden">
+      <div className="rounded-[12px] bg-card overflow-hidden">
         {found.map((x) => {
           const taken = imported.current.has(`${x.node.id}:${x.d.key}`) || agents.some(
             (a) =>

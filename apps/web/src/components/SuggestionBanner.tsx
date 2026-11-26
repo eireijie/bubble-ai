@@ -38,12 +38,12 @@ export function SuggestionBanner({
       <span className="min-w-0 flex-1 text-[14px] leading-5 text-ink">{text}</span>
       {children}
       {action && (
-        <button type="button" onClick={onAction} className="m-press h-[32px] shrink-0 rounded-full bg-[#7a5bdc] px-3.5 text-[14px] font-semibold text-white outline-none hover:brightness-110 focus-visible:ring-3 focus-visible:ring-ring/40">
+        <button type="button" onClick={onAction} className="m-press h-[32px] shrink-0 rounded-[8px] bg-[#7a5bdc] px-3.5 text-[14px] font-semibold text-white outline-none hover:brightness-110 focus-visible:ring-3 focus-visible:ring-ring/40">
           {action}
         </button>
       )}
       {onClose && (
-        <button type="button" onClick={onClose} aria-label={closeLabel} title={closeLabel} className={cx("grid size-[30px] shrink-0 place-items-center rounded-full bg-[var(--bubble-them)] text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40")}>
+        <button type="button" onClick={onClose} aria-label={closeLabel} title={closeLabel} className={cx("grid size-[30px] shrink-0 place-items-center rounded-[8px] bg-[var(--bubble-them)] text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40")}>
           <X size={15} strokeWidth={2} />
         </button>
       )}

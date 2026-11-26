@@ -1,0 +1,90 @@
+/*
+ * Spacing, corners and the button family (canvas "margins, buttons, cleaner header", 2026-11-26).
+ * One spacing scale, quiet buttons with 8px corners, and the only round things are the Bubble
+ * things: avatars and the composer's + and voice button. Setup and the tour adopt these too.
+ *
+ * Spacing: 4 8 12 16 20 24 32 40 48 64. Nothing sits closer than 16 to a desktop window or panel
+ * edge (20 on phones); 12 between related things, 24 between groups, 32 around a dialog; reading
+ * width is 720 with at least 48 on each side.
+ */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  /* the gutters every screen uses */
+  --gutter: var(--space-4); /* window or panel edge, desktop */
+  --gutter-phone: var(--space-5);
+  --dialog-pad: var(--space-8);
+  --read-width: 720px;
+  /* corners: chips 6, buttons 8, rows 10, cards 12, dialogs 16, messages 18 */
+  --r-chip: 6px;
+  --r-button: 8px;
+  --r-row: 10px;
+  --r-card: 12px;
+  --r-dialog: 16px;
+  --r-bubble: 18px;
+  /* motion: one ease for everything that slides */
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* in the components layer, so a utility class passed alongside (h-10, w-full) still wins */
+@layer components {
+/* ---- buttons: .btn plus one of primary, accent, secondary, ghost, danger; sizes sm and lg ---- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 14px; border-radius: var(--r-button);
+  font-size: 13.5px; font-weight: 500; line-height: 1; white-space: nowrap;
+  border: 1px solid transparent; background: transparent; color: var(--ink);
+  outline: none; cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:focus-visible { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ring); }
+.btn:disabled { opacity: 0.45; pointer-events: none; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 86%, var(--panel)); }
+.btn-accent { background: var(--wisp-strong); color: #fff; }
+:root[data-mode="dark"] .btn-accent { background: #8466ea; }
+.btn-accent:hover { filter: brightness(1.06); }
+.btn-secondary { border-color: var(--line2); }
+.btn-secondary:hover { background: var(--hover); border-color: color-mix(in srgb, var(--ink) 24%, transparent); }
+.btn-ghost { color: var(--muted); }
+.btn-ghost:hover { background: var(--hover); color: var(--ink); }
+.btn-danger { color: var(--bad); border-color: var(--line2); }
+.btn-danger:hover { background: color-mix(in srgb, var(--bad) 8%, transparent); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+.btn-sm { height: 28px; padding: 0 11px; font-size: 13px; border-radius: 7px; }
+.btn-lg { height: 40px; padding: 0 18px; font-size: 14.5px; border-radius: 9px; }
+
+/* an icon button: 32px square, no fill at rest */
+.ibtn {
+  display: inline-grid; place-items: center; flex: none;
+  width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--r-button);
+  background: transparent; color: var(--muted); outline: none; cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+.ibtn:hover, .ibtn[aria-expanded="true"] { background: var(--hover); color: var(--ink); }
+.ibtn:active { transform: scale(0.94); }
+.ibtn:focus-visible { box-shadow: 0 0 0 2px var(--ring); }
+
+/* chips: filters and quick picks */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+  border-radius: var(--r-chip); border: 1px solid var(--line2); background: transparent;
+  font-size: 12.5px; font-weight: 500; color: var(--muted); white-space: nowrap; cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.chip:hover { background: var(--hover); color: var(--ink); }
+.chip[aria-pressed="true"], .chip[aria-selected="true"], .chip.on { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .ibtn, .chip { transition: none; }
+  .btn:active:not(:disabled), .ibtn:active { transform: none; }
+}
+}

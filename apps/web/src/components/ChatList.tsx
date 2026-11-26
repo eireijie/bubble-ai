@@ -293,13 +293,13 @@ function SearchField({ page, value, onChange }: { page: boolean; value: string; 
   const setPalette = useStore((s) => s.setPalette);
   if (page)
     return (
-      <button type="button" onClick={() => setPalette(true)} className="flex-1 min-w-0 h-11 flex items-center gap-2.5 rounded-full bg-card px-4 text-left text-body text-faint">
+      <button type="button" onClick={() => setPalette(true)} className="flex-1 min-w-0 h-11 flex items-center gap-2.5 rounded-[8px] bg-card px-4 text-left text-body text-faint">
         <Search size={18} strokeWidth={2} className="shrink-0" aria-hidden />
         Search
       </button>
     );
   return (
-    <label className="flex items-center gap-2.5 bg-card text-faint h-9 rounded-full px-3">
+    <label className="flex items-center gap-2.5 bg-card text-faint h-9 rounded-[8px] px-3">
       <Search size={16} strokeWidth={2} className="shrink-0" />
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Search" aria-label="Search chats" className={cx("flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-faint", "text-body")} />
       <kbd className="text-xs font-sans text-faint">⌘K</kbd>
@@ -316,7 +316,7 @@ function NeedsYouCard() {
   if (!first) return null;
   const agent = agents.find((a) => a.id === first.agentId);
   return (
-    <a href={href({ view: "dashboard" })} aria-label={`Needs you, ${count} waiting. ${first.text}`} className="mx-2 mb-2 flex items-center gap-3 rounded-[14px] bg-card px-3.5 py-3 text-left">
+    <a href={href({ view: "dashboard" })} aria-label={`Needs you, ${count} waiting. ${first.text}`} className="mx-2 mb-2 flex items-center gap-3 rounded-[12px] bg-card px-3.5 py-3 text-left">
       {agent && <AgentAvatar agent={agent} size={36} live />}
       <span className="flex-1 min-w-0">
         <span className="line-clamp-2 text-[15px] font-semibold leading-5">{first.text}</span>
@@ -548,7 +548,7 @@ function ContextMenu({ at, onClose, title, back, children }: { at: { x: number; 
       <div ref={ref} role="menu" style={pos} className="m-menu glass w-72 max-w-[calc(100vw-24px)] rounded-xl p-1.5" >
         <div className="flex items-center gap-2 px-3.5 py-2.5 text-body">
           {back && (
-            <button onClick={back} className="-ml-1 mr-1 size-7 grid place-items-center rounded-full text-muted hover:bg-hover" aria-label="Back">
+            <button onClick={back} className="-ml-1 mr-1 size-7 grid place-items-center rounded-[8px] text-muted hover:bg-hover" aria-label="Back">
               <ChevronDown size={16} className="rotate-90" />
             </button>
           )}

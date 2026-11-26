@@ -56,7 +56,7 @@ export function CodePrompt({ computer, error, onSubmit }: { computer: ComputerIn
       <h3 className="text-base font-semibold">Screen code</h3>
       <CodeInput kind={kind} value={code} onChange={setCode} autoFocus className="text-center text-ink" />
       {error && <p className="text-xs text-red-300">{/wrong|not right|incorrect/i.test(error) ? "That code is not right. Try again." : error}</p>}
-      <button type="submit" disabled={!ready} className="inline-flex items-center rounded-full border border-white/20 px-4 h-9 hover:bg-white/10 disabled:opacity-40">
+      <button type="submit" disabled={!ready} className="inline-flex items-center rounded-[8px] border border-white/20 px-4 h-9 hover:bg-white/10 disabled:opacity-40">
         Open
       </button>
     </form>

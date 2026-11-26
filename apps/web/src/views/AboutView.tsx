@@ -278,7 +278,7 @@ function ItemRow({ item, canEdit, onSave, onForget }: { item: Item; canEdit: boo
         <Menu
           align="right"
           trigger={(_o, toggle) => (
-            <button onClick={toggle} className="-my-1 grid size-8 max-md:size-11 shrink-0 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:bg-hover" aria-haspopup="menu" aria-label="More for this item">
+            <button onClick={toggle} className="-my-1 grid size-8 max-md:size-11 shrink-0 place-items-center rounded-[8px] text-muted outline-none hover:bg-hover hover:text-ink focus-visible:bg-hover" aria-haspopup="menu" aria-label="More for this item">
               <MoreHorizontal size={16} />
             </button>
           )}

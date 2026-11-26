@@ -164,7 +164,7 @@ function FolderRows({ node, depth, ...p }: FolderListProps & { node: TreeNode; d
           <Menu
             align="right"
             trigger={(_o, toggle) => (
-              <button onClick={toggle} className="grid size-8 max-md:size-11 shrink-0 place-items-center rounded-full text-muted outline-none hover:bg-hover hover:text-ink focus-visible:bg-hover" aria-haspopup="menu" aria-label={fixed ? `${name}: share` : `${name}: share, rename, delete`}>
+              <button onClick={toggle} className="grid size-8 max-md:size-11 shrink-0 place-items-center rounded-[8px] text-muted outline-none hover:bg-hover hover:text-ink focus-visible:bg-hover" aria-haspopup="menu" aria-label={fixed ? `${name}: share` : `${name}: share, rename, delete`}>
                 <MoreHorizontal size={16} />
               </button>
             )}

@@ -39,7 +39,7 @@ export function Section({ title, description, action, children }: { title: strin
 
 /** Rows in a bordered card. */
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("rounded-[14px] bg-card divide-y divide-line overflow-hidden", className)}>{children}</div>;
+  return <div className={cx("rounded-[12px] bg-card divide-y divide-line overflow-hidden", className)}>{children}</div>;
 }
 
 /** One setting: what it is on the left, the control on the right (stacked on phones). */
@@ -75,8 +75,8 @@ export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChang
 export function Segmented<T extends string>({ value, options, onChange, label, disabled }: { value: T; options: [T, ReactNode][]; onChange: (v: T) => void; label: string; disabled?: boolean }) {
   const thumb = useSlidingThumb<HTMLDivElement>(value, options.length);
   return (
-    <div ref={thumb.ref} className="relative inline-flex rounded-full border border-control-line p-[3px] bg-control" role="radiogroup" aria-label={label}>
-      {thumb.ready && <span aria-hidden className="seg-thumb absolute top-[3px] bottom-[3px] left-0 rounded-full bg-ink/15" style={thumb.style} />}
+    <div ref={thumb.ref} className="relative inline-flex rounded-[8px] p-[2px] bg-side-active" role="radiogroup" aria-label={label}>
+      {thumb.ready && <span aria-hidden className="seg-thumb absolute top-[2px] bottom-[2px] left-0 rounded-[6px] bg-panel shadow-[0_1px_2px_rgba(0,0,0,.1),0_0_0_0.5px_var(--line2)] dark:bg-[#2c2c2c]" style={thumb.style} />}
       {options.map(([v, text]) => (
         <button
           key={v}
@@ -85,7 +85,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, d
           aria-checked={value === v}
           disabled={disabled}
           onClick={() => onChange(v)}
-          className={cx("relative h-[34px] px-3.5 rounded-full text-sm inline-flex items-center gap-1.5 whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-medium" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-ink/15")}
+          className={cx("relative h-[28px] px-3.5 rounded-[6px] text-[13.5px] inline-flex items-center gap-1.5 whitespace-nowrap transition-colors duration-200 disabled:opacity-50", value === v ? "text-ink font-medium" : "text-muted hover:text-ink", value === v && !thumb.ready && "bg-panel")}
         >
           {text}
         </button>

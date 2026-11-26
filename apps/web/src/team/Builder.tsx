@@ -193,7 +193,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
   };
 
   const banner = (error || (problems.lines.length > 0 && steps.length > 0)) && (
-    <p role="alert" aria-label="Problems" className="mx-auto w-fit max-w-full rounded-full bg-bad/12 px-3.5 py-1.5 text-center text-[13px] text-bad">
+    <p role="alert" aria-label="Problems" className="mx-auto w-fit max-w-full rounded-[8px] bg-bad/12 px-3.5 py-1.5 text-center text-[13px] text-bad">
       {error ?? problems.lines[0]}
       {!error && problems.lines.length > 1 && ` (and ${problems.lines.length - 1} more)`}
     </p>
@@ -297,7 +297,7 @@ export function TeamBuilder({ team, onChange, name, channelId, saving = false, e
         {steps.length === 0 && lead && !drawing && (
           <div className="flex flex-wrap justify-center gap-1.5" role="group" aria-label="Try">
             {TRIES.map((t) => (
-              <button key={t} type="button" onClick={() => setText(t)} className="h-8 rounded-full border border-line px-3 text-[13px] text-muted hover:bg-hover hover:text-ink">
+              <button key={t} type="button" onClick={() => setText(t)} className="h-8 rounded-[8px] border border-line px-3 text-[13px] text-muted hover:bg-hover hover:text-ink">
                 {t}
               </button>
             ))}
@@ -396,11 +396,11 @@ function EmptyState({ onAdd, onTemplates, onTemplate }: { onAdd: () => void; onT
         </button>
         <div className="flex flex-wrap justify-center gap-1.5">
           {TEAM_TEMPLATES.slice(0, 3).map((t) => (
-            <button key={t.id} type="button" onClick={() => onTemplate(t)} title={t.blurb} className="h-8 rounded-full border border-line bg-panel px-3 text-[13px] hover:bg-hover">
+            <button key={t.id} type="button" onClick={() => onTemplate(t)} title={t.blurb} className="h-8 rounded-[8px] border border-line bg-panel px-3 text-[13px] hover:bg-hover">
               {t.name}
             </button>
           ))}
-          <button type="button" onClick={onTemplates} className="h-8 rounded-full px-2.5 text-[13px] text-muted hover:text-ink">
+          <button type="button" onClick={onTemplates} className="h-8 rounded-[8px] px-2.5 text-[13px] text-muted hover:text-ink">
             Templates
           </button>
         </div>

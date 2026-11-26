@@ -187,7 +187,7 @@ export function StepForm({ team, stepId, onChange, onDelete, channelId }: { team
                 { key: "agent", label: "An agent decides", on: !step.rule },
                 { key: "rule", label: "A simple rule", on: !!step.rule },
               ].map((o) => (
-                <button key={o.key} type="button" role="radio" aria-checked={o.on} onClick={() => set({ rule: o.key === "agent" ? null : (step.rule ?? { op: "contains", value: "" }) })} className={cx("h-8 flex-1 rounded-full", o.on ? "bg-panel font-medium shadow-sm" : "text-muted")}>
+                <button key={o.key} type="button" role="radio" aria-checked={o.on} onClick={() => set({ rule: o.key === "agent" ? null : (step.rule ?? { op: "contains", value: "" }) })} className={cx("h-8 flex-1 rounded-[6px]", o.on ? "bg-panel font-medium shadow-sm" : "text-muted")}>
                   {o.label}
                 </button>
               ))}

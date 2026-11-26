@@ -28,7 +28,7 @@ export function OfflineBanner({ phone }: { phone: boolean }) {
     return (
       <>
         <div className="fixed inset-0 z-40 bg-black/35 pointer-events-none" aria-hidden />
-        <div role="status" className="m-toast-top glass fixed inset-x-[18px] top-[122px] z-50 h-12 rounded-full flex items-center gap-3 px-[18px] text-body font-medium safe-top">
+        <div role="status" className="m-toast-top glass fixed inset-x-[18px] top-[122px] z-50 h-12 rounded-[8px] flex items-center gap-3 px-[18px] text-body font-medium safe-top">
           <Loader2 size={18} strokeWidth={2.2} className="animate-spin text-muted" aria-hidden />
           Reconnecting…
         </div>
@@ -47,7 +47,7 @@ export function OfflineBanner({ phone }: { phone: boolean }) {
           reconnectNow();
           setTimeout(() => setTrying(false), 1500);
         }}
-        className="h-8 px-4 rounded-full bg-accent text-accent-ink text-[13px] font-medium inline-flex items-center gap-1.5"
+        className="h-8 px-4 rounded-[8px] bg-accent text-accent-ink text-[13px] font-medium inline-flex items-center gap-1.5"
       >
         <RefreshCw size={14} strokeWidth={2.2} className={trying ? "animate-spin" : undefined} aria-hidden />
         Retry
@@ -67,10 +67,10 @@ export function UpdatedBanner({ phone }: { phone: boolean }) {
       className={phone ? "m-toast-top glass fixed inset-x-[18px] top-[122px] z-50 rounded-xl pl-[18px] pr-3.5 py-3.5 flex items-center gap-3" : "m-toast glass fixed right-6 bottom-6 z-50 w-[380px] rounded-3xl pl-5 pr-4 py-4 flex items-center gap-2.5"}
     >
       <span className={phone ? "flex-1 text-base font-medium" : "flex-1 text-body font-medium"}>Bubble AI was updated</span>
-      <button className="h-11 px-3.5 rounded-full text-muted text-body font-medium hover:text-ink" onClick={() => setLater(true)}>
+      <button className="h-11 px-3.5 rounded-[8px] text-muted text-body font-medium hover:text-ink" onClick={() => setLater(true)}>
         Not now
       </button>
-      <button className="h-11 px-[18px] rounded-full bg-accent text-accent-ink text-body font-medium" onClick={() => location.reload()}>
+      <button className="h-11 px-[18px] rounded-[8px] bg-accent text-accent-ink text-body font-medium" onClick={() => location.reload()}>
         Reload
       </button>
     </div>

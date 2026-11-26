@@ -76,7 +76,7 @@ export function FlowStrip({ channelId, threadId }: { channelId: string; threadId
     const actions = chipActions(state, lane?.waitingFor);
     const agent = agents.find((a) => a.id === stepAgentId(team, s));
     const cls = cx(
-      "inline-flex h-[22px] max-w-[12rem] items-center gap-1 rounded-full px-2 text-[11px] font-medium",
+      "inline-flex h-[22px] max-w-[12rem] items-center gap-1 rounded-[6px] px-2 text-[11px] font-medium",
       state === "now" ? (agent ? "agent-tint agent-ink" : "bg-st-working/16 text-st-working") : state === "needs" ? "bg-st-needs/16 text-st-needs" : state === "failed" ? "bg-bad/12 text-bad" : state === "done" ? "bg-chip text-muted" : "bg-chip text-faint",
       state === "skipped" && "line-through opacity-60",
     );
@@ -182,7 +182,7 @@ export function WaitingStep({ flow, step: s, lane, busy, decide, inInbox = false
           <Menu
             align="right"
             trigger={(open, toggle) => (
-              <button type="button" onClick={toggle} disabled={busy} aria-expanded={open} aria-haspopup="menu" aria-label="More" className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink">
+              <button type="button" onClick={toggle} disabled={busy} aria-expanded={open} aria-haspopup="menu" aria-label="More" className="grid size-7 shrink-0 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink">
                 <MoreHorizontal size={15} />
               </button>
             )}
@@ -200,7 +200,7 @@ export function WaitingStep({ flow, step: s, lane, busy, decide, inInbox = false
             setNote("");
           }}
         >
-          <input autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="What should change?" aria-label="What should change" maxLength={4000} className="h-8 min-w-48 flex-1 rounded-full border border-input bg-transparent px-3 text-xs outline-none focus:border-ring" />
+          <input autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="What should change?" aria-label="What should change" maxLength={4000} className="h-8 min-w-48 flex-1 rounded-[8px] border border-input bg-transparent px-3 text-xs outline-none focus:border-ring" />
           <Button type="submit" variant="primary" disabled={busy} className="h-8 text-xs">
             Send back
           </Button>

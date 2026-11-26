@@ -133,7 +133,7 @@ export function CallCard({ agent, state, facts, lines, transcript, onMute, onRet
   // with the transcript off, what it is doing ("Reading main.ts") takes the status line
   const status = [state.muted ? "Muted" : offline ? `${agent.name} is asleep` : phase === "speaking" ? `${agent.name} is talking` : (!transcript && activity) || label, timer].filter(Boolean).join(" · ");
   return (
-    <section className="call-card absolute left-1/2 top-[58px] z-30 w-[min(400px,calc(100%-24px))] -translate-x-1/2 overflow-hidden rounded-[22px] border border-line2 bg-float shadow-float" aria-label={`Call with ${agent.name}`}>
+    <section className="call-card absolute left-1/2 top-[58px] z-30 w-[min(400px,calc(100%-24px))] -translate-x-1/2 overflow-hidden rounded-[16px] border border-line2 bg-float shadow-float" aria-label={`Call with ${agent.name}`}>
       <div className={cx("flex h-[72px] items-center gap-2.5 pl-3 pr-3.5", quiet && "call-muted")}>
         <Ghost look={look} size={44} mood={offline ? "asleep" : phase === "working" || phase === "thinking" || phase === "speaking" ? "working" : "awake"} label="" seed={agent.handle} />
         <span className="flex min-w-0 flex-1 flex-col">
@@ -150,8 +150,8 @@ export function CallCard({ agent, state, facts, lines, transcript, onMute, onRet
         <div className="flex flex-col gap-2.5 border-t border-line px-3.5 py-3 text-[13px] leading-5 text-muted" role="alert">
           {micTrouble ? <p>{micCardText(agent.name, state.error)}</p> : failed ? <p>{state.error || "Couldn't connect just yet."}</p> : <p>On hold. The reply will be in chat.</p>}
           <span className="flex gap-2">
-            <button type="button" onClick={onRetry} className="h-8 rounded-full bg-ink px-3.5 text-[13px] font-semibold text-panel">{paused ? "Resume" : "Try again"}</button>
-            {failed && <a href="#/settings/voice" onClick={onEnd} className="inline-flex h-8 items-center gap-1 rounded-full border border-line2 px-3.5 text-[13px] text-ink">Voice settings<ChevronRight size={14} aria-hidden /></a>}
+            <button type="button" onClick={onRetry} className="h-8 rounded-[8px] bg-ink px-3.5 text-[13px] font-semibold text-panel">{paused ? "Resume" : "Try again"}</button>
+            {failed && <a href="#/settings/voice" onClick={onEnd} className="inline-flex h-8 items-center gap-1 rounded-[8px] border border-line2 px-3.5 text-[13px] text-ink">Voice settings<ChevronRight size={14} aria-hidden /></a>}
           </span>
         </div>
       )}

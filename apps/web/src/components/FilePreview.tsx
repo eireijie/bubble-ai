@@ -91,7 +91,7 @@ export function FilePreview({ id, name, onClose }: { id: string; name: string; o
         )}
       </div>
       <div className="mt-4 flex justify-end">
-        <button onClick={() => void save()} disabled={saving || failed} className="h-10 px-4 rounded-full border border-control-line bg-control font-medium hover:bg-hover inline-flex items-center gap-2 disabled:opacity-50">
+        <button onClick={() => void save()} disabled={saving || failed} className="h-10 px-4 rounded-[8px] border border-control-line bg-control font-medium hover:bg-hover inline-flex items-center gap-2 disabled:opacity-50">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Download
         </button>
       </div>

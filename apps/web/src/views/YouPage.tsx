@@ -98,7 +98,7 @@ export function YouPage() {
     );
   };
   const card = (children: ReactNode, label?: string) => (
-    <nav aria-label={label} className="rounded-[14px] bg-card overflow-hidden">
+    <nav aria-label={label} className="rounded-[12px] bg-card overflow-hidden">
       {children}
     </nav>
   );
@@ -110,7 +110,7 @@ export function YouPage() {
           <button className="circle shrink-0" onClick={() => go({ view: "chats" })} aria-label="Back">
             <ChevronLeft size={22} aria-hidden />
           </button>
-          <a href={href({ view: "settings", page: "profile" })} aria-label={`${me.user.name}, your profile`} className="flex min-w-0 flex-1 items-center gap-3 rounded-[14px] py-1 pr-2">
+          <a href={href({ view: "settings", page: "profile" })} aria-label={`${me.user.name}, your profile`} className="flex min-w-0 flex-1 items-center gap-3 rounded-[12px] py-1 pr-2">
             <span className="circle shrink-0 font-semibold" style={{ width: 48, height: 48, fontSize: 15 }} aria-hidden>
               {initialsOf(me.user.name)}
             </span>
@@ -148,7 +148,7 @@ export function YouPage() {
           </>,
           "Settings",
         )}
-        <SignOutButton icon={false} className="w-full min-h-[52px] rounded-[14px] bg-card text-bad text-body font-medium" />
+        <SignOutButton icon={false} className="w-full min-h-[52px] rounded-[12px] bg-card text-bad text-body font-medium" />
       </div>
       {orgs && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/50" onMouseDown={(e) => e.target === e.currentTarget && setOrgs(false)}>

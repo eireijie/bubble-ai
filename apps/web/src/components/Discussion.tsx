@@ -44,7 +44,7 @@ export function DiscussionCard({ id }: { id: string }) {
             const agent = agents.find((x) => x.id === a);
             const s = state(a);
             return (
-              <span key={a} className="inline-flex items-center gap-1 rounded-full bg-chip pl-0.5 pr-2 h-6 text-xs" title={s === "running" ? "answering" : s === "queued" ? "waiting for its device" : s ?? ""}>
+              <span key={a} className="inline-flex items-center gap-1 rounded-[6px] bg-chip pl-0.5 pr-2 h-6 text-xs" title={s === "running" ? "answering" : s === "queued" ? "waiting for its device" : s ?? ""}>
                 <AgentAvatar agent={agent} size={20} badge={false} />
                 {agent?.name}
                 {s === "done" ? <Check size={12} className="text-ok" /> : s === "running" ? <Loader2 size={12} className="animate-spin text-info" /> : s === "queued" ? <Clock size={12} className="text-warn" /> : s ? <X size={12} className="text-muted" /> : null}
@@ -60,7 +60,7 @@ export function DiscussionCard({ id }: { id: string }) {
                 await load(d.id);
                 setStopping(false);
               }}
-              className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 h-7 text-xs text-muted hover:text-bad hover:bg-hover"
+              className="ml-auto inline-flex items-center gap-1 rounded-[8px] px-2.5 h-7 text-xs text-muted hover:text-bad hover:bg-hover"
             >
               <Square size={11} /> Stop
             </button>
@@ -68,7 +68,7 @@ export function DiscussionCard({ id }: { id: string }) {
         </div>
       )}
       {d.decisionPath && (
-        <button onClick={() => go({ view: "vault", path: d.decisionPath })} className="mt-2.5 h-10 rounded-full border border-control-line bg-control px-4 text-sm font-medium inline-flex items-center gap-1.5">
+        <button onClick={() => go({ view: "vault", path: d.decisionPath })} className="mt-2.5 h-10 rounded-[8px] border border-control-line bg-control px-4 text-sm font-medium inline-flex items-center gap-1.5">
           Read the decision <BookOpen size={14} />
         </button>
       )}

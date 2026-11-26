@@ -54,7 +54,7 @@ export function Switcher({ agent, label, items, open }: { agent?: Agent; label: 
             aria-haspopup="menu"
             aria-expanded={isOpen}
             aria-label={`${label}. Switch`}
-            className={cx("inline-flex h-10 min-w-0 max-w-[60vw] items-center gap-[9px] rounded-full pl-2 pr-4 text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring", isOpen ? "bg-side-active" : "hover:bg-hover")}
+            className={cx("inline-flex h-10 min-w-0 max-w-[60vw] items-center gap-[9px] rounded-[8px] pl-2 pr-4 text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring", isOpen ? "bg-side-active" : "hover:bg-hover")}
           >
             {agent ? <AgentAvatar agent={agent} size={26} live interactive={false} /> : <SquareTerminal size={18} strokeWidth={1.8} className="mx-1 shrink-0 text-muted" />}
             <span className="truncate font-semibold">{label}</span>
@@ -94,4 +94,4 @@ export function BarMenu({ icon, label, title, items, open }: { icon: ReactNode; 
 }
 
 /** The dark block the terminals sit in, on a page that otherwise follows the theme. */
-export const TERMINAL_BLOCK = "mx-2 md:mx-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] bg-[#0c0c0e] text-[#f2f2f4]";
+export const TERMINAL_BLOCK = "mx-2 md:mx-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] bg-[#0c0c0e] text-[#f2f2f4]";

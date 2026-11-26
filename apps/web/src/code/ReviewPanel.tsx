@@ -101,7 +101,7 @@ export function ReviewPanel({ task, tab, setTab, version, initial, act }: { task
   ];
 
   return (
-    <section aria-label="Review" className="flex h-[560px] max-h-[72vh] w-full flex-col overflow-hidden rounded-[14px] bg-[#0f0f11] text-[#f2f2f4]">
+    <section aria-label="Review" className="flex h-[560px] max-h-[72vh] w-full flex-col overflow-hidden rounded-[12px] bg-[#0f0f11] text-[#f2f2f4]">
       <div role="tablist" className="flex h-12 shrink-0 items-end gap-[18px] border-b border-white/[.06] px-4">
         {tabs.map((t) => (
           <button

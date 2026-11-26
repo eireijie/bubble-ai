@@ -406,7 +406,7 @@ export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScree
 /** "Working" with a breathing dot, like a teammate's status. */
 export function WorkingBadge({ text = "Working" }: { text?: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-st-working/16 text-st-working px-2 h-6 text-xs font-medium">
+    <span className="inline-flex items-center gap-1.5 rounded-[6px] bg-st-working/16 text-st-working px-2 h-6 text-xs font-medium">
       <span className="m-wait size-1.5 rounded-full bg-st-working" aria-hidden /> {text}
     </span>
   );

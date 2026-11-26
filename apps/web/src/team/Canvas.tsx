@@ -333,7 +333,7 @@ export function StepCanvas({
         {edges
           .filter((l) => l.label)
           .map((l) => (
-            <span key={`${l.key}:label`} className={cx("pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border px-3 py-1 text-[12px]", l.tone === "back" ? "border-line bg-card text-muted" : "border-line bg-panel text-muted")} style={{ left: l.mid.x, top: l.mid.y + (l.tone === "go" ? -16 : 0) }}>
+            <span key={`${l.key}:label`} className={cx("pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-[8px] border px-3 py-1 text-[12px]", l.tone === "back" ? "border-line bg-card text-muted" : "border-line bg-panel text-muted")} style={{ left: l.mid.x, top: l.mid.y + (l.tone === "go" ? -16 : 0) }}>
               {l.label}
             </span>
           ))}
@@ -391,7 +391,7 @@ export function StepCanvas({
       )}
 
       {menu && (
-        <div data-ui data-scroll role="menu" aria-label={menu.title} className="absolute z-20 w-[230px] overflow-y-auto rounded-[14px] border border-line bg-card p-1.5 shadow-panel" style={{ left: Math.max(8, Math.min(size.w - 238, menu.pos.x + 12)), top: Math.max(8, Math.min(size.h - (menuKinds.length * 36 + 12) - 8, menu.pos.y - 24)), maxHeight: size.h - 16 }}>
+        <div data-ui data-scroll role="menu" aria-label={menu.title} className="absolute z-20 w-[230px] overflow-y-auto rounded-[12px] border border-line bg-card p-1.5 shadow-panel" style={{ left: Math.max(8, Math.min(size.w - 238, menu.pos.x + 12)), top: Math.max(8, Math.min(size.h - (menuKinds.length * 36 + 12) - 8, menu.pos.y - 24)), maxHeight: size.h - 16 }}>
           {ADD_KINDS.filter((k) => menuKinds.includes(k.kind)).map((k) => (
             <button
               key={k.kind}
@@ -436,7 +436,7 @@ function Box({ step, team, at, selected, problem, dragging, working, agents, onK
       aria-label={`${step.kind === "schedule" ? `Schedule, ${whenText(step)}` : `Step ${n}, ${titleOf(step)}`}${working ? ", working now" : ""}${problem ? `. ${problem}` : ""}`}
       title={problem ?? (step.kind === "schedule" ? (nextText(step) ?? undefined) : undefined)}
       onKeyDown={(e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onKey())}
-      className={cx("absolute cursor-grab rounded-[14px] border bg-card p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring", dragging && "cursor-grabbing shadow-panel", problem ? "border-bad/50" : "border-line", selected && "ring-2 ring-ink/20", working && "border-[1.5px]")}
+      className={cx("absolute cursor-grab rounded-[12px] border bg-card p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring", dragging && "cursor-grabbing shadow-panel", problem ? "border-bad/50" : "border-line", selected && "ring-2 ring-ink/20", working && "border-[1.5px]")}
       style={{ left: at.x, top: at.y, width: BOX_W, height: BOX_H, ...(working ? { borderColor: agent ? agentColor(agent) : "var(--st-working)" } : {}) }}
     >
       <div className="flex items-center gap-2">

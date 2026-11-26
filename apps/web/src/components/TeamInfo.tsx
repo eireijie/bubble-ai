@@ -30,7 +30,7 @@ const SHEET_OF_TAB: Record<InfoTab, TeamSheet> = { about: "details", agents: "wh
 /** A sheet opened from More goes back to More. */
 const parentOf = (s: TeamSheet): TeamSheet => (s === "rules" || s === "pins" ? "more" : "details");
 
-const CARD = "overflow-hidden rounded-[14px] bg-card divide-y divide-line";
+const CARD = "overflow-hidden rounded-[12px] bg-card divide-y divide-line";
 const ROW = "flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover disabled:hover:bg-transparent";
 const NO_TEAM: ChannelTeam = { nodes: [], edges: [] };
 
@@ -298,7 +298,7 @@ function HowSheet({ channel, canEdit, agentCount }: { channel: ChannelInfo; canE
   return (
     <div className="space-y-3">
       {stepped ? (
-        <div className="rounded-[14px] bg-card p-3.5">
+        <div className="rounded-[12px] bg-card p-3.5">
           <HowLines lines={lines} />
         </div>
       ) : (
@@ -366,7 +366,7 @@ function ScheduleSheet({ channel, canEdit }: { channel: ChannelInfo; canEdit: bo
                 <span className="block truncate text-[12px] text-muted">{note?.id === s.id ? note.text : nextText(s)}</span>
               </button>
               {canEdit && (
-                <button type="button" disabled={running === s.id} onClick={() => void runNow(s.id)} aria-label={`Run now: ${whenText(s)}`} title="Run now" className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-hover hover:text-ink disabled:opacity-40">
+                <button type="button" disabled={running === s.id} onClick={() => void runNow(s.id)} aria-label={`Run now: ${whenText(s)}`} title="Run now" className="grid size-8 shrink-0 place-items-center rounded-[8px] text-muted hover:bg-hover hover:text-ink disabled:opacity-40">
                   <Play size={14} />
                 </button>
               )}
@@ -482,7 +482,7 @@ function RulesSheet({ channel, canEdit }: { channel: ChannelInfo; canEdit: boole
         maxLength={4000}
         aria-label="Team rules"
         placeholder="Keep answers short. Link the doc in shared/launch.md."
-        className="block w-full resize-none rounded-[14px] bg-card p-3.5 text-[14px] leading-[22px] outline-none placeholder:text-faint focus:ring-1 focus:ring-ring disabled:opacity-60"
+        className="block w-full resize-none rounded-[12px] bg-card p-3.5 text-[14px] leading-[22px] outline-none placeholder:text-faint focus:ring-1 focus:ring-ring disabled:opacity-60"
       />
       {error && <p className="px-1 text-xs text-bad">{error}</p>}
     </div>
@@ -608,7 +608,7 @@ function ContextAccessDialog({ channel, members, onClose }: { channel: ChannelIn
   const color = pct === null ? "var(--faint)" : pct > 85 ? "var(--bad)" : pct > 60 ? "var(--warn)" : "var(--ok)";
   return (
     <Modal title="Context and access" onClose={onClose}>
-      <div className="rounded-[14px] bg-card p-4">
+      <div className="rounded-[12px] bg-card p-4">
         <div className="flex items-baseline justify-between">
           <span className="text-body font-medium">Context window</span>
           <span className="text-body font-medium tabular-nums" style={{ color }}>
@@ -651,7 +651,7 @@ function Confirm({ title, body, action, danger, typed, onClose, onConfirm }: { t
   return (
     <Modal title={title} onClose={onClose}>
       <p className="text-sm text-muted">{body}</p>
-      {typed && <input value={text} onChange={(e) => setText(e.target.value)} placeholder={typed} aria-label={`Type ${typed} to confirm`} autoComplete="off" className="mt-3 h-11 w-full rounded-[14px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />}
+      {typed && <input value={text} onChange={(e) => setText(e.target.value)} placeholder={typed} aria-label={`Type ${typed} to confirm`} autoComplete="off" className="mt-3 h-11 w-full rounded-[12px] border border-line bg-card px-3.5 text-body outline-none placeholder:text-faint focus:border-ring" />}
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-4 flex justify-end gap-2">
         <Button type="button" onClick={onClose}>
@@ -670,7 +670,7 @@ function Confirm({ title, body, action, danger, typed, onClose, onConfirm }: { t
               setBusy(false);
             }
           }}
-          className={cx("h-9 rounded-full px-4 text-sm font-semibold disabled:opacity-50", danger ? "bg-bad text-white" : "bg-accent text-accent-ink")}
+          className={cx("h-9 rounded-[8px] px-4 text-sm font-semibold disabled:opacity-50", danger ? "bg-bad text-white" : "bg-accent text-accent-ink")}
         >
           {action}
         </button>

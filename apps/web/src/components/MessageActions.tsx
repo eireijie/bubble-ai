@@ -194,7 +194,7 @@ export function MessageMenu({ actions, reacted, onReact, at, source, preview, mi
           {preview}
         </div>
       )}
-      <div role="menu" aria-label="Message actions" className={cx("m-glass rounded-[14px] p-1", lift ? "w-[236px]" : "", lift && mine && "self-end")}>
+      <div role="menu" aria-label="Message actions" className={cx("m-glass rounded-[12px] p-1", lift ? "w-[236px]" : "", lift && mine && "self-end")}>
         {actions.map((a, k) => (
           <div key={a.id}>
             {a.danger && k > 0 && <div className="mx-2 my-1 h-px bg-line" role="separator" />}
@@ -252,7 +252,7 @@ export function ReactionBadges({ reactions, meId, mine, onToggle }: { reactions:
             onClick={() => onToggle(r.emoji)}
             aria-label={`${r.emoji} ${r.actors.length}${yours ? ", including you" : ""}`}
             aria-pressed={yours}
-            className={cx("m-react h-[26px] min-w-[26px] px-1.5 rounded-full border-2 border-panel inline-flex items-center justify-center gap-0.5 text-[13px] leading-none", yours ? "bg-accent-soft" : "bg-control")}
+            className={cx("m-react h-[26px] min-w-[26px] px-1.5 rounded-[6px] border-2 border-panel inline-flex items-center justify-center gap-0.5 text-[13px] leading-none", yours ? "bg-accent-soft" : "bg-control")}
           >
             {r.emoji}
             {r.actors.length > 1 && <span className="text-[11px] text-muted">{r.actors.length}</span>}
@@ -380,7 +380,7 @@ export function DeleteMessageDialog({ m, onClose }: { m: Message; onClose: () =>
       {m.body && <p className="line-clamp-2 rounded-2xl bg-card px-3.5 py-2.5 text-sm">{m.body}</p>}
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button onClick={onClose} className="h-11 rounded-full border border-control-line bg-control px-5 text-body font-medium">
+        <button onClick={onClose} className="h-11 rounded-[8px] border border-control-line bg-control px-5 text-body font-medium">
           Cancel
         </button>
         <button
@@ -395,7 +395,7 @@ export function DeleteMessageDialog({ m, onClose }: { m: Message; onClose: () =>
               setBusy(false);
             }
           }}
-          className="h-11 rounded-full bg-bad px-5 text-body font-medium text-white disabled:opacity-50"
+          className="h-11 rounded-[8px] bg-bad px-5 text-body font-medium text-white disabled:opacity-50"
         >
           Delete message
         </button>
@@ -442,10 +442,10 @@ export function EditMessageDialog({ m, onClose }: { m: Message; onClose: () => v
       />
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}
       <div className="mt-3 flex items-center gap-2">
-        <button onClick={onClose} disabled={busy} className="ml-auto h-11 rounded-full border border-control-line bg-control px-5 text-body font-medium">
+        <button onClick={onClose} disabled={busy} className="ml-auto h-11 rounded-[8px] border border-control-line bg-control px-5 text-body font-medium">
           Cancel
         </button>
-        <button onClick={() => void save()} disabled={busy || !canSave} className="h-11 rounded-full bg-accent px-5 text-body font-medium text-accent-ink disabled:opacity-50">
+        <button onClick={() => void save()} disabled={busy || !canSave} className="h-11 rounded-[8px] bg-accent px-5 text-body font-medium text-accent-ink disabled:opacity-50">
           Save
         </button>
       </div>

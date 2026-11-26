@@ -69,7 +69,7 @@ describe("docked sidebar", () => {
     expect(html).toContain(">Sam<");
     expect(html).toMatch(/aria-label="Computers, \d+ on"/);
     expect(html).toContain('href="#/vault"');
-    for (const control of ["Search", "New agent or team", "You and settings"]) expect(html).toContain(`aria-label="${control}"`);
+    for (const control of ["Search", "New agent or team", "Account, settings and help"]) expect(html).toContain(`aria-label="${control}"`);
     // the All / Your turn filter
     expect(html).toContain(">All<");
     expect(html).toContain(">Your turn<");
@@ -104,7 +104,7 @@ describe("docked sidebar", () => {
     const html = render({ width: 360, collapsed: true });
     expect(html).toContain("width:82px");
     expect(html).not.toContain(">Iris<");
-    for (const place of ["Search", "Iris", "New agent or team", "Computers", "Memory vault", "You and settings"]) expect(html).toContain(`aria-label="${place}`);
+    for (const place of ["Search", "Iris", "New agent or team", "Computers", "Memory vault", "Account, settings and help"]) expect(html).toContain(`aria-label="${place}`);
   });
 
   it("starts at 325 with nothing saved", () => expect(render(null)).toContain("width:325px"));
