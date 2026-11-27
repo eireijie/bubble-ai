@@ -404,7 +404,7 @@ function ScreenBox({ agent, computer: c, live, onOpen }: { agent: Agent; compute
     <div className="group relative aspect-[16/10] overflow-hidden rounded-[14px] border border-line bg-[#2b2d33]">
       {live ? (
         <>
-          <LiveScreen computer={c} control={false} compact />
+          <LiveScreen computer={c} control={false} compact agentId={c.screens ? agent.id : undefined} />
           <button type="button" onClick={onOpen} className="absolute inset-0" aria-label={`Open ${agent.name}'s screen full screen`} />
           <span className="pointer-events-none absolute left-2.5 top-2 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2 py-0.5 text-[12px] text-white">
             <span className="size-1.5 rounded-full bg-[var(--status-online)]" aria-hidden /> Live

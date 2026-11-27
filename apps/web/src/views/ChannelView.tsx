@@ -280,7 +280,7 @@ function TeamHead({ channel, open, onClick }: { channel: ChannelInfo; open: bool
 }
 
 /**
- * The chat's glass ⋯ (round 4): for a DM, About, Asks first, its screen, Search in chat and Mute;
+ * The chat's glass ⋯ (round 4): for a DM, About, Permissions, its screen, Search in chat and Mute;
  * for a team, Team info, Search in chat and Mute. Backgrounds are in Settings and the profile. Each says the page it opens.
  * Calls are in the composer, help in the account menu, how the agent thinks in its profile.
  */
@@ -301,7 +301,7 @@ function ChatMore({ agent, channel, onOpen, onInfo }: { agent?: Agent; channel: 
           ...(agent
             ? [
                 { label: `About ${agent.name}`, icon: <Info {...icon} />, onSelect: () => onOpen("details") },
-                { label: "Asks first", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
+                { label: "Permissions", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
                 ...(agent.computerId ? [{ label: `${agent.name}'s screen`, icon: <Monitor {...icon} />, onSelect: () => onOpen("computer") }] : []),
               ]
             : [{ label: "Team info", icon: <Info {...icon} />, onSelect: onInfo }]),
@@ -317,7 +317,7 @@ function ChatMore({ agent, channel, onOpen, onInfo }: { agent?: Agent; channel: 
 /** Past this share of its context window a conversation is nearly full (where the context ring used to turn red). */
 const NEARLY_FULL = 85;
 
-/** The context ring, in a DM's header only once the conversation is nearly full. It opens Thinks with, where Compact and Start fresh are. */
+/** The context ring, in a DM's header only once the conversation is nearly full. It opens the Model settings, where Compact and Start fresh are. */
 function DmContext({ agentId, channelId, onOpen }: { agentId: string; channelId: string; onOpen: () => void }) {
   const { ctx } = useAgentContext(agentId, channelId);
   const pct = ctx && ctx.contextUsed !== null && ctx.contextWindow ? Math.min(100, (ctx.contextUsed / ctx.contextWindow) * 100) : null;
@@ -1177,7 +1177,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
   return (
     <>
       {parts.map((p) => p.type === "discussion" && <DiscussionCard key={p.discussionId} id={p.discussionId} />)}
-      {parts.map((p, i) => p.type === "computer" && <ComputerPart key={`c${i}`} computerId={p.computerId} request={p.request} agentName={agentName} />)}
+      {parts.map((p, i) => p.type === "computer" && <ComputerPart key={`c${i}`} computerId={p.computerId} request={p.request} agentName={agentName} agentId={agentId} />)}
       {parts.map((p) => p.type === "approval" && <ApprovalCard key={p.approvalId} id={p.approvalId} />)}
       {parts.map((p) => p.type === "routine" && <RoutineChip key={p.routineId} id={p.routineId} />)}
       {parts.map((p) => p.type === "task" && <TaskChip key={p.taskId} id={p.taskId} body={body} />)}
@@ -1363,7 +1363,7 @@ function StreamingItem({ run }: { run: LiveRun }) {
       <div className="min-w-0 flex flex-col items-start gap-[3px] max-w-[84%] md:max-w-[680px]">
         {!home && <div className="px-3.5 pb-0.5 text-[12px] text-muted">{agent?.name ?? "Agent"}</div>}
         {html && <div className="bubble them text-[15px] md:text-[16px]"><div className="prose-w" dangerouslySetInnerHTML={{ __html: html }} /></div>}
-        {screen && <ComputerPart computerId={computerId} />}
+        {screen && <ComputerPart computerId={computerId} agentId={run.agentId} />}
       </div>
     </div>
   );

@@ -273,9 +273,28 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           style={{ height: rowH }}
         >
           <BlueDot on={!!line?.needs || unread} />
-          <span className="relative grid shrink-0 place-items-center" style={{ width: avatar, height: avatar }}>
-            <ChatAvatar chat={c} size={avatar} />
-          </span>
+          {c.agent ? (
+            // the agent's avatar opens its profile; the rest of the row opens the chat
+            <span
+              role="button"
+              tabIndex={-1}
+              aria-label={`${c.agent.name}'s profile`}
+              title={`${c.agent.name}'s profile`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                go({ view: "agents", agentId: c.agent!.id, tab: "overview" });
+              }}
+              className="relative grid shrink-0 cursor-pointer place-items-center"
+              style={{ width: avatar, height: avatar }}
+            >
+              <ChatAvatar chat={c} size={avatar} />
+            </span>
+          ) : (
+            <span className="relative grid shrink-0 place-items-center" style={{ width: avatar, height: avatar }}>
+              <ChatAvatar chat={c} size={avatar} />
+            </span>
+          )}
           <span className={cx("ml-1 flex h-full min-w-0 flex-1 flex-col justify-center gap-px", c.muted && "opacity-60")}>
             <span className="flex items-baseline gap-2">
               {renaming === c.key ? (

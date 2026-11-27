@@ -1120,10 +1120,10 @@ function PlacePicker({ value, onChange, node, nodes, usable, nodeId, onNode, aut
       <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Computer">
         {auto !== null &&
           (auto.endsWith(" directly")
-            ? tile({ kind: "auto" }, <Laptop size={15} />, "This device", `Works on ${auto}`)
+            ? tile({ kind: "auto" }, <Laptop size={15} />, "This device", `Uses ${auto}`)
             : tile({ kind: "auto" }, <Users size={15} />, auto === "The shared computer" ? "Shared computer" : "Automatic", auto === "The shared computer" ? "With your other agents" : auto === "Automatic" ? "Your defaults" : auto))}
         {node && tile({ kind: "vm" }, <Monitor size={15} />, "Its own computer", node.capabilities?.vm.ok ? `A desktop on ${node.name}` : (node.capabilities?.vm.detail ?? "Connect the device to check"), !node.capabilities?.vm.ok)}
-        {node?.mine && !screenExists && tile({ kind: "screen" }, <Laptop size={15} />, "My screen", node.capabilities?.screen.ok ? `Works on ${node.name}` : (node.capabilities?.screen.detail ?? "Off"), node.capabilities?.screen.ok !== true)}
+        {node?.mine && !screenExists && tile({ kind: "screen" }, <Laptop size={15} />, "My screen", node.capabilities?.screen.ok ? `Uses ${node.name}` : (node.capabilities?.screen.detail ?? "Off"), node.capabilities?.screen.ok !== true)}
         {advanced &&
           computers.map((c) => tile({ kind: "existing", id: c.id }, c.kind === "orgo" ? <Cloud size={15} /> : c.kind === "vm" ? <Monitor size={15} /> : <Laptop size={15} />, c.name, computerKindLabel(c, nodes)))}
         {tile({ kind: "headless" }, <MessageSquare size={15} />, "No computer", "Chat and files only")}

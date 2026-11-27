@@ -130,7 +130,7 @@ export function ComputerFullscreen({ agent, computer: c, onClose }: { agent: Age
         </button>
       </div>
       <div className="flex-1 min-h-0">
-        <LiveScreen computer={c} control={mine} onTakeControl={canControl && !someoneElse ? () => void control(true) : undefined} onActivity={activity} />
+        <LiveScreen computer={c} control={mine} onTakeControl={canControl && !someoneElse ? () => void control(true) : undefined} onActivity={activity} agentId={c.screens ? agent.id : undefined} />
       </div>
       <div className="shrink-0 mt-3 text-center text-sm text-white/70 min-h-5">
         {c.help ? (
