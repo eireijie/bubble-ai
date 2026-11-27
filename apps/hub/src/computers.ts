@@ -100,7 +100,7 @@ interface Ticket {
  */
 export class Computers {
   private pending = new Map<string, PendingRequest>();
-  private control = new Map<string, ComputerController & { touched: number }>();
+  private control = new Map<string, ComputerController & { touched: number; /** the agent whose own screen the person took (shared computer) */ screen?: string }>();
   private frames = new Map<string, Frame>();
   private shooting = new Map<string, Promise<Frame>>();
   private viewers = new Map<string, Set<{ socket: WebSocket; userId: string }>>();
@@ -420,7 +420,8 @@ export class Computers {
     if (c.kind === "device") this.checkScreenUse(c, by, opts.requester !== undefined ? opts.requester : by.kind === "agent" ? (this.hub.currentRun(by.id)?.requestedBy ?? null) : null, action, !!opts.borrowed);
     if (by.kind === "user" && by.id !== "system" && (input || transfer) && !this.canUse(c, by.id)) throw new ComputerError(this.notYours(c), 403);
     if (this.hub.isNodePaused(c.nodeId)) throw new ComputerError(`${c.name} is paused at its device. Someone there has to run \`bubble-ai node resume\` first.`, 423);
-    if (by.kind === "agent" && ctl && input) {
+    // with a screen each, a person in control only holds up the agent whose screen they took
+    if (by.kind === "agent" && ctl && input && (!this.ownScreens(c) || ctl.screen === by.id)) {
       // a person who's stopped using it doesn't keep the agent waiting: it takes the computer back
       if (Date.now() - ctl.touched >= AGENT_RECLAIM_MS) {
         this.control.delete(c.id);
@@ -650,7 +651,7 @@ export class Computers {
     return this.control.get(computerId) ?? null;
   }
 
-  take(c: Computer, userId: string) {
+  take(c: Computer, userId: string, screen?: string) {
     if (!this.canSee(c, userId)) throw new ComputerError("only its owner can use this screen", 403);
     if (!this.canUse(c, userId)) throw new ComputerError(this.notYours(c), 403);
     const cur = this.control.get(c.id);
@@ -660,9 +661,10 @@ export class Computers {
     // taking it again while you have it just says you're still using it (the browser does this as you work)
     if (cur?.id === userId) {
       cur.touched = Date.now();
+      cur.screen = screen;
       return;
     }
-    this.control.set(c.id, { kind: "user", id: userId, since: now(), touched: Date.now() });
+    this.control.set(c.id, { kind: "user", id: userId, since: now(), touched: Date.now(), ...(screen ? { screen } : {}) });
     this.log(c, { kind: "user", id: userId }, "Took control");
     this.changed(c.id);
   }

@@ -272,6 +272,18 @@ export class ComputerHost {
     return { supported, agents: supported ? vm.screenAgents() : [] };
   }
 
+  /**
+   * Tell the hub again which agents have their own screen on each shared computer that's running
+   * here (it forgets on a restart or when this device reconnects, and would make agents take turns).
+   */
+  async resendAgentScreens(): Promise<void> {
+    for (const [id, d] of this.drivers) {
+      if (!(d instanceof DockerVm) || !d.shared || !(await d.isRunning().catch(() => false))) continue;
+      const supported = await d.agentScreens().catch(() => false);
+      this.opts.onAgentScreens?.(id, supported, supported ? d.screenAgents() : []);
+    }
+  }
+
   stopAll() {
     if (this.screenSweep) clearInterval(this.screenSweep);
     this.screenSweep = null;

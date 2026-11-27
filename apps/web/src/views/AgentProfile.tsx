@@ -12,7 +12,7 @@ import { lazyView } from "../lazy.tsx";
 import { openDm } from "../openDm.ts";
 import { agentReadiness, isSharedComputer, useDevices, whoCanAsk } from "../devices.ts";
 import { setChannelPrefs } from "../components/Channels.tsx";
-import { LiveScreen, WorkingBadge } from "../components/Screen.tsx";
+import { LiveScreen, ScreenThumb, WorkingBadge } from "../components/Screen.tsx";
 import { ComputerFullscreen } from "../components/AgentPanel.tsx";
 import { Ghost } from "../components/Ghost.tsx";
 import { FilePreview } from "../components/FilePreview.tsx";
@@ -354,7 +354,7 @@ export function ScreenTab({ agent }: { agent: Agent }) {
     setError(null);
     setBusy(true);
     try {
-      await api("POST", `/api/computers/${c.id}/control`, { take: true });
+      await api("POST", `/api/computers/${c.id}/control`, { take: true, ...(c.screens ? { agent: agent.id } : {}) });
       setFull(true);
     } catch (e) {
       setError((e as Error).message);
@@ -404,7 +404,12 @@ function ScreenBox({ agent, computer: c, live, onOpen }: { agent: Agent; compute
     <div className="group relative aspect-[16/10] overflow-hidden rounded-[14px] border border-line bg-[#2b2d33]">
       {live ? (
         <>
-          <LiveScreen computer={c} control={false} compact agentId={c.screens ? agent.id : undefined} />
+          {c.screens && !c.screens.includes(agent.id) ? (
+            // its own screen isn't up: a still, not a live view that would start it
+            <ScreenThumb computer={c} agentId={agent.id} quiet className="h-full w-full rounded-none" />
+          ) : (
+            <LiveScreen computer={c} control={false} compact agentId={c.screens ? agent.id : undefined} />
+          )}
           <button type="button" onClick={onOpen} className="absolute inset-0" aria-label={`Open ${agent.name}'s screen full screen`} />
           <span className="pointer-events-none absolute left-2.5 top-2 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2 py-0.5 text-[12px] text-white">
             <span className="size-1.5 rounded-full bg-[var(--status-online)]" aria-hidden /> Live

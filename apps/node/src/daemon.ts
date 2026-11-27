@@ -538,6 +538,8 @@ export class NodeDaemon {
       this.send({ type: "hello", nodeName: this.cfg.name, agents: agents.map((a) => a.id), version: await version() });
       this.flushOutbox();
       await this.sendCapabilities();
+      // the hub may have restarted: say again which agents have their own screen on the shared computer
+      void this.computers.resendAgentScreens?.().catch(() => {});
       // a VM lives here: have its image ready before it's needed. None yet: nothing is fetched or
       // built until one is made and used (an older hub doesn't say, so prepare as before)
       if (!this.local.paused && !this.cfg.noPrepare && msg.vms !== 0) void this.computers.prepareImage(() => void this.sendCapabilities());

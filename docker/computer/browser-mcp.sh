@@ -5,7 +5,9 @@
 export DISPLAY=:1
 PORT=9222
 if [ -n "$WISP_AGENT" ] && command -v wisp-screen >/dev/null 2>&1; then
-  eval "$(wisp-screen up "$WISP_AGENT")"
+  info="$(wisp-screen up "$WISP_AGENT")" || { echo "couldn't start the agent's screen: $info" >&2; exit 1; }
+  eval "$info"
+  [ -n "$CDP_PORT" ] || { echo "the agent's screen didn't say its browser port" >&2; exit 1; }
   export DISPLAY WISP_AGENT WISP_CDP_PORT="$CDP_PORT"
   PORT="$CDP_PORT"
 fi

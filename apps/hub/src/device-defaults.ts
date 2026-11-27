@@ -26,10 +26,16 @@ function screenOn(hub: Hub, nodeId: string): boolean {
   return !!screen?.ok && !screen.off;
 }
 
-/** Whose agent this is for the default: the person who made it, else (made before that was kept) the owner. */
+/**
+ * Whose agent this is for the default: the person who made it. One made before that was kept (or by
+ * another agent) counts as the owner's only where the owner is the only person, so nobody else's
+ * agent gets the owner's device by default.
+ */
 function madeBy(hub: Hub, agent: Agent, ownerId: string): boolean {
   const maker = agent.settings.createdBy;
-  return maker ? maker === ownerId : hub.store.role(agent.workspaceId, ownerId) === "owner";
+  if (maker) return maker === ownerId;
+  const people = hub.store.members(agent.workspaceId);
+  return people.length === 1 && people[0].id === ownerId;
 }
 
 /** For an agent being made by `personId`: the devices it may use from the start. */

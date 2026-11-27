@@ -132,4 +132,13 @@ describe("the owner's own computer, usable by default", () => {
       await mcp.close();
     }
   });
+  it("an older agent nobody is recorded as making doesn't get it where others are in the organization", async () => {
+    const ws = hub.store.node(mac)!.workspaceId;
+    const old = hub.store.createAgent({ workspaceId: ws, handle: "olden", name: "Olden", harness: "custom", computerId: null, nodeId: null, instructions: "", model: null } as never);
+    const second = (await owner.request("POST", "/api/nodes", { name: "Me's iMac" })).node.id;
+    screenOn(second);
+    expect(defaultDeviceUse(hub, second)).not.toContain(old.id);
+    expect(hub.store.agent(old.id)!.settings.useDevices?.[second]).toBeUndefined();
+  });
+
 });

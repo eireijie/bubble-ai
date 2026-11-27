@@ -14,6 +14,19 @@ export const CHAT_BACKGROUND = z.discriminatedUnion("kind", [
 ]);
 
 /**
+ * The files people and agents use as chat backgrounds in this organization. They aren't files
+ * anyone shared, so the file lists (GET /api/files, an agent's Library) leave them out: someone's
+ * own wallpaper doesn't show up in everyone's files.
+ */
+export function backgroundFileIds(store: Store, workspaceId: string): Set<string> {
+  const ids = new Set<string>();
+  const add = (bg: ChatBackground | undefined) => bg?.kind === "photo" && ids.add(bg.url.slice("/api/files/".length));
+  for (const m of store.members(workspaceId)) add(store.prefs(m.id).background);
+  for (const a of store.agents(workspaceId)) add(a.settings.background);
+  return ids;
+}
+
+/**
  * Why this background can't be saved in this organization, or null when it can. A photo must be an
  * image uploaded to the same organization and not tied to one chat (a chat's files are only for
  * the people in it; a background is shown to everyone who opens the agent's chat).

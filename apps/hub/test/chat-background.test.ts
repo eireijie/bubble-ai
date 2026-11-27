@@ -55,6 +55,16 @@ describe("chat backgrounds on the hub", () => {
     expect(r.json.settings.background).toBeUndefined();
   });
 
+  it("leaves background photos out of the organization's file list", async () => {
+    const wall = await upload("image/jpeg");
+    const shared = await upload("image/jpeg");
+    await call("PUT", "/api/me/prefs", { background: { kind: "photo", url: `/api/files/${wall}` } });
+    const ids = (await call("GET", "/api/files")).json.map((f: { id: string }) => f.id);
+    expect(ids).toContain(shared);
+    expect(ids).not.toContain(wall);
+    await call("PUT", "/api/me/prefs", { background: { kind: "none" } });
+  });
+
   it("keeps the person's default in their prefs", async () => {
     const r = await call("PUT", "/api/me/prefs", { background: { kind: "color", color: "#e2f0e6" } });
     expect(r.status).toBe(200);

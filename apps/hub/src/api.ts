@@ -90,7 +90,7 @@ import { registerOnboardingApi } from "./api-onboarding.ts";
 import { workspaceFeatures } from "./features.ts";
 import type { SetupCode } from "./setup-code.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
-import { CHAT_BACKGROUND, backgroundProblem } from "./chat-background.ts";
+import { CHAT_BACKGROUND, backgroundFileIds, backgroundProblem } from "./chat-background.ts";
 
 /** Why an agent's save was refused for holding a secret (Bubble AI never keeps passwords; logins go through the person's password manager). */
 const NO_SECRETS = "Memory can't hold passwords, keys, tokens or card numbers. Write where the secret lives instead (\"the API key is in the GitHub connected app\").";
@@ -2697,7 +2697,9 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     const channel = (req.query as { channel?: string }).channel;
     if (channel && !channelVisible(c, channel)) return reply.code(404).send({ error: "channel not found" });
     // files shared in a DM stay between the people in it
-    return store.files(c.workspaceId, channel).filter((f) => !f.channelId || channelVisible(c, f.channelId));
+    // chat backgrounds (chat-background.ts) aren't shared files
+    const walls = backgroundFileIds(store, c.workspaceId);
+    return store.files(c.workspaceId, channel).filter((f) => (!f.channelId || channelVisible(c, f.channelId)) && !walls.has(f.id));
   });
 
   app.get("/api/files/:id", async (req, reply) => {

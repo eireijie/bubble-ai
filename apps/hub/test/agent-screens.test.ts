@@ -197,6 +197,20 @@ describe("each agent's own screen on the shared computer", () => {
     expect(calls).toEqual([{ action: "type", screen: pip.id }]);
   });
 
+  it("a person in control of one agent's screen only holds up that agent", async () => {
+    await owner.request("POST", `/api/computers/${computerId}/control`, { take: true, agent: pip.id });
+    const real = hub.currentRun.bind(hub);
+    hub.currentRun = ((id: string) => ({ id: `run-${id}` }) as never) as typeof hub.currentRun;
+    try {
+      await expect(nova.api.request("POST", "/api/computers/mine/act", { action: { action: "click", x: 1, y: 1 } })).resolves.toBeDefined();
+      await expect(pip.api.request("POST", "/api/computers/mine/act", { action: { action: "click", x: 1, y: 1 } })).rejects.toThrow(/using/);
+    } finally {
+      hub.currentRun = real;
+      await owner.request("POST", `/api/computers/${computerId}/control`, { take: false });
+    }
+    await expect(owner.request("POST", `/api/computers/${computerId}/control`, { take: true, agent: "agt_nobody" })).rejects.toThrow(/doesn't use this computer/);
+  });
+
   it("goes back to one screen when the computer says so (stopped, or an older image)", async () => {
     report(false, []);
     await waitFor(() => hub.computers.view(computer()).screens === undefined);

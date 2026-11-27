@@ -240,10 +240,13 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (!c) return;
     const comp = own(c, (req.params as { id: string }).id);
     if (!comp) return reply.code(404).send({ error: "computer not found" });
-    const body = parse(z.object({ take: z.boolean(), note: z.string().max(2000).optional() }), req.body, reply);
+    const body = parse(z.object({ take: z.boolean(), note: z.string().max(2000).optional(), agent: z.string().max(100).optional() }), req.body, reply);
     if (!body) return;
+    // the shared computer: that agent's own screen is the one taken
+    const agent = screenAgent(comp, body.agent);
+    if (agent === null) return reply.code(404).send({ error: "that agent doesn't use this computer" });
     try {
-      if (body.take) computers.take(comp, c.actor.id);
+      if (body.take) computers.take(comp, c.actor.id, agent && computers.ownScreens(comp) ? agent : undefined);
       else computers.release(comp, c.actor.id, body.note);
       return computers.view(store.computer(comp.id)!);
     } catch (err) {

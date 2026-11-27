@@ -79,7 +79,7 @@ export function ComputerFullscreen({ agent, computer: c, onClose }: { agent: Age
   const control = async (take: boolean) => {
     setError(null);
     try {
-      await api("POST", `/api/computers/${c.id}/control`, { take });
+      await api("POST", `/api/computers/${c.id}/control`, { take, ...(c.screens ? { agent: agent.id } : {}) });
     } catch (e) {
       setError((e as Error).message);
     }
@@ -88,7 +88,7 @@ export function ComputerFullscreen({ agent, computer: c, onClose }: { agent: Age
   const activity = () => {
     if (Date.now() - touched.current < 15_000) return;
     touched.current = Date.now();
-    void api("POST", `/api/computers/${c.id}/control`, { take: true }).catch(() => {});
+    void api("POST", `/api/computers/${c.id}/control`, { take: true, ...(c.screens ? { agent: agent.id } : {}) }).catch(() => {});
   };
   // leaving the big view gives the computer back, so agents aren't stuck waiting on a closed window
   const close = () => {
