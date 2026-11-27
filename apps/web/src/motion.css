@@ -101,8 +101,8 @@ a.rounded-full,
 }
 
 /* messages: yours rises from the composer, a reply pops from its corner, the working bubble fades in */
-/* round 6: calmer. A new message just fades in, no spring */
-.m-bubble-me, .m-bubble-them { animation: m-fade 140ms ease-out backwards; }
+.m-bubble-me { animation: m-rise 340ms var(--pop) backwards; transform-origin: 100% 100%; }
+.m-bubble-them { animation: m-popl 300ms var(--pop) backwards; transform-origin: 0 100%; }
 .m-work { animation: m-work 220ms ease-out backwards; }
 .m-swap { animation: m-swap 300ms var(--pop) backwards; }
 
@@ -289,15 +289,15 @@ button[role="switch"]:active:not(:disabled) .m-knob { scale: 1.2 1; }
 @media (prefers-reduced-motion: reduce) { .seg-thumb { transition: none; } }
 :root[data-motion="reduce"] .seg-thumb { transition: none; }
 
-/* ---------- round 6: pop-ups open and close instantly ----------
- * The owner found the springs and slides childish. Dialogs, sheets on desktops, the settings and
- * other pop-ups over the chat, and their scrims appear and go at once; what's inside doesn't slide.
- * Phones keep the bottom sheet rising (it shows where the sheet came from). The bubble's own hover
- * and press (bubble.css) are the one playful motion left. */
+/* ---------- round 6: the everyday working UI is instant ----------
+ * Owner, 2026-11-27: motion where it's wanted (the bubble everywhere, onboarding, messages arriving),
+ * none "whenever working". So menus, pop-ups, dropdowns, dialogs and sheets, the settings pop-up and
+ * its rows, segmented controls, switches and the phone's tab bar appear and change at once. */
 .m-scrim, .settings-pop, .settings-pop-panel, .settings-pop-section, .needs-pop, .pop-swap { animation: none !important; }
 .settings-pop-panel { transition: none; }
 .settings-pop[data-state="out"], .needs-pop[data-state="out"], .m-scrim[data-closing="true"], [data-closing="true"] .m-scrim { visibility: hidden; pointer-events: none; animation: none !important; }
-@media (min-width: 640px) {
-  .m-dialog, .m-palette-card, .m-palette-scrim { animation: none !important; }
-  [data-closing="true"] .m-dialog, [data-closing="true"] .m-palette-card, [data-closing="true"].m-palette-scrim { visibility: hidden; animation: none !important; }
-}
+.m-dialog, .m-drawer, .m-palette-card, .m-palette-scrim { animation: none !important; }
+[data-closing="true"] .m-dialog, [data-closing="true"] .m-drawer, [data-closing="true"] .m-palette-card, [data-closing="true"].m-palette-scrim { visibility: hidden; animation: none !important; }
+html[data-sheet] #root { transform: none !important; border-radius: 0 !important; }
+.m-tabs, .m-knob, .seg-thumb, .pop-nav-mark { transition: none !important; }
+button[role="switch"]:active:not(:disabled) .m-knob { scale: 1; }
