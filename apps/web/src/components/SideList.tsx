@@ -285,7 +285,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
                 e.stopPropagation();
                 go({ view: "agents", agentId: c.agent!.id, tab: "overview" });
               }}
-              className="relative grid shrink-0 cursor-pointer place-items-center"
+              className="relative grid shrink-0 cursor-pointer place-items-center outline-none"
               style={{ width: avatar, height: avatar }}
             >
               <ChatAvatar chat={c} size={avatar} />
