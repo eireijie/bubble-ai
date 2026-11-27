@@ -56,8 +56,9 @@
 .composer-plus { color: var(--ink); }
 .composer-plus:hover, .composer-plus.is-open, .composer-mic:hover { background: var(--hover); color: var(--ink); }
 
-/* the round button: violet to call or send, ink to stop an agent, red while dictating */
+/* the round button: ink to call (board "Chat and sidebar"), violet to send, ink to stop an agent, red while dictating */
 .composer-round.is-go { background: var(--bubble-me); color: var(--bubble-me-ink); }
+.composer-round.is-call { background: var(--ink); color: var(--panel); }
 .composer-round.is-stop { background: var(--ink); color: var(--panel); }
 .composer-round.is-listening { background: var(--bad); color: #fff; }
 .composer-round:disabled { background: var(--chip); color: var(--faint); }

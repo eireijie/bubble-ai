@@ -21,7 +21,6 @@ import { cx } from "./ui.tsx";
  */
 
 const LEGACY_FOLDED = "wisp.chats.collapsed";
-const FILTER_KEY = "wisp.side.filter";
 const DRAG = "text/x-wisp-chat";
 const NEW_SECTION = "wisp:new-section";
 
@@ -42,11 +41,10 @@ const readJson = <T,>(k: string, fallback: T): T => {
 type MenuAt = { key: string; x: number; y: number; left?: boolean };
 
 /** A small blue dot for unread, the agent's own flag says when it needs you. */
-function UnreadDot({ size }: { size: number }) {
-  return <span aria-hidden className="pointer-events-none absolute right-[-3%] top-[-3%] box-content rounded-full bg-[#0a84ff]" style={{ width: Math.max(8, size * 0.22), height: Math.max(8, size * 0.22), boxShadow: "0 0 0 2px var(--sidebar)" }} />;
-}
-function NeedsDot({ size }: { size: number }) {
-  return <span aria-hidden className="pointer-events-none absolute right-[-3%] top-[-3%] rounded-full bg-[#ff9f0a]" style={{ width: Math.max(8, size * 0.24), height: Math.max(8, size * 0.24), boxShadow: "0 0 0 2px var(--sidebar)" }} />;
+/** The one mark a chat gets (round 4): a blue dot when its agent needs you or there's something unread. */
+export const BLUE_DOT = "#0a84ff";
+function BlueDot({ on }: { on: boolean }) {
+  return <span aria-hidden className="side-dot" style={{ background: on ? BLUE_DOT : "transparent" }} />;
 }
 
 export function useSideLayout(chats: readonly Chat[]): [SidebarLayout, (next: SidebarLayout) => void] {
@@ -67,13 +65,6 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const clock = useStore((s) => s.me?.prefs.clock) ?? "auto";
   const guest = me.role === "guest";
   const [layout, save] = useSideLayout(chats);
-  const [filter, setFilterState] = useState<"all" | "turn">(() => (readJson<string>(FILTER_KEY, "all") === "turn" ? "turn" : "all"));
-  const setFilter = (f: "all" | "turn") => {
-    setFilterState(f);
-    try {
-      localStorage.setItem(FILTER_KEY, JSON.stringify(f));
-    } catch {}
-  };
   const [notice, setNotice] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -87,7 +78,6 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const placed = useMemo(() => placeChats(layout, chats), [layout, chats]);
   const unreadMarks = useMemo(() => new Set(layout.unread ?? []), [layout.unread]);
   const isUnread = (c: Chat) => c.unread > 0 || unreadMarks.has(c.key);
-  const waiting = chats.filter((c) => lines.get(c.key)?.needs);
 
   // opening a chat you marked unread clears the mark
   const activeKey = chats.find((c) => c.channel && c.channel.id === active)?.key;
@@ -123,10 +113,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const newRef = useRef(doNewSection);
   newRef.current = doNewSection;
   useEffect(() => {
-    const on = () => {
-      setFilter("all");
-      newRef.current();
-    };
+    const on = () => newRef.current();
     window.addEventListener(NEW_SECTION, on);
     return () => window.removeEventListener(NEW_SECTION, on);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -203,14 +190,14 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const press = useLongPress((key, x, y) => setMenu({ key, x, y }));
 
   // --- pins ---------------------------------------------------------------------------------------
-  const pinSize = 70;
+  const pinSize = 56;
   const pins = placed.pins.map((k) => byKey.get(k)!).filter(Boolean);
   const pinGrid = pins.length > 0 && (
     <div
       data-tour="pins"
       aria-label="Pinned"
       role="list"
-      className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-1 rounded-[12px] px-0.5 pb-3 pt-1", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
+      className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-1 rounded-[14px] px-0.5 pb-2 pt-1", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
       {...dropProps("pins", (key) => {
         const c = byKey.get(key);
         if (!c) return;
@@ -239,16 +226,16 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               {...dropProps(`pin:${c.key}`, (key) => layout.pins.includes(key) && save(movePin(layout, key, i)))}
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
-              className={cx("press-row flex h-[100px] flex-col items-center justify-center gap-[6px] rounded-[12px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "bg-side-active" : "hover:bg-side-hover")}
+              className={cx("press-row flex h-[88px] flex-col items-center justify-center gap-[5px] rounded-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on" : "hover:bg-side-hover")}
             >
               <span className="relative grid place-items-center" style={{ width: pinSize, height: pinSize }}>
                 <ChatAvatar chat={c} size={pinSize} />
-                {line?.needs && c.kind === "team" ? <NeedsDot size={pinSize} /> : !line?.needs && unread ? <UnreadDot size={pinSize} /> : null}
+                {(line?.needs || unread) && <span aria-hidden className="side-pin-dot" style={{ background: BLUE_DOT }} />}
               </span>
               {renaming === c.key ? (
                 <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className="w-[92px] text-center text-[14px]" />
               ) : (
-                <span className={cx("max-w-[92px] truncate text-[14px]", unread ? "font-semibold text-ink" : "text-muted")}>{c.name}</span>
+                <span className={cx("max-w-[88px] truncate text-[12.5px] font-medium", unread || line?.needs ? "text-ink" : "text-ink/80")}>{c.name}</span>
               )}
             </a>
           </div>
@@ -258,7 +245,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   );
 
   // --- rows ---------------------------------------------------------------------------------------
-  const rowH = 80;
+  const rowH = phone ? 76 : 64;
   const avatar = phone ? 48 : 40;
   const row = (c: Chat) => {
     const line = lines.get(c.key);
@@ -282,26 +269,26 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           aria-current={isActive ? "page" : undefined}
           data-tour="chat-row"
           data-needs={line?.needs ? "" : undefined}
-          className={cx("press-row group/row flex w-full items-center gap-3 rounded-[10px] px-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on bg-[#7a5bdc] text-white" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
+          className={cx("press-row group/row flex w-full items-center gap-2 rounded-[12px] pl-1 pr-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
           style={{ height: rowH }}
         >
+          <BlueDot on={!!line?.needs || unread} />
           <span className="relative grid shrink-0 place-items-center" style={{ width: avatar, height: avatar }}>
             <ChatAvatar chat={c} size={avatar} />
-            {line?.needs && c.kind === "team" ? <NeedsDot size={avatar} /> : !line?.needs && unread ? <UnreadDot size={avatar} /> : null}
           </span>
-          <span className={cx("flex h-full min-w-0 flex-1 flex-col justify-center gap-px", c.muted && "opacity-60", !isActive && "shadow-[inset_0_-1px_0_var(--line)]")}>
+          <span className={cx("ml-1 flex h-full min-w-0 flex-1 flex-col justify-center gap-px", c.muted && "opacity-60")}>
             <span className="flex items-baseline gap-2">
               {renaming === c.key ? (
                 <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className="min-w-0 flex-1 text-[15px] font-semibold" />
               ) : (
-                <span className={cx("min-w-0 flex-1 truncate font-semibold", phone ? "text-[17px]" : "text-[15px]", isActive ? "text-white" : "text-ink")}>{c.name}</span>
+                <span className={cx("min-w-0 flex-1 truncate font-semibold", phone ? "text-[17px]" : "text-[15px]", "text-ink")}>{c.name}</span>
               )}
-              {c.at > 0 && <span className={cx("shrink-0", phone ? "text-[14px]" : "text-[13px]", isActive ? "text-white/80" : "text-muted")}>{shortTime(c.at, clock)}</span>}
+              {c.at > 0 && <span className={cx("shrink-0", phone ? "text-[14px]" : "text-[13px]", "text-muted")}>{shortTime(c.at, clock)}</span>}
             </span>
             {line?.text && (
-              <span className={cx("flex min-w-0 items-start gap-1.5 text-[15px] leading-5", isActive ? "text-white/85" : line.working ? "text-wisp-strong" : "text-muted")}>
+              <span className={cx("flex min-w-0 items-start gap-1.5 text-[15px] leading-5", line.working ? "text-wisp-strong" : "text-muted")}>
                 {line.icon && <span className="inline-flex h-5 shrink-0 items-center">{line.icon}</span>}
-                <span className={cx("line-clamp-2 break-words", line.working && "shimmer-text")}>{line.text}</span>
+                <span className={cx(phone ? "line-clamp-2 break-words" : "truncate", line.working && "shimmer-text")}>{line.text}</span>
               </span>
             )}
           </span>
@@ -352,12 +339,12 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
     );
   };
 
-  const turnRows = waiting;
   const shownSections = placed.sections.filter((s) => !s.none || s.keys.length > 0 || placed.sections.length === 1);
   const menuChat = menu ? byKey.get(menu.key) : undefined;
 
   return (
-    <div className="flex flex-col">
+    // the tour's "blue dot" stop points at the whole list (tour.ts)
+    <div data-tour="yourturn" className="flex flex-col">
       {notice && (
         <div role="status" className="m-pop mx-0.5 mb-2 flex items-center gap-2.5 rounded-[12px] bg-panel px-3 py-2.5 text-[13px] text-ink shadow-[0_12px_36px_rgba(0,0,0,.16),0_0_0_1px_rgba(0,0,0,.06)]">
           <Pin size={15} strokeWidth={2} className="shrink-0 text-muted" aria-hidden />
@@ -368,25 +355,10 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
         </div>
       )}
       {pinGrid}
-      <div role="tablist" aria-label="Show" className={cx("mb-3 grid shrink-0 grid-cols-2 rounded-[8px] bg-side-active p-[2px]", phone ? "mx-3 h-[36px]" : "mx-1 h-8")}>
-        {(["all", "turn"] as const).map((f) => (
-          <button key={f} type="button" role="tab" data-tour={f === "turn" ? "yourturn" : undefined} aria-selected={filter === f} onClick={() => setFilter(f)} className={cx("rounded-[6px] text-center outline-none transition-[background-color,color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-ring/40", phone ? "text-[15px]" : "text-[13.5px]", filter === f ? "bg-panel font-medium text-ink shadow-[0_1px_2px_rgba(0,0,0,.1),0_0_0_0.5px_var(--line2)] dark:bg-[#2c2c2c]" : "text-muted hover:text-ink")}>
-            {f === "all" ? "All" : "Your turn"}
-            {f === "turn" && waiting.length > 0 && <span className="ml-1 font-bold text-[#b25e00] dark:text-[#ff9f0a]">{waiting.length}</span>}
-          </button>
-        ))}
+      <div data-tour="sections" className="flex flex-col gap-0.5">
+        {shownSections.map(sectionBlock)}
+        {/* New section is in the + menu, once */}
       </div>
-      {filter === "turn" ? (
-        <div className="flex flex-col">
-          {turnRows.map(row)}
-          <p className="px-3.5 pb-1.5 pt-2.5 text-[13px] text-muted">{turnRows.length ? "Everyone else is under All." : "Nobody is waiting on you."}</p>
-        </div>
-      ) : (
-        <div data-tour="sections" className="flex flex-col gap-0.5">
-          {shownSections.map(sectionBlock)}
-          {/* New section is in the + menu, once */}
-        </div>
-      )}
 
       {menu && menuChat && (
         <SideMenu

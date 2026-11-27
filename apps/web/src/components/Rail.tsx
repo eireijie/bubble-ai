@@ -13,13 +13,13 @@ import { logout } from "../logout.ts";
 import { useStore, useInboxCount, usePrefs } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
 import { machinesOn, useDevices } from "../devices.ts";
-import { closePopup, go, href, SETTINGS_PAGES, type Route } from "../router.ts";
+import { go, href, SETTINGS_PAGES, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
 import { ComputersIcon, WispGhost } from "./icons.tsx";
 import { NewOrgDialog, OrgList, OrgSwitcher, useOrgs } from "./OrgSwitcher.tsx";
-import { Menu, PopBadge, agentColor, cx } from "./ui.tsx";
+import { Menu, PopBadge, cx } from "./ui.tsx";
 import { ChatAvatar, ChatMenu, chatPreviewLine, startNewAgent, type Chat, type PreviewLine } from "./ChatList.tsx";
-import { SideList, newSideSection, useSideLayout } from "./SideList.tsx";
+import { BLUE_DOT, SideList, newSideSection, useSideLayout } from "./SideList.tsx";
 import { placeChats } from "../sidebarLayout.ts";
 import { SIDEBAR, SIDEBAR_CLOSE_MS, SIDEBAR_EASE, SIDEBAR_OPEN_MS, SIDEBAR_TOGGLE, dragWidth, loadSidebar, saveSidebar, settle, stepWidth, type SidebarState } from "../sidebarWidth.ts";
 
@@ -229,15 +229,15 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const unread = chat.unread > 0;
   const label = `${chat.name}${unread ? `, ${chat.unread} unread` : ""}${line.working ? ", working" : ""}${line.needs ? ", needs you" : ""}`;
-  // one dot at the right: orange when it waits on you, its own colour when unread, grey when muted
-  const mark = line.needs ? "needs" : unread ? (chat.muted ? "muted" : "unread") : null;
-  const markCls = cx("shrink-0 rounded-full", mark === "needs" ? "size-2 bg-st-needs" : mark === "muted" ? "size-1.5 bg-faint" : "size-2");
-  const markStyle = mark === "unread" ? { background: chat.kind === "dm" && chat.agent ? agentColor(chat.agent) : "var(--wisp)" } : undefined;
+  // one blue dot (round 4): it needs you, or there's something unread
+  const dot = !!line.needs || unread;
   const cls = cx(wide ? ITEM : TILE, active ? "bg-side-active" : "hover:bg-side-hover");
   const inner = (
     <>
+      {wide && <span aria-hidden className="side-dot" style={{ background: dot ? BLUE_DOT : "transparent" }} />}
+      {/* agents and teams at one size: every bubble shape fills its box (Bubble.tsx) */}
       <span className="grid size-[46px] shrink-0 place-items-center">
-        <ChatAvatar chat={chat} size={chat.kind === "dm" ? 54 : 46} />
+        <ChatAvatar chat={chat} size={46} />
       </span>
       {wide && (
         <span className={cx("flex min-w-0 flex-1 flex-col", chat.muted && "opacity-60")}>
@@ -251,8 +251,7 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
           )}
         </span>
       )}
-      {wide && mark && <span aria-hidden className={cx(markCls, "mr-1")} style={markStyle} />}
-      {!wide && mark && <span aria-hidden className={cx(markCls, "absolute right-[4px] top-[4px] box-content border-2 border-sidebar")} style={markStyle} />}
+      {!wide && dot && <span aria-hidden className="side-dot absolute -left-1 top-1/2 -translate-y-1/2" style={{ background: BLUE_DOT }} />}
       {!wide && line.working && <WorkDot corner />}
     </>
   );
@@ -567,7 +566,8 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
     "divider" as const,
     { label: "Browse teams", icon: <Search {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
     // the wide sidebar lists the places under search; as a rail they live here
-    ...(!wide && inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
+    // what waits on you shows as blue dots on the chats; the full list is here (and in search)
+    ...(!isGuest && inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
     ...(!wide && !isGuest ? [place("Apps and skills", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
     ...(!wide && !isGuest ? [place(features.tasks ? "Tasks" : "Tasks (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" })] : []),
@@ -601,7 +601,6 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
       trigger={(open, t) => (
         <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New agent or team" title="New" className={cx(ROUND, open ? "bg-line2" : SOFT)}>
           <Plus size={20} strokeWidth={1.8} />
-          {inbox > 0 && !wide && <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-[#ff9f0a]" />}
         </button>
       )}
     />
@@ -641,24 +640,6 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
   const onCount = machinesOn(isGuest ? [] : devices, computers);
   const computersLabel = `Computers, ${onCount} on${working ? ", one is working" : ""}`;
   const strip = stripPlaces({ guest: isGuest, tasks: !!features.tasks, code: !!features.code, computersOn: onCount, notes, newNotes, open, vaultTo });
-  const needsOpen = open.view === "dashboard";
-  const needsCount = inbox > 99 ? "99+" : String(inbox);
-  // Needs you: a row only while something needs you; it opens a popover beside it (App draws it)
-  const needsRow = !isGuest && inbox > 0 && (
-    <button
-      type="button"
-      data-needs-row
-      aria-haspopup="dialog"
-      aria-expanded={needsOpen}
-      aria-label={`Needs you, ${needsCount}`}
-      onClick={() => (needsOpen ? closePopup() : go({ view: "dashboard" }))}
-      className={cx("flex h-[34px] w-full min-w-0 items-center gap-2.5 rounded-[8px] px-2.5 text-[14px] text-ink outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", needsOpen ? "bg-st-needs/20" : "bg-st-needs/10 hover:bg-st-needs/15")}
-    >
-      <Bell size={16} strokeWidth={1.8} className="shrink-0 text-st-needs" aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-left">Needs you</span>
-      <span className="shrink-0 text-[12px] font-semibold tabular-nums text-st-needs">{needsCount}</span>
-    </button>
-  );
   const setupTotal = ready.items.length || 1;
   const setupCard = wide && !isGuest && ready.started && ready.left > 0 && !setupHidden && (
     <div className="relative mx-3 mb-2.5 grid shrink-0 grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1.5 rounded-[10px] border border-line2 bg-panel py-2.5 pl-3 pr-2.5 text-[13px]">
@@ -676,7 +657,7 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
 
   return (
     <div className="relative z-30 flex shrink-0">
-      <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side flex h-full flex-col overflow-hidden border-r border-line bg-sidebar pt-[max(20px,env(safe-area-inset-top))] pb-4" style={{ width, transition }}>
+      <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side side-glass flex h-full flex-col overflow-hidden pt-[max(20px,env(safe-area-inset-top))] pb-4" style={{ width, transition }}>
         {/* search and New; nothing else up here */}
         <div className={cx("side-top flex shrink-0 items-center gap-1.5", wide ? "mb-2.5 h-[34px] px-3" : "mb-4 flex-col gap-2.5")}>
           {wide ? (
@@ -693,15 +674,14 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
           {plus(false)}
         </div>
 
-        {/* the places that aren't chats: one strip of line icons, then Needs you while something does */}
+        {/* the places that aren't chats: one strip of line icons */}
         {wide && (
           <div className="mb-2.5 flex shrink-0 flex-col gap-2.5 px-3">
-            <nav aria-label="Places" className="flex justify-between gap-0.5 px-0.5">
+            <nav aria-label="Places" className="flex justify-center gap-1 px-0.5">
               {strip.map((p, i) => (
                 <StripButton key={p.key} p={p} align={i < 2 ? "left" : i === 2 && strip.length > 3 ? "center" : "right"} />
               ))}
             </nav>
-            {needsRow}
           </div>
         )}
 
@@ -723,12 +703,6 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
           </>
         ) : (
           <div ref={footRef} className="flex shrink-0 flex-col items-center gap-2 pt-2">
-            {!isGuest && inbox > 0 && (
-              <a href={href({ view: "dashboard" })} data-needs-row aria-label={`Needs you, ${inbox}`} title="Needs you" aria-current={needsOpen ? "page" : undefined} className={cx(ROUND, needsOpen ? "bg-line2" : SOFT)}>
-                <Bell size={19} strokeWidth={1.8} />
-                <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-[#ff9f0a]" />
-              </a>
-            )}
             {!isGuest && (
               <a href={computersTo} aria-label={computersLabel} title="Computers" aria-current={computersOn ? "page" : undefined} className={cx(ROUND, computersOn ? "bg-line2" : SOFT)}>
                 <ComputersIcon size={20} />

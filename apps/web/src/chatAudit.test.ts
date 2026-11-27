@@ -13,8 +13,8 @@ const dm = { id: "dm-juno", kind: "dm", name: "dm:me:juno", unread: 0, last: { a
 const ctx = { meId: "me", agents: [], members: [], approvals: {} };
 const chat = (a: Agent) => ({ key: "a:juno", kind: "dm" as const, channel: dm, agent: a, name: "Juno", at: 0, unread: 0, pinned: false, muted: false, sectionId: null });
 
-describe("Your turn agrees with Needs you", () => {
-  it("an agent with no device is your turn, and its last message still shows", () => {
+describe("the sidebar's blue dot agrees with Needs you", () => {
+  it("an agent with no device gets the dot, and its last message still shows", () => {
     expect(chatPreviewLine(chat(agent(null)), {}, ctx)).toMatchObject({ text: "Booked it.", needs: true });
   });
   it("a set-up agent isn't", () => {
