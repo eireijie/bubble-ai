@@ -11,7 +11,7 @@ const initial = useStore.getInitialState();
 const saved = { me: initial.me, channels: initial.channels, sections: initial.sections, agents: initial.agents, approvals: initial.approvals };
 afterEach(() => Object.assign(initial, saved));
 
-const me = { kind: "user", role: "owner", user: { id: "u1", name: "Yug Patel", email: "yug@example.com", createdAt: "now" }, workspace: { id: "w", name: "Meadows" }, prefs: { sendWith: "enter", clock: "auto", toolCalls: "collapsed", experience: "advanced" } } as unknown as Me;
+const me = { kind: "user", role: "owner", user: { id: "u1", name: "Yug Patel", email: "yug@example.com", createdAt: "now" }, workspace: { id: "w", name: "Meadows" }, prefs: { sendWith: "enter", clock: "auto", toolCalls: "collapsed", experience: "advanced", sidebar: { pins: [], sections: [] } } } as unknown as Me;
 const agent = (id: string, name: string) => ({ id, handle: name.toLowerCase(), name, harness: "codex", model: null, nodeId: "n1", computerId: null, settings: {}, status: "online", createdAt: "2026-01-01T00:00:00Z", workspaceId: "w" }) as never;
 const channel = (over: Partial<ChannelInfo>): ChannelInfo =>
   ({ id: "c", workspaceId: "w", name: "x", kind: "channel", topic: "", sectionId: null, private: false, archivedAt: null, settings: { defaultAgentId: null, replyInThread: true, instructions: "", team: null }, createdAt: "2026-01-01T00:00:00Z", joined: true, memberCount: 1, unread: 0, lastReadAt: null, notify: "default", starred: false, pinnedIds: [], last: null, ...over }) as ChannelInfo;
@@ -61,10 +61,9 @@ describe("chats list", () => {
     });
     const html = render("page");
     const at = (s: string) => html.indexOf(s);
-    // your picture opens the account page, Search opens the full search, and the + has no "New chat" (a row is the chat)
+    // your picture opens the account page, Search opens the full search, then the one + (New chat, agent or team)
     expect(at('href="#/you"')).toBeLessThan(at(">Search<"));
-    expect(at(">Search<")).toBeLessThan(at('aria-label="New agent or team"'));
-    expect(html).not.toContain("New chat");
+    expect(at(">Search<")).toBeLessThan(at('aria-label="New chat, agent or team"'));
     // newest first, each with its preview and when; unread shows as one dot
     expect(at("release-crew")).toBeLessThan(at("Ghosty"));
     expect(html).toContain("You: newer");

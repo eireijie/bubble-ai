@@ -3,7 +3,7 @@ import "./composer.css";
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { SquarePen, Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { SCHEDULE_MARK, teamOf, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -185,12 +185,6 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
                 </button>
               </span>
             )}
-            {/* new chat in the top-left corner (desktop; phones keep Back there) */}
-            <span className="max-md:hidden">
-              <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="lg-glass lg-round lg-press">
-                <SquarePen size={17} strokeWidth={1.8} />
-              </button>
-            </span>
           </div>
           {dmAgent ? (
             // the agent lives here, in the middle; it opens the agent's profile

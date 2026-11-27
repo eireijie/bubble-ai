@@ -62,7 +62,8 @@ describe("chat backgrounds", () => {
   });
 
   it("saves the default in the person's prefs and the agent's own on the agent", async () => {
-    expect(bg.backgroundFor("a1")).toEqual({ kind: "none" });
+    // never chosen: Mist (Night in dark mode), so the glass has something to sit on
+    expect(bg.backgroundFor("a1")).toEqual({ kind: "color", color: "#dfe4f3" });
     await bg.setDefaultBackground({ kind: "color", color: "#dfe4f3" });
     expect(state.calls.at(-1)).toEqual({ method: "PUT", path: "/api/me/prefs", body: { background: { kind: "color", color: "#dfe4f3" } } });
     expect(bg.backgroundFor("a1")).toEqual({ kind: "color", color: "#dfe4f3" });
@@ -98,8 +99,16 @@ describe("chat backgrounds", () => {
   it("ignores anything that isn't a colour, a hub photo or none", () => {
     state.me.prefs = { background: { kind: "photo", url: "https://elsewhere.example/x.png" } };
     state.agents[0].settings = { background: { kind: "color", color: "red;}" } };
-    expect(bg.backgroundFor("a1")).toEqual({ kind: "none" });
+    expect(bg.backgroundFor("a1")).toEqual(bg.DEFAULT_BACKGROUND);
     expect(bg.validBackground({ kind: "photo", url: "/api/files/../x" })).toBe(false);
+  });
+
+  it("shows Mist as Night in dark mode, dims other light colours, and leaves dark ones as they are", () => {
+    expect(bg.backgroundCss({ kind: "color", color: "#dfe4f3" }, null)).toBe("#dfe4f3");
+    expect(bg.backgroundCss({ kind: "color", color: "#dfe4f3" }, null, true)).toBe("#2a2d35");
+    expect(bg.backgroundCss({ kind: "color", color: "#f3e3dc" }, null, true)).toContain("color-mix");
+    expect(bg.backgroundCss({ kind: "color", color: "#1c1c1c" }, null, true)).toBe("#1c1c1c");
+    expect(bg.backgroundCss({ kind: "none" }, null, true)).toBeNull();
   });
 
   it("uploads only photos", async () => {

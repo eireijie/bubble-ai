@@ -15,6 +15,15 @@ describe("sidebar layout", () => {
     expect(baseLayout(empty, chats, [])).toBe(empty);
   });
 
+  it("pins the first three agents by last activity for someone who never pinned; their own choice wins after", () => {
+    const chats = [chat("a:old", { kind: "dm", at: 1 }), chat("c:team", { kind: "team", at: 9 }), chat("a:new", { kind: "dm", at: 8 }), chat("a:mid", { kind: "dm", at: 5 }), chat("a:mid2", { kind: "dm", at: 4 })];
+    expect(baseLayout(undefined, chats, []).pins).toEqual(["a:new", "a:mid", "a:mid2"]);
+    // unpinning everything is a choice too
+    expect(baseLayout(empty, chats, []).pins).toEqual([]);
+    // chats starred before still count as pins
+    expect(baseLayout(undefined, [...chats, chat("c:star", { kind: "team", pinned: true })], []).pins).toEqual(["c:star"]);
+  });
+
   it("places pins first, then each section, then No section last", () => {
     const chats = [chat("a"), chat("b"), chat("c"), chat("d")];
     const l: SidebarLayout = { pins: ["b"], sections: [{ id: "s", name: "Work", items: ["c"] }] };

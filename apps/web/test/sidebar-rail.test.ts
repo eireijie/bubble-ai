@@ -52,10 +52,12 @@ describe("docked sidebar", () => {
     vi.unstubAllGlobals();
   });
 
+  // nothing pinned (someone who never pinned gets three agents pinned: sidebarLayout.test.ts)
+  const pins: { sidebar?: { pins: string[]; sections: [] } } = { sidebar: { pins: [], sections: [] } };
   function render(stored: unknown) {
     const data = new Map<string, string>(stored ? [["wisp.sidebar2", JSON.stringify(stored)]] : []);
     vi.stubGlobal("localStorage", { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) });
-    initial.me = { kind: "user", role: "owner", user: { id: "person", name: "Sam Rivera", email: "me@example.com", createdAt: "now" }, workspace: { id: "workspace", name: "Home" }, prefs: { experience: "advanced", sendWith: "enter", clock: "auto", toolCalls: "collapsed" } };
+    initial.me = { kind: "user", role: "owner", user: { id: "person", name: "Sam Rivera", email: "me@example.com", createdAt: "now" }, workspace: { id: "workspace", name: "Home" }, prefs: { experience: "advanced", sendWith: "enter", clock: "auto", toolCalls: "collapsed", ...pins } };
     // Iris has a computer, so she is not waiting on the person (an agent with none counts under Needs you)
     initial.agents = [{ id: "a1", name: "Iris", status: "idle", nodeId: "n1", harness: "claude-code" } as (typeof initial.agents)[number]];
     return renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
@@ -69,7 +71,7 @@ describe("docked sidebar", () => {
     expect(html).toContain(">Sam<");
     expect(html).toContain('href="#/computers" data-tour="computers" aria-label="Computers"');
     expect(html).toContain('href="#/vault"');
-    for (const control of ["Search", "New agent or team", "Account, settings and help"]) expect(html).toContain(`aria-label="${control}"`);
+    for (const control of ["Search", "New chat, agent or team", "Account, settings and help"]) expect(html).toContain(`aria-label="${control}"`);
     // no All / Your turn filter and no Needs you row (round 4): a blue dot on the chat says it
     expect(html).not.toContain(">All<");
     expect(html).not.toContain(">Your turn<");
@@ -115,7 +117,7 @@ describe("docked sidebar", () => {
     const html = render({ width: 360, collapsed: true });
     expect(html).toContain("width:82px");
     expect(html).not.toContain(">Iris<");
-    for (const place of ["Search", "Iris", "New agent or team", "Computers", "Memory vault", "Account, settings and help"]) expect(html).toContain(`aria-label="${place}`);
+    for (const place of ["Search", "Iris", "New chat, agent or team", "Computers", "Memory vault", "Account, settings and help"]) expect(html).toContain(`aria-label="${place}`);
   });
 
   it("starts at 325 with nothing saved", () => expect(render(null)).toContain("width:325px"));

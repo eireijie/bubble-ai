@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { STOPS, TOTAL, seenCount } from "../tour.ts";
 import { createPortal } from "react-dom";
-import { Apple, Bell, BookOpen, Building2, ExternalLink, FolderPlus, Sparkles, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, Plus, Search, Settings, SquareTerminal, Store, Users, X } from "lucide-react";
+import { Apple, Bell, BookOpen, Building2, ExternalLink, FolderPlus, Sparkles, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, MessageSquarePlus, Plus, Search, Settings, SquareTerminal, Store, Users, X } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
 import { GITHUB_URL } from "@bubble-ai/core";
 import { startTour } from "./tour/tourRun.ts";
@@ -361,7 +361,7 @@ function StripButton({ p, align }: { p: StripPlace; align: "left" | "center" | "
       aria-label={aria}
       aria-keyshortcuts={`Meta+${p.shortcut}`}
       aria-current={p.on ? "page" : undefined}
-      className={cx("group/tip relative grid h-8 w-10 shrink-0 place-items-center rounded-[8px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", p.on ? "bg-side-active text-ink" : "text-muted hover:bg-side-active hover:text-ink")}
+      className={cx("group/tip relative grid h-8 w-9 shrink-0 place-items-center rounded-[8px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", p.on ? "bg-side-active text-ink" : "text-muted hover:bg-side-active hover:text-ink")}
     >
       {p.icon}
       {p.dot && <span aria-hidden className={cx("absolute right-[6px] top-[4px] box-content size-1.5 rounded-full border-2 border-sidebar", p.dot === "on" ? "bg-[#30d158]" : "bg-wisp")} />}
@@ -560,6 +560,8 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
   const place = (label: string, node: ReactNode, to: Route) => ({ label, icon: node, onSelect: () => go(to) });
   // New, then every place that isn't a chat: the sidebar keeps only search, New, your agents and teams
   const addItems = [
+    // the chat header's pencil used to do this; it lives here now
+    { label: "New chat", icon: <MessageSquarePlus {...icon} />, onSelect: () => useStore.setState({ newChatOpen: true }) },
     ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon {...icon} />, onSelect: startNewAgent }] : []),
     ...(!isGuest ? [{ label: "New team", icon: <Users {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
     ...(!isGuest ? [{ label: "New section", icon: <FolderPlus {...icon} />, onSelect: () => (wide ? newSideSection() : (setWide(), setTimeout(newSideSection, SIDEBAR_OPEN_MS))) }] : []),
@@ -599,8 +601,8 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
       align={up ? "left" : "right"}
       items={addItems}
       trigger={(open, t) => (
-        <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New agent or team" title="New" className={cx(ROUND, open ? "bg-line2" : SOFT)}>
-          <Plus size={20} strokeWidth={1.8} />
+        <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New chat, agent or team" title="New" className="lg-glass lg-round lg-press">
+          <Plus size={22} strokeWidth={2} />
         </button>
       )}
     />
@@ -658,7 +660,7 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
   return (
     <div className="relative z-30 flex shrink-0">
       <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side side-glass flex h-full flex-col overflow-hidden pt-[max(20px,env(safe-area-inset-top))] pb-4" style={{ width, transition }}>
-        {/* search and New; nothing else up here */}
+        {/* search up here; New is at the end of the places row (on the rail, under search) */}
         <div className={cx("side-top flex shrink-0 items-center gap-1.5", wide ? "mb-2.5 h-[34px] px-3" : "mb-4 flex-col gap-2.5")}>
           {wide ? (
             <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[34px] min-w-0 flex-1 items-center gap-2 rounded-[8px] px-2.5 text-[14px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
@@ -671,17 +673,21 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
               <Search size={19} strokeWidth={1.8} />
             </button>
           )}
-          {plus(false)}
+          {!wide && plus(false)}
         </div>
 
         {/* the places that aren't chats: one strip of line icons */}
         {wide && (
           <div className="mb-2.5 flex shrink-0 flex-col gap-2.5 px-3">
-            <nav aria-label="Places" className="flex justify-center gap-1 px-0.5">
-              {strip.map((p, i) => (
-                <StripButton key={p.key} p={p} align={i < 2 ? "left" : i === 2 && strip.length > 3 ? "center" : "right"} />
-              ))}
-            </nav>
+            {/* the places sit a little left, the one + a little right (board "Chat and sidebar") */}
+            <div className="flex items-center gap-1">
+              <nav aria-label="Places" className="-ml-1 flex min-w-0 flex-1 gap-0.5">
+                {strip.map((p, i) => (
+                  <StripButton key={p.key} p={p} align={i < 2 ? "left" : i === 2 && strip.length > 3 ? "center" : "right"} />
+                ))}
+              </nav>
+              <span className="-mr-1 shrink-0">{plus(false)}</span>
+            </div>
           </div>
         )}
 

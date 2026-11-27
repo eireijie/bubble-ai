@@ -16,6 +16,11 @@ export type { ChatBackground };
 
 export const NO_BACKGROUND: ChatBackground = { kind: "none" };
 
+/** Mist in light mode, Night in dark: what every chat shows until the person picks (so the glass has something to sit on). */
+export const MIST = "#dfe4f3";
+export const NIGHT = "#2a2d35";
+export const DEFAULT_BACKGROUND: ChatBackground = { kind: "color", color: MIST };
+
 /** The colour swatches (the Profile board's), light to dark; in dark mode each is dimmed to its hue (backgroundCss). */
 export const BACKGROUND_SWATCHES: readonly [string, string][] = [
   ["#dfe4f3", "Mist"],
@@ -93,7 +98,7 @@ export function defaultBackground(): ChatBackground {
   const saved = useStore.getState().me?.prefs?.background;
   if (validBackground(saved)) return saved;
   const local = readLocal().default;
-  return validBackground(local) ? local : NO_BACKGROUND;
+  return validBackground(local) ? local : DEFAULT_BACKGROUND;
 }
 
 /** The agent's own background, or null when it uses the default. */
@@ -199,9 +204,22 @@ export function usePhotoSrc(bg: ChatBackground | null | undefined): string | nul
   return src;
 }
 
-/** The CSS background for one, or null for none (and for a photo still loading). Dark mode dims a colour to its hue. */
+/** How light a #rrggbb colour is, 0 to 1. */
+function lightness(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+}
+
+/**
+ * The CSS background for one, or null for none (and for a photo still loading). In dark mode Mist
+ * becomes Night, another light colour is dimmed to its hue, and a colour that is already dark stays
+ * as it is (dimming it again would leave flat black under the glass).
+ */
 export function backgroundCss(bg: ChatBackground, photoSrc: string | null, dark = false): string | null {
-  if (bg.kind === "color") return dark ? `color-mix(in srgb, ${bg.color} 14%, #141416)` : bg.color;
+  if (bg.kind === "color") {
+    if (!dark || lightness(bg.color) < 0.35) return bg.color;
+    return bg.color.toLowerCase() === MIST ? NIGHT : `color-mix(in srgb, ${bg.color} 20%, ${NIGHT} 80%)`;
+  }
   if (bg.kind === "photo") return photoSrc ? `center / cover no-repeat url("${photoSrc}")` : null;
   return null;
 }
