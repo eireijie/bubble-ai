@@ -15,8 +15,8 @@ final class TypingTests: XCTestCase {
     app.launchEnvironment["BUBBLE_HUB"] = hub
     app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
-    XCTAssertTrue(app.tabBars.buttons["Chats"].waitForExistence(timeout: 30))
-    app.tabBars.buttons["Chats"].tap()
+    XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 30))
+    app.buttons["tab-chats"].tap()
     let general = app.buttons.containing(NSPredicate(format: "label CONTAINS 'general'")).firstMatch
     XCTAssertTrue(general.waitForExistence(timeout: 10))
     general.tap()

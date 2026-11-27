@@ -18,9 +18,8 @@ final class AgentScreensTests: XCTestCase {
     app.launchEnvironment["BUBBLE_HUB"] = hub
     app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
-    let bar = app.tabBars.firstMatch
-    XCTAssertTrue(bar.buttons["Agents"].waitForExistence(timeout: 30))
-    bar.buttons["Agents"].tap(); settle()
+    XCTAssertTrue(app.buttons["tab-more"].waitForExistence(timeout: 30))
+    app.buttons["tab-more"].tap(); app.buttons["more-agents"].tap(); settle()
     shot("agents-list")
     app.descendants(matching: .any).matching(identifier: "agent-tile").firstMatch.tap()
     XCTAssertTrue(app.buttons["agent-model"].waitForExistence(timeout: 10))

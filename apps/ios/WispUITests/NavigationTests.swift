@@ -19,10 +19,9 @@ final class NavigationTests: XCTestCase {
     app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
 
-    let bar = app.tabBars.firstMatch
-    XCTAssertTrue(bar.buttons["Chats"].waitForExistence(timeout: 30))
-    for name in ["Inbox", "Chats", "Agents", "Computers", "More"] { XCTAssertTrue(bar.buttons[name].exists, name) }
-    XCTAssertFalse(bar.buttons["You"].exists, "The You tab is gone")
+    XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 30))
+    for id in ["tab-chats", "tab-computers", "tab-more", "tab-profile"] { XCTAssertTrue(app.buttons[id].exists, id) }
+    XCTAssertFalse(app.buttons["tab-you"].exists, "The You tab is gone")
     settle(); shot("home")
 
     // + menu
@@ -36,14 +35,14 @@ final class NavigationTests: XCTestCase {
     app.buttons["Close"].firstMatch.tap()
 
     // Agents and Inbox
-    bar.buttons["Agents"].tap(); settle(); shot("agents")
+    app.buttons["tab-more"].tap(); app.buttons["more-agents"].tap(); settle(); shot("agents")
     XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "agent-tile").firstMatch.exists)
-    bar.buttons["Inbox"].tap(); settle(); shot("inbox")
-    bar.buttons["Computers"].tap(); settle()
-    bar.buttons["Chats"].tap(); settle()
+    app.buttons["tab-more"].tap(); app.buttons["more-inbox"].tap(); settle(); shot("inbox")
+    app.buttons["tab-computers"].tap(); settle()
+    app.buttons["tab-chats"].tap(); settle()
 
     // settings sheet from the avatar
-    app.buttons["profile-button"].firstMatch.tap()
+    app.buttons["tab-profile"].tap()
     XCTAssertTrue(app.buttons["you-settings"].waitForExistence(timeout: 5))
     settle(); shot("settings")
     app.buttons["you-organizations"].tap()
@@ -61,7 +60,7 @@ final class NavigationTests: XCTestCase {
     XCTAssertTrue(app.textFields["composer-field"].exists || app.textViews["composer-field"].exists)
     settle(); shot("chat")
     app.buttons["chat-back"].tap()
-    XCTAssertTrue(bar.buttons["Chats"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 5))
   }
 
   private func settle() { Thread.sleep(forTimeInterval: 1.2) }

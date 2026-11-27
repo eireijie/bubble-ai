@@ -5,7 +5,7 @@ struct InboxView: View {
   enum Mode: Hashable { case needs, done }
 
   @Environment(Store.self) private var store
-  @Environment(\.openSettings) private var openSettings
+  @Environment(\.dismiss) private var dismiss
   @State private var mode: Mode = .needs
   @State private var chat: ChatTarget?
   @State private var thread: ThreadRef?
@@ -37,8 +37,7 @@ struct InboxView: View {
   var body: some View {
     VStack(spacing: 0) {
       TopBar {
-        Button { openSettings() } label: { ProfileCircle() }
-          .buttonStyle(.press).accessibilityIdentifier("profile-button")
+        CircleButton(symbol: "chevron.left", label: "Back", id: "inbox-back") { dismiss() }
       } center: {
         Text("Inbox").font(.system(size: 20, weight: .bold)).foregroundStyle(Palette.text)
       } trailing: {
@@ -55,6 +54,7 @@ struct InboxView: View {
     }
     .background(Palette.ground.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)
+    .navigationBarBackButtonHidden(true)
     .task { await load() }
     .task(id: store.agents.map { "\($0.id):\($0.status)" }.joined(separator: ",")) { if store.role != "guest" { failures = await store.standingFailures() } }
     .onChange(of: TourRun.shared.nav, initial: true) { if TourRun.shared.active && TourRun.shared.place == .inbox { mode = .needs } }

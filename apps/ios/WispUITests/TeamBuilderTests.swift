@@ -30,7 +30,7 @@ final class TeamBuilderTests: XCTestCase {
     app.launchEnvironment["BUBBLE_HUB"] = hub
     app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
-    XCTAssertTrue(app.tabBars.firstMatch.buttons["Chats"].waitForExistence(timeout: 30))
+    XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 30))
   }
 
   private func openNewTeam() {

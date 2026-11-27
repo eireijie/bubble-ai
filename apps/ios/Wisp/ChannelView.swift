@@ -120,14 +120,8 @@ struct ChannelView: View {
             FirstChatExtras(channel: current)
           }
           ActivityPill(channel: current)
-          VStack(alignment: .leading, spacing: 0) {
-            if !typing, let agent = store.dmAgent(current), run.context != nil {
-              RunSummaryLine(agent: agent, info: run) { showRun = true }
-                .padding(.leading, 82).padding(.trailing, 18)
-                .transition(.opacity)
-            }
-            composer
-          }
+          // one pill, as on the desktop (round 10); the model is changed from the agent's profile or /model
+          composer
         }
         .animation(.snappy, value: store.agents.filter { $0.status == .busy }.map(\.id))
       }
@@ -438,11 +432,6 @@ struct ThreadView: View {
         VStack(spacing: 6) {
           if let ch = channel { ActivityPill(channel: ch, thread: ref.rootId) }
           VStack(alignment: .leading, spacing: 0) {
-            if let agent = dmAgent, run.context != nil {
-              RunSummaryLine(agent: agent, info: run) { showRun = true }
-                .padding(.leading, 82).padding(.trailing, 18)
-                .transition(.opacity)
-            }
             Composer(placeholder: handoffAgent.map { "Reply to \($0.name)" } ?? "Reply…", channelId: ref.channelId, thread: ref.rootId, refresh: replies.count) { text, files, replyTo in
               try await store.send(text, in: ref.channelId, thread: ref.rootId, files: files, replyTo: replyTo)
             }
@@ -763,71 +752,69 @@ struct Composer: View {
       if let error = error ?? dictation.error { Text(error).font(.caption).foregroundStyle(Palette.red).padding(.horizontal, 6) }
       if let target = replyTarget { replyBar(target) }
       if !files.isEmpty || !uploading.isEmpty { attachments }
-      // a round +, a pill-shaped field with dictation inside, and a round send button outside it
-      HStack(alignment: .bottom, spacing: 8) {
+      // one rounded pill holding + · the text · dictate · the round button (the web's composer-box)
+      HStack(alignment: .bottom, spacing: 2) {
         Menu {
           if UIImagePickerController.isSourceTypeAvailable(.camera) { Button("Camera", systemImage: "camera") { takingPhoto = true } }
           Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
           Button("Files", systemImage: "folder") { pickingFiles = true }
           if chatAgent == nil { Button("Mention an agent", systemImage: "at") { text += (text.isEmpty || text.hasSuffix(" ") ? "@" : " @"); focused = true } }
-        } label: { CircleLabel(symbol: "plus", size: 42, weight: .regular) }
+        } label: {
+          Image(systemName: "plus").font(.system(size: 19, weight: .regular)).foregroundStyle(Palette.text)
+            .frame(width: 38, height: 38).contentShape(Circle())
+        }
           .accessibilityLabel("Attach").accessibilityIdentifier("composer-attach")
           .tourTarget("attach", enabled: channelId != nil && thread == nil)
-        HStack(alignment: .bottom, spacing: 2) {
-          TextField(replyTarget.map { "Reply to \($0.name)" } ?? placeholder, text: $text, selection: $selection, axis: .vertical)
-            .font(.system(size: 16))
-            .lineLimit(1...8)
-            .focused($focused)
-            .padding(.vertical, 10)
-            .padding(.leading, 16)
-            .padding(.trailing, (empty || dictation.active) && !callLive ? 0 : 14)
-            .accessibilityIdentifier("composer-field")
-          if (empty || dictation.active) && !callLive {
-            Button {
-              if !dictation.active { dictationBase = text }
-              dictation.toggle { transcript in
-                text = dictationBase.isEmpty ? transcript : dictationBase + (dictationBase.hasSuffix(" ") ? "" : " ") + transcript
-              }
-            } label: {
-              Image(systemName: dictation.active ? "mic.fill" : "mic")
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(dictation.active ? Palette.mine : Palette.muted)
-                .frame(width: 40, height: 42)
+        TextField(replyTarget.map { "Reply to \($0.name)" } ?? placeholder, text: $text, selection: $selection, axis: .vertical)
+          .font(.system(size: 16))
+          .lineLimit(1...8)
+          .focused($focused)
+          .padding(.vertical, 8)
+          .padding(.horizontal, 4)
+          .frame(minHeight: 38)
+          .accessibilityIdentifier("composer-field")
+        if (empty || dictation.active) && !callLive {
+          Button {
+            if !dictation.active { dictationBase = text }
+            dictation.toggle { transcript in
+              text = dictationBase.isEmpty ? transcript : dictationBase + (dictationBase.hasSuffix(" ") ? "" : " ") + transcript
             }
-            .buttonStyle(.press)
-            .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
-            .accessibilityLabel(dictation.active ? "Stop dictating" : "Dictate")
+          } label: {
+            Image(systemName: dictation.active ? "mic.fill" : "mic")
+              .font(.system(size: 17, weight: .regular))
+              .foregroundStyle(dictation.active ? Palette.mine : Palette.muted)
+              .frame(width: 38, height: 38)
           }
-        }
-        .frame(minHeight: 42)
-        .animation(Motion.pick(Motion.pop, reduceMotion), value: dictation.active)
-        .background {
-          if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: 21, style: .continuous).fill(.clear).glassEffect(.regular.interactive(), in: .rect(cornerRadius: 21, style: .continuous))
-          } else {
-            RoundedRectangle(cornerRadius: 21, style: .continuous).fill(Palette.control)
-              .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).strokeBorder(Palette.hairline))
-          }
+          .buttonStyle(.press)
+          .accessibilityLabel(dictation.active ? "Stop dictating" : "Dictate")
         }
         let calls = empty && !sending && uploading.isEmpty && onCall != nil
         Button { if calls { onCall?() } else { submit() } } label: {
           Image(systemName: calls ? "waveform" : sending ? "ellipsis" : "arrow.up")
-            .font(.system(size: 16, weight: .bold))
-            .foregroundStyle(Palette.mineInk)
-            .frame(width: 42, height: 42)
-            .background(Circle().fill(Palette.mine))
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(calls ? Palette.sheet : Palette.mineInk)
+            .frame(width: 38, height: 38)
+            .background(Circle().fill(calls ? Palette.text : Palette.mine))
             .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.press)
         .disabled(blocked && !calls)
         .opacity(blocked && !calls ? 0.35 : 1)
-        .animation(.snappy, value: blocked)
-        .animation(.snappy, value: calls)
         .accessibilityLabel(calls ? "Call \(callName ?? "agent")" : "Send").accessibilityIdentifier(calls ? "composer-call" : "composer-send")
         .tourTarget(calls ? "call" : "composer-send")
       }
+      .padding(5)
+      .frame(minHeight: 48)
+      .background {
+        if #available(iOS 26, *) {
+          RoundedRectangle(cornerRadius: 24, style: .continuous).fill(.clear).glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24, style: .continuous))
+        } else {
+          RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Palette.control)
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Palette.hairline))
+        }
+      }
     }
-    .padding(.horizontal, 18)
+    .padding(.horizontal, 12)
     .padding(.bottom, 8)
     .padding(.top, 4)
     .task(id: slashQuery != nil) {

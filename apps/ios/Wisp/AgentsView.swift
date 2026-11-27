@@ -1,10 +1,13 @@
 import SwiftUI
 
-/** Everyone you work with: each agent's ghost, what it's doing now, and a tap to open its page. */
-struct AgentsView: View {
+/**
+ * Everyone you work with: each agent's ghost, what it's doing now, and a tap to open its page.
+ * A page in More (round 10); it opens agents and chats on More's own stack through `push`.
+ */
+struct AgentsScreen: View {
   @Environment(Store.self) private var store
-  @Environment(\.openSettings) private var openSettings
-  @State private var path = NavigationPath()
+  @Environment(\.dismiss) private var dismiss
+  var push: (any Hashable) -> Void
   @State private var adding = false
 
   private var sorted: [Agent] {
@@ -15,10 +18,9 @@ struct AgentsView: View {
   }
 
   var body: some View {
-    NavigationStack(path: $path) {
       VStack(spacing: 0) {
         TopBar {
-          Button { openSettings() } label: { ProfileCircle() }.buttonStyle(.press).accessibilityIdentifier("profile-button")
+          CircleButton(symbol: "chevron.left", label: "Back", id: "agents-back") { dismiss() }
         } center: {
           EmptyView()
         } trailing: {
@@ -40,7 +42,7 @@ struct AgentsView: View {
             } else {
               LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 ForEach(Array(sorted.enumerated()), id: \.element.id) { i, a in
-                  AgentTile(agent: a, doing: store.activity[a.id], openSettings: { path.append(a) }, openChat: { path.append($0) })
+                  AgentTile(agent: a, doing: store.activity[a.id], openSettings: { push(a) }, openChat: { push($0) })
                     .rowEntrance(i)
                 }
               }
@@ -54,12 +56,11 @@ struct AgentsView: View {
       .toolbar(.hidden, for: .navigationBar)
       // a new agent has already said hello in its DM, so that's where you land
       .sheet(isPresented: $adding) { AddAgent { agent in Task { await openNew(agent) } } }
-      .chatDestinations()
-    }
+      .navigationBarBackButtonHidden(true)
   }
 
   private func openNew(_ agent: Agent) async {
-    if let ch = try? await store.dm(with: agent) { path.append(ch) } else { path.append(agent) }
+    if let ch = try? await store.dm(with: agent) { push(ch) } else { push(agent) }
   }
 
   /** the dashed tile after the last agent */

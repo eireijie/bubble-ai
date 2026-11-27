@@ -135,7 +135,7 @@ struct ComputersView: View {
     NavigationStack(path: $path) {
       VStack(spacing: 0) {
         TopBar {
-          Button { openSettings() } label: { ProfileCircle() }.buttonStyle(.press).accessibilityIdentifier("profile-button")
+          EmptyView()
         } center: {
           VStack(spacing: 1) {
             Text("Computers").font(.system(size: 20, weight: .bold)).foregroundStyle(Palette.text).accessibilityAddTraits(.isHeader)
@@ -160,6 +160,7 @@ struct ComputersView: View {
       }
       .background(Palette.ground.ignoresSafeArea())
       .toolbar(.hidden, for: .navigationBar)
+      .mainBar()
       .navigationDestination(for: ComputersRoute.self) { route in
         switch route {
         case .computer(let id): ComputerDetail(computerId: id)

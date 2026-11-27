@@ -15,9 +15,9 @@ final class DeclutterTests: XCTestCase {
     app.launchEnvironment["BUBBLE_HUB"] = hub
     app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
-    XCTAssertTrue(app.tabBars.buttons["Chats"].waitForExistence(timeout: 30))
+    XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 30))
 
-    app.tabBars.buttons["Chats"].tap()
+    app.buttons["tab-chats"].tap()
     let general = app.buttons.containing(NSPredicate(format: "label CONTAINS 'general'")).firstMatch
     XCTAssertTrue(general.waitForExistence(timeout: 10))
     settle()
@@ -31,7 +31,7 @@ final class DeclutterTests: XCTestCase {
     app.buttons["chat-back"].tap()
     settle()
 
-    app.tabBars.buttons["Agents"].tap()
+    app.buttons["tab-more"].tap(); app.buttons["more-agents"].tap()
     app.descendants(matching: .any).matching(identifier: "agent-tile").firstMatch.tap()
     tap("agent-background")
     XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "background-sentence").firstMatch.waitForExistence(timeout: 10))
@@ -47,8 +47,8 @@ final class DeclutterTests: XCTestCase {
     shot("background-more")
 
     app.swipeDown(); app.swipeDown(); settle()
-    app.tabBars.buttons["Chats"].tap()
-    app.buttons["profile-button"].firstMatch.tap()
+    app.buttons["tab-chats"].tap()
+    app.buttons["tab-profile"].tap()
     tap("you-settings")
     tap("settings-usage")
     XCTAssertTrue(app.buttons["allowance-Medium"].waitForExistence(timeout: 10))
@@ -57,7 +57,7 @@ final class DeclutterTests: XCTestCase {
     app.navigationBars.buttons.element(boundBy: 0).tap()
     app.navigationBars.buttons.element(boundBy: 0).tap()
     app.buttons["Close"].firstMatch.tap(); settle()
-    app.tabBars.buttons["More"].tap()
+    app.buttons["tab-more"].tap()
     tap("you-mods")
     settle()
     shot("mods")

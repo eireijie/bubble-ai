@@ -22,24 +22,3 @@ extension View {
       .chatsScreens()
   }
 }
-
-/** The Inbox as its own tab: what's waiting on you, with your avatar at the top left. */
-struct InboxTab: View {
-  @Environment(Store.self) private var store
-  @State private var path = NavigationPath()
-
-  var body: some View {
-    NavigationStack(path: $path) {
-      InboxView().chatDestinations()
-    }
-    .onChange(of: TourRun.shared.nav, initial: true) { if TourRun.shared.active && TourRun.shared.place == .inbox { path = NavigationPath() } }
-    .task(id: store.route) {
-      // a tapped approval notification opens that approval
-      guard case .approval(let id) = store.route else { return }
-      store.route = nil
-      var p = NavigationPath()
-      p.append(ChatsScreen.approval(id: id))
-      path = p
-    }
-  }
-}

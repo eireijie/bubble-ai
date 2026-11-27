@@ -76,16 +76,29 @@ struct LogoStack: View {
   }
 }
 
-/** "Connect apps" at the bottom of the chat list, with the logos of what's connected (web round 8's sidebar pill). */
+/**
+ * "Connect apps" at the bottom of the chat list, with the logos of what's connected (web round 8's
+ * sidebar pill); before anything is connected, three of the apps people connect most. On the phone
+ * it shows until it's tapped once (round 10); after that Connect apps is in More.
+ */
 struct ConnectAppsPill: View {
   @Environment(Store.self) private var store
   var open: () -> Void
+  /** what the pill shows when nothing is connected yet */
+  static let suggested = ["gmail", "googlecalendar", "slack"].compactMap { BrandLogos.all[$0] }
+  /** set on the first tap: the pill steps aside for good on this phone */
+  static let openedKey = "bubble.connectPill.opened"
+
+  private var logos: [BundledLogo] {
+    let on = ConnectedLogos.of(store.connectors)
+    return on.isEmpty ? Self.suggested : on
+  }
 
   var body: some View {
     Button(action: open) {
       HStack(spacing: 8) {
         Text("Connect apps").font(.system(size: 15, weight: .medium)).foregroundStyle(Palette.text).lineLimit(1)
-        LogoStack(logos: ConnectedLogos.of(store.connectors))
+        LogoStack(logos: logos)
       }
       .frame(maxWidth: .infinity).padding(.horizontal, 16).frame(height: 44)
       .glassCapsule(interactive: true)

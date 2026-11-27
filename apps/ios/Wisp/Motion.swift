@@ -175,30 +175,3 @@ private struct BadgePop: ViewModifier {
 
 // MARK: tabs
 
-extension View {
-  /** A tab's pane when it becomes the selected one: it settles in from 8pt toward where you came from, with a fade (opacity only with Reduce Motion). */
-  func tabEntrance(_ mine: MainTab, current: MainTab) -> some View { modifier(TabEntrance(mine: mine, current: current)) }
-}
-
-private struct TabEntrance: ViewModifier {
-  var mine: MainTab
-  var current: MainTab
-  @ReduceMotion private var reduceMotion
-  /** -1 or 1 while the pane is arriving (the side it comes from), 0 once settled */
-  @State private var from: CGFloat = 0
-
-  func body(content: Content) -> some View {
-    content
-      .opacity(from == 0 ? 1 : 0)
-      .offset(x: reduceMotion ? 0 : from * 8)
-      .onChange(of: current) { old, new in
-        guard new == mine, old != new else { return }
-        var instant = Transaction(animation: nil)
-        instant.disablesAnimations = true
-        withTransaction(instant) { from = new.rawValue > old.rawValue ? 1 : -1 }
-        DispatchQueue.main.async {
-          withAnimation(reduceMotion ? Motion.reduced : Motion.settle) { from = 0 }
-        }
-      }
-  }
-}

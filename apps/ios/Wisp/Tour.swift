@@ -46,11 +46,10 @@ enum Tour {
     var tab: MainTab {
       switch self {
       case .chat, .chats, .newTeam, .team: .chats
-      case .inbox: .inbox
       case .computers: .computers
-      case .more, .memory, .marketplace, .mods: .more
-      // the Settings sheet opens over whatever tab is showing
-      case .settings, .usage, .ai: .chats
+      // the Inbox is a page in More now (round 10)
+      case .more, .inbox, .memory, .marketplace, .mods: .more
+      case .settings, .usage, .ai: .profile
       }
     }
     var inSettings: Bool { self == .settings || self == .usage || self == .ai }
