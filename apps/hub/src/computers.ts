@@ -59,6 +59,11 @@ export type ComputerView = Computer & {
   agents: string[];
   /** the last thing an agent did on it, for "Working" badges */
   activity: { agentId: string; text: string; at: string } | null;
+  /**
+   * The shared computer, when it gives each agent a screen of its own: the agents whose screen is up
+   * now. Absent where agents share one screen (any other computer, or an older VM image).
+   */
+  screens?: string[];
 };
 
 interface PendingRequest {
@@ -85,6 +90,8 @@ interface Ticket {
   workspaceId: string;
   kind: "vnc" | "frames";
   expires: number;
+  /** watching this agent's own screen on the shared computer */
+  screen?: string;
 }
 
 /**
@@ -108,6 +115,10 @@ export class Computers {
   private inFlight = new Map<string, number>();
   /** which agent has a computer's mouse and keyboard, and when it last used them */
   private screenHolder = new Map<string, { agentId: string; touched: number }>();
+  /** shared computers that give each agent a screen of its own, with the agents whose screen is up */
+  private agentScreens = new Map<string, string[]>();
+  /** last frames of agents' own screens, by computer and agent */
+  private agentFrames = new Map<string, Frame>();
   /** start failures in a row, and the next try after a network hiccup */
   private startFailures = new Map<string, number>();
   private startRetries = new Map<string, ReturnType<typeof setTimeout>>();
@@ -239,7 +250,28 @@ export class Computers {
       transport: this.transport(c),
       agents: this.hub.store.agentsOnComputer(c.id).map((a) => a.id),
       activity: this.activity.get(c.id) ?? null,
+      ...(this.ownScreens(c) ? { screens: this.agentScreens.get(c.id) ?? [] } : {}),
     };
+  }
+
+  /** Does each agent work on a screen of its own here (the shared computer, on an image that has them)? */
+  ownScreens(c: Computer): boolean {
+    return c.kind === "vm" && !!(c.config as { shared?: boolean }).shared && this.agentScreens.has(c.id);
+  }
+
+  /** The shared computer said which agents have a screen up (and whether it gives them their own at all). */
+  onAgentScreens(nodeId: string, msg: Extract<NodeToHub, { type: "agent_screens" }>) {
+    const c = this.hub.store.computer(msg.computerId);
+    if (!c || c.nodeId !== nodeId) return;
+    const before = JSON.stringify(this.agentScreens.get(c.id) ?? null);
+    if (msg.supported) {
+      this.agentScreens.set(c.id, [...new Set(msg.agents)]);
+      // nobody takes turns any more
+      this.screenHolder.delete(c.id);
+      // stopped, or an older image: one screen they take turns on (until it says otherwise)
+    } else this.agentScreens.delete(c.id);
+    for (const key of [...this.agentFrames.keys()]) if (key.startsWith(`${c.id}\n`) && !this.agentScreens.get(c.id)?.includes(key.slice(c.id.length + 1))) this.agentFrames.delete(key);
+    if (JSON.stringify(this.agentScreens.get(c.id) ?? null) !== before) this.changed(c.id);
   }
 
   /** Tell browsers a computer changed. `throttle` limits chatty updates (agent activity) to one every 2s. */
@@ -379,7 +411,8 @@ export class Computers {
    */
   /** `requester`: the person an agent is working for (see the API's requesterOf); by default, whoever asked for its current run. */
   /** `borrowed`: an agent using a person's own computer they allowed it ("Use my computers", device-use.ts), already checked. */
-  async act(c: Computer, action: ComputerAction, by: Actor, opts: { timeoutMs?: number; requester?: string | null; borrowed?: boolean } = {}): Promise<unknown> {
+  /** `screen`: a person (or a thumbnail) acting on that agent's own screen on the shared computer; an agent always acts on its own. */
+  async act(c: Computer, action: ComputerAction, by: Actor, opts: { timeoutMs?: number; requester?: string | null; borrowed?: boolean; screen?: string } = {}): Promise<unknown> {
     const ctl = this.control.get(c.id);
     const transfer = (TRANSFER_ACTIONS as readonly string[]).includes(action.action);
     // moving files and clipboard text doesn't need control: it doesn't touch the screen
@@ -399,7 +432,8 @@ export class Computers {
       }
     }
     if (by.kind === "agent" && input) this.dropHelp(c.id, by.id);
-    if (by.kind === "agent" && SCREEN_ACTIONS.has(action.action)) await this.takeScreen(c, by.id);
+    // agents with a screen of their own don't wait for each other; on one screen they take turns
+    if (by.kind === "agent" && SCREEN_ACTIONS.has(action.action) && !this.ownScreens(c)) await this.takeScreen(c, by.id);
     if (by.kind === "user" && input) {
       if (!ctl || ctl.id !== by.id) throw new ComputerError("take control of the computer first", 409);
       ctl.touched = Date.now();
@@ -414,7 +448,7 @@ export class Computers {
       if (run && this.hub.store.computer(c.id)?.status !== "ready") this.hub.runStatus(run.id, "Starting the computer…");
     }, STARTING_NOTE_MS) : null;
     try {
-      return await this.perform(c, action, by, timeoutMs, transfer);
+      return await this.perform(c, action, by, timeoutMs, transfer, opts.screen);
     } finally {
       if (note) clearTimeout(note);
       if (use) this.used(c.id, -1);
@@ -494,7 +528,10 @@ export class Computers {
     return stopped;
   }
 
-  private async perform(c: Computer, action: ComputerAction, by: Actor, timeoutMs: number, transfer: boolean): Promise<unknown> {
+  private async perform(c: Computer, action: ComputerAction, by: Actor, timeoutMs: number, transfer: boolean, screenOf?: string): Promise<unknown> {
+    // on the shared computer, whose screen: the agent's own, or the one a person picked (the device decides whether there are such)
+    const shared = c.kind === "vm" && !!(c.config as { shared?: boolean }).shared;
+    const screen = shared ? (by.kind === "agent" ? by.id : screenOf) : undefined;
     let result: unknown;
     // a login is put into the page through the VM's own browser, which only VMs on a device have
     if (action.action === "fill_login" && c.kind !== "vm") throw new ComputerError(`${c.name} can't fill logins: only VMs can`, 409);
@@ -505,11 +542,13 @@ export class Computers {
       result = await client.act(cfg, action);
     } else {
       if (!c.nodeId || !this.hub.isNodeOnline(c.nodeId)) throw new ComputerError(`${c.name} is offline: its device isn't connected`, 503);
-      result = await this.nodeRequest(c.nodeId, (requestId) => ({ type: "computer", requestId, computer: this.spec(c), action, ...(by.kind === "agent" ? { agentId: by.id } : {}) }), timeoutMs);
+      result = await this.nodeRequest(c.nodeId, (requestId) => ({ type: "computer", requestId, computer: this.spec(c), action, ...(by.kind === "agent" ? { agentId: by.id } : {}), ...(screen ? { screen } : {}) }), timeoutMs);
     }
     if (action.action === "screenshot") {
       const s = result as Screenshot;
-      this.frames.set(c.id, { image: s.image, width: s.width, height: s.height, at: Date.now() });
+      const frame = { image: s.image, width: s.width, height: s.height, at: Date.now() };
+      if (screen && this.ownScreens(c)) this.agentFrames.set(`${c.id}\n${screen}`, frame);
+      else this.frames.set(c.id, frame);
     }
     if (by.kind === "agent") {
       this.activity.set(c.id, { agentId: by.id, text: describe(action), at: now() });
@@ -558,6 +597,29 @@ export class Computers {
     if (last && last.who === who && last.text === text && Date.now() - last.at < LOG_COALESCE_MS) return;
     this.lastLog.set(c.id, { who, text, at: Date.now() });
     this.hub.store.logComputer(c.id, by, text);
+  }
+
+  /** An agent's own screen on the shared computer as it looks now; one that isn't up isn't started for a thumbnail. */
+  async latestOf(c: Computer, agentId: string, maxAgeMs = 5000): Promise<Frame> {
+    // one screen for everyone (an older image): that's the agent's screen too
+    if (!this.ownScreens(c)) return this.latest(c, maxAgeMs);
+    const key = `${c.id}\n${agentId}`;
+    const f = this.agentFrames.get(key);
+    if (f && Date.now() - f.at < maxAgeMs) return f;
+    if (c.status !== "ready" || !this.agentScreens.get(c.id)?.includes(agentId)) {
+      if (f) return f;
+      throw new ComputerError(`${this.hub.store.agent(agentId)?.name ?? "The agent"} isn't using its screen right now.`, 409);
+    }
+    let p = this.shooting.get(key);
+    if (!p) {
+      p = this.act(c, { action: "screenshot" }, { kind: "user", id: "system" }, { screen: agentId }).then(() => this.agentFrames.get(key)!);
+      this.shooting.set(key, p);
+      p.finally(() => this.shooting.delete(key)).catch(() => {});
+    }
+    return p.catch((err) => {
+      if (f) return f;
+      throw err;
+    });
   }
 
   /** The screen as it looks now (or within `maxAgeMs`), for thumbnails. */
@@ -692,7 +754,7 @@ export class Computers {
    * A one-time link to watch a computer. A device's own screen with a code opens with the code
    * first, while the viewer watches; the device checks it again when the viewer connects.
    */
-  async ticket(c: Computer, userId: string, code?: string): Promise<string> {
+  async ticket(c: Computer, userId: string, code?: string, screen?: string): Promise<string> {
     if (!this.canSee(c, userId)) throw new ComputerError("only its owner can watch this screen", 403);
     // a live VNC view carries keys and clicks whatever the page shows, so it's for people who can use it
     if (this.transport(c) === "vnc" && !this.canUse(c, userId)) throw new ComputerError(this.notYours(c), 403);
@@ -700,7 +762,9 @@ export class Computers {
     const locked = !!this.codeKind(c);
     if (locked) await this.unlockScreen(c, `view:${t}`, code, Date.now() + VIEW_UNLOCK_MS);
     this.log(c, { kind: "user", id: userId }, "Opened the live view");
-    this.tickets.set(t, { id: t, computerId: c.id, userId, workspaceId: c.workspaceId, kind: this.transport(c), code: locked ? code : undefined, expires: Date.now() + TICKET_MS });
+    // an agent's own screen only on the shared computer (a VM's VNC, never a device's)
+    const own = screen && c.kind === "vm" && (c.config as { shared?: boolean }).shared ? screen : undefined;
+    this.tickets.set(t, { id: t, computerId: c.id, userId, workspaceId: c.workspaceId, kind: this.transport(c), code: locked ? code : undefined, expires: Date.now() + TICKET_MS, ...(own ? { screen: own } : {}) });
     return t;
   }
 
@@ -767,7 +831,7 @@ export class Computers {
   }
 
   /** Relay a browser's VNC connection to a computer on a device. */
-  openTunnel(c: Computer, socket: WebSocket, code?: string) {
+  openTunnel(c: Computer, socket: WebSocket, code?: string, screen?: string) {
     if (!c.nodeId) return socket.close(4400, "no device");
     const tunnelId = id("tun");
     const t = { socket, nodeId: c.nodeId, computerId: c.id, ready: false, queue: [] as Uint8Array[] };
@@ -780,7 +844,7 @@ export class Computers {
     socket.on("close", () => {
       if (this.tunnels.delete(tunnelId)) this.hub.sendToNode(t.nodeId, { type: "tunnel_close", tunnelId });
     });
-    if (!this.hub.sendToNode(c.nodeId, { type: "tunnel_open", tunnelId, computer: this.spec(c), code })) {
+    if (!this.hub.sendToNode(c.nodeId, { type: "tunnel_open", tunnelId, computer: this.spec(c), code, ...(screen ? { screen } : {}) })) {
       this.tunnels.delete(tunnelId);
       socket.close(4503, "device offline");
     }
@@ -869,6 +933,8 @@ export class Computers {
     this.cancelRetry(c.id);
     this.startFailures.delete(c.id);
     this.frames.delete(c.id);
+    this.agentScreens.delete(c.id);
+    for (const key of [...this.agentFrames.keys()]) if (key.startsWith(`${c.id}\n`)) this.agentFrames.delete(key);
     for (const v of this.viewers.get(c.id) ?? []) v.socket.close(4404, "removed");
     this.viewers.delete(c.id);
     this.hub.store.deleteComputer(c.id);

@@ -11,11 +11,15 @@ import { CodePrompt, screenCode } from "./ScreenCode.tsx";
  * (the Computers page): no words on it, since the tile's status line says them; without a
  * picture it is a dim block.
  */
-export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { computer: ComputerInfo; refreshMs?: number; className?: string; quiet?: boolean }) {
+export function ScreenThumb({ computer, refreshMs = 4000, className, quiet, agentId }: { computer: ComputerInfo; refreshMs?: number; className?: string; quiet?: boolean; /** that agent's own screen, on the shared computer */ agentId?: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const asleep = !hasScreen(computer);
+  // the agent's own screen, where agents have their own (otherwise everyone's on the one screen)
+  const own = agentId && computer.screens ? agentId : undefined;
+  // an agent's screen that isn't up isn't started for a picture
+  const idle = !!own && !computer.screens!.includes(own);
+  const asleep = !hasScreen(computer) || idle;
   useEffect(() => {
     setUrl(null);
     setFailed(false);
@@ -28,7 +32,7 @@ export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { 
     const load = async () => {
       if (!visible || document.visibilityState !== "visible") return;
       try {
-        const res = await fetch(`/api/computers/${computer.id}/screen?maxAge=${refreshMs}`, { headers: { authorization: `Bearer ${getToken()}` } });
+        const res = await fetch(`/api/computers/${computer.id}/screen?maxAge=${refreshMs}${own ? `&agent=${encodeURIComponent(own)}` : ""}`, { headers: { authorization: `Bearer ${getToken()}` } });
         if (!res.ok) throw new Error(String(res.status));
         const next = URL.createObjectURL(await res.blob());
         if (!alive) return URL.revokeObjectURL(next);
@@ -53,7 +57,7 @@ export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { 
       io.disconnect();
       if (current) URL.revokeObjectURL(current);
     };
-  }, [computer.id, computer.online, asleep, refreshMs]);
+  }, [computer.id, computer.online, asleep, refreshMs, own]);
 
   return (
     <div ref={box} className={cx("relative aspect-[16/10] overflow-hidden rounded-xl bg-black grid place-items-center", className)}>
@@ -71,6 +75,8 @@ export function ScreenThumb({ computer, refreshMs = 4000, className, quiet }: { 
             <>
               <MonitorOff size={14} /> Paused at the device
             </>
+          ) : idle && hasScreen(computer) ? (
+            "Not using its screen"
           ) : computer.status === "error" && asleep ? (
             <>
               <MonitorOff size={14} /> Couldn't start
@@ -132,13 +138,15 @@ interface Props {
   onTakeControl?: () => void;
   /** you did something while in control (so the hub knows you're still using it) */
   onActivity?: () => void;
+  /** on the shared computer, this agent's own screen (each agent has one there); otherwise the computer's screen */
+  agentId?: string;
 }
 
 /**
  * The computer's screen, live. VMs and cloud computers stream over VNC (noVNC); a device's own
  * screen streams frames through the hub. Input only goes through while you have control.
  */
-export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScreen({ computer, control, noRing, onInput, compact, onTakeControl, onActivity }, ref) {
+export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScreen({ computer, control, noRing, onInput, compact, onTakeControl, onActivity, agentId }, ref) {
   const [state, setState] = useState<"connecting" | "live" | "closed" | "error" | "code">("connecting");
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -189,7 +197,7 @@ export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScree
     (async () => {
       let view: { transport: "vnc" | "frames"; url: string; direct: boolean };
       try {
-        view = await api("POST", `/api/computers/${computer.id}/view`, code ? { code } : {});
+        view = await api("POST", `/api/computers/${computer.id}/view`, { ...(code ? { code } : {}), ...(agentId ? { agent: agentId } : {}) });
       } catch (e) {
         if (disposed) return;
         if (code && (e as ApiError).status === 403) {
@@ -255,7 +263,7 @@ export const LiveScreen = forwardRef<LiveScreenHandle, Props>(function LiveScree
       ws.current?.close();
       ws.current = null;
     };
-  }, [computer.id, computer.online, computer.paused, computer.code, transport, attempt]);
+  }, [computer.id, computer.online, computer.paused, computer.code, transport, attempt, agentId]);
 
   // control toggles input
   useEffect(() => {

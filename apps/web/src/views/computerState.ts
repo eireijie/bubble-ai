@@ -105,9 +105,17 @@ export function computerTiles(devices: DeviceInfo[], computers: ComputerInfo[], 
   return tiles;
 }
 
-/** A computer's live view is its own address under the computer: #/computers/<id>/watch. */
-export const watchHref = (computerId: string) => `${href({ view: "computers", computerId })}/watch`;
-export const isWatchHash = (hash: string) => /^#\/computers\/[^/]+\/watch\/?$/.test(hash);
+/**
+ * A computer's live view is its own address under the computer: #/computers/<id>/watch, and an
+ * agent's own screen on the shared computer #/computers/<id>/watch/<agentId>.
+ */
+export const watchHref = (computerId: string, agentId?: string | null) => `${href({ view: "computers", computerId })}/watch${agentId ? `/${encodeURIComponent(agentId)}` : ""}`;
+export const isWatchHash = (hash: string) => /^#\/computers\/[^/]+\/watch(\/[^/]+)?\/?$/.test(hash);
+/** The agent whose own screen a live-view address is for, if any. */
+export const watchedAgent = (hash: string): string | null => {
+  const m = hash.match(/^#\/computers\/[^/]+\/watch\/([^/?]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+};
 
 /**
  * A tile's one status line, three or four words: "Atlas is working", "Asleep. Wakes when needed.",

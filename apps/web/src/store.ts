@@ -86,6 +86,8 @@ export type ComputerInfo = Computer & {
   transport: "vnc" | "frames";
   agents: string[];
   activity: { agentId: string; text: string; at: string } | null;
+  /** the shared computer, when each agent has a screen of its own: the agents whose screen is up now (absent: one screen for all) */
+  screens?: string[];
 };
 
 interface State {

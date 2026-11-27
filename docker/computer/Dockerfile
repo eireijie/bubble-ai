@@ -71,7 +71,9 @@ RUN chmod +x /usr/local/bin/google-chrome \
 COPY start.sh /usr/local/bin/wisp-desktop
 COPY entry.sh /usr/local/bin/wisp-entry
 COPY browser-mcp.sh /usr/local/bin/wisp-browser-mcp
-RUN chmod +x /usr/local/bin/wisp-desktop /usr/local/bin/wisp-entry /usr/local/bin/wisp-browser-mcp
+# each agent's own screen on the shared computer (see screen.sh)
+COPY screen.sh /usr/local/bin/wisp-screen
+RUN chmod +x /usr/local/bin/wisp-desktop /usr/local/bin/wisp-entry /usr/local/bin/wisp-browser-mcp /usr/local/bin/wisp-screen
 
 WORKDIR /home/wisp
 CMD ["/usr/local/bin/wisp-entry"]

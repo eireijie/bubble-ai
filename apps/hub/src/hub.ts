@@ -692,6 +692,10 @@ export class Hub {
         this.computers.onStatus(c.id, msg.status, msg.text);
         return;
       }
+      case "agent_screens": {
+        this.computers.onAgentScreens(conn.nodeId, msg);
+        return;
+      }
       case "screen_frame": {
         this.computers.onFrame(conn.nodeId, msg);
         return;

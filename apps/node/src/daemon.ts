@@ -22,6 +22,7 @@ import { HarnessLogins } from "./harness-login.ts";
 import { ModelLogins } from "./model-login.ts";
 import { importCodexSignin, SharedSignins } from "./shared-signin.ts";
 import { recipeTag, type DockerVm } from "./computers/docker.ts";
+import { screenSlug } from "./computers/agent-screens.ts";
 import { mcpBundle } from "./vm-tools.ts";
 import { NO_NODE, findNpmDir, harnessPrefix, npmInstall, prefixBin, withDir, withHarnessBin } from "./npm.ts";
 import { discoverAgents, readDiscovered } from "./discover.ts";
@@ -190,7 +191,7 @@ export class NodeDaemon {
     this.fixedRegistry = !!registry;
     this.computers =
       computers ??
-      new ComputerHost({ dir: cfg.dir, vmEngine: cfg.vmEngine, allowDeviceShell: cfg.allowFullAccess, log, remoteDesktop: () => this.local.remote, onVmStatus: (computerId, status, text) => this.send({ type: "computer_status", computerId, status, text }) });
+      new ComputerHost({ dir: cfg.dir, vmEngine: cfg.vmEngine, allowDeviceShell: cfg.allowFullAccess, log, remoteDesktop: () => this.local.remote, onVmStatus: (computerId, status, text) => this.send({ type: "computer_status", computerId, status, text }), onAgentScreens: (computerId, supported, agents) => this.send({ type: "agent_screens", computerId, supported, agents }) });
   }
 
   private get sessionsFile() {
@@ -555,7 +556,8 @@ export class NodeDaemon {
       // an agent running on this device uses its screen without the code, which guards it from Bubble AI, not from what runs here
       const here = !!msg.agentId && this.runningHere.has(msg.agentId);
       if (msg.computer.kind === "device" && msg.action.action !== "status" && !here && !this.lock.open()) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name}'s screen is locked with its code. Its owner opens it by entering the code in Bubble AI to watch it; agents that run on this device can use it while they work.` });
-      this.computers.act(msg.computer, msg.action).then(
+      // on the shared computer each agent works on its own screen
+      this.computers.act(msg.computer, msg.action, msg.computer.kind === "vm" ? msg.screen : undefined).then(
         (result) => {
           this.send({ type: "result", requestId: msg.requestId, ok: true, result });
           if (msg.action.action === "start") this.send({ type: "computer_status", computerId: msg.computer.id, status: "ready", text: "" });
@@ -565,6 +567,8 @@ export class NodeDaemon {
           if (msg.action.action === "start" && msg.computer.kind === "vm") {
             void this.sendVmCatalog(msg.computer);
             void this.sweepVmConnections(msg.computer);
+            // whether it gives agents screens of their own (the hub stops making them take turns)
+            void this.computers.agentScreens(msg.computer).then((s) => this.send({ type: "agent_screens", computerId: msg.computer.id, ...s }), () => {});
           }
           if (msg.action.action === "destroy") {
             this.forgetVm(msg.computer.id);
@@ -610,6 +614,7 @@ export class NodeDaemon {
             forget();
             this.send({ type: "tunnel_closed", tunnelId, error });
           },
+          msg.computer.kind === "vm" ? msg.screen : undefined,
         )
         .then(
           (t) => {
@@ -848,7 +853,8 @@ export class NodeDaemon {
       // the VM's Chrome as page-element tools, run inside the VM either way
       if (vm && !run.bare) {
         const browserBin = vm.user === "warren" ? "warren-browser-mcp" : "wisp-browser-mcp";
-        browser = inside ? { command: browserBin, args: [], env: {} } : await this.lazyBrowser(agent.id, run.runId, vm, browserBin);
+        // on the shared computer, on the agent's own screen with its own browser profile (an older image ignores it)
+        browser = inside ? { command: browserBin, args: [], env: vm.shared ? { WISP_AGENT: screenSlug(agent.id) } : {} } : await this.lazyBrowser(agent.id, run.runId, vm, browserBin);
       }
     } catch (err) {
       this.aborts.delete(run.runId);
@@ -895,7 +901,7 @@ export class NodeDaemon {
           // MCP connectors go to the harness's own config; secrets go in its environment
           connectors: connectors.filter((c: ConnectorSpec) => c.kind !== "secret"),
           env: runEnv,
-          launch: inside ? vm!.launcher(run.runId) : undefined,
+          launch: inside ? vm!.launcher(run.runId, agent.id) : undefined,
           place: inside ? vmPlace(vm!) : undefined,
           connection: credential && run.credential ? { provider: run.credential.provider, kind: run.credential.kind } : undefined,
           signal: abort.signal,
@@ -1372,7 +1378,7 @@ export class NodeDaemon {
    * runs them in the VM straight away.
    */
   private async lazyBrowser(agentId: string, runId: string, vm: DockerVm, browserBin: string): Promise<McpServerSpec> {
-    const direct = [vm.engine.bin, "exec", "-i", "-u", vm.user, vm.name, browserBin];
+    const direct = [vm.engine.bin, "exec", "-i", "-u", vm.user, ...(vm.shared ? ["-e", `WISP_AGENT=${screenSlug(agentId)}`] : []), vm.name, browserBin];
     const token = await this.harnessToken(agentId);
     if (!token) {
       await vm.ready();
