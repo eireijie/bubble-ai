@@ -190,14 +190,14 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const press = useLongPress((key, x, y) => setMenu({ key, x, y }));
 
   // --- pins ---------------------------------------------------------------------------------------
-  const pinSize = 70;
+  const pinSize = 56;
   const pins = placed.pins.map((k) => byKey.get(k)!).filter(Boolean);
   const pinGrid = pins.length > 0 && (
     <div
       data-tour="pins"
       aria-label="Pinned"
       role="list"
-      className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-1 rounded-[12px] px-0.5 pb-3 pt-1", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
+      className={cx("side-pins grid grid-cols-3 gap-x-1 gap-y-1 rounded-[14px] px-0.5 pb-2 pt-1", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
       {...dropProps("pins", (key) => {
         const c = byKey.get(key);
         if (!c) return;
@@ -226,18 +226,16 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               {...dropProps(`pin:${c.key}`, (key) => layout.pins.includes(key) && save(movePin(layout, key, i)))}
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
-              className={cx("press-row flex h-[100px] flex-col items-center justify-center gap-[6px] rounded-[12px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "bg-side-active" : "hover:bg-side-hover")}
+              className={cx("press-row flex h-[88px] flex-col items-center justify-center gap-[5px] rounded-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on" : "hover:bg-side-hover")}
             >
               <span className="relative grid place-items-center" style={{ width: pinSize, height: pinSize }}>
                 <ChatAvatar chat={c} size={pinSize} />
+                {(line?.needs || unread) && <span aria-hidden className="side-pin-dot" style={{ background: BLUE_DOT }} />}
               </span>
               {renaming === c.key ? (
                 <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className="w-[92px] text-center text-[14px]" />
               ) : (
-                <span className="flex max-w-[100px] items-center gap-1">
-                  {(line?.needs || unread) && <span aria-hidden className="size-[7px] shrink-0 rounded-full" style={{ background: BLUE_DOT }} />}
-                  <span className={cx("min-w-0 truncate text-[14px]", unread || line?.needs ? "font-semibold text-ink" : "text-muted")}>{c.name}</span>
-                </span>
+                <span className={cx("max-w-[88px] truncate text-[12.5px] font-medium", unread || line?.needs ? "text-ink" : "text-ink/80")}>{c.name}</span>
               )}
             </a>
           </div>

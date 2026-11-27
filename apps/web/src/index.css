@@ -1051,11 +1051,11 @@ body.side-resizing iframe { pointer-events: none; }
   .lg-glass, .side.side-glass, .chat-walled .composer-box, .chat-walled .bubble.them { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   :root { --lg-bg: #f4f4f6; --lg-bg-strong: #ffffff; --lg-on: #ffffff; }
   :root[data-mode="dark"] { --lg-bg: #242426; --lg-bg-strong: #2c2c2e; --lg-on: #3a3a3c; }
-  .chat-walled { --bubble-them: #ffffff; }
-  :root[data-mode="dark"] .chat-walled { --bubble-them: #262628; }
+  :root[data-chat-wall] .chat-walled { --bubble-them: #ffffff; }
+  :root[data-mode="dark"][data-chat-wall] .chat-walled { --bubble-them: #262628; }
 }
 
-/* the open chat's background (chatWallpaper.ts sets --chat-wall-light / -dark on the page) */
+/* the open chat's background (chatBackground.ts sets --chat-wall-light / -dark on the page) */
 :root { --chat-wall: var(--chat-wall-light, var(--panel)); }
 :root[data-mode="dark"] { --chat-wall: var(--chat-wall-dark, var(--panel)); }
 /* phones paint it behind the chat itself; desktops paint the whole window, so the glass sidebar sits over it too */
@@ -1065,11 +1065,12 @@ body.side-resizing iframe { pointer-events: none; }
   :root[data-chat-wall] .app-shell { background: var(--chat-wall); }
   :root[data-chat-wall] .app-main { background: transparent; }
 }
-/* over a background the agent's bubbles are white glass (dark glass in dark) */
-.chat-walled { --bubble-them: rgb(255 255 255 / 0.82); --chat-top: calc(max(0.5rem, env(safe-area-inset-top)) + 94px); }
-:root[data-mode="dark"] .chat-walled { --bubble-them: rgb(44 44 46 / 0.86); }
+/* over a background (chatBackground.ts) the agent's bubbles are white glass (dark glass in dark); with none they stay as usual */
+.chat-walled { --chat-top: calc(max(0.5rem, env(safe-area-inset-top)) + 94px); }
+:root[data-chat-wall] .chat-walled { --bubble-them: rgb(255 255 255 / 0.82); }
+:root[data-mode="dark"][data-chat-wall] .chat-walled { --bubble-them: rgb(44 44 46 / 0.86); }
 @media (min-width: 768px) { .chat-walled { --chat-top: 106px; } }
-.chat-walled .bubble.them { -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+:root[data-chat-wall] .chat-walled .bubble.them { -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .chat-walled .bubble.them pre, .chat-walled .bubble.them code { background: rgb(0 0 0 / 0.06); }
 :root[data-mode="dark"] .chat-walled .bubble.them pre, :root[data-mode="dark"] .chat-walled .bubble.them code { background: rgb(255 255 255 / 0.08); }
 /* messages fade out as they scroll up under the floating header */
@@ -1096,3 +1097,4 @@ body.side-resizing iframe { pointer-events: none; }
 :root[data-mode="dark"] .side-row-on { box-shadow: none; }
 /* one blue dot left of the avatar: needs you, or unread */
 .side-dot { width: 9px; height: 9px; border-radius: 9999px; flex: none; transition: background-color 160ms; }
+.side-pin-dot { position: absolute; left: -1px; top: 1px; width: 13px; height: 13px; border-radius: 9999px; box-shadow: 0 0 0 2px var(--panel); }

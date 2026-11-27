@@ -677,7 +677,7 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
         {/* the places that aren't chats: one strip of line icons */}
         {wide && (
           <div className="mb-2.5 flex shrink-0 flex-col gap-2.5 px-3">
-            <nav aria-label="Places" className="flex justify-between gap-0.5 px-0.5">
+            <nav aria-label="Places" className="flex justify-center gap-1 px-0.5">
               {strip.map((p, i) => (
                 <StripButton key={p.key} p={p} align={i < 2 ? "left" : i === 2 && strip.length > 3 ? "center" : "right"} />
               ))}

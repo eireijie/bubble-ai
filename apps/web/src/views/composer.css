@@ -1,22 +1,17 @@
-/* The message bar, like Messages (round 4): a glass + on the left, a glass pill holding the text and
-   dictate, and the round call or send button on the right, all 42 px tall on one line.
-   Past one line the pill grows; dictate moves to a row under the text, inside the pill. */
-
-.composer-row { display: flex; align-items: flex-end; gap: 8px; min-width: 0; }
-.composer-row > .composer-plus-slot .lg-round, .composer-row > .composer-round { width: 42px; height: 42px; }
+/* The message box: one rounded box holding + · the text · dictate · the round button.
+   Past one line the text takes the top row and the buttons move to a row underneath, inside the same box. */
 
 .composer-box {
   --composer-line: var(--line2);
   --composer-focus: color-mix(in srgb, var(--ink) 28%, transparent);
   display: flex;
-  flex: 1 1 0%;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
-  min-height: 42px;
-  padding: 2px 2px 2px 10px;
-  border-radius: 21px;
+  min-height: 48px;
+  padding: 5px;
+  border-radius: 24px;
   border: 1px solid var(--composer-line);
   background: var(--control);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
@@ -24,7 +19,7 @@
 }
 :root[data-mode="dark"] .composer-box { box-shadow: none; }
 .composer-box:focus-within { border-color: var(--composer-focus); }
-.composer-box.is-tall { border-radius: 20px; padding-left: 4px; }
+.composer-box.is-tall { border-radius: 20px; }
 
 .composer-plus-slot { flex: none; display: flex; }
 
@@ -35,7 +30,7 @@
   resize: none;
   background: transparent;
   outline: none;
-  padding: 7px 4px;
+  padding: 7px 6px;
   font-size: 16px;
   line-height: 22px;
   color: var(--ink);
@@ -59,7 +54,7 @@
 }
 .composer-btn:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--wisp-strong) 45%, transparent); }
 .composer-plus { color: var(--ink); }
-.composer-mic:hover { background: var(--hover); color: var(--ink); }
+.composer-plus:hover, .composer-plus.is-open, .composer-mic:hover { background: var(--hover); color: var(--ink); }
 
 /* the round button: ink to call (board "Chat and sidebar"), violet to send, ink to stop an agent, red while dictating */
 .composer-round.is-go { background: var(--bubble-me); color: var(--bubble-me-ink); }

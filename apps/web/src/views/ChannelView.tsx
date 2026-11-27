@@ -3,7 +3,7 @@ import "./composer.css";
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { SquarePen, Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft, Image as ImageIcon } from "lucide-react";
+import { SquarePen, Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { SCHEDULE_MARK, teamOf, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -23,8 +23,7 @@ import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, clockTime, cx } from "../components/ui.tsx";
 import { AgentHead, ChatHead } from "../components/AgentPill.tsx";
-import { ChatWallpaperPicker } from "../components/ChatWallpaper.tsx";
-import { usePageWall } from "../chatWallpaper.ts";
+import { usePageBackground } from "../chatBackground.ts";
 import { BannerSlot } from "../components/SuggestionBanner.tsx";
 import { linkPreviews, type LinkPreview } from "../linkPreview.ts";
 import type { CallRecord } from "../voice/CallScreen.tsx";
@@ -141,8 +140,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
 
   // hooks stay above the early return below: a chat that isn't there (or stops being there) must not change their count
   const dmFull = useStore((s) => (dmAgentId ? s.agents.find((a) => a.id === dmAgentId) : undefined));
-  // this chat's background, on the page while it is open (behind the glass sidebar too)
-  usePageWall(channel?.id);
+  // this chat's background (the agent's own, else the default in Settings), on the page while it is open
+  usePageBackground(!!channel, dmAgentId);
   const pillRef = useRef<HTMLDivElement>(null);
 
   if (!channel)
@@ -171,7 +170,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
 
   return (
     // your bubbles are the Bubble AI violet in every chat, the same as on the iPhone and Android; the
-    // chat's own background (chatWallpaper.ts) is painted behind it by .chat-wall
+    // chat's own background (chatBackground.ts) is painted behind it by .chat-wall
     <div className="chat-wall flex-1 min-h-0 flex">
       <div className={cx("chat-walled relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         <BannerSlot.Provider value={bannerSlot}>
@@ -281,14 +280,13 @@ function TeamHead({ channel, open, onClick }: { channel: ChannelInfo; open: bool
 }
 
 /**
- * The chat's glass ⋯ (round 4): for a DM, About, Asks first, its screen, Search in chat, Background
- * and Mute; for a team, Team info, Search in chat, Background and Mute. Each says the page it opens.
+ * The chat's glass ⋯ (round 4): for a DM, About, Asks first, its screen, Search in chat and Mute;
+ * for a team, Team info, Search in chat and Mute. Backgrounds are in Settings and the profile. Each says the page it opens.
  * Calls are in the composer, help in the account menu, how the agent thinks in its profile.
  */
 function ChatMore({ agent, channel, onOpen, onInfo }: { agent?: Agent; channel: ChannelInfo; onOpen: (tab: AgentPanelTab) => void; onInfo: () => void }) {
   const icon = { size: 17, strokeWidth: 1.8 };
   const [searching, setSearching] = useState(false);
-  const [wall, setWall] = useState(false);
   const muted = channel.notify === "mute";
   return (
     <>
@@ -308,12 +306,10 @@ function ChatMore({ agent, channel, onOpen, onInfo }: { agent?: Agent; channel: 
               ]
             : [{ label: "Team info", icon: <Info {...icon} />, onSelect: onInfo }]),
           { label: "Search in chat", icon: <Search {...icon} />, onSelect: () => setSearching(true) },
-          { label: "Background", icon: <ImageIcon {...icon} />, onSelect: () => setWall(true) },
           { label: muted ? "Unmute" : "Mute", icon: muted ? <Bell {...icon} /> : <BellOff {...icon} />, onSelect: () => void setChannelPrefs(channel, { notify: muted ? "default" : "mute" }) },
         ]}
       />
       {searching && <ChatSearch channelId={channel.id} onClose={() => setSearching(false)} />}
-      {wall && <ChatWallpaperPicker channelId={channel.id} onClose={() => setWall(false)} />}
     </>
   );
 }
@@ -1998,14 +1994,14 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             })}
           </div>
         )}
-        {/* like Messages (round 4): a glass + on the left, a glass pill with the text and dictate, and the
-            round call or send button on the right. Past one line the pill grows and dictate moves under the text */}
-        <div className="composer-row">
+        {/* one glass bar (board "Chat and sidebar"): + · the text · dictate · the round call or send button.
+            Past one line the text takes the top row and the buttons move under it, in the same bar */}
+        <div data-tour="input" className={cx("composer-box", tall && "is-tall")}>
           <span className="composer-plus-slot">
             <Popover
               className="w-60 p-1.5 !rounded-[12px]"
               trigger={(open, toggle) => (
-                <button type="button" data-tour="attach" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("composer-plus lg-glass lg-round lg-press", open && "is-on")}>
+                <button type="button" data-tour="attach" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("composer-btn composer-plus m-press", open && "is-open")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
                 </button>
               )}
@@ -2019,7 +2015,6 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
               )}
             </Popover>
           </span>
-        <div data-tour="input" className={cx("composer-box", tall && "is-tall")}>
           {/* listening: a few moving bars say the microphone is on */}
           {dictation.on && (
             <span className="composer-levels" aria-hidden>
@@ -2075,7 +2070,6 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
               <Mic size={18} strokeWidth={1.8} />
             </button>
           )}
-        </div>
           <button
             type="button"
             onClick={() => {
