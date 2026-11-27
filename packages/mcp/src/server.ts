@@ -329,8 +329,13 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
 
   // --- computer -----------------------------------------------------------------
 
-  const computer = await client.myComputer().catch(() => null);
+  // its own computer; else, in Simple, the shared one made when first needed; else the person's own
+  // computers it may use (Use my computers), starting on the first that's on
+  const choices = await client.computerChoices().catch(() => null);
+  const computer = choices ? choices.own : await client.myComputer().catch(() => null);
   if (computer) registerComputerTools(server, client, computer, safe);
+  else if (choices?.onDemand) registerComputerTools(server, client, { name: "the shared computer", kind: "vm" }, safe, choices.devices);
+  else if (choices?.devices.length) registerComputerTools(server, client, null, safe, choices.devices);
 
   // --- reaching the person, and coming back to things -------------------------------------------
 
@@ -906,15 +911,23 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
 
 type Safe = <A>(fn: (a: A) => Promise<{ content: Content[] }>) => (a: A) => Promise<{ content: Content[] } & { isError?: boolean }>;
 
+/** Where an agent with no computer of its own starts: the first of its person's computers that's on. */
+export function startingDevice(devices: readonly { name: string; online: boolean; screenOn: boolean }[]): string | undefined {
+  return (devices.find((d) => d.online && d.screenOn) ?? devices.find((d) => d.online) ?? devices[0])?.name;
+}
+
 /**
  * Computer use: look at the screen and use the mouse and keyboard, like a person. Coordinates are
  * pixels in the latest screenshot; each action returns a fresh one so the agent sees what happened.
+ * With no computer of its own (`own` null), it works on the person's own computers it may use.
  */
-function registerComputerTools(server: McpServer, client: WispClient, own: { name: string; kind: string }, safe: Safe) {
+function registerComputerTools(server: McpServer, client: WispClient, own: { name: string; kind: string } | null, safe: Safe, devices: readonly { name: string; online: boolean; screenOn: boolean }[] = []) {
   // the screen's size, for scaling coordinates
   let space: { width: number; height: number } | null = null;
   // one of the person's own computers it switched to (Use my computers), else its own
-  let on: { device: string; why?: string } | undefined;
+  const first = own ? undefined : startingDevice(devices);
+  let on: { device: string; why?: string } | undefined = first ? { device: first } : undefined;
+  const screenName = own ? `your computer "${own.name}"` : `"${first}", your person's own computer (computer_switch picks another)`;
   const look = async (note: string, settleMs = 600): Promise<{ content: Content[] }> => {
     if (settleMs) await new Promise((r) => setTimeout(r, settleMs));
     const s = await client.computer<Screenshot>({ action: "screenshot" }, on);
@@ -932,7 +945,7 @@ function registerComputerTools(server: McpServer, client: WispClient, own: { nam
   server.registerTool(
     "computer_switch",
     {
-      description: `Work on one of your person's own computers instead of "${own.name}", when a task needs their apps or sign-ins there; only ones they allowed you, only for their own requests. Pass its name, and why (shown to them if they're asked first). If you're asked to wait for an answer, end your turn. Pass "own" to go back. Without a name: lists the ones you may use.`,
+      description: `Work on one of your person's own computers${own ? ` instead of "${own.name}"` : ""}, when a task needs their apps or sign-ins there; only ones they allowed you, only for their own requests. Pass its name, and why (shown to them if they're asked first). If you're asked to wait for an answer, end your turn. ${own ? 'Pass "own" to go back. ' : ""}Without a name: lists the ones you may use.`,
       inputSchema: { to: z.string().optional().describe('a device name, or "own"'), why: z.string().max(500).optional() },
     },
     safe(async ({ to, why }) => {
@@ -941,6 +954,7 @@ function registerComputerTools(server: McpServer, client: WispClient, own: { nam
         return text(list.length ? list.map((d) => `${d.name}: ${d.how === "ask" ? "ask first" : "allowed, tell after"}${d.online ? "" : " (offline)"}${d.screenOn ? "" : " (screen off at the device)"}`).join("\n") : "You may only use your own computer.");
       }
       if (to.trim().toLowerCase() === "own") {
+        if (!own) return text(`You have no computer of your own; you're on ${on?.device ?? "none"}.`);
         on = undefined;
         space = null;
         return look(`Back on "${own.name}".`, 0);
@@ -950,12 +964,12 @@ function registerComputerTools(server: McpServer, client: WispClient, own: { nam
       const s = await client.computer<Screenshot>({ action: "screenshot" }, next);
       on = next;
       space = { width: s.width, height: s.height };
-      return { content: [{ type: "image" as const, data: s.image, mimeType: s.mime }, { type: "text" as const, text: `Now on ${next.device}. Screen is ${s.width}x${s.height}; coordinates are pixels in this image. Its files and clipboard stay there; your computer_run still runs on "${own.name}".` }] };
+      return { content: [{ type: "image" as const, data: s.image, mimeType: s.mime }, { type: "text" as const, text: `Now on ${next.device}. Screen is ${s.width}x${s.height}; coordinates are pixels in this image. Its files and clipboard stay there${own && own.kind !== "device" ? `; your computer_run still runs on "${own.name}"` : ""}.` }] };
     }),
   );
   server.registerTool(
     "computer_screenshot",
-    { description: `See the screen of your computer "${own.name}".`, inputSchema: {} },
+    { description: `See the screen of ${screenName}.`, inputSchema: {} },
     safe(async () => look("", 0)),
   );
   server.registerTool(
@@ -1020,7 +1034,7 @@ function registerComputerTools(server: McpServer, client: WispClient, own: { nam
     { description: "Wait for something to load, then look again.", inputSchema: { seconds: z.number().min(0.5).max(30) } },
     safe(async ({ seconds }) => look(`Waited ${seconds}s.`, seconds * 1000)),
   );
-  if (own.kind !== "device") {
+  if (own && own.kind !== "device") {
     server.registerTool(
       "computer_run",
       { description: `Run a shell command on your computer "${own.name}" (bash) and get its output. Use it for files, installs and scripts; use the screen for apps and websites.`, inputSchema: { command: z.string(), timeout_s: z.number().int().min(1).max(600).optional() } },
@@ -1030,7 +1044,7 @@ function registerComputerTools(server: McpServer, client: WispClient, own: { nam
       }),
     );
   }
-  if (own.kind === "vm") {
+  if (own?.kind === "vm") {
     server.registerTool(
       "login_fill",
       {
@@ -1044,6 +1058,7 @@ function registerComputerTools(server: McpServer, client: WispClient, own: { nam
       safe(async ({ site, account }) => text((await client.fillLogin(site, account)).message)),
     );
   }
+  if (!own) return;
   server.registerTool(
     "computer_ask_human",
     {

@@ -16,11 +16,12 @@ import { AIStep } from "./onboarding/AIStep.tsx";
 import { ConnectStep, connectableFor, SETUP_GOALS, StartStep, YoursStep, yoursInstructions, type CheckIn, type SetupPath, type Talk } from "./onboarding/BubbleSetup.tsx";
 import { lookOf } from "./onboarding/firstAgent.ts";
 import { Stage } from "./onboarding/Stage.tsx";
+import { macStepWanted, ThisMacStep } from "./onboarding/ThisMacStep.tsx";
 import { startSetupTour, type SetupTourState } from "../components/onboarding/SetupTour.tsx";
 export { askableOn, makeFirstAgent, NO_NODE } from "./onboarding/firstAgent.ts";
 
 /** The first run's screens after the account ("You", which AuthScreen shows before anyone is signed in). */
-export type WelcomeScreen = "agent" | "start" | "ai" | "goals" | "recs";
+export type WelcomeScreen = "mac" | "agent" | "start" | "ai" | "goals" | "recs";
 
 /**
  * The agent this first run is about: the one it made (remembered in this browser), else, coming
@@ -36,7 +37,9 @@ export function firstRunAgent<A extends Pick<Agent, "id" | "createdAt" | "settin
  * Which screen shows. "Its AI" only ever shows for an agent that exists: with none, whatever was
  * asked for, it is "Your agent". A new setup and "See the welcome again" (`intro`) start there too.
  */
-export function welcomeScreen(wanted: WelcomeScreen | null, o: { intro?: boolean; hasAgent: boolean }): WelcomeScreen {
+export function welcomeScreen(wanted: WelcomeScreen | null, o: { intro?: boolean; hasAgent: boolean; mac?: boolean }): WelcomeScreen {
+  // in the desktop app on a Mac, first: let agents use this Mac (once)
+  if (o.mac && (wanted ?? "mac") === "mac") return "mac";
   if (!o.hasAgent) return "agent";
   return wanted ?? (o.intro ? "agent" : "ai");
 }
@@ -47,7 +50,7 @@ export function finishedSteps(hasAgent: boolean): StepId[] {
 }
 
 /** The pages in order, for the progress line and which way a page slides. */
-const ORDER: WelcomeScreen[] = ["agent", "start", "ai", "goals", "recs"];
+const ORDER: WelcomeScreen[] = ["mac", "agent", "start", "ai", "goals", "recs"];
 
 /**
  * The first run after the account, all on one stage (Stage.tsx) that never unmounts: Your agent →
@@ -64,7 +67,9 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
   const [agentId, setAgentId] = useState<string | null>(() => loadAnswers(ws).agentId ?? null);
   const agent = firstRunAgent(agentId, agents, me.user.id);
   const [wanted, setWanted] = useState<WelcomeScreen | null>(null);
-  const screen = welcomeScreen(wanted, { intro, hasAgent: !!agent });
+  // only an owner's first run on their Mac; done once per workspace in this app
+  const [mac] = useState(() => me.role === "owner" && macStepWanted(typeof window !== "undefined" ? window.wispDesktop : undefined, loadAnswers(ws).macReady));
+  const screen = welcomeScreen(wanted, { intro, hasAgent: !!agent, mac });
   const [dir, setDir] = useState<1 | -1>(1);
   const goTo = (s: WelcomeScreen) => (setDir(ORDER.indexOf(s) >= ORDER.indexOf(screen) ? 1 : -1), setWanted(s));
   const [look, setLook] = useState<GhostAppearance>(() => agent?.settings.appearance ?? { ...lookOf(FAMILY_COLORS[0], "classic"), bubble: "round" });
@@ -116,16 +121,25 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     goTo("recs");
   };
 
-  const steps = path === "advanced" ? ORDER : ORDER.slice(0, 3);
+  const steps = (path === "advanced" ? ORDER : ORDER.slice(0, 4)).filter((s) => mac || s !== "mac");
   const at = Math.max(0, steps.indexOf(screen));
-  const back: Partial<Record<WelcomeScreen, WelcomeScreen>> = { start: "agent", ai: "start", goals: "ai", recs: "goals" };
+  const back: Partial<Record<WelcomeScreen, WelcomeScreen>> = { ...(mac ? { agent: "mac" as const } : {}), start: "agent", ai: "start", goals: "ai", recs: "goals" };
   // the first screen goes back to the page it was opened from (the chats list, Settings), when it was opened from one
   const from = welcomeReturn();
   const leave = screen === "agent" && from ? () => void (location.hash = from) : null;
   const onBack = busy || (screen === "ai" && chatId) ? null : back[screen] ? () => goTo(back[screen]!) : leave;
 
   let page;
-  if (screen === "goals" && agent) page = <YoursStep look={agent.settings.appearance} seed={agent.id} name={called} goals={goals} onGoals={setGoals} talk={talk} onTalk={setTalk} when={when} onWhen={setWhen} onNext={() => void saveYours()} busy={busy} />;
+  if (screen === "mac")
+    page = (
+      <ThisMacStep
+        onDone={() => {
+          saveAnswers(ws, { macReady: true });
+          goTo("agent");
+        }}
+      />
+    );
+  else if (screen === "goals" && agent) page = <YoursStep look={agent.settings.appearance} seed={agent.id} name={called} goals={goals} onGoals={setGoals} talk={talk} onTalk={setTalk} when={when} onWhen={setWhen} onNext={() => void saveYours()} busy={busy} />;
   else if (screen === "recs" && agent) page = <ConnectStep name={called} apps={connectable} onNext={(on, off) => toChat({ path: "advanced", on, off })} />;
   else if (screen === "start" && agent) page = <StartStep name={called} path={path} onPath={setPath} onNext={startNext} />;
   else if (screen === "ai" && agent)

@@ -11,7 +11,7 @@ import { sessionName } from "./terminals.ts";
 import { featureOn } from "./features.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
 import { greetNewAgent } from "./greeting.ts";
-import { ADVANCED_KEY, adoptShared, advancedOn, shareOnDemand, sharedComputer } from "./shared-computer.ts";
+import { ADVANCED_KEY, adoptShared, advancedOn, mayShareOnDemand, shareOnDemand, sharedComputer } from "./shared-computer.ts";
 
 export const HARNESS = z.union([z.enum(HARNESS_IDS as [string, ...string[]]), z.string().regex(DEVICE_HARNESS, 'a known harness, or "acp:<name>" declared on a device')]);
 
@@ -538,6 +538,20 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (c.actor.kind !== "agent") return reply.code(403).send({ error: "agents only" });
     const agent = store.agent(c.actor.id);
     return agent ? hub.deviceUse.list(agent) : [];
+  });
+
+  /**
+   * Every screen this agent can work on, for its tools: its own computer, the person's own computers
+   * it may use (Use my computers), and whether the shared computer would be made for it on demand.
+   */
+  app.get("/api/computers/mine/choices", async (req, reply) => {
+    const c = need(req, reply);
+    if (!c) return;
+    if (c.actor.kind !== "agent") return reply.code(403).send({ error: "agents only" });
+    const agent = store.agent(c.actor.id);
+    if (!agent) return reply.code(404).send({ error: "agent not found" });
+    const own = agent.computerId ? store.computer(agent.computerId) : undefined;
+    return { own: own ? computers.view(own) : null, devices: hub.deviceUse.list(agent), onDemand: !own && mayShareOnDemand(hub, agent.id) };
   });
 
   app.post("/api/computers/mine/help", async (req, reply) => {

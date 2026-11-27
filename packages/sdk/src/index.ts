@@ -150,6 +150,23 @@ export class WispClient {
   myDevices() {
     return this.request<{ id: string; name: string; how: "ask" | "tell"; online: boolean; screenOn: boolean }[]>("GET", "/api/computers/mine/devices");
   }
+  /**
+   * Every screen this agent can work on: its own computer (null without one), its person's own
+   * computers it may use, and whether a shared computer is made for it the first time it needs one.
+   * Null from a hub too old to say.
+   */
+  async computerChoices(): Promise<{
+    own: { id: string; name: string; kind: string; online: boolean; status: string; statusText: string } | null;
+    devices: { id: string; name: string; how: "ask" | "tell"; online: boolean; screenOn: boolean }[];
+    onDemand: boolean;
+  } | null> {
+    try {
+      return await this.request("GET", "/api/computers/mine/choices");
+    } catch (err) {
+      if (err instanceof WispError && err.status === 404) return null;
+      throw err;
+    }
+  }
   /** Sign in to a website on this agent's own computer with a login from the person's password manager; may ask them first. */
   fillLogin(site: string, account?: string) {
     return this.request<{ status: "filled" | "not_filled" | "asked"; message: string; approvalId?: string }>("POST", "/api/logins/fill", { site, ...(account ? { account } : {}) });
