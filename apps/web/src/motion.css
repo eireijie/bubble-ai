@@ -301,3 +301,9 @@ button[role="switch"]:active:not(:disabled) .m-knob { scale: 1.2 1; }
 html[data-sheet] #root { transform: none !important; border-radius: 0 !important; }
 .m-tabs, .m-knob, .seg-thumb, .pop-nav-mark { transition: none !important; }
 button[role="switch"]:active:not(:disabled) .m-knob { scale: 1; }
+
+/* Connect apps (round 8): working UI, so it opens and closes at once, no scrim fade, no card rise */
+.settings-pop[data-size="apps"], .settings-pop[data-size="apps"] .settings-pop-panel, .settings-pop[data-size="apps"] .pop-swap { animation: none !important; transition: none !important; }
+.settings-pop[data-size="apps"][data-state="out"] { display: none; }
+.settings-pop[data-size="apps"] { background: rgb(0 0 0 / 0.12); }
+:root[data-mode="dark"] .settings-pop[data-size="apps"] { background: rgb(0 0 0 / 0.35); }

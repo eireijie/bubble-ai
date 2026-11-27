@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { cx } from "./ui.tsx";
 
 /** How big a pop-up is (router.popupSize), and "full" for the one page that needs the whole window inside it (Memory's graph). */
-export type DialogSize = "large" | "medium" | "profile" | "full";
+export type DialogSize = "large" | "medium" | "profile" | "full" | "apps";
 
 /**
  * Inside a pop-up: how to close it, and how big it is. Views use it to drop their own page chrome
@@ -43,6 +43,8 @@ export const DIALOG_SIZE: Record<DialogSize, string> = {
   medium: "min-h-[min(180px,calc(100vh-96px))] max-h-[min(680px,calc(100vh-96px))] w-[min(640px,calc(100vw-48px))]",
   profile: "min-h-[min(180px,calc(100vh-96px))] max-h-[min(760px,calc(100vh-64px))] w-[min(760px,calc(100vw-48px))]",
   full: "h-[calc(100vh-48px)] w-[calc(100vw-48px)]",
+  // Connect apps (round 8): a fixed 940 × 690 liquid-glass panel with its own header and close button
+  apps: "h-[min(690px,calc(100vh-48px))] w-[min(940px,calc(100vw-48px))]",
 };
 
 /**
@@ -77,7 +79,7 @@ export function SettingsDialog({ label, closing, onClose, size = "large", swapKe
   // open: moving between its sections, or its list loading, doesn't make it jump. A swap starts over.
   useLayoutEffect(() => {
     const el = panel.current;
-    if (!el || size === "full" || typeof ResizeObserver === "undefined") return;
+    if (!el || size === "full" || size === "apps" || typeof ResizeObserver === "undefined") return;
     let tallest = 0;
     el.style.minHeight = "";
     const ro = new ResizeObserver(() => {
@@ -103,6 +105,7 @@ export function SettingsDialog({ label, closing, onClose, size = "large", swapKe
     <div
       className={cx("settings-pop fixed inset-0 grid place-items-center p-6", LAYER.settings)}
       data-state={closing ? "out" : "in"}
+      data-size={size}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !closing) onClose();
       }}
@@ -114,11 +117,13 @@ export function SettingsDialog({ label, closing, onClose, size = "large", swapKe
         aria-label={label}
         tabIndex={-1}
         data-size={size}
-        className={cx("settings-pop-panel relative flex flex-col overflow-hidden rounded-[16px] border border-line bg-panel shadow-float outline-none", DIALOG_SIZE[size], closing && "pointer-events-none")}
+        className={cx("settings-pop-panel relative flex flex-col overflow-hidden outline-none", size === "apps" ? "apps-glass rounded-[24px]" : "rounded-[16px] border border-line bg-panel shadow-float", DIALOG_SIZE[size], closing && "pointer-events-none")}
       >
+        {size !== "apps" && (
         <button type="button" onClick={onClose} aria-label="Close" title="Close (Esc)" className="absolute right-4 top-4 z-20 grid size-[30px] place-items-center rounded-[8px] text-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
           <X size={17} strokeWidth={1.8} />
         </button>
+        )}
         <SettingsDialogContext.Provider value={{ close: onClose, size, setFull }}>
           <div key={swapKey} className={cx("flex min-h-0 flex-1 flex-col", swapKey !== undefined && "pop-swap")}>
             {children}

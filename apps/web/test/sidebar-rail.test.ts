@@ -68,7 +68,11 @@ describe("docked sidebar", () => {
     expect(html).toContain("width:360px");
     expect(html).toContain('role="separator"');
     expect(html).toContain(">Iris<");
-    expect(html).toContain(">Sam<");
+    // round 8: your initial at the foot, beside the Connect apps pill; no apps icon in the strip
+    expect(html).toMatch(/aria-label="Account, settings and help"[^>]*>S</);
+    expect(html).toContain('href="#/marketplace" data-tour="apps"');
+    expect(html).toContain(">Connect apps<");
+    expect(html).not.toContain('aria-label="Connect apps"');
     expect(html).toContain('href="#/computers" data-tour="computers" aria-label="Computers"');
     expect(html).toContain('href="#/vault"');
     for (const control of ["Search", "New chat, agent or team", "Account, settings and help"]) expect(html).toContain(`aria-label="${control}"`);

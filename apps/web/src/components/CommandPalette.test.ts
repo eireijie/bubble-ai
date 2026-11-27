@@ -51,7 +51,7 @@ const cases = [
     return () => element.type(element.props);
   }, result: (name: string) => ({ channels: [], agents: [], messages: [], notes: [{ path: name, title: name, snippet: name }] }) },
   { name: "vault", queryIndex: 3, resultIndex: 4, component: () => () => VaultView({ path: null }), result: (name: string) => [{ path: name, title: name, snippet: name }] },
-  { name: "marketplace", queryIndex: 0, resultIndex: 5, component: () => () => MarketplaceView({ section: "apps" }), result: (name: string) => ({ entries: [{ id: name, name }] }) },
+  { name: "marketplace", queryIndex: 0, resultIndex: 6, component: () => () => MarketplaceView({ section: "apps" }), result: (name: string) => ({ entries: [{ id: name, name }] }) },
 ];
 
 describe.each(cases)("$name search", ({ queryIndex, resultIndex, component, result, name }) => {
@@ -240,7 +240,7 @@ describe("typing", () => {
   it("shows the sidebar strip's shortcuts beside its places", () => {
     expect(draw("comp").row("Computers")!.meta).toBe("⌘1");
     expect(draw("memory").row("Memory")!.meta).toBe("⌘2");
-    expect(draw("add apps").row("Add apps and skills")!.meta).toBe("⌘3");
+    expect(draw("connect apps").row("Connect apps")!.meta).toBe("⌘3");
     expect(draw("tasks").row("Tasks")!.meta).toBe("⌘4");
   });
 
@@ -300,7 +300,7 @@ describe("plain words", () => {
     expect(find("away")[0]).toBe("Away from home");
     expect(find("voice")[0]).toBe("Voice");
     expect(find("api key")[0]).toBe("AI accounts and keys");
-    expect(find("marketplace")).toEqual(["Add apps and skills"]);
+    expect(find("marketplace")).toEqual(["Connect apps"]);
     expect(find("terminal")).toEqual(["Code"]);
   });
 

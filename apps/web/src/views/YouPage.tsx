@@ -73,7 +73,7 @@ export function YouPage() {
     [
       // what waits on you (the Inbox): approvals, agents that need something, computers asking for help
       { label: "Needs you", icon: <Inbox {...ICON} />, to: { view: "dashboard" }, hint: waiting > 0 ? (waiting > 99 ? "99+" : String(waiting)) : undefined },
-      ...(!isGuest ? [{ label: "Computers", icon: <ComputersIcon size={ICON.size} />, to: { view: "computers", computerId: null } as Route }, { label: "Add apps and skills", icon: <LayoutGrid {...ICON} />, to: { view: "marketplace" } as Route }] : []),
+      ...(!isGuest ? [{ label: "Computers", icon: <ComputersIcon size={ICON.size} />, to: { view: "computers", computerId: null } as Route }, { label: "Connect apps", icon: <LayoutGrid {...ICON} />, to: { view: "marketplace" } as Route }] : []),
       { label: "Memory", icon: <BookOpen {...ICON} />, to: { view: "vault", path: null } },
       { label: "All agents", icon: <BubbleIcon {...ICON} />, to: { view: "agents", agentId: null } },
       // the Tasks mod's board, whichever mode (Simple or Advanced) is on

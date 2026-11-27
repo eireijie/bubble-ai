@@ -253,16 +253,18 @@ export function isDialogRoute(r: Route): boolean {
   }
 }
 
-export type PopupSize = "large" | "medium" | "profile";
+export type PopupSize = "large" | "medium" | "profile" | "apps";
 
 /**
- * How big a pop-up is (both as tall as what they hold, up to min(680, window - 96)): large 960 wide for Settings, Computers, Apps and skills,
+ * How big a pop-up is (both as tall as what they hold, up to min(680, window - 96)): large 960 wide for Settings, Computers,
  * Tasks and Memory; medium 640 for All agents, Help, Templates, What agents know and Needs you (its
  * sidebar row went in round 4: blue dots on the chats say what waits). One agent's profile is 760 wide.
  */
 export function popupSize(r: Route): PopupSize {
   // one agent's profile: its own 760 wide, between the two
   if (r.view === "agents" && r.agentId) return "profile";
+  // Connect apps (round 8): its own 940 × 690 glass pop-up
+  if (r.view === "marketplace" || r.view === "connectors" || r.view === "skills" || r.view === "mods") return "apps";
   if (r.view === "dashboard" || (r.view === "agents" && !r.agentId) || r.view === "help" || r.view === "templates" || r.view === "about") return "medium";
   return "large";
 }

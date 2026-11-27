@@ -6,21 +6,22 @@ const { stripPlaces, shortcutTarget, homeChat, rememberChat } = await import("./
 const base = { guest: false, tasks: true, code: true, computersOn: 0, notes: null, newNotes: false, open: null, vaultTo: "#/vault" };
 
 describe("the sidebar's strip of places (canvas \"Calmer layout\", A1)", () => {
-  it("is Computers, Memory, Apps and skills, Tasks and Code, ⌘1 to ⌘5", () => {
+  it("is Computers, Memory, Tasks and Code; Connect apps has its own pill at the bottom (round 8) and keeps ⌘3", () => {
     const strip = stripPlaces(base);
     expect(strip.map((p) => [p.label, p.shortcut])).toEqual([
       ["Computers", 1],
       ["Memory", 2],
-      ["Apps and skills", 3],
       ["Tasks", 4],
       ["Code", 5],
     ]);
-    expect(strip.map((p) => p.to)).toEqual(["#/computers", "#/vault", "#/marketplace", "#/tasks", "#/code"]);
+    expect(strip.map((p) => p.to)).toEqual(["#/computers", "#/vault", "#/tasks", "#/code"]);
+    expect(strip.some((p) => p.key === "apps")).toBe(false);
+    expect(shortcutTarget(3, { guest: false, tasks: true, code: true })).toBe("#/marketplace");
   });
 
   it("leaves out Code while its mod is off, and sends Tasks to its mod while that is off", () => {
     const strip = stripPlaces({ ...base, tasks: false, code: false });
-    expect(strip.map((p) => p.label)).toEqual(["Computers", "Memory", "Apps and skills", "Tasks"]);
+    expect(strip.map((p) => p.label)).toEqual(["Computers", "Memory", "Tasks"]);
     const tasks = strip.find((p) => p.key === "tasks")!;
     expect(tasks.to).toBe("#/marketplace/app/m%3Atasks");
     expect(tasks.count).toBe("Off");
@@ -43,8 +44,7 @@ describe("the sidebar's strip of places (canvas \"Calmer layout\", A1)", () => {
     const on = (open: Parameters<typeof stripPlaces>[0]["open"]) => stripPlaces({ ...base, open }).filter((p) => p.on).map((p) => p.key);
     expect(on({ view: "computers", computerId: null })).toEqual(["computers"]);
     expect(on({ view: "vault", path: "shared/a.md" })).toEqual(["memory"]);
-    expect(on({ view: "marketplace", app: "b:gmail" })).toEqual(["apps"]);
-    expect(on({ view: "skills" })).toEqual(["apps"]);
+    expect(on({ view: "marketplace", app: "b:gmail" })).toEqual([]);
     expect(on({ view: "chat", channelId: "c1", threadId: null })).toEqual([]);
   });
 

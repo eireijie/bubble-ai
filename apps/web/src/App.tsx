@@ -23,6 +23,7 @@ import { Loader, cx } from "./components/ui.tsx";
 import { enterDeskPane, enterPane, staggerRows, usePresence } from "./motion.ts";
 import { noteAppPage, setupProgress, useDismissed, useOnboarding } from "./onboarding.ts";
 import { useFeatures } from "./features.ts";
+import { usePageBackground } from "./chatBackground.ts";
 import { useDesktopAgents } from "./desktop.ts";
 import { lazyView, preloadViews, type LazyView } from "./lazy.tsx";
 
@@ -182,6 +183,9 @@ function Workspace() {
   }, [userId]);
   useUnreadBadge();
   useDesktopAgents();
+  // round 8: one background behind the whole window. A chat puts its own on (ChannelView); every other
+  // page on desktops shows the person's default
+  usePageBackground(!phone && !!me && !(route.view === "chat" && route.channelId), null);
 
   // --- motion: tabs cross-fade, lists stagger, a chat slides in over the list on phones ---------------
   const shellRef = useRef<HTMLDivElement>(null);
@@ -349,7 +353,7 @@ function Workspace() {
     heldPop.current &&
     held &&
     (
-      <SettingsDialog label={popupLabel(held)} closing={!popped} onClose={closePopup} size={popFull && held.view === "vault" ? "full" : popSize === "medium" || popSize === "profile" ? popSize : "large"} swapKey={popupKey(held)} setFull={setPopFull}>
+      <SettingsDialog label={popupLabel(held)} closing={!popped} onClose={closePopup} size={popFull && held.view === "vault" ? "full" : popSize === "medium" || popSize === "profile" || popSize === "apps" ? popSize : "large"} swapKey={popupKey(held)} setFull={setPopFull}>
         {heldPop.current.node}
       </SettingsDialog>
     );
@@ -420,7 +424,7 @@ function popupLabel(r: Route): string {
     case "connectors":
     case "skills":
     case "mods":
-      return "Apps and skills";
+      return "Connect apps";
     case "help":
       return "Help";
     case "templates":
