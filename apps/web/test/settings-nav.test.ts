@@ -38,23 +38,28 @@ describe("old settings routes", () => {
 });
 
 describe("agent page", () => {
-  it("has the profile's five tabs, in the canvas's order", async () => {
+  it("has the profile's four tabs, in the board's order", async () => {
     const { PROFILE_TABS, PROFILE_TAB_TITLES } = await import("../src/views/AgentProfile.tsx");
-    expect(PROFILE_TABS.map((t) => PROFILE_TAB_TITLES[t])).toEqual(["Activity", "Library", "Computer", "Voice", "Background", "Settings"]);
+    expect(PROFILE_TABS.map((t) => PROFILE_TAB_TITLES[t])).toEqual(["Activity", "Memory", "Background", "Settings"]);
   });
 
-  it("lands every address on its tab: old tabs and the six groups' rows open their part under Settings", async () => {
+  it("lands every address on its tab: the old tabs open as parts under the tab they belong to", async () => {
     const { profilePlace } = await import("../src/views/AgentProfile.tsx");
     const { AGENT_TABS } = await import("../src/router.ts");
     const tabs = Object.fromEntries(AGENT_TABS.map((t) => [t, profilePlace(t).tab]));
-    expect(tabs).toMatchObject({ overview: "activity", runs: "activity", library: "library", screen: "computer", voice: "voice", wallpaper: "background", settings: "settings", model: "settings", computer: "settings", permissions: "settings", memory: "settings", look: "settings", remove: "settings" });
+    expect(tabs).toMatchObject({ overview: "activity", screen: "activity", voice: "activity", notes: "memory", library: "memory", wallpaper: "background", settings: "settings", more: "settings", runs: "settings", model: "settings", computer: "settings", permissions: "settings", memory: "settings", soul: "settings", look: "settings", remove: "settings" });
     expect(profilePlace(null)).toEqual({ tab: "activity", part: null });
+  });
+
+  it("goes back from a part to where its row is: Settings' rows to Settings, More's rows to More, the Activity cards to Activity", async () => {
+    const { PART_PARENT } = await import("../src/views/AgentProfile.tsx");
+    expect(PART_PARENT).toMatchObject({ model: "settings", harness: "settings", computer: "settings", permissions: "settings", apps: "settings", routines: "settings", more: "settings", soul: "more", instructions: "more", memory: "more", watches: "more", access: "more", connect: "more", runs: "more", role: "more", screen: "overview", voice: "overview", library: "notes" });
   });
 
   it("opens a part for every Settings row; the tabs themselves and Remove (a confirm) are not parts", async () => {
     const { profilePlace } = await import("../src/views/AgentProfile.tsx");
     const { AGENT_TABS } = await import("../src/router.ts");
-    expect(AGENT_TABS.filter((t) => !profilePlace(t).part)).toEqual(["overview", "library", "screen", "voice", "wallpaper", "settings", "runs", "remove"]);
+    expect(AGENT_TABS.filter((t) => !profilePlace(t).part)).toEqual(["overview", "notes", "wallpaper", "settings", "remove"]);
     for (const t of AGENT_TABS) expect(profilePlace(t).part ?? t).toBe(t);
   });
 
@@ -66,7 +71,7 @@ describe("agent page", () => {
 
   it("says Model, Harness, Computer, Apps and skills, Permissions and Memory, not the old cute names", async () => {
     const { TAB_TITLES } = await import("../src/views/AgentSections.tsx");
-    expect([TAB_TITLES.model, TAB_TITLES.harness, TAB_TITLES.effort, TAB_TITLES.computer, TAB_TITLES.apps, TAB_TITLES.permissions, TAB_TITLES.memory, TAB_TITLES.access]).toEqual(["Model", "Harness", "Effort", "Computer", "Apps and skills", "Permissions", "Memory", "Who can message"]);
+    expect([TAB_TITLES.model, TAB_TITLES.harness, TAB_TITLES.effort, TAB_TITLES.computer, TAB_TITLES.apps, TAB_TITLES.permissions, TAB_TITLES.notes, TAB_TITLES.access]).toEqual(["Model", "Harness", "Effort", "Computer", "Apps and skills", "Permissions", "Memory", "Who can message"]);
     expect(Object.values(TAB_TITLES).join(" ")).not.toMatch(/Thinks with|Works on|Can use|Asks first|Knows/);
   });
 

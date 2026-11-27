@@ -200,8 +200,8 @@ export function MemoryGraph({
         return (sn.id === focusId ? 4e6 : 0) + (sn.id === st.active ? 2e6 : 0) + (st.hubs.has(sn.id) ? 1e6 : 0) + sn.n.links;
       }
       for (const sn of order) {
-        // the small map names the open note and its best-linked neighbours; hover names the rest
-        const show = props.current.variant === "local" ? (lit ? lit.has(sn.id) : sn.id === st.active || st.hubs.has(sn.id)) : lit ? lit.has(sn.id) : k > 1.5 || (st.nodes.length <= SMALL_GRAPH && k > 0.45) || (st.hubs.has(sn.id) && k > 0.45);
+        // the small map names the open note and its best-linked neighbours (every note, when there are only a few); hover names the rest
+        const show = props.current.variant === "local" ? (lit ? lit.has(sn.id) : sn.id === st.active || st.hubs.has(sn.id) || st.nodes.length <= 12) : lit ? lit.has(sn.id) : k > 1.5 || (st.nodes.length <= SMALL_GRAPH && k > 0.45) || (st.hubs.has(sn.id) && k > 0.45);
         if (!show) continue;
         const text = sn.n.title.length > 28 ? sn.n.title.slice(0, 27) + "…" : sn.n.title;
         const ly = sn.y! + sn.r + 3 / k;

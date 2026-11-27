@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, GitCommitHorizontal, MessageSquare, Pencil, Phone, ShieldAlert } from "lucide-react";
+import { ChevronLeft, GitCommitHorizontal, Pencil, ShieldAlert, X } from "lucide-react";
 import { HARNESSES, VM_HARNESSES, runsInVm, type AccessLevel, type Agent, type HarnessCatalog } from "@bubble-ai/core";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { soulPath, soulTemplate } from "@bubble-ai/core/src/soul.ts";
@@ -8,22 +8,21 @@ import { useAccess } from "../access.ts";
 import { connectorBlocker, connectorOrigin } from "../components/Access.tsx";
 import { ApiError, api } from "../api.ts";
 import { useStore, useTeams } from "../store.ts";
-import { go, guardLeaving, href, mayLeave, type AgentTab } from "../router.ts";
+import { closePopup, go, guardLeaving, href, mayLeave, type AgentTab } from "../router.ts";
 import { LookPanel } from "./LookEditor.tsx";
 import { effortName, prettyModel } from "../components/EffortSlider.tsx";
 import { SaveBar } from "./SettingsParts.tsx";
 import { useFeatures } from "../features.ts";
 import { AccessPanel, CARD, CanUse, HandleLine, InPlace, Knows, Line, RemoveConfirm, SELECT, TAB_TITLES, Toggle } from "./AgentSections.tsx";
 import { AgentWatches } from "./AgentWatches.tsx";
-import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, StatusDot, Textarea, cx, timeAgo } from "../components/ui.tsx";
+import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, Textarea, cx, timeAgo } from "../components/ui.tsx";
 import { RoutinesPanel, runsOnDevice, type RoutineDraft } from "./AgentComputer.tsx";
 import { RunsOn } from "./AgentRunsOn.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
 import { agentReadiness, isSharedComputer, useDevices, type DeviceInfo } from "../devices.ts";
 import { useComputerMode } from "../computerMode.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
-import { openDm } from "../openDm.ts";
-import { ActivityTab, BackgroundTab, LibraryTab, PROFILE_TAB_ROUTE, PROFILE_TAB_TITLES, PROFILE_TABS, SUGGESTED_ROUTINE, ScreenTab, SettingsTab, VoiceTab, WatchSomething, profilePlace, type ProfileTab } from "./AgentProfile.tsx";
+import { ActivityTab, BackgroundTab, LibraryTab, MemoryTab, MoreTab, PART_PARENT, PROFILE_TAB_ROUTE, PROFILE_TAB_TITLES, PROFILE_TABS, RecentRuns, RolePart, SUGGESTED_ROUTINE, ScreenTab, SettingsTab, VoiceTab, WatchSomething, profilePlace, type ProfileTab } from "./AgentProfile.tsx";
 
 export type NodeInfo = DeviceInfo;
 
@@ -31,19 +30,12 @@ type FullAgent = Agent & { instructions?: string };
 
 export { runStatusLabel, runTitle, tookFor } from "./AgentProfile.tsx";
 
-/** Open its chat and start a call there. */
-async function callAgent(agentId: string) {
-  const existing = useStore.getState().channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`));
-  const id = existing?.id ?? (await api<{ id: string }>("POST", `/api/dm/${agentId}`)).id;
-  if (!existing) await useStore.getState().refreshChannels();
-  go({ view: "chat", channelId: id, threadId: null, call: true });
-}
-
 /**
- * One agent's profile (canvas round 4, board Profile): its live bubble (a pencil on hover opens its
- * look), its name and what it does (both edited in place), Message and Call; then five tabs:
- * Activity, Library, Computer, Voice and Settings. Each Settings row opens its part in place with a
- * back arrow. Parts you type in stay mounted, so a draft survives looking elsewhere.
+ * One agent's profile (board ProfileSide, approved 2026-11-27): on desktops a panel beside the chat
+ * with X, on phones a page with Back. Its live bubble (a pencil on hover opens its look), its name
+ * (renamed in place), then four tabs: Activity, Memory, Background and Settings. Every row opens
+ * its part in place with a back arrow. Parts you type in stay mounted, so a draft survives looking
+ * elsewhere.
  */
 export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: NodeInfo[]; tab: AgentTab | null }) {
   const features = useFeatures();
@@ -105,85 +97,72 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
     await api("PATCH", `/api/agents/${agent.id}`, { name });
     await refreshAgents();
   };
-  const setRole = async (role: string) => {
-    await api("PATCH", `/api/agents/${agent.id}`, { settings: { role } });
-    await refreshAgents();
-  };
-  const back = part === "look" ? to(PROFILE_TAB_ROUTE[lastTab.current]) : to("settings");
+  const back = part === "look" ? to(PROFILE_TAB_ROUTE[lastTab.current]) : to((part && PART_PARENT[part]) || "settings");
   const partTitle = part === "look" ? `${agent.name}'s look` : part ? TAB_TITLES[part] : "";
+  const close = (
+    <button type="button" onClick={closePopup} className="lg-glass lg-round lg-press size-[34px]!" aria-label="Close profile" title="Close (Esc)">
+      <X size={15} strokeWidth={2.2} />
+    </button>
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* phones: the profile is a page, with Back to where you were */}
       {!part && (
-        <header className="md:hidden relative z-10 flex shrink-0 items-center px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-1">
-          <button type="button" onClick={() => (history.length > 1 ? history.back() : go({ view: "agents", agentId: null }))} className="circle" aria-label="Back">
-            <ChevronLeft size={22} />
-          </button>
+        <header className="relative z-10 flex shrink-0 items-center justify-between px-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:absolute md:right-0 md:top-0 md:pt-3">
+          {/* phones: the profile is a page, with Back to where you were; the side panel has X */}
+          {/* .circle is unlayered CSS (it beats md:hidden), so the wrapper hides it */}
+          <span className="md:hidden">
+            <button type="button" onClick={() => (history.length > 1 ? history.back() : go({ view: "agents", agentId: null }))} className="circle" aria-label="Back">
+              <ChevronLeft size={22} />
+            </button>
+          </span>
+          <span className="max-md:hidden">{close}</span>
         </header>
       )}
       {part && (
-        <header className="relative z-10 flex h-14 shrink-0 items-center gap-2 border-b border-line px-3 pt-[env(safe-area-inset-top)] md:pr-14">
+        <header className="relative z-10 flex h-14 shrink-0 items-center gap-2 border-b border-line px-3 pt-[env(safe-area-inset-top)]">
           <a href={back} className="circle circle-sm" aria-label={`Back to ${agent.name}`}>
             <ChevronLeft size={19} />
           </a>
           <h2 className="pointer-events-none absolute inset-x-14 truncate text-center text-[15px] font-semibold">{partTitle}</h2>
+          <span className="ml-auto max-md:hidden">{close}</span>
         </header>
       )}
       <div ref={content} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {!part && (
           <>
-            <div className="flex flex-col items-center gap-1 px-6 pt-2 pb-3 text-center md:pt-8">
-              <a href={to("look")} aria-label={`Change ${agent.name}'s look`} className="group relative mb-2 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-                <AgentAvatar agent={agent} size={84} live />
+            <div className="flex flex-col items-center gap-2 px-4 pt-1 text-center md:pt-[30px]">
+              <a href={to("look")} aria-label={`Change ${agent.name}'s look`} className="group relative shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                <AgentAvatar agent={agent} size={92} live />
                 {canEdit && (
-                  <span className="absolute -right-0.5 -bottom-0.5 grid size-7 place-items-center rounded-full border border-line bg-panel text-ink opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 max-md:opacity-100" aria-hidden>
-                    <Pencil size={13} strokeWidth={2} />
+                  <span className="absolute right-0 bottom-0 grid size-[26px] place-items-center rounded-full border border-line bg-panel text-ink opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 max-md:opacity-100" aria-hidden>
+                    <Pencil size={12} strokeWidth={2.4} />
                   </span>
                 )}
               </a>
               {canEdit ? (
                 <label className="group relative inline-flex max-w-full items-center">
-                  <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="h-9 max-w-[min(22rem,70vw)] text-center text-[22px] font-semibold leading-[30px] [field-sizing:content] min-w-[3ch]" />
-                  <Pencil size={13} strokeWidth={2} className="pointer-events-none absolute -right-4 text-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-0" aria-hidden />
+                  <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="h-8 max-w-[min(18rem,70vw)] rounded-[7px] text-center text-[20px] font-semibold leading-[28px] [field-sizing:content] min-w-[3ch] hover:bg-hover" />
+                  <Pencil size={13} strokeWidth={2} className="pointer-events-none absolute -right-4 text-muted opacity-0 transition-opacity duration-150 group-hover:opacity-50 group-focus-within:opacity-0" aria-hidden />
                 </label>
               ) : (
-                <h2 className="text-[22px] font-semibold leading-[30px]">{agent.name}</h2>
+                <h2 className="text-[20px] font-semibold leading-[28px]">{agent.name}</h2>
               )}
-              {canEdit ? (
-                <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="h-7 w-full max-w-xs text-center text-[14px] text-muted focus:text-ink" />
-              ) : (
-                agent.settings.role && <div className="text-[14px] text-muted">{agent.settings.role}</div>
-              )}
-              {!readiness.ready && (
-                <a href={fixHere || !next ? to("computer") : next.href} className="mt-1 inline-flex max-w-full items-center gap-1.5 text-[13px] text-st-needs hover:underline">
-                  <StatusDot status={agent.status} needsSignIn={!!agent.signIn} />
-                  <span className="truncate">{next?.text ?? readiness.problem ?? "Setup incomplete"}</span>
-                </a>
-              )}
-              <div className="mt-3 flex gap-2">
-                <Button className="h-8! rounded-full! px-4!" onClick={() => void openDm(agent.id)}>
-                  <MessageSquare size={14} /> Message
-                </Button>
-                <Button className="h-8! rounded-full! px-4!" onClick={() => void callAgent(agent.id)}>
-                  <Phone size={14} /> Call
-                </Button>
+              <div role="tablist" aria-label={`${agent.name}'s profile`} className="mt-1.5 flex max-w-full gap-0.5 overflow-x-auto rounded-full bg-ink/[0.06] p-[3px] [scrollbar-width:none]">
+                {PROFILE_TABS.map((t) => (
+                  <a
+                    key={t}
+                    role="tab"
+                    aria-selected={shownTab === t}
+                    href={to(PROFILE_TAB_ROUTE[t])}
+                    className={cx("shrink-0 whitespace-nowrap rounded-full px-[11px] py-1.5 text-[13px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40", shownTab === t ? "bg-panel text-ink shadow-[0_1px_4px_rgba(0,0,0,.08)] dark:bg-white/[0.16] dark:shadow-none" : "text-muted hover:text-ink")}
+                  >
+                    {PROFILE_TAB_TITLES[t]}
+                  </a>
+                ))}
               </div>
             </div>
-            <div role="tablist" aria-label={`${agent.name}'s profile`} className="sticky top-0 z-10 flex shrink-0 justify-center gap-4 overflow-x-auto border-b border-line bg-panel px-6 [scrollbar-width:none] md:gap-6">
-              {PROFILE_TABS.map((t) => (
-                <a
-                  key={t}
-                  role="tab"
-                  aria-selected={shownTab === t}
-                  href={to(PROFILE_TAB_ROUTE[t])}
-                  className={cx("-mb-px shrink-0 border-b-2 px-0.5 py-2.5 text-[14px] font-medium outline-none transition-colors focus-visible:text-ink", shownTab === t ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")}
-                >
-                  {PROFILE_TAB_TITLES[t]}
-                </a>
-              ))}
-            </div>
-            <div key={shownTab} className="m-panel flex-1 bg-bg/40 px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:pt-5">
+            <div key={shownTab} className="m-panel flex-1 px-3.5 pt-[18px] pb-[max(1rem,env(safe-area-inset-bottom))]">
               {shownTab === "activity" && (
                 <ActivityTab
                   agent={agent}
@@ -191,19 +170,22 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
                     setRoutineStart(SUGGESTED_ROUTINE);
                     go({ view: "agents", agentId: agent.id, tab: "routines" });
                   }}
-                  onWatch={() => go({ view: "agents", agentId: agent.id, tab: "watches" })}
                 />
               )}
-              {shownTab === "library" && <LibraryTab agent={agent} />}
-              {shownTab === "computer" && <ScreenTab agent={agent} />}
-              {shownTab === "voice" && <VoiceTab agent={agent} />}
+              {shownTab === "memory" && <MemoryTab agent={agent} />}
               {shownTab === "background" && <BackgroundTab agent={agent} />}
               {shownTab === "settings" && <SettingsTab agent={agent} />}
             </div>
           </>
         )}
-        <div className={cx(part ? "px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:pt-5" : "hidden")}>
+        <div className={cx(part ? "px-3.5 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]" : "hidden")}>
           <div className="mx-auto max-w-[680px] space-y-4">
+            {part === "more" && <MoreTab agent={agent} />}
+            {part === "screen" && <ScreenTab agent={agent} />}
+            {part === "voice" && <VoiceTab agent={agent} />}
+            {part === "library" && <LibraryTab agent={agent} />}
+            {part === "runs" && <RecentRuns agent={agent} />}
+            {part === "role" && <RolePart agent={agent} />}
             {(part === "model" || part === "harness" || part === "effort") && <ThinksWith agent={agent} nodes={nodes} />}
             {(part === "device" || part === "computer") && <RunsOn agent={agent} nodes={nodes} problem={readiness.ready ? null : (readiness.problem ?? "Setup incomplete")} fix={fixHere ? null : next} />}
             {(part === "apps" || part === "skills") && <CanUse agent={agent} />}
@@ -244,7 +226,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
             </Panel>
           </div>
         </div>
-        {active === "remove" && <RemoveConfirm agent={agent} onClose={() => go({ view: "agents", agentId: agent.id, tab: "settings" })} />}
+        {active === "remove" && <RemoveConfirm agent={agent} onClose={() => go({ view: "agents", agentId: agent.id, tab: "more" })} />}
       </div>
     </div>
   );

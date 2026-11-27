@@ -13,6 +13,8 @@ export interface CallPrefs {
 }
 export const DEFAULT_CALL_PREFS: CallPrefs = { speed: 1, language: "", showActivity: true, showTranscript: false };
 export const SPEEDS = [0.8, 1, 1.25, 1.5];
+/** The languages a call can listen for; "" follows the browser (Auto-detect). */
+export const LANGUAGES: [string, string][] = [["", "Auto-detect"], ["en-US", "English (US)"], ["en-GB", "English (UK)"], ["es-ES", "Spanish"], ["fr-FR", "French"], ["de-DE", "German"], ["it-IT", "Italian"], ["pt-BR", "Portuguese"], ["ja-JP", "Japanese"], ["ko-KR", "Korean"], ["zh-CN", "Chinese"], ["hi-IN", "Hindi"]];
 const KEY = "wisp-call-prefs";
 let cache: CallPrefs | null = null;
 const listeners = new Set<() => void>();
