@@ -1092,19 +1092,50 @@ body.side-resizing iframe { pointer-events: none; }
 .chat-walled .composer-box { background: var(--lg-bg); -webkit-backdrop-filter: var(--lg-blur); backdrop-filter: var(--lg-blur); border-color: var(--lg-rim); box-shadow: inset 0 1px 0 var(--lg-edge), var(--lg-shadow); }
 .chat-walled .composer-box:focus-within { border-color: var(--composer-focus); }
 
-/* the glass sidebar: a floating panel over the window background */
+/* Round 8: ONE background for the whole window (desktops). The open chat's background (the agent's
+   own, else the person's default; chatBackground.ts), or the default on pages that aren't a chat, is
+   painted behind everything; None is the plain app colour. The sidebar runs to the window's edges as
+   a see-through tint over that same background, with one thin line down its right edge, and the chat
+   has no box of its own. */
+:root { --wall: var(--chat-wall-light, var(--app)); --side-tint: rgb(0 0 0 / 0.06); --side-line: rgb(0 0 0 / 0.08); }
+:root[data-mode="dark"] { --wall: var(--chat-wall-dark, var(--app)); --side-tint: rgb(0 0 0 / 0.32); --side-line: rgb(255 255 255 / 0.09); }
+/* a photo can be anything: a frosted veil keeps the sidebar's words readable on a bright one and a dark one */
+:root[data-chat-wall="photo"] { --side-tint: rgb(246 246 248 / 0.6); }
+:root[data-mode="dark"][data-chat-wall="photo"] { --side-tint: rgb(0 0 0 / 0.46); }
 @media (min-width: 768px) {
+  .app-shell { background: var(--wall); }
+  .app-main { background: transparent; }
   .side.side-glass {
-    margin: 8px 0 8px 8px;
-    height: calc(100% - 16px);
-    border-radius: 22px;
-    background: var(--lg-bg);
-    -webkit-backdrop-filter: var(--lg-blur);
-    backdrop-filter: var(--lg-blur);
-    border: 1px solid var(--lg-rim);
-    box-shadow: inset 0 1px 0 var(--lg-edge), var(--lg-shadow);
+    margin: 0;
+    height: 100%;
+    border-radius: 0;
+    border: 0;
+    background: var(--side-tint);
+    -webkit-backdrop-filter: blur(50px) saturate(1.8);
+    backdrop-filter: blur(50px) saturate(1.8);
+    box-shadow: inset -1px 0 0 var(--side-line);
   }
 }
+@media (min-width: 768px) and (prefers-reduced-transparency: reduce) {
+  .side.side-glass { background: color-mix(in srgb, var(--app) 92%, black); }
+  :root[data-mode="dark"] .side.side-glass { background: color-mix(in srgb, var(--app) 80%, black); }
+}
+
+/* Connect apps (round 8): its liquid-glass pop-up, the soft pills, and the small stack of logos */
+:root { --go-bg: rgb(0 0 0 / 0.06); --stack-ring: #e4e4e8; --apps-glass: rgb(255 255 255 / 0.8); }
+:root[data-mode="dark"] { --go-bg: rgb(255 255 255 / 0.09); --stack-ring: #2a2a2d; --apps-glass: rgb(30 30 33 / 0.82); }
+.apps-glass {
+  background: var(--apps-glass);
+  -webkit-backdrop-filter: blur(40px) saturate(1.6);
+  backdrop-filter: blur(40px) saturate(1.6);
+  box-shadow: 0 0 0 1px var(--pop-line), 0 24px 64px rgb(0 0 0 / 0.35);
+  color: var(--ink);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .apps-glass { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+.connect-pill { background: var(--go-bg); box-shadow: 0 0 0 1px var(--side-line); }
+.connect-pill:hover, .connect-pill.is-on { background: color-mix(in srgb, var(--go-bg), var(--ink) 6%); }
 .side-row-on { background: var(--lg-on); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); }
 :root[data-mode="dark"] .side-row-on { box-shadow: none; }
 /* one blue dot left of the avatar: needs you, or unread */

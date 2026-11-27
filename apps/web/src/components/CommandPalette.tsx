@@ -143,7 +143,7 @@ export function CommandPalette() {
         setOpen(!useStore.getState().paletteOpen);
         return;
       }
-      // ⌘1 Computers, ⌘2 Memory, ⌘3 Apps and skills, ⌘4 Tasks, ⌘5 Code (the sidebar's strip, in order), ⌘, Settings
+      // ⌘1 Computers, ⌘2 Memory, ⌘3 Connect apps (its pill at the bottom of the sidebar), ⌘4 Tasks, ⌘5 Code (the sidebar's strip, in order), ⌘, Settings
       const state = useStore.getState();
       const on = resolveFeatures(state.me?.features ?? null);
       const flags = { guest: state.me?.role === "guest", tasks: !!on.tasks, code: !!on.code };

@@ -26,36 +26,47 @@ afterEach(() => vi.unstubAllGlobals());
 
 const add = (section: "all" | "apps" | "skills" | "devices" | "installed" | "mods" = "all") => renderToStaticMarkup(createElement(MarketplaceView, { section }));
 
-describe("Add: apps, skills and mods on one page", () => {
-  it("is titled by its search field, with a section for each kind and the way to make your own last", () => {
+describe("Connect apps: apps, skills and mods in one pop-up (round 8)", () => {
+  it("is titled Connect apps, with one search, the filter chips and the sections of All in order", () => {
     const html = add();
-    expect(html).toContain('placeholder="Add an app, a skill or a mod"');
-    for (const s of ["Apps", "Skills", "Mods"]) expect(html).toContain(`<section id="add-${s.toLowerCase()}" aria-label="${s}"`);
+    expect(html).toContain(">Connect apps</h1>");
+    expect(html).toContain('placeholder="Search apps and skills"');
+    expect(html).toContain("0 connected");
+    for (const chip of ["All", "Apps", "Skills", "Productivity", "Communication", "More"]) expect(html).toMatch(new RegExp(`aria-pressed="(true|false)"[^>]*>${chip}`));
+    expect(html).toMatch(/aria-pressed="true"[^>]*>All</);
+    expect(html).toContain('<section id="add-recommended" aria-label="Recommended"');
+    expect(html.indexOf('id="add-recommended"')).toBeLessThan(html.indexOf('id="add-apps"'));
     expect(html.indexOf('id="add-apps"')).toBeLessThan(html.indexOf('id="add-skills"'));
-    expect(html.indexOf('id="add-skills"')).toBeLessThan(html.indexOf('id="add-mods"'));
-    expect(html.indexOf('id="add-mods"')).toBeLessThan(html.indexOf("Make or bring your own"));
-    // tabs, chips and header buttons are gone
-    for (const gone of ["Marketplace", "View all", "Create a skill", "Popular apps"]) expect(html).not.toContain(gone);
+    expect(html.indexOf('id="add-skills"')).toBeLessThan(html.indexOf("Make or bring your own"));
+    // mods are under More, not on All; the old side list is gone
+    expect(html).not.toContain('id="add-mods"');
+    expect(html).not.toContain('aria-label="Add sections"');
   });
 
-  it("has a side list of sections, each its own address", () => {
+  it("puts Composio first, with the Recommended mark and its own line", () => {
     const html = add();
-    expect(html).toContain('aria-label="Add sections"');
-    for (const [label, to] of [["All", "#/marketplace"], ["Apps", "#/marketplace/apps"], ["Skills", "#/marketplace/skills"], ["On your devices", "#/marketplace/devices"], ["Installed", "#/marketplace/installed"]]) {
-      expect(html).toMatch(new RegExp(`href="${to}"[^>]*>(?:(?!</a>).)*${label}`));
-    }
-    // a guest can't add from a device, so that section isn't offered
-    world.role = "guest";
-    expect(add()).not.toContain('href="#/marketplace/devices"');
+    const rec = html.split('id="add-recommended"')[1].split("</section>")[0];
+    expect(rec.indexOf(">Composio<")).toBeGreaterThan(-1);
+    expect(rec).toContain(">Recommended<");
+    expect(rec).toContain("Use Composio for more apps and easy sign-in");
+    expect(rec).toContain('aria-label="Connect Composio"');
   });
 
-  it("a section shows only its own rows, all of them, with its own search", () => {
+  it("draws two-column rows: a tile, the name, one line of what it does, and Connect or Add", () => {
+    const html = add("apps");
+    const github = CONNECTOR_CATALOG.find((c) => c.id === "github")!;
+    expect(html).toContain("md:grid-cols-2");
+    expect(html).toContain('aria-label="Connect GitHub"');
+    expect(html).toContain(github.description.replace(/'/g, "&#x27;"));
+    expect(add("skills")).toContain(`aria-label="Add ${SKILL_CATALOG[0].name}"`);
+  });
+
+  it("a chip shows only its own rows, all of them", () => {
     const apps = add("apps");
     expect(apps).toContain('id="add-apps"');
     expect(apps).not.toContain('id="add-skills"');
-    expect(apps).not.toContain('id="add-mods"');
-    expect(apps).not.toContain("Show all");
-    expect(apps).toContain('placeholder="Search apps"');
+    expect(apps).not.toContain('id="add-recommended"');
+    expect(apps).toMatch(/aria-pressed="true"[^>]*>Apps</);
     const skills = add("skills");
     expect(skills).toContain('id="add-skills"');
     expect(skills).not.toContain('id="add-apps"');
@@ -66,40 +77,22 @@ describe("Add: apps, skills and mods on one page", () => {
     // nothing is added and no computer has reported anything (the lists haven't loaded)
     const html = add();
     expect(html).not.toContain('id="add-added"');
-    expect(html).not.toContain('id="add-found"');
+    // This Mac has the Apple mod on a Mac, and nothing else until a computer reports what it has
+    if (!/mac/i.test(navigator.platform)) expect(html).not.toContain('id="add-found"');
   });
 
-  it("draws rows, not cards: a name and one action, no description and no badge", () => {
-    const html = add();
-    const github = CONNECTOR_CATALOG.find((c) => c.id === "github")!;
-    expect(html).toContain('aria-label="Add GitHub"');
-    expect(html).not.toContain(github.description);
-    expect(html).not.toContain("On Bubble AI&#x27;s list");
-    expect(html).not.toContain(SKILL_CATALOG[0].description);
-    expect(html).not.toContain("Made by Bubble AI");
+  it("folds Apps and Skills on All behind Show all", () => {
+    expect(add("all").split('id="add-skills"')[1]).toContain("Show all");
   });
 
-  it("shows a few rows of apps and skills with a Show all row, and every mod", () => {
-    const html = add();
-    expect(html.match(/Show all/g)?.length).toBeGreaterThanOrEqual(2);
-    // mods are few and switch core behaviour, so they're never folded away
-    expect(html).toContain(FEATURE_INFO.buddy.name);
-    expect(html).toContain(FEATURE_INFO.remoteDesktop.name);
-  });
-
-  it("lists every mod, the ones that are on with a check and the rest with Add, Code included", () => {
+  it("lists every mod under Mods, the ones that are on with a check and the rest with Add, Code included", () => {
     const html = add("mods");
     for (const k of ["background", "routines", "teach", "tasks", "buddy", "invite", "remoteDesktop", "storage", "apple"] as const) expect(html).toContain(FEATURE_INFO[k].name);
     expect(html).toContain('aria-label="Add Storage"');
     expect(html).not.toContain('aria-label="Add Tasks board"');
     expect(html).toContain('role="img" aria-label="On"');
     expect(html).toContain(">Code<");
-    // no description paragraphs here either
-    expect(html).not.toContain(FEATURE_INFO.storage.description);
-  });
-
-  it("All shows a few of each, with Show all", () => {
-    expect(add("all").split('id="add-skills"')[0]).toContain("Show all");
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Mods/);
   });
 
   it("only owners add mods, and a guest gets no actions at all", () => {
@@ -109,7 +102,39 @@ describe("Add: apps, skills and mods on one page", () => {
     const html = add("mods");
     expect(html).not.toContain('aria-label="Add Storage"');
     expect(html).not.toContain("Make or bring your own");
-    expect(add()).not.toContain('aria-label="Add GitHub"');
+    expect(add()).not.toContain('aria-label="Connect GitHub"');
+    // a guest can't add from a device, so This Mac isn't offered
+    expect(add()).not.toMatch(/>This (Mac|PC|computer)</);
+  });
+});
+
+describe("Connect apps' helpers", async () => {
+  const { appTopics, latestPicks, connectedLogos, thisComputer } = await import("../src/components/ConnectParts.tsx");
+  it("puts an app on a topic chip from its shelf, and password managers by name", () => {
+    expect(appTopics({ name: "Gmail", category: "Email and calendar" })).toEqual(["communication"]);
+    expect(appTopics({ name: "Google Calendar", category: "Email and calendar" })).toEqual(["productivity"]);
+    expect(appTopics({ name: "Slack", category: "Chat" })).toEqual(["communication"]);
+    expect(appTopics({ name: "Stripe", category: "Finance" })).toEqual(["money"]);
+    expect(appTopics({ name: "GitHub", category: "Developer" })).toEqual(["developer"]);
+    expect(appTopics({ name: "Figma", category: "Design" })).toEqual(["design"]);
+    expect(appTopics({ name: "1Password", category: "Developer" })).toEqual(["passwords"]);
+  });
+  it("finds the agent's latest picks, the open chat's first", () => {
+    const msg = (channelId: string, agent: string, ids: string[]) => ({ id: channelId + agent, channelId, author: { kind: "agent", id: agent }, parts: [{ type: "connect", apps: ids.map((id) => ({ id, name: id, why: "x" })) }] }) as never;
+    expect(latestPicks(undefined, null)).toBeNull();
+    expect(latestPicks({ a: [msg("a", "tony", ["gmail"])], b: [msg("b", "luna", ["slack"])] }, "b")).toMatchObject({ agentId: "luna", apps: [{ id: "slack" }] });
+    expect(latestPicks({ a: [msg("a", "tony", ["gmail"])] }, "b")).toMatchObject({ agentId: "tony" });
+  });
+  it("stacks the logos of apps that are connected, at most three", () => {
+    const c = (name: string, o: object = {}) => ({ name, catalogId: null, enabled: true, auth: null, ...o }) as never;
+    const logos = connectedLogos([c("Gmail"), c("Slack"), c("Notion"), c("GitHub"), c("Linear", { enabled: false })]);
+    expect(logos.map((l) => l.title)).toEqual(["GitHub", "Notion", "Slack"]);
+    expect(connectedLogos([c("Gmail", { auth: { required: true, signedIn: false } })])).toEqual([]);
+  });
+  it("names This Mac for the computer it runs on", () => {
+    expect(thisComputer("MacIntel")).toBe("This Mac");
+    expect(thisComputer("Win32")).toBe("This PC");
+    expect(thisComputer("Linux x86_64")).toBe("This computer");
   });
 });
 

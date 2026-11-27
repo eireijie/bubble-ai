@@ -45,7 +45,7 @@ const SETTINGS_PLACES: Place[] = [
 /** In the order they show. Settings' pages and rows carry the names Settings gives them. */
 export const PLACES: Place[] = [
   { key: "computers", label: "Computers", words: "screens screen vm devices machines desktop watch take over", icon: Monitor, to: { view: "computers", computerId: null }, noGuests: true },
-  { key: "add", label: "Add apps and skills", words: "marketplace store shop connect connectors connected integrations install gmail slack mcp", icon: Store, to: { view: "marketplace" } },
+  { key: "add", label: "Connect apps", words: "marketplace store shop connect connectors connected integrations install gmail slack mcp", icon: Store, to: { view: "marketplace" } },
   { key: "memory", label: "Memory", words: "notes vault knows remember knowledge", icon: BookOpen, to: { view: "vault", path: null } },
   { key: "tasks", label: "Tasks", words: "work board todo to do", icon: ListTodo, to: { view: "tasks" }, noGuests: true },
   { key: "code", label: "Code", words: "terminal terminals shell coding", icon: SquareTerminal, to: { view: "code" }, feature: "code", noGuests: true },

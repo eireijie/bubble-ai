@@ -4,6 +4,7 @@ import {
   AudioLines,
   Bell,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleDot,
@@ -32,6 +33,7 @@ import {
   Shield,
   SquareTerminal,
   UserPlus,
+  X,
   Wand2,
   type LucideIcon,
 } from "lucide-react";
@@ -65,8 +67,9 @@ import { useStore } from "../store.ts";
 import { setFeatures, useFeatures } from "../features.ts";
 import { go, href, SETTINGS_CLOSING, type MarketSection, type Route } from "../router.ts";
 import { useInPopup } from "../components/SettingsDialog.tsx";
-import { Button, Loader, cx } from "../components/ui.tsx";
-import { Add, AddRow, AppTile, Circle, Dlg, FactRow, Item, ItemHead, NeedDot, Panel, RemoveBtn, Rows, SearchBox, SectionHead, TextBtn, Tile, matchWords, queryWords, rowsShown, sectionWord, type AddSection } from "../components/MarketParts.tsx";
+import { Button, Loader, Menu, cx } from "../components/ui.tsx";
+import { AppTile, Dlg, FactRow, Item, ItemHead, NeedDot, Panel, RemoveBtn, Rows, TextBtn, Tile, matchWords, queryWords, sectionWord, type AddSection } from "../components/MarketParts.tsx";
+import { ConnectRow, Done, FilterChip, GoPill, LineTile, LogoStack, MAIN_CHIPS, MORE_CHIPS, TOPICS, appTopics, connectedLogos, thisComputer, useAgentPicks, type Topic } from "../components/ConnectParts.tsx";
 import { CatalogIcon } from "../components/ShopParts.tsx";
 import { ConnectorForm, registryCatalog } from "./ConnectorsView.tsx";
 import { AppPage, ConnectSignIn, type AppItem } from "./AppPages.tsx";
@@ -151,8 +154,10 @@ type Detail =
   | { kind: "mod"; mod: FeatureKey }
   | { kind: "found"; device: DeviceShelf; item: ShelfItem };
 
-/** One row of the page, whatever it is. */
-type RowDef = { key: string; tile: ReactNode; name: string; mark?: string; words?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void };
+/** One row of the pop-up, whatever it is. */
+type RowDef = { key: string; tile: ReactNode; name: string; mark?: string; desc?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void; topics?: Topic[] };
+/** A section of the pop-up: its title (and a note beside it), its rows two to a line, and how many show before "Show all". */
+type Sec = { id: string; title: string; note?: string; rows: RowDef[]; loading?: boolean; limit?: number; head?: ReactNode; foot?: ReactNode; empty?: string };
 
 /** One from each maker in turn, so a short list shows a bit of everyone's. */
 function takeTurns<T extends { who: string }>(list: T[]): T[] {
@@ -236,9 +241,8 @@ const added = (label = "Added") => (
 export function MarketplaceView({ section, app: appKey = null, onBack, embedded = false, forAgent }: { section: MarketSection | "mods"; /** the app whose page the address opens (#/marketplace/app/<key>) */ app?: string | null; onBack?: () => void; embedded?: boolean; /** opened from an agent's Can use: what is added goes to that agent alone */ forAgent?: string | null }) {
   const me = useStore((s) => s.me);
   const agents = useStore((s) => s.agents);
+  const inPopup = useInPopup();
   const forA = forAgent ? agents.find((a) => a.id === forAgent) : undefined;
-  // its own pop-up (desktops), not the list inside Settings
-  const popup = !!useInPopup() && !embedded;
   /** who gets what is added here: the agent this was opened for, or every agent */
   const who = forA ? { agentIds: [forA.id], allAgents: false } : { agentIds: [] as string[], allAgents: true };
   const features = useFeatures();
@@ -251,8 +255,11 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   const routed = !embedded;
   const [q, setQ] = useState("");
   // the sections showing every row (the one an address opened, and any "Show all" pressed), and whether "Make or bring your own" is unfolded
-  const [expanded, setExpanded] = useState<AddSection[]>(() => (target ? [target] : []));
+  const [expanded, setExpanded] = useState<string[]>(() => (target ? [target] : []));
   const [making, setMaking] = useState(false);
+  // a topic chip (Productivity, Communication, the ones under More); the address keeps All, Apps, Skills, This Mac and Connected
+  const [topic, setTopic] = useState<Topic | null>(() => (section === "mods" ? "mods" : null));
+  const nextTopic = useRef<Topic | null>(null);
   const [connectors, setConnectors] = useState<Connector[] | null>(null);
   const [skills, setSkills] = useState<Skill[] | null>(null);
   const [market, setMarket] = useState<{ q: string; entries: StoreApp[] | null; error: string | null }>({ q: "", entries: null, error: null });
@@ -359,10 +366,15 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
     setSharing(null);
     setEditing(null);
     setExpanded(target ? [target] : []);
+    setTopic(nextTopic.current ?? (section === "mods" ? "mods" : null));
+    nextTopic.current = null;
     auto.current = true;
   }, [section]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loaded = connectors !== null && skills !== null;
+  const stopAuto = () => {
+    auto.current = false;
+  };
   useEffect(() => {
     if (!target || detail || !auto.current) return;
     document.getElementById(`add-${target}`)?.scrollIntoView({ block: "start" });
@@ -463,8 +475,8 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   // --- skills ---
   const skillItems: SkillItem[] = useMemo(
     () => [
-      ...SKILL_CATALOG.map((e) => ({ key: `w:${e.id}`, name: e.name, description: e.description, who: "Bubble AI", icon: <CatalogIcon name={e.icon} fallback={Wand2} size={17} />, bigIcon: <CatalogIcon name={e.icon} fallback={Wand2} size={26} />, library: e })),
-      ...(store?.skills ?? []).map((s) => ({ key: `s:${s.id}`, name: s.name, description: s.description, who: s.source.label, icon: skillIcon(`${s.id} ${s.name}`), bigIcon: skillIcon(`${s.id} ${s.name}`, 26), store: s })),
+      ...SKILL_CATALOG.map((e) => ({ key: `w:${e.id}`, name: e.name, description: e.description, who: "Bubble AI", icon: <CatalogIcon name={e.icon} fallback={Wand2} size={20} />, bigIcon: <CatalogIcon name={e.icon} fallback={Wand2} size={26} />, library: e })),
+      ...(store?.skills ?? []).map((s) => ({ key: `s:${s.id}`, name: s.name, description: s.description, who: s.source.label, icon: skillIcon(`${s.id} ${s.name}`, 20), bigIcon: skillIcon(`${s.id} ${s.name}`, 26), store: s })),
     ],
     [store],
   );
@@ -638,37 +650,35 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
     }
   }
 
-  // --- the rows of each section ---
+  // --- the rows (Connect apps, round 8): a 42 px tile, the name, one line, and Connect / ✓ Connected ---
+  const lineTile = (icon: ReactNode) => <LineTile>{icon}</LineTile>;
   const connectorWords = (c: Connector) => {
     const app = appFor(c);
-    if (app) return app.category ?? "App";
+    if (app) return app.description || app.category || "App";
     return c.catalogId?.startsWith("device:") ? `From ${harnessName(c.catalogId.split(":")[2])}` : "Your own app";
   };
+  /** What an added app's row says at its right: ✓ Connected, Sign in again, or Off. */
+  const connectedState = (c: Connector) =>
+    needsSignIn(c) ? (
+      <span className="flex shrink-0 items-center gap-1.5 pr-1 text-[13px] text-muted">
+        <NeedDot />
+        Sign in again
+      </span>
+    ) : !c.enabled ? (
+      <span className="shrink-0 pr-1 text-[13px] text-muted">Off</span>
+    ) : (
+      <Done word="Connected" />
+    );
+  const addedApps: RowDef[] = [...(connectors ?? [])]
+    // a sign-in that lapsed comes first
+    .sort((a, b) => Number(needsSignIn(b)) - Number(needsSignIn(a)))
+    .filter((c) => hit("added", c.name, c.url, c.command, connectorWords(c), "app"))
+    .map((c) => ({ key: `c:${c.id}`, tile: <AppTile name={c.name} size={42} />, name: c.name, desc: connectorWords(c), status: connectedState(c), onOpen: () => setDetail({ kind: "connector", id: c.id }) }));
   const addedRows: RowDef[] = [
-    ...[...(connectors ?? [])]
-      // a sign-in that lapsed comes first
-      .sort((a, b) => Number(needsSignIn(b)) - Number(needsSignIn(a)))
-      .filter((c) => hit("added", c.name, c.url, c.command, connectorWords(c), "app"))
-      .map((c) => ({
-        key: `c:${c.id}`,
-        tile: <AppTile name={c.name} size={36} />,
-        name: c.name,
-        words: connectorWords(c),
-        status: needsSignIn(c) ? (
-          <span className="flex shrink-0 items-center gap-1.5 pr-1.5 text-[13px] text-muted">
-            <NeedDot />
-            Sign in again
-          </span>
-        ) : !c.enabled ? (
-          <span className="shrink-0 pr-1.5 text-[13px] text-muted">Off</span>
-        ) : (
-          added()
-        ),
-        onOpen: () => setDetail({ kind: "connector", id: c.id }),
-      })),
+    ...addedApps,
     ...(skills ?? [])
       .filter((s) => hit("added", s.name, s.description, skillOrigin(s), "skill"))
-      .map((s) => ({ key: `k:${s.id}`, tile: <Tile size={36}>{skillTile(s, 17)}</Tile>, name: s.name, words: skillOrigin(s), status: added(), onOpen: () => setDetail({ kind: "skill", open: { skill: s }, icon: skillTile(s, 26) }) })),
+      .map((s) => ({ key: `k:${s.id}`, tile: lineTile(skillTile(s, 20)), name: s.name, desc: s.description || skillOrigin(s), status: <Done word="Added" />, onOpen: () => setDetail({ kind: "skill", open: { skill: s }, icon: skillTile(s, 26) }) })),
   ];
 
   const foundRows: RowDef[] = canEdit
@@ -676,167 +686,236 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
         .filter((p) => hit("found", p.item.name, p.item.description, harnessName(p.item.harness), p.device.nodeName, p.item.kind === "skill" ? "skill" : "app"))
         .map((p) => {
           const i = p.item;
+          const verb = i.kind === "mcp" && !readyAsIs(i) ? "Set up" : "Bring in";
           return {
             key: foundKey(p),
-            tile: i.kind === "mcp" ? <AppTile name={i.name} size={36} /> : <Tile size={36}>{skillIcon(i.name)}</Tile>,
+            tile: i.kind === "mcp" ? <AppTile name={i.name} size={42} /> : lineTile(skillIcon(i.name, 20)),
             name: i.kind === "skill" ? skillTitle(i.name) : i.name,
-            words: `${harnessName(i.harness)} · ${p.device.nodeName}${p.device.online ? "" : " · offline"}`,
+            desc: `${i.description ? `${i.description} · ` : ""}${harnessName(i.harness)} on ${p.device.nodeName}${p.device.online ? "" : " · offline"}`,
             action: (
-              <Add onClick={() => bringIn(p)} disabled={adding === foundKey(p) || !!bringing} aria-label={`${i.kind === "mcp" && !readyAsIs(i) ? "Set up" : "Bring in"} ${i.name}`}>
-                {i.kind === "mcp" && !readyAsIs(i) ? "Set up" : "Bring in"}
-              </Add>
+              <GoPill onClick={() => bringIn(p)} disabled={adding === foundKey(p) || !!bringing} aria-label={`${verb} ${i.name}`}>
+                {verb}
+              </GoPill>
             ),
             onOpen: () => setDetail({ kind: "found", device: p.device, item: i }),
           };
         })
     : [];
 
-  const freeApps = apps.filter((a) => !haveConnector(a));
   const recommended = (a: AppItem) => "builtIn" in a && !!a.builtIn.recommended;
-  const appRows: RowDef[] = (searching ? freeApps : [...freeApps.filter(recommended), ...popular.filter((a) => freeApps.includes(a)), ...freeApps.filter((a) => !popular.includes(a) && !recommended(a))]).map((a) => ({
-    key: a.key,
-    tile: <AppTile name={a.name} category={a.category} size={36} entry={"registry" in a ? a.registry : null} />,
-    name: a.name,
-    // nobody has confirmed who runs it: the row says so, quietly
-    ...(recommended(a) ? { mark: "Recommended" } : {}),
-    words: "registry" in a && trustLabel(a.registry).kind === "unverified" ? "Not verified" : (a.category ?? `By ${a.who}`),
-    ...("builtIn" in a && comingSoon(a.builtIn)
-      ? { status: <span className="shrink-0 pr-1.5 text-[13px] text-muted">Coming soon</span> }
-      : {
-          action: canEdit && (
-            <Add onClick={() => addApp(a)} aria-label={`Add ${a.name}`}>
-              Add
-            </Add>
-          ),
-        }),
-    onOpen: () => setDetail({ kind: "app", app: a }),
-  }));
+  const appRow = (a: AppItem, why?: string): RowDef => {
+    const have = haveConnector(a);
+    const unverified = "registry" in a && trustLabel(a.registry).kind === "unverified";
+    return {
+      key: a.key,
+      tile: <AppTile name={a.name} category={a.category} size={42} entry={"registry" in a ? a.registry : null} />,
+      name: a.name,
+      ...(recommended(a) ? { mark: "Recommended" } : {}),
+      // nobody has confirmed who runs it: the row says so, quietly
+      desc: why ?? (("builtIn" in a && a.builtIn.recommended) || [unverified ? "Not verified" : "", a.description || a.category || `By ${a.who}`].filter(Boolean).join(" · ")),
+      topics: appTopics(a),
+      ...(have
+        ? { status: connectedState(have), onOpen: () => setDetail({ kind: "connector", id: have.id }) }
+        : "builtIn" in a && comingSoon(a.builtIn)
+          ? { status: <span className="shrink-0 pr-1 text-[13px] text-muted">Coming soon</span>, onOpen: () => setDetail({ kind: "app", app: a }) }
+          : {
+              action: canEdit && (
+                <GoPill onClick={() => addApp(a)} aria-label={`Connect ${a.name}`}>
+                  Connect
+                </GoPill>
+              ),
+              onOpen: () => setDetail({ kind: "app", app: a }),
+            }),
+    };
+  };
+  // the always-recommended one (Composio), then the well-known ones, then the rest
+  const orderedApps = searching ? apps : [...apps.filter(recommended), ...popular, ...apps.filter((a) => !popular.includes(a) && !recommended(a))];
+  const appRows: RowDef[] = orderedApps.map((a) => appRow(a));
 
-  const freeSkills = skillItems.filter((s) => (!installedSkill(s) || kept.includes(s.key)) && hit("skills", s.name, s.description, s.who));
+  // --- Recommended: Composio first, then what the agent picked from what the person told it (PR 163) ---
+  const picks = useAgentPicks();
+  const picker = picks?.agentId ? agents.find((a) => a.id === picks.agentId) : undefined;
+  const pickedApps = (picks?.apps ?? [])
+    .filter((p) => !p.recommended)
+    .map((p) => {
+      const c = CONNECTOR_CATALOG.find((x) => x.id === p.id);
+      return c ? { item: builtInItem(c), why: p.why } : null;
+    })
+    .filter((x): x is { item: AppItem; why: string } => !!x);
+  const recRows: RowDef[] = [...apps.filter(recommended).map((a) => appRow(a)), ...pickedApps.map((p) => appRow(p.item, p.why))];
+  const recKeys = new Set(recRows.map((r) => r.key));
+
+  const freeSkills = skillItems.filter((s) => hit("skills", s.name, s.description, s.who));
   const skillRows: RowDef[] = (searching ? freeSkills : takeTurns(freeSkills)).map((s) => {
     const linkOnly = "store" in s && !s.store.license.open;
     const have = !!installedSkill(s);
     return {
       key: s.key,
-      tile: <Tile size={36}>{s.icon}</Tile>,
+      tile: lineTile(s.icon),
       name: s.name,
-      words: `From ${s.who}`,
-      status: have ? added() : undefined,
+      desc: s.description || `From ${s.who}`,
+      status: have ? <Done word="Added" /> : undefined,
       action:
         canEdit &&
         !have &&
         (linkOnly ? (
-          <Add onClick={() => openSkill(s)} aria-label={`View ${s.name}`}>
+          <GoPill onClick={() => openSkill(s)} aria-label={`View ${s.name}`}>
             View
-          </Add>
+          </GoPill>
         ) : (
-          <Add onClick={() => void addSkill("library" in s ? { catalogId: s.library.id } : { storeId: s.store.id }, s.key)} disabled={adding === s.key} aria-label={`Add ${s.name}`}>
+          <GoPill onClick={() => void addSkill("library" in s ? { catalogId: s.library.id } : { storeId: s.store.id }, s.key)} disabled={adding === s.key} aria-label={`Add ${s.name}`}>
             Add
-          </Add>
+          </GoPill>
         )),
       onOpen: () => openSkill(s),
     };
   });
 
-  const modRows: RowDef[] = mods
-    .filter((k) => hit("mods", FEATURE_INFO[k].name, FEATURE_INFO[k].description, MOD_WORDS[k], "mod"))
-    .map((k) => {
-      const I = MOD_ICON[k];
-      return {
-        key: `m:${k}`,
-        tile: (
-          <Tile size={36}>
-            <I size={17} strokeWidth={1.7} />
-          </Tile>
-        ),
-        name: FEATURE_INFO[k].name,
-        words: MOD_WORDS[k],
-        ...(features[k]
-          ? { status: added("On") }
-          : {
-              action: canEdit && (
-                <Add onClick={() => void setMod(k, true)} disabled={!isOwner} title={isOwner ? undefined : "Only owners can change mods"} aria-label={`Add ${FEATURE_INFO[k].name}`}>
-                  Add
-                </Add>
-              ),
-            }),
-        onOpen: () => setDetail({ kind: "mod", mod: k }),
-      };
-    });
+  const modRow = (k: FeatureKey): RowDef => {
+    const I = MOD_ICON[k];
+    return {
+      key: `m:${k}`,
+      tile: lineTile(<I size={20} strokeWidth={1.7} />),
+      name: FEATURE_INFO[k].name,
+      desc: `A mod: ${MOD_WORDS[k].toLowerCase()}`,
+      ...(features[k]
+        ? { status: <Done word="On" /> }
+        : {
+            action: canEdit && (
+              <GoPill onClick={() => void setMod(k, true)} disabled={!isOwner} title={isOwner ? undefined : "Only owners can change mods"} aria-label={`Add ${FEATURE_INFO[k].name}`}>
+                Add
+              </GoPill>
+            ),
+          }),
+      onOpen: () => setDetail({ kind: "mod", mod: k }),
+    };
+  };
+  // mods change the whole app, not one agent
+  const modRows: RowDef[] = forA ? [] : mods.filter((k) => hit("mods", FEATURE_INFO[k].name, FEATURE_INFO[k].description, MOD_WORDS[k], "mod")).map(modRow);
+  const macName = thisComputer();
+  // This Mac: what the harnesses on your computers already have, and the Apple mod (Messages, Calendar, Reminders)
+  const macRows: RowDef[] = [...foundRows, ...(canEdit && !forA && macName === "This Mac" && mods.includes("apple") && hit("found", FEATURE_INFO.apple.name, MOD_WORDS.apple, "mac") ? [modRow("apple")] : [])];
 
   const readyCount = pending.filter((p) => p.item.kind === "skill" || readyAsIs(p.item)).length;
   const canLook = shelves.some((d) => d.online);
-  // a section shows only when it has rows; the registry and the skill store show a spinner until they answer, and "found" stays for its own address so "Look again" has a home
-  const sections: { id: AddSection; rows: RowDef[]; loading?: boolean; keep?: boolean; head?: ReactNode; foot?: ReactNode }[] = [
-    { id: "added", rows: addedRows, loading: !loaded },
-    {
-      id: "found",
-      rows: foundRows,
-      keep: canEdit && shelves.length > 0 && (target === "found" || whole === "found"),
-      head: (
-        <>
-          {(readyCount > 1 || !!bringing) && (
-            <TextBtn className="-my-2 py-2" onClick={() => void bringAllIn()} disabled={!!bringing}>
-              {bringing ? `Bringing in ${bringing}` : "Bring all in"}
-            </TextBtn>
-          )}
-          {canLook && (
-            <TextBtn className="-my-2 py-2" onClick={() => void lookAgain()} disabled={looking}>
-              {looking ? "Looking" : "Look again"}
-            </TextBtn>
-          )}
-        </>
-      ),
-      foot: !foundRows.length && <p className="px-0.5 py-2 text-[13px] text-muted">Nothing new</p>,
-    },
-    {
-      id: "apps",
-      rows: appRows,
-      loading: market.entries === null,
-      keep: !!market.error && (!whole || whole === "apps"),
-      foot: market.error && (
-        <p className="flex flex-wrap items-center gap-2 px-0.5 py-2 text-[13px] text-bad">
-          {market.error}
-          <TextBtn className="underline" onClick={() => setRetry((n) => n + 1)}>
-            Try again
-          </TextBtn>
-        </p>
-      ),
-    },
-    {
-      id: "skills",
-      rows: skillRows,
-      loading: store === null,
-      foot: store?.errors.map((e) => (
-        <p key={e} className="px-0.5 py-1 text-[13px] text-muted">
-          {e}
-        </p>
-      )),
-    },
-    // mods change the whole app, not one agent
-    ...(forA ? [] : [{ id: "mods" as const, rows: modRows }]),
-  ];
-  const shownSections = sections.filter((s) => (!only || only === s.id) && (!whole || whole === s.id) && (s.rows.length > 0 || s.keep || s.id === only || (s.loading && !searching && s.id !== "added")));
-  const stillLoading = sections.some((s) => s.loading && (!whole || whole === s.id));
+  const macHead = (
+    <>
+      {(readyCount > 1 || !!bringing) && (
+        <TextBtn className="-my-2 py-2 text-[13px]" onClick={() => void bringAllIn()} disabled={!!bringing}>
+          {bringing ? `Bringing in ${bringing}` : "Bring all in"}
+        </TextBtn>
+      )}
+      {canLook && (
+        <TextBtn className="-my-2 py-2 text-[13px]" onClick={() => void lookAgain()} disabled={looking}>
+          {looking ? "Looking" : "Look again"}
+        </TextBtn>
+      )}
+    </>
+  );
+  const appsFoot = market.error && (
+    <p className="col-span-full flex flex-wrap items-center gap-2 px-3 py-2 text-[13px] text-bad">
+      {market.error}
+      <TextBtn className="underline" onClick={() => setRetry((n) => n + 1)}>
+        Try again
+      </TextBtn>
+    </p>
+  );
+  const skillsFoot = store?.errors.map((e) => (
+    <p key={e} className="col-span-full px-3 py-1 text-[13px] text-muted">
+      {e}
+    </p>
+  ));
+  const appsSec = (rows: RowDef[], limit?: number): Sec => ({ id: "apps", title: "Apps", rows, loading: market.entries === null, limit, foot: appsFoot });
+  const skillsSec = (limit?: number): Sec => ({ id: "skills", title: "Skills", rows: skillRows, loading: store === null, limit, foot: skillsFoot });
+  const macSec: Sec = { id: "found", title: macName, rows: macRows, head: macHead, empty: canEdit ? "Nothing new" : undefined };
+  const modsSec: Sec = { id: "mods", title: "Mods", rows: modRows, empty: forA ? "Mods change the whole app; add them for every agent." : undefined };
+  const connectedSec: Sec = { id: "added", title: "Connected", rows: addedRows, loading: !loaded, empty: "Nothing connected yet" };
+  // what shows: Connected; a search (one section by name, or Results over everything); a chip
+  const chip: string = topic ?? (section === "mods" ? "mods" : section === "installed" ? "installed" : section);
+  const sections: Sec[] = (() => {
+    if (chip === "installed" && !searching) return [connectedSec];
+    if (whole) return [({ added: connectedSec, found: macSec, apps: appsSec(appRows), skills: skillsSec(), mods: modsSec } as Record<AddSection, Sec>)[whole]];
+    if (searching) {
+      // apps someone added themselves (or brought in from a harness) aren't in the catalog: they show too
+      const own = addedApps.filter((r) => !appFor(connectorById(r.key.slice(2))!));
+      return [{ id: "results", title: "Results", rows: [...macRows, ...appRows, ...own, ...skillRows, ...modRows], loading: market.entries === null || store === null }];
+    }
+    switch (chip) {
+      case "apps":
+        return [appsSec(appRows)];
+      case "skills":
+        return [skillsSec()];
+      case "devices":
+        return [macSec];
+      case "mods":
+        return [modsSec];
+      case "all":
+        return [
+          { id: "recommended", title: "Recommended", note: picker && pickedApps.length ? `${picker.name} picked these from what you told it` : undefined, rows: recRows },
+          macSec,
+          appsSec(appRows.filter((r) => !recKeys.has(r.key)), 10),
+          skillsSec(6),
+        ];
+      default: {
+        const label = [...MAIN_CHIPS, ...MORE_CHIPS].find(([k]) => k === chip)?.[1] ?? "Apps";
+        return [{ id: chip, title: label, rows: appRows.filter((r) => r.topics?.includes(chip as Topic)), loading: market.entries === null, empty: "Nothing here yet. Ask your agent to find one.", foot: appsFoot }];
+      }
+    }
+  })();
+  // a section shows when it has rows, is loading, or has something to say when empty (only when it is the one picked)
+  const shownSections = sections.filter((s) => s.rows.length > 0 || (s.loading && s.id !== "added") || (sections.length === 1 && (s.empty || s.foot)));
+  const stillLoading = sections.some((s) => s.loading);
+  const connectedCount = (connectors?.length ?? 0) + (skills?.length ?? 0);
+  const stackLogos = connectedLogos(connectors ?? []);
 
-  const row = (r: RowDef) => <AddRow key={r.key} tile={r.tile} name={r.name} mark={r.mark} words={r.words} status={r.status} action={r.action || undefined} onOpen={r.onOpen} />;
-  const own = (icon: ReactNode, name: string, onOpen: () => void) => <AddRow tile={<Tile size={36}>{icon}</Tile>} name={name} onOpen={onOpen} />;
+  const row = (r: RowDef) => <ConnectRow key={r.key} tile={r.tile} name={r.name} mark={r.mark} desc={r.desc} status={r.status} action={r.action || undefined} onOpen={r.onOpen} />;
+  const own = (icon: ReactNode, name: string, onOpen: () => void) => <ConnectRow tile={lineTile(icon)} name={name} onOpen={onOpen} />;
+  const toSection = (id: MarketSection) => go({ view: "marketplace", section: id === "all" ? null : id, ...(forA ? { forAgent: forA.id } : {}) });
+  const pickChip = (k: string) => {
+    auto.current = false;
+    setQ("");
+    if (TOPICS.has(k)) {
+      if (section !== "all") {
+        nextTopic.current = k as Topic;
+        toSection("all");
+      } else setTopic(k as Topic);
+      return;
+    }
+    setTopic(null);
+    if (k !== section) toSection(k as MarketSection);
+  };
+  // another chip starts its list at the top (an address that names a section scrolls to it instead)
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!target || chip !== section) listRef.current?.scrollTo({ top: 0 });
+  }, [chip]); // eslint-disable-line react-hooks/exhaustive-deps
+  const moreOn = MORE_CHIPS.find(([k]) => k === chip && !searching);
+  const close = inPopup?.close ?? onBack;
+  const closeBtn = close && (
+    <button type="button" onClick={close} aria-label="Close" title="Close (Esc)" className="grid size-[34px] shrink-0 place-items-center rounded-full text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40">
+      <X size={16} strokeWidth={2} />
+    </button>
+  );
 
   const list = (
     <>
-      {/* in the pop-up the place's name is its title, as in the sidebar */}
-      {popup ? <h1 className="t-title pb-3">Apps and skills</h1> : <h1 className="sr-only">Add</h1>}
-      <div className="flex items-center gap-2 pb-1">
-        {onBack && (
-          <Circle label="Back" wrap="md:hidden" onClick={onBack}>
-            <ChevronLeft size={22} />
-          </Circle>
-        )}
-        <SearchBox value={q} onChange={(v) => ((auto.current = false), setQ(v))} placeholder={only ? SEARCH_IN[only] : "Add an app, a skill or a mod"} />
+      <div className="flex shrink-0 items-center gap-3 pl-[30px] pr-[22px] pt-6 max-md:pl-5 max-md:pr-3 max-md:pt-[max(1rem,env(safe-area-inset-top))]">
+        <h1 className="min-w-0 flex-1 truncate text-[21px] font-semibold leading-7">Connect apps</h1>
+        <button
+          type="button"
+          aria-pressed={chip === "installed" && !searching}
+          onClick={() => (setQ(""), setTopic(null), toSection(section === "installed" ? "all" : "installed"))}
+          className={cx("flex h-[30px] shrink-0 items-center gap-2 rounded-[9px] px-1.5 text-[13.5px] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40", chip === "installed" && !searching ? "text-ink" : "text-muted")}
+        >
+          {/* phones keep the title whole: the logos show on wider screens */}
+          <LogoStack logos={stackLogos} className="max-sm:hidden" />
+          {connectedCount} connected
+          <ChevronRight size={12} strokeWidth={2.2} aria-hidden />
+        </button>
+        {closeBtn}
       </div>
-      {routed && <SectionChips section={section} canEdit={canEdit} forAgent={forA?.id} />}
       {forA && (
-        <div className="flex items-center gap-2 px-0.5 pt-2 text-[13px] text-muted">
+        <div className="flex shrink-0 items-center gap-2 px-[30px] pt-2 text-[13px] text-muted max-md:px-5">
           <span className="min-w-0 flex-1 truncate">
             Adding to <span className="font-medium text-ink">{forA.name}</span>
           </span>
@@ -848,44 +927,74 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
           </a>
         </div>
       )}
-      {error && <p className="px-0.5 pt-2 text-[13px] text-bad">{error}</p>}
-      {signedIn && signedIn !== "ok" && <p className="px-0.5 pt-2 text-[13px] text-bad">Sign-in didn't finish: {signedIn}</p>}
-      {shownSections.map((s) => {
-        // mods are few and some are core behaviour: always all of them, no "Show all" to find them behind
-        const open = expanded.includes(s.id) || whole === s.id || only === s.id || s.id === "mods";
-        const n = rowsShown(s.rows.length, open, searching);
-        return (
-          <section key={s.id} id={`add-${s.id}`} aria-label={SECTION_TITLE[s.id]} className="scroll-mt-2">
-            <SectionHead title={SECTION_TITLE[s.id]}>{s.head}</SectionHead>
-            {s.rows.slice(0, n).map(row)}
-            {s.loading && !s.rows.length && <Loader />}
-            {only === s.id && !s.loading && !s.rows.length && !s.foot && !searching && <p className="px-0.5 py-2 text-[13px] text-muted">{s.id === "added" ? "Nothing added yet" : "Nothing here yet"}</p>}
-            {s.foot}
-            {s.rows.length > n && (
-              <TextBtn className="flex h-10 w-full items-center px-0.5 text-left text-[13px]" onClick={() => setExpanded([...expanded, s.id])}>
-                Show all
-              </TextBtn>
+      <div className="shrink-0 px-[30px] pt-4 max-md:px-5">
+        <label className="flex h-10 items-center gap-[9px] rounded-[12px] bg-hover px-[13px] text-muted">
+          <Search size={16} strokeWidth={1.8} aria-hidden className="shrink-0" />
+          <input type="search" value={q} onChange={(e) => ((auto.current = false), setQ(e.target.value))} placeholder="Search apps and skills" aria-label="Search apps and skills" className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted md:text-[14.5px]" />
+        </label>
+        <nav aria-label="Filter" className="-mx-[30px] mt-3.5 flex gap-[7px] overflow-x-auto px-[30px] pb-1 [scrollbar-width:none] max-md:-mx-5 max-md:px-5">
+          {MAIN_CHIPS.filter(([k]) => canEdit || k !== "devices").map(([k, label]) => (
+            <FilterChip key={k} on={!searching && chip === k} onClick={() => pickChip(k)}>
+              {k === "devices" ? macName : label}
+            </FilterChip>
+          ))}
+          <Menu
+            items={MORE_CHIPS.filter(([k]) => k !== "mods" || !forA).map(([k, label]) => ({ label, onSelect: () => pickChip(k) }))}
+            trigger={(open, t) => (
+              <FilterChip on={!!moreOn} onClick={t} aria-expanded={open} aria-haspopup="menu">
+                {moreOn ? moreOn[1] : "More"}
+                <ChevronDown size={12} strokeWidth={2.2} aria-hidden />
+              </FilterChip>
+            )}
+          />
+        </nav>
+      </div>
+      {error && <p className="shrink-0 px-[30px] pt-2 text-[13px] text-bad max-md:px-5">{error}</p>}
+      {signedIn && signedIn !== "ok" && <p className="shrink-0 px-[30px] pt-2 text-[13px] text-bad max-md:px-5">Sign-in didn't finish: {signedIn}</p>}
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-[max(1.5rem,env(safe-area-inset-bottom))] max-md:px-2" onWheel={stopAuto} onTouchMove={stopAuto}>
+        {shownSections.map((s) => {
+          const open = expanded.includes(s.id) || !s.limit;
+          const n = open ? s.rows.length : Math.min(s.rows.length, s.limit!);
+          return (
+            <section key={s.id} id={`add-${s.id}`} aria-label={s.title} className="scroll-mt-2">
+              <div className="mx-3 mb-1.5 mt-[22px] flex items-baseline gap-2">
+                <h2 className="text-[15px] font-semibold">{s.title}</h2>
+                {s.note && <span className="min-w-0 truncate text-[13px] text-muted">{s.note}</span>}
+                <span className="flex-1" />
+                {s.head}
+              </div>
+              <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
+                {s.rows.slice(0, n).map(row)}
+                {s.foot}
+              </div>
+              {s.loading && !s.rows.length && <Loader />}
+              {!s.loading && !s.rows.length && s.empty && !searching && <p className="px-3 py-2 text-[13px] text-muted">{s.empty}</p>}
+              {s.rows.length > n && (
+                <TextBtn className="mx-3 flex h-10 items-center text-left text-[13px]" onClick={() => setExpanded([...expanded, s.id])}>
+                  Show all {s.rows.length}
+                </TextBtn>
+              )}
+            </section>
+          );
+        })}
+        {searching && !shownSections.some((s) => s.rows.length) && !stillLoading && <p className="py-[60px] text-center text-[14px] text-muted">Nothing matches. Ask your agent to find it.</p>}
+        {canEdit && !searching && (chip === "all" || chip === "apps" || chip === "skills") && (
+          <section aria-label="Make or bring your own" className="mx-3 mt-4 border-t border-[var(--pop-line)]">
+            <button type="button" aria-expanded={making} onClick={() => setMaking(!making)} className="flex h-[52px] w-full items-center text-left text-[14px] text-muted outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40">
+              <span className="flex-1">Make or bring your own</span>
+              <ChevronRight size={14} aria-hidden className={cx(making && "rotate-90")} />
+            </button>
+            {making && (
+              <div className="-mx-3 grid grid-cols-1 gap-x-4 md:grid-cols-2">
+                {own(<Wand2 size={20} strokeWidth={1.7} />, "Create a skill", () => setEditing("new"))}
+                {own(<Plug size={20} strokeWidth={1.7} />, "Add your own app", () => setForm({}))}
+                {own(<Download size={20} strokeWidth={1.7} />, "Bring a skill in", () => setSharing("import"))}
+                {!!skills?.length && own(<Share2 size={20} strokeWidth={1.7} />, "Share a skill", () => setSharing("pick"))}
+              </div>
             )}
           </section>
-        );
-      })}
-      {searching && !shownSections.length && !stillLoading && <p className="px-0.5 py-4 text-[14px] text-muted">Nothing matches "{q.trim()}"</p>}
-      {canEdit && (!only || only === "apps" || only === "skills") && (
-        <section aria-label="Make or bring your own" className="mt-2 border-t border-line">
-          <button type="button" aria-expanded={making} onClick={() => setMaking(!making)} className="flex h-[52px] w-full items-center px-0.5 text-left text-[14px] text-muted outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40">
-            <span className="flex-1">Make or bring your own</span>
-            <ChevronRight size={14} aria-hidden className={cx(making && "rotate-90")} />
-          </button>
-          {making && (
-            <>
-              {own(<Wand2 size={17} strokeWidth={1.7} />, "Create a skill", () => setEditing("new"))}
-              {own(<Plug size={17} strokeWidth={1.7} />, "Add your own app", () => setForm({}))}
-              {own(<Download size={17} strokeWidth={1.7} />, "Bring a skill in", () => setSharing("import"))}
-              {!!skills?.length && own(<Share2 size={17} strokeWidth={1.7} />, "Share a skill", () => setSharing("pick"))}
-            </>
-          )}
-        </section>
-      )}
+        )}
+      </div>
     </>
   );
 
@@ -938,28 +1047,28 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   })();
 
   const signInC = connectorById(signInFor);
-  const stopAuto = () => {
-    auto.current = false;
-  };
 
   return (
-    <div className="flex min-h-0 flex-1">
-      {routed && <SectionNav section={section} canEdit={canEdit} forAgent={forA?.id} top={popup ? "pt-6" : "pt-9"} />}
-      <div className="min-w-0 flex-1 overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]" onWheel={stopAuto} onTouchMove={stopAuto}>
-        <div className={cx("mx-auto w-full max-w-[592px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))]", popup ? "md:pt-6" : "md:pt-9")}>
-          {detail || (routed && appKey) ? (
-            <div className="space-y-4">
-              <button type="button" className="circle circle-sm" aria-label="Back to Add" onClick={() => setDetail(null)}>
-                <ChevronLeft size={18} aria-hidden />
-              </button>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {detail || (routed && appKey) ? (
+        <>
+          <div className="flex shrink-0 items-center gap-3 px-[22px] pt-5 max-md:px-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]">
+            <button type="button" className="grid size-[34px] place-items-center rounded-full text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40" aria-label="Back to Connect apps" onClick={() => setDetail(null)}>
+              <ChevronLeft size={20} aria-hidden />
+            </button>
+            <span className="flex-1" />
+            {closeBtn}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]" onWheel={stopAuto} onTouchMove={stopAuto}>
+            <div className="mx-auto w-full max-w-[592px] space-y-4 px-4 pt-2">
               {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
               {page}
             </div>
-          ) : (
-            list
-          )}
-        </div>
-      </div>
+          </div>
+        </>
+      ) : (
+        list
+      )}
 
       {form && (
         <ConnectorForm
@@ -1037,47 +1146,6 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
         </div>
       )}
     </div>
-  );
-}
-
-/** The sections, as the side list (desktops) and a row of chips (phones) name them. */
-const NAV: { id: MarketSection; label: string; icon: LucideIcon; editors?: boolean }[] = [
-  { id: "all", label: "All", icon: LayoutGrid },
-  { id: "apps", label: "Apps", icon: Plug },
-  { id: "skills", label: "Skills", icon: Wand2 },
-  { id: "devices", label: "On your devices", icon: Laptop, editors: true },
-  { id: "installed", label: "Installed", icon: Check },
-];
-const SEARCH_IN: Record<AddSection, string> = { added: "Search what's installed", found: "Search your devices", apps: "Search apps", skills: "Search skills", mods: "Search mods" };
-const navItems = (canEdit: boolean) => NAV.filter((n) => canEdit || !n.editors);
-const navHref = (id: MarketSection, forAgent?: string | null) => href({ view: "marketplace", section: id === "all" ? null : id, forAgent });
-
-/** The side list on desktops: All, Apps, Skills, On your devices, Installed. */
-function SectionNav({ section, canEdit, forAgent, top = "pt-9" }: { section: MarketSection | "mods"; canEdit: boolean; forAgent?: string | null; top?: string }) {
-  const on = section === "mods" ? "all" : section;
-  return (
-    <nav aria-label="Add sections" className={cx("hidden w-[200px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-line px-2.5 pb-5 md:flex", top)}>
-      {navItems(canEdit).map(({ id, label, icon: I }) => (
-        <a key={id} href={navHref(id, forAgent)} aria-current={on === id ? "page" : undefined} className={cx("flex h-[34px] items-center gap-2.5 rounded-[8px] px-2.5 text-[length:var(--t-row)] transition-colors", on === id ? "bg-hover font-medium text-ink" : "text-ink/80 hover:bg-hover hover:text-ink")}>
-          <I size={16} strokeWidth={1.8} aria-hidden className="shrink-0" />
-          {label}
-        </a>
-      ))}
-    </nav>
-  );
-}
-
-/** The same sections as chips under the search, on phones. */
-function SectionChips({ section, canEdit, forAgent }: { section: MarketSection | "mods"; canEdit: boolean; forAgent?: string | null }) {
-  const on = section === "mods" ? "all" : section;
-  return (
-    <nav aria-label="Add sections" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 pt-1.5 [scrollbar-width:none] md:hidden">
-      {navItems(canEdit).map(({ id, label }) => (
-        <a key={id} href={navHref(id, forAgent)} aria-current={on === id ? "page" : undefined} className={cx("inline-flex h-8 shrink-0 items-center rounded-full px-3.5 text-[13px] font-medium transition-colors", on === id ? "bg-ink text-panel" : "bg-chip text-ink/80 hover:text-ink")}>
-          {label}
-        </a>
-      ))}
-    </nav>
   );
 }
 

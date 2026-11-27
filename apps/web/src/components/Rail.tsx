@@ -3,6 +3,7 @@ import { STOPS, TOTAL, seenCount } from "../tour.ts";
 import { createPortal } from "react-dom";
 import { Apple, Bell, BookOpen, Building2, ExternalLink, FolderPlus, Sparkles, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, MessageSquarePlus, Plus, Search, Settings, SquareTerminal, Store, Users, X } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
+import { LogoStack, connectedLogos, useConnectors } from "./ConnectParts.tsx";
 import { GITHUB_URL } from "@bubble-ai/core";
 import { startTour } from "./tour/tourRun.ts";
 import { useReadyChecklist } from "../onboarding.ts";
@@ -116,9 +117,21 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
     { label: "Memory", icon: <BookOpen {...icon} />, to: { view: "vault", path: null } },
     ...(!guest && features.tasks ? [{ label: "Tasks", icon: <ListTodo {...icon} />, to: { view: "tasks" } as Route }] : []),
     ...(!guest ? [...(withRail ? modNav(features, "rail") : []), ...modNav(features, "more")].map((m) => ({ label: m.label, icon: m.icon(size), to: m.to })) : []),
-    ...(!guest ? [{ label: "Marketplace", icon: <Store {...icon} />, to: { view: "marketplace" } as Route }] : []),
+    ...(!guest ? [{ label: "Connect apps", icon: <Store {...icon} />, to: { view: "marketplace" } as Route }] : []),
     { label: "Help", icon: <LifeBuoy {...icon} />, to: { view: "help" } },
   ];
+}
+
+/** The bottom of the wide sidebar (round 8): "Connect apps", with up to three connected apps' logos; it opens the Connect apps pop-up. */
+function ConnectPill({ on }: { on: boolean }) {
+  const list = useConnectors();
+  const logos = connectedLogos(list ?? []);
+  return (
+    <a href={href({ view: "marketplace" })} aria-current={on ? "page" : undefined} data-tour="apps" className={cx("connect-pill flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[20px] px-3 text-[14.5px] font-medium text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring/40", on && "is-on")}>
+      <span className="truncate">Connect apps</span>
+      <LogoStack logos={logos} />
+    </a>
+  );
 }
 
 /** A round sidebar button, 40px with a soft fill: search, the plus, Computers on the rail. */
@@ -330,17 +343,16 @@ export interface StripPlace {
 }
 
 /**
- * The places that aren't chats (canvas "Calmer layout", board A1): Computers, Memory, Apps and
- * skills, Tasks and Code (when its mod is on), in that order, ⌘1 to ⌘5. Guests get Memory alone.
- * Exported for the tests.
+ * The places that aren't chats (canvas "Calmer layout", board A1): Computers, Memory, Connect apps,
+ * Tasks and Code (when its mod is on), in that order, ⌘1 to ⌘5. Guests get Memory alone.
  */
-export function stripPlaces(o: { guest: boolean; tasks: boolean; code: boolean; computersOn: number; notes: number | null; newNotes: boolean; open: Route | null; vaultTo: string }): StripPlace[] {
+function places(o: { guest: boolean; tasks: boolean; code: boolean; computersOn: number; notes: number | null; newNotes: boolean; open: Route | null; vaultTo: string }): StripPlace[] {
   const v = o.open?.view;
   const icon = { size: 18, strokeWidth: 1.8 };
   const all: (StripPlace | false)[] = [
     !o.guest && { key: "computers", label: "Computers", icon: <ComputersIcon size={18} />, to: href({ view: "computers", computerId: null }), on: v === "computers", shortcut: 1, count: o.computersOn > 0 ? `${o.computersOn} on` : null, dot: o.computersOn > 0 ? "on" : null, tour: "computers" },
     { key: "memory", label: "Memory", icon: <BookOpen {...icon} />, to: o.vaultTo, on: v === "vault", shortcut: 2, count: o.notes != null ? `${o.notes} ${o.notes === 1 ? "note" : "notes"}` : null, dot: o.newNotes ? "new" : null, tour: "vault" },
-    !o.guest && { key: "apps", label: "Apps and skills", icon: <LayoutGrid {...icon} />, to: href({ view: "marketplace" }), on: v === "marketplace" || v === "skills" || v === "connectors" || v === "mods", shortcut: 3 },
+    !o.guest && { key: "apps", label: "Connect apps", icon: <LayoutGrid {...icon} />, to: href({ view: "marketplace" }), on: v === "marketplace" || v === "skills" || v === "connectors" || v === "mods", shortcut: 3 },
     // Tasks is a mod: while it's off the icon opens Mods, where it's switched on
     !o.guest && { key: "tasks", label: "Tasks", icon: <ListTodo {...icon} />, to: href(o.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" }), on: v === "tasks", shortcut: 4, count: o.tasks ? null : "Off" },
     !o.guest && o.code && { key: "code", label: "Code", icon: <SquareTerminal {...icon} />, to: href({ view: "code" }), on: v === "code", shortcut: 5 },
@@ -348,9 +360,17 @@ export function stripPlaces(o: { guest: boolean; tasks: boolean; code: boolean; 
   return all.filter((p): p is StripPlace => !!p);
 }
 
+/**
+ * The sidebar's top row of icons: the places less Connect apps, which has its own pill at the
+ * bottom of the sidebar (round 8). Exported for the tests.
+ */
+export function stripPlaces(o: Parameters<typeof places>[0]): StripPlace[] {
+  return places(o).filter((p) => p.key !== "apps");
+}
+
 /** Where ⌘1 to ⌘5 go: the strip's places by number, or null when that one isn't there. */
 export function shortcutTarget(n: number, o: { guest: boolean; tasks: boolean; code: boolean }): string | null {
-  const p = stripPlaces({ ...o, computersOn: 0, notes: null, newNotes: false, open: null, vaultTo: href({ view: "vault", path: null }) }).find((x) => x.shortcut === n);
+  const p = places({ ...o, computersOn: 0, notes: null, newNotes: false, open: null, vaultTo: href({ view: "vault", path: null }) }).find((x) => x.shortcut === n);
   return p?.to ?? null;
 }
 
@@ -572,7 +592,7 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
     // the wide sidebar lists the places under search; as a rail they live here
     // what waits on you shows as blue dots on the chats; the full list is here (and in search)
     ...(!isGuest && inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
-    ...(!wide && !isGuest ? [place("Apps and skills", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
+    ...(!wide && !isGuest ? [place("Connect apps", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
     ...(!wide && !isGuest ? [place(features.tasks ? "Tasks" : "Tasks (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" })] : []),
     // mods' own pages (Storage, Apple) live in Settings; Code shows here only while the sidebar is a rail
@@ -627,7 +647,13 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
       align="left"
       items={accountItems}
       trigger={(open, t) => (
-        wide ? (
+        wide && !isGuest ? (
+          // round 8: your avatar alone, beside the Connect apps pill
+          <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" title="Account, settings and help" className={cx("relative grid size-10 shrink-0 place-items-center rounded-full bg-wisp-soft text-[14px] font-semibold text-wisp-strong outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring/40", (open || settingsOn) && "ring-2 ring-wisp/40")}>
+            {(firstName[0] ?? "?").toUpperCase()}
+            {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
+          </button>
+        ) : wide ? (
           // the board's long glass "You" pill: the whole width of the sidebar
           <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" className={cx("lg-glass lg-press relative flex h-[46px] w-full min-w-0 items-center gap-2.5 rounded-[23px] px-2 text-[14px] text-ink outline-none transition-[background-color,transform] duration-150 hover:bg-[var(--lg-bg-strong)]! focus-visible:ring-2 focus-visible:ring-ring/40", (open || settingsOn) && "is-on")}>
             <span className="grid size-[30px] shrink-0 place-items-center rounded-full bg-ink text-[12px] font-semibold text-panel">{(firstName[0] ?? "?").toUpperCase()}</span>
@@ -708,8 +734,9 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
           <>
             <div className="h-2.5 shrink-0" />
             {setupCard}
-            <div ref={footRef} className="flex shrink-0 items-center px-2 pb-1 *:min-w-0 *:flex-1">
+            <div ref={footRef} className={cx("flex shrink-0 items-center gap-2 px-3 pb-1", isGuest && "*:min-w-0 *:flex-1")}>
               {you}
+              {!isGuest && <ConnectPill on={open.view === "marketplace" || open.view === "connectors" || open.view === "skills"} />}
             </div>
           </>
         ) : (
