@@ -15,7 +15,7 @@ export function SetupShell({ at, onBack, onSubmit, foot, center, children }: { a
   useEscBack(onBack);
   const body = (
     <>
-      <div className="shrink-0 h-14 grid grid-cols-[34px_1fr_34px] items-center gap-2 px-5 safe-top box-content">
+      <div className="setup-top shrink-0 h-14 grid grid-cols-[34px_1fr_34px] items-center gap-2 px-5 safe-top box-content">
         {onBack ? (
           <button type="button" className="size-[34px] grid place-items-center rounded-full text-muted hover:bg-hover hover:text-ink" aria-label="Back" onClick={onBack}>
             <ChevronLeft size={18} />

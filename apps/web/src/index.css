@@ -994,7 +994,12 @@ body {
 :root[data-titlebar] :is(button, a, input, textarea, select, summary, label, [role="button"], [role="separator"], [role="dialog"], [contenteditable="true"]) { -webkit-app-region: no-drag; }
 /* the workspace name gives way (truncates) before search and the plus do */
 .side[data-wide] .side-top > :first-child { display: flex; flex: 1 1 auto; min-width: 0; }
-:root[data-titlebar="inset"] .side[data-wide] .side-top { padding-left: 88px; }
+/* round 6: the wide sidebar's top row is all icons now, so it starts below the traffic lights instead of after them */
+:root[data-titlebar="inset"] .side[data-wide] { padding-top: 58px; }
+/* onboarding's Back sits just right of the traffic lights, level with them (main.cjs puts them at x 20, y 32) */
+:root[data-titlebar="inset"] .ob-stage .ob-back { left: 82px; top: 22px; padding-top: 0; }
+/* the setup card fills a narrow window: its top row (Back, steps) starts below the traffic lights */
+@media (max-width: 767px) { :root[data-titlebar="inset"] .setup-top { margin-top: 36px; } }
 :root[data-titlebar="inset"] .side:not([data-wide]) { padding-top: 60px; }
 :root[data-titlebar="overlay"] .win-safe { padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 16px); }
 .side-list { scrollbar-width: none; }
