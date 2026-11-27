@@ -62,7 +62,8 @@ describe("chat backgrounds", () => {
   });
 
   it("saves the default in the person's prefs and the agent's own on the agent", async () => {
-    expect(bg.backgroundFor("a1")).toEqual({ kind: "none" });
+    // never chosen: Mist (Night in dark mode), so the glass has something to sit on
+    expect(bg.backgroundFor("a1")).toEqual({ kind: "color", color: "#dfe4f3" });
     await bg.setDefaultBackground({ kind: "color", color: "#dfe4f3" });
     expect(state.calls.at(-1)).toEqual({ method: "PUT", path: "/api/me/prefs", body: { background: { kind: "color", color: "#dfe4f3" } } });
     expect(bg.backgroundFor("a1")).toEqual({ kind: "color", color: "#dfe4f3" });
@@ -98,8 +99,27 @@ describe("chat backgrounds", () => {
   it("ignores anything that isn't a colour, a hub photo or none", () => {
     state.me.prefs = { background: { kind: "photo", url: "https://elsewhere.example/x.png" } };
     state.agents[0].settings = { background: { kind: "color", color: "red;}" } };
-    expect(bg.backgroundFor("a1")).toEqual({ kind: "none" });
+    expect(bg.backgroundFor("a1")).toEqual(bg.DEFAULT_BACKGROUND);
     expect(bg.validBackground({ kind: "photo", url: "/api/files/../x" })).toBe(false);
+  });
+
+  it("shows each swatch's own half for the mode, and pairs light and dark picks", () => {
+    // never chosen: Mist in light, Slate blue in dark
+    expect(bg.backgroundCss({ kind: "color", color: "#dfe4f3" }, null)).toBe("#dfe4f3");
+    expect(bg.backgroundCss({ kind: "color", color: "#dfe4f3" }, null, true)).toBe("#262f45");
+    // a dark pick (Wine) shows its light half (Peach) in light mode
+    expect(bg.backgroundCss({ kind: "color", color: "#3d1f2a" }, null)).toBe("#f3e3dc");
+    expect(bg.sameSwatch("#3d1f2a", "#f3e3dc")).toBe(true);
+    expect(bg.sameSwatch("#3d1f2a", "#dfe4f3")).toBe(false);
+    // the dark set is clearly coloured: every dark half has one channel well above the others
+    for (const [c] of bg.swatchesFor(true)) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+      expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeGreaterThanOrEqual(25);
+    }
+    // a colour from before stays as it is when dark already, and is tinted toward Slate blue when light
+    expect(bg.backgroundCss({ kind: "color", color: "#1c1c1c" }, null, true)).toBe("#1c1c1c");
+    expect(bg.backgroundCss({ kind: "color", color: "#ffeeee" }, null, true)).toContain("color-mix");
+    expect(bg.backgroundCss({ kind: "none" }, null, true)).toBeNull();
   });
 
   it("uploads only photos", async () => {

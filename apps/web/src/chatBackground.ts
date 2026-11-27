@@ -16,18 +16,55 @@ export type { ChatBackground };
 
 export const NO_BACKGROUND: ChatBackground = { kind: "none" };
 
-/** The colour swatches (the Profile board's), light to dark; in dark mode each is dimmed to its hue (backgroundCss). */
-export const BACKGROUND_SWATCHES: readonly [string, string][] = [
-  ["#dfe4f3", "Mist"],
-  ["#f3e3dc", "Peach"],
-  ["#e2f0e6", "Mint"],
-  ["#efe4f7", "Lilac"],
-  ["#f6efd9", "Sand"],
-  ["#dcebf5", "Sky"],
-  ["#2a2d35", "Night"],
-  ["#1c1c1c", "Black"],
+/**
+ * The colours, each a pair: a soft tint for light mode and a deep, clearly coloured tone for dark
+ * mode. Whichever half is saved, a chat shows the half for the mode it's in, and the picker shows
+ * the set for the mode it's in (swatchesFor).
+ */
+export const BACKGROUND_PAIRS: readonly { light: string; dark: string; name: string; darkName: string }[] = [
+  { light: "#dfe4f3", dark: "#262f45", name: "Mist", darkName: "Slate blue" },
+  { light: "#dcebf5", dark: "#1d2a44", name: "Sky", darkName: "Navy" },
+  { light: "#d9eef0", dark: "#173338", name: "Aqua", darkName: "Teal" },
+  { light: "#e2f0e6", dark: "#1a3826", name: "Mint", darkName: "Forest" },
+  { light: "#efe4f7", dark: "#33223f", name: "Lilac", darkName: "Plum" },
+  { light: "#f3e3dc", dark: "#3d1f2a", name: "Peach", darkName: "Wine" },
+  { light: "#f6efd9", dark: "#3a2f1f", name: "Sand", darkName: "Umber" },
 ];
+
+/** Mist in light mode, Slate blue in dark: what every chat shows until the person picks (so the glass has something to sit on). */
+export const MIST = "#dfe4f3";
+export const SLATE = "#262f45";
+export const DEFAULT_BACKGROUND: ChatBackground = { kind: "color", color: MIST };
+
+/** The swatches a picker shows: the light set, or the dark set in dark mode. [colour, name] */
+export function swatchesFor(dark: boolean): [string, string][] {
+  return BACKGROUND_PAIRS.map((p) => (dark ? [p.dark, p.darkName] : [p.light, p.name]));
+}
+/** The light set (Settings' first pick, older callers). */
+export const BACKGROUND_SWATCHES: readonly [string, string][] = swatchesFor(false);
 export const BACKGROUND_COLORS = BACKGROUND_SWATCHES.map(([c]) => c);
+
+const pairOf = (hex: string) => {
+  const h = hex.toLowerCase();
+  return BACKGROUND_PAIRS.find((p) => p.light === h || p.dark === h);
+};
+
+/** Whether two saved colours are the same swatch (one may be the light half, the other the dark). */
+export function sameSwatch(a: string, b: string): boolean {
+  const p = pairOf(a);
+  return p ? p === pairOf(b) : a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * The colour a saved one shows as: its pair's half for the mode. A colour from outside the pairs
+ * stays as it is, except a light one in dark mode, which is tinted toward Slate blue.
+ */
+export function shownColor(hex: string, dark: boolean): string {
+  const p = pairOf(hex);
+  if (p) return dark ? p.dark : p.light;
+  if (!dark || lightness(hex) < 0.35) return hex;
+  return `color-mix(in srgb, ${hex} 25%, ${SLATE} 75%)`;
+}
 
 interface Saved {
   default?: ChatBackground;
@@ -93,7 +130,7 @@ export function defaultBackground(): ChatBackground {
   const saved = useStore.getState().me?.prefs?.background;
   if (validBackground(saved)) return saved;
   const local = readLocal().default;
-  return validBackground(local) ? local : NO_BACKGROUND;
+  return validBackground(local) ? local : DEFAULT_BACKGROUND;
 }
 
 /** The agent's own background, or null when it uses the default. */
@@ -199,9 +236,15 @@ export function usePhotoSrc(bg: ChatBackground | null | undefined): string | nul
   return src;
 }
 
-/** The CSS background for one, or null for none (and for a photo still loading). Dark mode dims a colour to its hue. */
+/** How light a #rrggbb colour is, 0 to 1. */
+function lightness(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+}
+
+/** The CSS background for one, or null for none (and for a photo still loading). A colour shows its half for the mode (shownColor). */
 export function backgroundCss(bg: ChatBackground, photoSrc: string | null, dark = false): string | null {
-  if (bg.kind === "color") return dark ? `color-mix(in srgb, ${bg.color} 14%, #141416)` : bg.color;
+  if (bg.kind === "color") return shownColor(bg.color, dark);
   if (bg.kind === "photo") return photoSrc ? `center / cover no-repeat url("${photoSrc}")` : null;
   return null;
 }

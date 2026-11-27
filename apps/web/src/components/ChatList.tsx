@@ -219,12 +219,12 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
     <Menu
       align="right"
       trigger={(isOpen, t) => (
-        <button data-tour="new" onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label={page ? "New agent or team" : "New chat, agent or team"} className="circle">
+        <button data-tour="new" onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label="New chat, agent or team" className={page ? "lg-glass lg-round lg-press" : "circle"}>
           <Plus size={page ? 22 : 20} strokeWidth={2} />
         </button>
       )}
       items={[
-        ...(!page ? [{ label: "New chat", icon: <MessageSquarePlus size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ newChatOpen: true }) }] : []),
+        { label: "New chat", icon: <MessageSquarePlus size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ newChatOpen: true }) },
         ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon size={18} strokeWidth={1.8} />, onSelect: startNewAgent }] : []),
         ...(!isGuest ? [{ label: "New team", icon: <Users size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
         { label: "Browse teams", icon: <Search size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },

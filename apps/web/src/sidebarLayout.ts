@@ -13,7 +13,14 @@ export interface LayoutChat {
   pinned: boolean;
   sectionId: string | null;
   unread: number;
+  /** an agent's chat or a team's; the default pins are agents */
+  kind?: "dm" | "team";
+  /** last activity (ms), newest first for the default pins */
+  at?: number;
 }
+
+/** How many agents are pinned for someone who has never pinned or unpinned anything. */
+export const DEFAULT_PINS = 3;
 
 /** Where a chat shows: a pin, or a section ("none" is No section). */
 export interface PlacedSection {
@@ -27,11 +34,22 @@ export interface PlacedSection {
 
 export const NONE = "none";
 
-/** The layout as saved, or the one read from before (starred = pinned, the workspace's sections). */
+/**
+ * The layout as saved, or the one read from before (starred = pinned, the workspace's sections).
+ * Someone who has never pinned anything gets their first three agents, by last activity, pinned (the
+ * board's default); the first change they make saves the layout, and from then on theirs wins.
+ */
 export function baseLayout(saved: SidebarLayout | undefined, chats: readonly LayoutChat[], sections: readonly Section[], folded: Record<string, boolean> = {}): SidebarLayout {
   if (saved) return saved;
+  const starred = chats.filter((c) => c.pinned).slice(0, MAX_PINS).map((c) => c.key);
+  const agents = chats
+    .filter((c) => c.kind === "dm")
+    .slice()
+    .sort((a, b) => (b.at ?? 0) - (a.at ?? 0))
+    .slice(0, DEFAULT_PINS)
+    .map((c) => c.key);
   return {
-    pins: chats.filter((c) => c.pinned).slice(0, MAX_PINS).map((c) => c.key),
+    pins: starred.length ? starred : agents,
     sections: sections.map((s) => ({ id: s.id, name: s.name, folded: !!folded[s.id] || undefined, items: chats.filter((c) => c.sectionId === s.id).map((c) => c.key) })),
   };
 }
