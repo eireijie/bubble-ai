@@ -297,6 +297,10 @@ export class WispClient {
   setupStep(s: { step?: string; summary?: string; role?: string; accounts?: string[]; watch?: { service: string; label?: string; url?: string; lookFor?: string }[]; done?: boolean }) {
     return this.request<{ done: boolean; left: string[]; watched: ({ label: string; watching: true; watchId: string } | { label: string; watching: false; why: string })[] }>("POST", "/api/setup-step", s);
   }
+  /** Suggest apps to connect: a card with a one-tap Connect on each goes under this reply. */
+  connectSuggest(apps: { id: string; why?: string }[]) {
+    return this.request<{ shown: string[]; unknown: string[]; valid?: string[] }>("POST", "/api/connect-suggest", { apps });
+  }
   routines() {
     return this.request<Routine[]>("GET", "/api/routines");
   }

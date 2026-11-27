@@ -34,6 +34,7 @@ import { settleDraftOfRun } from "./team-drafts.ts";
 import { failTaskOfRun, leadSection, taskInstructions } from "./lead.ts";
 import { spawnSection } from "./spawn.ts";
 import { greetingPrompt, greetingWritten, greetSignInFailed, recordSetupReply, setupChat, setupSection } from "./greeting.ts";
+import { picksRunEnded, picksSection } from "./setup-picks.ts";
 import { foldTeams } from "./fold-teams.ts";
 import { TeamFlows } from "./team-flows.ts";
 import type { RunKind, Store } from "./store.ts";
@@ -914,12 +915,15 @@ export class Hub {
       const reply = (body || sentFiles) && !gone && !repeated && !drawing ? this.postMessage({ channelId: run.channelId, threadId: run.threadId, author, body, parts, hop: run.hop + 1, route, onBehalfOf: run.requestedBy, conversationId: this.chatOfRun(run) }) : null;
       // follow-ups it set and how it left the chat show under its answer
       this.loops.runEnded(run, reply?.id ?? (repeated && posted ? posted.id : null));
+      // the answer to the setup picks always has apps to connect under it
+      if (!gone) picksRunEnded(this, run, reply?.id ?? null);
       // an agent that answered a task without calling task_update still finished it: its reply is the result
       if (!drawing && !gone && body) this.finishTaskOfRun(run, body);
       // work worth remembering that it didn't save gets a memory pass once the chat goes quiet
       this.autoMemory.runFinished(run, { reply: body || (posted?.body ?? ""), tools: live.parts.flatMap((p) => (p.type === "tool_call" ? [p.name] : [])), usedSkill: skillParts.some((p) => p.type === "skill") });
     } else {
       this.loops.runEnded(run, null);
+      if (!gone) picksRunEnded(this, run, null);
       this.autoMemory.finished(run.id);
       store.setRunStatus(run.id, "failed", result.error);
       const text = agent ? this.explainFailure(agent, result.error, run.requestedBy) : result.error;
@@ -1192,7 +1196,7 @@ export class Hub {
     return path;
   }
 
-  private route(msg: Message, workspaceId: string, replyInThread: boolean, requestedBy: string | null) {
+  route(msg: Message, workspaceId: string, replyInThread: boolean, requestedBy: string | null) {
     const channel = this.store.channel(msg.channelId);
     const fromPerson = msg.author.kind === "user" && msg.author.id !== "system";
     // a channel can ask agents to answer people in a thread under their message; a team always does
@@ -2006,7 +2010,10 @@ export class Hub {
     const asks = agentPolicy(this, agent.workspaceId).askBefore.map((k) => ASK_BEFORE_TEXT[k]);
     const [soul, memory, routines] = await Promise.all([this.soul(agent.id), this.memory.sections(agent, { person, query: trigger.body }), this.routines.promptSection(agent.id, trigger)]);
     // its first chat with this person: the setup questions while it's going, what they said after
-    const setup = user && agent.settings.setup?.userId === user.id ? setupSection(this, agent, { channelId, live: !background }, user.preferredName || user.name) : "";
+    const setup =
+      user && agent.settings.setup?.userId === user.id
+        ? [setupSection(this, agent, { channelId, live: !background }, user.preferredName || user.name), background ? "" : picksSection(agent, found?.id, user.preferredName || user.name)].filter(Boolean).join("\n\n")
+        : "";
     const leading = leadSection(store, agent);
     const making = background ? "" : spawnSection(this, agent);
     await this.ensureBuiltinSkills([agent.id]);

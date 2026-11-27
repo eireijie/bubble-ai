@@ -1,10 +1,4 @@
-import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
-import type { Connector, SignInOption } from "@bubble-ai/core";
-import { api } from "../../api.ts";
-import { connectApps } from "../../appSignIn.ts";
-import { brandLogo } from "../../brandLogos.ts";
-import { BrandTile } from "../../components/MarketParts.tsx";
 import { cx } from "../../components/ui.tsx";
 import { agentInstructions } from "../../onboardingV3.ts";
 import { BubbleSlot } from "./Stage.tsx";
@@ -13,54 +7,15 @@ import type { GhostAppearance } from "@bubble-ai/core";
 
 /**
  * The first run's pages after "Your agent" (2026-11-26 canvas): How it starts (Simple or Advanced,
- * each shown as a small loop of what it's like), then for Advanced, Make it yours (what it helps
- * with, how it talks, when it checks in, with the message it would send) and Connect (each app
- * connects right there with its own sign-in, and the row says when it's connected; only apps that
- * can sign in now are recommended).
+ * each shown as a small loop of what it's like), then for Advanced, Make it yours (2026-11-27,
+ * round 7: what it should help with in the person's own words, anything it should know about them,
+ * how it talks and when it checks in, with the message it would send them by name). On Continue the
+ * picks go to the agent as the person's first message, and the agent suggests which apps to connect
+ * (hub setup-picks.ts); there is no Connect page any more.
  * They sit on the one Stage (Stage.tsx); the bubble above each is the stage's own.
  */
 
 export type SetupPath = "advanced" | "simple";
-
-export interface SetupGoal {
-  id: string;
-  label: string;
-  /** a 24×24 line-icon path */
-  icon: string;
-  /** catalog ids of the apps it calls for */
-  apps: string[];
-  /** what it would tell you, for the preview */
-  news: string;
-}
-
-export const SETUP_GOALS: SetupGoal[] = [
-  { id: "inbox", label: "Email", icon: "M4 6h16v12H4zM4 7l8 6 8-6", apps: ["gmail"], news: "3 emails need a reply" },
-  { id: "cal", label: "Calendar", icon: "M5 5h14v15H5zM5 10h14M9 3v4M15 3v4", apps: ["gcal"], news: "your 2pm moved to 3" },
-  { id: "support", label: "Customers", icon: "M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12z", apps: ["slack", "gmail"], news: "2 customers are waiting" },
-  { id: "orders", label: "Orders", icon: "M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8", apps: ["stripe"], news: "4 orders are ready to ship" },
-  { id: "research", label: "Research", icon: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5", apps: ["notion", "brave-search"], news: "I found 5 sources on your question" },
-  { id: "code", label: "Code", icon: "m16 18 6-6-6-6M8 6l-6 6 6 6", apps: ["github", "linear", "vercel"], news: "the build on main failed" },
-];
-
-export const SETUP_APPS: Record<string, { name: string }> = {
-  gmail: { name: "Gmail" },
-  gcal: { name: "Google Calendar" },
-  slack: { name: "Slack" },
-  stripe: { name: "Stripe" },
-  gdrive: { name: "Google Drive" },
-  notion: { name: "Notion" },
-  github: { name: "GitHub" },
-  linear: { name: "Linear" },
-  "brave-search": { name: "Brave Search" },
-  vercel: { name: "Vercel" },
-};
-
-/** The apps the picked goals call for, each once, in pick order. */
-export function appsFor(goalIds: readonly string[]): string[] {
-  const out: string[] = [];
-  for (const g of SETUP_GOALS) if (goalIds.includes(g.id)) for (const a of g.apps) if (!out.includes(a)) out.push(a);
-  return out;
-}
 
 /** "a, b and c" */
 export function andList(xs: readonly string[]): string {
@@ -89,11 +44,11 @@ export function StartStep({ name, path, onPath, onNext }: { name: string; path: 
         </button>
         <button type="button" role="radio" aria-checked={path === "advanced"} onClick={() => onPath("advanced")} className="ob-tile flex flex-col gap-3 p-3">
           <div className="ob-demo ob-demo-adv" aria-hidden>
-            <span className="chip c1">Research</span>
-            <span className="chip c2">Code</span>
-            <span className="chip c3">Email</span>
-            <span className="chip r1">Notion ✓</span>
-            <span className="chip r2">Linear ✓</span>
+            <span className="chip c1">My days</span>
+            <span className="chip c2">Messages</span>
+            <span className="chip c3">Trips</span>
+            <span className="chip r1">Calendar ✓</span>
+            <span className="chip r2">Gmail ✓</span>
           </div>
           <span className="px-1 pb-1">
             <span className="block text-[15px] font-semibold">Advanced</span>
@@ -110,75 +65,130 @@ export function StartStep({ name, path, onPath, onNext }: { name: string; path: 
 
 // --- Make it yours -------------------------------------------------------------------------------
 
-export type Talk = "brief" | "balanced" | "detailed";
+export interface SetupGoal {
+  id: string;
+  /** in the person's own words, as they'd say it */
+  label: string;
+  /** the same, as it reads after "I'd like help with:" */
+  want: string;
+  /** a 24×24 line-icon path */
+  icon: string;
+  /** what it would tell you, for the sample message */
+  say: string;
+}
+
+export const SETUP_GOALS: SetupGoal[] = [
+  { id: "days", label: "Keep my days on track", want: "keeping my days on track", icon: "M5 5h14v15H5zM5 10h14M9 3v4M15 3v4", say: "the dentist is at 10, so I moved the gym to 6" },
+  { id: "msgs", label: "Stay on top of my messages", want: "staying on top of my messages", icon: "M4 6h16v12H4zM4 7l8 6 8-6", say: "your landlord replied, and Friday works for him" },
+  { id: "people", label: "Remember the people I care about", want: "remembering the people I care about", icon: "M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z", say: "it's your mom's birthday Saturday. Want me to find a gift?" },
+  { id: "plans", label: "Plan trips and weekends", want: "planning trips and weekends", icon: "M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11zM12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z", say: "flights to Chicago for the 14th dropped to $142" },
+  { id: "money", label: "Keep an eye on money and bills", want: "keeping an eye on money and bills", icon: "M3 7h18v12H3zM3 11h18M16 15h2", say: "your phone bill ($64) is due Thursday" },
+  { id: "health", label: "Help me stay healthy", want: "staying healthy", icon: "M3 12h4l3-7 4 14 3-7h4", say: "you've slept under 6 hours three nights running. Earlier night tonight?" },
+  { id: "business", label: "Help run my business", want: "running my business", icon: "M4 9l1-5h14l1 5M4 9v11h16V9M4 9h16M9 20v-6h6v6", say: "2 customers wrote in overnight and 4 orders are ready to ship" },
+  { id: "learn", label: "Help me learn and build things", want: "learning and building things", icon: "M4 5h7a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-7", say: "I found 5 good sources on what you asked. Short answer: yes" },
+];
+
+export type Talk = "short" | "friendly" | "thorough";
 export type CheckIn = "morning" | "evening" | "needed";
 const TALK: { id: Talk; label: string }[] = [
-  { id: "brief", label: "Brief" },
-  { id: "balanced", label: "Balanced" },
-  { id: "detailed", label: "Detailed" },
+  { id: "short", label: "Short" },
+  { id: "friendly", label: "Friendly" },
+  { id: "thorough", label: "Thorough" },
 ];
 const WHEN: { id: CheckIn; label: string }[] = [
-  { id: "morning", label: "Mornings" },
-  { id: "evening", label: "Evenings" },
-  { id: "needed", label: "When needed" },
+  { id: "morning", label: "Each morning" },
+  { id: "evening", label: "Each evening" },
+  { id: "needed", label: "Only when it matters" },
 ];
 
-/** The message it would send you, from what's picked: the preview on Make it yours. */
-export function sampleMessage(goals: readonly string[], talk: Talk, when: CheckIn): string {
-  const news = SETUP_GOALS.filter((g) => goals.includes(g.id)).map((g) => g.news);
-  const open = when === "morning" ? "Morning." : when === "evening" ? "Today's wrap-up:" : "Heads up:";
-  if (!news.length) return `${open} Nothing needs you yet.`;
-  // a sentence starts after "Morning." but not after a colon
-  const say = (body: string) => `${open} ${open.endsWith(".") ? body.charAt(0).toUpperCase() + body.slice(1) : body}`;
-  if (talk === "brief") return say(`${news[0]}.`);
-  if (talk === "balanced") return say(`${andList(news.slice(0, 2))}. Want me to handle it?`);
-  return say(`${andList(news.slice(0, 3))}. I've drafted what I can and put it in Your turn. Say go and I'll send it.`);
+/** The person's first name, for the title and the sample message. */
+export const firstName = (person: string) => person.trim().split(/\s+/)[0] ?? "";
+
+const picked = (goals: readonly string[]) => SETUP_GOALS.filter((g) => goals.includes(g.id));
+const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** a full stop, unless it already ends with one ("…find a gift?") */
+const stop = (s: string) => (/[.?!]$/.test(s) ? s : `${s}.`);
+
+/** The message it would send you, from what's picked and who you are: the preview on Make it yours. */
+export function sampleMessage(goals: readonly string[], talk: Talk, when: CheckIn, about: string, person: string): string {
+  const first = firstName(person);
+  const hi = when === "morning" ? `Morning${first ? `, ${first}` : ""}!` : when === "evening" ? `Evening${first ? `, ${first}` : ""}.` : `Hey${first ? ` ${first}` : ""},`;
+  const news = picked(goals);
+  if (!news.length) return `${hi} Tell me what's on your mind and I'll take it from there.`;
+  // a new sentence after "Morning, Yug!", not after "Hey Yug,"
+  const lead = stop(hi.endsWith(",") ? news[0].say : sentence(news[0].say));
+  const also = news[1] ? ` Also, ${stop(news[1].say)}` : "";
+  const known = about.trim().replace(/[.\s]+$/, "");
+  const nod = known ? ` (I'll keep in mind: ${known}.)` : "";
+  if (talk === "short") return `${hi} ${lead}`;
+  if (talk === "friendly") return `${hi} ${lead}${also}${nod}`;
+  return `${hi} ${lead}${also} I've already drafted what I can; say go and I'll handle it.${nod}`;
 }
 
-/** The agent's instructions from Make it yours: the usual start, what it helps with, how it talks, when it checks in. */
-export function yoursInstructions(name: string, person: string, goals: readonly string[], talk: Talk, when: CheckIn): string {
-  const who = person.trim().split(/\s+/)[0] || "them";
-  const want = SETUP_GOALS.filter((g) => goals.includes(g.id)).map((g) => g.label.toLowerCase());
-  const base = agentInstructions(name, person, "", [], want.join(", "));
-  const style = { brief: "Keep messages short: one or two lines.", balanced: "Keep messages short, with enough detail to act on.", detailed: "Give full detail, and say what you've already done." }[talk];
-  const check = { morning: `Each morning, message ${who} with what needs them.`, evening: `Each evening, message ${who} with what happened and what needs them.`, needed: `Only message ${who} when something needs them.` }[when];
-  return `${base} ${style} ${check}`;
+/** What goes to the agent as the person's first message: their picks and what they wrote, in plain words. */
+export function picksMessage(goals: readonly string[], about: string): string {
+  const want = picked(goals).map((g) => g.want);
+  const known = about.trim().replace(/\s+/g, " ").replace(/[.\s]+$/, "");
+  return [want.length ? `I'd like help with: ${andList(want)}.` : "I'm not sure yet what I'd like help with.", known ? `About me: ${known}.` : ""].filter(Boolean).join(" ");
 }
 
-export function YoursStep({ look, seed, name, goals, onGoals, talk, onTalk, when, onWhen, onNext, busy }: { name: string; goals: string[]; onGoals: (g: string[]) => void; talk: Talk; onTalk: (t: Talk) => void; when: CheckIn; onWhen: (w: CheckIn) => void; onNext: () => void; busy?: boolean; look?: Pick<GhostAppearance, "color" | "color2" | "bubble">; seed?: string }) {
-  const msg = sampleMessage(goals, talk, when);
+/** The agent's instructions from Make it yours: the usual start, what it helps with, about the person, how it talks, when it checks in. */
+export function yoursInstructions(name: string, person: string, goals: readonly string[], talk: Talk, when: CheckIn, about = ""): string {
+  const who = firstName(person) || "them";
+  const base = agentInstructions(name, person, "", [], picked(goals).map((g) => g.want).join(", "));
+  const known = about.trim().replace(/\s+/g, " ").replace(/[.\s]+$/, "").slice(0, 500);
+  const me = known ? `About ${who}, in their words: "${known}."` : "";
+  const style = { short: "Keep messages short: one or two lines.", friendly: "Be warm and friendly, with enough detail to act on.", thorough: "Give full detail, and say what you've already done." }[talk];
+  const check = { morning: `Each morning, message ${who} with what needs them.`, evening: `Each evening, message ${who} with what happened and what needs them.`, needed: `Only message ${who} when something matters.` }[when];
+  return [base, me, style, check].filter(Boolean).join(" ");
+}
+
+export function YoursStep({ look, seed, name, person, goals, onGoals, about, onAbout, talk, onTalk, when, onWhen, onNext, busy }: { name: string; person: string; goals: string[]; onGoals: (g: string[]) => void; about: string; onAbout: (a: string) => void; talk: Talk; onTalk: (t: Talk) => void; when: CheckIn; onWhen: (w: CheckIn) => void; onNext: () => void; busy?: boolean; look?: Pick<GhostAppearance, "color" | "color2" | "bubble">; seed?: string }) {
+  const msg = sampleMessage(goals, talk, when, about, person);
+  const first = firstName(person);
   return (
-    <div className="flex w-full max-w-[600px] flex-col items-center">
-      <BubbleSlot size={72} />
-      <h1 className="ob-title mt-4">Make {name} yours</h1>
-      <div className="mt-7 grid w-full grid-cols-3 gap-2" aria-label="Helps with" role="group">
+    <div className="flex w-full max-w-[608px] flex-col items-center">
+      <BubbleSlot size={64} />
+      <h1 className="ob-title mt-3.5">
+        What should {name} help with{first ? `, ${first}` : ""}?
+      </h1>
+      <p className="ob-sub !mt-1 !text-[14px]">Pick anything. You can change it later by just telling {name}.</p>
+      <div className="mt-[22px] grid w-full grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Helps with" role="group">
         {SETUP_GOALS.map((g) => {
           const on = goals.includes(g.id);
           return (
-            <button key={g.id} type="button" aria-pressed={on} onClick={() => onGoals(on ? goals.filter((x) => x !== g.id) : [...goals, g.id])} className="ob-tile flex h-[72px] flex-col justify-between p-3">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <button key={g.id} type="button" aria-pressed={on} onClick={() => onGoals(on ? goals.filter((x) => x !== g.id) : [...goals, g.id])} className="ob-tile flex h-[46px] items-center gap-2 px-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 opacity-85">
                 <path d={g.icon} />
               </svg>
-              <span className="text-[14px] font-semibold">{g.label}</span>
-              <span aria-hidden className={cx("absolute right-2.5 top-2.5 grid size-[18px] place-items-center rounded-full text-white transition-[background-color,opacity] duration-200", on ? "bg-wisp opacity-100" : "opacity-0")}>
+              <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{g.label}</span>
+              <span aria-hidden className={cx("grid size-[18px] shrink-0 place-items-center rounded-full text-white transition-[background-color,opacity] duration-200", on ? "bg-wisp opacity-100" : "opacity-0")}>
                 <Check size={11} strokeWidth={3.2} />
               </span>
             </button>
           );
         })}
       </div>
-      <div className="mt-5 flex w-full flex-wrap items-center justify-between gap-3">
-        <Seg label="Talks" value={talk} options={TALK} onPick={onTalk} />
+      <input
+        value={about}
+        onChange={(e) => onAbout(e.target.value)}
+        maxLength={300}
+        aria-label={`Anything ${name} should know about you?`}
+        placeholder={`Anything ${name} should know about you? (I'm a student, I work weekends, I love hiking…)`}
+        className="ob-field mt-4 !h-11 w-full !rounded-xl !px-3.5"
+      />
+      <div className="mt-4 flex w-full flex-col gap-2.5">
+        <Seg label={`${name} talks`} value={talk} options={TALK} onPick={onTalk} />
         <Seg label="Checks in" value={when} options={WHEN} onPick={onWhen} />
       </div>
       {/* what it would actually send, changing as you pick */}
-      <div className="mt-6 flex w-full items-end gap-2" aria-live="polite">
-        <Bubble look={look} seed={seed} size={28} label="" follow={false} />
-        <div key={msg} className="bubble them tail m-pop max-w-[460px] text-[14.5px]">
+      <div className="mt-5 flex w-full items-end gap-2.5" aria-live="polite">
+        <Bubble look={look} seed={seed} size={30} label="" follow={false} />
+        <div key={msg} className="bubble them tail m-pop max-w-[560px] text-[15px]">
           {msg}
         </div>
       </div>
-      <button type="button" onClick={onNext} disabled={busy} className="ob-primary mt-9 w-full max-w-[280px]">
+      <button type="button" onClick={onNext} disabled={busy} className="ob-primary mt-[22px] w-full max-w-[280px]">
         {busy && <Loader2 size={16} className="animate-spin" aria-hidden />}
         Continue
       </button>
@@ -188,113 +198,14 @@ export function YoursStep({ look, seed, name, goals, onGoals, talk, onTalk, when
 
 function Seg<T extends string>({ label, value, options, onPick }: { label: string; value: T; options: { id: T; label: string }[]; onPick: (v: T) => void }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="text-[13px] text-muted">{label}</span>
-      <div role="radiogroup" aria-label={label} className="ob-seg">
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+      <span className="w-24 shrink-0 truncate text-[13px] text-muted">{label}</span>
+      <div role="radiogroup" aria-label={label} className="ob-seg ob-seg-fill">
         {options.map((o) => (
           <button key={o.id} type="button" role="radio" aria-checked={value === o.id} onClick={() => onPick(o.id)}>
             {o.label}
           </button>
         ))}
-      </div>
-    </div>
-  );
-}
-
-// --- Connect -------------------------------------------------------------------------------------
-
-type ConnState = "idle" | "out" | "on" | { error: string };
-
-/**
- * The apps to recommend for these goals: only ones that can sign in from here right now (the hub's
- * sign-in list says which). Google, GitHub and Slack join by themselves once their sign-in exists.
- */
-export function connectableFor(goals: readonly string[], opts: Record<string, SignInOption>): string[] {
-  return appsFor(goals).filter((a) => opts[a]?.signIn);
-}
-
-/** Already connected: signed in, or made with its key. */
-export function isConnected(c: Pick<Connector, "catalogId" | "auth" | "kind">, id: string): boolean {
-  return c.catalogId === id && (c.auth ? c.auth.signedIn : true);
-}
-
-export function ConnectStep({ name, apps, onNext }: { name: string; apps: string[]; onNext: (on: string[], off: string[]) => void }) {
-  const [conn, setConn] = useState<Record<string, ConnState>>({});
-  const tries = useRef<Record<string, number>>({});
-  useEffect(() => {
-    let live = true;
-    // anything already connected shows so
-    api<Connector[]>("GET", "/api/connectors").then(
-      (list) => live && setConn((c) => ({ ...Object.fromEntries(apps.filter((a) => list.some((x) => isConnected(x, a))).map((a) => [a, "on" as const])), ...c })),
-      () => {},
-    );
-    return () => {
-      live = false;
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const signIn = async (id: string) => {
-    const n = (tries.current[id] = (tries.current[id] ?? 0) + 1);
-    setConn((c) => ({ ...c, [id]: "out" }));
-    const r = await connectApps([id]);
-    if (tries.current[id] !== n) return;
-    setConn((c) => ({ ...c, [id]: r.ok ? "on" : { error: r.error } }));
-  };
-  const cancel = (id: string) => {
-    tries.current[id] = (tries.current[id] ?? 0) + 1;
-    setConn((c) => ({ ...c, [id]: "idle" }));
-  };
-  const on = apps.filter((a) => conn[a] === "on");
-  const names = (ids: string[]) => ids.map((a) => SETUP_APPS[a]?.name ?? a);
-
-  return (
-    <div className="flex w-full max-w-[520px] flex-col items-center">
-      <BubbleSlot size={72} />
-      <h1 className="ob-title mt-4">Connect what {name} needs</h1>
-      <div className="mt-7 w-full rounded-xl bg-panel shadow-[inset_0_0_0_1px_var(--line2)]" role="list">
-        {apps.map((id, i) => {
-          const app = SETUP_APPS[id];
-          const logo = brandLogo(id, app?.name);
-          const state = conn[id] ?? "idle";
-          return (
-            <div key={id} role="listitem" className={cx("flex min-h-[60px] items-center gap-3 px-3.5 py-2.5", i > 0 && "shadow-[inset_0_1px_0_var(--line)]")}>
-              {logo ? <BrandTile logo={logo} size={36} /> : <span className="size-9 rounded-lg bg-card" />}
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold">{app?.name ?? id}</span>
-                {typeof state === "object" && <span className="block text-[12.5px] leading-4 text-bad">{state.error}</span>}
-              </span>
-              {state === "on" ? (
-                <span className="ob-conn flex items-center gap-1.5 text-[13.5px] font-semibold text-ok">
-                  <Check size={15} strokeWidth={2.8} aria-hidden />
-                  Connected
-                </span>
-              ) : state === "out" ? (
-                <span className="ob-conn flex items-center gap-2 text-[13px] text-muted" role="status">
-                  <Loader2 size={15} className="animate-spin" aria-hidden />
-                  Finish in your browser
-                  <button type="button" onClick={() => cancel(id)} className="ob-quiet -mr-2">
-                    Cancel
-                  </button>
-                </span>
-              ) : (
-                <button type="button" onClick={() => void signIn(id)} aria-label={`${typeof state === "object" ? "Try again" : "Connect"} ${app?.name ?? id}`} className="ob-conn h-8 shrink-0 rounded-lg px-3 text-[13.5px] font-semibold text-ink shadow-[inset_0_0_0_1px_var(--line2)] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40">
-                  {typeof state === "object" ? "Try again" : "Connect"}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-9 flex h-10 w-full items-center justify-center">
-        {on.length ? (
-          <button type="button" onClick={() => onNext(names(on), names(apps.filter((a) => !on.includes(a))))} className="ob-primary ob-conn w-full max-w-[280px]">
-            Continue
-          </button>
-        ) : (
-          <button type="button" onClick={() => onNext([], names(apps))} className="ob-quiet">
-            Skip for now
-          </button>
-        )}
       </div>
     </div>
   );

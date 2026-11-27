@@ -86,6 +86,7 @@ import { simplePlacement } from "./shared-computer.ts";
 import { newAgentDeviceUse } from "./device-defaults.ts";
 import { spawnRight } from "./spawn.ts";
 import { greetNewAgent, registerSetupApi } from "./greeting.ts";
+import { registerSetupPicksApi } from "./setup-picks.ts";
 import { registerOnboardingApi } from "./api-onboarding.ts";
 import { workspaceFeatures } from "./features.ts";
 import type { SetupCode } from "./setup-code.ts";
@@ -2728,6 +2729,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
   registerVoiceApi(app, hub, { need });
   registerBackgroundApi(app, hub, { need, parse, requesterOf });
   registerSetupApi(app, hub, { need, parse });
+  registerSetupPicksApi(app, hub, { need, parse });
   registerOnboardingApi(app, hub, { need, parse });
   registerWatchesApi(app, hub, { need, parse, requesterOf });
   registerLeadApi(app, hub, { need, parse });

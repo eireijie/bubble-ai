@@ -168,6 +168,8 @@ export interface AgentSetup {
   accounts?: string[];
   /** what its hello read from their apps just before (hub glance.ts): each app, and words the UI can underline */
   read?: { app: string; terms: string[] }[];
+  /** what the person picked on Make it yours, sent as their first message (hub setup-picks.ts); answered once the agent replied */
+  picks?: { messageId: string; goals: string[]; answered?: boolean };
   done: boolean;
 }
 
@@ -486,8 +488,20 @@ export type MessagePart =
   | { type: "wrapup"; did: string; saved: string; next: string }
   /** the agent dropped what this chat was about after the person didn't answer */
   | { type: "closed" }
+  /** apps the agent suggests connecting, each with a one-tap Connect (catalog ids; `why` is its one line on each) */
+  | { type: "connect"; apps: ConnectSuggestion[] }
   /** what an agent read through the Apple mod during this reply ("Read your last 5 texts with Sam") */
   | import("./apple.ts").AppleReadPart;
+
+/** One app an agent suggests connecting (the "connect" message part). */
+export interface ConnectSuggestion {
+  /** a catalog id (CONNECTOR_CATALOG) */
+  id: string;
+  name: string;
+  why: string;
+  /** always recommended (Composio): shown with a "Recommended" mark */
+  recommended?: boolean;
+}
 
 /** An agent asking a person's OK before it acts ("Send these 3 intros?"). */
 export interface Approval {

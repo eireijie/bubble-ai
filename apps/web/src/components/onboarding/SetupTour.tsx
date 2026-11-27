@@ -3,7 +3,7 @@ import type { Agent } from "@bubble-ai/core";
 import { useStore } from "../../store.ts";
 import { andList } from "../../views/onboarding/BubbleSetup.tsx";
 import { cx } from "../ui.tsx";
-import { startTour, useTour } from "../tour/tourRun.ts";
+import { markSeen, startTour, useTour } from "../tour/tourRun.ts";
 import { Plug } from "lucide-react";
 import { api } from "../../api.ts";
 import { SuggestionBanner } from "../SuggestionBanner.tsx";
@@ -69,9 +69,12 @@ export function SetupTour({ agent, channelId }: { agent: Agent; channelId: strin
   useEffect(() => {
     if (!auto) return;
     if (learnStarted) return void set({ ...state!, stage: "done" });
+    // Make it yours already sent the first message (your picks), so "Say hi" is done: start after it
     const t = setTimeout(() => {
+      const wrote = !!useStore.getState().messages[channelId]?.some((m) => m.author.kind === "user");
       set({ ...state!, stage: "tour" });
-      startTour(0);
+      if (wrote) markSeen("write");
+      startTour(wrote ? 1 : 0);
     }, 1800);
     return () => clearTimeout(t);
   }, [auto]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -89,6 +92,9 @@ export function SetupTour({ agent, channelId }: { agent: Agent; channelId: strin
         Ask {name} to add any, anytime.
       </div>
     );
+
+  // Make it yours sent the picks to the agent, and the agent answers with the apps it suggests: it speaks for itself here
+  if (!state.on.length && !state.off.length) return null;
 
   // only true things: "Great!" when something was connected, a plain line when nothing was
   const opening = state.on.length ? ["Great! I can see all that you've done.", `${andList(state.on)} ${state.on.length > 1 ? "are" : "is"} connected.`] : ["No apps yet. That's fine, add them anytime."];

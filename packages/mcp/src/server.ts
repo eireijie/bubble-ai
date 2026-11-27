@@ -552,6 +552,21 @@ export async function createWispMcp(client: WispClient, opts: { localFiles?: boo
     }),
   );
 
+  server.registerTool(
+    "connect_suggest",
+    {
+      description:
+        "Suggest apps for the person to connect, when they'd help with what they want done. A card shows under your reply with each app, your reason, and a one-tap Connect that signs in on the app's own page (you never see a password). Composio, which brings hundreds more apps with an easy sign-in, is always added. Use the catalog ids Bubble AI lists (gmail, gcal, slack, notion, github…). Calling it again in the same reply replaces the list.",
+      inputSchema: {
+        apps: z.array(z.object({ id: z.string().describe("catalog id: \"gmail\""), why: z.string().optional().describe("one short, friendly reason: \"So I can tell you which emails need you\"") })).describe("one to four apps, most useful first"),
+      },
+    },
+    safe(async ({ apps }) => {
+      const r = await client.connectSuggest(apps);
+      return text([`Showing a Connect card for ${r.shown.join(", ")}.`, r.unknown.length ? `Not apps that connect with one tap: ${r.unknown.join(", ")}. Use one of: ${(r.valid ?? []).join(", ")}.` : ""].filter(Boolean).join(" "));
+    }),
+  );
+
   // --- approvals & routines ---------------------------------------------------------
 
   server.registerTool(

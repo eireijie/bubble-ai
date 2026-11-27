@@ -43,7 +43,7 @@ const GUIDE: Record<SetupStep, StepGuide> = {
   accounts: {
     ask: "Which accounts should I work with? For example Google, Meta or Instagram.",
     how: () =>
-      `Ask which accounts or sites the work needs (Google, Meta, Instagram…). Record them with setup_step accounts. Save them as a preference. Where Bubble AI has an app for one (Marketplace → Apps), say they can connect it there.`,
+      `Ask which accounts or sites the work needs (Google, Meta, Instagram…). Record them with setup_step accounts. Save them as a preference. Where Bubble AI has an app for one, suggest it with connect_suggest: a card with a one-tap Connect shows under your reply (Composio, for hundreds more apps, is always on it).`,
   },
   signins: {
     ask: null,

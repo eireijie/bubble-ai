@@ -152,10 +152,29 @@ export interface CatalogConnector {
   signIn?: CatalogSignIn;
   /** what signing in lets agents do, in a few plain words ("Reads repos, issues and pull requests") */
   signInReads?: string;
+  /** always recommended: listed first with a "Recommended" mark, and in every set of apps an agent suggests; the line says why */
+  recommended?: string;
 }
 
 /** Popular MCP servers and keys people actually connect agents to. */
 export const CONNECTOR_CATALOG: CatalogConnector[] = [
+  {
+    // Composio's own hosted MCP server (docs.composio.dev/docs/composio-connect): one connection for
+    // hundreds of apps. Its sign-in is standard MCP OAuth (it registers each hub by itself), and each
+    // app inside is signed in on Composio's page, so Bubble AI never sees a password.
+    id: "composio",
+    name: "Composio",
+    description: "Hundreds of apps through one connection: Gmail, Slack, Notion, HubSpot, Salesforce and more. Each app signs in on Composio's own page.",
+    icon: "Blocks",
+    category: "Utilities",
+    kind: "mcp-http",
+    url: "https://connect.composio.dev/mcp",
+    fields: [],
+    docs: "https://docs.composio.dev/docs/composio-connect",
+    signIn: { via: "mcp", url: "https://connect.composio.dev/mcp" },
+    signInReads: "Uses the apps you connect in Composio",
+    recommended: "Use Composio for more apps and easy sign-in.",
+  },
   {
     id: "github",
     name: "GitHub",
@@ -568,7 +587,7 @@ export const EVERYDAY_CATALOG_ORDER: string[] = ["gmail", "gcal", "slack", "noti
 
 const CATEGORY_ORDER: CatalogConnector["category"][] = ["Chat & docs", "Work tracking", "Web & browser", "Utilities", "Data", "Payments", "Code", "Cloud keys"];
 
-/** The catalog with everyday apps first and developer things last. Stable; does not change the input. */
+/** The catalog with the always-recommended ones first, then everyday apps, and developer things last. Stable; does not change the input. */
 export function everydayFirst(list: CatalogConnector[]): CatalogConnector[] {
   const rank = (c: CatalogConnector) => {
     const cat = CATEGORY_ORDER.indexOf(c.category);
@@ -577,6 +596,6 @@ export function everydayFirst(list: CatalogConnector[]): CatalogConnector[] {
   };
   return list
     .map((c, i) => [c, i, rank(c)] as const)
-    .sort((a, b) => a[2][0] - b[2][0] || a[2][1] - b[2][1] || a[1] - b[1])
+    .sort((a, b) => Number(!!b[0].recommended) - Number(!!a[0].recommended) || a[2][0] - b[2][0] || a[2][1] - b[2][1] || a[1] - b[1])
     .map(([c]) => c);
 }

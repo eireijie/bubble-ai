@@ -405,11 +405,12 @@ export function TextBtn({ className, ...p }: ButtonHTMLAttributes<HTMLButtonElem
  * thing at the right. The name opens its page. `status` (a check, "Sign in again") is part of what
  * opens the page; `action` (Add, Bring in) is its own button.
  */
-export function AddRow({ tile, name, words, status, action, onOpen }: { tile: ReactNode; name: string; words?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void }) {
+export function AddRow({ tile, name, mark, words, status, action, onOpen }: { tile: ReactNode; name: string; mark?: string; words?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void }) {
   const main = (
     <>
       {tile}
-      <span className="min-w-0 truncate text-[14px] font-semibold leading-[22px] max-sm:flex-1 sm:max-w-[64%]">{name}</span>
+      <span className={cx("min-w-0 truncate text-[14px] font-semibold leading-[22px] sm:max-w-[64%]", !mark && "max-sm:flex-1")}>{name}</span>
+      {mark && <span className="shrink-0 rounded-[5px] px-1.5 py-px text-[11px] font-semibold leading-4 text-wisp shadow-[inset_0_0_0_1px_currentColor] max-sm:mr-auto">{mark}</span>}
       {words && <span className="min-w-0 truncate text-[13px] leading-[18px] text-muted max-sm:hidden">{words}</span>}
       <span className="flex-1 max-sm:hidden" />
       {status}

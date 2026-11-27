@@ -68,6 +68,7 @@ describe("wisp-mcp", () => {
       "chat_read",
       "chat_send",
       "chat_status",
+      "connect_suggest",
       "discussion_start",
       "file_download",
       "file_upload",

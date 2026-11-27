@@ -29,12 +29,12 @@ describe("harnessSupportsConnectors", () => {
 });
 
 describe("everydayFirst", () => {
-  it("puts chat & docs first and developer things last without mutating", () => {
+  it("puts the always-recommended one first, then chat & docs, and developer things last, without mutating", () => {
     const before = CONNECTOR_CATALOG.map((c) => c.id);
     const out = everydayFirst(CONNECTOR_CATALOG);
     expect(CONNECTOR_CATALOG.map((c) => c.id)).toEqual(before);
     expect(out).toHaveLength(CONNECTOR_CATALOG.length);
-    expect(out.slice(0, 5).map((c) => c.id)).toEqual(["gmail", "gcal", "slack", "notion", "gdrive"]);
+    expect(out.slice(0, 6).map((c) => c.id)).toEqual(["composio", "gmail", "gcal", "slack", "notion", "gdrive"]);
     const ids = out.map((c) => c.id);
     expect(ids.indexOf("slack")).toBeLessThan(ids.indexOf("github"));
     expect(ids.indexOf("gdrive")).toBeLessThan(ids.indexOf("github"));
@@ -42,10 +42,20 @@ describe("everydayFirst", () => {
   });
 });
 
+describe("Composio", () => {
+  it("is the one always-recommended app, signing in on Composio's own server with its line", () => {
+    expect(CONNECTOR_CATALOG.filter((c) => c.recommended).map((c) => c.id)).toEqual(["composio"]);
+    const c = CONNECTOR_CATALOG.find((x) => x.id === "composio")!;
+    expect(c.signIn).toEqual({ via: "mcp", url: "https://connect.composio.dev/mcp" });
+    expect(c.fields).toEqual([]);
+    expect(c.recommended).toBe("Use Composio for more apps and easy sign-in.");
+  });
+});
+
 describe("one-click sign-in", () => {
   it("every sign-in is the company's own remote server, and Google ones ask only to read", () => {
     const withSignIn = CONNECTOR_CATALOG.filter((c) => c.signIn);
-    expect(withSignIn.map((c) => c.id).sort()).toEqual(["gcal", "gdrive", "github", "gmail", "linear", "notion", "slack", "vercel"]);
+    expect(withSignIn.map((c) => c.id).sort()).toEqual(["composio", "gcal", "gdrive", "github", "gmail", "linear", "notion", "slack", "vercel"]);
     for (const c of withSignIn) {
       expect(c.signIn!.url).toMatch(/^https:\/\//);
       expect(c.signInReads).toBeTruthy();

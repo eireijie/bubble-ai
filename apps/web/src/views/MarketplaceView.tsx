@@ -152,7 +152,7 @@ type Detail =
   | { kind: "found"; device: DeviceShelf; item: ShelfItem };
 
 /** One row of the page, whatever it is. */
-type RowDef = { key: string; tile: ReactNode; name: string; words?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void };
+type RowDef = { key: string; tile: ReactNode; name: string; mark?: string; words?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void };
 
 /** One from each maker in turn, so a short list shows a bit of everyone's. */
 function takeTurns<T extends { who: string }>(list: T[]): T[] {
@@ -386,7 +386,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   /** Only signs in, and that sign-in isn't made yet: nothing to add it with today. */
   const comingSoon = (c: CatalogConnector) => !!signInOptions[c.id]?.soon && !signInOptions[c.id]?.key && !c.fields.length;
   // Bubble AI's own list knows its shelves; only chat and docs apps are told apart by name (Slack is chat, Drive is docs)
-  const builtInItem = (c: CatalogConnector): AppItem => ({ key: `b:${c.id}`, name: c.name, description: c.description, category: c.category === "Chat & docs" ? (appCategory(c) ?? BUILT_IN_SHELF[c.category]) : BUILT_IN_SHELF[c.category], who: "Bubble AI", builtIn: c });
+  const builtInItem = (c: CatalogConnector): AppItem => ({ key: `b:${c.id}`, name: c.name, description: c.description, category: c.recommended ? "Automation" : c.category === "Chat & docs" ? (appCategory(c) ?? BUILT_IN_SHELF[c.category]) : BUILT_IN_SHELF[c.category], who: "Bubble AI", builtIn: c });
   const registryItem = (e: StoreApp): AppItem => ({ key: `r:${e.id}`, name: e.name, description: e.description, category: e.category, who: e.publisher, registry: e });
   const haveConnector = (a: AppItem) => (connectors ?? []).find((c) => c.catalogId === ("registry" in a ? `registry:${a.registry.id}` : a.builtIn.id) || squash(c.name) === squash(a.name));
   const apps: AppItem[] = useMemo(() => {
@@ -402,8 +402,8 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
     const builtIn = CONNECTOR_CATALOG.filter((c) => !sameAs(c))
       .map(builtInItem)
       .filter((a) => hit("apps", a.name, a.description, a.category, a.who));
-    // first the apps that sign in with one click from here; last the ones whose sign-in is still to come
-    const first = builtIn.filter((a) => "builtIn" in a && connectsNow(a.builtIn));
+    // first the always-recommended one (Composio), then the apps that sign in with one click from here; last the ones whose sign-in is still to come
+    const first = builtIn.filter((a) => "builtIn" in a && connectsNow(a.builtIn)).sort((a, b) => Number(!!("builtIn" in b && b.builtIn.recommended)) - Number(!!("builtIn" in a && a.builtIn.recommended)));
     const later = builtIn.filter((a) => "builtIn" in a && comingSoon(a.builtIn));
     return [...first, ...fromRegistry, ...builtIn.filter((a) => !first.includes(a) && !later.includes(a)), ...later];
   }, [market.entries, featured, q, signInOptions]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -692,11 +692,13 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
     : [];
 
   const freeApps = apps.filter((a) => !haveConnector(a));
-  const appRows: RowDef[] = (searching ? freeApps : [...popular.filter((a) => freeApps.includes(a)), ...freeApps.filter((a) => !popular.includes(a))]).map((a) => ({
+  const recommended = (a: AppItem) => "builtIn" in a && !!a.builtIn.recommended;
+  const appRows: RowDef[] = (searching ? freeApps : [...freeApps.filter(recommended), ...popular.filter((a) => freeApps.includes(a)), ...freeApps.filter((a) => !popular.includes(a) && !recommended(a))]).map((a) => ({
     key: a.key,
     tile: <AppTile name={a.name} category={a.category} size={36} entry={"registry" in a ? a.registry : null} />,
     name: a.name,
     // nobody has confirmed who runs it: the row says so, quietly
+    ...(recommended(a) ? { mark: "Recommended" } : {}),
     words: "registry" in a && trustLabel(a.registry).kind === "unverified" ? "Not verified" : (a.category ?? `By ${a.who}`),
     ...("builtIn" in a && comingSoon(a.builtIn)
       ? { status: <span className="shrink-0 pr-1.5 text-[13px] text-muted">Coming soon</span> }
@@ -817,7 +819,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   const shownSections = sections.filter((s) => (!only || only === s.id) && (!whole || whole === s.id) && (s.rows.length > 0 || s.keep || s.id === only || (s.loading && !searching && s.id !== "added")));
   const stillLoading = sections.some((s) => s.loading && (!whole || whole === s.id));
 
-  const row = (r: RowDef) => <AddRow key={r.key} tile={r.tile} name={r.name} words={r.words} status={r.status} action={r.action || undefined} onOpen={r.onOpen} />;
+  const row = (r: RowDef) => <AddRow key={r.key} tile={r.tile} name={r.name} mark={r.mark} words={r.words} status={r.status} action={r.action || undefined} onOpen={r.onOpen} />;
   const own = (icon: ReactNode, name: string, onOpen: () => void) => <AddRow tile={<Tile size={36}>{icon}</Tile>} name={name} onOpen={onOpen} />;
 
   const list = (
