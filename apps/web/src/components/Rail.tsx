@@ -625,11 +625,20 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
       align="left"
       items={accountItems}
       trigger={(open, t) => (
-        <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" title={wide ? undefined : "Account, settings and help"} className={cx("relative flex h-[36px] min-w-0 shrink-0 items-center gap-2 rounded-[10px] text-[14px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", wide ? "max-w-full pl-1 pr-3" : "w-[36px] justify-center", open || settingsOn ? "bg-line2" : SOFT)}>
-          <span className={cx("grid size-[26px] shrink-0 place-items-center rounded-full text-[12px] font-semibold", wide ? "bg-panel shadow-[0_0_0_1px_var(--line)]" : "")}>{(firstName[0] ?? "?").toUpperCase()}</span>
-          {wide && <span className="truncate font-medium">{firstName}</span>}
-          {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
-        </button>
+        wide ? (
+          // the board's long glass "You" pill: the whole width of the sidebar
+          <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" className={cx("lg-glass lg-press relative flex h-[46px] w-full min-w-0 items-center gap-2.5 rounded-[23px] px-2 text-[14px] text-ink outline-none transition-[background-color,transform] duration-150 hover:bg-[var(--lg-bg-strong)]! focus-visible:ring-2 focus-visible:ring-ring/40", (open || settingsOn) && "is-on")}>
+            <span className="grid size-[30px] shrink-0 place-items-center rounded-full bg-ink text-[12px] font-semibold text-panel">{(firstName[0] ?? "?").toUpperCase()}</span>
+            <span className="min-w-0 flex-1 truncate text-left font-semibold">{firstName}</span>
+            <Settings size={16} strokeWidth={2} className="mr-1 shrink-0 text-muted" aria-hidden />
+            {elsewhere && <span className="absolute left-7 top-1.5 box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
+          </button>
+        ) : (
+          <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" title="Account, settings and help" className={cx("relative flex h-[36px] w-[36px] min-w-0 shrink-0 items-center justify-center gap-2 rounded-[10px] text-[14px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", open || settingsOn ? "bg-line2" : SOFT)}>
+            <span className="grid size-[26px] shrink-0 place-items-center rounded-full text-[12px] font-semibold">{(firstName[0] ?? "?").toUpperCase()}</span>
+            {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
+          </button>
+        )
       )}
     />
   );
@@ -703,7 +712,7 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
           <>
             <div className="h-2.5 shrink-0" />
             {setupCard}
-            <div ref={footRef} className="flex shrink-0 items-center gap-2 px-3">
+            <div ref={footRef} className="flex shrink-0 items-center px-2 pb-1 *:min-w-0 *:flex-1">
               {you}
             </div>
           </>
