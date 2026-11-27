@@ -101,23 +101,18 @@ a.rounded-full,
 }
 
 /* messages: yours rises from the composer, a reply pops from its corner, the working bubble fades in */
-.m-bubble-me { animation: m-rise 340ms var(--pop) backwards; transform-origin: 100% 100%; }
-.m-bubble-them { animation: m-popl 300ms var(--pop) backwards; transform-origin: 0 100%; }
+/* round 6: calmer. A new message just fades in, no spring */
+.m-bubble-me, .m-bubble-them { animation: m-fade 140ms ease-out backwards; }
 .m-work { animation: m-work 220ms ease-out backwards; }
 .m-swap { animation: m-swap 300ms var(--pop) backwards; }
 
 /* the message menu: at the pointer it springs open; on a phone the message lifts and rises to fit */
 @keyframes m-lift-rise { from { transform: translateY(0); } }
 @keyframes m-react-in { 0% { opacity: 0; scale: 0.3; translate: 0 8px; } 60% { opacity: 1; } }
-.m-msgmenu { animation: m-pop-in 260ms var(--pop) backwards; }
-.m-msgmenu.m-lift { transform: translateY(var(--shift, 0)); animation: m-lift-rise 420ms var(--soft) backwards; }
-.m-msgmenu.m-lift [role="menu"] { animation: m-pop-in 340ms var(--pop) 40ms backwards; transform-origin: 30% 0; }
-.m-msgmenu.m-lift [data-taps] { animation: m-pop-in 360ms var(--pop) 60ms backwards; transform-origin: 30% 100%; }
-.m-tap { animation: m-pop-in 320ms var(--pop) backwards; transition: transform 160ms var(--pop), background-color 160ms ease-out; }
-.m-tap:hover, .m-tap:focus-visible { transform: scale(1.12); }
-.m-tap:active { transform: scale(0.9); }
-.m-msgmenu[data-closing="true"], .m-lift-scrim[data-closing="true"] { animation: m-fade 140ms ease-in reverse both; pointer-events: none; }
-.m-lift-scrim { animation: m-fade 220ms ease-out backwards; }
+.m-msgmenu { animation: none; }
+.m-msgmenu.m-lift { transform: translateY(var(--shift, 0)); animation: none; }
+.m-tap { transition: background-color 120ms ease-out; }
+.m-msgmenu[data-closing="true"], .m-lift-scrim[data-closing="true"] { visibility: hidden; pointer-events: none; }
 .m-react { animation: m-react-in 460ms var(--pop) backwards; }
 /* a frosted surface for the menu and its reactions */
 .m-glass {
@@ -132,26 +127,27 @@ a.rounded-full,
 .m-swipe[data-dragging="true"] { transition: none; }
 
 /* menus and popovers spring from their trigger: 280ms in, 180ms out (origin is set where they open) */
-.m-menu { animation: m-pop-in 280ms var(--pop) backwards; }
-.m-menu[data-closing="true"] { animation: m-pop-out 180ms ease-in both; pointer-events: none; }
+/* round 6: menus and pop-ups open and close instantly (no spring, no shrink) */
+.m-menu { animation: none; }
+.m-menu[data-closing="true"] { visibility: hidden; pointer-events: none; }
 
 /* dialogs: a zoom on larger screens, a sheet from the bottom on phones; the scrim fades */
 .m-scrim { animation: m-scrim-in 200ms ease-out backwards; }
 .m-dialog { animation: m-sheet-up 320ms var(--soft) backwards; }
 .m-drawer { animation: m-slide-in 320ms var(--settle) backwards; }
 @media (min-width: 640px) {
-  .m-dialog { animation: m-dialog-in 280ms var(--pop) backwards; transform-origin: 50% 50%; }
+  .m-dialog { animation: m-fade 120ms ease-out backwards; }
 }
 /* the command palette zooms from the top */
 .m-palette-scrim { animation: m-scrim-in 200ms ease-out backwards; }
 .m-palette-card { animation: m-fade 200ms ease-out backwards; }
 @media (min-width: 768px) {
-  .m-palette-card { animation: m-zoom-in 280ms var(--pop) backwards; transform-origin: 50% 0; }
+  .m-palette-card { animation: m-fade 120ms ease-out backwards; }
 }
 [data-closing="true"].m-palette-scrim { animation: m-scrim-in 180ms ease-in reverse both; pointer-events: none; }
 [data-closing="true"] .m-palette-card { animation: m-fade 180ms ease-in reverse both; }
 @media (min-width: 768px) {
-  [data-closing="true"] .m-palette-card { animation: m-zoom-out 180ms ease-in both; }
+  [data-closing="true"] .m-palette-card { animation: m-fade 120ms ease-in reverse both; }
 }
 
 /* side panels slide in; toasts slide in */
@@ -220,18 +216,17 @@ button[role="switch"]:active:not(:disabled) .m-knob { scale: 1.2 1; }
   }
   :is(button.rounded-full, a.rounded-full, .circle, .m-press):active:not(:disabled) { transform: none; }
   button[role="switch"]:active:not(:disabled) .m-knob { scale: 1; }
-  .m-msgmenu.m-lift { animation: m-fade 120ms ease-out backwards !important; }
-  .m-msgmenu, .m-msgmenu [role="menu"], .m-msgmenu [data-taps], .m-tap, .m-react, .m-lift-scrim { animation: m-fade 120ms ease-out backwards !important; }
+  .m-react { animation: m-fade 120ms ease-out backwards !important; }
   .m-tap:hover, .m-tap:focus-visible, .m-tap:active { transform: none; }
   .m-under[data-open="true"] { transform: none; }
   .m-tabs[data-away="true"] { transform: none; }
   .m-badge[data-zero="true"] { transform: none; }
-  .m-bubble-me, .m-bubble-them, .m-work, .m-swap, .m-menu, .m-dialog, .m-drawer, .m-palette-card,
+  .m-bubble-me, .m-bubble-them, .m-work, .m-swap, .m-dialog, .m-drawer, .m-palette-card,
   .m-panel, .m-toast, .m-toast-top, .m-chat-layer, .m-pill-in, .m-chip-in, .m-unfold, .m-fade-in, .m-pane, .m-code-line, .m-code-list { animation: m-fade 120ms ease-out backwards !important; }
   .m-code-pulse { animation: none !important; }
   .m-wait { animation: none !important; }
   .m-scrim, .m-palette-scrim { animation: m-scrim-in 120ms ease-out backwards !important; }
-  .m-menu[data-closing="true"], [data-closing="true"] .m-palette-card { animation: m-fade 120ms ease-out reverse both !important; }
+  [data-closing="true"] .m-palette-card { animation: m-fade 120ms ease-out reverse both !important; }
   [data-closing="true"].m-palette-scrim { animation: m-scrim-in 120ms ease-out reverse both !important; }
   .m-chat-layer[data-skip="true"] { animation: none !important; }
   .m-chat-layer[data-state="out"] { animation: m-fade 120ms ease-out reverse both !important; }
@@ -293,3 +288,16 @@ button[role="switch"]:active:not(:disabled) .m-knob { scale: 1.2 1; }
 .seg-thumb { transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1), width 260ms cubic-bezier(0.32, 0.72, 0, 1); }
 @media (prefers-reduced-motion: reduce) { .seg-thumb { transition: none; } }
 :root[data-motion="reduce"] .seg-thumb { transition: none; }
+
+/* ---------- round 6: pop-ups open and close instantly ----------
+ * The owner found the springs and slides childish. Dialogs, sheets on desktops, the settings and
+ * other pop-ups over the chat, and their scrims appear and go at once; what's inside doesn't slide.
+ * Phones keep the bottom sheet rising (it shows where the sheet came from). The bubble's own hover
+ * and press (bubble.css) are the one playful motion left. */
+.m-scrim, .settings-pop, .settings-pop-panel, .settings-pop-section, .needs-pop, .pop-swap { animation: none !important; }
+.settings-pop-panel { transition: none; }
+.settings-pop[data-state="out"], .needs-pop[data-state="out"], .m-scrim[data-closing="true"], [data-closing="true"] .m-scrim { visibility: hidden; pointer-events: none; animation: none !important; }
+@media (min-width: 640px) {
+  .m-dialog, .m-palette-card, .m-palette-scrim { animation: none !important; }
+  [data-closing="true"] .m-dialog, [data-closing="true"] .m-palette-card, [data-closing="true"].m-palette-scrim { visibility: hidden; animation: none !important; }
+}

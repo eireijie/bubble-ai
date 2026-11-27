@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { Seg } from "../views/settings/rows.tsx";
-import { shownColor, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
+import { colorGradient, shownColor, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
 import { useAppearance } from "../theme.ts";
 import { useBackgroundSheet } from "./BackgroundSheet.tsx";
 
@@ -20,7 +20,7 @@ export function BackgroundPicker({ value, onChange, label = "Background" }: { va
     else if (k === "color") sheet.openColour();
     else sheet.openPhoto();
   };
-  const chip = value.kind === "photo" ? (src ? `center / cover no-repeat url("${src}")` : undefined) : value.kind === "color" ? shownColor(value.color, dark) : undefined;
+  const chip = value.kind === "photo" ? (src ? `center / cover no-repeat url("${src}")` : undefined) : value.kind === "color" ? colorGradient(shownColor(value.color, dark), dark) : undefined;
   return (
     <>
       <span className="flex shrink-0 items-center gap-2">

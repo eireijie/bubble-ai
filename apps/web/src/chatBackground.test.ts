@@ -105,10 +105,11 @@ describe("chat backgrounds", () => {
 
   it("shows each swatch's own half for the mode, and pairs light and dark picks", () => {
     // never chosen: Mist in light, Slate blue in dark
-    expect(bg.backgroundCss({ kind: "color", color: "#dfe4f3" }, null)).toBe("#dfe4f3");
-    expect(bg.backgroundCss({ kind: "color", color: "#dfe4f3" }, null, true)).toBe("#262f45");
+    expect(bg.shownColor("#dfe4f3", false)).toBe("#dfe4f3");
+    expect(bg.backgroundCss({ kind: "color", color: "#dfe4f3" }, null)).toContain("#dfe4f3 48%");
+    expect(bg.backgroundCss({ kind: "color", color: "#dfe4f3" }, null, true)).toContain("#262f45 48%");
     // a dark pick (Wine) shows its light half (Peach) in light mode
-    expect(bg.backgroundCss({ kind: "color", color: "#3d1f2a" }, null)).toBe("#f3e3dc");
+    expect(bg.shownColor("#3d1f2a", false)).toBe("#f3e3dc");
     expect(bg.sameSwatch("#3d1f2a", "#f3e3dc")).toBe(true);
     expect(bg.sameSwatch("#3d1f2a", "#dfe4f3")).toBe(false);
     // the dark set is clearly coloured: every dark half has one channel well above the others
@@ -117,8 +118,8 @@ describe("chat backgrounds", () => {
       expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeGreaterThanOrEqual(25);
     }
     // a colour from before stays as it is when dark already, and is tinted toward Slate blue when light
-    expect(bg.backgroundCss({ kind: "color", color: "#1c1c1c" }, null, true)).toBe("#1c1c1c");
-    expect(bg.backgroundCss({ kind: "color", color: "#ffeeee" }, null, true)).toContain("color-mix");
+    expect(bg.shownColor("#1c1c1c", true)).toBe("#1c1c1c");
+    expect(bg.shownColor("#ffeeee", true)).toBe("#5c5f6f");
     expect(bg.backgroundCss({ kind: "none" }, null, true)).toBeNull();
   });
 
@@ -129,9 +130,23 @@ describe("chat backgrounds", () => {
 
   it("paints a colour or a loaded photo, nothing for none", () => {
     expect(bg.backgroundCss({ kind: "none" }, null)).toBeNull();
-    expect(bg.backgroundCss({ kind: "color", color: "#dce9f7" }, null)).toBe("#dce9f7");
-    expect(bg.backgroundCss({ kind: "color", color: "#dce9f7" }, null, true)).toContain("color-mix");
+    expect(bg.backgroundCss({ kind: "color", color: "#dce9f7" }, null)).toMatch(/^radial-gradient\(.*linear-gradient\(155deg, #[0-9a-f]{6} 0%, #dce9f7 48%, #[0-9a-f]{6} 100%\)$/);
+    expect(bg.backgroundCss({ kind: "color", color: "#dce9f7" }, null, true)).not.toContain("#dce9f7");
     expect(bg.backgroundCss({ kind: "photo", url: "/api/files/f" }, null)).toBeNull();
     expect(bg.backgroundCss({ kind: "photo", url: "/api/files/f" }, "blob:x")).toContain('url("blob:x")');
+  });
+
+  it("makes a colour a soft gradient: lighter at the top left, deeper at the bottom right", () => {
+    const lum = (h: string) => { const n = parseInt(h.slice(1), 16); return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114; };
+    for (const dark of [false, true]) {
+      for (const [c] of bg.swatchesFor(dark)) {
+        const [top, mid, end] = bg.colorGradient(c, dark).match(/#[0-9a-f]{6}/g)!;
+        expect(mid).toBe(c);
+        expect(lum(top)).toBeGreaterThan(lum(c));
+        expect(lum(end)).toBeLessThan(lum(c));
+        // gentle: no stop strays far from the colour
+        expect(Math.abs(lum(top) - lum(c))).toBeLessThan(dark ? 30 : 60);
+      }
+    }
   });
 });

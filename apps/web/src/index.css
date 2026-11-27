@@ -1072,7 +1072,7 @@ body.side-resizing iframe { pointer-events: none; }
 :root[data-chat-wall] .chat-walled { --bubble-them: rgb(255 255 255 / 0.82); }
 :root[data-mode="dark"][data-chat-wall] .chat-walled { --bubble-them: rgb(255 255 255 / 0.11); }
 /* on a colour, a solid, lighter tint of it (a see-through fill doubles up where the tail meets the bubble) */
-:root[data-mode="dark"][data-chat-wall="color"] .chat-walled { --bubble-them: color-mix(in srgb, var(--chat-wall-dark) 82%, white); }
+:root[data-mode="dark"][data-chat-wall="color"] .chat-walled { --bubble-them: color-mix(in srgb, var(--chat-wall-tint-dark, #262f45) 82%, white); }
 /* over a background in the dark, secondary text is a little brighter so it stays 4.5:1 on the
    colour, the agent's bubbles and the glass */
 :root[data-mode="dark"][data-chat-wall] .chat-walled, :root[data-mode="dark"][data-chat-wall] .side-glass { --muted: rgb(245 245 245 / 0.8); --faint: rgb(245 245 245 / 0.74); }
@@ -1104,7 +1104,9 @@ body.side-resizing iframe { pointer-events: none; }
 :root[data-mode="dark"] .side-row-on { box-shadow: none; }
 /* one blue dot left of the avatar: needs you, or unread */
 .side-dot { width: 9px; height: 9px; border-radius: 9999px; flex: none; transition: background-color 160ms; }
-.side-pin-dot { position: absolute; left: -1px; top: 1px; width: 13px; height: 13px; border-radius: 9999px; box-shadow: 0 0 0 2px var(--panel); }
+.side-pin-dot { position: absolute; z-index: 1; left: -1px; top: 1px; width: 13px; height: 13px; border-radius: 9999px; box-shadow: 0 0 0 2px var(--panel); }
+/* a row's needs-you dot: on the bubble's corner, so the bubble sits at the row's left edge (round 6) */
+.side-row-dot { left: -2px; top: -1px; width: 11px; height: 11px; }
 
 /* An agent's profile beside the chat (board ProfileSide): a 372px glass panel that pushes the chat
    narrower as it opens (the width grows; the content inside keeps its size so nothing reflows) and
@@ -1148,4 +1150,59 @@ body.side-resizing iframe { pointer-events: none; }
 @keyframes profile-slide-out { to { transform: translateX(24px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .profile-side, .profile-side[data-closing] { animation-duration: 1ms; }
+}
+
+/* ---------- round 6: every menu and pop-up is the sidebar's glass, small and dense ----------
+ * Menus (Menu, Popover, the chat and sidebar right-click menus, the message menu, the attach menu,
+ * the slash and mention lists, the team chart's menus) share one surface: translucent with a blur
+ * and a thin light rim, in the app's colours for light and dark; a 15px corner; 32px rows of 13.5px
+ * text with 16px icons and a 9px highlight. They open and close instantly (motion.css). */
+:root {
+  --pop-bg: rgb(250 250 252 / 0.74);
+  --pop-rim: rgb(255 255 255 / 0.8);
+  --pop-edge: rgb(255 255 255 / 0.7);
+  --pop-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.1), 0 10px 32px rgb(0 0 0 / 0.14);
+  --pop-hover: rgb(0 0 0 / 0.06);
+  --pop-line: rgb(0 0 0 / 0.08);
+}
+:root[data-mode="dark"] {
+  --pop-bg: color-mix(in srgb, var(--chat-wall-tint-dark, #262f45) 30%, rgb(34 35 40 / 0.76));
+  --pop-rim: rgb(255 255 255 / 0.14);
+  --pop-edge: rgb(255 255 255 / 0.1);
+  --pop-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.5), 0 12px 36px rgb(0 0 0 / 0.42);
+  --pop-hover: rgb(255 255 255 / 0.1);
+  --pop-line: rgb(255 255 255 / 0.1);
+}
+:is(.m-menu, .m-glass, .pop-glass) {
+  background: var(--pop-bg);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  backdrop-filter: blur(28px) saturate(1.8);
+  border: 1px solid var(--pop-rim);
+  box-shadow: inset 0 1px 0 var(--pop-edge), var(--pop-shadow);
+  color: var(--ink);
+}
+:is(.m-menu, .m-glass, .pop-glass):not(.rounded-full) { border-radius: 15px; }
+:is(.m-menu, .m-glass, .pop-glass)[role="menu"], :is(.m-menu, .m-glass, .pop-glass) > [role="menu"] { padding: 5px; }
+:is(.m-menu, .m-glass, .pop-glass) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]) {
+  min-height: 32px;
+  height: auto;
+  padding-block: 0;
+  padding-inline: 10px;
+  gap: 10px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  line-height: 18px;
+}
+:is(.m-menu, .m-glass, .pop-glass) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]) > span:first-child > svg,
+:is(.m-menu, .m-glass, .pop-glass) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]) > svg:first-child { width: 16px; height: 16px; }
+:is(.m-menu, .m-glass, .pop-glass) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]):is(:hover, :focus-visible, [aria-selected="true"]) { background: var(--pop-hover); }
+:is(.m-menu, .m-glass, .pop-glass) .bg-line, :is(.m-menu, .m-glass, .pop-glass) .h-px { background: var(--pop-line); }
+/* a finger needs a little more room than a pointer */
+@media (pointer: coarse) {
+  :is(.m-menu, .m-glass, .pop-glass) :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]) { min-height: 40px; font-size: 15px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :is(.m-menu, .m-glass, .pop-glass) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  :root { --pop-bg: #f7f7f9; }
+  :root[data-mode="dark"] { --pop-bg: #26272c; }
 }

@@ -63,7 +63,56 @@ export function shownColor(hex: string, dark: boolean): string {
   const p = pairOf(hex);
   if (p) return dark ? p.dark : p.light;
   if (!dark || lightness(hex) < 0.35) return hex;
-  return `color-mix(in srgb, ${hex} 25%, ${SLATE} 75%)`;
+  return mixHex(hex, SLATE, 0.75);
+}
+
+// --- soft gradients (round 6): a colour background is a gentle wash, not a flat fill ----------------
+
+const rgbOf = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const hexOf = (c: number[]) => "#" + c.map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0")).join("");
+/** `a` moved toward `b` by t (0 to 1), in sRGB. */
+function mixHex(a: string, b: string, t: number): string {
+  const x = rgbOf(a);
+  const y = rgbOf(b);
+  return hexOf(x.map((v, i) => v + (y[i] - v) * t));
+}
+function toHsl(hex: string): [number, number, number] {
+  const [r, g, b] = rgbOf(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+function fromHsl(h: number, s: number, l: number): string {
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return hexOf([f(0), f(8), f(4)].map((v) => v * 255));
+}
+/** The colour turned a little around the wheel and made lighter or deeper (dl, -1 to 1). Greys only change lightness. */
+function shift(hex: string, dh: number, dl: number): string {
+  const [h, s, l] = toHsl(hex);
+  return fromHsl((h + dh + 360) % 360, s, Math.min(0.97, Math.max(0.03, l + dl)));
+}
+
+/**
+ * A colour as a soft gradient, Apple Messages-like: a lighter tint at the top left that turns a few
+ * degrees one way, the colour itself across the middle, and a slightly deeper tone turned the other
+ * way at the bottom right, with a faint glow in the top corner. Dark mode keeps it deep: the light
+ * end only just lifts. `hex` is what shows (shownColor).
+ */
+export function colorGradient(hex: string, dark = false): string {
+  const top = dark ? shift(mixHex(hex, "#ffffff", 0.1), -10, 0.02) : shift(mixHex(hex, "#ffffff", 0.45), -12, 0);
+  const end = dark ? shift(mixHex(hex, "#000000", 0.22), 14, 0) : shift(hex, 14, -0.05);
+  const glow = dark ? "rgb(255 255 255 / 0.06)" : "rgb(255 255 255 / 0.45)";
+  return `radial-gradient(110% 80% at 0% 0%, ${glow}, transparent 60%), linear-gradient(155deg, ${top} 0%, ${hex} 48%, ${end} 100%)`;
 }
 
 interface Saved {
@@ -242,9 +291,9 @@ function lightness(hex: string): number {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 }
 
-/** The CSS background for one, or null for none (and for a photo still loading). A colour shows its half for the mode (shownColor). */
+/** The CSS background for one, or null for none (and for a photo still loading). A colour shows its half for the mode (shownColor), as a soft gradient. */
 export function backgroundCss(bg: ChatBackground, photoSrc: string | null, dark = false): string | null {
-  if (bg.kind === "color") return shownColor(bg.color, dark);
+  if (bg.kind === "color") return colorGradient(shownColor(bg.color, dark), dark);
   if (bg.kind === "photo") return photoSrc ? `center / cover no-repeat url("${photoSrc}")` : null;
   return null;
 }
@@ -259,16 +308,20 @@ export function usePageBackground(active: boolean, agentId?: string | null) {
   const src = usePhotoSrc(bg);
   const css = active ? backgroundCss(bg, src) : null;
   const dark = active ? backgroundCss(bg, src, true) : null;
+  const tint = active && bg.kind === "color" ? shownColor(bg.color, true) : null;
   useEffect(() => {
     if (!css || !dark) return;
     const root = document.documentElement;
     root.style.setProperty("--chat-wall-light", css);
     root.style.setProperty("--chat-wall-dark", dark);
+    // the solid colour under a gradient, for things tinted by it (the agent's bubbles, menus)
+    if (tint) root.style.setProperty("--chat-wall-tint-dark", tint);
     root.dataset.chatWall = bg.kind;
     return () => {
       root.style.removeProperty("--chat-wall-light");
       root.style.removeProperty("--chat-wall-dark");
+      root.style.removeProperty("--chat-wall-tint-dark");
       delete root.dataset.chatWall;
     };
-  }, [css, dark, bg.kind]);
+  }, [css, dark, tint, bg.kind]);
 }

@@ -104,7 +104,8 @@ function followPointer() {
     (ev) => {
       if (ev.pointerType === "touch" || motionReduced()) return clear();
       const t = ev.target as Element | null;
-      let b = (t?.closest?.(".bub") as HTMLElement | null) ?? null;
+      // over a bubble, or anywhere on a row that holds one (the sidebar's rows and pins)
+      let b = (t?.closest?.(".bub") as HTMLElement | null) ?? (t?.closest?.("[data-bub-host]")?.querySelector(".bub") as HTMLElement | null) ?? null;
       if (b && (b.dataset.nofollow !== undefined || !b.classList.contains("bub-move"))) b = null;
       if (b !== cur) clear();
       if (!b) return;
@@ -124,6 +125,25 @@ function followPointer() {
     { passive: true },
   );
   document.addEventListener("pointerleave", clear);
+  // a press on a row that holds a bubble: a quick pop and spin (round 6). Reduced motion: nothing
+  document.addEventListener(
+    "pointerdown",
+    (ev) => {
+      if (motionReduced()) return;
+      const host = (ev.target as Element | null)?.closest?.("[data-bub-host]");
+      const b = host?.querySelector(".bub.bub-move") as HTMLElement | null;
+      if (!b || b.classList.contains("bub-spin")) return;
+      b.classList.remove("bub-pop");
+      void b.offsetWidth; // start again when pressed twice
+      b.classList.add("bub-pop");
+      b.addEventListener("animationend", function done(e) {
+        if (e.target !== b || e.animationName !== "bub-pop") return;
+        b.classList.remove("bub-pop");
+        b.removeEventListener("animationend", done);
+      });
+    },
+    { passive: true },
+  );
 }
 
 /** The bubble's own parts, without the moods: also used for the shape picker in Look. */

@@ -135,14 +135,15 @@ function previewLine(c: Chat, live: Record<string, LiveRun>, ctx: PreviewContext
   if (c.kind === "dm" && c.agent?.status === "online" && c.agent.signIn) return { text: `Needs sign-in · ${harnessLabel(c.agent.harness)} on ${c.agent.signIn.where}`, working: false, needs: true };
   const ask = c.channel ? Object.values(ctx.approvals).find((a) => a.status === "pending" && a.channelId === c.channel!.id) : undefined;
   if (ask) return { text: `Needs approval · ${cleanPreview(ask.summary, 70)}`, working: false, needs: true };
-  // waiting on you, or when its agent will be back with something
-  const line = c.kind === "dm" && c.channel ? loopLine(c.channel, ctx.clock) : null;
-  if (line) return { text: line.text, working: false, needs: line.tone === "warn", icon: line.icon };
+  // round 6: under an agent's name is its last message, not a status. Waiting on you still lights the dot
+  const loop = c.kind === "dm" && c.channel ? loopLine(c.channel, ctx.clock) : null;
+  const waiting = loop?.tone === "warn" ? { needs: true } : {};
   const last = c.channel?.last;
-  if (!last) return { text: "", working: false };
+  // never spoke: what it does, so the row isn't blank
+  if (!last) return { text: (c.kind === "dm" && c.agent?.settings?.role?.trim()) || "", working: false, ...waiting };
   const body = cleanPreview(last.body, 90) || "Sent something";
-  if (last.author.kind === "user" && last.author.id === ctx.meId) return { text: `You: ${body}`, working: false };
-  if (c.kind === "dm") return { text: body, working: false, icon: c.channel?.loop?.status === "done" ? <Check size={12} className="text-ok" aria-label="Done" /> : undefined };
+  if (last.author.kind === "user" && last.author.id === ctx.meId) return { text: `You: ${body}`, working: false, ...waiting };
+  if (c.kind === "dm") return { text: body, working: false, ...waiting, icon: c.channel?.loop?.status === "done" ? <Check size={12} className="text-ok" aria-label="Done" /> : undefined };
   const who = last.author.kind === "agent" ? ctx.agents.find((a) => a.id === last.author.id)?.name : last.author.kind === "user" ? ctx.members.find((m) => m.id === last.author.id)?.name?.split(" ")[0] : undefined;
   return { text: who ? `${who}: ${body}` : body, working: false };
 }
@@ -529,7 +530,7 @@ function ContextMenu({ at, onClose, title, back, children }: { at: { x: number; 
   }, [onClose]);
   return createPortal(
     <div className="m-scrim fixed inset-0 z-[90] bg-black/40" onMouseDown={(e) => e.target === e.currentTarget && onClose()} onContextMenu={(e) => (e.preventDefault(), onClose())} onTouchStart={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} role="menu" style={pos} className="m-menu glass w-72 max-w-[calc(100vw-24px)] rounded-xl p-1.5" >
+      <div ref={ref} role="menu" style={pos} className="m-menu w-64 max-w-[calc(100vw-24px)] p-[5px]" >
         <div className="flex items-center gap-2 px-3.5 py-2.5 text-body">
           {back && (
             <button onClick={back} className="-ml-1 mr-1 size-7 grid place-items-center rounded-[8px] text-muted hover:bg-hover" aria-label="Back">

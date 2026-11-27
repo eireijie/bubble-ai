@@ -70,7 +70,13 @@
 .bub-move.bub-sleep:not([data-hov]) .bub-e { animation: bub-blink 7s infinite, bub-look 16s ease-in-out infinite; animation-delay: var(--bub-delay, 0s); }
 .bub-move.bub-sleep .bub-w { animation: bub-wob 7s ease-in-out infinite; }
 .bub-move.bub-hop-once .bub-w { animation: bub-hop1 0.6s ease-out; }
-.bub-move.bub-spin { animation: bub-spin 0.9s cubic-bezier(0.65, 0, 0.35, 1); }
+.bub-move.bub-spin { animation: bub-spin 0.55s cubic-bezier(0.65, 0, 0.35, 1); }
+/* round 6: the one place motion is wanted. Hover (the bubble or its row) lifts and tilts it a little
+   while its eyes follow; a press pops and spins it once. Reduced motion has no .bub-move: nothing moves */
+.bub-move { transition: transform 180ms cubic-bezier(0.3, 1.4, 0.5, 1); }
+.bub-move[data-hov] { transform: translateY(-1.5px) rotate(-6deg) scale(1.06); }
+.bub-move.bub-pop { animation: bub-pop 0.48s cubic-bezier(0.3, 1.2, 0.5, 1); }
+@keyframes bub-pop { 0% { transform: scale(1) rotate(0); } 30% { transform: scale(0.86) rotate(-40deg); } 100% { transform: scale(1) rotate(360deg); } }
 /* the page has been left alone a while: everything rests, nothing redraws */
 .bub-rest, .bub-rest * { animation-play-state: paused !important; }
 /* off screen, or the page is hidden: nothing redraws (bubbleMotion.ts sets these) */

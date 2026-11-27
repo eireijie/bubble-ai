@@ -370,10 +370,10 @@ export function Menu({ trigger, items, align = "left", up = false }: { trigger: 
       })}
       {mounted &&
         createPortal(
-          <div ref={menuRef} role="menu" data-closing={closing || undefined} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className={cx("m-menu glass min-w-56 rounded-[12px] p-2", LAYER.menu)}>
+          <div ref={menuRef} role="menu" data-closing={closing || undefined} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className={cx("m-menu w-max min-w-[168px] p-[5px]", LAYER.menu)}>
             {items.map((it, i) =>
               it === "divider" ? (
-                <div key={i} className="-mx-2 my-2 h-px bg-line" />
+                <div key={i} className="-mx-[5px] my-1 h-px bg-line" />
               ) : (
                 <button
                   key={it.label}
@@ -383,7 +383,7 @@ export function Menu({ trigger, items, align = "left", up = false }: { trigger: 
                     setOpen(false);
                     it.onSelect();
                   }}
-                  className={cx("w-full px-3 py-2 min-h-9 rounded-[8px] flex items-center gap-3 text-[14px] text-left hover:bg-hover", it.danger && "text-bad")}
+                  className={cx("flex w-full items-center text-left", it.danger && "text-bad")}
                 >
                   {it.icon && <span className={cx("shrink-0", !it.danger && "text-muted")}>{it.icon}</span>}
                   <span className="min-w-0 break-words">{it.label}</span>
@@ -483,7 +483,7 @@ export function Popover({ trigger, children, align = "left", up = true, classNam
     <div ref={ref} className={inline ? "relative inline-block" : "relative"}>
       {trigger(open, () => setOpen((o) => !o))}
       {mounted && (
-        <div ref={panel} role="dialog" data-closing={closing || undefined} style={{ transformOrigin: `${up ? "bottom" : "top"} ${align === "right" ? "right" : "left"}`, ...(shift ? { transform: `translateX(${shift}px)` } : null) }} className={cx("m-menu glass absolute z-50 max-w-[calc(100vw-1rem)] rounded-[12px]", align === "right" ? "right-0" : "left-0", up ? "bottom-full mb-2" : "top-full mt-2", className)}>
+        <div ref={panel} role="dialog" data-closing={closing || undefined} style={{ transformOrigin: `${up ? "bottom" : "top"} ${align === "right" ? "right" : "left"}`, ...(shift ? { transform: `translateX(${shift}px)` } : null) }} className={cx("m-menu absolute z-50 max-w-[calc(100vw-1rem)]", align === "right" ? "right-0" : "left-0", up ? "bottom-full mb-2" : "top-full mt-2", className)}>
           {children(() => setOpen(false))}
         </div>
       )}

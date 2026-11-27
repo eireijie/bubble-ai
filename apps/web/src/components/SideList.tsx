@@ -43,8 +43,9 @@ type MenuAt = { key: string; x: number; y: number; left?: boolean };
 /** A small blue dot for unread, the agent's own flag says when it needs you. */
 /** The one mark a chat gets (round 4): a blue dot when its agent needs you or there's something unread. */
 export const BLUE_DOT = "#0a84ff";
+/** Needs you or unread: a blue dot on the bubble's top-left corner, as on the pins */
 function BlueDot({ on }: { on: boolean }) {
-  return <span aria-hidden className="side-dot" style={{ background: on ? BLUE_DOT : "transparent" }} />;
+  return on ? <span aria-hidden className="side-pin-dot side-row-dot" style={{ background: BLUE_DOT }} /> : null;
 }
 
 export function useSideLayout(chats: readonly Chat[]): [SidebarLayout, (next: SidebarLayout) => void] {
@@ -226,6 +227,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               {...dropProps(`pin:${c.key}`, (key) => layout.pins.includes(key) && save(movePin(layout, key, i)))}
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
+              data-bub-host=""
               className={cx("press-row flex h-[88px] flex-col items-center justify-center gap-[5px] rounded-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on" : "hover:bg-side-hover")}
             >
               <span className="relative grid place-items-center" style={{ width: pinSize, height: pinSize }}>
@@ -269,10 +271,10 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           aria-current={isActive ? "page" : undefined}
           data-tour="chat-row"
           data-needs={line?.needs ? "" : undefined}
-          className={cx("press-row group/row flex w-full items-center gap-2 rounded-[12px] pl-1 pr-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
+          data-bub-host=""
+          className={cx("press-row group/row flex w-full items-center gap-2.5 rounded-[12px] pl-1 pr-3 text-left outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on" : menu?.key === c.key ? "bg-side-active" : "hover:bg-side-hover")}
           style={{ height: rowH }}
         >
-          <BlueDot on={!!line?.needs || unread} />
           {c.agent ? (
             // the agent's avatar opens its profile; the rest of the row opens the chat
             <span
@@ -288,14 +290,16 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               className="relative grid shrink-0 cursor-pointer place-items-center outline-none"
               style={{ width: avatar, height: avatar }}
             >
+              <BlueDot on={!!line?.needs || unread} />
               <ChatAvatar chat={c} size={avatar} />
             </span>
           ) : (
             <span className="relative grid shrink-0 place-items-center" style={{ width: avatar, height: avatar }}>
+              <BlueDot on={!!line?.needs || unread} />
               <ChatAvatar chat={c} size={avatar} />
             </span>
           )}
-          <span className={cx("ml-1 flex h-full min-w-0 flex-1 flex-col justify-center gap-px", c.muted && "opacity-60")}>
+          <span className={cx("flex h-full min-w-0 flex-1 flex-col justify-center gap-px", c.muted && "opacity-60")}>
             <span className="flex items-baseline gap-2">
               {renaming === c.key ? (
                 <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className="min-w-0 flex-1 text-[15px] font-semibold" />
@@ -656,7 +660,7 @@ function Pop({ at, onClose, label, left, phone, children }: { at: { x: number; y
   }, [onClose]);
   return createPortal(
     <div className={cx("fixed inset-0 z-[90]", phone && "m-scrim bg-black/45 backdrop-blur-[6px]")} onMouseDown={(e) => e.target === e.currentTarget && onClose()} onContextMenu={(e) => (e.preventDefault(), onClose())} onTouchStart={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} role="menu" aria-label={label} style={{ position: "fixed", ...pos }} className="m-menu flex w-[228px] flex-col rounded-[12px] bg-panel p-1.5 shadow-[0_12px_36px_rgba(0,0,0,.16),0_0_0_1px_rgba(0,0,0,.06)] dark:bg-[#1f1f1f] dark:shadow-[0_12px_36px_rgba(0,0,0,.6),0_0_0_1px_rgba(255,255,255,.08)]">
+      <div ref={ref} role="menu" aria-label={label} style={{ position: "fixed", ...pos }} className="m-menu flex w-max min-w-[200px] max-w-[260px] flex-col p-[5px]">
         {phone && (
           <div className="flex items-center gap-2 px-2.5 pb-1 pt-1.5">
             <span className="flex-1 truncate text-[14px] font-semibold">{label}</span>

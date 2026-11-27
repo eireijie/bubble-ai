@@ -1963,7 +1963,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
       <div className="relative" onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), attach(e.dataTransfer.files))}>
         {slash.open && !suggestions.length && slash.render(pickCommand)}
         {suggestions.length > 0 && (
-          <div className="glass absolute bottom-full mb-2 left-0 w-80 max-w-full rounded-[12px] p-1.5 z-10" role="listbox" aria-label="Mention an agent">
+          <div className="pop-glass absolute bottom-full mb-2 left-0 w-72 max-w-full p-[5px] z-10" role="listbox" aria-label="Mention an agent">
             {suggestions.map((a, i) => {
               const node = channel?.settings.team?.nodes.find((n) => n.agentId === a.id);
               return (
@@ -1993,7 +1993,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
         <div data-tour="input" className={cx("composer-box", tall && "is-tall")}>
           <span className="composer-plus-slot">
             <Popover
-              className="w-60 p-1.5 !rounded-[12px]"
+              className="w-max min-w-[168px] p-[5px]"
               trigger={(open, toggle) => (
                 <button type="button" data-tour="attach" onClick={toggle} aria-label="Attach" aria-expanded={open} title="Attach" className={cx("composer-btn composer-plus m-press", open && "is-open")}>
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={19} strokeWidth={1.9} />}
@@ -2100,7 +2100,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
 
 function ComposerMenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <button role="menuitem" onClick={onClick} className="w-full px-3 h-12 rounded-2xl flex items-center gap-3 text-body hover:bg-hover">
+    <button role="menuitem" onClick={onClick} className="flex w-full items-center whitespace-nowrap text-left">
       <span className="text-muted">{icon}</span>
       {label}
     </button>
