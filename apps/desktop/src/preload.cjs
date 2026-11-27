@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("wispDesktop", {
   setBadge: (n) => ipcRenderer.send("badge", n),
+  platform: process.platform,
   /** "inset": Mac traffic lights over the page's top-left; "overlay": Windows buttons over its top-right; "native": the OS frame */
   titleBar: process.platform === "darwin" ? "inset" : process.platform === "win32" ? "overlay" : "native",
   setTitleBarColors: (bg, fg) => ipcRenderer.send("titlebar:colors", bg, fg),
@@ -12,6 +13,10 @@ contextBridge.exposeInMainWorld("wispDesktop", {
   connectDevice: (claim) => ipcRenderer.invoke("desktop:connect-device", claim),
   notifications: {
     openSettings: () => ipcRenderer.invoke("notifications:open-settings"),
+  },
+  permissions: {
+    status: () => ipcRenderer.invoke("permissions:status"),
+    request: (id) => ipcRenderer.invoke("permissions:request", id),
   },
   microphone: {
     status: () => ipcRenderer.invoke("microphone:status"),

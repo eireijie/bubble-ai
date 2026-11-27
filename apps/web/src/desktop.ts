@@ -9,6 +9,17 @@ export interface DesktopUpdate {
   current: string;
 }
 
+/** The first run's macOS permissions (Windows and Linux report every one as granted). */
+export type MacPermission = "screen" | "accessibility" | "microphone" | "notifications";
+export interface MacPermissions {
+  platform: string;
+  /** this computer's name ("Yug's MacBook") */
+  name: string;
+  statuses: Record<MacPermission, "granted" | "denied" | "not-determined" | "restricted" | "unknown">;
+  /** its screen is on for agents (the app turns it on once they can use it) */
+  screenOn: boolean;
+}
+
 export interface BuddySettings {
   agentId: string | null;
 }
@@ -27,6 +38,13 @@ declare global {
       connectDevice(claim?: { token: string; name: string }): Promise<void>;
       /** open the system's own notifications switch for Bubble AI (System Settings › Notifications › Bubble AI) */
       notifications?: { openSettings(): Promise<void> };
+      /** process.platform of the computer the app runs on */
+      platform?: string;
+      /** the first run's "Let your agents use this Mac": live statuses, and Allow (macOS's prompt, else its System Settings pane) */
+      permissions?: {
+        status(): Promise<MacPermissions | null>;
+        request(id: MacPermission): Promise<"asked" | "opened" | null>;
+      };
       /** the computer's own microphone permission for calls (macOS asks once; only System Settings changes it after) */
       microphone?: {
         status(): Promise<string>;

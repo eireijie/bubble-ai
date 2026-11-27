@@ -83,6 +83,7 @@ import { agentPolicy } from "./policy.ts";
 import { FEATURE_PRESET, createOrganization, registerOrgApi } from "./api-orgs.ts";
 import { agentDefaults, newAgentComputer } from "./agent-defaults.ts";
 import { simplePlacement } from "./shared-computer.ts";
+import { newAgentDeviceUse } from "./device-defaults.ts";
 import { spawnRight } from "./spawn.ts";
 import { greetNewAgent, registerSetupApi } from "./greeting.ts";
 import { registerOnboardingApi } from "./api-onboarding.ts";
@@ -1321,6 +1322,11 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (body.settings?.anyoneCanAsk && (!body.nodeId || store.node(body.nodeId)?.ownerId !== c.actor.id)) delete body.settings.anyoneCanAsk;
     // only a device's owner lets an agent use it
     if (body.settings?.useDevices) body.settings.useDevices = Object.fromEntries(Object.entries(body.settings.useDevices).filter(([nodeId]) => store.node(nodeId)?.ownerId === c.actor.id && store.node(nodeId)?.workspaceId === c.workspaceId));
+    // an owner's new agent may use the owner's own computers, telling them after (Use my computers turns it off)
+    if (c.actor.kind === "user" && body.settings?.useDevices === undefined) {
+      const mine = newAgentDeviceUse(hub, c.workspaceId, c.actor.id);
+      if (Object.keys(mine).length) body.settings = { ...body.settings, useDevices: mine } as typeof body.settings;
+    }
     // new agents start at the workspace's default access unless someone picked one
     if (!body.settings?.access) body.settings = { ...body.settings, access: agentPolicy(hub, c.workspaceId).defaultAccess };
     // it remembers who made it, and answers only them until they say otherwise

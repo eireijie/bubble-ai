@@ -1,7 +1,8 @@
 // Bubble AI desktop: the workspace in its own window, plus what only an app on this computer can do:
 // run a hub here, connect this computer as a device for agents (one click, no token to copy), and
 // keep both going from the menu bar after the window closes.
-const { app, BrowserWindow, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, shell, Notification, systemPreferences } = require("electron");
+const { app, BrowserWindow, Menu, Tray, clipboard, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, shell, Notification, systemPreferences } = require("electron");
+const permissions = require("./permissions.cjs");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -447,6 +448,8 @@ async function startDevice({ quiet = false, confirmed = false, claim = null } = 
       return fail(err.name === "TimeoutError" || err.name === "AbortError" ? "The hub request timed out. Try connecting again." : `Couldn't reach the hub: ${err.message}`);
     }
   }
+  // allowed already (or not a Mac): agents can use its screen from the start
+  screenOnByDefault();
   config.device = true;
   save();
   if (service) {
@@ -539,8 +542,21 @@ const sameOrigin = (a, b) => {
 function setDeviceFlag(key, on) {
   engine.writeNodeConfig(key === "shareScreen" ? { shareScreen: on, noScreen: on ? undefined : engine.readNodeConfig().noScreen } : { [key]: on });
   refresh();
-  // like `bubble-ai node screen on`: turning the screen on asks for a code when there isn't one
-  if (key === "shareScreen" && on && !engine.readNodeConfig().screenCode) showCodeWindow(false);
+  // the code stays optional: "Pick a Screen Code…" in the same menu, never a window that pops up
+}
+
+/** Which of the first run's permissions this computer gave Bubble AI. */
+const permissionStatus = () => permissions.permissionStatus({ platform: process.platform, systemPreferences, notificationsAsked: !!config.notificationsAsked });
+
+/**
+ * Once agents can see and use this computer (a Mac allowed Screen Recording and Accessibility),
+ * its screen is on for them, unless someone at the device already chose (the tray's checkbox).
+ */
+function screenOnByDefault() {
+  if (!permissions.screenShouldTurnOn({ platform: process.platform, node: engine.readNodeConfig(), perms: permissionStatus() })) return false;
+  engine.writeNodeConfig({ shareScreen: true });
+  refresh();
+  return true;
 }
 
 /** @type {BrowserWindow | null} */
@@ -1127,6 +1143,25 @@ ipcMain.handle("notifications:open-settings", async (e) => {
   if (!fromHub(e)) return;
   if (process.platform === "darwin") await shell.openExternal("x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=ai.bubbleai.desktop");
   else if (process.platform === "win32") await shell.openExternal("ms-settings:notifications");
+});
+// First run: "Let your agents use this Mac". Live statuses, an Allow per permission, and the screen
+// turns on for agents once they can use it.
+const permissionsAsked = new Set();
+ipcMain.handle("permissions:status", (e) => {
+  if (!fromHub(e)) return null;
+  screenOnByDefault();
+  const n = engine.readNodeConfig();
+  return { platform: process.platform, name: deviceName(), statuses: permissionStatus(), screenOn: !!n.shareScreen && !n.noScreen };
+});
+ipcMain.handle("permissions:request", async (e, id) => {
+  if (!fromHub(e) || !permissions.IDS.includes(id)) return null;
+  if (id === "notifications") {
+    config.notificationsAsked = true;
+    save();
+  }
+  const how = await permissions.requestPermission(id, { platform: process.platform, systemPreferences, shell, desktopCapturer, notify, asked: permissionsAsked });
+  screenOnByDefault();
+  return how;
 });
 ipcMain.handle("removal:available", (e) => (fromHub(e) ? canRemove() : false));
 ipcMain.handle("removal:open", async (e) => {
