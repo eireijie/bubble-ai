@@ -1140,7 +1140,10 @@ body.side-resizing iframe { pointer-events: none; }
 :root[data-mode="dark"] .side-row-on { box-shadow: none; }
 /* one blue dot left of the avatar: needs you, or unread */
 .side-dot { width: 9px; height: 9px; border-radius: 9999px; flex: none; transition: background-color 160ms; }
-.side-pin-dot { position: absolute; z-index: 1; left: -1px; top: 1px; width: 13px; height: 13px; border-radius: 9999px; box-shadow: 0 0 0 2px var(--panel); }
+/* a pinned bubble's new / needs-you dot: centred on the bubble's own top-left edge (14.6% in from the
+   box's corner is where a circle's edge crosses the diagonal), so it stays well inside the tile and its
+   highlight; a 2px ring in the sidebar's colour cuts it cleanly from the bubble (round 8) */
+.side-pin-dot { position: absolute; z-index: 1; left: calc(14.6% - 7px); top: calc(14.6% - 7px); width: 14px; height: 14px; border-radius: 9999px; box-shadow: 0 0 0 2px var(--panel); }
 /* a row's needs-you dot: on the bubble's corner, so the bubble sits at the row's left edge (round 6) */
 .side-row-dot { left: -2px; top: -1px; width: 11px; height: 11px; }
 
