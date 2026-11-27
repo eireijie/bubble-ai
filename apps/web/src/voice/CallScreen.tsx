@@ -136,7 +136,7 @@ export function CallCard({ agent, state, facts, lines, transcript, onMute, onRet
   // with the transcript off, what it is doing ("Reading main.ts") takes the status line
   const status = [state.muted ? "Muted" : offline ? `${agent.name} is asleep` : phase === "speaking" ? `${agent.name} is talking` : (!transcript && activity) || label, timer].filter(Boolean).join(" · ");
   return (
-    <section className="call-card absolute left-1/2 top-[calc(4.75rem+env(safe-area-inset-top))] md:top-[58px] z-30 w-[min(400px,calc(100%-24px))] -translate-x-1/2 overflow-hidden rounded-[16px] border border-line2 bg-float shadow-float" aria-label={`Call with ${agent.name}`}>
+    <section className="call-card absolute left-1/2 top-[var(--chat-top,calc(4.75rem+env(safe-area-inset-top)))] z-30 w-[min(400px,calc(100%-24px))] -translate-x-1/2 overflow-hidden rounded-[16px] border border-line2 bg-float shadow-float" aria-label={`Call with ${agent.name}`}>
       <div className={cx("flex h-[72px] items-center gap-2.5 pl-3 pr-3.5", quiet && "call-muted")}>
         <Ghost look={look} size={44} mood={offline ? "asleep" : phase === "working" || phase === "thinking" || phase === "speaking" ? "working" : "awake"} label="" seed={agent.handle} />
         <span className="flex min-w-0 flex-1 flex-col">

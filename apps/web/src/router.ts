@@ -253,16 +253,15 @@ export function isDialogRoute(r: Route): boolean {
   }
 }
 
-export type PopupSize = "large" | "medium" | "popover";
+export type PopupSize = "large" | "medium";
 
 /**
  * How big a pop-up is (both as tall as what they hold, up to min(680, window - 96)): large 960 wide for Settings, Computers, Apps and skills,
- * Tasks and Memory; medium 640 for All agents, Help, Templates and What agents know; Needs you is a
- * popover beside its row. One agent's settings is large, like Settings.
+ * Tasks and Memory; medium 640 for All agents, Help, Templates, What agents know and Needs you (its
+ * sidebar row went in round 4: blue dots on the chats say what waits). One agent's settings is large, like Settings.
  */
 export function popupSize(r: Route): PopupSize {
-  if (r.view === "dashboard") return "popover";
-  if ((r.view === "agents" && !r.agentId) || r.view === "help" || r.view === "templates" || r.view === "about") return "medium";
+  if (r.view === "dashboard" || (r.view === "agents" && !r.agentId) || r.view === "help" || r.view === "templates" || r.view === "about") return "medium";
   return "large";
 }
 

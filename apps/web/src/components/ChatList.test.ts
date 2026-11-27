@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Agent } from "@bubble-ai/core";
 import type { ChannelInfo, LiveRun } from "../store.ts";
-import { chatPreview, chatPreviewLine, firstWaiting, type Chat, type PreviewContext } from "./ChatList.tsx";
+import { chatPreview, chatPreviewLine, type Chat, type PreviewContext } from "./ChatList.tsx";
 
 vi.mock("../api.ts", () => ({ api: vi.fn(), setToken: vi.fn(), getToken: () => null }));
 vi.mock("../theme.ts", () => ({ motionReduced: () => false }));
@@ -56,14 +56,3 @@ describe("chatPreview", () => {
   });
 });
 
-describe("firstWaiting", () => {
-  it("is nothing when nothing waits", () => {
-    expect(firstWaiting({ approvals: [], help: [] })).toBeNull();
-  });
-
-  it("is the first approval, else help on a computer", () => {
-    const help = [{ name: "This Mac", help: { agentId: "atlas", request: "Type the code from your phone", at: "2026-11-22T10:00:00Z" } }] as unknown as Parameters<typeof firstWaiting>[0]["help"];
-    expect(firstWaiting({ approvals: [{ agentId: "juno", summary: "Move the dentist to Thursday at 3?" }], help })).toEqual({ agentId: "juno", text: "Move the dentist to Thursday at 3?" });
-    expect(firstWaiting({ approvals: [], help })).toEqual({ agentId: "atlas", text: "Type the code from your phone" });
-  });
-});

@@ -2,11 +2,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { LAYER } from "./layers.ts";
 import { MotionMark } from "./MotionMark.tsx";
 import { createPortal } from "react-dom";
-import { BellOff, Check, ChevronDown, ChevronRight, FolderPlus, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
+import { BellOff, Check, ChevronDown, FolderPlus, MessageSquarePlus, Pin, Plus, Search, Users, X } from "lucide-react";
 import { BubbleIcon } from "./icons.tsx";
 import { harnessLabel, teamIconAgentIds, type Agent, type Approval, type Section } from "@bubble-ai/core";
 import { api } from "../api.ts";
-import { useStore, usePrefs, useWaitingOnYou, type ChannelInfo, type ComputerInfo, type LiveRun } from "../store.ts";
+import { useStore, usePrefs, type ChannelInfo, type LiveRun } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
 import { agentReadiness } from "../devices.ts";
 import { go, href, type Route } from "../router.ts";
@@ -152,14 +152,6 @@ export function chatPreview(c: Chat, live: Record<string, LiveRun>, ctx?: Previe
   return chatPreviewLine(c, live, ctx).text;
 }
 
-/** The first thing waiting on you, as one sentence and who asks it: an approval, else help on a computer. */
-export function firstWaiting(waiting: { approvals: Pick<Approval, "agentId" | "summary">[]; help: Pick<ComputerInfo, "name" | "help">[] }): { agentId: string | null; text: string } | null {
-  const ask = waiting.approvals[0];
-  if (ask) return { agentId: ask.agentId, text: cleanPreview(ask.summary, 120) || "Wants your approval" };
-  const c = waiting.help[0];
-  if (c) return { agentId: c.help?.agentId ?? null, text: cleanPreview(c.help?.request ?? "", 120) || `Help on ${c.name}` };
-  return null;
-}
 
 /**
  * The chats list: every chat with an agent and every team in one flat list, newest first, with
@@ -262,8 +254,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
       )}
 
       <div data-stagger className={cx("flex-1 min-h-0 overflow-y-auto", page ? "px-2 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]" : "pb-4 -mx-1 px-1")}>
-        {page && <NeedsYouCard />}
-        {/* phones: pins, All / Your turn and your sections, as in the desktop sidebar; the desktop's
+        {/* phones: pins and your sections, with a blue dot on what waits on you, as in the desktop sidebar; the desktop's
             own Chats column (nothing open yet) is a plain newest-first list, since the sidebar beside it has the rest */}
         {!needle && page && chats.length > 0 && <SideList chats={chats} lines={new Map(chats.map((c) => [c.key, preview(c)]))} active={active} phone />}
         {!needle && !page && rows([...chats].sort((x, y) => y.at - x.at || x.name.localeCompare(y.name)))}
@@ -322,28 +313,6 @@ function SearchField({ page, value, onChange }: { page: boolean; value: string; 
   );
 }
 
-/** Phones: what waits on you, on top of the list. One tap opens the Needs you page. */
-function NeedsYouCard() {
-  const waiting = useWaitingOnYou();
-  const agents = useStore((s) => s.agents);
-  const count = waiting.approvals.length + waiting.help.length;
-  const first = firstWaiting(waiting);
-  if (!first) return null;
-  const agent = agents.find((a) => a.id === first.agentId);
-  return (
-    <a href={href({ view: "dashboard" })} aria-label={`Needs you, ${count} waiting. ${first.text}`} className="mx-2 mb-2 flex items-center gap-3 rounded-[12px] bg-card px-3.5 py-3 text-left">
-      {agent && <AgentAvatar agent={agent} size={36} live />}
-      <span className="flex-1 min-w-0">
-        <span className="line-clamp-2 text-[15px] font-semibold leading-5">{first.text}</span>
-        <span className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted">
-          <span aria-hidden className="size-2 shrink-0 rounded-full bg-st-needs" />
-          <span className="truncate">{["Needs you", agent?.name, count > 1 ? `${count - 1} more` : null].filter(Boolean).join(" · ")}</span>
-        </span>
-      </span>
-      <ChevronRight size={16} className="shrink-0 text-faint" aria-hidden />
-    </a>
-  );
-}
 
 function SectionHeader({ section, count, collapsed, onToggle, onRename, page, canEdit }: { section: Section; count: number; collapsed: boolean; onToggle: () => void; onRename: () => void; page: boolean; canEdit: boolean }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);

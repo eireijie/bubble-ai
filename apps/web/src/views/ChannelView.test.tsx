@@ -138,17 +138,19 @@ describe("the message box", () => {
     h.refs = []; h.index = 0;
     h.state.agents = []; h.state.me = { role: "owner" };
     const tree = Composer({ channelId: "channel", placeholder: "Message Nova", onCall: () => {}, callName: "Nova", ...props });
-    return find(tree, (node) => node.props?.["data-tour"] === "input");
+    return find(tree, (node) => node.props?.className === "composer-row");
   };
-  const roundOf = (input: any) => find(input, (node) => node.props?.["data-tour"] === "send");
+  const roundOf = (row: any) => find(row, (node) => node.props?.["data-tour"] === "send");
 
-  it("holds the attach button, the text and the round button in one box", () => {
-    const input = box();
-    expect(input.props.className).toContain("composer-box");
-    expect(find(input, (node) => node.props?.className === "composer-plus-slot")).toBeTruthy();
-    expect(find(input, (node) => node.type === "textarea")).toBeTruthy();
-    expect(roundOf(input).props["aria-label"]).toBe("Call Nova");
-    expect(roundOf(input).props.className).toContain("is-go");
+  it("puts the glass +, the text pill and the round button in one row, like Messages", () => {
+    const row = box();
+    const kids = [row.props.children].flat(Infinity).filter(Boolean);
+    expect(kids.map((k: any) => k.props?.className ?? "")).toEqual([expect.stringContaining("composer-plus-slot"), expect.stringContaining("composer-box"), expect.stringContaining("composer-round")]);
+    const pill = find(row, (node) => node.props?.["data-tour"] === "input");
+    expect(find(pill, (node) => node.type === "textarea")).toBeTruthy();
+    expect(find(pill, (node) => node.props?.["data-tour"] === "send")).toBeUndefined();
+    expect(roundOf(row).props["aria-label"]).toBe("Call Nova");
+    expect(roundOf(row).props.className).toContain("is-call");
   });
 
   it("turns the round button into Stop while an agent works", () => {
@@ -156,5 +158,6 @@ describe("the message box", () => {
     const round = roundOf(box());
     expect(round.props["aria-label"]).toBe("Stop");
     expect(round.props.className).toContain("is-stop");
+    h.state.live = {};
   });
 });

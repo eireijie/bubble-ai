@@ -427,13 +427,11 @@ body {
 .bubble { padding: 9px 14px; border-radius: 18px; width: fit-content; max-width: min(640px, 100%); line-height: 22px; }
 @media (min-width: 768px) { .bubble { padding: 11px 17px; border-radius: 22px; max-width: min(680px, 100%); line-height: 25px; } }
 .bubble.them { background: var(--bubble-them); color: var(--ink); }
-/* the last bubble of a group gets a small tail at its bottom corner, like Messages; the second shape
-   is the chat's own background, which cuts the curve */
-.bubble.tail::before, .bubble.tail::after { content: ""; position: absolute; bottom: 0; height: 17px; pointer-events: none; }
-.bubble.tail.them::before { left: -7px; width: 18px; background: var(--bubble-them); border-bottom-right-radius: 16px 14px; }
-.bubble.tail.them::after { left: -10px; width: 10px; background: var(--panel); border-bottom-right-radius: 10px; }
-.bubble.tail.me::before { right: -7px; width: 18px; background: var(--bubble-me); border-bottom-left-radius: 16px 14px; }
-.bubble.tail.me::after { right: -10px; width: 10px; background: var(--panel); border-bottom-left-radius: 10px; }
+/* the last bubble of a group gets a small tail at its bottom corner, like Messages: one curved
+   shape cut by a clip path, so it works over any chat background (no cut-out in the panel colour) */
+.bubble.tail::after { content: ""; position: absolute; bottom: 0; width: 14px; height: 16px; pointer-events: none; }
+.bubble.tail.them::after { left: -5px; background: var(--bubble-them); border-bottom-right-radius: 14px 12px; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.bubble.tail.me::after { right: -5px; background: var(--bubble-me); border-bottom-left-radius: 14px 12px; clip-path: polygon(0 0, 100% 100%, 0 100%); }
 .bubble.me { background: var(--bubble-me); color: var(--bubble-me-ink); margin-left: auto; }
 .bubble.me a, .bubble.me .wikilink { color: inherit; background: none; }
 .bubble.me code, .bubble.me pre { background: rgb(0 0 0 / 0.1); }
@@ -1014,3 +1012,87 @@ body.side-resizing iframe { pointer-events: none; }
   .side { transition: none !important; }
   .side-pulse { animation: none; }
 }
+
+/* --- Liquid glass (round 4, board "Chat and sidebar") ------------------------------------------ */
+/* translucent white (black in dark) over whatever is behind, blurred and saturated, with a hairline
+   rim and a lit top edge. Solid when the system asks for less transparency. */
+:root {
+  --lg-bg: rgb(255 255 255 / 0.55);
+  --lg-bg-strong: rgb(255 255 255 / 0.72);
+  --lg-rim: rgb(255 255 255 / 0.7);
+  --lg-edge: rgb(255 255 255 / 0.6);
+  --lg-shadow: 0 6px 24px rgb(0 0 0 / 0.08);
+  --lg-on: rgb(255 255 255 / 0.85);
+  --lg-blur: blur(28px) saturate(1.8);
+}
+:root[data-mode="dark"] {
+  --lg-bg: rgb(36 36 38 / 0.55);
+  --lg-bg-strong: rgb(36 36 38 / 0.72);
+  --lg-rim: rgb(255 255 255 / 0.09);
+  --lg-edge: rgb(255 255 255 / 0.07);
+  --lg-shadow: 0 6px 24px rgb(0 0 0 / 0.35);
+  --lg-on: rgb(255 255 255 / 0.16);
+}
+.lg-glass {
+  background: var(--lg-bg);
+  -webkit-backdrop-filter: var(--lg-blur);
+  backdrop-filter: var(--lg-blur);
+  border: 1px solid var(--lg-rim);
+  box-shadow: inset 0 1px 0 var(--lg-edge), var(--lg-shadow);
+  color: var(--ink);
+}
+.lg-glass.is-on, .lg-glass[aria-expanded="true"] { background: var(--lg-on); }
+.lg-round { width: 40px; height: 40px; border-radius: 9999px; flex: none; display: inline-grid; place-items: center; padding: 0; outline: none; transition: background-color 140ms, transform 140ms var(--ease-out, ease-out); }
+.lg-round:hover { background: var(--lg-bg-strong); }
+.lg-round:focus-visible { box-shadow: inset 0 1px 0 var(--lg-edge), 0 0 0 2px color-mix(in srgb, var(--wisp-strong) 45%, transparent); }
+@media (max-width: 767px) { .lg-round { width: 42px; height: 42px; } }
+.lg-press:active { transform: scale(0.94); }
+@media (prefers-reduced-transparency: reduce) {
+  .lg-glass, .side.side-glass, .chat-walled .composer-box, .chat-walled .bubble.them { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  :root { --lg-bg: #f4f4f6; --lg-bg-strong: #ffffff; --lg-on: #ffffff; }
+  :root[data-mode="dark"] { --lg-bg: #242426; --lg-bg-strong: #2c2c2e; --lg-on: #3a3a3c; }
+  .chat-walled { --bubble-them: #ffffff; }
+  :root[data-mode="dark"] .chat-walled { --bubble-them: #262628; }
+}
+
+/* the open chat's background (chatWallpaper.ts sets --chat-wall-light / -dark on the page) */
+:root { --chat-wall: var(--chat-wall-light, var(--panel)); }
+:root[data-mode="dark"] { --chat-wall: var(--chat-wall-dark, var(--panel)); }
+/* phones paint it behind the chat itself; desktops paint the whole window, so the glass sidebar sits over it too */
+.chat-wall { background: var(--chat-wall); }
+@media (min-width: 768px) {
+  .chat-wall { background: transparent; }
+  :root[data-chat-wall] .app-shell { background: var(--chat-wall); }
+  :root[data-chat-wall] .app-main { background: transparent; }
+}
+/* over a background the agent's bubbles are white glass (dark glass in dark) */
+.chat-walled { --bubble-them: rgb(255 255 255 / 0.82); --chat-top: calc(max(0.5rem, env(safe-area-inset-top)) + 94px); }
+:root[data-mode="dark"] .chat-walled { --bubble-them: rgb(44 44 46 / 0.86); }
+@media (min-width: 768px) { .chat-walled { --chat-top: 106px; } }
+.chat-walled .bubble.them { -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.chat-walled .bubble.them pre, .chat-walled .bubble.them code { background: rgb(0 0 0 / 0.06); }
+:root[data-mode="dark"] .chat-walled .bubble.them pre, :root[data-mode="dark"] .chat-walled .bubble.them code { background: rgb(255 255 255 / 0.08); }
+/* messages fade out as they scroll up under the floating header */
+.chat-scroll { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 calc(var(--chat-top) - 6px)); mask-image: linear-gradient(to bottom, transparent 0, #000 calc(var(--chat-top) - 6px)); }
+
+/* the composer over the background: a glass + , a glass pill for the text, and the round call/send button */
+.chat-walled .composer-box { background: var(--lg-bg); -webkit-backdrop-filter: var(--lg-blur); backdrop-filter: var(--lg-blur); border-color: var(--lg-rim); box-shadow: inset 0 1px 0 var(--lg-edge), var(--lg-shadow); }
+.chat-walled .composer-box:focus-within { border-color: var(--composer-focus); }
+
+/* the glass sidebar: a floating panel over the window background */
+@media (min-width: 768px) {
+  .side.side-glass {
+    margin: 8px 0 8px 8px;
+    height: calc(100% - 16px);
+    border-radius: 22px;
+    background: var(--lg-bg);
+    -webkit-backdrop-filter: var(--lg-blur);
+    backdrop-filter: var(--lg-blur);
+    border: 1px solid var(--lg-rim);
+    box-shadow: inset 0 1px 0 var(--lg-edge), var(--lg-shadow);
+  }
+}
+.side-row-on { background: var(--lg-on); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); }
+:root[data-mode="dark"] .side-row-on { box-shadow: none; }
+/* one blue dot left of the avatar: needs you, or unread */
+.side-dot { width: 9px; height: 9px; border-radius: 9999px; flex: none; transition: background-color 160ms; }
