@@ -215,6 +215,11 @@ export const NodeToHub = z.discriminatedUnion("type", [
   z.object({ type: z.literal("result"), requestId: z.string(), ok: z.boolean(), result: z.unknown().optional(), error: z.string().optional() }),
   /** a computer this device runs changed state (a VM building, starting, failing) */
   z.object({ type: z.literal("computer_status"), computerId: z.string(), status: z.enum(["ready", "starting", "stopped", "error"]), text: z.string().max(1000) }),
+  /**
+   * The shared computer's agents' own screens: `supported` when its image gives agents screens of
+   * their own (an older one has the one screen they take turns on), and which agents have one up now
+   */
+  z.object({ type: z.literal("agent_screens"), computerId: z.string(), supported: z.boolean(), agents: z.array(z.string().max(100)).max(200) }),
   /** a frame of a watched screen (base64 JPEG) */
   z.object({ type: z.literal("screen_frame"), computerId: z.string(), image: z.string(), width: z.number().int(), height: z.number().int() }),
   z.object({ type: z.literal("tunnel_ready"), tunnelId: z.string() }),
@@ -244,13 +249,15 @@ export const HubToNode = z.discriminatedUnion("type", [
   z.object({ type: z.literal("review"), requestId: z.string(), what: z.enum(["diff", "files", "file", "checks"]), repo: z.string(), branch: z.string(), base: z.string(), file: z.string().max(1000).optional() }),
   /** do something on a computer this device runs */
   /** `agentId`: the agent doing it, so a device can let agents whose harness runs on it use its screen */
-  z.object({ type: z.literal("computer"), requestId: z.string(), computer: ComputerSpec, action: ComputerAction, agentId: z.string().optional() }),
+  /** `screen`: on the shared computer, the agent whose own screen it's on (a device with an older image uses the one screen) */
+  z.object({ type: z.literal("computer"), requestId: z.string(), computer: ComputerSpec, action: ComputerAction, agentId: z.string().optional(), screen: z.string().max(100).optional() }),
   /** the Apple mod: read or (after a person approved it) change Messages, Contacts, Calendar or Reminders on this Mac; answered with `result` */
   z.object({ type: z.literal("apple"), requestId: z.string(), op: AppleOp }),
   /** start or stop streaming a computer's screen to people watching it */
   z.object({ type: z.literal("screen_watch"), computer: ComputerSpec, on: z.boolean(), fps: z.number().min(0.2).max(10).optional() }),
   /** relay a computer's VNC server: binary frames carry the bytes (see tunnelFrame) */
-  z.object({ type: z.literal("tunnel_open"), tunnelId: z.string(), computer: ComputerSpec, code: z.string().max(200).optional() }),
+  /** `screen`: watch that agent's own screen on the shared computer instead of the main one */
+  z.object({ type: z.literal("tunnel_open"), tunnelId: z.string(), computer: ComputerSpec, code: z.string().max(200).optional(), screen: z.string().max(100).optional() }),
   /**
    * Open the device's own screen for `purpose` (a viewer) until `until`, if `code` is
    * the one picked at the device; answered with a result ({ until }). The device checks the code and

@@ -2734,7 +2734,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     socket.on("close", () => hub.computers.viewerGone(comp, ticket));
     if (transport !== "vnc") hub.computers.addFrameViewer(comp, socket, ticket.userId);
     else if (comp.kind === "orgo") hub.computers.openOrgoRelay(comp, socket);
-    else hub.computers.openTunnel(comp, socket, ticket.code);
+    else hub.computers.openTunnel(comp, socket, ticket.code, ticket.screen);
   });
 
   /** A terminal (the Code mod): a one-time ticket from POST /api/computers/:id/terminal; the pane's size rides along. */

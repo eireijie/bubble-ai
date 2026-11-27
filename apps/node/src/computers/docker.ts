@@ -10,9 +10,12 @@ import { FILL_LOGIN_SCRIPT } from "./fill-login.ts";
 import { ActionError, exec, has, must, type Driver } from "./driver.ts";
 import { X11Driver } from "./x11.ts";
 import { shellFiles, x11Clipboard, type Clipboard, type Files, type ShRunner } from "./transfer.ts";
+import { AGENT_SCREEN_IDLE_MS, AgentScreen, parseScreenInfo, parseScreenList, screenSlug, type AgentScreenInfo } from "./agent-screens.ts";
 
 const IMAGE_DIR = fileURLToPath(new URL("../../../../docker/computer", import.meta.url));
-const DISPLAY = ":1";
+/** The main screen (people's, and every agent's on a VM without screens of their own). */
+const MAIN_DISPLAY = 1;
+const MAIN_VNC = 5900;
 /** The VM's home folder and the folder it shares with the device. */
 export const VM_HOME = "/home/wisp";
 export const VM_FILES = "/home/wisp/files";
@@ -62,7 +65,7 @@ const ask = (url) => new Promise((resolve) => {
   ws.onmessage = (m) => { const r = JSON.parse(m.data); if (r.id === 1) done(r.result?.result?.value ?? null); };
   ws.onerror = () => done(null);
 });
-const pages = await fetch("http://127.0.0.1:9222/json/list").then((r) => r.json(), () => []);
+const pages = await fetch("http://127.0.0.1:" + (process.env.CDP_PORT || "9222") + "/json/list").then((r) => r.json(), () => []);
 for (const p of pages.filter((p) => p.type === "page" && p.webSocketDebuggerUrl)) {
   const found = await ask(p.webSocketDebuggerUrl);
   if (found) { console.log(JSON.stringify(found)); process.exit(0); }
@@ -425,12 +428,171 @@ export class DockerVm implements Driver {
     this.name = `wisp-${safe}`;
     this.volume = `wisp-${safe}-home`;
     this.filesDir = path.join(nodeDir, "computers", safe, "files");
-    const inVm = (argv: string[], opts: { input?: string; timeoutMs?: number } = {}) => this.ready().then(() => exec(this.engine.bin, ["exec", "-i", "-u", this.user, "-e", `DISPLAY=${DISPLAY}`, this.name, ...argv], opts));
-    this.desktop = new X11Driver(this.label, inVm, (command, timeoutSec) => this.shell(command, timeoutSec));
-    const sh: ShRunner = (script, args, input) =>
-      this.ready().then(() => exec(this.engine.bin, ["exec", "-i", "-u", this.user, "-w", this.home, "-e", `DISPLAY=${DISPLAY}`, "-e", `HOME=${this.home}`, this.name, "sh", "-c", script, "sh", ...args], { input, timeoutMs: 5 * 60_000 }));
-    this.clipboard = x11Clipboard(sh);
-    this.files = shellFiles(sh);
+    this.desktop = new X11Driver(this.label, (argv, opts) => this.inVm(MAIN_DISPLAY, argv, opts), (command, timeoutSec) => this.shell(command, timeoutSec));
+    this.clipboard = x11Clipboard(this.sh(MAIN_DISPLAY));
+    this.files = shellFiles(this.sh(MAIN_DISPLAY));
+  }
+
+  /** Run argv in the VM as its user, on an X display. */
+  inVm(display: number, argv: string[], opts: { input?: string; timeoutMs?: number; env?: Record<string, string> } = {}) {
+    const env = Object.entries(opts.env ?? {}).flatMap(([k, v]) => ["-e", `${k}=${v}`]);
+    return this.ready().then(() => exec(this.engine.bin, ["exec", "-i", "-u", this.user, "-e", `DISPLAY=:${display}`, ...env, this.name, ...argv], { input: opts.input, timeoutMs: opts.timeoutMs }));
+  }
+
+  /** A shell script in the VM (as its user, in its home), on an X display. */
+  sh(display: number): ShRunner {
+    return (script, args, input) =>
+      this.ready().then(() => exec(this.engine.bin, ["exec", "-i", "-u", this.user, "-w", this.home, "-e", `DISPLAY=:${display}`, "-e", `HOME=${this.home}`, this.name, "sh", "-c", script, "sh", ...args], { input, timeoutMs: 5 * 60_000 }));
+  }
+
+  // --- each agent's own screen (shared computer) ---------------------------------------------------
+
+  /** Does this VM give each agent a screen of its own? Only the shared computer, on an image that has wisp-screen. */
+  private screensSupported: boolean | null = null;
+  /** the screens up, by agent (screen.sh's name for it), with when each was last used */
+  private screensUp = new Map<string, { agentId: string; info: AgentScreenInfo; last: number }>();
+  private screensStarting = new Map<string, Promise<AgentScreenInfo>>();
+  private agentDrivers = new Map<string, AgentScreen>();
+  /** how many live views are open on each agent's screen (it isn't stopped while someone watches) */
+  private screenViewers = new Map<string, number>();
+  /** told when which agents have a screen up changes */
+  onScreens: (supported: boolean, agents: string[]) => void = () => {};
+
+  /** The shared computer (as opposed to a VM of one agent's own, which keeps one screen). */
+  get shared(): boolean {
+    return !!(this.spec.config as VmConfig).shared;
+  }
+
+  /**
+   * Whether agents get screens of their own here: the shared computer on an image that has
+   * wisp-screen. An older image (a container made before it) keeps the one screen agents take turns on.
+   */
+  async agentScreens(): Promise<boolean> {
+    if (!this.shared) return false;
+    if (this.screensSupported !== null) return this.screensSupported;
+    await this.ready();
+    const r = await exec(this.bin, ["exec", this.name, "test", "-x", "/usr/local/bin/wisp-screen"], { timeoutMs: 15_000 });
+    this.screensSupported = r.code === 0;
+    if (this.screensSupported) await this.refreshScreens();
+    // the hub hears either way: agents stop (or keep) taking turns
+    this.screensChanged();
+    return this.screensSupported;
+  }
+
+  /** The agent's view of this computer: its own screen where there are such, else the computer itself. */
+  async forAgent(agentId: string | undefined): Promise<Driver> {
+    if (!agentId || !(await this.agentScreens())) return this;
+    let d = this.agentDrivers.get(agentId);
+    if (!d) {
+      d = new AgentScreen(
+        {
+          label: this.label,
+          screen: (id) => this.screen(id),
+          inVm: (display, argv, opts) => this.inVm(display, argv, opts),
+          sh: (display) => this.sh(display),
+          shell: (command, timeoutSec, display) => this.shell(command, timeoutSec, display),
+          inspectAt: (x, y, port) => this.inspectAt(x, y, port),
+          fillLogin: (login, port) => this.fillLogin(login, port),
+          vncPort: (port) => this.vncPort(port),
+          files: this.files,
+          vm: this,
+        },
+        agentId,
+      );
+      this.agentDrivers.set(agentId, d);
+    }
+    return d;
+  }
+
+  /** Start the agent's screen if it isn't up, and mark it used now. */
+  async screen(agentId: string): Promise<AgentScreenInfo> {
+    const slug = screenSlug(agentId);
+    const up = this.screensUp.get(slug);
+    if (up) {
+      up.last = Date.now();
+      return up.info;
+    }
+    let p = this.screensStarting.get(slug);
+    if (!p) {
+      p = (async () => {
+        await this.ready();
+        const r = await exec(this.bin, ["exec", "-u", this.user, "-e", `HOME=${this.home}`, this.name, "wisp-screen", "up", slug], { timeoutMs: 60_000 });
+        if (r.code !== 0) throw new ActionError(`couldn't start @${agentId}'s screen: ${r.stderr.toString().trim().split("\n").pop() || `wisp-screen failed (${r.code})`}`);
+        const info = parseScreenInfo(r.stdout.toString());
+        this.screensUp.set(slug, { agentId, info, last: Date.now() });
+        this.screensChanged();
+        return info;
+      })().finally(() => this.screensStarting.delete(slug));
+      this.screensStarting.set(slug, p);
+    }
+    return p;
+  }
+
+  /** A live view of an agent's screen opened (+1) or closed (-1): it stays up while watched. */
+  watching(agentId: string, delta: number) {
+    const slug = screenSlug(agentId);
+    const n = (this.screenViewers.get(slug) ?? 0) + delta;
+    if (n > 0) this.screenViewers.set(slug, n);
+    else this.screenViewers.delete(slug);
+    const up = this.screensUp.get(slug);
+    if (up) up.last = Date.now();
+  }
+
+  /** Ask the VM which screens are up (an agent's browser tools start theirs inside it, without the device seeing). */
+  async refreshScreens(): Promise<void> {
+    if (!this.screensSupported || !(await this.isRunning())) return;
+    const r = await exec(this.bin, ["exec", "-u", this.user, this.name, "wisp-screen", "list"], { timeoutMs: 15_000 }).catch(() => null);
+    if (r?.code !== 0) return;
+    const listed = parseScreenList(r.stdout.toString());
+    let changed = false;
+    for (const slug of [...this.screensUp.keys()])
+      if (!listed.has(slug)) {
+        this.screensUp.delete(slug);
+        changed = true;
+      }
+    for (const [slug, display] of listed)
+      if (!this.screensUp.has(slug)) {
+        // started inside the VM (its browser tools): the agent id is the screen's name
+        this.screensUp.set(slug, { agentId: slug, info: { display, vncPort: display + 5900, cdpPort: display + 9300 }, last: Date.now() });
+        changed = true;
+      }
+    if (changed) this.screensChanged();
+  }
+
+  /** Stop the screens nobody has used for `idleMs` and nobody is watching. Returns the agents whose screen stopped. */
+  async sweepScreens(idleMs = AGENT_SCREEN_IDLE_MS, at = Date.now()): Promise<string[]> {
+    await this.refreshScreens();
+    const stopped: string[] = [];
+    for (const [slug, s] of this.screensUp) {
+      if (at - s.last < idleMs || this.screenViewers.get(slug)) continue;
+      const r = await exec(this.bin, ["exec", "-u", this.user, this.name, "wisp-screen", "down", slug], { timeoutMs: 30_000 }).catch(() => null);
+      // its browser tools are still connected: a run is using it
+      if (r?.code !== 0 || r.stdout.toString().includes("busy")) {
+        s.last = at;
+        continue;
+      }
+      this.screensUp.delete(slug);
+      stopped.push(s.agentId);
+    }
+    if (stopped.length) this.screensChanged();
+    return stopped;
+  }
+
+  /** The agents with a screen up now. */
+  screenAgents(): string[] {
+    return [...this.screensUp.values()].map((s) => s.agentId);
+  }
+
+  private screensChanged() {
+    this.onScreens(!!this.screensSupported, this.screenAgents());
+  }
+
+  /** The VM went away (stopped, removed): so did every agent's screen; the next start looks at the image again. */
+  private forgetScreens() {
+    const known = this.screensSupported !== null;
+    this.screensUp.clear();
+    this.screensSupported = null;
+    if (known) this.onScreens(false, []);
   }
 
   readonly clipboard: Clipboard;
@@ -485,6 +647,7 @@ export class DockerVm implements Driver {
   private async boot() {
     const state = await this.running();
     if (state === true) return;
+    this.forgetScreens();
     try {
       await this.bringUp(state);
       this.report("ready", "");
@@ -523,7 +686,7 @@ export class DockerVm implements Driver {
     // wait for the desktop to come up
     for (let i = 0; i < 90; i++) {
       if (this.removed.signal.aborted) throw new ActionError(IMAGE_CANCELLED);
-      const r = await exec(this.bin, ["exec", "-u", this.user, "-e", `DISPLAY=${DISPLAY}`, this.name, "xdotool", "getdisplaygeometry"], { timeoutMs: 10_000 });
+      const r = await exec(this.bin, ["exec", "-u", this.user, "-e", `DISPLAY=:${MAIN_DISPLAY}`, this.name, "xdotool", "getdisplaygeometry"], { timeoutMs: 10_000 });
       if (r.code === 0) {
         await exec(this.bin, ["exec", "-i", "-u", "root", this.name, "sh", "-s", "--", vmHostname(this.spec)], { input: NAME_INSIDE_SCRIPT, timeoutMs: 15_000 }).catch(() => {});
         return;
@@ -533,9 +696,9 @@ export class DockerVm implements Driver {
     throw new ActionError("the VM started but its desktop didn't come up within a minute and a half");
   }
 
-  private async shell(command: string, timeoutSec: number): Promise<RunOutput> {
+  private async shell(command: string, timeoutSec: number, display = MAIN_DISPLAY): Promise<RunOutput> {
     await this.ready();
-    const r = await exec(this.bin, ["exec", "-i", "-u", this.user, "-w", this.home, "-e", `DISPLAY=${DISPLAY}`, this.name, "bash", "-lc", command], { timeoutMs: timeoutSec * 1000 });
+    const r = await exec(this.bin, ["exec", "-i", "-u", this.user, "-w", this.home, "-e", `DISPLAY=:${display}`, this.name, "bash", "-lc", command], { timeoutMs: timeoutSec * 1000 });
     const output = (r.stdout.toString() + (r.stderr ? `\n${r.stderr}` : "")).trim();
     return { exitCode: r.code, output: output.length > 50_000 ? output.slice(0, 25_000) + "\n…\n" + output.slice(-25_000) : output };
   }
@@ -567,6 +730,7 @@ export class DockerVm implements Driver {
       // made before VMs stopped when idle: don't let the engine bring it back on its own
       if (this.engine.kind !== "apple") await exec(this.bin, ["update", "--restart", "no", this.name], { timeoutMs: 15_000 }).catch(() => {});
       await must(this.bin, this.engine.kind === "apple" ? ["stop", "--time", "10", this.name] : ["stop", "-t", "10", this.name], { timeoutMs: 60_000 });
+      this.forgetScreens();
       this.report("stopped", "");
     })().finally(() => (this.stopping = null));
     return this.stopping;
@@ -576,6 +740,7 @@ export class DockerVm implements Driver {
     // a start still setting up gives up first, so it can't make the container after it's removed
     this.removed.abort();
     await this.starting?.catch(() => {});
+    this.forgetScreens();
     await this.resolveIdentity();
     if (this.engine.kind === "apple") {
       await exec(this.bin, ["delete", "--force", this.name], { timeoutMs: 60_000 });
@@ -606,8 +771,10 @@ export class DockerVm implements Driver {
    * How a harness starts inside this VM, as the wisp user, in its own process group so a
    * cancelled run can be stopped there (stopping `exec` alone leaves the process running).
    */
-  launcher(runId: string) {
+  launcher(runId: string, agentId?: string) {
     const safe = runId.replace(/[^\w-]/g, "");
+    // on the shared computer the agent's browser tools (and Chrome it opens) use its own screen and profile
+    const agentEnv: Record<string, string> = agentId && this.shared ? { WISP_AGENT: screenSlug(agentId) } : {};
     const pidFile = `/tmp/wisp-run-${safe}.pid`;
     return async (l: { command: string; args: string[]; cwd: string; env: Record<string, string>; files?: { path: string; content: string }[] }) => {
       // files the harness needs (its MCP config) go into the VM, and the arguments point at them there
@@ -617,7 +784,7 @@ export class DockerVm implements Driver {
         await this.writeFile(inVm, f.content, "600");
         args = args.map((a) => a.split(f.path).join(inVm));
       }
-      return this.exec(l, args, pidFile);
+      return this.exec({ ...l, env: { ...agentEnv, ...l.env } }, args, pidFile);
     };
   }
 
@@ -632,7 +799,7 @@ export class DockerVm implements Driver {
         "-w",
         this.vmPath(l.cwd),
         "-e",
-        `DISPLAY=${DISPLAY}`,
+        `DISPLAY=:${MAIN_DISPLAY}`,
         "-e",
         `HOME=${this.home}`,
         ...Object.entries(l.env).flatMap(([k, v]) => ["-e", `${k}=${v}`]),
@@ -718,9 +885,9 @@ export class DockerVm implements Driver {
   }
 
   /** The web page element under a screen point, in the Chrome people see. */
-  async inspectAt(x: number, y: number): Promise<PageElement | null> {
+  async inspectAt(x: number, y: number, cdpPort?: number): Promise<PageElement | null> {
     await this.ready();
-    const r = await exec(this.bin, ["exec", "-u", this.user, this.name, "node", "--input-type=module", "-e", INSPECT_SCRIPT, String(Math.round(x)), String(Math.round(y))], { timeoutMs: 15_000 });
+    const r = await exec(this.bin, ["exec", "-u", this.user, ...(cdpPort ? ["-e", `CDP_PORT=${cdpPort}`] : []), this.name, "node", "--input-type=module", "-e", INSPECT_SCRIPT, String(Math.round(x)), String(Math.round(y))], { timeoutMs: 15_000 });
     if (r.code !== 0) return null;
     try {
       return JSON.parse(r.stdout.toString().trim().split("\n").pop() ?? "null");
@@ -730,9 +897,9 @@ export class DockerVm implements Driver {
   }
 
   /** Put a login into the page open in the VM's Chrome; the login goes in on stdin, never as an argument. */
-  async fillLogin(login: { site: string; username: string; password: string; otp?: string }): Promise<LoginFillResult> {
+  async fillLogin(login: { site: string; username: string; password: string; otp?: string }, cdpPort?: number): Promise<LoginFillResult> {
     await this.ready();
-    const r = await exec(this.bin, ["exec", "-i", "-u", this.user, this.name, "node", "--input-type=module", "-e", FILL_LOGIN_SCRIPT], { input: JSON.stringify(login), timeoutMs: 30_000 });
+    const r = await exec(this.bin, ["exec", "-i", "-u", this.user, ...(cdpPort ? ["-e", `CDP=http://127.0.0.1:${cdpPort}`] : []), this.name, "node", "--input-type=module", "-e", FILL_LOGIN_SCRIPT], { input: JSON.stringify(login), timeoutMs: 30_000 });
     if (r.code !== 0) throw new ActionError(`couldn't reach the browser on ${this.label}`);
     try {
       return JSON.parse(r.stdout.toString().trim().split("\n").pop() ?? "");
@@ -748,7 +915,7 @@ export class DockerVm implements Driver {
     await this.ready();
     await must(
       this.bin,
-      ["exec", "-d", "-u", this.user, "-e", `DISPLAY=${DISPLAY}`, "-e", `HOME=${this.home}`, "-w", `${this.home}/files`, this.name, "xfce4-terminal", "--maximize", "--title", "Sign in", "--command", `bash -lc '${cmd}; exec bash'`],
+      ["exec", "-d", "-u", this.user, "-e", `DISPLAY=:${MAIN_DISPLAY}`, "-e", `HOME=${this.home}`, "-w", `${this.home}/files`, this.name, "xfce4-terminal", "--maximize", "--title", "Sign in", "--command", `bash -lc '${cmd}; exec bash'`],
       { timeoutMs: 30_000 },
     );
   }
@@ -779,8 +946,13 @@ export class DockerVm implements Driver {
 
   /** The VM's VNC server, through socat inside it. */
   async vnc(): Promise<Duplex> {
+    return this.vncPort(MAIN_VNC);
+  }
+
+  /** A VNC server in the VM (the main screen's, or an agent's own), through socat inside it. */
+  async vncPort(port: number): Promise<Duplex> {
     await this.ready();
-    const child = spawn(this.bin, ["exec", "-i", this.name, "socat", "STDIO", "TCP:127.0.0.1:5900"], { stdio: ["pipe", "pipe", "ignore"] });
+    const child = spawn(this.bin, ["exec", "-i", this.name, "socat", "STDIO", `TCP:127.0.0.1:${port}`], { stdio: ["pipe", "pipe", "ignore"] });
     const stream = Duplex.from({ readable: child.stdout, writable: child.stdin });
     stream.on("close", () => child.kill());
     child.on("close", () => stream.destroy());

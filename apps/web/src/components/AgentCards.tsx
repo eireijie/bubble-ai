@@ -7,18 +7,22 @@ import { usePrefs, useStore } from "../store.ts";
 import { undoChange, useChanges } from "../changes.ts";
 import { href } from "../router.ts";
 import { ComputerMini } from "../views/ComputerMini.tsx";
+import { watchHref } from "../views/computerState.ts";
 import { StorageLogo } from "../views/settings/StorageLogo.tsx";
 import { AppleApprovalCard } from "./AppleParts.tsx";
 import { cx, clockTime } from "./ui.tsx";
 
-/** An agent's request on its computer ("Sign in to Zendesk…"): a card that takes you there; with no request, the screen live. */
-export function ComputerPart({ computerId, request, agentName }: { computerId: string; request?: string; agentName?: string }) {
+/**
+ * An agent's request on its computer ("Sign in to Zendesk…"): a card that takes you there; with no
+ * request, the screen live. `agentId`: the agent's own screen, on the shared computer.
+ */
+export function ComputerPart({ computerId, request, agentName, agentId }: { computerId: string; request?: string; agentName?: string; agentId?: string }) {
   const computer = useStore((s) => s.computers.find((c) => c.id === computerId));
   if (!computer) return request ? <p className="mt-1 text-sm text-muted">(asked for help on a computer that's gone)</p> : null;
   if (!request)
     return (
       <div className="mt-1.5">
-        <ComputerMini computer={computer} quiet />
+        <ComputerMini computer={computer} quiet agentId={agentId} />
       </div>
     );
   const waiting = !!computer.help;
@@ -28,7 +32,7 @@ export function ComputerPart({ computerId, request, agentName }: { computerId: s
         {agentName ?? "It"} asked for help on {computer.name}
       </div>
       <p className="mt-1 text-sm text-muted">{request}</p>
-      <a href={href({ view: "computers", computerId: computer.id })} className="mt-2.5 h-10 w-full rounded-[8px] bg-accent px-5 text-body font-medium text-accent-ink inline-flex items-center justify-center gap-2">
+      <a href={agentId && computer.screens ? watchHref(computer.id, agentId) : href({ view: "computers", computerId: computer.id })} className="mt-2.5 h-10 w-full rounded-[8px] bg-accent px-5 text-body font-medium text-accent-ink inline-flex items-center justify-center gap-2">
         <Monitor size={16} /> Open {computer.name}
       </a>
     </ChatCard>
