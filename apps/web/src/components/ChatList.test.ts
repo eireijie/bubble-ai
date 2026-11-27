@@ -52,7 +52,13 @@ describe("chatPreview", () => {
     const approvals = { a1: { status: "pending" as const, channelId: "dm-juno", summary: "Move the dentist to Thursday at 3?" } };
     expect(chatPreviewLine(chat({ channel: dm({ last: last("Earlier") }) }), {}, { ...ctx, approvals })).toEqual({ text: "Needs approval · Move the dentist to Thursday at 3?", working: false, needs: true });
     const asked = chatPreviewLine(chat({ channel: dm({ last: last("Earlier"), loop: { status: "waiting", summary: "Pick a photo app" } }) }), {}, ctx);
-    expect(asked).toMatchObject({ text: "Waiting on you · Pick a photo app", needs: true });
+    // the words stay its last message (round 6); waiting on you lights the dot
+    expect(asked).toMatchObject({ text: "Earlier", needs: true });
+  });
+
+  it("falls back to what the agent does when it never spoke", () => {
+    const quiet = chat({ agent: { ...juno, settings: { role: "Keeps the calendar" } } as unknown as Agent });
+    expect(chatPreviewLine(quiet, {}, ctx).text).toBe("Keeps the calendar");
   });
 });
 

@@ -374,7 +374,7 @@ export function StepCanvas({
       </div>
 
       {ctx && (
-        <div data-ui role="menu" aria-label="Step actions" className="absolute z-20 w-[180px] rounded-2xl border border-line bg-card p-1.5 shadow-panel" style={{ left: Math.max(8, Math.min(size.w - 188, ctx.pos.x)), top: Math.max(8, Math.min(size.h - 56, ctx.pos.y)) }}>
+        <div data-ui role="menu" aria-label="Step actions" className="pop-glass absolute z-20 w-[180px] p-[5px]" style={{ left: Math.max(8, Math.min(size.w - 188, ctx.pos.x)), top: Math.max(8, Math.min(size.h - 56, ctx.pos.y)) }}>
           <button
             type="button"
             role="menuitem"
@@ -392,7 +392,7 @@ export function StepCanvas({
       )}
 
       {menu && (
-        <div data-ui data-scroll role="menu" aria-label={menu.title} className="absolute z-20 w-[230px] overflow-y-auto rounded-[12px] border border-line bg-card p-1.5 shadow-panel" style={{ left: Math.max(8, Math.min(size.w - 238, menu.pos.x + 12)), top: Math.max(8, Math.min(size.h - (menuKinds.length * 36 + 12) - 8, menu.pos.y - 24)), maxHeight: size.h - 16 }}>
+        <div data-ui data-scroll role="menu" aria-label={menu.title} className="pop-glass absolute z-20 w-[230px] overflow-y-auto p-[5px]" style={{ left: Math.max(8, Math.min(size.w - 238, menu.pos.x + 12)), top: Math.max(8, Math.min(size.h - (menuKinds.length * 36 + 12) - 8, menu.pos.y - 24)), maxHeight: size.h - 16 }}>
           {ADD_KINDS.filter((k) => menuKinds.includes(k.kind)).map((k) => (
             <button
               key={k.kind}

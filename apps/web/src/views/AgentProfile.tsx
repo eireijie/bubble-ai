@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Clock, FileText, Hand, Image as ImageIcon, L
 import { harnessLabel, type AccessLevel, type Agent, type Connector, type Routine, type Skill } from "@bubble-ai/core";
 import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api, fileUrl } from "../api.ts";
-import { setAgentBackground, shownColor, useAgentBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
+import { colorGradient, setAgentBackground, shownColor, useAgentBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { href, go, type AgentTab } from "../router.ts";
 import { liveShape } from "../liveShape.ts";
@@ -737,7 +737,7 @@ export function BackgroundTab({ agent }: { agent: Agent }) {
     {
       id: "color" as const,
       name: "Colour",
-      style: { background: bg?.kind === "color" ? shownColor(bg.color, dark) : "conic-gradient(#74d0f7, #a98bf5, #de7699, #f4a582, #f8d97a, #bfe09a, #74d0f7)" },
+      style: { background: bg?.kind === "color" ? colorGradient(shownColor(bg.color, dark), dark) : "conic-gradient(#74d0f7, #a98bf5, #de7699, #f4a582, #f8d97a, #bfe09a, #74d0f7)" },
       face: "",
       pick: sheet.openColour,
     },

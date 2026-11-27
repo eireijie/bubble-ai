@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import type { Agent } from "@bubble-ai/core";
-import { backgroundCss, uploadBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
+import { backgroundCss, colorGradient, uploadBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
 import { useAppearance } from "../theme.ts";
 import { AgentAvatar, Modal, cx } from "./ui.tsx";
 
@@ -134,7 +134,7 @@ function PreviewSheet({ agent, name, draft, dark, busy, error, onDraft, onAnothe
                       aria-label={SWATCH_NAMES[i]}
                       onClick={() => onDraft({ kind: "color", pick: hex, shade: shadeStart(dark) })}
                       className={cx("aspect-square w-full max-w-[30px] rounded-full border-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50", on ? "border-ink" : dark ? "border-white/20" : "border-black/12")}
-                      style={{ background: hex }}
+                      style={{ background: colorGradient(hex) }}
                     />
                   );
                 })}

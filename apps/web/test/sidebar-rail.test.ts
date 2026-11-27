@@ -96,7 +96,7 @@ describe("docked sidebar", () => {
     expect(rail).not.toContain(">My pick is Immich.<");
   });
 
-  it("puts one blue dot left of the avatar of a chat that waits on you, and none on the rest", () => {
+  it("puts one blue dot on the avatar's corner of a chat that waits on you, and none on the rest", () => {
     initial.channels = [{ id: "c1", kind: "dm", name: "dm:person:a1", unread: 0, notify: "default", starred: false, sectionId: null } as unknown as (typeof initial.channels)[number]];
     const quiet = render({ width: 360, collapsed: false });
     expect(quiet).toContain('aria-label="Iris"');
@@ -105,7 +105,7 @@ describe("docked sidebar", () => {
     const html = render({ width: 360, collapsed: false });
     expect(html).toContain('aria-label="Iris, needs you"');
     const row = html.slice(html.indexOf('aria-label="Iris, needs you"'));
-    // the dot comes before the avatar, in the row itself
+    // the dot sits on the avatar's top-left corner, in the row itself
     expect(row.indexOf("background:#0a84ff")).toBeGreaterThan(-1);
     expect(row.indexOf("background:#0a84ff")).toBeLessThan(row.indexOf('class="bub'));
     // the rail marks it too

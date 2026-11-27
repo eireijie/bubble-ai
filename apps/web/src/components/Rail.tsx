@@ -124,6 +124,8 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
 /** A round sidebar button, 40px with a soft fill: search, the plus, Computers on the rail. */
 const ROUND = "relative grid size-[36px] shrink-0 place-items-center rounded-[10px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
 const SOFT = "bg-side-active";
+/** one icon in the wide sidebar's top row: 34px, a 10px corner */
+const ICON_BTN = "relative grid size-[34px] shrink-0 place-items-center rounded-[10px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/40";
 /** A row of the wide sidebar (60px, a big wisp, a rounded tile when it's the open one), and its square on the rail. Hover eases in; a press gives a little. */
 const ITEM = "relative flex h-[60px] w-full items-center gap-3 rounded-[12px] px-2 text-left text-[16px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
 const TILE = "relative grid size-[58px] place-items-center rounded-[12px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
@@ -171,7 +173,7 @@ function Float({ at, role, label, className, onClose, children }: { at: CSSPrope
     };
   }, []);
   return createPortal(
-    <div ref={ref} role={role} aria-label={label} style={{ position: "fixed", ...at }} className={cx("glass z-[100] rounded-xl", className)}>
+    <div ref={ref} role={role} aria-label={label} style={{ position: "fixed", ...at }} className={cx("pop-glass z-[100]", className)}>
       {children}
     </div>,
     document.body,
@@ -259,9 +261,9 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
   return (
     <div onContextMenu={(e) => (e.preventDefault(), onNewSection())}>
       {url ? (
-        <a href={url} aria-label={label} title={wide ? undefined : label} aria-current={active ? "page" : undefined} className={cls}>{inner}</a>
+        <a href={url} aria-label={label} title={wide ? undefined : label} aria-current={active ? "page" : undefined} data-bub-host="" className={cls}>{inner}</a>
       ) : (
-        <button type="button" onClick={() => chat.agent && void openDm(chat.agent.id)} aria-label={label} title={wide ? undefined : label} className={cls}>{inner}</button>
+        <button type="button" onClick={() => chat.agent && void openDm(chat.agent.id)} aria-label={label} title={wide ? undefined : label} data-bub-host="" className={cls}>{inner}</button>
       )}
       {menu && chat.channel && <ChatMenu chat={chat} channel={chat.channel} at={menu} onClose={() => setMenu(null)} sections={sections} onNewSection={onNewSection} />}
     </div>
@@ -361,7 +363,7 @@ function StripButton({ p, align }: { p: StripPlace; align: "left" | "center" | "
       aria-label={aria}
       aria-keyshortcuts={`Meta+${p.shortcut}`}
       aria-current={p.on ? "page" : undefined}
-      className={cx("group/tip relative grid h-8 w-9 shrink-0 place-items-center rounded-[8px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", p.on ? "bg-side-active text-ink" : "text-muted hover:bg-side-active hover:text-ink")}
+      className={cx("group/tip relative grid size-[34px] shrink-0 place-items-center rounded-[10px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", p.on ? "bg-side-active text-ink" : "text-muted hover:bg-side-active hover:text-ink")}
     >
       {p.icon}
       {p.dot && <span aria-hidden className={cx("absolute right-[6px] top-[4px] box-content size-1.5 rounded-full border-2 border-sidebar", p.dot === "on" ? "bg-[#30d158]" : "bg-wisp")} />}
@@ -601,8 +603,8 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
       align={up ? "left" : "right"}
       items={addItems}
       trigger={(open, t) => (
-        <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New chat, agent or team" title="New" className="lg-glass lg-round lg-press">
-          <Plus size={22} strokeWidth={2} />
+        <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New chat, agent or team" title="New" className={cx(ICON_BTN, open ? "bg-side-active text-ink" : "text-ink hover:bg-side-active")}>
+          <Plus size={19} strokeWidth={1.9} />
         </button>
       )}
     />
@@ -669,34 +671,28 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
   return (
     <div className="relative z-30 flex shrink-0">
       <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side side-glass flex h-full flex-col overflow-hidden pt-[max(20px,env(safe-area-inset-top))] pb-4" style={{ width, transition }}>
-        {/* search up here; New is at the end of the places row (on the rail, under search) */}
-        <div className={cx("side-top flex shrink-0 items-center gap-1.5", wide ? "mb-2.5 h-[34px] px-3" : "mb-4 flex-col gap-2.5")}>
-          {wide ? (
-            <button type="button" aria-label="Search" onClick={() => useStore.getState().setPalette(true)} className={cx("flex h-[34px] min-w-0 flex-1 items-center gap-2 rounded-[8px] px-2.5 text-[14px] text-muted outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", SOFT)}>
-              <Search size={15} strokeWidth={1.9} aria-hidden />
-              <span className="flex-1 truncate text-left">Search</span>
-              <kbd className="font-sans text-[11px] text-faint">⌘K</kbd>
-            </button>
-          ) : (
+        {/* the rail: search and New stacked at the top */}
+        {!wide && (
+          <div className="side-top mb-4 flex shrink-0 flex-col items-center gap-2.5">
             <button type="button" onClick={() => useStore.getState().setPalette(true)} aria-label="Search" title="Search" className={cx(ROUND, SOFT)}>
               <Search size={19} strokeWidth={1.8} />
             </button>
-          )}
-          {!wide && plus(false)}
-        </div>
+            {plus(false)}
+          </div>
+        )}
 
-        {/* the places that aren't chats: one strip of line icons */}
+        {/* the wide sidebar's one row of line icons: the places, Search, and New at the right end (board "Chat and sidebar") */}
         {wide && (
-          <div className="mb-2.5 flex shrink-0 flex-col gap-2.5 px-3">
-            {/* the places sit a little left, the one + a little right (board "Chat and sidebar") */}
-            <div className="flex items-center gap-1">
-              <nav aria-label="Places" className="-ml-1 flex min-w-0 flex-1 gap-0.5">
-                {strip.map((p, i) => (
-                  <StripButton key={p.key} p={p} align={i < 2 ? "left" : i === 2 && strip.length > 3 ? "center" : "right"} />
-                ))}
-              </nav>
-              <span className="-mr-1 shrink-0">{plus(false)}</span>
-            </div>
+          <div className="side-top mb-2.5 flex shrink-0 items-center gap-1 px-3">
+            <nav aria-label="Places" className="-ml-1 flex min-w-0 flex-1 gap-0.5">
+              {strip.map((p, i) => (
+                <StripButton key={p.key} p={p} align={i < 2 ? "left" : i === 2 && strip.length > 3 ? "center" : "right"} />
+              ))}
+              <button type="button" onClick={() => useStore.getState().setPalette(true)} aria-label="Search" aria-keyshortcuts="Meta+K" title="Search  ⌘K" className={cx(ICON_BTN, "text-muted hover:bg-side-active hover:text-ink")}>
+                <Search size={18} strokeWidth={1.8} />
+              </button>
+            </nav>
+            <span className="-mr-1 shrink-0">{plus(false)}</span>
           </div>
         )}
 

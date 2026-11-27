@@ -137,7 +137,7 @@ export function useSlashMenu({ query, channel, dmAgent, agents }: { query: { han
     move: (by: number) => setPick((p) => p + by),
     textFor,
     render: (onPick: (item: SlashItem) => void) => (
-      <div className="glass m-menu absolute bottom-full mb-2 left-0 right-0 max-w-xl rounded-xl z-10 flex flex-col overflow-hidden" style={{ maxHeight: "min(26rem, 55vh)" }}>
+      <div className="m-menu absolute bottom-full mb-2 left-0 right-0 max-w-xl rounded-xl z-10 flex flex-col overflow-hidden" style={{ maxHeight: "min(26rem, 55vh)" }}>
         {here.length > 1 && (
           <div className="shrink-0 flex items-center gap-1.5 overflow-x-auto px-2 pt-2 pb-1" role="group" aria-label="Whose commands">
             <Chip label="All agents" active={!only} onClick={() => setOnly(null)} />
