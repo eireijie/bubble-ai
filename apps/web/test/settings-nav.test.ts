@@ -38,45 +38,36 @@ describe("old settings routes", () => {
 });
 
 describe("agent page", () => {
-  it("has the agent panel's six groups, in its order", async () => {
-    const { AGENT_GROUPS, GROUP_TITLES } = await import("../src/views/AgentSettings.tsx");
-    expect(AGENT_GROUPS.map((g) => GROUP_TITLES[g])).toEqual(["Thinks with", "Works on", "Can use", "Asks first", "Knows", "More"]);
+  it("has the profile's five tabs, in the canvas's order", async () => {
+    const { PROFILE_TABS, PROFILE_TAB_TITLES } = await import("../src/views/AgentProfile.tsx");
+    expect(PROFILE_TABS.map((t) => PROFILE_TAB_TITLES[t])).toEqual(["Activity", "Library", "Computer", "Voice", "Settings"]);
   });
 
-  it("lands every old tab's address in its group, and the overview on the page's top", async () => {
-    const { agentPlace } = await import("../src/views/AgentSettings.tsx");
+  it("lands every address on its tab: old tabs and the six groups' rows open their part under Settings", async () => {
+    const { profilePlace } = await import("../src/views/AgentProfile.tsx");
     const { AGENT_TABS } = await import("../src/router.ts");
-    const groups = Object.fromEntries(AGENT_TABS.map((t) => [t, agentPlace(t).group]));
-    expect(groups).toEqual({
-      overview: null,
-      model: "thinks",
-      device: "works",
-      computer: "works",
-      skills: "can",
-      apps: "can",
-      permissions: "asks",
-      memory: "knows",
-      soul: "knows",
-      instructions: "knows",
-      look: "more",
-      access: "more",
-      background: "more",
-      routines: "more",
-      connect: "more",
-      runs: "more",
-      watches: "more",
-      remove: "more",
-    });
-    expect(agentPlace(null)).toEqual({ group: null, part: null });
+    const tabs = Object.fromEntries(AGENT_TABS.map((t) => [t, profilePlace(t).tab]));
+    expect(tabs).toMatchObject({ overview: "activity", runs: "activity", library: "library", screen: "computer", voice: "voice", settings: "settings", model: "settings", computer: "settings", permissions: "settings", memory: "settings", look: "settings", remove: "settings" });
+    expect(profilePlace(null)).toEqual({ tab: "activity", part: null });
   });
 
-  it("opens a part for the tabs that need room, and the group's own rows for the rest", async () => {
-    const { agentPlace } = await import("../src/views/AgentSettings.tsx");
+  it("opens a part for every Settings row; the tabs themselves and Remove (a confirm) are not parts", async () => {
+    const { profilePlace } = await import("../src/views/AgentProfile.tsx");
     const { AGENT_TABS } = await import("../src/router.ts");
-    expect(AGENT_TABS.filter((t) => agentPlace(t).part)).toEqual(["look", "soul", "instructions", "access", "background", "routines", "connect", "runs"]);
-    // Remove is a confirm over More, not a page of its own
-    expect(agentPlace("remove")).toEqual({ group: "more", part: null });
-    for (const t of AGENT_TABS) expect(agentPlace(t).part ?? t).toBe(t);
+    expect(AGENT_TABS.filter((t) => !profilePlace(t).part)).toEqual(["overview", "library", "screen", "voice", "settings", "runs", "remove"]);
+    for (const t of AGENT_TABS) expect(profilePlace(t).part ?? t).toBe(t);
+  });
+
+  it("opens the chat's old panel tabs on the matching place in the profile", async () => {
+    const { PANEL_PROFILE_TAB, panelSheet } = await import("../src/components/AgentPanel.tsx");
+    expect(PANEL_PROFILE_TAB).toEqual({ details: "overview", computer: "screen", thinks: "model", can: "apps", asks: "permissions", knows: "memory", more: "settings" });
+    expect(panelSheet("nonsense")).toBe("details");
+  });
+
+  it("says Model, Harness, Computer, Apps and skills, Permissions and Memory, not the old cute names", async () => {
+    const { TAB_TITLES } = await import("../src/views/AgentSections.tsx");
+    expect([TAB_TITLES.model, TAB_TITLES.harness, TAB_TITLES.effort, TAB_TITLES.computer, TAB_TITLES.apps, TAB_TITLES.permissions, TAB_TITLES.memory, TAB_TITLES.access]).toEqual(["Model", "Harness", "Effort", "Computer", "Apps and skills", "Permissions", "Memory", "Who can message"]);
+    expect(Object.values(TAB_TITLES).join(" ")).not.toMatch(/Thinks with|Works on|Can use|Asks first|Knows/);
   });
 
   it("names every tab, for a part's title", async () => {

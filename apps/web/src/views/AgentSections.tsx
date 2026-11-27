@@ -1,35 +1,37 @@
-import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronRight, Plug, Plus, Wand2 } from "lucide-react";
-import type { AccessRule, Agent, Connector, Routine, Skill } from "@bubble-ai/core";
+import type { AccessRule, Agent, Connector, Skill } from "@bubble-ai/core";
 import { api } from "../api.ts";
-import { useStore, useTeams } from "../store.ts";
-import { lazyView } from "../lazy.tsx";
+import { useStore } from "../store.ts";
 import { ConfirmDialog } from "../components/InboxParts.tsx";
-import { AgentWatches } from "./AgentWatches.tsx";
 import { go, href, type AgentTab } from "../router.ts";
-import { setChannelPrefs } from "../components/Channels.tsx";
 import { LEVEL_LABEL, pathLabel, subjectLabel } from "../components/AccessDialog.tsx";
 import { whoCanAsk, type DeviceInfo } from "../devices.ts";
-import { useFeatures } from "../features.ts";
 import { cx, timeAgo } from "../components/ui.tsx";
 
-/** What each part of the agent's page is called: a group's name for the tabs that are its rows, the part's own for the ones it opens. */
+/** What each part of the agent's profile is called: the title over a part a Settings row opens. */
 export const TAB_TITLES: Record<AgentTab, string> = {
-  overview: "Overview",
-  model: "Thinks with",
-  device: "Works on",
-  computer: "Works on",
-  access: "Who can ask it",
+  overview: "Activity",
+  library: "Library",
+  screen: "Computer",
+  voice: "Voice",
+  settings: "Settings",
+  model: "Model",
+  harness: "Harness",
+  effort: "Effort",
+  device: "Computer",
+  computer: "Computer",
+  access: "Who can message",
   routines: "Routines",
   background: "Background checks",
-  memory: "Knows",
-  skills: "Can use",
-  apps: "Can use",
-  permissions: "Asks first",
-  connect: "Connect",
+  memory: "Memory",
+  skills: "Apps and skills",
+  apps: "Apps and skills",
+  permissions: "Permissions",
+  connect: "Connections",
   runs: "Activity",
-  watches: "What it watches",
-  look: "Look and voice",
+  watches: "Watches",
+  look: "Look",
   soul: "Personality",
   instructions: "Instructions",
   remove: "Remove",
@@ -87,16 +89,6 @@ export function ShowAll({ children, open: start = false }: { children: ReactNode
 /** A small heading over rows inside a card ("Apps", "Move to"). */
 export function LineHead({ children }: { children: ReactNode }) {
   return <div className="px-3.5 pt-2.5 pb-1 text-[12px] font-medium text-faint">{children}</div>;
-}
-
-/** One of the six groups: its name, then its card. On desktops only the picked group shows, so its name is the page's heading. */
-export function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section aria-label={title} className="space-y-2">
-      <h2 className="px-1 text-[13px] font-semibold text-muted md:pb-1 md:text-[19px] md:leading-[26px] md:text-ink">{title}</h2>
-      {children}
-    </section>
-  );
 }
 
 export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) {
@@ -256,14 +248,11 @@ interface NoteRow {
   updatedAt?: number;
 }
 
-/** Its notes, its personality and its instructions, then the newest notes and who can read them. */
+/** Memory: its notes, the newest of them, and what it can read and who its folder is shared with. */
 export function Knows({ agent }: { agent: Agent }) {
-  const to = (tab: AgentTab) => href({ view: "agents", agentId: agent.id, tab });
   return (
     <div className={CARD}>
       <Line label="Notes" to={`#/vault/agents/${agent.id}`} />
-      <Line label="Personality" to={to("soul")} />
-      <Line label="Instructions" value={agent.settings.role} to={to("instructions")} />
       <RecentNotes agent={agent} />
       <NotesAccess agent={agent} />
     </div>
@@ -319,79 +308,6 @@ function NotesAccess({ agent }: { agent: Agent }) {
         value={memory === null ? "" : memory.sharedOut.length ? memory.sharedOut.map((r) => `${subjectLabel(r.subject, agents, members)} (${LEVEL_LABEL[r.level].toLowerCase()}${r.path !== `agents/${agent.id}` ? ` ${where(r)}` : ""})`).join(", ") : "No one else"}
       />
     </>
-  );
-}
-
-// --- More ---------------------------------------------------------------------------
-
-const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallOptions));
-
-/** A heading inside a group, over its own card. */
-function Sub({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section aria-label={title} className="space-y-2">
-      <h3 className="px-1 text-[13px] font-medium text-muted">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
-/**
- * The rest of the agent, everything in view: how it looks and what it's called, who it answers and
- * when it works by itself, what it watches, how calls sound, what it has done and connecting to it,
- * then Remove (a confirm with Cancel).
- */
-export function More({ agent, nodes }: { agent: Agent; nodes: DeviceInfo[] }) {
-  const channels = useStore((s) => s.channels);
-  const routinesVersion = useStore((s) => s.routinesVersion);
-  const teams = useTeams();
-  const features = useFeatures();
-  const [routines, setRoutines] = useState<Routine[] | null>(null);
-  useEffect(() => {
-    if (features.routines) api<Routine[]>("GET", `/api/routines?agent=${agent.id}`).then(setRoutines, () => setRoutines([]));
-  }, [agent.id, features.routines, routinesVersion]);
-  const to = (tab: AgentTab) => href({ view: "agents", agentId: agent.id, tab });
-  const on = routines?.filter((r) => r.enabled).length ?? 0;
-  const dm = channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agent.id}`));
-  const respond = whoCanAsk(agent, nodes.find((n) => n.id === agent.nodeId));
-  const onTeams = teams.filter((t) => t.members.some((m) => m.agentId === agent.id)).map((t) => t.name);
-  return (
-    <div className="space-y-5">
-      <Sub title="Profile">
-        <div className={CARD}>
-          <Line label="Look and voice" to={to("look")} />
-          <HandleLine agent={agent} />
-          {onTeams.length > 0 && <Line label="Teams" value={onTeams.join(", ")} />}
-        </div>
-      </Sub>
-      <Sub title="Who and when">
-        <div className={CARD}>
-          <Line label="Who can ask it" value={respond === "me" ? "Only me" : respond === "people" ? "Picked people" : "Anyone"} to={to("access")} />
-          <Line label="Notifications">
-            <Toggle label={`Notifications from ${agent.name}`} on={dm ? dm.notify !== "mute" : true} disabled={!dm} onChange={(v) => dm && void setChannelPrefs(dm, { notify: v ? "default" : "mute" })} />
-          </Line>
-          {features.routines && <Line label="Routines" value={routines ? (on ? `${on} on` : "None") : ""} to={to("routines")} />}
-          {features.background && <Line label="Background checks" to={to("background")} />}
-        </div>
-      </Sub>
-      <AgentWatches agent={agent} />
-      <Sub title="Calls">
-        <div className="rounded-[14px] bg-card p-3.5">
-          <Suspense fallback={null}>
-            <CallOptions />
-          </Suspense>
-        </div>
-      </Sub>
-      <Sub title="History and connections">
-        <div className={CARD}>
-          <Line label="Activity" to={to("runs")} />
-          <Line label="Connect" to={to("connect")} />
-        </div>
-      </Sub>
-      <a href={to("remove")} className="inline-flex h-9 items-center px-1 text-[13px] font-medium text-bad hover:underline">
-        Remove {agent.name}
-      </a>
-    </div>
   );
 }
 
