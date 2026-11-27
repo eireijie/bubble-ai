@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import type { Agent, SignInOption } from "@bubble-ai/core";
+import { useState } from "react";
+import type { Agent } from "@bubble-ai/core";
 import { completeSetupStep, featuresForExperience, setDismissed, setReadyItem, stepsFinished, welcomeReturn, type StepId } from "../onboarding.ts";
 import { usableDevices, useDevices } from "../devices.ts";
 import { useStore } from "../store.ts";
@@ -8,12 +8,11 @@ import { openDm } from "../openDm.ts";
 import { loadAnswers, saveAnswers } from "../onboardingV3.ts";
 import type { GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api } from "../api.ts";
-import { signInOptions } from "../appSignIn.ts";
 import { setFeatures } from "../features.ts";
 import { FAMILY_COLORS } from "../ghostFamily.ts";
 import { AgentStep, nextLook } from "./onboarding/AgentStep.tsx";
 import { AIStep } from "./onboarding/AIStep.tsx";
-import { ConnectStep, connectableFor, SETUP_GOALS, StartStep, YoursStep, yoursInstructions, type CheckIn, type SetupPath, type Talk } from "./onboarding/BubbleSetup.tsx";
+import { picksMessage, SETUP_GOALS, StartStep, YoursStep, yoursInstructions, type CheckIn, type SetupPath, type Talk } from "./onboarding/BubbleSetup.tsx";
 import { lookOf } from "./onboarding/firstAgent.ts";
 import { Stage } from "./onboarding/Stage.tsx";
 import { macStepWanted, ThisMacStep } from "./onboarding/ThisMacStep.tsx";
@@ -21,7 +20,7 @@ import { startSetupTour, type SetupTourState } from "../components/onboarding/Se
 export { askableOn, makeFirstAgent, NO_NODE } from "./onboarding/firstAgent.ts";
 
 /** The first run's screens after the account ("You", which AuthScreen shows before anyone is signed in). */
-export type WelcomeScreen = "mac" | "agent" | "start" | "ai" | "goals" | "recs";
+export type WelcomeScreen = "mac" | "agent" | "start" | "ai" | "goals";
 
 /**
  * The agent this first run is about: the one it made (remembered in this browser), else, coming
@@ -50,12 +49,13 @@ export function finishedSteps(hasAgent: boolean): StepId[] {
 }
 
 /** The pages in order, for the progress line and which way a page slides. */
-const ORDER: WelcomeScreen[] = ["mac", "agent", "start", "ai", "goals", "recs"];
+const ORDER: WelcomeScreen[] = ["mac", "agent", "start", "ai", "goals"];
 
 /**
  * The first run after the account, all on one stage (Stage.tsx) that never unmounts: Your agent →
- * How it starts → Which AI app, then for Advanced, Make it yours → Connect, then its chat. The
- * agent is made when "Your agent" is continued, so it exists whatever happens next.
+ * How it starts → Which AI app, then for Advanced, Make it yours, then its chat, where the picks are
+ * the person's first message and the agent answers with the apps it suggests connecting. The agent
+ * is made when "Your agent" is continued, so it exists whatever happens next.
  */
 export function WelcomeView({ intro }: { intro?: boolean }) {
   const me = useStore((s) => s.me)!;
@@ -89,10 +89,16 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
 
   const [path, setPathState] = useState<SetupPath>(() => loadAnswers(ws).path ?? "advanced");
   const setPath = (p: SetupPath) => (setPathState(p), saveAnswers(ws, { path: p }));
-  const [goals, setGoalsState] = useState<string[]>(() => (loadAnswers(ws).setupGoals ?? ["inbox", "cal"]).filter((g) => SETUP_GOALS.some((x) => x.id === g)));
+  const [goals, setGoalsState] = useState<string[]>(() => {
+    // picks saved by an older first run (Email, Calendar…) aren't these: start from the usual two
+    const kept = (loadAnswers(ws).setupGoals ?? []).filter((g) => SETUP_GOALS.some((x) => x.id === g));
+    return kept.length ? kept : ["days", "people"];
+  });
   const setGoals = (g: string[]) => (setGoalsState(g), saveAnswers(ws, { setupGoals: g }));
-  const [talk, setTalk] = useState<Talk>("balanced");
+  const [about, setAbout] = useState("");
+  const [talk, setTalk] = useState<Talk>("friendly");
   const [when, setWhen] = useState<CheckIn>("morning");
+  const person = me.user.preferredName || me.user.name;
   // the chat the AI step opened, kept while Advanced asks the rest
   const [chatId, setChatId] = useState<string | null>(null);
   const toChat = (tour: Omit<SetupTourState, "agentId">) => {
@@ -104,26 +110,21 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
     if (me.role === "owner") void setFeatures(featuresForExperience(path)).catch(() => {});
     goTo("ai");
   };
-  // which apps can sign in from here right now (fetched early, so Connect never waits on it)
-  const signIns = useRef<Promise<Record<string, SignInOption>> | null>(null);
-  const [connectable, setConnectable] = useState<string[]>([]);
-  useEffect(() => {
-    signIns.current = signInOptions().catch(() => ({}));
-  }, []);
+  /** Make it yours: the agent's instructions, then the picks go to it as the person's first message; it answers with the apps to connect. */
   const saveYours = async () => {
     setBusy(true);
-    if (agent) await api("PATCH", `/api/agents/${agent.id}`, { instructions: yoursInstructions(agent.name, me.user.name, goals, talk, when) }).catch(() => {});
-    const apps = connectableFor(goals, (await signIns.current) ?? {});
+    if (agent) {
+      await api("PATCH", `/api/agents/${agent.id}`, { instructions: yoursInstructions(agent.name, person, goals, talk, when, about) }).catch(() => {});
+      // sent once; coming back to this page later doesn't send them again
+      await api("POST", `/api/agents/${agent.id}/setup-picks`, { text: picksMessage(goals, about), goals }).catch(() => {});
+    }
     setBusy(false);
-    // nothing these goals use can sign in yet: straight to the chat, no empty Connect page
-    if (!apps.length) return toChat({ path: "advanced", on: [], off: [] });
-    setConnectable(apps);
-    goTo("recs");
+    toChat({ path: "advanced", on: [], off: [] });
   };
 
   const steps = (path === "advanced" ? ORDER : ORDER.slice(0, 4)).filter((s) => mac || s !== "mac");
   const at = Math.max(0, steps.indexOf(screen));
-  const back: Partial<Record<WelcomeScreen, WelcomeScreen>> = { ...(mac ? { agent: "mac" as const } : {}), start: "agent", ai: "start", goals: "ai", recs: "goals" };
+  const back: Partial<Record<WelcomeScreen, WelcomeScreen>> = { ...(mac ? { agent: "mac" as const } : {}), start: "agent", ai: "start", goals: "ai" };
   // the first screen goes back to the page it was opened from (the chats list, Settings), when it was opened from one
   const from = welcomeReturn();
   const leave = screen === "agent" && from ? () => void (location.hash = from) : null;
@@ -139,8 +140,8 @@ export function WelcomeView({ intro }: { intro?: boolean }) {
         }}
       />
     );
-  else if (screen === "goals" && agent) page = <YoursStep look={agent.settings.appearance} seed={agent.id} name={called} goals={goals} onGoals={setGoals} talk={talk} onTalk={setTalk} when={when} onWhen={setWhen} onNext={() => void saveYours()} busy={busy} />;
-  else if (screen === "recs" && agent) page = <ConnectStep name={called} apps={connectable} onNext={(on, off) => toChat({ path: "advanced", on, off })} />;
+  else if (screen === "goals" && agent)
+    page = <YoursStep look={agent.settings.appearance} seed={agent.id} name={called} person={person} goals={goals} onGoals={setGoals} about={about} onAbout={setAbout} talk={talk} onTalk={setTalk} when={when} onWhen={setWhen} onNext={() => void saveYours()} busy={busy} />;
   else if (screen === "start" && agent) page = <StartStep name={called} path={path} onPath={setPath} onNext={startNext} />;
   else if (screen === "ai" && agent)
     page = (

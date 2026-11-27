@@ -19,6 +19,7 @@ import { prettyModel, tokens, useAgentContext } from "../models.ts";
 import { DiscussionCard } from "../components/Discussion.tsx";
 import { ApprovalCard, ChangeCard, ChatCard, ComputerPart, RoutineChip } from "../components/AgentCards.tsx";
 import { AppleReadLines } from "../components/AppleParts.tsx";
+import { ConnectCard } from "../components/ConnectCard.tsx";
 import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, clockTime, cx } from "../components/ui.tsx";
@@ -1177,6 +1178,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
       {parts.map((p) => p.type === "task" && <TaskChip key={p.taskId} id={p.taskId} body={body} />)}
       {parts.map((p, i) => p.type === "context" && <ContextCard key={`x${i}`} usage={p.usage} />)}
       {parts.map((p) => p.type === "change" && <ChangeCard key={p.changeId} id={p.changeId} fallback={body} />)}
+      {parts.map((p, i) => p.type === "connect" && <ConnectCard key={`k${i}`} apps={p.apps} />)}
       {parts.map((p, i) => p.type === "notice" && <div key={`n${i}`} className="mt-1 px-1 text-xs text-muted whitespace-pre-wrap">{p.text}</div>)}
       {files.length > 0 && (
         <div className="mt-1 flex flex-wrap items-start gap-2">

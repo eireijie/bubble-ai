@@ -7,7 +7,7 @@ import { api } from "../api.ts";
 import { askableOn, finishedSteps, firstRunAgent, makeFirstAgent, NO_NODE, welcomeScreen } from "./WelcomeView.tsx";
 import { AgentStep, JOBS, nextLook, saveNamedAgent, shapeOf, suggestedName } from "./onboarding/AgentStep.tsx";
 import { AIStep, checkAI, foundOn } from "./onboarding/AIStep.tsx";
-import { connectableFor, sampleMessage } from "./onboarding/BubbleSetup.tsx";
+import { picksMessage, sampleMessage, yoursInstructions } from "./onboarding/BubbleSetup.tsx";
 import { lookOf, pointAgentAt } from "./onboarding/firstAgent.ts";
 import { TRACK } from "../components/SetupShell.tsx";
 import { devicesLine, serverAddress, stepsFinished } from "../onboarding.ts";
@@ -293,18 +293,26 @@ describe("making an agent on a device", () => {
   });
 });
 
-describe("Make it yours: the preview message", () => {
-  it("starts a sentence after Morning. and keeps the goal news in order", () => {
-    expect(sampleMessage(["cal", "code"], "balanced", "morning")).toMatch(/^Morning\. [A-Z]/);
-    expect(sampleMessage(["cal"], "brief", "needed")).toMatch(/^Heads up: [a-z]/);
-    expect(sampleMessage([], "detailed", "evening")).toBe("Today's wrap-up: Nothing needs you yet.");
+describe("Make it yours: the sample message", () => {
+  it("greets the person by first name and follows the picks, the talk style and what they wrote", () => {
+    expect(sampleMessage(["days", "people"], "short", "morning", "", "Yug Patel")).toBe("Morning, Yug! The dentist is at 10, so I moved the gym to 6.");
+    expect(sampleMessage(["days", "people"], "friendly", "evening", "I work weekends.", "Yug")).toBe("Evening, Yug. The dentist is at 10, so I moved the gym to 6. Also, it's your mom's birthday Saturday. Want me to find a gift? (I'll keep in mind: I work weekends.)");
+    expect(sampleMessage(["money"], "thorough", "needed", "", "Yug")).toBe("Hey Yug, your phone bill ($64) is due Thursday. I've already drafted what I can; say go and I'll handle it.");
+    expect(sampleMessage([], "friendly", "morning", "", "")).toBe("Morning! Tell me what's on your mind and I'll take it from there.");
   });
 });
 
-describe("Connect recommends only apps that can sign in now", () => {
-  it("keeps the goals' apps whose sign-in works, in the goals' order, and none when nothing can", () => {
-    const opts = { linear: { signIn: true }, notion: { signIn: true }, vercel: { signIn: true }, gmail: { signIn: false }, github: { signIn: false, key: true } } as never;
-    expect(connectableFor(["code", "research"], opts)).toEqual(["notion", "linear", "vercel"]);
-    expect(connectableFor(["inbox", "cal"], opts)).toEqual([]);
+describe("Make it yours: what the agent hears", () => {
+  it("sends the picks and the about-you text in plain words", () => {
+    expect(picksMessage(["days", "people"], "I'm a student and I work weekends.")).toBe("I'd like help with: keeping my days on track and remembering the people I care about. About me: I'm a student and I work weekends.");
+    expect(picksMessage(["business"], "  ")).toBe("I'd like help with: running my business.");
+    expect(picksMessage([], "")).toBe("I'm not sure yet what I'd like help with.");
+  });
+  it("puts the about-you text, the talk style and the check-ins in its instructions", () => {
+    const s = yoursInstructions("Tony", "Yug Patel", ["days"], "short", "needed", "I love hiking");
+    expect(s).toContain("keeping my days on track");
+    expect(s).toContain('About Yug, in their words: "I love hiking."');
+    expect(s).toContain("Keep messages short");
+    expect(s).toContain("Only message Yug when something matters.");
   });
 });

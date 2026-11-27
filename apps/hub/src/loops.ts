@@ -173,7 +173,8 @@ ${open.map((f) => `- ${f.id}: ${f.label ?? f.note}${f.label ? ` (${f.note})` : "
     };
   }
 
-  private queue(runId: string, part: MessagePart) {
+  /** Put a card under this run's reply when it ends (one of each kind; a later one replaces it). */
+  queue(runId: string, part: MessagePart) {
     this.pending.set(runId, [...(this.pending.get(runId) ?? []).filter((p) => p.type !== part.type), part]);
   }
 
