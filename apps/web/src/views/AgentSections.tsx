@@ -14,7 +14,7 @@ export const TAB_TITLES: Record<AgentTab, string> = {
   overview: "Activity",
   library: "Library",
   screen: "Computer",
-  voice: "Voice",
+  voice: "Voice", wallpaper: "Background",
   settings: "Settings",
   model: "Model",
   harness: "Harness",

@@ -23,7 +23,7 @@ import { agentReadiness, isSharedComputer, useDevices, type DeviceInfo } from ".
 import { useComputerMode } from "../computerMode.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
 import { openDm } from "../openDm.ts";
-import { ActivityTab, LibraryTab, PROFILE_TAB_ROUTE, PROFILE_TAB_TITLES, PROFILE_TABS, SUGGESTED_ROUTINE, ScreenTab, SettingsTab, VoiceTab, WatchSomething, profilePlace, type ProfileTab } from "./AgentProfile.tsx";
+import { ActivityTab, BackgroundTab, LibraryTab, PROFILE_TAB_ROUTE, PROFILE_TAB_TITLES, PROFILE_TABS, SUGGESTED_ROUTINE, ScreenTab, SettingsTab, VoiceTab, WatchSomething, profilePlace, type ProfileTab } from "./AgentProfile.tsx";
 
 export type NodeInfo = DeviceInfo;
 
@@ -197,6 +197,7 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
               {shownTab === "library" && <LibraryTab agent={agent} />}
               {shownTab === "computer" && <ScreenTab agent={agent} />}
               {shownTab === "voice" && <VoiceTab agent={agent} />}
+              {shownTab === "background" && <BackgroundTab agent={agent} />}
               {shownTab === "settings" && <SettingsTab agent={agent} />}
             </div>
           </>

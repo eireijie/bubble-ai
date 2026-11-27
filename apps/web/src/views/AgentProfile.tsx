@@ -1,8 +1,9 @@
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, Clock, Eye, FileText, Hand, Image as ImageIcon, Loader2, Maximize2, MessageSquarePlus } from "lucide-react";
 import { harnessLabel, type AccessLevel, type Agent, type Connector, type Routine, type Skill } from "@bubble-ai/core";
 import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
-import { api, fileUrl } from "../api.ts";
+import { api, fileUrl, uploadFile } from "../api.ts";
+import { setAgentBackground, useChatBackground, type ChatBackground } from "../chatBackground.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { href, go, type AgentTab } from "../router.ts";
 import { liveShape } from "../liveShape.ts";
@@ -24,13 +25,13 @@ import { VoicePicker } from "../voice/VoicePicker.tsx";
 import { CARD, Line, Toggle } from "./AgentSections.tsx";
 import { runsOnDevice, type RoutineDraft } from "./AgentComputer.tsx";
 
-/** The profile's five tabs, in order. */
-export const PROFILE_TABS = ["activity", "library", "computer", "voice", "settings"] as const;
+/** The profile's six tabs, in order. */
+export const PROFILE_TABS = ["activity", "library", "computer", "voice", "background", "settings"] as const;
 export type ProfileTab = (typeof PROFILE_TABS)[number];
-export const PROFILE_TAB_TITLES: Record<ProfileTab, string> = { activity: "Activity", library: "Library", computer: "Computer", voice: "Voice", settings: "Settings" };
+export const PROFILE_TAB_TITLES: Record<ProfileTab, string> = { activity: "Activity", library: "Library", computer: "Computer", voice: "Voice", background: "Background", settings: "Settings" };
 
 /** The address of each tab (#/agents/<id>/<tab>); Activity is the profile's own address. */
-export const PROFILE_TAB_ROUTE: Record<ProfileTab, AgentTab> = { activity: "overview", library: "library", computer: "screen", voice: "voice", settings: "settings" };
+export const PROFILE_TAB_ROUTE: Record<ProfileTab, AgentTab> = { activity: "overview", library: "library", computer: "screen", voice: "voice", background: "wallpaper", settings: "settings" };
 
 /** Parts a Settings row opens inside the profile, with a back arrow. Look is opened from the avatar. */
 export const PROFILE_PARTS: readonly AgentTab[] = ["model", "harness", "effort", "device", "computer", "apps", "skills", "permissions", "memory", "soul", "instructions", "routines", "watches", "access", "connect", "background", "look"];
@@ -52,6 +53,8 @@ export function profilePlace(tab: AgentTab | null | undefined): { tab: ProfileTa
       return { tab: "computer", part: null };
     case "voice":
       return { tab: "voice", part: null };
+    case "wallpaper":
+      return { tab: "background", part: null };
     case "settings":
     case "remove":
       return { tab: "settings", part: null };
@@ -471,6 +474,120 @@ export function VoiceTab({ agent }: { agent: Agent }) {
           </Suspense>
         </div>
       </Section>
+    </div>
+  );
+}
+
+// --- Background -----------------------------------------------------------------
+
+/** Colours for a chat background, light to dark. */
+export const BACKGROUND_SWATCHES: readonly [string, string][] = [
+  ["#dfe4f3", "Mist"],
+  ["#f3e3dc", "Peach"],
+  ["#e2f0e6", "Mint"],
+  ["#efe4f7", "Lilac"],
+  ["#f6efd9", "Sand"],
+  ["#dcebf5", "Sky"],
+  ["#2a2d35", "Night"],
+  ["#1c1c1c", "Black"],
+];
+
+/** A photo from the hub, as an object URL while shown. */
+function usePhoto(fileId: string | null) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    setSrc(null);
+    if (!fileId) return;
+    let url: string | null = null;
+    let gone = false;
+    fileUrl(fileId).then(
+      (u) => (gone ? URL.revokeObjectURL(u) : setSrc((url = u))),
+      () => {},
+    );
+    return () => {
+      gone = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [fileId]);
+  return src;
+}
+
+/** This agent's chat background: None, a Photo (file picker) or a Colour (swatches). */
+export function BackgroundTab({ agent }: { agent: Agent }) {
+  const bg = useChatBackground(agent.id);
+  const [mode, setMode] = useState<"none" | "photo" | "color">(bg?.kind ?? "none");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => setMode(bg?.kind ?? "none"), [bg?.kind]);
+  const photo = usePhoto(bg?.kind === "photo" ? bg.fileId : null);
+  const colour = bg?.kind === "color" ? bg.color : BACKGROUND_SWATCHES[0][0];
+
+  const save = async (next: ChatBackground | null) => {
+    setError(null);
+    try {
+      await setAgentBackground(agent.id, next);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  const choose = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const up = await uploadFile(file);
+      await save({ kind: "photo", fileId: up.id });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const options = [
+    { id: "none" as const, name: "None", face: "bg-hover", style: undefined, pick: () => void save(null) },
+    { id: "photo" as const, name: "Photo", face: "bg-hover", style: photo ? { backgroundImage: `url(${photo})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined, pick: () => input.current?.click() },
+    { id: "color" as const, name: "Colour", face: "", style: { background: colour }, pick: () => (setMode("color"), void save({ kind: "color", color: colour })) },
+  ];
+
+  return (
+    <div className="pt-2">
+      <div className="flex justify-center gap-4 sm:gap-6" role="radiogroup" aria-label={`${agent.name}'s chat background`}>
+        {options.map((o) => (
+          <button key={o.id} type="button" role="radio" aria-checked={mode === o.id} onClick={o.pick} className="group flex flex-col items-center gap-2 outline-none">
+            <span className={cx("block rounded-full border-[3px] p-1 transition-colors", mode === o.id ? "border-ink" : "border-transparent group-hover:border-line group-focus-visible:border-line")}>
+              <span className={cx("grid size-20 place-items-center rounded-full text-faint ring-1 ring-line sm:size-24", o.face)} style={o.style}>
+                {o.id === "photo" && !photo && (busy ? <Loader2 size={24} className="animate-spin" /> : <ImageIcon size={28} strokeWidth={1.6} />)}
+              </span>
+            </span>
+            <span className="text-[13px] font-medium text-ink">{o.name}</span>
+          </button>
+        ))}
+      </div>
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => (void choose(e.target.files?.[0]), (e.target.value = ""))} />
+      {mode === "color" && (
+        <div className="mt-5 flex flex-wrap justify-center gap-2.5">
+          {BACKGROUND_SWATCHES.map(([c, name]) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={name}
+              aria-pressed={c === colour}
+              onClick={() => void save({ kind: "color", color: c })}
+              className={cx("size-8 rounded-full border-2 border-panel outline-none", c === colour ? "ring-2 ring-ink" : "ring-1 ring-line hover:ring-faint focus-visible:ring-faint")}
+              style={{ background: c }}
+            />
+          ))}
+        </div>
+      )}
+      {mode === "photo" && photo && (
+        <p className="mt-4 text-center">
+          <button type="button" onClick={() => input.current?.click()} className="text-[13px] text-muted underline-offset-2 hover:text-ink hover:underline">
+            Choose another photo
+          </button>
+        </p>
+      )}
+      {error && <p className="mt-4 text-center text-[13px] text-bad">{error}</p>}
+      <p className="mt-6 text-center text-[12.5px] text-faint">{agent.name}'s chat only · the default for every chat is in Settings</p>
     </div>
   );
 }

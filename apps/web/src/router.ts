@@ -53,7 +53,7 @@ export type Route =
   | { view: "more" }
   | { view: "templates" };
 
-export const AGENT_TABS = ["overview", "library", "screen", "voice", "settings", "harness", "effort", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "watches", "remove"] as const;
+export const AGENT_TABS = ["overview", "library", "screen", "voice", "wallpaper", "settings", "harness", "effort", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "watches", "remove"] as const;
 export type AgentTab = (typeof AGENT_TABS)[number];
 export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage", "voice", "appearance", "security", "devices", "general", "access", "agent-defaults", "people", "agents", "harnesses", "memory", "buddy", "logins", "storage", "apple", "apps", "skills", "connections", "data", "updates", "learn", "mods"] as const;
 export type SettingsPage = (typeof SETTINGS_PAGES)[number];
