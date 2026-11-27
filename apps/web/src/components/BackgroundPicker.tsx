@@ -1,46 +1,40 @@
-import { useRef, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
-import { cx } from "./ui.tsx";
+import { Loader2 } from "lucide-react";
 import { Seg } from "../views/settings/rows.tsx";
-import { sameSwatch, swatchesFor, uploadBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
+import { shownColor, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
 import { useAppearance } from "../theme.ts";
+import { useBackgroundSheet } from "./BackgroundSheet.tsx";
 
 type Kind = ChatBackground["kind"];
 
 /**
- * None · Photo · Colour, small enough for a settings row. Photo opens the file picker (again to
- * swap it); Colour shows the swatches under the row. Used by Settings for the default and by an
- * agent's profile for its own (chatBackground.ts keeps them).
+ * None · Photo · Colour, small enough for a settings row (Settings' default for every chat). Photo
+ * opens the file picker, then the preview sheet; Colour opens the preview sheet. Nothing is saved
+ * until Set (BackgroundSheet.tsx). A colour or photo already set shows as a small chip that reopens it.
  */
-export function BackgroundPicker({ value, onChange: save, label = "Background" }: { value: ChatBackground; onChange: (bg: ChatBackground) => void | Promise<void>; label?: string }) {
-  const file = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function BackgroundPicker({ value, onChange, label = "Background" }: { value: ChatBackground; onChange: (bg: ChatBackground) => Promise<void>; label?: string }) {
   const src = usePhotoSrc(value);
-  // dark mode picks from the deep set; the light half of the same swatch shows in light mode
   const dark = useAppearance().resolvedMode === "dark";
-  const swatches = swatchesFor(dark);
-  // saving goes to the hub: a refusal shows under the row
-  const onChange = async (bg: ChatBackground) => {
-    try {
-      await save(bg);
-    } catch (err) {
-      setError((err as Error).message || "That didn't save.");
-    }
-  };
+  const sheet = useBackgroundSheet({ name: "Your chats", current: value, onSet: onChange });
   const pick = (k: Kind) => {
-    setError(null);
-    if (k === "none") void onChange({ kind: "none" });
-    else if (k === "color") void onChange({ kind: "color", color: value.kind === "color" ? value.color : swatches[0][0] });
-    else file.current?.click();
+    if (k === "none") void onChange({ kind: "none" }).catch(() => {});
+    else if (k === "color") sheet.openColour();
+    else sheet.openPhoto();
   };
+  const chip = value.kind === "photo" ? (src ? `center / cover no-repeat url("${src}")` : undefined) : value.kind === "color" ? shownColor(value.color, dark) : undefined;
   return (
     <>
       <span className="flex shrink-0 items-center gap-2">
-        {value.kind === "photo" && (
-          <button type="button" onClick={() => file.current?.click()} aria-label="Change photo" title="Change photo" className="size-7 shrink-0 overflow-hidden rounded-[7px] bg-chip shadow-[inset_0_0_0_1px_var(--line)]" style={src ? { background: `center / cover no-repeat url("${src}")` } : undefined} />
+        {value.kind !== "none" && (
+          <button
+            type="button"
+            onClick={value.kind === "photo" ? sheet.openPhoto : sheet.openColour}
+            aria-label={value.kind === "photo" ? "Change photo" : "Change colour"}
+            title={value.kind === "photo" ? "Change photo" : "Change colour"}
+            className="size-7 shrink-0 overflow-hidden rounded-[7px] bg-chip shadow-[inset_0_0_0_1px_var(--line)]"
+            style={chip ? { background: chip } : undefined}
+          />
         )}
-        {busy && <Loader2 size={15} className="animate-spin text-muted" aria-label="Uploading" />}
+        {sheet.busy && <Loader2 size={15} className="animate-spin text-muted" aria-label="Uploading" />}
         <Seg
           label={label}
           value={value.kind}
@@ -52,49 +46,8 @@ export function BackgroundPicker({ value, onChange: save, label = "Background" }
           ]}
         />
       </span>
-      {value.kind === "color" && (
-        <span role="radiogroup" aria-label="Colour" className="flex basis-full flex-wrap justify-end gap-1.5 pb-1">
-          {swatches.map(([c, name]) => {
-            const on = sameSwatch(value.color, c);
-            return (
-              <button
-                key={c}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                aria-label={name}
-                onClick={() => void onChange({ kind: "color", color: c })}
-                className={cx("grid size-7 place-items-center rounded-full border", on ? "border-ink" : "border-transparent hover:border-line")}
-              >
-                <span className={cx("grid size-[22px] place-items-center rounded-full", dark ? "shadow-[inset_0_0_0_1px_rgba(255,255,255,.22)]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,.08)]")} style={{ background: c }}>
-                  {on && <Check size={12} strokeWidth={3} className={dark ? "text-white" : "text-[#1c1c1c]"} />}
-                </span>
-              </button>
-            );
-          })}
-        </span>
-      )}
-      {error && <span className="basis-full pb-1 text-right text-[13px] text-bad">{error}</span>}
-      <input
-        ref={file}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={async (e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (!f) return;
-          setBusy(true);
-          setError(null);
-          try {
-            await onChange(await uploadBackground(f));
-          } catch (err) {
-            setError((err as Error).message || "That photo didn't upload.");
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
+      {sheet.error && <span className="basis-full pb-1 text-right text-[13px] text-bad">{sheet.error}</span>}
+      {sheet.node}
     </>
   );
 }

@@ -11,6 +11,7 @@ import { OrgList, useOrgs } from "./components/OrgSwitcher.tsx";
 import { ChannelBrowser } from "./components/Channels.tsx";
 import { CommandPalette } from "./components/CommandPalette.tsx";
 import { SettingsDialog } from "./components/SettingsDialog.tsx";
+import { ProfileSide } from "./components/ProfileSide.tsx";
 import { ChannelView } from "./views/ChannelView.tsx";
 import { logout } from "./logout.ts";
 import { JoinApproval } from "./components/JoinApproval.tsx";
@@ -151,14 +152,18 @@ function Workspace() {
   const loaded = useStore((s) => !!s.me);
   const asked = routeForRole(useRoute(), me?.role);
   const phone = useIsPhone();
-  // desktops: most places pop up over the page you were on (the chat), which stays under them
-  const popped = !phone && isDialogRoute(asked);
-  const under = popped ? routeForRole(parseRoute(appHashBeforeSettings()), me?.role) : asked;
+  // desktops: an agent's profile opens as a panel beside the chat (board ProfileSide), which stays usable
+  const profiled = !phone && asked.view === "agents" && !!asked.agentId;
+  // desktops: most other places pop up over the page you were on (the chat), which stays under them
+  const popped = !phone && isDialogRoute(asked) && !profiled;
+  const under = popped || profiled ? routeForRole(parseRoute(appHashBeforeSettings()), me?.role) : asked;
   // desktops open on the chat you were last in (#/), never on a list of places
   const home = useStore((s) => (phone ? null : homeChat(s.channels)));
   const route: Route = !phone && under.view === "chat" && !under.channelId && home ? { view: "chat", channelId: home, threadId: null } : under;
   const popPresence = usePresence(popped, 140);
   const heldPop = useRef<{ route: Route; node: ReactNode } | null>(null);
+  const sidePresence = usePresence(profiled, 200);
+  const heldSide = useRef<ReactNode>(null);
   // Memory's graph asks for the whole window while it shows (it is a canvas you drag around)
   const [popFull, setPopFull] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -330,6 +335,13 @@ function Workspace() {
   const chatLayer = chatOpen || chatPresence.mounted;
   // the pop-up keeps what it showed while it closes
   if (popped) heldPop.current = { route: asked, node: <Suspense fallback={<div className="flex-1" />}>{viewFor(asked)}</Suspense> };
+  // the profile panel keeps what it showed while it slides shut
+  if (profiled) heldSide.current = <Suspense fallback={<div className="flex-1" />}>{viewFor(asked)}</Suspense>;
+  const side = (profiled || sidePresence.mounted) && heldSide.current && (
+    <ProfileSide closing={!profiled} label="Agent profile">
+      {heldSide.current}
+    </ProfileSide>
+  );
   const held = heldPop.current?.route;
   const popSize = held ? popupSize(held) : "large";
   const pop =
@@ -384,6 +396,7 @@ function Workspace() {
               page
             )}
           </main>
+          {side}
         </div>
       </div>
       {dialogs}

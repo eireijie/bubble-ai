@@ -9,7 +9,7 @@ import { cx } from "../components/ui.tsx";
 import { familyColor } from "../ghostFamily.ts";
 import { VoiceCall, INITIAL_CALL, type CallState } from "./call.ts";
 import { callFacts, type CallFacts } from "./facts.ts";
-import { callPrefs, setCallPrefs, SPEEDS, speedLabel, useCallPrefs } from "./prefs.ts";
+import { callPrefs, LANGUAGES, setCallPrefs, SPEEDS, speedLabel, useCallPrefs } from "./prefs.ts";
 import { MIC_NEEDS_SECURE, NEEDS_KEY_BROWSER, NEEDS_KEY_DESKTOP, micAvailable } from "./engine.ts";
 import { createListener, createSpeaker, effectiveListen, inDesktopApp, type VoiceSettings, type VoiceSpeaker } from "./providers.ts";
 import "./voice.css";
@@ -176,7 +176,6 @@ export function CallCard({ agent, state, facts, lines, transcript, onMute, onRet
   );
 }
 
-const LANGUAGES: [string, string][] = [["", "Auto-detect"], ["en-US", "English (US)"], ["en-GB", "English (UK)"], ["es-ES", "Spanish"], ["fr-FR", "French"], ["de-DE", "German"], ["it-IT", "Italian"], ["pt-BR", "Portuguese"], ["ja-JP", "Japanese"], ["ko-KR", "Korean"], ["zh-CN", "Chinese"], ["hi-IN", "Hindi"]];
 
 /**
  * How calls sound and what they show, for this person on this device: speed, language, the
