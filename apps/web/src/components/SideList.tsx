@@ -191,7 +191,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const press = useLongPress((key, x, y) => setMenu({ key, x, y }));
 
   // --- pins ---------------------------------------------------------------------------------------
-  // pinned bubbles read big (owner, round 8): about 1.7x a row's bubble, nearly filling the cell
+  // pinned bubbles read big (owner, round 8): about 1.7x a row's bubble; the tile leaves even room on every side (and for a hop) so the highlight holds it
   const pinSize = phone ? 80 : 68;
   const pins = placed.pins.map((k) => byKey.get(k)!).filter(Boolean);
   const pinGrid = pins.length > 0 && (
@@ -229,7 +229,7 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
               data-bub-host=""
-              className={cx("press-row flex flex-col items-center justify-center gap-[5px]", phone ? "h-[116px]" : "h-[100px]", "rounded-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on" : "hover:bg-side-hover")}
+              className={cx("press-row flex flex-col items-center justify-center gap-[5px]", phone ? "h-[138px]" : "h-[122px]", "rounded-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40", isActive ? "side-row-on" : "hover:bg-side-hover")}
             >
               <span className="relative grid place-items-center" style={{ width: pinSize, height: pinSize }}>
                 <ChatAvatar chat={c} size={pinSize} />
