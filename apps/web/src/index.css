@@ -1028,12 +1028,12 @@ body.side-resizing iframe { pointer-events: none; }
 /* dark glass is a light tint, never darker than what's behind it: on Night (or any colour) a dark
    fill read as a flat black patch */
 :root[data-mode="dark"] {
-  --lg-bg: rgb(255 255 255 / 0.07);
-  --lg-bg-strong: rgb(255 255 255 / 0.12);
-  --lg-rim: rgb(255 255 255 / 0.12);
-  --lg-edge: rgb(255 255 255 / 0.1);
+  --lg-bg: rgb(255 255 255 / 0.1);
+  --lg-bg-strong: rgb(255 255 255 / 0.15);
+  --lg-rim: rgb(255 255 255 / 0.16);
+  --lg-edge: rgb(255 255 255 / 0.14);
   --lg-shadow: 0 6px 24px rgb(0 0 0 / 0.28);
-  --lg-on: rgb(255 255 255 / 0.16);
+  --lg-on: rgb(255 255 255 / 0.18);
 }
 .lg-glass {
   background: var(--lg-bg);
@@ -1071,8 +1071,11 @@ body.side-resizing iframe { pointer-events: none; }
 .chat-walled { --chat-top: calc(max(0.5rem, env(safe-area-inset-top)) + 94px); }
 :root[data-chat-wall] .chat-walled { --bubble-them: rgb(255 255 255 / 0.82); }
 :root[data-mode="dark"][data-chat-wall] .chat-walled { --bubble-them: rgb(255 255 255 / 0.11); }
-/* on a colour, a solid tint of it (a see-through fill doubles up where the tail meets the bubble) */
-:root[data-mode="dark"][data-chat-wall="color"] .chat-walled { --bubble-them: color-mix(in srgb, var(--chat-wall-dark) 88%, white); }
+/* on a colour, a solid, lighter tint of it (a see-through fill doubles up where the tail meets the bubble) */
+:root[data-mode="dark"][data-chat-wall="color"] .chat-walled { --bubble-them: color-mix(in srgb, var(--chat-wall-dark) 82%, white); }
+/* over a background in the dark, secondary text is a little brighter so it stays 4.5:1 on the
+   colour, the agent's bubbles and the glass */
+:root[data-mode="dark"][data-chat-wall] .chat-walled, :root[data-mode="dark"][data-chat-wall] .side-glass { --muted: rgb(245 245 245 / 0.8); --faint: rgb(245 245 245 / 0.74); }
 @media (min-width: 768px) { .chat-walled { --chat-top: 106px; } }
 :root[data-chat-wall] .chat-walled .bubble.them { -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .chat-walled .bubble.them pre, .chat-walled .bubble.them code { background: rgb(0 0 0 / 0.06); }

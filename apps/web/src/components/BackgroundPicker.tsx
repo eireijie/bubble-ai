@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { cx } from "./ui.tsx";
 import { Seg } from "../views/settings/rows.tsx";
-import { BACKGROUND_COLORS, BACKGROUND_SWATCHES, uploadBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
+import { sameSwatch, swatchesFor, uploadBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
+import { useAppearance } from "../theme.ts";
 
 type Kind = ChatBackground["kind"];
 
@@ -16,6 +17,9 @@ export function BackgroundPicker({ value, onChange: save, label = "Background" }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const src = usePhotoSrc(value);
+  // dark mode picks from the deep set; the light half of the same swatch shows in light mode
+  const dark = useAppearance().resolvedMode === "dark";
+  const swatches = swatchesFor(dark);
   // saving goes to the hub: a refusal shows under the row
   const onChange = async (bg: ChatBackground) => {
     try {
@@ -27,7 +31,7 @@ export function BackgroundPicker({ value, onChange: save, label = "Background" }
   const pick = (k: Kind) => {
     setError(null);
     if (k === "none") void onChange({ kind: "none" });
-    else if (k === "color") void onChange({ kind: "color", color: value.kind === "color" ? value.color : BACKGROUND_COLORS[0] });
+    else if (k === "color") void onChange({ kind: "color", color: value.kind === "color" ? value.color : swatches[0][0] });
     else file.current?.click();
   };
   return (
@@ -50,8 +54,8 @@ export function BackgroundPicker({ value, onChange: save, label = "Background" }
       </span>
       {value.kind === "color" && (
         <span role="radiogroup" aria-label="Colour" className="flex basis-full flex-wrap justify-end gap-1.5 pb-1">
-          {BACKGROUND_SWATCHES.map(([c, name]) => {
-            const on = value.color.toLowerCase() === c;
+          {swatches.map(([c, name]) => {
+            const on = sameSwatch(value.color, c);
             return (
               <button
                 key={c}
@@ -62,8 +66,8 @@ export function BackgroundPicker({ value, onChange: save, label = "Background" }
                 onClick={() => void onChange({ kind: "color", color: c })}
                 className={cx("grid size-7 place-items-center rounded-full border", on ? "border-ink" : "border-transparent hover:border-line")}
               >
-                <span className="grid size-[20px] place-items-center rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.08)]" style={{ background: c }}>
-                  {on && <Check size={12} strokeWidth={3} className={BACKGROUND_COLORS.indexOf(c) >= 6 ? "text-white" : "text-[#1c1c1c]"} />}
+                <span className={cx("grid size-[22px] place-items-center rounded-full", dark ? "shadow-[inset_0_0_0_1px_rgba(255,255,255,.22)]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,.08)]")} style={{ background: c }}>
+                  {on && <Check size={12} strokeWidth={3} className={dark ? "text-white" : "text-[#1c1c1c]"} />}
                 </span>
               </button>
             );

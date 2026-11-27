@@ -3,11 +3,12 @@ import { ChevronRight, Clock, Eye, FileText, Hand, Image as ImageIcon, Loader2, 
 import { harnessLabel, type AccessLevel, type Agent, type Connector, type Routine, type Skill } from "@bubble-ai/core";
 import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api, fileUrl, uploadFile } from "../api.ts";
-import { BACKGROUND_SWATCHES, setAgentBackground, uploadBackground, useAgentBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
+import { sameSwatch, setAgentBackground, shownColor, swatchesFor, uploadBackground, useAgentBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { href, go, type AgentTab } from "../router.ts";
 import { liveShape } from "../liveShape.ts";
 import { useFeatures } from "../features.ts";
+import { useAppearance } from "../theme.ts";
 import { lazyView } from "../lazy.tsx";
 import { openDm } from "../openDm.ts";
 import { agentReadiness, isSharedComputer, useDevices, whoCanAsk } from "../devices.ts";
@@ -495,7 +496,9 @@ export function BackgroundTab({ agent }: { agent: Agent }) {
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => setMode(bg?.kind ?? "default"), [bg?.kind]);
   const photo = usePhotoSrc(bg);
-  const colour = bg?.kind === "color" ? bg.color : BACKGROUND_SWATCHES[0][0];
+  const dark = useAppearance().resolvedMode === "dark";
+  const swatches = swatchesFor(dark);
+  const colour = bg?.kind === "color" ? bg.color : swatches[0][0];
 
   const save = async (next: ChatBackground | null) => {
     setError(null);
@@ -519,7 +522,7 @@ export function BackgroundTab({ agent }: { agent: Agent }) {
   const options = [
     { id: "none" as const, name: "None", face: "bg-hover", style: undefined, pick: () => (setMode("none"), void save({ kind: "none" })) },
     { id: "photo" as const, name: "Photo", face: "bg-hover", style: photo ? { backgroundImage: `url(${photo})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined, pick: () => input.current?.click() },
-    { id: "color" as const, name: "Colour", face: "", style: { background: colour }, pick: () => (setMode("color"), void save({ kind: "color", color: colour })) },
+    { id: "color" as const, name: "Colour", face: "", style: { background: shownColor(colour, dark) }, pick: () => (setMode("color"), void save({ kind: "color", color: colour })) },
   ];
 
   return (
@@ -539,14 +542,14 @@ export function BackgroundTab({ agent }: { agent: Agent }) {
       <input ref={input} type="file" accept="image/*" hidden onChange={(e) => (void choose(e.target.files?.[0]), (e.target.value = ""))} />
       {mode === "color" && (
         <div className="mt-5 flex flex-wrap justify-center gap-2.5">
-          {BACKGROUND_SWATCHES.map(([c, name]) => (
+          {swatches.map(([c, name]) => (
             <button
               key={c}
               type="button"
               aria-label={name}
-              aria-pressed={c === colour}
+              aria-pressed={sameSwatch(c, colour)}
               onClick={() => void save({ kind: "color", color: c })}
-              className={cx("size-8 rounded-full border-2 border-panel outline-none", c === colour ? "ring-2 ring-ink" : "ring-1 ring-line hover:ring-faint focus-visible:ring-faint")}
+              className={cx("size-8 rounded-full border-2 border-panel outline-none", dark && "shadow-[inset_0_0_0_1px_rgba(255,255,255,.22)]", sameSwatch(c, colour) ? "ring-2 ring-ink" : "ring-1 ring-line hover:ring-faint focus-visible:ring-faint")}
               style={{ background: c }}
             />
           ))}
