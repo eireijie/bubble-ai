@@ -337,7 +337,7 @@ function Workspace() {
     heldPop.current &&
     held &&
     (
-      <SettingsDialog label={popupLabel(held)} closing={!popped} onClose={closePopup} size={popFull && held.view === "vault" ? "full" : popSize === "medium" ? "medium" : "large"} swapKey={popupKey(held)} setFull={setPopFull}>
+      <SettingsDialog label={popupLabel(held)} closing={!popped} onClose={closePopup} size={popFull && held.view === "vault" ? "full" : popSize === "medium" || popSize === "profile" ? popSize : "large"} swapKey={popupKey(held)} setFull={setPopFull}>
         {heldPop.current.node}
       </SettingsDialog>
     );
@@ -396,7 +396,7 @@ function Workspace() {
 function popupLabel(r: Route): string {
   switch (r.view) {
     case "agents":
-      return r.agentId ? "Agent settings" : "All agents";
+      return r.agentId ? "Agent profile" : "All agents";
     case "computers":
       return "Computers";
     case "vault":

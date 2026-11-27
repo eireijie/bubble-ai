@@ -87,7 +87,7 @@ function Choices({ label, choices, selected, playing, disabled, onSelect, onList
   </div>;
 }
 
-export function VoicePicker({ agent, value, onChange, onLevel }: { agent: Agent; value: AgentSettings["voice"]; onChange(value: NonNullable<AgentSettings["voice"]>): void; onLevel(level: number | undefined): void }) {
+export function VoicePicker({ agent, value, onChange, onLevel, bare = false }: { agent: Agent; value: AgentSettings["voice"]; onChange(value: NonNullable<AgentSettings["voice"]>): void; onLevel(level: number | undefined): void; /** no heading or help line: the page around it says what it is (the profile's Voice tab) */ bare?: boolean }) {
   const [engine, setEngine] = useState<VoiceSettings["speak"]>("device");
   const [voices, setVoices] = useState(deviceVoices);
   const [playing, setPlaying] = useState<string | null>(null);
@@ -141,8 +141,8 @@ export function VoicePicker({ agent, value, onChange, onLevel }: { agent: Agent;
   if (selected && !choices.some((c) => c.id === selected)) choices.push({ id: selected, label: "Saved voice", detail: selected });
 
   return <section id="voice-picker" className="space-y-3">
-    <h4 className="text-sm font-semibold">Voice</h4>
-    <p className="text-xs text-muted">Choose how {agent.name} sounds. Press Listen to hear a voice before you pick it. Calls use the voice type you choose in <a href="#/settings/voice" className="underline">Settings → Notifications → Voice</a>.</p>
+    {!bare && <h4 className="text-sm font-semibold">Voice</h4>}
+    {!bare && <p className="text-xs text-muted">Choose how {agent.name} sounds. Press Listen to hear a voice before you pick it. Calls use the voice type you choose in <a href="#/settings/voice" className="underline">Settings → Notifications → Voice</a>.</p>}
     <Select label="Voice type to choose from" value={engine} disabled={playing !== null} onChange={(v) => switchEngine(v as VoiceSettings["speak"])}><option value="device">On this device (free)</option><option value="openai">OpenAI (online)</option><option value="elevenlabs">ElevenLabs (online)</option></Select>
     {engine === "device" && <h5 className="text-xs font-medium text-muted">Recommended for you</h5>}
     <Choices label={`${agent.name}'s voice`} choices={choices} selected={selected} playing={playing} onSelect={(id) => onChange({ ...value, [engine]: id })} onListen={preview} />

@@ -55,11 +55,23 @@ export function routinesWaitingFor(agent: Pick<Agent, "id" | "nodeId" | "harness
 }
 
 /** Tasks the agent does again, written down, some on a schedule. (Teaching a task makes a skill, under Can use.) */
-export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean }) {
+/** A new routine to start writing, filled in already (the profile's "Create a routine" suggestion). */
+export interface RoutineDraft {
+  result: string;
+  schedule: string | null;
+}
+
+export function RoutinesPanel({ agent, active, start, onStarted }: { agent: Agent; active: boolean; start?: RoutineDraft | null; onStarted?: () => void }) {
   const version = useStore((s) => s.routinesVersion);
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const waitingFor = routinesWaitingFor(agent, useDevices());
-  const [writing, setWriting] = useState(false);
+  const [writing, setWriting] = useState<RoutineDraft | false>(false);
+  useEffect(() => {
+    if (!start) return;
+    setWriting(start);
+    onStarted?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start]);
   const [scheduling, setScheduling] = useState<Routine | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -80,7 +92,7 @@ export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setWriting(true)}>
+        <Button onClick={() => setWriting({ result: "", schedule: null })}>
           <Plus size={15} /> New
         </Button>
       </div>
@@ -133,17 +145,17 @@ export function RoutinesPanel({ agent, active }: { agent: Agent; active: boolean
           })}
         </div>
       )}
-      {writing && <WriteRoutine agent={agent} onClose={() => setWriting(false)} />}
+      {writing && <WriteRoutine agent={agent} initial={writing} onClose={() => setWriting(false)} />}
       {scheduling && <ScheduleDialog routine={scheduling} onClose={() => setScheduling(null)} />}
     </div>
   );
 }
 
-function WriteRoutine({ agent, onClose }: { agent: Agent; onClose: () => void }) {
-  const [result, setResult] = useState("");
+function WriteRoutine({ agent, initial, onClose }: { agent: Agent; initial: RoutineDraft; onClose: () => void }) {
+  const [result, setResult] = useState(initial.result);
   const [name, setName] = useState("");
   const [steps, setSteps] = useState("");
-  const [schedule, setSchedule] = useState<string | null>(null);
+  const [schedule, setSchedule] = useState<string | null>(initial.schedule);
   const [error, setError] = useState<string | null>(null);
   return (
     <Modal title={`New routine for ${agent.name}`} onClose={onClose} wide>

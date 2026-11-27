@@ -1,21 +1,33 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { fileUrl, uploadFile } from "./api.ts";
+import type { ChatBackground } from "@bubble-ai/core";
+import { api, ApiError, fileUrl, uploadFile } from "./api.ts";
+import { useStore } from "./store.ts";
 
 /**
  * Chat backgrounds (round 4, board "Chat and sidebar"): none, one colour, or a photo. Every chat
- * uses the person's default (Settings → Preferences → Background) unless the agent has its own.
+ * uses the person's default (Settings → Preferences → Background, kept in their prefs as
+ * `background`) unless the agent has its own (the profile's Background tab, kept on the agent as
+ * `settings.background`). Both are on the hub, so they follow the person to every device.
  *
- * Where they are kept: the hub does not accept a `background` key yet (prefs drop it, agent
- * settings refuse it), so for now both live on this device, under `bubble.chat-background`. Once
- * the hub takes UserPrefs.background and AgentSettings.background, only `read`/`write` below change;
- * the hooks and setters keep their shape.
+ * This device's `bubble.chat-background` is only a fallback: an older hub that refuses the key (400)
+ * keeps the choice here instead, and a later save that the hub takes clears it.
  */
-export type ChatBackground = { kind: "none" } | { kind: "color"; color: string } | { kind: "photo"; url: string };
+export type { ChatBackground };
 
 export const NO_BACKGROUND: ChatBackground = { kind: "none" };
 
-/** The colour swatches: soft tints in light mode; in dark mode the same hue, dimmed (backgroundCss). */
-export const BACKGROUND_COLORS = ["#dce9f7", "#e4dcf7", "#f3dcea", "#f6dfd8", "#f3ead6", "#dcefe6", "#d8edf1", "#e6e6ea"];
+/** The colour swatches (the Profile board's), light to dark; in dark mode each is dimmed to its hue (backgroundCss). */
+export const BACKGROUND_SWATCHES: readonly [string, string][] = [
+  ["#dfe4f3", "Mist"],
+  ["#f3e3dc", "Peach"],
+  ["#e2f0e6", "Mint"],
+  ["#efe4f7", "Lilac"],
+  ["#f6efd9", "Sand"],
+  ["#dcebf5", "Sky"],
+  ["#2a2d35", "Night"],
+  ["#1c1c1c", "Black"],
+];
+export const BACKGROUND_COLORS = BACKGROUND_SWATCHES.map(([c]) => c);
 
 interface Saved {
   default?: ChatBackground;
@@ -26,7 +38,8 @@ const KEY = "bubble.chat-background";
 const listeners = new Set<() => void>();
 let cache: Saved | null = null;
 
-function valid(bg: unknown): bg is ChatBackground {
+/** Only none, a #rrggbb colour, or a hub file: nothing else ever reaches the page's CSS. */
+export function validBackground(bg: unknown): bg is ChatBackground {
   if (!bg || typeof bg !== "object") return false;
   const b = bg as Record<string, unknown>;
   if (b.kind === "none") return true;
@@ -35,7 +48,7 @@ function valid(bg: unknown): bg is ChatBackground {
   return false;
 }
 
-function read(): Saved {
+function readLocal(): Saved {
   if (cache) return cache;
   try {
     cache = JSON.parse(localStorage.getItem(KEY) || "{}") as Saved;
@@ -45,7 +58,7 @@ function read(): Saved {
   return cache;
 }
 
-function write(next: Saved) {
+function writeLocal(next: Saved) {
   cache = next;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
@@ -63,22 +76,32 @@ function subscribe(l: () => void) {
     l();
   };
   window.addEventListener("storage", storage);
+  // the hub's copies come in with the agents and the person's prefs
+  const unsub = useStore.subscribe(l);
   return () => {
     listeners.delete(l);
     window.removeEventListener("storage", storage);
+    unsub();
   };
 }
 
+/** The hub refused the key itself (an older hub): only then is this device's copy used. A photo it turned down is a real error. */
+const refused = (e: unknown) => e instanceof ApiError && e.status === 400 && /unrecognized key/i.test(e.message) && /background/.test(e.message);
+
 /** The default every chat uses. */
 export function defaultBackground(): ChatBackground {
-  const d = read().default;
-  return valid(d) ? d : NO_BACKGROUND;
+  const saved = useStore.getState().me?.prefs?.background;
+  if (validBackground(saved)) return saved;
+  const local = readLocal().default;
+  return validBackground(local) ? local : NO_BACKGROUND;
 }
 
 /** The agent's own background, or null when it uses the default. */
 export function agentBackground(agentId: string): ChatBackground | null {
-  const a = read().agents?.[agentId];
-  return valid(a) ? a : null;
+  const saved = useStore.getState().agents.find((a) => a.id === agentId)?.settings.background;
+  if (validBackground(saved)) return saved;
+  const local = readLocal().agents?.[agentId];
+  return validBackground(local) ? local : null;
 }
 
 /** What a chat with this agent shows (teams and no agent: the default). */
@@ -86,39 +109,68 @@ export function backgroundFor(agentId?: string | null): ChatBackground {
   return (agentId && agentBackground(agentId)) || defaultBackground();
 }
 
-export function setDefaultBackground(bg: ChatBackground) {
-  write({ ...read(), default: bg });
+/** Saves the person's default on the hub (their prefs). */
+export async function setDefaultBackground(bg: ChatBackground): Promise<void> {
+  await useStore.getState().setPrefs({ background: bg });
+  // an older hub drops keys it doesn't know from prefs (no error): then this device keeps it
+  const kept = same(useStore.getState().me?.prefs?.background ?? null, bg);
+  const { default: _, ...rest } = readLocal();
+  if (!kept) writeLocal({ ...rest, default: bg });
+  else if (readLocal().default) writeLocal(rest);
 }
 
-/** null puts the agent back on the default. */
-export function setAgentBackground(agentId: string, bg: ChatBackground | null) {
-  const agents = { ...read().agents };
-  if (bg) agents[agentId] = bg;
-  else delete agents[agentId];
-  write({ ...read(), agents });
+/** Saves the agent's own background on the hub; null puts it back on the default. */
+export async function setAgentBackground(agentId: string, bg: ChatBackground | null): Promise<void> {
+  const keepLocal = (next: ChatBackground | null) => {
+    const agents = { ...readLocal().agents };
+    if (next) agents[agentId] = next;
+    else delete agents[agentId];
+    writeLocal({ ...readLocal(), agents });
+  };
+  try {
+    await api("PATCH", `/api/agents/${agentId}`, { settings: { background: bg } });
+    if (readLocal().agents?.[agentId]) keepLocal(null);
+    await useStore.getState().refreshAgents();
+  } catch (e) {
+    if (!refused(e)) throw e;
+    keepLocal(bg);
+  }
 }
 
-const same = (a: ChatBackground, b: ChatBackground) => JSON.stringify(a) === JSON.stringify(b);
-let last: Record<string, ChatBackground> = {};
-const stable = (key: string, bg: ChatBackground) => (last[key] && same(last[key], bg) ? last[key] : (last = { ...last, [key]: bg })[key]);
+const same = (a: ChatBackground | null, b: ChatBackground | null) => JSON.stringify(a) === JSON.stringify(b);
+let last: Record<string, ChatBackground | null> = {};
+function stable<T extends ChatBackground | null>(key: string, bg: T): T {
+  if (key in last && same(last[key], bg)) return last[key] as T;
+  last = { ...last, [key]: bg };
+  return bg;
+}
 
 /** The background a chat shows: the agent's own, else the default. Re-renders when either changes. */
 export function useChatBackground(agentId?: string | null): ChatBackground {
   return useSyncExternalStore(
     subscribe,
-    () => stable(agentId ?? "", backgroundFor(agentId)),
+    () => stable(`c:${agentId ?? ""}`, backgroundFor(agentId)),
     () => NO_BACKGROUND,
+  );
+}
+
+/** Only the agent's own (the profile's Background tab), or null when it uses the default. */
+export function useAgentBackground(agentId: string): ChatBackground | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => stable(`a:${agentId}`, agentBackground(agentId)),
+    () => null,
   );
 }
 
 /** Only the default (the Settings row). */
 export function useDefaultBackground(): ChatBackground {
-  return useSyncExternalStore(subscribe, () => stable("\u0000default", defaultBackground()), () => NO_BACKGROUND);
+  return useSyncExternalStore(subscribe, () => stable("d:", defaultBackground()), () => NO_BACKGROUND);
 }
 
 /** Uploads a photo through the usual file upload and gives back the background for it. */
 export async function uploadBackground(file: File): Promise<ChatBackground> {
-  if (!file.type.startsWith("image/")) throw new Error("Pick a photo.");
+  if (!/^image\/(png|jpeg|gif|webp|avif|bmp)$/.test(file.type)) throw new Error("Pick a photo (PNG, JPEG, GIF, WebP).");
   const up = await uploadFile(file);
   return { kind: "photo", url: `/api/files/${up.id}` };
 }

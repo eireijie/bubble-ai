@@ -85,9 +85,10 @@ describe("hash routing", () => {
     expect(router.appHashBeforeSettings()).toBe("#/c/ch1");
   });
 
-  it("sizes pop-ups: large for the busy places, medium for lists, Needs you a list too", () => {
+  it("sizes pop-ups: large for the busy places, medium for lists, an agent's profile between, Needs you a list too", () => {
     const size = (hash: string) => router.popupSize(router.parseRoute(hash));
-    for (const hash of ["#/settings", "#/computers", "#/marketplace", "#/tasks", "#/vault", "#/agents/agt1/look"]) expect(size(hash), hash).toBe("large");
+    for (const hash of ["#/settings", "#/computers", "#/marketplace", "#/tasks", "#/vault"]) expect(size(hash), hash).toBe("large");
+    for (const hash of ["#/agents/agt1", "#/agents/agt1/look", "#/agents/agt1/settings"]) expect(size(hash), hash).toBe("profile");
     for (const hash of ["#/agents", "#/help", "#/templates", "#/about"]) expect(size(hash), hash).toBe("medium");
     expect(size("#/dashboard")).toBe("medium");
     // the marketplace's sections and app pages are one pop-up: moving inside it isn't a swap

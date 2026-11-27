@@ -37,6 +37,8 @@ export interface UserPrefs {
   sidebar?: SidebarLayout;
   /** Show me around (Learn Bubble AI): which tour stops this person has seen, the same on every device */
   learn?: LearnProgress;
+  /** the background every chat shows unless its agent has its own (AgentSettings.background) */
+  background?: ChatBackground;
 }
 
 /** Progress through Show me around: stop ids seen, and whether the tour was ever started. */
@@ -137,7 +139,15 @@ export interface AgentSettings {
   madeDepth?: number;
   /** its first chat with the person it works for: the hello Bubble AI wrote for it, then a few questions (hub greeting.ts) */
   setup?: AgentSetup;
+  /** its chat's own background; unset = each person's default (UserPrefs.background) */
+  background?: ChatBackground;
 }
+
+/**
+ * A chat background (wallpaper): none, one #rrggbb colour, or a photo uploaded through the usual
+ * file upload (`/api/files/<id>`, an image in the same organization).
+ */
+export type ChatBackground = { kind: "none" } | { kind: "color"; color: string } | { kind: "photo"; url: string };
 
 /** A new agent's setup chat, in order: what they want, the role it offers, the accounts, what's signed in there, check-ins, what to ask about first, how to talk. */
 export const SETUP_STEPS = ["goal", "role", "accounts", "signins", "checkins", "boundaries", "style"] as const;

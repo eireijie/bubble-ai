@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, Brain, ChevronLeft, GitCommitHorizontal, Monitor, MessageSquare, MoreHorizontal, Plug, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ChevronLeft, GitCommitHorizontal, MessageSquare, Pencil, Phone, ShieldAlert } from "lucide-react";
 import { HARNESSES, VM_HARNESSES, runsInVm, type AccessLevel, type Agent, type HarnessCatalog } from "@bubble-ai/core";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { soulPath, soulTemplate } from "@bubble-ai/core/src/soul.ts";
@@ -7,106 +7,57 @@ import { ConnectionInstructions } from "../components/ConnectionInstructions.tsx
 import { useAccess } from "../access.ts";
 import { connectorBlocker, connectorOrigin } from "../components/Access.tsx";
 import { ApiError, api } from "../api.ts";
-import { useStore } from "../store.ts";
+import { useStore, useTeams } from "../store.ts";
 import { go, guardLeaving, href, mayLeave, type AgentTab } from "../router.ts";
 import { LookPanel } from "./LookEditor.tsx";
 import { effortName, prettyModel } from "../components/EffortSlider.tsx";
 import { SaveBar } from "./SettingsParts.tsx";
 import { useFeatures } from "../features.ts";
-import { AccessPanel, CARD, CanUse, Group, InPlace, Knows, Line, More, RemoveConfirm, SELECT, TAB_TITLES, Toggle } from "./AgentSections.tsx";
-import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, Pill, StatusDot, Textarea, cx, timeAgo, AGENT_STATUS } from "../components/ui.tsx";
-import { PopNav } from "../components/SettingsDialog.tsx";
-import { RoutinesPanel, runsOnDevice } from "./AgentComputer.tsx";
+import { AccessPanel, CARD, CanUse, HandleLine, InPlace, Knows, Line, RemoveConfirm, SELECT, TAB_TITLES, Toggle } from "./AgentSections.tsx";
+import { AgentWatches } from "./AgentWatches.tsx";
+import { AgentAvatar, Button, CopyBlock, Field, harnessLabel, Input, StatusDot, Textarea, cx, timeAgo } from "../components/ui.tsx";
+import { RoutinesPanel, runsOnDevice, type RoutineDraft } from "./AgentComputer.tsx";
 import { RunsOn } from "./AgentRunsOn.tsx";
 import { BackgroundPanel } from "./AgentBackground.tsx";
 import { agentReadiness, isSharedComputer, useDevices, type DeviceInfo } from "../devices.ts";
 import { useComputerMode } from "../computerMode.ts";
 import { setupNextStep } from "../components/AgentPanel.tsx";
 import { openDm } from "../openDm.ts";
+import { ActivityTab, BackgroundTab, LibraryTab, PROFILE_TAB_ROUTE, PROFILE_TAB_TITLES, PROFILE_TABS, SUGGESTED_ROUTINE, ScreenTab, SettingsTab, VoiceTab, WatchSomething, profilePlace, type ProfileTab } from "./AgentProfile.tsx";
 
 export type NodeInfo = DeviceInfo;
 
 type FullAgent = Agent & { instructions?: string };
 
-/** The six groups of an agent's page, in order: the same six rows the agent panel beside a chat has. */
-export const AGENT_GROUPS = ["thinks", "works", "can", "asks", "knows", "more"] as const;
-export type AgentGroup = (typeof AGENT_GROUPS)[number];
-export const GROUP_TITLES: Record<AgentGroup, string> = { thinks: "Thinks with", works: "Works on", can: "Can use", asks: "Asks first", knows: "Knows", more: "More" };
-const GROUP_ICON: Record<AgentGroup, ReactNode> = {
-  thinks: <Brain size={20} strokeWidth={1.8} />,
-  works: <Monitor size={20} strokeWidth={1.8} />,
-  can: <Plug size={20} strokeWidth={1.8} />,
-  asks: <ShieldCheck size={20} strokeWidth={1.8} />,
-  knows: <BookOpen size={20} strokeWidth={1.8} />,
-  more: <MoreHorizontal size={20} strokeWidth={1.8} />,
-};
+export { runStatusLabel, runTitle, tookFor } from "./AgentProfile.tsx";
 
-/** The group each old tab's settings live in now (the overview is the page's top). */
-const TAB_GROUP: Record<AgentTab, AgentGroup | null> = {
-  overview: null,
-  model: "thinks",
-  device: "works",
-  computer: "works",
-  skills: "can",
-  apps: "can",
-  permissions: "asks",
-  memory: "knows",
-  soul: "knows",
-  instructions: "knows",
-  look: "more",
-  access: "more",
-  background: "more",
-  routines: "more",
-  connect: "more",
-  runs: "more",
-  watches: "more",
-  remove: "more",
-};
-/** Tabs that are a part of their group, opened from one of its rows; the others are the group's own rows. */
-const PARTS: readonly AgentTab[] = ["soul", "instructions", "look", "access", "background", "routines", "connect", "runs"];
-
-/** Where an address of the old 12-tab page lands: its group, and the part of it to open (null when the group's rows are the thing). */
-export function agentPlace(tab: AgentTab | null | undefined): { group: AgentGroup | null; part: AgentTab | null } {
-  return { group: tab ? TAB_GROUP[tab] : null, part: tab && PARTS.includes(tab) ? tab : null };
-}
-
-/** True from the width where the page has room for the list of groups beside the picked one. */
-function useWide(): boolean {
-  const query = "(min-width: 768px)";
-  const [wide, setWide] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(query)?.matches);
-  useEffect(() => {
-    const mq = window.matchMedia?.(query);
-    if (!mq?.addEventListener) return;
-    const on = () => setWide(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return wide;
+/** Open its chat and start a call there. */
+async function callAgent(agentId: string) {
+  const existing = useStore.getState().channels.find((c) => c.kind === "dm" && c.name.endsWith(`:${agentId}`));
+  const id = existing?.id ?? (await api<{ id: string }>("POST", `/api/dm/${agentId}`)).id;
+  if (!existing) await useStore.getState().refreshChannels();
+  go({ view: "chat", channelId: id, threadId: null, call: true });
 }
 
 /**
- * One agent's page: its live ghost, its name and what it does (both edited in place) and Message;
- * then six groups (Thinks with, Works on, Can use, Asks first, Knows, More) of one-line rows, the
- * rest of each behind "Show all". Desktops list the groups on the left and show the picked one;
- * phones show all six down one page. A row that needs room (personality, look, schedules…) opens
- * as a part with Back. Parts you type in stay mounted, so a draft survives looking elsewhere.
+ * One agent's profile (canvas round 4, board Profile): its live bubble (a pencil on hover opens its
+ * look), its name and what it does (both edited in place), Message and Call; then five tabs:
+ * Activity, Library, Computer, Voice and Settings. Each Settings row opens its part in place with a
+ * back arrow. Parts you type in stay mounted, so a draft survives looking elsewhere.
  */
 export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: NodeInfo[]; tab: AgentTab | null }) {
   const features = useFeatures();
   const refreshAgents = useStore((s) => s.refreshAgents);
-  // a tab for a mod that's off isn't there; its old address lands on the page's top
+  const canEdit = useStore((s) => s.me?.role !== "guest");
+  // a part for a mod that's off isn't there; its old address lands on Settings
   const offTabs: AgentTab[] = [...(features.routines ? [] : ["routines" as const]), ...(features.background ? [] : ["background" as const])];
-  const active = tab && !offTabs.includes(tab) ? tab : "overview";
-  const place = agentPlace(active);
+  const active = tab && offTabs.includes(tab) ? "settings" : (tab ?? "overview");
+  const place = profilePlace(active);
   const part = place.part;
-  const wide = useWide();
-  const [group, setGroup] = useState<AgentGroup>(place.group ?? "thinks");
-  const picked = useRef(!!place.group);
-  useEffect(() => {
-    if (!place.group) return;
-    picked.current = true;
-    setGroup(place.group);
-  }, [place.group, active]);
+  // the look opens from the avatar on any tab, and goes back to that tab
+  const lastTab = useRef<ProfileTab>(place.tab);
+  if (part !== "look") lastTab.current = place.tab;
+  const shownTab = part === "look" ? lastTab.current : place.tab;
   const [dirty, setDirty] = useState<Partial<Record<AgentTab, boolean>>>({});
   const hasDirty = Object.values(dirty).some(Boolean);
   useEffect(() => {
@@ -139,33 +90,16 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
   const devices = useDevices();
   const readiness = agentReadiness(agent, devices);
   const next = setupNextStep(agent, devices);
-  // nothing picked yet and something is missing: open on the group that says what
-  useEffect(() => {
-    if (!readiness.ready && !picked.current) setGroup("works");
-  }, [readiness.ready]);
-  // a fix that lives on this page is the row right there (the device picker, or Sign in under Show all)
+  // a fix that lives in the profile is the Computer part right there
   const fixHere = !!next && next.href.startsWith(`#/agents/${agent.id}/`);
 
   const content = useRef<HTMLDivElement>(null);
-  // phones: once the page scrolls, the bar behind Back gets a line and (on the top page) the agent's name
-  const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const el = content.current;
-    if (!el) return;
-    // phones show every group down one page: an old tab's address brings its group into view
-    // "What it watches" is a list inside More: bring that list itself into view
-    const target = part ? null : active === "watches" ? el.querySelector<HTMLElement>("[data-watches]") : !wide && place.group ? el.querySelector<HTMLElement>(`[data-group="${place.group}"]`) : null;
-    if (target) target.scrollIntoView({ block: "start" });
-    else el.scrollTo({ top: 0 });
-  }, [active, group, wide]);
+    content.current?.scrollTo({ top: 0 });
+  }, [part, shownTab]);
 
   const to = (t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
-  const top = to("overview");
-  const pick = (g: AgentGroup) => {
-    picked.current = true;
-    setGroup(g);
-    if (part) go({ view: "agents", agentId: agent.id, tab: "overview" });
-  };
+  const [routineStart, setRoutineStart] = useState<RoutineDraft | null>(null);
   const rename = async (name: string) => {
     if (!name) throw new Error("A name is needed");
     await api("PATCH", `/api/agents/${agent.id}`, { name });
@@ -175,105 +109,124 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
     await api("PATCH", `/api/agents/${agent.id}`, { settings: { role } });
     await refreshAgents();
   };
-  const ghost = (size: number) => (
-    <a href={to("look")} aria-label={`Change ${agent.name}'s look`} className="shrink-0 rounded-full">
-      <AgentAvatar agent={agent} size={size} live />
-    </a>
-  );
-  const message = (
-    <Button variant="primary" onClick={() => void openDm(agent.id)}>
-      <MessageSquare size={15} /> Message
-    </Button>
-  );
-
-  const body = (g: AgentGroup): ReactNode => {
-    switch (g) {
-      case "thinks":
-        return <ThinksWith agent={agent} nodes={nodes} />;
-      case "works":
-        return <RunsOn agent={agent} nodes={nodes} problem={readiness.ready ? null : (readiness.problem ?? "Setup incomplete")} fix={fixHere ? null : next} />;
-      case "can":
-        return <CanUse agent={agent} />;
-      case "asks":
-        return <AsksFirst agent={agent} nodes={nodes} />;
-      case "knows":
-        return <Knows agent={agent} />;
-      case "more":
-        return <More agent={agent} nodes={nodes} />;
-    }
-  };
-  const unsaved = (g: AgentGroup) => (Object.keys(dirty) as AgentTab[]).some((t) => dirty[t] && TAB_GROUP[t] === g);
+  const back = part === "look" ? to(PROFILE_TAB_ROUTE[lastTab.current]) : to("settings");
+  const partTitle = part === "look" ? `${agent.name}'s look` : part ? TAB_TITLES[part] : "";
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      {/* phones: back, and over a part its title with the agent's name under it */}
-      <header className={cx("md:hidden relative z-10 shrink-0 flex items-center gap-3 bg-panel px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 border-b transition-colors duration-200", scrolled ? "border-line" : "border-transparent")}>
-        <a href={part ? top : "#/agents"} className="circle" aria-label={part ? `Back to ${agent.name}` : "Back to agents"}>
-          <ChevronLeft size={22} />
-        </a>
-        {part ? (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* phones: the profile is a page, with Back to where you were */}
+      {!part && (
+        <header className="md:hidden relative z-10 flex shrink-0 items-center px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-1">
+          <button type="button" onClick={() => (history.length > 1 ? history.back() : go({ view: "agents", agentId: null }))} className="circle" aria-label="Back">
+            <ChevronLeft size={22} />
+          </button>
+        </header>
+      )}
+      {part && (
+        <header className="relative z-10 flex h-14 shrink-0 items-center gap-2 border-b border-line px-3 pt-[env(safe-area-inset-top)] md:pr-14">
+          <a href={back} className="circle circle-sm" aria-label={`Back to ${agent.name}`}>
+            <ChevronLeft size={19} />
+          </a>
+          <h2 className="pointer-events-none absolute inset-x-14 truncate text-center text-[15px] font-semibold">{partTitle}</h2>
+        </header>
+      )}
+      <div ref={content} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {!part && (
           <>
-            <div className="flex-1 min-w-0 text-center">
-              <div className="text-[14px] font-semibold truncate">{TAB_TITLES[part]}</div>
-              <div className="text-[13px] text-muted truncate">{agent.name}</div>
+            <div className="flex flex-col items-center gap-1 px-6 pt-2 pb-3 text-center md:pt-8">
+              <a href={to("look")} aria-label={`Change ${agent.name}'s look`} className="group relative mb-2 shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                <AgentAvatar agent={agent} size={84} live />
+                {canEdit && (
+                  <span className="absolute -right-0.5 -bottom-0.5 grid size-7 place-items-center rounded-full border border-line bg-panel text-ink opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 max-md:opacity-100" aria-hidden>
+                    <Pencil size={13} strokeWidth={2} />
+                  </span>
+                )}
+              </a>
+              {canEdit ? (
+                <label className="group relative inline-flex max-w-full items-center">
+                  <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="h-9 max-w-[min(22rem,70vw)] text-center text-[22px] font-semibold leading-[30px] [field-sizing:content] min-w-[3ch]" />
+                  <Pencil size={13} strokeWidth={2} className="pointer-events-none absolute -right-4 text-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-0" aria-hidden />
+                </label>
+              ) : (
+                <h2 className="text-[22px] font-semibold leading-[30px]">{agent.name}</h2>
+              )}
+              {canEdit ? (
+                <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="h-7 w-full max-w-xs text-center text-[14px] text-muted focus:text-ink" />
+              ) : (
+                agent.settings.role && <div className="text-[14px] text-muted">{agent.settings.role}</div>
+              )}
+              {!readiness.ready && (
+                <a href={fixHere || !next ? to("computer") : next.href} className="mt-1 inline-flex max-w-full items-center gap-1.5 text-[13px] text-st-needs hover:underline">
+                  <StatusDot status={agent.status} needsSignIn={!!agent.signIn} />
+                  <span className="truncate">{next?.text ?? readiness.problem ?? "Setup incomplete"}</span>
+                </a>
+              )}
+              <div className="mt-3 flex gap-2">
+                <Button className="h-8! rounded-full! px-4!" onClick={() => void openDm(agent.id)}>
+                  <MessageSquare size={14} /> Message
+                </Button>
+                <Button className="h-8! rounded-full! px-4!" onClick={() => void callAgent(agent.id)}>
+                  <Phone size={14} /> Call
+                </Button>
+              </div>
             </div>
-            <span className="w-11" aria-hidden />
-          </>
-        ) : (
-          <>
-            <div className={cx("flex-1 min-w-0 text-center text-[15px] font-semibold truncate transition-opacity duration-200", scrolled ? "opacity-100" : "opacity-0")} aria-hidden={!scrolled}>
-              {agent.name}
+            <div role="tablist" aria-label={`${agent.name}'s profile`} className="sticky top-0 z-10 flex shrink-0 justify-center gap-4 overflow-x-auto border-b border-line bg-panel px-6 [scrollbar-width:none] md:gap-6">
+              {PROFILE_TABS.map((t) => (
+                <a
+                  key={t}
+                  role="tab"
+                  aria-selected={shownTab === t}
+                  href={to(PROFILE_TAB_ROUTE[t])}
+                  className={cx("-mb-px shrink-0 border-b-2 px-0.5 py-2.5 text-[14px] font-medium outline-none transition-colors focus-visible:text-ink", shownTab === t ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")}
+                >
+                  {PROFILE_TAB_TITLES[t]}
+                </a>
+              ))}
             </div>
-            <span className="w-11" aria-hidden />
+            <div key={shownTab} className="m-panel flex-1 bg-bg/40 px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:pt-5">
+              {shownTab === "activity" && (
+                <ActivityTab
+                  agent={agent}
+                  onRoutine={() => {
+                    setRoutineStart(SUGGESTED_ROUTINE);
+                    go({ view: "agents", agentId: agent.id, tab: "routines" });
+                  }}
+                  onWatch={() => go({ view: "agents", agentId: agent.id, tab: "watches" })}
+                />
+              )}
+              {shownTab === "library" && <LibraryTab agent={agent} />}
+              {shownTab === "computer" && <ScreenTab agent={agent} />}
+              {shownTab === "voice" && <VoiceTab agent={agent} />}
+              {shownTab === "background" && <BackgroundTab agent={agent} />}
+              {shownTab === "settings" && <SettingsTab agent={agent} />}
+            </div>
           </>
         )}
-      </header>
-      <div className="flex-1 min-h-0 flex">
-        {/* desktops (the pop-up): the live ghost, its name and what it does, how it is, Message, then its sections */}
-        <aside className="hidden md:flex w-[240px] shrink-0 flex-col overflow-y-auto border-r border-line bg-panel px-2.5 pt-6 pb-5">
-          <div className="mb-4 flex flex-col items-start gap-2.5 px-2">
-            {ghost(76)}
-            <div className="w-full min-w-0">
-              <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="-ml-1.5 block h-8 w-full truncate text-[19px] font-semibold leading-[26px]" />
-              <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="-ml-1.5 block h-6 w-full truncate text-[13px] text-muted focus:text-ink" />
-              <div className="mt-1 flex items-center gap-1.5 text-[12px] text-muted">
-                <StatusDot status={agent.status} needsSignIn={!!agent.signIn} />
-                <span className="truncate">
-                  {harnessLabel(agent.harness)} · {agent.signIn && agent.status === "online" ? "needs sign-in" : (AGENT_STATUS[agent.status]?.label ?? "Offline")}
-                </span>
-              </div>
-            </div>
-            <div className="mt-1">{message}</div>
-          </div>
-          <PopNav label={`${agent.name}'s settings`} current={group} items={AGENT_GROUPS.map((g) => ({ key: g, label: GROUP_TITLES[g], icon: GROUP_ICON[g], onSelect: () => pick(g), dot: unsaved(g) ? "unsaved" : g === "works" && !readiness.ready ? "needs" : null }))} />
-        </aside>
-        {/* md:px-8 is the room a part's save bar (-mx-8) reaches into */}
-        <div ref={content} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 96)} className="flex-1 min-w-0 overflow-y-auto px-5 md:pl-8 md:pr-16 pt-1 md:pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-[720px] max-md:mx-auto">
-            {!part && (
-              <div className="space-y-6">
-                {/* the profile, on phones */}
-                <div className="md:hidden flex flex-col items-center gap-1 text-center">
-                  {ghost(76)}
-                  <InPlace value={agent.name} onSave={rename} label="Name" maxLength={80} className="mt-2 h-8 w-full max-w-xs text-center text-[19px] font-semibold leading-[26px]" />
-                  <InPlace value={agent.settings.role ?? ""} onSave={setRole} label="What it does" placeholder="What it does" maxLength={60} className="h-6 w-full max-w-xs text-center text-sm text-muted focus:text-ink" />
-                  <div className="mt-2">{message}</div>
-                </div>
-                {(wide ? [group] : AGENT_GROUPS).map((g) => (
-                  <div key={g} data-group={g} className={cx("scroll-mt-3", wide && "settings-pop-section")}>
-                    <Group title={GROUP_TITLES[g]}>{body(g)}</Group>
+        <div className={cx(part ? "px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8 md:pt-5" : "hidden")}>
+          <div className="mx-auto max-w-[680px] space-y-4">
+            {(part === "model" || part === "harness" || part === "effort") && <ThinksWith agent={agent} nodes={nodes} />}
+            {(part === "device" || part === "computer") && <RunsOn agent={agent} nodes={nodes} problem={readiness.ready ? null : (readiness.problem ?? "Setup incomplete")} fix={fixHere ? null : next} />}
+            {(part === "apps" || part === "skills") && <CanUse agent={agent} />}
+            {part === "permissions" && <AsksFirst agent={agent} nodes={nodes} />}
+            {part === "memory" && <Knows agent={agent} />}
+            {part === "access" && (
+              <>
+                <AccessPanel agent={agent} device={nodes.find((n) => n.id === agent.nodeId)} />
+                <NameAndTeams agent={agent} />
+              </>
+            )}
+            {part === "watches" && (
+              <>
+                <AgentWatches agent={agent} bare />
+                <WatchSomething agent={agent} />
+                {features.background && (
+                  <div className={CARD}>
+                    <Line label="Background checks" to={to("background")} />
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
-            {part && (
-              <div className="hidden md:block pb-4">
-                <a href={top} className="-ml-1 inline-flex h-7 items-center gap-0.5 text-[13px] text-muted hover:text-ink">
-                  <ChevronLeft size={15} aria-hidden /> {place.group ? GROUP_TITLES[place.group] : agent.name}
-                </a>
-                <h2 className="text-[19px] font-semibold leading-[26px]">{TAB_TITLES[part]}</h2>
-              </div>
-            )}
+            {part === "connect" && <ConnectPanel agent={agent} />}
             <Panel show={part === "look"}>
               <LookPanel agent={agent} onDirty={markDirty("look")} active={part === "look"} />
             </Panel>
@@ -283,26 +236,15 @@ export function AgentDetail({ agent, nodes, tab }: { agent: FullAgent; nodes: No
             <Panel show={part === "instructions"}>
               <InstructionsPanel agent={agent} onDirty={markDirty("instructions")} active={part === "instructions"} />
             </Panel>
-            {part === "access" && (
-              <div className="m-panel">
-                <AccessPanel agent={agent} device={nodes.find((n) => n.id === agent.nodeId)} />
-              </div>
-            )}
             <Panel show={part === "background"}>
               <BackgroundPanel agent={agent} active={part === "background"} onDirty={markDirty("background")} />
             </Panel>
             <Panel show={part === "routines"}>
-              <RoutinesPanel agent={agent} active={part === "routines"} />
+              <RoutinesPanel agent={agent} active={part === "routines"} start={part === "routines" ? routineStart : null} onStarted={() => setRoutineStart(null)} />
             </Panel>
-            <Panel show={part === "connect"}>
-              <ConnectPanel agent={agent} />
-            </Panel>
-            <Panel show={part === "runs"}>
-              <RunsPanel agent={agent} active={part === "runs"} />
-            </Panel>
-            {active === "remove" && <RemoveConfirm agent={agent} onClose={() => go({ view: "agents", agentId: agent.id, tab: "overview" })} />}
           </div>
         </div>
+        {active === "remove" && <RemoveConfirm agent={agent} onClose={() => go({ view: "agents", agentId: agent.id, tab: "settings" })} />}
       </div>
     </div>
   );
@@ -317,6 +259,18 @@ function Panel({ show, children }: { show: boolean; children: ReactNode }) {
   );
 }
 
+/** Its @handle (how people message it) and the teams it is on, under Who can message. */
+function NameAndTeams({ agent }: { agent: Agent }) {
+  const teams = useTeams();
+  const onTeams = teams.filter((t) => t.members.some((m) => m.agentId === agent.id)).map((t) => t.name);
+  return (
+    <div className={CARD}>
+      <HandleLine agent={agent} />
+      {onTeams.length > 0 && <Line label="Teams" value={onTeams.join(", ")} />}
+    </div>
+  );
+}
+
 // --- Soul ---------------------------------------------------------------------
 
 interface Commit {
@@ -326,7 +280,7 @@ interface Commit {
   message: string;
 }
 
-/** Its personality (SOUL.md), as text. Whether it may rewrite it itself is a switch under Asks first. */
+/** Its personality (SOUL.md), as text. Whether it may rewrite it itself is a switch under Permissions. */
 function SoulPanel({ agent, onDirty, active }: { agent: FullAgent; onDirty: (d: boolean) => void; active: boolean }) {
   const path = soulPath(agent.id);
   const [saved, setSaved] = useState<string | null>(null); // null = no soul yet
@@ -517,10 +471,10 @@ function InstructionsPanel({ agent, onDirty, active }: { agent: FullAgent; onDir
   );
 }
 
-// --- Thinks with --------------------------------------------------------------
+// --- Model, harness and effort --------------------------------------------------------------
 
 /**
- * The AIs an agent can switch to: the ones installed where it runs (its device, or the computer it
+ * The harnesses an agent can switch to: the ones installed where it runs (its device, or the computer it
  * runs inside), and the one it has now. Agents that join from outside keep theirs.
  */
 export function harnessChoices(agent: Pick<Agent, "harness" | "computerId" | "settings">, device: Pick<DeviceInfo, "harnesses" | "vmSignIns"> | undefined): string[] {
@@ -534,9 +488,9 @@ export function harnessChoices(agent: Pick<Agent, "harness" | "computerId" | "se
 }
 
 /**
- * What it thinks with, as rows: its AI (switch it here, as /harness does in chat), the model, the
- * effort, and Fast when the model has it. Each saves as it changes. A model that isn't on the list is
- * typed in ("Other model…"); its handle is behind "Show all".
+ * Model, Harness, Effort as rows (switch the harness here, as /harness does in chat), and Fast when
+ * the model has it. Each saves as it changes. A model that isn't on the list is
+ * typed in ("Other model…").
  */
 function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
@@ -563,7 +517,7 @@ function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
   if (!headless)
     return (
       <div className={CARD}>
-        <Line label="AI" value={hLabel} />
+        <Line label="Harness" value={hLabel} />
         <Line label="Model" value={`Set in ${hLabel}`} />
       </div>
     );
@@ -614,16 +568,6 @@ function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
   return (
     <>
       <div className={CARD}>
-        <Line label="AI">
-          <HarnessLogo harness={agent.harness} size={16} />
-          <select aria-label="AI" value={agent.harness} onChange={(e) => setHarness(e.target.value)} disabled={choices.length < 2} title={choices.length < 2 ? "Nothing else is installed where it runs" : undefined} className={SELECT}>
-            {choices.map((id) => (
-              <option key={id} value={id}>
-                {harnessLabel(id)}
-              </option>
-            ))}
-          </select>
-        </Line>
         <Line label="Model">
           <select
             aria-label="Model"
@@ -651,6 +595,16 @@ function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
             <InPlace value={model} onSave={setModel} label="Model id" placeholder={agent.harness === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5"} className="h-8 w-48 border border-line bg-panel text-[13px] text-ink" />
           </Line>
         )}
+        <Line label="Harness">
+          <HarnessLogo harness={agent.harness} size={16} />
+          <select aria-label="Harness" value={agent.harness} onChange={(e) => setHarness(e.target.value)} disabled={choices.length < 2} title={choices.length < 2 ? "Nothing else is installed where it runs" : undefined} className={SELECT}>
+            {choices.map((id) => (
+              <option key={id} value={id}>
+                {harnessLabel(id)}
+              </option>
+            ))}
+          </select>
+        </Line>
         {efforts.length > 0 && (
           <Line label="Effort">
             <select aria-label="Reasoning effort" value={effortDropped ? "" : effort} onChange={(e) => void patch({ settings: { effort: e.target.value || null } }).catch(() => {})} className={SELECT}>
@@ -680,7 +634,7 @@ function ThinksWith({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
   );
 }
 
-// --- Asks first ---------------------------------------------------------------
+// --- Permissions ---------------------------------------------------------------
 
 const ACCESS: Record<AccessLevel, string> = { "read-only": "Read only", edit: "Can edit files", full: "Full access" };
 
@@ -713,8 +667,8 @@ const OWN_PLUGINS_HARNESSES = ["codex", "claude-code", "gemini"];
 
 /**
  * What it may do without asking: its level for files and commands, and whether it may rewrite its
- * own personality. Each saves as it changes. Using the person's own plugins (which skip Bubble AI's
- * approvals) is behind "Show all"; the level's reach in full is the picker's tooltip.
+ * own personality. Each saves as it changes, and so does using the person's own plugins (which skip
+ * Bubble AI's approvals); the level's reach in full is the picker's tooltip.
  */
 function AsksFirst({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
@@ -784,121 +738,6 @@ function AsksFirst({ agent, nodes }: { agent: FullAgent; nodes: NodeInfo[] }) {
       )}
       {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
     </>
-  );
-}
-
-// --- Activity -----------------------------------------------------------------
-
-interface RunRow {
-  id: string;
-  status: string;
-  error: string | null;
-  createdAt: string;
-  finishedAt: string | null;
-  channelId: string;
-  threadId: string | null;
-  channelName: string | null;
-  channelKind: string | null;
-  trigger: string | null;
-  /** "background" for a check the agent made on its own; an empty trigger alone can also mean a DM the viewer can't see */
-  kind?: string | null;
-  /** a failure in plain words, when the hub recognised it (the harness needs signing in on its device) */
-  hint?: string | null;
-}
-
-const RUN_TONE: Record<string, "ok" | "bad" | "warn" | "info" | "neutral"> = { done: "ok", failed: "bad", running: "info", queued: "warn", cancelled: "neutral" };
-
-/** A run's status in plain words. */
-export function runStatusLabel(status: string): string {
-  const known: Record<string, string> = { queued: "Waiting to start", running: "Working", done: "Done", failed: "Didn't finish", cancelled: "Stopped" };
-  return known[status] ?? status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-/** A readable name for a run, from the body of the message that woke the agent ("" when there's no message to show). */
-export function runTitle(trigger: string | null): string {
-  const text = (trigger ?? "").trim();
-  if (!text) return "";
-  const body = text.replace(/^(?:@[\w.-]+\s*)+/, "");
-  const task = body.match(/^New task \*\*(.+?)\*\*/);
-  if (task) return `Task: ${task[1]}`;
-  const routine = body.match(/^Run the routine \*\*(.+?)\*\*/);
-  if (routine) return `Routine: ${routine[1]}`;
-  const learn = body.match(/^I just showed you how to \*\*(.+?)\*\*/);
-  if (learn) return `Learning: ${learn[1]}`;
-  const line = (body.split("\n").find((l) => l.trim()) ?? "")
-    .replace(/\*\*|`/g, "")
-    .replace(/(^|\s)_+|_+(?=\s|$)/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!line) return "Message";
-  return line.length > 80 ? `${line.slice(0, 80).trimEnd()}…` : line;
-}
-
-function RunsPanel({ agent, active }: { agent: FullAgent; active: boolean }) {
-  const [runs, setRuns] = useState<RunRow[] | null>(null);
-  useEffect(() => {
-    if (active) api<RunRow[]>("GET", `/api/agents/${agent.id}/runs?limit=50`).then(setRuns, () => setRuns([]));
-  }, [active, agent.id]);
-  return <RunList runs={runs} />;
-}
-
-/** How long a run took, in words ("under a second", "12 seconds", "3 minutes"). */
-export function tookFor(ms: number): string {
-  const secs = Math.round(Math.max(0, ms) / 1000);
-  if (secs < 1) return "under a second";
-  if (secs < 60) return secs === 1 ? "1 second" : `${secs} seconds`;
-  const mins = Math.round(secs / 60);
-  return mins === 1 ? "1 minute" : `${mins} minutes`;
-}
-
-function RunList({ runs }: { runs: RunRow[] | null }) {
-  if (!runs) return <p className="px-1 text-[13px] text-muted">Loading…</p>;
-  if (!runs.length) return <p className="px-1 text-[13px] text-muted">Nothing yet</p>;
-  return (
-    <div className={CARD}>
-      {runs.map((r) => {
-        const took = r.finishedAt ? tookFor(new Date(r.finishedAt).getTime() - new Date(r.createdAt).getTime()) : null;
-        const channel = r.channelKind === "dm" ? "Chat" : `#${r.channelName ?? ""}`;
-        const why = r.hint || r.error;
-        return (
-          <div key={r.id} className="px-3.5 py-2.5 text-sm">
-            <div className="flex items-center gap-3">
-              <Pill tone={RUN_TONE[r.status] ?? "neutral"}>{runStatusLabel(r.status)}</Pill>
-              <span className="min-w-0 flex-1">
-                <a href={`#/c/${r.channelId}${r.threadId ? `/t/${r.threadId}` : ""}`} className="block truncate hover:underline">
-                  {r.kind === "background" ? "Background check" : runTitle(r.trigger) || "Message"}
-                </a>
-                {why && <span className="block text-xs text-bad break-words">{why.replace(/`/g, "")}</span>}
-              </span>
-              <span className="text-xs text-muted shrink-0 hidden sm:inline">{channel}</span>
-              {took && <span className="text-xs text-faint shrink-0 tabular-nums text-right">{took}</span>}
-              {r.status === "failed" && r.channelName !== null && (
-                <button type="button" className="text-xs font-medium text-ink underline underline-offset-2 shrink-0" onClick={() => void api("POST", `/api/runs/${r.id}/retry`).catch((e) => alert((e as Error).message))}>
-                  Try again
-                </button>
-              )}
-              <span className="text-xs text-faint shrink-0 w-16 text-right">{timeAgo(r.createdAt)}</span>
-            </div>
-            <details className="mt-1 text-xs text-muted">
-              <summary className="cursor-pointer select-none">Details</summary>
-              <div className="mt-1.5 space-y-1">
-                <ol className="mb-2 space-y-1 border-l border-line pl-3">
-                  <li>
-                    You asked: {runTitle(r.trigger) || "a message"} <span className="text-faint">· {channel}</span>
-                  </li>
-                  <li className={r.status === "failed" ? "text-bad" : undefined}>{r.status === "failed" ? `Didn't finish${why ? `: ${why}` : ""}` : r.status === "done" ? `Done${took ? ` in ${took}` : ""}` : runStatusLabel(r.status)}</li>
-                </ol>
-                <div>
-                  Run id: <span className="font-mono break-all">{r.id}</span>
-                </div>
-                <div>Where: {channel}</div>
-                {r.trigger && <div className="whitespace-pre-wrap break-words max-h-32 overflow-y-auto rounded-lg bg-hover px-2 py-1.5">{r.trigger}</div>}
-              </div>
-            </details>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 

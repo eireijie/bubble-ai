@@ -90,6 +90,7 @@ import { registerOnboardingApi } from "./api-onboarding.ts";
 import { workspaceFeatures } from "./features.ts";
 import type { SetupCode } from "./setup-code.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
+import { CHAT_BACKGROUND, backgroundProblem } from "./chat-background.ts";
 
 /** Why an agent's save was refused for holding a secret (Bubble AI never keeps passwords; logins go through the person's password manager). */
 const NO_SECRETS = "Memory can't hold passwords, keys, tokens or card numbers. Write where the secret lives instead (\"the API key is in the GitHub connected app\").";
@@ -153,6 +154,8 @@ const SETTINGS = z
     roleNotes: z.string().max(2000),
     respondTo: z.enum(["me", "anyone", "people"]),
     respondPeople: z.array(z.string().min(1)).max(500),
+    /** its chat's own background; null puts it back on each person's default */
+    background: CHAT_BACKGROUND.nullable().transform((bg) => bg ?? undefined),
     /** set by the hub when the agent is made; accepted (and ignored) so a client can send settings back as it got them */
     createdBy: z.string().optional(),
   })
@@ -1287,6 +1290,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     );
     if (!body) return;
     const { useDefaults, greet, ...fields } = body;
+    if (body.settings?.background) {
+      const why = backgroundProblem(store, c.workspaceId, body.settings.background);
+      if (why) return reply.code(400).send({ error: why });
+    }
     // set to work without a device by whoever made it: it doesn't wait for one
     const askedHeadless = !!body.settings?.headless;
     const defaults = useDefaults ? agentDefaults(store, c.workspaceId) : null;
@@ -1372,6 +1379,11 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!body) return;
     // who made it is the hub's record, not a setting
     if (body.settings) delete body.settings.createdBy;
+    // its chat background: a photo must be an image uploaded here; null = back to the default
+    if (body.settings?.background) {
+      const why = backgroundProblem(store, c.workspaceId, body.settings.background);
+      if (why) return reply.code(400).send({ error: why });
+    }
     // whether it may use someone's own computer is that person's call, device by device
     if (body.settings?.useDevices) {
       const before = agent.settings.useDevices ?? {};
