@@ -64,6 +64,8 @@ struct AppConnector: Decodable, Identifiable {
   var docs: String?
   /** a catalog entry that signs in with one click, and how (the bundled catalog only) */
   var signIn: CatalogSignIn?
+  /** always recommended (Composio): its one line ("Use Composio for more apps and easy sign-in.") */
+  var recommended: String?
 }
 struct ConnectorField: Decodable, Identifiable {
   var key: String

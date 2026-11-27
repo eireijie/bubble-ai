@@ -480,7 +480,7 @@ enum SetupPath: String, Codable, Equatable {
 
 /** How it talks, on Make it yours. */
 enum SetupTalk: String, Codable, CaseIterable, Identifiable {
-  case brief, balanced, detailed
+  case short, friendly, thorough
   var id: String { rawValue }
   var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
 }
@@ -491,100 +491,104 @@ enum SetupCheckIn: String, Codable, CaseIterable, Identifiable {
   var id: String { rawValue }
   var label: String {
     switch self {
-    case .morning: "Mornings"
-    case .evening: "Evenings"
-    case .needed: "When needed"
-    }
-  }
-  /** when the preview message would arrive */
-  var when: String {
-    switch self {
-    case .morning: "Tomorrow 8:00"
-    case .evening: "Today 18:00"
-    case .needed: "When it matters"
+    case .morning: "Each morning"
+    case .evening: "Each evening"
+    case .needed: "Only when it matters"
     }
   }
 }
 
-/** One thing the agent can help with: the apps it calls for and what it would tell you (SETUP_GOALS in BubbleSetup.tsx). */
+/** One thing the agent can help with, in the person's own words (SETUP_GOALS in BubbleSetup.tsx, round 7). */
 struct SetupGoal: Identifiable, Equatable {
   var id: String
+  /** as they'd say it */
   var label: String
+  /** the same, as it reads after "I'd like help with:" */
+  var want: String
   var symbol: String
-  /** StartApp ids, best first; Apple apps only count where Bubble AI lives on a Mac */
-  var apps: [String]
-  var news: String
+  /** what it would tell you, for the sample message */
+  var say: String
 }
 
-/** Make it yours and Connect, as on the web (apps/web/src/views/onboarding/BubbleSetup.tsx). */
+/** Make it yours, as on the web (apps/web/src/views/onboarding/BubbleSetup.tsx, round 7). The apps come after, from the agent itself. */
 enum SetupGoals {
   static let all: [SetupGoal] = [
-    SetupGoal(id: "inbox", label: "Email", symbol: "envelope", apps: ["gmail", "messages"], news: "3 emails need a reply"),
-    SetupGoal(id: "cal", label: "Calendar", symbol: "calendar", apps: ["gcal", "calendar", "reminders"], news: "your 2pm moved to 3"),
-    SetupGoal(id: "support", label: "Customers", symbol: "bubble.left.and.bubble.right", apps: ["slack", "gmail"], news: "2 customers are waiting"),
-    SetupGoal(id: "orders", label: "Orders", symbol: "shippingbox", apps: ["stripe"], news: "4 orders are ready to ship"),
-    SetupGoal(id: "research", label: "Research", symbol: "magnifyingglass", apps: ["notion", "brave"], news: "I found 5 sources on your question"),
-    SetupGoal(id: "code", label: "Code", symbol: "chevron.left.forwardslash.chevron.right", apps: ["github", "linear", "vercel"], news: "the build on main failed"),
+    SetupGoal(id: "days", label: "Keep my days on track", want: "keeping my days on track", symbol: "calendar", say: "the dentist is at 10, so I moved the gym to 6"),
+    SetupGoal(id: "msgs", label: "Stay on top of my messages", want: "staying on top of my messages", symbol: "envelope", say: "your landlord replied, and Friday works for him"),
+    SetupGoal(id: "people", label: "Remember the people I care about", want: "remembering the people I care about", symbol: "heart", say: "it's your mom's birthday Saturday. Want me to find a gift?"),
+    SetupGoal(id: "plans", label: "Plan trips and weekends", want: "planning trips and weekends", symbol: "mappin.and.ellipse", say: "flights to Chicago for the 14th dropped to $142"),
+    SetupGoal(id: "money", label: "Keep an eye on money and bills", want: "keeping an eye on money and bills", symbol: "creditcard", say: "your phone bill ($64) is due Thursday"),
+    SetupGoal(id: "health", label: "Help me stay healthy", want: "staying healthy", symbol: "waveform.path.ecg", say: "you've slept under 6 hours three nights running. Earlier night tonight?"),
+    SetupGoal(id: "business", label: "Help run my business", want: "running my business", symbol: "storefront", say: "2 customers wrote in overnight and 4 orders are ready to ship"),
+    SetupGoal(id: "learn", label: "Help me learn and build things", want: "learning and building things", symbol: "book", say: "I found 5 good sources on what you asked. Short answer: yes"),
   ]
   /** what's picked before anyone picks */
-  static let start = ["inbox", "cal"]
+  static let start = ["days", "people"]
 
-  /** The apps the picked goals call for, each once, in goal order. */
-  static func apps(for goals: [String]) -> [StartApp] {
-    var seen = Set<String>(), out: [StartApp] = []
-    for g in all where goals.contains(g.id) {
-      for id in g.apps where seen.insert(id).inserted { if let a = OnboardingCatalog.startApps[id] { out.append(a) } }
-    }
-    return out
+  private static func picked(_ goals: [String]) -> [SetupGoal] { all.filter { goals.contains($0.id) } }
+  private static func sentence(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
+  /** a full stop, unless it already ends with one ("…find a gift?") */
+  private static func stop(_ s: String) -> String { s.hasSuffix(".") || s.hasSuffix("?") || s.hasSuffix("!") ? s : s + "." }
+  /** what they wrote about themselves, tidied: one line, no full stop at the end */
+  static func tidy(_ about: String) -> String {
+    var t = about.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    while let last = t.last, last == "." || last == " " { t.removeLast() }
+    return t
   }
 
-  /**
-   * The apps to recommend: only ones that connect from here right now. A catalog app when the hub
-   * says it can sign in (Google, GitHub and Slack join by themselves once their sign-in exists), an
-   * Apple app when Bubble AI lives on one of your Macs. Never one that would sit there saying "Soon".
-   */
-  static func connectable(_ goals: [String], options: [String: SignInOption], onMac: Bool) -> [StartApp] {
-    apps(for: goals).filter { a in
-      if a.how == .mac { return onMac && a.apple != nil }
-      return a.catalogId.flatMap { options[$0]?.signIn } ?? false
+  /** The message it would send you, from what's picked and who you are: the preview on Make it yours. */
+  static func sample(_ goals: [String], talk: SetupTalk, when: SetupCheckIn, about: String, person: String) -> String {
+    let first = OnboardingText.first(person)
+    let hi = switch when {
+    case .morning: "Morning\(first.isEmpty ? "" : ", \(first)")!"
+    case .evening: "Evening\(first.isEmpty ? "" : ", \(first)")."
+    case .needed: "Hey\(first.isEmpty ? "" : " \(first)"),"
     }
-  }
-
-  /** The message it would send you, from what's picked: the preview on Make it yours. */
-  static func sample(_ goals: [String], talk: SetupTalk, when: SetupCheckIn) -> String {
-    let news = all.filter { goals.contains($0.id) }.map(\.news)
-    let open = when == .morning ? "Morning." : when == .evening ? "Today's wrap-up:" : "Heads up:"
-    if news.isEmpty { return "\(open) Nothing needs you yet." }
-    // a sentence starts after "Morning." but not after a colon
-    func say(_ body: String) -> String { "\(open) \(open.hasSuffix(".") ? body.prefix(1).uppercased() + body.dropFirst() : body)" }
+    let news = picked(goals)
+    guard let lead0 = news.first else { return "\(hi) Tell me what's on your mind and I'll take it from there." }
+    // a new sentence after "Morning, Sam!", not after "Hey Sam,"
+    let lead = stop(hi.hasSuffix(",") ? lead0.say : sentence(lead0.say))
+    let also = news.count > 1 ? " Also, \(stop(news[1].say))" : ""
+    let known = tidy(about)
+    let nod = known.isEmpty ? "" : " (I'll keep in mind: \(known).)"
     switch talk {
-    case .brief: return say("\(news[0]).")
-    case .balanced: return say("\(OnboardingText.list(Array(news.prefix(2)))). Want me to handle it?")
-    case .detailed: return say("\(OnboardingText.list(Array(news.prefix(3)))). I've drafted what I can and put it in Your turn. Say go and I'll send it.")
+    case .short: return "\(hi) \(lead)"
+    case .friendly: return "\(hi) \(lead)\(also)\(nod)"
+    case .thorough: return "\(hi) \(lead)\(also) I've already drafted what I can; say go and I'll handle it.\(nod)"
     }
   }
 
-  /** "What I do" from the goals: "Helps with email and calendar.", or the plain default. */
+  /** What goes to the agent as the person's first message: their picks and what they wrote, in plain words. */
+  static func picksMessage(_ goals: [String], about: String) -> String {
+    let want = picked(goals).map(\.want)
+    let known = tidy(about)
+    return [want.isEmpty ? "I'm not sure yet what I'd like help with." : "I'd like help with: \(OnboardingText.list(want)).", known.isEmpty ? "" : "About me: \(known)."]
+      .filter { !$0.isEmpty }.joined(separator: " ")
+  }
+
+  /** "What I do" from the goals: "Helps with keeping my days on track.", or the plain default. */
   static func role(_ goals: [String]) -> String {
-    let want = all.filter { goals.contains($0.id) }.map { $0.label.lowercased() }
+    let want = picked(goals).map(\.want)
     return want.isEmpty ? OnboardingText.noGoalRole : "Helps with \(OnboardingText.list(want))."
   }
 
-  /** Its instructions from Make it yours: the usual start, what it helps with, how it talks, when it checks in. */
-  static func instructions(agent: String, person: String, goals: [String], talk: SetupTalk, when: SetupCheckIn) -> String {
+  /** Its instructions from Make it yours: the usual start, what it helps with, about the person, how it talks, when it checks in. */
+  static func instructions(agent: String, person: String, goals: [String], talk: SetupTalk, when: SetupCheckIn, about: String = "") -> String {
     let who = OnboardingText.first(person).isEmpty ? "them" : OnboardingText.first(person)
-    let want = all.filter { goals.contains($0.id) }.map { $0.label.lowercased() }
+    let want = picked(goals).map(\.want)
     let base = OnboardingText.instructions(agent: agent, person: person, role: want.isEmpty ? "" : "help with \(OnboardingText.list(want))")
+    let known = String(tidy(about).prefix(500))
+    let me = known.isEmpty ? "" : "About \(who), in their words: \"\(known).\""
     let style = switch talk {
-    case .brief: "Keep messages short: one or two lines."
-    case .balanced: "Keep messages short, with enough detail to act on."
-    case .detailed: "Give full detail, and say what you've already done."
+    case .short: "Keep messages short: one or two lines."
+    case .friendly: "Be warm and friendly, with enough detail to act on."
+    case .thorough: "Give full detail, and say what you've already done."
     }
     let check = switch when {
     case .morning: "Each morning, message \(who) with what needs them."
     case .evening: "Each evening, message \(who) with what happened and what needs them."
-    case .needed: "Only message \(who) when something needs them."
+    case .needed: "Only message \(who) when something matters."
     }
-    return "\(base) \(style) \(check)"
+    return [base, me, style, check].filter { !$0.isEmpty }.joined(separator: " ")
   }
 }

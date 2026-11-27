@@ -6,6 +6,7 @@ struct MoreTab: View {
   @Environment(\.openSettings) private var openSettings
   /** the page Show me around opened */
   @State private var tourPage: Tour.Place?
+  @State private var connectApps = false
 
   var body: some View {
     NavigationStack {
@@ -42,7 +43,9 @@ struct MoreTab: View {
                 NavigationLink { AppleView() } label: { RowLabel(title: "Apple", leading: { rowIcon("macbook.and.iphone") }) }
                   .accessibilityIdentifier("you-apple")
               }
-              NavigationLink { MarketplaceView() } label: { RowLabel(title: "Marketplace", leading: { rowIcon("storefront") }) }
+              // the same Connect apps sheet as the pill at the bottom of Chats (round 9)
+              Button { connectApps = true } label: { RowLabel(title: "Connect apps", leading: { rowIcon("powerplug") }) }
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("you-marketplace")
               NavigationLink { FeaturesView() } label: { RowLabel(title: "Mods", leading: { rowIcon("square.grid.2x2") }) }
                 .accessibilityIdentifier("you-mods")
@@ -56,6 +59,7 @@ struct MoreTab: View {
       .background(Palette.sheet.ignoresSafeArea())
       .toolbar(.hidden, for: .navigationBar)
       .chatDestinations()
+      .sheet(isPresented: $connectApps) { ConnectAppsSheet() }
       .navigationDestination(isPresented: tourShows(.memory)) { MemoryView() }
       .navigationDestination(isPresented: tourShows(.marketplace)) { MarketplaceView() }
       .navigationDestination(isPresented: tourShows(.mods)) { FeaturesView() }

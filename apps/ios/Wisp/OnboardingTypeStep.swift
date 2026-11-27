@@ -150,78 +150,116 @@ private struct AdvancedLoop: View {
 
 struct OnboardingYoursStep: View {
   var name: String
+  var person: String
   var look: GhostLook
   @Binding var goals: [String]
+  @Binding var about: String
   @Binding var talk: SetupTalk
   @Binding var checkIn: SetupCheckIn
   var busy: Bool
   var onNext: () -> Void
+  @FocusState private var aboutFocused: Bool
   @ReduceMotion private var reduceMotion
 
-  private var message: String { SetupGoals.sample(goals, talk: talk, when: checkIn) }
+  private var first: String { OnboardingText.first(person) }
+  private var message: String { SetupGoals.sample(goals, talk: talk, when: checkIn, about: about, person: person) }
 
+  /**
+   * Make it yours (2026-11-27, round 7, board 6): what it should help with in the person's own words,
+   * anything it should know about them, how it talks and when it checks in, and the message it would
+   * send them by name, changing as they pick. On Continue the picks go to the agent as their first
+   * message and the agent suggests the apps to connect.
+   */
   var body: some View {
-    ObScreen(top: 64) {
-      VStack(alignment: .leading, spacing: 10) {
-        Text("Make \(name) yours").obTitle(24, center: false)
-        // what it would actually send, changing as you pick
-        VStack(alignment: .leading, spacing: 8) {
-          HStack(spacing: 8) {
-            ObSlot(size: 24)
-            Text(name).font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
-            Text(checkIn.when).font(.system(size: 12)).foregroundStyle(Palette.faint)
-              .contentTransition(.opacity)
-          }
-          Text(message).font(.system(size: 15)).foregroundStyle(Palette.text)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 14, bottomTrailingRadius: 14, topTrailingRadius: 14, style: .continuous).fill(Palette.card))
-            .overlay(UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 14, bottomTrailingRadius: 14, topTrailingRadius: 14, style: .continuous).strokeBorder(Palette.hairline))
-            .id(message)
-            .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.96, anchor: .topLeading).combined(with: .opacity), removal: .opacity))
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Palette.field.opacity(0.6)))
-        .animation(Motion.pick(Motion.soft, reduceMotion), value: message)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(name) would send: \(message)")
-        .accessibilityIdentifier("ob-yours-preview")
+    ObScreen(top: 56, focus: aboutFocused ? "about" : nil) {
+      VStack(spacing: 0) {
+        ObSlot(size: 56)
+        Text("What should \(name) help with\(first.isEmpty ? "" : ", \(first)")?").obTitle(23)
+          .padding(.top, 12)
+        Text("Pick anything. You can change it later by just telling \(name).")
+          .font(.system(size: 14)).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
+          .padding(.top, 4)
 
-        ObLabel(text: "Help with")
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+        VStack(spacing: 6) {
           ForEach(SetupGoals.all) { g in
             let on = goals.contains(g.id)
             Button { toggle(g.id) } label: {
-              VStack(alignment: .leading, spacing: 0) {
-                Image(systemName: g.symbol).font(.system(size: 16)).foregroundStyle(Palette.text)
-                Spacer(minLength: 0)
-                Text(g.label).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+              HStack(spacing: 10) {
+                Image(systemName: g.symbol).font(.system(size: 16)).foregroundStyle(Palette.text.opacity(0.85)).frame(width: 22)
+                Text(g.label).font(.system(size: 14.5, weight: .medium)).foregroundStyle(Palette.text).lineLimit(1).minimumScaleFactor(0.85)
+                Spacer(minLength: 6)
+                Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white)
+                  .frame(width: 18, height: 18).background(Circle().fill(ObTint.wisp))
+                  .opacity(on ? 1 : 0)
               }
-              .padding(10)
-              .frame(maxWidth: .infinity, minHeight: 64, maxHeight: 64, alignment: .leading)
-              .overlay(alignment: .topTrailing) {
-                if on {
-                  Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white)
-                    .frame(width: 18, height: 18).background(Circle().fill(ObTint.wisp)).padding(8)
-                    .transition(.scale(scale: 0.4).combined(with: .opacity))
-                }
-              }
-              .obTile(on, radius: 14)
+              .padding(.horizontal, 12).frame(height: 46)
+              .obTile(on, radius: 12)
             }
             .buttonStyle(.pressRow)
             .accessibilityLabel(g.label).accessibilityAddTraits(on ? .isSelected : [])
             .accessibilityIdentifier("ob-goal-\(g.id)")
           }
         }
-        .animation(Motion.pick(Motion.pop, reduceMotion), value: goals)
-        ObLabel(text: "Talks")
-        ObSegmented(label: "Talks", options: SetupTalk.allCases.map { ($0, $0.label) }, selection: $talk)
-        ObLabel(text: "Checks in")
-        ObSegmented(label: "Checks in", options: SetupCheckIn.allCases.map { ($0, $0.label) }, selection: $checkIn)
+        .padding(.top, 20)
+        .animation(Motion.pick(Motion.fade, reduceMotion), value: goals)
+
+        // the example wraps instead of being cut off at phone width
+        // the hint wraps instead of being cut short at phone width
+        TextField("", text: $about, axis: .vertical)
+          .font(.system(size: 15)).foregroundStyle(Palette.text)
+          .lineLimit(1...4)
+          .background(alignment: .topLeading) {
+            if about.isEmpty {
+              Text("Anything \(name) should know about you? (I'm a student, I work weekends, I love hiking…)")
+                .font(.system(size: 15)).foregroundStyle(Palette.faint)
+                .fixedSize(horizontal: false, vertical: true)
+                .allowsHitTesting(false).accessibilityHidden(true)
+            }
+          }
+          .frame(minHeight: about.isEmpty ? 40 : nil, alignment: .topLeading)
+          .accessibilityLabel("Anything \(name) should know about you?")
+          .focused($aboutFocused)
+          .submitLabel(.done)
+          .onChange(of: about) { _, v in if v.count > 300 { about = String(v.prefix(300)) } }
+          .padding(.horizontal, 14).padding(.vertical, 12)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.field))
+          .accessibilityLabel("Anything \(name) should know about you?")
+          .accessibilityIdentifier("ob-about")
+          .id(OnboardingFocus.id)
+          .padding(.top, 14)
+
+        VStack(alignment: .leading, spacing: 6) {
+          ObLabel(text: "\(name) talks")
+          ObSegmented(label: "\(name) talks", options: SetupTalk.allCases.map { ($0, $0.label) }, selection: $talk)
+          ObLabel(text: "Checks in").padding(.top, 6)
+          ObSegmented(label: "Checks in", options: SetupCheckIn.allCases.map { ($0, $0.label) }, selection: $checkIn)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 14)
+
+        // what it would actually send, changing as you pick
+        HStack(alignment: .bottom, spacing: 8) {
+          GhostView(look: look, seed: name, size: 30)
+          Text(message).font(.system(size: 15)).foregroundStyle(Palette.text)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .background(UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 4, bottomTrailingRadius: 16, topTrailingRadius: 16, style: .continuous).fill(Palette.card))
+            .overlay(UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 4, bottomTrailingRadius: 16, topTrailingRadius: 16, style: .continuous).strokeBorder(Palette.hairline))
+            .id(message)
+            .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.96, anchor: .bottomLeading).combined(with: .opacity), removal: .opacity))
+          Spacer(minLength: 24)
+        }
+        .padding(.top, 18)
+        .animation(Motion.pick(Motion.soft, reduceMotion), value: message)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(name) would send: \(message)")
+        .accessibilityIdentifier("ob-yours-preview")
       }
     } bottom: {
       Button {
+        aboutFocused = false
         onNext()
       } label: {
         HStack(spacing: 8) {
@@ -235,287 +273,5 @@ struct OnboardingYoursStep: View {
 
   private func toggle(_ id: String) {
     if let i = goals.firstIndex(of: id) { goals.remove(at: i) } else { goals.append(id) }
-  }
-}
-
-// MARK: - Connect
-
-/** Where one app's connecting stands. */
-struct AppRowState: Equatable {
-  enum Phase: Equatable { case idle, busy, done, failed }
-  var phase = Phase.idle
-  var error: String?
-  /** what to do on the Mac while macOS is being asked (Full Disk Access is a switch, not a prompt) */
-  var hint: String?
-}
-
-/**
- * Connect what it needs: only apps that connect from here right now. A catalog app signs in on its
- * own page in the system's sign-in sheet (the hub runs the sign-in; the app never sees what's
- * typed); an Apple app is allowed on your Mac, where macOS asks once. A row says Connected only when
- * it really is. Nothing is asked for a key here; keys stay in Apps for later.
- */
-struct OnboardingConnectStep: View {
-  @Environment(Store.self) private var store
-  @Environment(HostStage.self) private var stage
-  var workspaceId: String
-  var agent: Agent
-  var apps: [StartApp]
-  var onDone: () -> Void
-  @State private var rows: [String: AppRowState] = [:]
-  /** the connector each app made, by app id */
-  @State private var made: [String: String] = [:]
-  @State private var browser = SignInBrowser()
-  /** each Apple app being allowed, so it can be cancelled */
-  @State private var allowing: [String: Task<Void, Never>] = [:]
-  @State private var leaving = false
-  @ReduceMotion private var reduceMotion
-
-  private var done: [StartApp] { apps.filter { rows[$0.id]?.phase == .done } }
-
-  var body: some View {
-    ObScreen(top: 64) {
-      VStack(alignment: .leading, spacing: 12) {
-        HStack(spacing: 12) {
-          ObSlot(size: 44)
-          Text("Connect what \(agent.name) needs").obTitle(22, center: false)
-        }
-        Text("\(done.count) of \(apps.count) connected").font(.system(size: 14)).foregroundStyle(Palette.muted)
-          .contentTransition(.numericText()).animation(Motion.pick(Motion.fade, reduceMotion), value: done.count)
-          .accessibilityIdentifier("ob-connect-count")
-        VStack(spacing: 0) {
-          ForEach(Array(apps.enumerated()), id: \.element.id) { i, a in
-            if i > 0 { Rectangle().fill(Palette.separator).frame(height: 1).padding(.leading, 52) }
-            ConnectRow(app: a, state: rows[a.id] ?? AppRowState(), signIn: OnboardingCatalog.connector(a.catalogId)?.signIn != nil,
-                       onGo: { go(a) },
-                       onCancel: { allowing[a.id]?.cancel(); allowing[a.id] = nil; rows[a.id] = AppRowState() })
-          }
-        }
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.card))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Palette.hairline))
-        .animation(Motion.pick(Motion.soft, reduceMotion), value: rows)
-      }
-    } bottom: {
-      if done.isEmpty {
-        Button("Skip for now") { finish() }.buttonStyle(ObQuiet()).disabled(leaving).accessibilityIdentifier("ob-connect-skip")
-      }
-      Button("Continue") { finish() }.buttonStyle(ObWide()).disabled(done.isEmpty || leaving).accessibilityIdentifier("ob-connect-next")
-    }
-    .task { await restore() }
-  }
-
-  private func go(_ a: StartApp) {
-    if a.how == .mac { allowing[a.id] = Task { await allow(a) } } else { Task { await signIn(a) } }
-  }
-
-  /** Apps connected on an earlier visit stay connected. */
-  private func restore() async {
-    let prior = OnboardingAnswers.load(workspaceId)
-    for a in apps { if let apple = a.apple, prior.appleApps.contains(apple.rawValue), rows[a.id] == nil { rows[a.id] = AppRowState(phase: .done) } }
-    guard !prior.apps.isEmpty else { return }
-    try? await store.refreshConnectors()
-    for a in apps {
-      guard let c = store.connectors.first(where: { prior.apps.contains($0.id) && $0.catalogId == a.catalogId && $0.auth?.signedIn != false }), rows[a.id] == nil else { continue }
-      made[a.id] = c.id
-      rows[a.id] = AppRowState(phase: .done)
-    }
-  }
-
-  /** The agent gets what got connected, then its chat. */
-  private func finish() {
-    guard !leaving else { return }
-    leaving = true
-    let connected = apps.filter { rows[$0.id]?.phase == .done && made[$0.id] != nil }
-    let ids = connected.compactMap { made[$0.id] }
-    let apple = apps.filter { rows[$0.id]?.phase == .done }.compactMap { $0.apple?.rawValue }
-    OnboardingAnswers.save(workspaceId) { $0.apps = ids; $0.appNames = connected.map(\.name); $0.appleApps = apple }
-    Task {
-      if !ids.isEmpty {
-        try? await store.refreshConnectors()
-        await AddAgent.giveAppsAndSkills(to: agent, apps: Set(ids), skills: [], store: store)
-      }
-      onDone()
-    }
-  }
-
-  // MARK: sign in
-
-  /** One tap: the hub makes the connector and hands back its sign-in page, which opens in the system's sign-in sheet. */
-  private func signIn(_ a: StartApp) async {
-    guard let catalogId = a.catalogId else { return }
-    rows[a.id] = AppRowState(phase: .busy)
-    do {
-      let start = try await store.connectApps([catalogId])
-      var error: String?
-      if let page = BrowserPage(start.url) {
-        browser.open(page.url)
-        error = await waitForSignIn(start.connectors.map(\.id))
-        browser.close()
-      } else if start.url != nil {
-        error = "\(a.name) sent back a sign-in page this phone can't open."
-      }
-      let c = store.connectors.first { c in start.connectors.contains { $0.id == c.id } && c.catalogId == catalogId } ?? start.connectors.first { $0.catalogId == catalogId }
-      if error == nil, let c {
-        made[a.id] = c.id
-        rows[a.id] = AppRowState(phase: .done)
-        stage.react(.grab)
-      } else {
-        // a connector left half made would sit in Apps saying it's off
-        for c in start.connectors where c.auth?.signedIn != true { try? await store.deleteConnector(c.id) }
-        rows[a.id] = AppRowState(phase: .failed, error: error ?? "\(a.name) didn't connect. Try again.")
-      }
-    } catch {
-      rows[a.id] = AppRowState(phase: .failed, error: error.localizedDescription)
-    }
-  }
-
-  /** Look at the connectors until each is signed in, one says why it isn't, the sheet is closed, or time runs out. nil: signed in. */
-  private func waitForSignIn(_ ids: [String]) async -> String? {
-    let until = Date().addingTimeInterval(5 * 60)
-    var closedChecks = 0
-    while Date() < until {
-      try? await Task.sleep(for: .milliseconds(1500))
-      if Task.isCancelled { return "The sign-in didn't finish. Try again." }
-      guard (try? await store.refreshConnectors()) != nil else { continue }
-      let last = store.connectors.filter { ids.contains($0.id) }
-      if !last.isEmpty, last.allSatisfy({ $0.auth?.signedIn == true }) { return nil }
-      if let failed = last.first(where: { $0.auth?.error != nil }) { return failed.auth?.error }
-      // the sheet was closed: look once more (the hub may just have finished), then stop waiting
-      if browser.closed {
-        closedChecks += 1
-        if closedChecks >= 2 { break }
-      }
-    }
-    return "The sign-in didn't finish. Try again."
-  }
-
-  // MARK: an Apple app
-
-  /** The Apple mod reads the app on your Mac; macOS asks there, once. Allowing an app here adds the mod, reading only that app. */
-  private func allow(_ a: StartApp) async {
-    guard let app = a.apple else { return }
-    rows[a.id] = AppRowState(phase: .busy)
-    func fail(_ message: String) -> API.Failure { API.Failure(status: 0, message: message) }
-    var turnedOn = false
-    do {
-      let fresh = !store.features.apple
-      if fresh {
-        guard store.role == "owner" else { throw fail("Only your Bubble AI's owner can turn on the Apple apps.") }
-        var next = store.features
-        next.apple = true
-        try await store.setFeatures(next)
-        turnedOn = true
-      }
-      await store.refreshApple()
-      let mine = Set(store.nodes.filter { $0.mine == true }.map(\.id))
-      guard let mac = store.apple?.macs.first(where: { $0.online && mine.contains($0.nodeId) }) ?? store.apple?.macs.first(where: \.online) else {
-        throw fail("Bubble AI can't reach your Mac right now. Open Bubble AI on it, then try again.")
-      }
-      // only the app asked for: everything else (Location too) stays off
-      var levels: [String: Int] = fresh ? ["messages": 0, "contacts": 0, "calendar": 0, "reminders": 0, "location": 0] : [:]
-      levels[app.rawValue] = 1
-      _ = try await store.saveApple(AppleSettingsPatch(macNodeId: mac.nodeId, levels: levels))
-      let pane = OnboardingCatalog.applePermission(app)
-      func status() async -> String? {
-        await store.refreshApple()
-        guard let s = store.apple?.macs.first(where: { $0.nodeId == mac.nodeId })?.status else { return nil }
-        switch pane {
-        case "fullDiskAccess": return s.fullDiskAccess
-        case "calendars": return s.calendars
-        case "reminders": return s.reminders
-        default: return s.contacts
-        }
-      }
-      if await status() != "allowed" {
-        // macOS shows its own prompt on the Mac (or its System Settings pane for Full Disk Access)
-        _ = try? await store.fetch { try await $0.raw("POST", "/api/apple/mac/permission", body: ["pane": pane]) }
-        rows[a.id] = AppRowState(phase: .busy, hint: pane == "fullDiskAccess" ? "On \(mac.name), turn on Bubble AI in System Settings › Privacy & Security › Full Disk Access." : "Answer the prompt on \(mac.name).")
-        let until = Date().addingTimeInterval(120)
-        while true {
-          try await Task.sleep(for: .milliseconds(1500))
-          _ = try? await store.fetch { try await $0.raw("POST", "/api/apple/mac/refresh", body: Empty()) }
-          let s = await status()
-          if s == "allowed" { break }
-          if s == "denied", pane != "fullDiskAccess" { throw fail("macOS said no. Allow Bubble AI in System Settings › Privacy & Security › \(a.name), then try again.") }
-          if Date() > until { throw fail(pane == "fullDiskAccess" ? "Turn on Bubble AI in System Settings › Privacy & Security › Full Disk Access, then try again." : "macOS didn't answer. Try again.") }
-        }
-      }
-      OnboardingAnswers.save(workspaceId) { if !$0.appleApps.contains(app.rawValue) { $0.appleApps.append(app.rawValue) } }
-      rows[a.id] = AppRowState(phase: .done)
-      stage.react(.grab)
-    } catch {
-      // given up or cancelled: the mod this turned on goes back off, so nothing stays on that wasn't allowed
-      if turnedOn, store.role == "owner", OnboardingAnswers.load(workspaceId).appleApps.isEmpty {
-        // its own task: a cancelled one would cancel this request too
-        Task { @MainActor in
-          var next = store.features
-          next.apple = false
-          try? await store.setFeatures(next)
-        }
-      }
-      if error is CancellationError || Task.isCancelled { rows[a.id] = AppRowState(); return }
-      rows[a.id] = AppRowState(phase: .failed, error: error.localizedDescription)
-    }
-  }
-}
-
-/** One app: its logo, name and what it reads, and the one thing to press, then Connected. */
-private struct ConnectRow: View {
-  var app: StartApp
-  var state: AppRowState
-  var signIn: Bool
-  var onGo: () -> Void
-  var onCancel: () -> Void
-
-  private var mac: Bool { app.how == .mac }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      HStack(spacing: 12) {
-        AppLogo(sources: AppLogo.byName(app.apple.map { "Apple \($0.name)" } ?? app.name), symbol: app.symbol, size: 28)
-        VStack(alignment: .leading, spacing: 1) {
-          Text(app.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
-          Text(app.what).font(.system(size: 12)).foregroundStyle(Palette.muted).lineLimit(1)
-        }
-        Spacer(minLength: 8)
-        control
-      }
-      .frame(minHeight: 46)
-      if state.phase == .busy, let hint = state.hint {
-        Text(hint).font(.system(size: 13)).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
-          .padding(.top, 6).padding(.leading, 40).accessibilityIdentifier("ob-app-\(app.id)-hint")
-      }
-      if state.phase == .failed, let error = state.error {
-        Text(error).font(.system(size: 13)).foregroundStyle(Palette.red).fixedSize(horizontal: false, vertical: true)
-          .padding(.top, 6).padding(.leading, 40).accessibilityLabel("Error: \(error)")
-      }
-    }
-    .padding(.horizontal, 14).padding(.vertical, 12)
-    .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("ob-app-\(app.id)")
-  }
-
-  @ViewBuilder private var control: some View {
-    switch state.phase {
-    case .done:
-      HStack(spacing: 4) {
-        DrawnCheck(size: 15)
-        Text(mac ? "Allowed" : "Connected").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.statusOnlineText)
-      }
-      .accessibilityElement(children: .combine)
-    case .busy:
-      HStack(spacing: 6) {
-        ProgressView().controlSize(.small)
-        Text(mac ? "Asking macOS" : "Signing in").font(.system(size: 13)).foregroundStyle(Palette.muted)
-        if mac {
-          Button("Cancel", action: onCancel).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text).buttonStyle(.plain)
-            .padding(.leading, 4).accessibilityIdentifier("ob-app-\(app.id)-cancel")
-        }
-      }
-    case .idle, .failed:
-      Button(state.phase == .failed ? "Try again" : mac ? "Allow" : "Connect", action: onGo)
-        .buttonStyle(ObPrimary(height: 34))
-        .accessibilityIdentifier("ob-app-\(app.id)-action")
-    }
   }
 }

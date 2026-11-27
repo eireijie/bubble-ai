@@ -134,7 +134,9 @@ struct ChannelView: View {
     }
     .toolbar(.hidden, for: .tabBar)
     .toolbar(.hidden, for: .navigationBar)
-    .background(Palette.ground.ignoresSafeArea())
+    // one background (round 9): the chat's own, else the default, behind everything on screen
+    .background { ChatWallView(background: store.background(of: current)) }
+    .environment(\.hasWall, true)
     .safeAreaInset(edge: .top, spacing: 0) {
       VStack(spacing: 6) {
         chrome
@@ -176,6 +178,7 @@ struct ChannelView: View {
     .task(id: channel.id) {
       settled = false
       store.openChannel = channel.id
+      store.wallChannel = channel.id
       do { try await store.loadMessages(channel.id) } catch { self.error = error.localizedDescription }
       store.markRead(channel.id)
       // from here a new message is live; the history the fetch brought in (cached or not) never pops
@@ -449,7 +452,8 @@ struct ThreadView: View {
     }
     .toolbar(.hidden, for: .tabBar)
     .toolbar(.hidden, for: .navigationBar)
-    .background(Palette.ground.ignoresSafeArea())
+    .background { ChatWallView(background: store.background(of: store.channels.first { $0.id == ref.channelId })) }
+    .environment(\.hasWall, true)
     .safeAreaInset(edge: .top, spacing: 0) { chrome.background(alignment: .top) { HeaderBackdrop() } }
     .task(id: ref) {
       settled = false

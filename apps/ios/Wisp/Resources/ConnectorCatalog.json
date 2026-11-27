@@ -1,5 +1,22 @@
 [
   {
+    "id": "composio",
+    "name": "Composio",
+    "description": "Hundreds of apps through one connection: Gmail, Slack, Notion, HubSpot, Salesforce and more. Each app signs in on Composio's own page.",
+    "icon": "Blocks",
+    "category": "Utilities",
+    "kind": "mcp-http",
+    "url": "https://connect.composio.dev/mcp",
+    "fields": [],
+    "docs": "https://docs.composio.dev/docs/composio-connect",
+    "signIn": {
+      "via": "mcp",
+      "url": "https://connect.composio.dev/mcp"
+    },
+    "signInReads": "Uses the apps you connect in Composio",
+    "recommended": "Use Composio for more apps and easy sign-in."
+  },
+  {
     "id": "github",
     "name": "GitHub",
     "description": "Issues, pull requests, code search and repos, through GitHub's own MCP server.",
@@ -22,7 +39,17 @@
     "docs": "https://github.com/github/github-mcp-server",
     "signIn": {
       "via": "app",
-      "provider": "github"
+      "provider": "github",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "scopes": [
+        "repo",
+        "read:org",
+        "read:user",
+        "notifications"
+      ],
+      "headers": {
+        "X-MCP-Readonly": "true"
+      }
     },
     "signInReads": "Reads repos, issues and pull requests"
   },
@@ -124,7 +151,26 @@
     "docs": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/slack",
     "signIn": {
       "via": "app",
-      "provider": "slack"
+      "provider": "slack",
+      "url": "https://mcp.slack.com/mcp",
+      "scopes": [
+        "channels:history",
+        "channels:read",
+        "groups:history",
+        "groups:read",
+        "im:history",
+        "im:read",
+        "mpim:history",
+        "mpim:read",
+        "search:read.public",
+        "search:read.private",
+        "search:read.im",
+        "search:read.mpim",
+        "search:read.files",
+        "users:read",
+        "files:read",
+        "canvases:read"
+      ]
     },
     "signInReads": "Reads channels, DMs and threads"
   },
@@ -153,7 +199,8 @@
     "needs": "Node on the device",
     "docs": "https://github.com/makenotion/notion-mcp-server",
     "signIn": {
-      "via": "mcp"
+      "via": "mcp",
+      "url": "https://mcp.notion.com/mcp"
     },
     "signInReads": "Reads and edits the pages you pick"
   },
@@ -186,7 +233,11 @@
     "docs": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gdrive",
     "signIn": {
       "via": "app",
-      "provider": "google"
+      "provider": "google",
+      "url": "https://drivemcp.googleapis.com/mcp/v1",
+      "scopes": [
+        "https://www.googleapis.com/auth/drive.readonly"
+      ]
     },
     "signInReads": "Reads and searches your files"
   },
@@ -202,7 +253,11 @@
     "docs": "https://developers.google.com/workspace/guides/configure-mcp-servers",
     "signIn": {
       "via": "app",
-      "provider": "google"
+      "provider": "google",
+      "url": "https://gmailmcp.googleapis.com/mcp/v1",
+      "scopes": [
+        "https://www.googleapis.com/auth/gmail.readonly"
+      ]
     },
     "signInReads": "Reads and searches your email"
   },
@@ -218,7 +273,11 @@
     "docs": "https://developers.google.com/workspace/guides/configure-mcp-servers",
     "signIn": {
       "via": "app",
-      "provider": "google"
+      "provider": "google",
+      "url": "https://calendarmcp.googleapis.com/mcp/v1",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar.readonly"
+      ]
     },
     "signInReads": "Reads your calendars and events"
   },
@@ -244,7 +303,9 @@
     ],
     "docs": "https://linear.app/docs/mcp",
     "signIn": {
-      "via": "mcp"
+      "via": "mcp",
+      "url": "https://mcp.linear.app/mcp",
+      "scope": "read"
     },
     "signInReads": "Reads issues, projects and comments"
   },
@@ -532,6 +593,7 @@
     "docs": "https://vercel.com/docs/mcp/vercel-mcp",
     "signIn": {
       "via": "mcp",
+      "url": "https://mcp.vercel.com",
       "localOnly": true
     },
     "signInReads": "Reads and manages projects and deployments"

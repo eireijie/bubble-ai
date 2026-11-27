@@ -113,6 +113,8 @@ final class Store {
   var connected = false
   /** the channel on screen, so new messages there don't count as unread */
   var openChannel: String?
+  /** the last chat opened: its background stays behind the chat list too (round 9, one background) */
+  var wallChannel: String?
   /** threads on screen (root → channel), refreshed when the connection comes back */
   var openThreads: [String: String] = [:]
   /** where a tapped notification wants to go; the screen that shows it clears it */

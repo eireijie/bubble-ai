@@ -40,7 +40,7 @@ final class TourTests: XCTestCase {
 
   func testFourHandsOnStops() {
     XCTAssertEqual(stops.map(\.id), ["write", "slash", "your-turn", "new"])
-    XCTAssertEqual(stops.map(\.doIt), [.send, .slash, .yourturn, .tap])
+    XCTAssertEqual(stops.map(\.doIt), [.send, .slash, .tap, .tap])
     XCTAssertEqual(Tour.chapters.count, 1)
     XCTAssertEqual(Tour.chapterProgress(nil).map(\.total), [4])
   }
@@ -89,7 +89,7 @@ final class TourTests: XCTestCase {
 
   func testSummaryLine() {
     let p = LearnProgress(seen: ["write", "slash"], started: true)
-    XCTAssertEqual(Tour.summary(p), "2 of 4 seen · next: Open Your turn")
+    XCTAssertEqual(Tour.summary(p), "2 of 4 seen · next: Blue dot = your turn")
     XCTAssertEqual(Tour.summary(LearnProgress(seen: stops.map(\.id))), "All 4 seen")
   }
 

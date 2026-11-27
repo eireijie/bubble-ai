@@ -83,7 +83,7 @@ enum Tour {
   static let stops: [Stop] = [
     Stop(id: "write", title: "Say hi to {agent}", body: "Type anything and press Return.", place: .chat, targets: ["composer"], phoneBody: "Type anything and send it.", doIt: .send),
     Stop(id: "slash", title: "Type /", body: "Quick commands: new chat, stop, switch model.", place: .chat, targets: ["composer"], doIt: .slash),
-    Stop(id: "your-turn", title: "Open Your turn", body: "Chats waiting on you land here.", place: .chats, targets: ["yourturn"], doIt: .yourturn),
+    Stop(id: "your-turn", title: "Blue dot = your turn", body: "An agent that needs you, or a new reply, gets a blue dot.", place: .chats, targets: ["yourturn"], doIt: .tap),
     Stop(id: "new", title: "Make another", body: "Another agent, or a team of them.", place: .chats, targets: ["new"], doIt: .tap, noGuests: true),
   ]
 

@@ -46,6 +46,18 @@ extension Store {
    * page, which the app opens in the system browser sheet. Bubble AI's hub does the sign-in; the app
    * never sees a password or a token. Several apps from one company share one sign-in.
    */
+  /**
+   * Make it yours (round 7): the person's picks go to the agent as their first message in its chat;
+   * it answers with the apps it suggests connecting (or Bubble AI's own short list when it can't).
+   * Its creator only, once per agent: a second send is refused (409) and changes nothing.
+   */
+  func sendSetupPicks(_ agentId: String, text: String, goals: [String]) async throws {
+    struct Sent: Decodable { var messageId: String; var channelId: String; var answered: Bool }
+    let body: Fields = ["text": AnyEncodable(text), "goals": AnyEncodable(goals)]
+    let _: Sent = try await fetch { try await $0.post("/api/agents/\(agentId)/setup-picks", body) }
+    await refreshChannels()
+  }
+
   func connectApps(_ catalogIds: [String]) async throws -> ConnectStart {
     guard let origin = hubOrigin else { throw API.Failure(status: 0, message: "Bubble AI isn't connected.") }
     let body: Fields = ["catalogIds": AnyEncodable(catalogIds), "origin": AnyEncodable(origin), "returnTo": AnyEncodable("close"), "agentIds": AnyEncodable([String]())]

@@ -3,7 +3,8 @@ import SwiftUI
 /**
  * The first run on the phone (2026-11-26 canvas "Bubble AI onboarding flow", iPhone board), right
  * after pairing with a Bubble AI nobody has made an agent on yet: Your agent → How it starts → Which
- * AI app, then for Advanced, Make it yours → Connect, then its chat. Like the web's Stage.tsx, it is
+ * AI app, then for Advanced, Make it yours, then its chat, where the picks are the person's first
+ * message and the agent answers with the apps it suggests connecting (round 7). Like the web's Stage.tsx, it is
  * one stage that stays put while only the page under it changes: the progress line along the top,
  * Back, and the agent's own bubble, which travels from where it sat on one page to where it sits on
  * the next (each page marks the spot with an ObSlot) and resizes on the way, with one small squash.
@@ -18,7 +19,7 @@ struct OnboardingFlow: View {
   var workspaceId: String
   /** the flow is over: open this chat (nil: there's no agent yet) */
   var onFinish: (_ channelId: String?) -> Void
-  enum Step: String, CaseIterable { case agent, start, ai, yours, connect }
+  enum Step: String, CaseIterable { case agent, start, ai, yours }
   @State private var step = Step.agent
   @State private var forward = true
   @State private var stage = HostStage()
@@ -28,17 +29,16 @@ struct OnboardingFlow: View {
   @State private var agentId: String?
   @State private var path = SetupPath.advanced
   @State private var goals = SetupGoals.start
-  @State private var talk = SetupTalk.balanced
+  @State private var about = ""
+  @State private var talk = SetupTalk.friendly
   @State private var checkIn = SetupCheckIn.morning
-  @State private var connectable: [StartApp] = []
-  /** which apps can sign in from here, asked once at the start so Connect never waits on it */
-  @State private var signIns: Task<[String: SignInOption], Never>?
   /** its AI answered: the first run's own extras (a morning plan) can switch on at the end */
   @State private var answered = false
   @ReduceMotion private var reduceMotion
 
   private var agent: Agent? { agentId.flatMap { store.agent($0) } }
   private var name: String { agent?.name ?? "your agent" }
+  private var person: String { store.me?.preferredName ?? store.me?.name ?? "" }
   private var steps: [Step] { path == .advanced ? Step.allCases : [.agent, .start, .ai] }
   private var progress: Double { Double((steps.firstIndex(of: step) ?? 0) + 1) / Double(steps.count + 1) }
   private var backTo: Step? {
@@ -49,7 +49,6 @@ struct OnboardingFlow: View {
     case .ai: return .start
     // once its AI has answered, its chat is open: there's no going back to choose again
     case .yours: return answered ? nil : .ai
-    case .connect: return .yours
     }
   }
 
@@ -105,12 +104,8 @@ struct OnboardingFlow: View {
         }
       }
     case .yours:
-      OnboardingYoursStep(name: name, look: agent?.settings?.appearance ?? look, goals: $goals, talk: $talk, checkIn: $checkIn, busy: busy) {
+      OnboardingYoursStep(name: name, person: person, look: agent?.settings?.appearance ?? look, goals: $goals, about: $about, talk: $talk, checkIn: $checkIn, busy: busy) {
         Task { await saveYours() }
-      }
-    case .connect:
-      if let agent {
-        OnboardingConnectStep(workspaceId: workspaceId, agent: agent, apps: connectable) { Task { await finish() } }
       }
     }
   }
@@ -165,30 +160,30 @@ struct OnboardingFlow: View {
     let saved = OnboardingAnswers.load(workspaceId)
     if let id = saved.agentId, store.agent(id) != nil { agentId = id }
     if let p = saved.path.flatMap(SetupPath.init(rawValue:)) { path = p }
-    if let g = saved.goals { goals = g.filter { id in SetupGoals.all.contains { $0.id == id } } }
+    // picks saved by an older first run (Email, Calendar…) aren't these: start from the usual two
+    if let g = saved.goals?.filter({ id in SetupGoals.all.contains { $0.id == id } }), !g.isEmpty { goals = g }
     talk = saved.talk.flatMap(SetupTalk.init(rawValue:)) ?? talk
     checkIn = saved.checkIn.flatMap(SetupCheckIn.init(rawValue:)) ?? checkIn
     if let draft = saved.agentDraft { look = OnboardingLook.agent(color: draft.color, shape: draft.shape) }
     // after leaving mid-way, pick up at the first page not done yet
     step = agentId == nil ? .agent : saved.path == nil ? .start : .ai
-    signIns = Task { (try? await store.signInOptions()) ?? [:] }
     loaded = true
   }
 
-  /** Make it yours: its instructions say what was picked; then Connect, only when something there can connect. */
+  /**
+   * Make it yours: the agent's instructions say what was picked, then the picks go to it as the
+   * person's first message (POST /api/agents/:id/setup-picks, sent once) and it answers in its chat
+   * with the apps it suggests connecting, Composio always among them. No goal → app lists here.
+   */
   private func saveYours() async {
     guard let agent else { return }
     busy = true
     OnboardingAnswers.save(workspaceId) { $0.goals = goals; $0.talk = talk.rawValue; $0.checkIn = checkIn.rawValue }
-    let person = store.me?.preferredName ?? store.me?.name ?? ""
-    let instructions = SetupGoals.instructions(agent: agent.name, person: person, goals: goals, talk: talk, when: checkIn)
+    let instructions = SetupGoals.instructions(agent: agent.name, person: person, goals: goals, talk: talk, when: checkIn, about: about)
     _ = try? await store.updateAgent(agent.id, ["instructions": AnyEncodable(instructions), "settings": AnyEncodable(["role": AnyEncodable(SetupGoals.role(goals))] as Fields)])
-    try? await store.refreshNodes()
-    let options = await signIns?.value ?? [:]
-    connectable = SetupGoals.connectable(goals, options: options, onMac: store.onAMac)
+    try? await store.sendSetupPicks(agent.id, text: SetupGoals.picksMessage(goals, about: about), goals: goals)
     busy = false
-    // nothing these goals use can connect yet: straight to its chat, no empty Connect page
-    if connectable.isEmpty { await finish() } else { go(.connect) }
+    await finish()
   }
 
   /** The end: its chat opens (Show me around follows there). Closed before an agent exists: nothing opens. */
@@ -212,7 +207,6 @@ struct OnboardingFlow: View {
   /** Once it can answer: one morning plan from what it helps with, only when there's something to build it from. Runs once. */
   private func switchOnRecommended(_ agentId: String, channelId: String?) async {
     guard !OnboardingAnswers.load(workspaceId).setupDone else { return }
-    let person = store.me?.preferredName ?? store.me?.name ?? ""
     if path == .advanced, checkIn == .morning, let plan = OnboardingText.morningPlan(person: person, role: SetupGoals.role(goals)) {
       if store.role == "owner", !store.features.routines {
         var next = store.features
