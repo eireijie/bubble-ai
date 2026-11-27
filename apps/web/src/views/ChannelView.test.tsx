@@ -142,13 +142,13 @@ describe("the message box", () => {
   };
   const roundOf = (input: any) => find(input, (node) => node.props?.["data-tour"] === "send");
 
-  it("holds the attach button, the text and the round button in one box", () => {
+  it("holds the attach button, the text, dictate and the round call button in one box", () => {
     const input = box();
     expect(input.props.className).toContain("composer-box");
     expect(find(input, (node) => node.props?.className === "composer-plus-slot")).toBeTruthy();
     expect(find(input, (node) => node.type === "textarea")).toBeTruthy();
     expect(roundOf(input).props["aria-label"]).toBe("Call Nova");
-    expect(roundOf(input).props.className).toContain("is-go");
+    expect(roundOf(input).props.className).toContain("is-call");
   });
 
   it("turns the round button into Stop while an agent works", () => {
@@ -156,5 +156,6 @@ describe("the message box", () => {
     const round = roundOf(box());
     expect(round.props["aria-label"]).toBe("Stop");
     expect(round.props.className).toContain("is-stop");
+    h.state.live = {};
   });
 });

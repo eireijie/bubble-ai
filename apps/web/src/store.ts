@@ -86,6 +86,8 @@ export type ComputerInfo = Computer & {
   transport: "vnc" | "frames";
   agents: string[];
   activity: { agentId: string; text: string; at: string } | null;
+  /** the shared computer, when each agent has a screen of its own: the agents whose screen is up now (absent: one screen for all) */
+  screens?: string[];
 };
 
 interface State {
@@ -184,8 +186,8 @@ if (typeof document !== "undefined")
     }
   });
 
-/** Your preferences (Settings → Preferences), with defaults. */
-export function usePrefs(): Required<Omit<UserPrefs, "sidebar" | "learn">> {
+/** Your preferences (Settings → Preferences), with defaults (the chat background: chatBackground.ts). */
+export function usePrefs(): Required<Omit<UserPrefs, "sidebar" | "learn" | "background">> {
   const p = useStore((s) => s.me?.prefs);
   return { sendWith: p?.sendWith ?? "enter", clock: p?.clock ?? "auto", toolCalls: p?.toolCalls ?? "collapsed", experience: p?.experience ?? "advanced" };
 }

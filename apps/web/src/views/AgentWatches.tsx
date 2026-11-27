@@ -18,7 +18,7 @@ export function everyLine(minutes: number): string {
  * What it watches: each of your apps this agent keeps an eye on, with a switch to pause it and Stop.
  * Stop takes this agent off the watch; a watch nobody else is on goes away with it.
  */
-export function AgentWatches({ agent }: { agent: Pick<Agent, "id" | "name"> }) {
+export function AgentWatches({ agent, bare = false }: { agent: Pick<Agent, "id" | "name">; /** no heading: it is the page's own (the profile's Watches) */ bare?: boolean }) {
   const [watches, setWatches] = useState<WatchRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export function AgentWatches({ agent }: { agent: Pick<Agent, "id" | "name"> }) {
 
   return (
     <section aria-label="What it watches" data-watches className="scroll-mt-3 space-y-2">
-      <h3 className="px-1 text-[13px] font-medium text-muted">What it watches</h3>
+      {!bare && <h3 className="px-1 text-[13px] font-medium text-muted">What it watches</h3>}
       <div className={CARD}>
         {watches === null && <div className="flex min-h-[46px] items-center px-3.5 text-[13px] text-muted">Loading…</div>}
         {watches?.length === 0 && <div className="flex min-h-[46px] items-center px-3.5 text-[13px] text-muted">Nothing yet. Ask {agent.name} in chat to keep an eye on an app.</div>}

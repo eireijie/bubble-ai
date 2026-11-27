@@ -14,7 +14,7 @@ import { ClipboardPanel, FilesPanel, remotePlatform, saveScreenshot, sendFiles, 
 import { AgentAvatar, Button, Field, Input, Menu, Modal, Pill, Textarea, cx } from "../components/ui.tsx";
 
 export { computerState, useComputerState, KIND_ICON, stateColor, activityDot } from "./computerState.ts";
-import { useComputerState, stateColor, isWatchHash, sheetTarget, watchBlock, watchHref } from "./computerState.ts";
+import { useComputerState, stateColor, isWatchHash, sheetTarget, watchBlock, watchHref, watchedAgent } from "./computerState.ts";
 
 const onHash = (on: () => void) => {
   window.addEventListener("hashchange", on);
@@ -30,6 +30,11 @@ function useWatching(): boolean {
   return isWatchHash(useSyncExternalStore(onHash, () => location.hash, () => ""));
 }
 
+/** The agent whose own screen the live view shows (#/computers/<id>/watch/<agentId>), if any. */
+function useWatchedAgent(): string | null {
+  return watchedAgent(useSyncExternalStore(onHash, () => location.hash, () => ""));
+}
+
 /**
  * Computers: one page of tiles. #/computers/<id> and #/computers/d/<nodeId> open that computer's
  * sheet beside the grid; #/computers/<id>/watch (and teaching a task) is its live view, which
@@ -40,6 +45,7 @@ export function ComputersView({ computerId, teach, deviceId }: { computerId: str
   const me = useStore((s) => s.me);
   const [nodes, refreshNodes] = useNodes();
   const watching = useWatching();
+  const watchedScreen = useWatchedAgent();
   const selected = computers.find((c) => c.id === computerId);
 
   const [computersChecked, setComputersChecked] = useState(false);
@@ -49,7 +55,7 @@ export function ComputersView({ computerId, teach, deviceId }: { computerId: str
 
   if (me?.role === "guest") return null;
 
-  if (selected && (teach || watching)) return <ComputerLive key={selected.id} computer={selected} devices={nodes} teach={teach} />;
+  if (selected && (teach || watching)) return <ComputerLive key={selected.id} computer={selected} devices={nodes} teach={teach} screenOf={teach ? null : watchedScreen} />;
 
   const target = sheetTarget({ computerId, deviceId }, nodes, computers, computersChecked);
   return (
@@ -263,7 +269,8 @@ function ScreenBlocked({ computer: c, block, canStart }: { computer: ComputerInf
  * computer's name, what the agent is doing, Take over or Hand back, and one "…" for Clipboard,
  * Files, Keys, Screenshot and Teach a task. Phones and desktops share it.
  */
-export function ComputerLive({ computer: c, devices, teach }: { computer: ComputerInfo; devices: DeviceInfo[] | null; teach: string | null }) {
+/** `screenOf`: on the shared computer, the agent whose own screen to show (null: the shared screen). */
+export function ComputerLive({ computer: c, devices, teach, screenOf: wanted = null }: { computer: ComputerInfo; devices: DeviceInfo[] | null; teach: string | null; screenOf?: string | null }) {
   const me = useStore((s) => s.me)!;
   const agents = useStore((s) => s.agents);
   const state = useComputerState(c);
@@ -280,6 +287,9 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
   const canEdit = me.role !== "guest";
   const device = devices?.find((d) => d.id === c.nodeId);
   const on = agents.filter((a) => c.agents.includes(a.id));
+  // the shared computer gives each agent a screen of its own: a strip to switch between them
+  const ownScreens = !!c.screens && !teach;
+  const screenOf = ownScreens && wanted && c.agents.includes(wanted) ? wanted : undefined;
   const teacher = teach ? agents.find((a) => a.id === teach) : undefined;
   // a device and its own screen are one computer: it goes by the device's name
   const own = c.kind === "device" ? device : undefined;
@@ -329,14 +339,17 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
       sync.flash((e as Error).message);
     }
   };
-  const lead = status.agent ?? on[0];
+  const lead = (screenOf ? on.find((a) => a.id === screenOf) : undefined) ?? status.agent ?? on[0];
   const [keys, setKeys] = useState(false);
   const [typed, setTyped] = useState("");
-  const act = (action: object) => api("POST", `/api/computers/${c.id}/act`, { action }).catch((e) => setError((e as Error).message));
+  const act = (action: object) => api("POST", `/api/computers/${c.id}/act`, { action, ...(screenOf ? { agent: screenOf } : {}) }).catch((e) => setError((e as Error).message));
 
   // one status line, worded like the tile's, with what the agent is doing or asking for
   const statusColor = stateColor(state, c, mine);
-  const statusText = mine ? "You're in control" : c.help && status.tone === "warn" ? `${status.text}: ${c.help.request}` : status.working && c.activity?.text ? `${status.text} · ${c.activity.text}` : status.text;
+  const computerStatus = mine ? "You're in control" : c.help && status.tone === "warn" ? `${status.text}: ${c.help.request}` : status.working && c.activity?.text ? `${status.text} · ${c.activity.text}` : status.text;
+  // an agent's own screen: what that agent is doing there, not whoever acted last on the computer
+  const screenAgent = screenOf ? on.find((a) => a.id === screenOf) : undefined;
+  const statusText = screenAgent && !mine ? (c.activity?.agentId === screenAgent.id && status.working ? `${screenAgent.name}'s screen · ${c.activity.text}` : `${screenAgent.name}'s screen`) : computerStatus;
 
   // the agent a task is taught to: the one on this computer, else the only one there is, else a pick
   const teachTo = on[0] ?? (agents.length === 1 ? agents[0] : undefined);
@@ -415,8 +428,10 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
             <ScreenBlocked computer={c} block={block} canStart={canEdit} />
           ) : (
           <LiveScreen
+            key={screenOf ?? "shared"}
             ref={screen}
             computer={c}
+            agentId={screenOf}
             control={mine}
             noRing
             compact
@@ -461,6 +476,8 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
         )}
       </div>
 
+      {ownScreens && up && on.length > 0 && <ScreenStrip computer={c} agents={on} current={screenOf ?? null} />}
+
       {mine && keys && !teacher && (
         <FloatingPanel
           label="Keys"
@@ -504,6 +521,41 @@ export function ComputerLive({ computer: c, devices, teach }: { computer: Comput
         </Modal>
       )}
     </div>
+  );
+}
+
+/**
+ * The shared computer's screens side by side: the shared one, then each agent's own. A screen that
+ * isn't up says so instead of being started for a picture; picking it opens it live.
+ */
+function ScreenStrip({ computer: c, agents, current }: { computer: ComputerInfo; agents: Agent[]; current: string | null }) {
+  const tiles: { id: string | null; name: string; agent?: Agent }[] = [{ id: null, name: "Shared" }, ...agents.map((a) => ({ id: a.id, name: a.name, agent: a }))];
+  return (
+    <nav aria-label="Screens" data-testid="screen-strip" className="shrink-0 flex gap-2 overflow-x-auto px-2 md:px-3 py-2 border-t border-line bg-panel">
+      {tiles.map((t) => {
+        const selected = t.id === current;
+        const working = !!t.id && c.activity?.agentId === t.id && Date.now() - Date.parse(c.activity.at) < 15_000;
+        return (
+          <a
+            key={t.id ?? "shared"}
+            href={watchHref(c.id, t.id)}
+            aria-current={selected ? "page" : undefined}
+            className={cx("group shrink-0 w-32 rounded-[10px] p-1 transition-colors", selected ? "bg-hover ring-2 ring-accent" : "hover:bg-hover")}
+          >
+            {t.id && !c.screens?.includes(t.id) ? (
+              <span className="grid aspect-[16/10] place-items-center rounded-[7px] bg-black text-[11px] text-white/50">Idle</span>
+            ) : (
+              <ScreenThumb computer={c} agentId={t.id ?? undefined} refreshMs={4000} quiet className="rounded-[7px]!" />
+            )}
+            <span className="mt-1 flex items-center gap-1.5 px-0.5 text-[12px] leading-4">
+              {t.agent ? <AgentAvatar agent={t.agent} size={14} badge={false} /> : <Monitor size={13} className="text-muted" aria-hidden />}
+              <span className={cx("truncate", selected ? "font-medium text-ink" : "text-muted")}>{t.name}</span>
+              {working && <span className="ml-auto size-1.5 shrink-0 rounded-full bg-st-working m-wait" aria-label="working" />}
+            </span>
+          </a>
+        );
+      })}
+    </nav>
   );
 }
 

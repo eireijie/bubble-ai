@@ -23,7 +23,7 @@ describe("add agent onboarding", () => {
     expect(html).toMatch(/aria-label="Name"[^>]*value="[A-Z][a-z]+"/);
     // its look as seven rows, every choice a small bubble wearing it
     for (const row of ["Shape", "Colour", "Eyes", "Mouth", "Hat", "Wear", "Motion"]) expect(html).toContain(`role="radiogroup" aria-label="${row}"`);
-    for (const t of ['aria-label="Start from"', "What it does", 'aria-label="AI"', 'aria-label="Model"', 'aria-label="Effort"', "More options", "Make it a team", "Bring one in"]) expect(html).toContain(t);
+    for (const t of ['aria-label="Start from"', "What it does", 'aria-label="Harness"', 'aria-label="Model"', 'aria-label="Effort"', "More options", "Make it a team", "Bring one in"]) expect(html).toContain(t);
     // folded until opened; the closed row says what's picked
     for (const t of ['aria-label="Instructions"', 'aria-label="Computer"', ">Apps<", ">Skills<", "Use my defaults", "Customize"]) expect(html).not.toContain(t);
     expect(html).toContain('aria-expanded="false"');

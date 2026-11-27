@@ -379,3 +379,34 @@ describe("the window setup opens for a VM's sign-in", () => {
     expect(hub.preventDefault).not.toHaveBeenCalled();
   });
 });
+
+describe("this computer's screen for agents", () => {
+  const hubEvent = (f: ReturnType<typeof fixture>) => ({ sender: f.windows[0].webContents, senderFrame: f.windows[0].webContents.mainFrame });
+
+  it("is on by default once nothing stops agents using it, with no code window", async () => {
+    const f = fixture();
+    f.main.init();
+    const r = await f.handlers.get("permissions:status")!(hubEvent(f));
+    expect(r).toMatchObject({ platform: "linux", screenOn: true, statuses: { screen: "granted", accessibility: "granted" } });
+    expect(f.cfg.shareScreen).toBe(true);
+    expect(f.windows).toHaveLength(1);
+  });
+
+  it("stays off when someone at the device turned it off", async () => {
+    const f = fixture();
+    f.main.init();
+    f.cfg.shareScreen = false;
+    expect(await f.handlers.get("permissions:status")!(hubEvent(f))).toMatchObject({ screenOn: false });
+    expect(f.cfg.shareScreen).toBe(false);
+  });
+
+  it("turning it on from the tray doesn't pop up the screen code window", () => {
+    const f = fixture();
+    f.main.init();
+    f.cfg.shareScreen = false;
+    const item = (f.main.trayMenu() as { label?: string; click?: (i: { checked: boolean }) => void }[]).find((i) => i.label === "Let Me Use This Screen from Bubble AI")!;
+    item.click!({ checked: true });
+    expect(f.cfg.shareScreen).toBe(true);
+    expect(f.windows).toHaveLength(1);
+  });
+});

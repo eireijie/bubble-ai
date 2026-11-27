@@ -1,4 +1,6 @@
 import { useContext, useEffect, useState } from "react";
+import { BackgroundPicker } from "../../components/BackgroundPicker.tsx";
+import { setDefaultBackground, useDefaultBackground } from "../../chatBackground.ts";
 import { api } from "../../api.ts";
 import { useStore } from "../../store.ts";
 import { useDevices } from "../../devices.ts";
@@ -31,6 +33,11 @@ function BuddySwitch() {
   return <Toggle on={features.buddy} label="Desk buddy" disabled={!owner} onChange={(v) => void setFeatures({ buddy: v })} />;
 }
 
+/** Every chat's background unless an agent has its own (its profile). */
+function DefaultBackground() {
+  return <BackgroundPicker label="Chat background" value={useDefaultBackground()} onChange={setDefaultBackground} />;
+}
+
 export function YouFive() {
   return (
     <>
@@ -55,6 +62,9 @@ export function YouFive() {
       <Group title="Look">
         <SRow id="theme">
           <ThemeSwatches />
+        </SRow>
+        <SRow id="background">
+          <DefaultBackground />
         </SRow>
         <SRow id="text-size">
           <TextSizeSeg />

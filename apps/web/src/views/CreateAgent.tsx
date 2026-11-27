@@ -257,7 +257,7 @@ export function AiPicker({ list, value, onPick }: { list: AiChoice[]; value: str
   };
   return (
     <>
-      <button ref={button} type="button" aria-label="AI" aria-haspopup="listbox" aria-expanded={open} onClick={() => (setPos(null), setOpen(!open))} onKeyDown={(e) => e.key === "ArrowDown" && (e.preventDefault(), setOpen(true))} className={cx(SELECT, "flex items-center gap-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/40")}>
+      <button ref={button} type="button" aria-label="Harness" aria-haspopup="listbox" aria-expanded={open} onClick={() => (setPos(null), setOpen(!open))} onKeyDown={(e) => e.key === "ArrowDown" && (e.preventDefault(), setOpen(true))} className={cx(SELECT, "flex items-center gap-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/40")}>
         {current && <HarnessLogo harness={current.id} size={16} />}
         <span className="min-w-0 flex-1 truncate font-medium">{current?.label}</span>
         {current?.notInstalled && <span className="shrink-0 text-[11px] text-muted">Not installed</span>}
@@ -266,7 +266,7 @@ export function AiPicker({ list, value, onPick }: { list: AiChoice[]; value: str
       </button>
       {open &&
         createPortal(
-          <div ref={panel} role="listbox" aria-label="AI" onKeyDown={move} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className={cx("m-menu glass rounded-[12px] p-1.5", LAYER.menu)}>
+          <div ref={panel} role="listbox" aria-label="Harness" onKeyDown={move} style={pos ?? { position: "fixed", visibility: "hidden", top: 0, left: 0 }} className={cx("m-menu glass rounded-[12px] p-1.5", LAYER.menu)}>
             {list.map((h) => (
               <button
                 key={h.id}
@@ -834,8 +834,8 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
                   </div>
                 ) : (
                   <section className="space-y-2">
-                    <span className={LABEL}>AI</span>
-                    {/* one row: which AI, its model and how hard it thinks */}
+                    <span className={LABEL}>Harness</span>
+                    {/* one row: which harness, its model and how hard it thinks */}
                     <div className="na-ai">
                       <AiPicker list={runnable.map((h) => ({ id: h.id, label: h.label, notInstalled: notInstalled(h.id), signedOut: !!node?.mine && signedInOn(h.id) === false }))} value={harness} onPick={(id) => pickAi({ harness: id })} />
                       <label className={cx(SELECT, "flex items-center gap-1.5")}>
@@ -1120,10 +1120,10 @@ function PlacePicker({ value, onChange, node, nodes, usable, nodeId, onNode, aut
       <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Computer">
         {auto !== null &&
           (auto.endsWith(" directly")
-            ? tile({ kind: "auto" }, <Laptop size={15} />, "This device", `Works on ${auto}`)
+            ? tile({ kind: "auto" }, <Laptop size={15} />, "This device", `Uses ${auto}`)
             : tile({ kind: "auto" }, <Users size={15} />, auto === "The shared computer" ? "Shared computer" : "Automatic", auto === "The shared computer" ? "With your other agents" : auto === "Automatic" ? "Your defaults" : auto))}
         {node && tile({ kind: "vm" }, <Monitor size={15} />, "Its own computer", node.capabilities?.vm.ok ? `A desktop on ${node.name}` : (node.capabilities?.vm.detail ?? "Connect the device to check"), !node.capabilities?.vm.ok)}
-        {node?.mine && !screenExists && tile({ kind: "screen" }, <Laptop size={15} />, "My screen", node.capabilities?.screen.ok ? `Works on ${node.name}` : (node.capabilities?.screen.detail ?? "Off"), node.capabilities?.screen.ok !== true)}
+        {node?.mine && !screenExists && tile({ kind: "screen" }, <Laptop size={15} />, "My screen", node.capabilities?.screen.ok ? `Uses ${node.name}` : (node.capabilities?.screen.detail ?? "Off"), node.capabilities?.screen.ok !== true)}
         {advanced &&
           computers.map((c) => tile({ kind: "existing", id: c.id }, c.kind === "orgo" ? <Cloud size={15} /> : c.kind === "vm" ? <Monitor size={15} /> : <Laptop size={15} />, c.name, computerKindLabel(c, nodes)))}
         {tile({ kind: "headless" }, <MessageSquare size={15} />, "No computer", "Chat and files only")}

@@ -8,7 +8,6 @@ import { BUBBLE_DEFS, bubbleColor, bubbleParts, bubbleShape } from "../component
 import { BubbleField } from "../components/BubbleField.tsx";
 import { Ghost } from "../components/Ghost.tsx";
 import { Button, cx } from "../components/ui.tsx";
-import { VoicePicker } from "../voice/VoicePicker.tsx";
 import { SaveBar } from "./SettingsParts.tsx";
 import "./look-rows.css";
 
@@ -67,66 +66,34 @@ const MOODS: [PreviewMood, string][] = [
   ["asleep", "Offline"],
 ];
 
-const TABS = ["Shape", "Colour", "Eyes", "Mouth", "Hat", "Wear", "Motion"] as const;
-export type LookTab = (typeof TABS)[number];
-
 const lower = (c: string | undefined) => c?.toLowerCase();
 
-/**
- * The look's options, one kind at a time: a row of tabs and every choice as a small bubble already
- * wearing it, so you see what you'd get before you pick. Shared by the full editor and New agent.
- */
-export function LookOptions({ value: look, onChange, name, dense = false }: { value: GhostAppearance; onChange: (look: GhostAppearance) => void; name: string; dense?: boolean }) {
-  const [tab, setTab] = useState<LookTab>("Shape");
-  const color = bubbleColor(look, name);
-  const set = (patch: Partial<GhostAppearance>) => onChange({ ...look, ...patch, parts: true });
-  const tile = dense ? 40 : 50;
+type LookKey = "bubble" | "eyes" | "mouth" | "hat" | "accessory" | "motion";
 
-  const tiles = <K extends "bubble" | "eyes" | "mouth" | "hat" | "accessory" | "motion">(key: K, options: readonly NonNullable<GhostAppearance[K]>[], label: (v: string) => string) => (
-    <div role="radiogroup" aria-label={tab} className={cx("grid gap-1.5", dense ? "grid-cols-[repeat(auto-fill,minmax(58px,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(76px,1fr))]")}>
+/** One kind of choice as a wrap of small tiles, each the real bubble wearing that choice (its name on hover). */
+function LookTiles<K extends LookKey>({ look, name, k, options, label, onPick }: { look: GhostAppearance; name: string; k: K; options: readonly NonNullable<GhostAppearance[K]>[]; label: (v: string) => string; onPick: (patch: Partial<GhostAppearance>) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
       {options.map((v) => {
-        const on = (key === "bubble" ? bubbleShape(look) : look[key]) === v;
+        const on = (k === "bubble" ? bubbleShape(look) : look[k]) === v;
+        const title = label(v);
         return (
-          <button
-            key={v}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            onClick={() => set({ [key]: v } as Partial<GhostAppearance>)}
-            className={cx(
-              "look-tile flex flex-col items-center justify-center gap-1 rounded-[12px] text-[11.5px] outline-none transition-[box-shadow,background-color,color] duration-200 focus-visible:ring-2 focus-visible:ring-ring/40",
-              dense ? "h-[70px]" : "h-[86px]",
-              on ? "bg-side-active text-ink shadow-[inset_0_0_0_1.5px_var(--ink)]" : "text-muted hover:bg-hover hover:text-ink",
-            )}
-          >
-            {/* only the motion tiles move: the rest hold still so the grid stays calm */}
-            <Ghost look={{ ...look, parts: true, [key]: v }} seed={name} size={tile} animate={key === "motion"} trackPointer={false} label="" />
-            <span className="max-w-full truncate px-1">{label(v)}</span>
+          <button key={v} type="button" role="radio" aria-checked={on} aria-label={title} title={title} data-on={on || undefined} onClick={() => onPick({ [k]: v } as Partial<GhostAppearance>)} className="look-tile">
+            {/* only the motion tiles move, so the rows stay calm */}
+            <Ghost look={{ ...look, parts: true, [k]: v }} seed={name} size={30} animate={k === "motion"} trackPointer={false} label="" />
           </button>
         );
       })}
     </div>
   );
+}
 
+/** A labelled group of choices in the look editor. */
+function LookGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="space-y-3">
-      {/* all seven on one line, sharing the width: none drops to a second row or scrolls out of sight */}
-      <div role="tablist" aria-label="Look" className="flex gap-0.5">
-        {TABS.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cx("min-w-0 flex-1 whitespace-nowrap rounded-full font-medium transition-colors duration-200", dense ? "h-7 px-1 text-[12px]" : "h-8 px-1.5 text-[13px]", tab === t ? "bg-ink text-bg" : "text-muted hover:bg-hover hover:text-ink")}>
-            {t}
-          </button>
-        ))}
-      </div>
-      <div key={tab} className="look-pane">
-        {tab === "Shape" && tiles("bubble", BUBBLE_SHAPES, (v) => BUBBLE_DEFS[v as keyof typeof BUBBLE_DEFS].name)}
-        {tab === "Colour" && <ColourRow color={color} onPick={(hex) => set({ color: hex, color2: undefined })} />}
-        {tab === "Eyes" && tiles("eyes", GHOST_EYES, (v) => LOOK_LABELS[v] ?? v)}
-        {tab === "Mouth" && tiles("mouth", ["none", ...GHOST_MOUTHS.filter((m) => m !== "none")] as const, (v) => LOOK_LABELS[v] ?? v)}
-        {tab === "Hat" && tiles("hat", GHOST_HATS, (v) => LOOK_LABELS[v] ?? v)}
-        {tab === "Wear" && tiles("accessory", GHOST_ACCESSORIES, (v) => LOOK_LABELS[v] ?? v)}
-        {tab === "Motion" && tiles("motion", GHOST_MOTIONS, (v) => LOOK_LABELS[v] ?? v)}
-      </div>
+    <div role="radiogroup" aria-label={label} className="space-y-2">
+      <div className="px-0.5 text-[12px] font-semibold text-muted">{label}</div>
+      {children}
     </div>
   );
 }
@@ -227,17 +194,21 @@ export function ColourRow({ color, onPick, size = 28 }: { color: string; onPick:
 }
 
 /**
- * An agent's Look: its bubble, big, with small bubbles drifting up behind it and a mood to preview
- * it in; then shape, colour, eyes, mouth, hat, what it wears and how it moves, each shown as small
- * bubbles wearing that choice. Controlled: the caller keeps the look and decides when to save.
+ * An agent's look (canvas round 4, board Look): its bubble, live, then Shape, Colour, Hat and Wear,
+ * each choice shown as a small bubble already wearing it. Eyes, mouth, how it moves and a mood to
+ * preview it in are under a small "More". Controlled: the caller keeps the look and decides when to save.
  */
 export function LookEditor({ value: look, onChange, name, extra, speakingLevel, onReset }: { value: GhostAppearance; onChange: (look: GhostAppearance) => void; name: string; extra?: ReactNode; speakingLevel?: number; onReset?: () => void }) {
   const [mood, setMood] = useState<PreviewMood>("awake");
+  const [more, setMore] = useState(false);
+  const color = bubbleColor(look, name);
+  const set = (patch: Partial<GhostAppearance>) => onChange({ ...look, ...patch, parts: true });
+  const label = (v: string) => LOOK_LABELS[v] ?? v;
   return (
-    <div className="w-full max-w-[560px] space-y-4">
-      <div className="relative grid h-[220px] place-items-center overflow-hidden rounded-[16px] bg-card">
-        <BubbleField count={14} maxSize={10} rise={300} />
-        <Ghost look={look} seed={name} size={140} mood={mood} speakingLevel={speakingLevel} interactive label={`${name}'s bubble`} />
+    <div className="w-full max-w-[560px] space-y-5">
+      <div className="relative grid h-[170px] place-items-center overflow-hidden rounded-[16px] bg-card">
+        <BubbleField count={12} maxSize={9} rise={240} />
+        <Ghost look={look} seed={name} size={112} mood={mood} speakingLevel={speakingLevel} interactive label={`${name}'s bubble`} />
         <div className="absolute right-2.5 top-2.5 flex gap-1">
           <button type="button" onClick={() => onChange(shuffleBubbleLook())} title="Shuffle" aria-label="Shuffle" className="circle circle-sm border-0! bg-panel/70 text-muted hover:text-ink">
             <Shuffle size={15} />
@@ -248,17 +219,47 @@ export function LookEditor({ value: look, onChange, name, extra, speakingLevel, 
             </button>
           )}
         </div>
-        <div className="absolute inset-x-0 bottom-2.5 flex justify-center">
-          <div className="flex rounded-full bg-panel/80 p-0.5 backdrop-blur" role="radiogroup" aria-label="Preview a mood">
-            {MOODS.map(([m, label]) => (
-              <button key={m} type="button" role="radio" aria-checked={mood === m} onClick={() => setMood(m)} className={cx("h-7 rounded-full px-2.5 text-xs transition-colors", mood === m ? "bg-ink font-semibold text-bg" : "text-muted hover:text-ink")}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
-      <LookOptions value={look} onChange={onChange} name={name} />
+      <LookGroup label="Shape">
+        <LookTiles look={look} name={name} k="bubble" options={BUBBLE_SHAPES} label={(v) => BUBBLE_DEFS[v as keyof typeof BUBBLE_DEFS].name} onPick={set} />
+      </LookGroup>
+      <div className="space-y-2">
+        <div className="px-0.5 text-[12px] font-semibold text-muted">Colour</div>
+        <ColourRow color={color} onPick={(hex) => set({ color: hex, color2: undefined })} />
+      </div>
+      <LookGroup label="Hat">
+        <LookTiles look={look} name={name} k="hat" options={GHOST_HATS} label={label} onPick={set} />
+      </LookGroup>
+      <LookGroup label="Wear">
+        <LookTiles look={look} name={name} k="accessory" options={GHOST_ACCESSORIES} label={label} onPick={set} />
+      </LookGroup>
+      <div>
+        <button type="button" aria-expanded={more} onClick={() => setMore(!more)} className="-ml-1 inline-flex h-8 items-center gap-1 rounded-[8px] px-1.5 text-[13px] font-medium text-muted hover:bg-hover hover:text-ink">
+          More <ChevronDown size={14} className={cx("transition-transform duration-200", more && "rotate-180")} aria-hidden />
+        </button>
+        {more && (
+          <div className="look-pane mt-3 space-y-5">
+            <LookGroup label="Eyes">
+              <LookTiles look={look} name={name} k="eyes" options={GHOST_EYES} label={label} onPick={set} />
+            </LookGroup>
+            <LookGroup label="Mouth">
+              <LookTiles look={look} name={name} k="mouth" options={["none", ...GHOST_MOUTHS.filter((m) => m !== "none")] as const} label={label} onPick={set} />
+            </LookGroup>
+            <LookGroup label="Motion">
+              <LookTiles look={look} name={name} k="motion" options={GHOST_MOTIONS} label={label} onPick={set} />
+            </LookGroup>
+            <LookGroup label="Preview as">
+              <div className="flex flex-wrap gap-1.5">
+                {MOODS.map(([m, text]) => (
+                  <button key={m} type="button" role="radio" aria-checked={mood === m} onClick={() => setMood(m)} className={cx("h-8 rounded-full px-3 text-[13px] transition-colors", mood === m ? "bg-ink font-medium text-bg" : "bg-card text-muted hover:text-ink")}>
+                    {text}
+                  </button>
+                ))}
+              </div>
+            </LookGroup>
+          </div>
+        )}
+      </div>
       {extra}
     </div>
   );
@@ -294,18 +295,15 @@ export function LookEditorScreen({ initial, name, onSave, onBack, saving = false
   );
 }
 
-/** Look and voice on the agent's page: the editor, and its voice as one row that opens the voice list. Saved with the page's save bar. */
+/** The look in the agent's profile (its avatar's pencil): the editor, saved with the save bar. Its voice is the profile's Voice tab. */
 export function LookPanel({ agent, onDirty, active }: { agent: Agent; onDirty: (d: boolean) => void; active: boolean }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
   const fallback = useMemo(() => withParts(defaultAppearance(agent.handle), agent.handle), [agent.handle]);
   const saved = useMemo(() => (agent.settings.appearance ? withParts(agent.settings.appearance, agent.handle) : fallback), [agent.settings.appearance, agent.handle, fallback]);
   const [look, setLook] = useState<GhostAppearance>(saved);
-  const [voice, setVoice] = useState(agent.settings.voice ?? {});
-  const [voiceOpen, setVoiceOpen] = useState(false);
-  const [speakingLevel, setSpeakingLevel] = useState<number | undefined>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dirty = JSON.stringify(look) !== JSON.stringify(saved) || JSON.stringify(voice) !== JSON.stringify(agent.settings.voice ?? {});
+  const dirty = JSON.stringify(look) !== JSON.stringify(saved);
   useEffect(() => {
     onDirty(dirty);
   }, [dirty, onDirty]);
@@ -314,7 +312,7 @@ export function LookPanel({ agent, onDirty, active }: { agent: Agent; onDirty: (
     setSaving(true);
     setError(null);
     try {
-      await api("PATCH", `/api/agents/${agent.id}`, { settings: { appearance: look, voice } });
+      await api("PATCH", `/api/agents/${agent.id}`, { settings: { appearance: look } });
       await refreshAgents();
     } catch (e) {
       setError((e as Error).message);
@@ -325,29 +323,10 @@ export function LookPanel({ agent, onDirty, active }: { agent: Agent; onDirty: (
   };
 
   return (
-    <div>
-      <LookEditor
-        value={look}
-        onChange={setLook}
-        name={agent.name}
-        onReset={() => setLook(fallback)}
-        speakingLevel={speakingLevel}
-        extra={
-          <div className="overflow-hidden rounded-[12px] bg-card">
-            <button type="button" aria-expanded={voiceOpen} onClick={() => setVoiceOpen(!voiceOpen)} className="flex min-h-[46px] w-full items-center gap-3 px-3.5 text-left text-[14px] hover:bg-hover">
-              <span className="flex-1 font-medium">Voice</span>
-              <ChevronDown size={15} className={cx("shrink-0 text-faint transition-transform duration-200", voiceOpen && "rotate-180")} aria-hidden />
-            </button>
-            {voiceOpen && (
-              <div className="border-t border-line p-3.5">
-                <VoicePicker agent={agent} value={voice} onChange={setVoice} onLevel={setSpeakingLevel} />
-              </div>
-            )}
-          </div>
-        }
-      />
+    <div className="flex flex-col items-center">
+      <LookEditor value={look} onChange={setLook} name={agent.name} onReset={() => setLook(fallback)} />
       {error && <p className="mt-3 text-sm text-bad">{error}</p>}
-      <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => { setLook(saved); setVoice(agent.settings.voice ?? {}); }} active={active} />
+      <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => setLook(saved)} active={active} />
     </div>
   );
 }

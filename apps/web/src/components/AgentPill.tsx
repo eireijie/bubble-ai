@@ -55,3 +55,47 @@ export function AgentPill({ agent, open, onClick }: { agent: Agent; open?: boole
     </button>
   );
 }
+
+const STATUS_LINE: Partial<Record<GhostMood, string>> = { working: "Working", thinking: "Thinking", waiting: "Needs you", error: "Having trouble", asleep: "Asleep", done: "Done", awake: "Online", listening: "Listening" };
+
+/**
+ * The chat header's middle (round 4, like Messages): the agent's bubble above a small glass capsule
+ * with its name, a chevron and how it is right now. Clicking either opens the agent's profile; poking
+ * the bubble plays with it. Teams pass their own avatar and line.
+ */
+export function ChatHead({ avatar, name, line, tone, open, onClick, label }: { avatar: React.ReactNode; name: string; line?: string | null; tone?: "needs" | "working" | "problem" | null; open?: boolean; onClick: () => void; label: string }) {
+  return (
+    <div className="chat-head flex min-w-0 flex-col items-center gap-1">
+      {/* the bubble opens the profile too; the capsule is the button for keyboards and screen readers */}
+      <span onClick={onClick} className="grid cursor-pointer place-items-center drop-shadow-[0_4px_10px_rgb(0_0_0/0.10)]">
+        {avatar}
+      </span>
+      <button type="button" onClick={onClick} aria-expanded={open} aria-label={label} className={cx("lg-glass lg-press flex max-w-[min(18rem,60vw)] flex-col items-center rounded-[14px] px-3 py-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open && "is-on")}>
+        <span className="flex min-w-0 max-w-full items-center gap-0.5 text-[13.5px] font-semibold leading-[18px]">
+          <span className="truncate">{name}</span>
+          <ChevronRight size={13} strokeWidth={2.4} className={cx("shrink-0 opacity-50 transition-transform duration-200", open && "rotate-90")} aria-hidden />
+        </span>
+        {line && <span key={line} className={cx("m-fade-in max-w-full truncate text-[11.5px] leading-[15px]", tone === "needs" ? "text-st-needs" : tone === "problem" ? "text-st-problem" : tone === "working" ? "shimmer-text text-wisp-strong" : "text-muted")}>{line}</span>}
+      </button>
+    </div>
+  );
+}
+
+/** A DM's header middle: the agent's live bubble and how it is. */
+export function AgentHead({ agent, open, onClick }: { agent: Agent; open?: boolean; onClick: () => void }) {
+  const base = useStore((s) => agentMood(agent, s.approvals, s.computers));
+  const look = agent.settings?.appearance ?? defaultAppearance(agent.handle);
+  const line = STATUS_LINE[base] ?? null;
+  const tone = base === "waiting" ? "needs" : base === "error" ? "problem" : base === "working" || base === "thinking" ? "working" : null;
+  return (
+    <ChatHead
+      avatar={<Ghost look={look} size={46} mood={base} interactive label={agent.name} seed={agent.handle} />}
+      name={agent.name}
+      line={line}
+      tone={tone}
+      open={open}
+      onClick={onClick}
+      label={`${agent.name}${line ? `, ${line.toLowerCase()}` : ""}. Open ${agent.name}'s profile`}
+    />
+  );
+}

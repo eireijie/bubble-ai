@@ -12,7 +12,7 @@ describe("Show me around stops", () => {
     expect(STOPS.map((s) => [s.id, s.doIt])).toEqual([
       ["write", "send"],
       ["slash", "slash"],
-      ["your-turn", "yourturn"],
+      ["your-turn", "click"],
       ["new", "click"],
     ]);
     expect(STOPS.every((s) => s.targets.length > 0 && s.title.length <= 24 && s.body.length <= 60)).toBe(true);
@@ -115,7 +115,6 @@ describe("where the bubble and card go", () => {
 
   it("keeps stops that open something up long enough to see it before moving on", () => {
     expect(dwellMs("slash")).toBeGreaterThanOrEqual(3000);
-    expect(dwellMs("yourturn")).toBeGreaterThanOrEqual(2000);
     for (const s of STOPS) expect(dwellMs(s.doIt)).toBeGreaterThanOrEqual(900);
     expect(dwellMs("slash")).toBeGreaterThan(dwellMs("click"));
   });

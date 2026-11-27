@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { cx } from "./ui.tsx";
 
 /** How big a pop-up is (router.popupSize), and "full" for the one page that needs the whole window inside it (Memory's graph). */
-export type DialogSize = "large" | "medium" | "full";
+export type DialogSize = "large" | "medium" | "profile" | "full";
 
 /**
  * Inside a pop-up: how to close it, and how big it is. Views use it to drop their own page chrome
@@ -41,6 +41,7 @@ export function escapeCloses(e: { key: string; defaultPrevented: boolean; target
 export const DIALOG_SIZE: Record<DialogSize, string> = {
   large: "min-h-[min(180px,calc(100vh-96px))] max-h-[min(680px,calc(100vh-96px))] w-[min(960px,calc(100vw-48px))]",
   medium: "min-h-[min(180px,calc(100vh-96px))] max-h-[min(680px,calc(100vh-96px))] w-[min(640px,calc(100vw-48px))]",
+  profile: "min-h-[min(180px,calc(100vh-96px))] max-h-[min(760px,calc(100vh-64px))] w-[min(760px,calc(100vw-48px))]",
   full: "h-[calc(100vh-48px)] w-[calc(100vw-48px)]",
 };
 

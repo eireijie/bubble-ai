@@ -1,12 +1,11 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import { api, connectEvents, getToken, setToken } from "./api.ts";
-import { useInboxCount, useStore } from "./store.ts";
+import { useStore } from "./store.ts";
 import { closePopup, go, href, isDialogRoute, parseRoute, popupKey, popupSize, routeForRole, appHashBeforeSettings, useRoute, type Route } from "./router.ts";
 import { useAppearance, type ModeChoice } from "./theme.ts";
 import { ChatList, NewChatPicker } from "./components/ChatList.tsx";
 import { Rail, homeChat, rememberChat } from "./components/Rail.tsx";
-import { NeedsPopover } from "./components/NeedsPopover.tsx";
 import { OfflineBanner, UpdatedBanner } from "./components/Banners.tsx";
 import { OrgList, useOrgs } from "./components/OrgSwitcher.tsx";
 import { ChannelBrowser } from "./components/Channels.tsx";
@@ -150,7 +149,6 @@ function Workspace() {
   const channelBrowser = useStore((s) => s.channelBrowser);
   // the first load is in (me, chats and agents arrive together)
   const loaded = useStore((s) => !!s.me);
-  const waiting = useInboxCount();
   const asked = routeForRole(useRoute(), me?.role);
   const phone = useIsPhone();
   // desktops: most places pop up over the page you were on (the chat), which stays under them
@@ -273,7 +271,7 @@ function Workspace() {
       case "more":
         return <MorePage />;
       case "dashboard":
-        return <DashboardView onBack={phone ? toChats : undefined} popover={!phone} />;
+        return <DashboardView onBack={phone ? toChats : undefined} />;
       case "marketplace":
         return <MarketplaceView section={route.section ?? "all"} app={route.app ?? null} forAgent={route.forAgent ?? null} onBack={phone ? toYou : undefined} />;
       // older addresses: a sign-in coming back lands on what's installed
@@ -338,15 +336,11 @@ function Workspace() {
     (popped || popPresence.mounted) &&
     heldPop.current &&
     held &&
-    (popSize === "popover" ? (
-      <NeedsPopover count={waiting} closing={!popped} onClose={closePopup}>
-        {heldPop.current.node}
-      </NeedsPopover>
-    ) : (
-      <SettingsDialog label={popupLabel(held)} closing={!popped} onClose={closePopup} size={popFull && held.view === "vault" ? "full" : popSize === "medium" ? "medium" : "large"} swapKey={popupKey(held)} setFull={setPopFull}>
+    (
+      <SettingsDialog label={popupLabel(held)} closing={!popped} onClose={closePopup} size={popFull && held.view === "vault" ? "full" : popSize === "medium" || popSize === "profile" ? popSize : "large"} swapKey={popupKey(held)} setFull={setPopFull}>
         {heldPop.current.node}
       </SettingsDialog>
-    ));
+    );
   const dialogs = (
     <>
       <CommandPalette />
@@ -366,12 +360,12 @@ function Workspace() {
 
 
   return (
-    <div ref={shellRef} className="h-full flex overflow-hidden bg-app">
+    <div ref={shellRef} className="app-shell h-full flex overflow-hidden bg-app">
       <div className="titlebar-drag" aria-hidden />
       {!phone && <Rail route={route} popup={popped ? asked : null} />}
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="relative flex-1 min-h-0 flex">
-          <main ref={mainRef} inert={popped && popupSize(asked) !== "popover"} className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel overflow-hidden">
+          <main ref={mainRef} inert={popped} className="app-main flex-1 min-w-0 min-h-0 flex flex-col bg-panel overflow-hidden">
             <OfflineBanner phone={phone} />
             {phone ? (
               // phones: the page, and over it the open chat. The page shifts back 96px and dims as the chat slides in
@@ -402,7 +396,7 @@ function Workspace() {
 function popupLabel(r: Route): string {
   switch (r.view) {
     case "agents":
-      return r.agentId ? "Agent settings" : "All agents";
+      return r.agentId ? "Agent profile" : "All agents";
     case "computers":
       return "Computers";
     case "vault":

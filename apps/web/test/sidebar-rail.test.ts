@@ -70,9 +70,10 @@ describe("docked sidebar", () => {
     expect(html).toContain('href="#/computers" data-tour="computers" aria-label="Computers"');
     expect(html).toContain('href="#/vault"');
     for (const control of ["Search", "New agent or team", "Account, settings and help"]) expect(html).toContain(`aria-label="${control}"`);
-    // the All / Your turn filter
-    expect(html).toContain(">All<");
-    expect(html).toContain(">Your turn<");
+    // no All / Your turn filter and no Needs you row (round 4): a blue dot on the chat says it
+    expect(html).not.toContain(">All<");
+    expect(html).not.toContain(">Your turn<");
+    expect(html).not.toContain("data-needs-row");
   });
 
   it("holds only agents and teams: no workspace header, nothing else drawn in it", () => {
@@ -93,11 +94,21 @@ describe("docked sidebar", () => {
     expect(rail).not.toContain(">My pick is Immich.<");
   });
 
-  it("counts what waits on you on Your turn, and keeps Needs you in the New menu", () => {
+  it("puts one blue dot left of the avatar of a chat that waits on you, and none on the rest", () => {
     initial.channels = [{ id: "c1", kind: "dm", name: "dm:person:a1", unread: 0, notify: "default", starred: false, sectionId: null } as unknown as (typeof initial.channels)[number]];
+    const quiet = render({ width: 360, collapsed: false });
+    expect(quiet).toContain('aria-label="Iris"');
+    expect(quiet).not.toContain("background:#0a84ff");
     initial.approvals = { ok: { id: "ok", status: "pending", channelId: "c1", agentId: "a1", summary: "Send it?" } as (typeof initial.approvals)[string] };
     const html = render({ width: 360, collapsed: false });
-    expect(html).toMatch(/Your turn<span[^>]*>\d+</);
+    expect(html).toContain('aria-label="Iris, needs you"');
+    const row = html.slice(html.indexOf('aria-label="Iris, needs you"'));
+    // the dot comes before the avatar, in the row itself
+    expect(row.indexOf("background:#0a84ff")).toBeGreaterThan(-1);
+    expect(row.indexOf("background:#0a84ff")).toBeLessThan(row.indexOf('class="bub'));
+    // the rail marks it too
+    expect(render({ width: 360, collapsed: true })).toContain("background:#0a84ff");
+    initial.approvals = {};
   });
 
   it("collapsed is an 82px rail of tiles, and every place is still reachable", () => {

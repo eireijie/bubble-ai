@@ -11,7 +11,7 @@ import { sessionName } from "./terminals.ts";
 import { featureOn } from "./features.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
 import { greetNewAgent } from "./greeting.ts";
-import { ADVANCED_KEY, adoptShared, advancedOn, shareOnDemand, sharedComputer } from "./shared-computer.ts";
+import { ADVANCED_KEY, adoptShared, advancedOn, mayShareOnDemand, shareOnDemand, sharedComputer } from "./shared-computer.ts";
 
 export const HARNESS = z.union([z.enum(HARNESS_IDS as [string, ...string[]]), z.string().regex(DEVICE_HARNESS, 'a known harness, or "acp:<name>" declared on a device')]);
 
@@ -240,10 +240,13 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (!c) return;
     const comp = own(c, (req.params as { id: string }).id);
     if (!comp) return reply.code(404).send({ error: "computer not found" });
-    const body = parse(z.object({ take: z.boolean(), note: z.string().max(2000).optional() }), req.body, reply);
+    const body = parse(z.object({ take: z.boolean(), note: z.string().max(2000).optional(), agent: z.string().max(100).optional() }), req.body, reply);
     if (!body) return;
+    // the shared computer: that agent's own screen is the one taken
+    const agent = screenAgent(comp, body.agent);
+    if (agent === null) return reply.code(404).send({ error: "that agent doesn't use this computer" });
     try {
-      if (body.take) computers.take(comp, c.actor.id);
+      if (body.take) computers.take(comp, c.actor.id, agent && computers.ownScreens(comp) ? agent : undefined);
       else computers.release(comp, c.actor.id, body.note);
       return computers.view(store.computer(comp.id)!);
     } catch (err) {
@@ -251,15 +254,24 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     }
   });
 
-  /** The screen right now, as a JPEG (thumbnails, the card in chat). */
+  /** `agent` (the shared computer): one of the agents on it, whose own screen is meant; null when it isn't one. */
+  const screenAgent = (comp: Computer, agentId: string | undefined): string | null | undefined => {
+    if (!agentId) return undefined;
+    return store.agentsOnComputer(comp.id).some((a) => a.id === agentId) ? agentId : null;
+  };
+
+  /** The screen right now, as a JPEG (thumbnails, the card in chat); `agent`: that agent's own screen on the shared computer. */
   app.get("/api/computers/:id/screen", async (req, reply) => {
     const c = need(req, reply, { member: true });
     if (!c) return;
     const comp = own(c, (req.params as { id: string }).id);
     if (!comp) return reply.code(404).send({ error: "computer not found" });
+    const q = req.query as { maxAge?: string; agent?: string };
+    const agent = screenAgent(comp, q.agent);
+    if (agent === null) return reply.code(404).send({ error: "that agent doesn't use this computer" });
     try {
-      const maxAge = Math.min(60_000, Math.max(1000, Number((req.query as { maxAge?: string }).maxAge) || 5000));
-      const f = await computers.latest(comp, maxAge);
+      const maxAge = Math.min(60_000, Math.max(1000, Number(q.maxAge) || 5000));
+      const f = agent ? await computers.latestOf(comp, agent, maxAge) : await computers.latest(comp, maxAge);
       reply.header("content-type", "image/jpeg").header("cache-control", "no-store").header("x-frame-width", String(f.width)).header("x-frame-height", String(f.height));
       return reply.send(Buffer.from(f.image, "base64"));
     } catch (err) {
@@ -273,13 +285,15 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (!c) return;
     const comp = own(c, (req.params as { id: string }).id);
     if (!comp) return reply.code(404).send({ error: "computer not found" });
-    const body = parse(z.object({ code: SCREEN_CODE.optional() }), req.body ?? {}, reply);
+    const body = parse(z.object({ code: SCREEN_CODE.optional(), agent: z.string().max(100).optional() }), req.body ?? {}, reply);
     if (!body) return;
+    const agent = screenAgent(comp, body.agent);
+    if (agent === null) return reply.code(404).send({ error: "that agent doesn't use this computer" });
     try {
       if (computers.transport(comp) === "vnc" && !computers.canUse(comp, c.actor.id)) return reply.code(403).send({ error: computers.notYours(comp) });
       if (!computers.online(comp)) return reply.code(503).send({ error: comp.kind === "orgo" ? "add an Orgo API key in Settings → Computers first" : `${comp.name} is offline: its device isn't connected` });
       const transport = computers.transport(comp);
-      return { transport, url: `/ws/computers/${comp.id}/${transport}?ticket=${await computers.ticket(comp, c.actor.id, body.code)}`, direct: false };
+      return { transport, url: `/ws/computers/${comp.id}/${transport}?ticket=${await computers.ticket(comp, c.actor.id, body.code, agent)}`, direct: false };
     } catch (err) {
       return fail(reply, err);
     }
@@ -331,8 +345,11 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     const action = parse(ComputerAction, (req.body as { action?: unknown })?.action, reply);
     if (!action) return;
     if (action.action === "fill_login") return reply.code(403).send({ error: "Bubble AI fills logins itself, from the password manager" });
+    // a person typing on an agent's own screen (Keys)
+    const agent = screenAgent(comp, typeof (req.body as { agent?: unknown })?.agent === "string" ? (req.body as { agent: string }).agent : undefined);
+    if (agent === null) return reply.code(404).send({ error: "that agent doesn't use this computer" });
     try {
-      return await computers.act(comp, action, c.actor);
+      return await computers.act(comp, action, c.actor, agent ? { screen: agent } : {});
     } catch (err) {
       return fail(reply, err);
     }
@@ -538,6 +555,20 @@ export function registerComputerApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (c.actor.kind !== "agent") return reply.code(403).send({ error: "agents only" });
     const agent = store.agent(c.actor.id);
     return agent ? hub.deviceUse.list(agent) : [];
+  });
+
+  /**
+   * Every screen this agent can work on, for its tools: its own computer, the person's own computers
+   * it may use (Use my computers), and whether the shared computer would be made for it on demand.
+   */
+  app.get("/api/computers/mine/choices", async (req, reply) => {
+    const c = need(req, reply);
+    if (!c) return;
+    if (c.actor.kind !== "agent") return reply.code(403).send({ error: "agents only" });
+    const agent = store.agent(c.actor.id);
+    if (!agent) return reply.code(404).send({ error: "agent not found" });
+    const own = agent.computerId ? store.computer(agent.computerId) : undefined;
+    return { own: own ? computers.view(own) : null, devices: hub.deviceUse.list(agent), onDemand: !own && mayShareOnDemand(hub, agent.id) };
   });
 
   app.post("/api/computers/mine/help", async (req, reply) => {

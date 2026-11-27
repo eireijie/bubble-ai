@@ -83,12 +83,14 @@ import { agentPolicy } from "./policy.ts";
 import { FEATURE_PRESET, createOrganization, registerOrgApi } from "./api-orgs.ts";
 import { agentDefaults, newAgentComputer } from "./agent-defaults.ts";
 import { simplePlacement } from "./shared-computer.ts";
+import { newAgentDeviceUse } from "./device-defaults.ts";
 import { spawnRight } from "./spawn.ts";
 import { greetNewAgent, registerSetupApi } from "./greeting.ts";
 import { registerOnboardingApi } from "./api-onboarding.ts";
 import { workspaceFeatures } from "./features.ts";
 import type { SetupCode } from "./setup-code.ts";
 import { VM_SIZES, computerDefaults } from "./policy.ts";
+import { CHAT_BACKGROUND, backgroundFileIds, backgroundProblem } from "./chat-background.ts";
 
 /** Why an agent's save was refused for holding a secret (Bubble AI never keeps passwords; logins go through the person's password manager). */
 const NO_SECRETS = "Memory can't hold passwords, keys, tokens or card numbers. Write where the secret lives instead (\"the API key is in the GitHub connected app\").";
@@ -152,6 +154,8 @@ const SETTINGS = z
     roleNotes: z.string().max(2000),
     respondTo: z.enum(["me", "anyone", "people"]),
     respondPeople: z.array(z.string().min(1)).max(500),
+    /** its chat's own background; null puts it back on each person's default */
+    background: CHAT_BACKGROUND.nullable().transform((bg) => bg ?? undefined),
     /** set by the hub when the agent is made; accepted (and ignored) so a client can send settings back as it got them */
     createdBy: z.string().optional(),
   })
@@ -1286,6 +1290,10 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     );
     if (!body) return;
     const { useDefaults, greet, ...fields } = body;
+    if (body.settings?.background) {
+      const why = backgroundProblem(store, c.workspaceId, body.settings.background);
+      if (why) return reply.code(400).send({ error: why });
+    }
     // set to work without a device by whoever made it: it doesn't wait for one
     const askedHeadless = !!body.settings?.headless;
     const defaults = useDefaults ? agentDefaults(store, c.workspaceId) : null;
@@ -1321,6 +1329,11 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (body.settings?.anyoneCanAsk && (!body.nodeId || store.node(body.nodeId)?.ownerId !== c.actor.id)) delete body.settings.anyoneCanAsk;
     // only a device's owner lets an agent use it
     if (body.settings?.useDevices) body.settings.useDevices = Object.fromEntries(Object.entries(body.settings.useDevices).filter(([nodeId]) => store.node(nodeId)?.ownerId === c.actor.id && store.node(nodeId)?.workspaceId === c.workspaceId));
+    // an owner's new agent may use the owner's own computers, telling them after (Use my computers turns it off)
+    if (c.actor.kind === "user" && body.settings?.useDevices === undefined) {
+      const mine = newAgentDeviceUse(hub, c.workspaceId, c.actor.id);
+      if (Object.keys(mine).length) body.settings = { ...body.settings, useDevices: mine } as typeof body.settings;
+    }
     // new agents start at the workspace's default access unless someone picked one
     if (!body.settings?.access) body.settings = { ...body.settings, access: agentPolicy(hub, c.workspaceId).defaultAccess };
     // it remembers who made it, and answers only them until they say otherwise
@@ -1366,6 +1379,11 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     if (!body) return;
     // who made it is the hub's record, not a setting
     if (body.settings) delete body.settings.createdBy;
+    // its chat background: a photo must be an image uploaded here; null = back to the default
+    if (body.settings?.background) {
+      const why = backgroundProblem(store, c.workspaceId, body.settings.background);
+      if (why) return reply.code(400).send({ error: why });
+    }
     // whether it may use someone's own computer is that person's call, device by device
     if (body.settings?.useDevices) {
       const before = agent.settings.useDevices ?? {};
@@ -2679,7 +2697,9 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     const channel = (req.query as { channel?: string }).channel;
     if (channel && !channelVisible(c, channel)) return reply.code(404).send({ error: "channel not found" });
     // files shared in a DM stay between the people in it
-    return store.files(c.workspaceId, channel).filter((f) => !f.channelId || channelVisible(c, f.channelId));
+    // chat backgrounds (chat-background.ts) aren't shared files
+    const walls = backgroundFileIds(store, c.workspaceId);
+    return store.files(c.workspaceId, channel).filter((f) => (!f.channelId || channelVisible(c, f.channelId)) && !walls.has(f.id));
   });
 
   app.get("/api/files/:id", async (req, reply) => {
@@ -2734,7 +2754,7 @@ export function registerApi(app: FastifyInstance, hub: Hub, opts: RegisterOption
     socket.on("close", () => hub.computers.viewerGone(comp, ticket));
     if (transport !== "vnc") hub.computers.addFrameViewer(comp, socket, ticket.userId);
     else if (comp.kind === "orgo") hub.computers.openOrgoRelay(comp, socket);
-    else hub.computers.openTunnel(comp, socket, ticket.code);
+    else hub.computers.openTunnel(comp, socket, ticket.code, ticket.screen);
   });
 
   /** A terminal (the Code mod): a one-time ticket from POST /api/computers/:id/terminal; the pane's size rides along. */

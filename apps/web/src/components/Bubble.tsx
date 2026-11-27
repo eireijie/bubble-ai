@@ -32,16 +32,21 @@ export interface ShapeDef {
 
 const P = (l: number, t: number, w: number, h: number, r: string, rot?: number): Part => ({ l, t, w, h, r, rot });
 
-/** The eight shapes of board 6 ("Bubble shapes, in each agent's Look"). */
+/**
+ * The eight shapes of board 6 ("Bubble shapes, in each agent's Look"). Each one's visible extent
+ * fills the box (round 4, 2026-11-27): a capsule, drop, double or cluster beside a round bubble
+ * reads as the same size in the sidebar, a chat header or the shape picker.
+ */
 export const BUBBLE_DEFS: Record<BubbleShape, ShapeDef> = {
   round: { name: "Round", parts: [P(0, 0, 100, 100, "50%")], face: [0, 0], top: [50, 0], bottom: [50, 100], width: 100 },
-  squircle: { name: "Squircle", parts: [P(2, 2, 96, 96, "40%")], face: [0, 0], top: [50, 2], bottom: [50, 98], width: 96 },
-  egg: { name: "Egg", parts: [P(7, 0, 86, 100, "50% 50% 50% 50% / 58% 58% 42% 42%")], face: [0, 4], top: [50, 0], bottom: [50, 100], width: 86 },
-  drop: { name: "Drop", parts: [P(10, 14, 80, 80, "50% 0 50% 50%", -45)], face: [0, 9], top: [50, 10], bottom: [50, 94], width: 72 },
-  blob: { name: "Blob", parts: [P(0, 4, 100, 92, "58% 42% 54% 46% / 46% 58% 42% 54%")], face: [0, 2], top: [50, 4], bottom: [50, 96], width: 100 },
-  capsule: { name: "Capsule", parts: [P(0, 16, 100, 70, "999px")], face: [0, 2], top: [50, 16], bottom: [50, 86], width: 90 },
-  double: { name: "Double", parts: [P(0, 18, 82, 82, "50%"), P(60, 0, 40, 40, "50%")], face: [-9, 10], top: [41, 18], bottom: [41, 100], width: 82 },
-  cluster: { name: "Cluster", parts: [P(2, 26, 72, 72, "50%"), P(50, 6, 44, 44, "50%"), P(64, 54, 34, 34, "50%")], face: [-12, 15], top: [38, 26], bottom: [38, 98], width: 72 },
+  squircle: { name: "Squircle", parts: [P(0, 0, 100, 100, "40%")], face: [0, 0], top: [50, 0], bottom: [50, 100], width: 100 },
+  egg: { name: "Egg", parts: [P(6, 0, 88, 100, "50% 50% 50% 50% / 58% 58% 42% 42%")], face: [0, 4], top: [50, 0], bottom: [50, 100], width: 88 },
+  // a square turned 45°: its point reaches 0.707 of its side above the centre, its round side half a side below
+  drop: { name: "Drop", parts: [P(9, 17, 82, 82, "50% 0 50% 50%", -45)], face: [0, 12], top: [50, 12], bottom: [50, 99], width: 76 },
+  blob: { name: "Blob", parts: [P(0, 2, 100, 96, "58% 42% 54% 46% / 46% 58% 42% 54%")], face: [0, 1], top: [50, 2], bottom: [50, 98], width: 100 },
+  capsule: { name: "Capsule", parts: [P(0, 11, 100, 78, "999px")], face: [0, 0], top: [50, 11], bottom: [50, 89], width: 92 },
+  double: { name: "Double", parts: [P(0, 12, 88, 88, "50%"), P(64, 0, 36, 36, "50%")], face: [-6, 6], top: [44, 12], bottom: [44, 100], width: 88 },
+  cluster: { name: "Cluster", parts: [P(0, 20, 80, 80, "50%"), P(56, 0, 40, 40, "50%"), P(70, 58, 30, 30, "50%")], face: [-10, 10], top: [40, 20], bottom: [40, 100], width: 80 },
 };
 
 /** What a bubble can wear, as saved in a look. */

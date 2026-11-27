@@ -331,18 +331,6 @@ function Running({ run }: { run: TourRun }) {
       el.addEventListener("click", hit, true);
       return () => el.removeEventListener("click", hit, true);
     }
-    if (stop.doIt === "yourturn") {
-      const tab = document.querySelector<HTMLElement>('[data-tour="yourturn"]');
-      const was = tab?.getAttribute("aria-selected") === "true";
-      const seen = () => tab?.getAttribute("aria-selected") === "true" && setTried(true);
-      const mo = tab ? new MutationObserver(seen) : null;
-      if (tab) mo!.observe(tab, { attributes: true, attributeFilter: ["aria-selected"] });
-      return () => {
-        mo?.disconnect();
-        // the rest of the tour needs the whole list
-        if (!was && tab?.isConnected && tab.getAttribute("aria-selected") === "true") tab.parentElement?.querySelector<HTMLElement>('[role="tab"]')?.click();
-      };
-    }
     if (stop.doIt !== "slash" && stop.doIt !== "at") return;
     const ta = document.querySelector<HTMLTextAreaElement>('[data-tour="input"] textarea');
     if (!ta) return;

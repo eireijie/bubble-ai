@@ -12,6 +12,7 @@ import { DEFAULT_TOPIC } from "./apns.ts";
 import { parseServiceAccount } from "./fcm.ts";
 import { registerHarnessSettingsApi } from "./api-harness-settings.ts";
 import { featureOn } from "./features.ts";
+import { CHAT_BACKGROUND, backgroundProblem } from "./chat-background.ts";
 
 interface Helpers {
   need(req: FastifyRequest, reply: FastifyReply, opts?: { owner?: boolean; user?: boolean; member?: boolean }): Caller | null;
@@ -81,8 +82,12 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
       unread: z.array(key).max(2000).optional(),
     });
     const learn = z.object({ seen: z.array(z.string().regex(/^[a-z0-9-]{1,40}$/)).max(100), started: z.boolean().optional() });
-    const body = parse(z.object({ sendWith: z.enum(["enter", "mod-enter"]), clock: z.enum(["auto", "12h", "24h"]), toolCalls: z.enum(["collapsed", "expanded", "hidden"]), experience: z.enum(["simple", "advanced"]), sidebar, learn }).partial(), req.body, reply);
+    const body = parse(z.object({ sendWith: z.enum(["enter", "mod-enter"]), clock: z.enum(["auto", "12h", "24h"]), toolCalls: z.enum(["collapsed", "expanded", "hidden"]), experience: z.enum(["simple", "advanced"]), sidebar, learn, background: CHAT_BACKGROUND }).partial(), req.body, reply);
     if (!body) return;
+    if (body.background) {
+      const why = backgroundProblem(store, c.workspaceId, body.background);
+      if (why) return reply.code(400).send({ error: why });
+    }
     return store.setPrefs(c.actor.id, { ...store.prefs(c.actor.id), ...body } as UserPrefs);
   });
 

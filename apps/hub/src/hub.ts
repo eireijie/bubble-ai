@@ -39,6 +39,7 @@ import { TeamFlows } from "./team-flows.ts";
 import type { RunKind, Store } from "./store.ts";
 import { guestEvent } from "./guest-computers.ts";
 import { adoptShared, mayShareOnDemand, placeWaitingAgents } from "./shared-computer.ts";
+import { defaultDeviceUse } from "./device-defaults.ts";
 import { DeviceUse } from "./device-use.ts";
 
 const CONTEXT_MESSAGES = 20;
@@ -659,6 +660,8 @@ export class Hub {
         store.setNodeCapabilities(conn.nodeId, msg.capabilities);
         // a device that can now run computers: agents still waiting for the shared one get it
         if (!couldRunVms && msg.capabilities.vm.ok) adoptShared(this, conn.workspaceId);
+        // the owner's own computer, its screen on: their agents may use it (once; Use my computers turns it off)
+        defaultDeviceUse(this, conn.nodeId);
         const was = this.pausedNodes.has(conn.nodeId);
         if (msg.capabilities.paused) this.pausedNodes.add(conn.nodeId);
         else this.pausedNodes.delete(conn.nodeId);
@@ -687,6 +690,10 @@ export class Hub {
         const c = store.computer(msg.computerId);
         if (!c || c.nodeId !== conn.nodeId) return;
         this.computers.onStatus(c.id, msg.status, msg.text);
+        return;
+      }
+      case "agent_screens": {
+        this.computers.onAgentScreens(conn.nodeId, msg);
         return;
       }
       case "screen_frame": {
@@ -1749,9 +1756,7 @@ export class Hub {
   computerSection(agentId: string): string {
     const agent = this.store.agent(agentId);
     const c: Computer | undefined = agent?.computerId ? this.store.computer(agent.computerId) : undefined;
-    // none yet: one is made the first time a task needs a screen (shared-computer.ts)
-    if (agent && !c && mayShareOnDemand(this, agent.id))
-      return `\n## A computer when you need one\nYou work on ${agent.nodeId ? (this.store.node(agent.nodeId)?.name ?? "your device") : "your device"} directly, with no screen of your own. When a task really needs one (a website to click through, an app to open), use computer_screenshot and the other computer tools: Bubble AI starts the workspace's shared computer for you (the first time takes a few minutes). Don't for anything your shell and files can do.`;
+    if (agent && !c) return this.noComputerSection(agent);
     if (!agent || !c) return "";
     const node = c.nodeId ? this.store.node(c.nodeId) : undefined;
     const caps = c.nodeId ? this.store.nodeCapabilities(c.nodeId) : null;
@@ -1786,6 +1791,32 @@ export class Hub {
         away ?? `This is ${owner}'s own computer, and you run on it. Use it only for things ${owner} asked for. Don't close their windows, change settings or read private things unless the task needs it.`,
       );
     }
+    return lines.join("\n");
+  }
+
+  /**
+   * An agent with no computer of its own: the person's own computers it may use (Use my computers),
+   * and in Simple, the shared computer made the first time a task needs a screen (shared-computer.ts).
+   */
+  private noComputerSection(agent: Agent): string {
+    const here = agent.nodeId ? (this.store.node(agent.nodeId)?.name ?? "your device") : "your device";
+    const devices = this.deviceUse.list(agent);
+    const shared = mayShareOnDemand(this, agent.id);
+    if (!devices.length && !shared) return "";
+    const owners = [...new Set(devices.map((d) => this.store.node(d.id)?.ownerId).filter((id): id is string => !!id))].map((id) => this.store.user(id)?.name ?? "its owner");
+    const whose = owners.length === 1 ? owners[0] : "their owners";
+    const lines = [`\n## Computers you can use`, `You work on ${here} directly, with no screen of your own.`];
+    if (devices.length) {
+      const list = devices.map((d) => `"${d.name}"${d.how === "ask" ? " (asks first)" : ""}${d.online ? "" : " (offline now)"}${d.online && !d.screenOn ? " (screen off at the device)" : ""}`).join(", ");
+      lines.push(
+        `${whose}'s own ${devices.length === 1 ? "computer" : "computers"} ${list} ${devices.length === 1 ? "is" : "are"} yours to use for things ${whose} asked for: when a task needs their apps, files or sign-ins there, use computer_screenshot and the other computer tools${shared ? `, after computer_switch to it` : ` (you start on "${devices[0].name}"; computer_switch picks another)`}. ${devices.some((d) => d.how === "tell") ? `${whose} hears afterwards that you used it.` : ""} Don't close their windows, change settings or read private things unless the task needs it.`.replace(/ {2,}/g, " "),
+      );
+    }
+    if (shared)
+      lines.push(
+        `When a task needs a screen of its own (a website to click through, an app to open)${devices.length ? " and not their computer" : ""}, use computer_screenshot and the other computer tools: Bubble AI starts the workspace's shared computer for you (the first time takes a few minutes).`,
+      );
+    lines.push(`Don't use a screen for anything your shell and files can do.`);
     return lines.join("\n");
   }
 

@@ -120,6 +120,8 @@
 .bub-ink-fill { fill: var(--bub-eye); }
 /* with a hat on, the body steps down and in so the hat fits inside the same square */
 .bub-hatted .bub-w { inset: 21% 10.5% 0 10.5%; }
+/* small avatars (lists, pins, headers) keep the body at full size so every agent reads the same size (round 4); the hat sits above the box */
+.bub-small.bub-hatted .bub-w { inset: 0; }
 .bub-prop { transform-box: fill-box; transform-origin: center; animation: bub-prop 1.2s linear infinite; }
 @keyframes bub-prop { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(-1); } }
 

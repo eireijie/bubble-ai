@@ -73,6 +73,8 @@ export interface OnboardingAnswers {
   knowDone?: boolean;
   /** page 4: the agent it made */
   agentId?: string;
+  /** the desktop first run's "Let your agents use this Mac" was passed */
+  macReady?: boolean;
   /** 2026-11-25: how it starts (Advanced shows goals, apps and a tour; Simple goes straight to chat), and the goals picked */
   path?: "advanced" | "simple";
   setupGoals?: string[];

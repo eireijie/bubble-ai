@@ -8,6 +8,7 @@ import type { ComputerAction, ComputerSpec, DeviceCapabilities, DeviceConfig } f
 import { ActionError, exec, has, perform, type Driver } from "./driver.ts";
 import { DockerVm, ENGINE_LABEL, detectEngine, ensureImage, imageExists, recipeTag, LOCAL_IMAGE, type Engine } from "./docker.ts";
 import { MacDesktop } from "./macos.ts";
+import { AgentScreen } from "./agent-screens.ts";
 import { WindowsDesktop } from "./windows.ts";
 import { X11Driver } from "./x11.ts";
 import { localClipboard, localFiles } from "./transfer.ts";
@@ -31,6 +32,8 @@ export interface HostOptions {
   remoteDesktop?: () => RemoteDesktopConfig | undefined;
   /** a VM here is starting (saying what it's doing), came up, or couldn't, whatever started it */
   onVmStatus?: (computerId: string, status: "starting" | "ready" | "stopped" | "error", text: string) => void;
+  /** which agents have a screen of their own up on a shared computer here (`supported`: it gives agents their own screens) */
+  onAgentScreens?: (computerId: string, supported: boolean, agents: string[]) => void;
 }
 
 export interface Tunnel {
@@ -50,7 +53,17 @@ export class ComputerHost {
   private preparing: Promise<void> | null = null;
   private imageState: { state: "ready" | "preparing" | "missing" | "failed"; detail: string } | null = null;
 
+  private screenSweep: ReturnType<typeof setInterval> | null = null;
+
   constructor(private opts: HostOptions) {}
+
+  /** Stop agents' screens that have been left alone, now and then. */
+  private sweepScreensSoon() {
+    this.screenSweep ??= setInterval(() => {
+      for (const d of this.drivers.values()) if (d instanceof DockerVm && d.shared) void d.sweepScreens().catch(() => {});
+    }, 60_000);
+    this.screenSweep.unref?.();
+  }
 
   private detect() {
     this.engine ??= detectEngine(this.opts.vmEngine).then((r) => {
@@ -117,7 +130,10 @@ export class ComputerHost {
     if (spec.kind === "vm") {
       const engine = await this.engineFor(spec);
       if (!engine) throw new Error("this device can't run VMs yet: run `bubble-ai setup`, then restart `bubble-ai node`");
-      d = new DockerVm(spec, this.opts.dir, engine, (status, text) => this.opts.onVmStatus?.(spec.id, status, text));
+      const vm = new DockerVm(spec, this.opts.dir, engine, (status, text) => this.opts.onVmStatus?.(spec.id, status, text));
+      vm.onScreens = (supported, agents) => this.opts.onAgentScreens?.(spec.id, supported, agents);
+      if (vm.shared) this.sweepScreensSoon();
+      d = vm;
     } else {
       d = desktopDriver(this.opts.allowDeviceShell);
       const vncPort = (spec.config as DeviceConfig).vncPort;
@@ -172,8 +188,19 @@ export class ComputerHost {
     return new DockerVm(spec, this.opts.dir, { bin: "docker", kind: "docker" }).filesDir;
   }
 
-  async act(spec: ComputerSpec, action: ComputerAction): Promise<unknown> {
+  /**
+   * The driver for an action: on the shared computer, the agent's own screen when `screen` names an
+   * agent (and its image has them); otherwise the computer's one screen.
+   */
+  private async driverFor(spec: ComputerSpec, screen?: string): Promise<Driver> {
     const d = await this.driver(spec);
+    return screen && d instanceof DockerVm ? d.forAgent(screen) : d;
+  }
+
+  async act(spec: ComputerSpec, action: ComputerAction, screen?: string): Promise<unknown> {
+    // starting, stopping and removing are the computer's, whoever's screen asked
+    const whole = ["start", "stop", "destroy", "status"].includes(action.action);
+    const d = whole ? await this.driver(spec) : await this.driverFor(spec, screen);
     const result = await perform(d, action);
     if (action.action === "destroy") {
       this.unwatch(spec.id);
@@ -217,14 +244,18 @@ export class ComputerHost {
   }
 
   /** Connect to the computer's VNC server and relay bytes both ways. */
-  async tunnel(spec: ComputerSpec, onData: (b: Buffer) => void, onClose: (err?: string) => void): Promise<Tunnel> {
-    const d = await this.driver(spec);
+  async tunnel(spec: ComputerSpec, onData: (b: Buffer) => void, onClose: (err?: string) => void, screen?: string): Promise<Tunnel> {
+    const d = await this.driverFor(spec, screen);
     if (!d.vnc) throw new Error("this computer has no VNC server; live view uses screenshots");
     const stream = await d.vnc();
+    // an agent's screen stays up while someone watches it
+    const vm = d instanceof AgentScreen ? ((await this.driver(spec)) as DockerVm) : null;
+    vm?.watching((d as AgentScreen).agentId, +1);
     let done = false;
     const finish = (err?: string) => {
       if (done) return;
       done = true;
+      vm?.watching((d as AgentScreen).agentId, -1);
       onClose(err);
     };
     stream.on("data", onData);
@@ -233,7 +264,29 @@ export class ComputerHost {
     return { write: (b) => stream.write(b), close: () => stream.destroy() };
   }
 
+  /** Which agents have their own screen up on a computer here (none on a computer with one screen). */
+  async agentScreens(spec: ComputerSpec): Promise<{ supported: boolean; agents: string[] }> {
+    const vm = await this.vm(spec);
+    if (!vm?.shared || !(await vm.isRunning())) return { supported: false, agents: [] };
+    const supported = await vm.agentScreens();
+    return { supported, agents: supported ? vm.screenAgents() : [] };
+  }
+
+  /**
+   * Tell the hub again which agents have their own screen on each shared computer that's running
+   * here (it forgets on a restart or when this device reconnects, and would make agents take turns).
+   */
+  async resendAgentScreens(): Promise<void> {
+    for (const [id, d] of this.drivers) {
+      if (!(d instanceof DockerVm) || !d.shared || !(await d.isRunning().catch(() => false))) continue;
+      const supported = await d.agentScreens().catch(() => false);
+      this.opts.onAgentScreens?.(id, supported, supported ? d.screenAgents() : []);
+    }
+  }
+
   stopAll() {
+    if (this.screenSweep) clearInterval(this.screenSweep);
+    this.screenSweep = null;
     for (const id of [...this.watches.keys()]) this.unwatch(id);
   }
 }

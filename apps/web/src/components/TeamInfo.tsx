@@ -26,7 +26,7 @@ export type InfoTab = "about" | "agents" | "members" | "pins";
 
 /** What the panel shows: the team itself ("details"), or the sheet one of its rows opens. */
 export type TeamSheet = "details" | "who" | "how" | "schedule" | "knows" | "more" | "rules" | "pins";
-const SHEETS: Record<Exclude<TeamSheet, "details">, string> = { who: "Who's on it", how: "How it works", schedule: "Schedule", knows: "Knows", more: "More", rules: "Team rules", pins: "Pinned messages" };
+const SHEETS: Record<Exclude<TeamSheet, "details">, string> = { who: "Who's on it", how: "How it works", schedule: "Schedule", knows: "Memory", more: "More", rules: "Team rules", pins: "Pinned messages" };
 const SHEET_OF_TAB: Record<InfoTab, TeamSheet> = { about: "details", agents: "who", members: "who", pins: "pins" };
 /** A sheet opened from More goes back to More. */
 const parentOf = (s: TeamSheet): TeamSheet => (s === "rules" || s === "pins" ? "more" : "details");
@@ -147,7 +147,7 @@ export function TeamPanel({ channel, sheet: initial = "details", onClose }: { ch
               <PanelRow label="Who's on it" value={agentNames.length ? agentNames.join(", ") : teamCount(channel, members)} onClick={() => setSheet("who")} />
               <PanelRow label="How it works" value={stepped ? `${steps} ${steps === 1 ? "step" : "steps"}` : team?.nodes.length ? "Lead and helpers" : "No steps"} onClick={() => setSheet("how")} />
               <PanelRow label="Schedule" value={scheduleLine(team)} onClick={() => setSheet("schedule")} />
-              <PanelRow label="Knows" value={knowsLine(team)} onClick={() => setSheet("knows")} />
+              <PanelRow label="Memory" value={knowsLine(team)} onClick={() => setSheet("knows")} />
               <PanelRow label="More" onClick={() => setSheet("more")} />
             </div>
             {lead && <p className="m-details-cards px-1 pt-3 text-[13px] leading-5 text-muted">Or ask {lead.name} to change any of it.</p>}

@@ -70,15 +70,15 @@ describe("chats list", () => {
     expect(html).toContain("You: newer");
     expect(html).toContain("My pick is Immich.");
     expect(html).toContain('aria-label="Ghosty, 2 unread"');
-    // All / Your turn, as in the desktop sidebar
-    expect(html).toContain(">Your turn<");
+    // no All / Your turn filter (round 4): a blue dot marks what waits
+    expect(html).not.toContain(">Your turn<");
     expect(html).toContain("Oct 24");
     expect(html).not.toContain("No messages yet");
     // nothing waits on you: no Needs you card
     expect(html).not.toContain('href="#/dashboard"');
   });
 
-  it("puts a Needs you card over the phone's list while something waits", () => {
+  it("marks a chat that waits on you with a blue dot instead of a Needs you card", () => {
     Object.assign(initial, {
       me,
       agents: [agent("a1", "Ghosty")],
@@ -91,12 +91,8 @@ describe("chats list", () => {
       },
     });
     const html = render("page");
-    // one tap to the Needs you page, with the first thing that waits and how many more
-    expect(html).toContain('href="#/dashboard"');
-    expect(html).toContain("Move the dentist to Thursday at 3?");
-    expect(html).toContain("Needs you · Ghosty · 1 more");
-    expect(html.indexOf('href="#/dashboard"')).toBeLessThan(html.indexOf('href="#/c/dm1"'));
-    // the desktop column has no card: the sidebar has its own Needs you row
-    expect(render()).not.toContain('href="#/dashboard"');
+    expect(html).not.toContain('href="#/dashboard"');
+    expect(html).toContain('aria-label="Ghosty, needs you"');
+    expect(html).toContain("background:#0a84ff");
   });
 });

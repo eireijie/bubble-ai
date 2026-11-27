@@ -25,7 +25,7 @@ export const CHAPTERS = ["Show me around"] as const;
 export type Place = "chat" | "side" | "newTeam" | "team" | Route;
 
 /** What finishes a stop: sending a message, typing /, opening Your turn, or a click on the target. */
-export type DoIt = "send" | "slash" | "at" | "yourturn" | "click";
+export type DoIt = "send" | "slash" | "at" | "click";
 /** @deprecated the old name */
 export type TryIt = DoIt;
 
@@ -62,7 +62,7 @@ const t = (name: string) => `[data-tour="${name}"]`;
 export const STOPS: Stop[] = [
   { id: "write", ch: 0, place: "chat", targets: [t("input")], side: "top", doIt: "send", title: "Say hi to {agent}", body: "Type anything and press Return." },
   { id: "slash", ch: 0, place: "chat", targets: [t("input")], side: "top", doIt: "slash", title: "Type /", body: "Quick commands: new chat, stop, switch model." },
-  { id: "your-turn", ch: 0, place: "side", phonePlace: { view: "chats" }, targets: [t("yourturn")], side: "right", doIt: "yourturn", title: "Open Your turn", body: "Chats waiting on you land here." },
+  { id: "your-turn", ch: 0, place: "side", phonePlace: { view: "chats" }, targets: [t("yourturn")], side: "right", doIt: "click", title: "Blue dot = your turn", body: "An agent that needs you, or a new reply, gets a blue dot." },
   { id: "new", ch: 0, place: "side", phonePlace: { view: "chats" }, targets: [t("new")], side: "right", doIt: "click", noGuests: true, title: "Make another", body: "Another agent, or a team of them." },
 ];
 
@@ -73,7 +73,7 @@ export const STOPS: Stop[] = [
  * read it. Next is always there to go sooner.
  */
 export function dwellMs(doIt: DoIt): number {
-  return { send: 1800, slash: 4500, at: 4500, yourturn: 3000, click: 900 }[doIt];
+  return { send: 1800, slash: 4500, at: 4500, click: 900 }[doIt];
 }
 
 /** A stop's title with the agent's name in it. */

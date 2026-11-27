@@ -15,14 +15,15 @@ import { lazyView } from "../lazy.tsx";
 import { ChannelSettings, landingChannel, setArchived, setChannelPrefs, type ChannelSettingsTab } from "../components/Channels.tsx";
 import { ChatSearch } from "../components/ChatSearch.tsx";
 import { ChatAvatar } from "../components/ChatList.tsx";
-import { prettyModel, runLine, tokens, useAgentContext } from "../models.ts";
+import { prettyModel, tokens, useAgentContext } from "../models.ts";
 import { DiscussionCard } from "../components/Discussion.tsx";
 import { ApprovalCard, ChangeCard, ChatCard, ComputerPart, RoutineChip } from "../components/AgentCards.tsx";
 import { AppleReadLines } from "../components/AppleParts.tsx";
 import { downloadFile, FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { AgentAvatar, Menu, Pill, Popover, StatusDot, UserAvatar, clockTime, cx } from "../components/ui.tsx";
-import { AgentPill } from "../components/AgentPill.tsx";
+import { AgentHead, ChatHead } from "../components/AgentPill.tsx";
+import { usePageBackground } from "../chatBackground.ts";
 import { BannerSlot } from "../components/SuggestionBanner.tsx";
 import { linkPreviews, type LinkPreview } from "../linkPreview.ts";
 import type { CallRecord } from "../voice/CallScreen.tsx";
@@ -139,6 +140,8 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
 
   // hooks stay above the early return below: a chat that isn't there (or stops being there) must not change their count
   const dmFull = useStore((s) => (dmAgentId ? s.agents.find((a) => a.id === dmAgentId) : undefined));
+  // this chat's background (the agent's own, else the default in Settings), on the page while it is open
+  usePageBackground(!!channel, dmAgentId);
   const pillRef = useRef<HTMLDivElement>(null);
 
   if (!channel)
@@ -166,51 +169,51 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
   const infoOpen = side?.kind === "info" && !route.threadId && channel.kind === "channel";
 
   return (
-    // your bubbles are the Bubble AI violet in every chat, the same as on the iPhone and Android
-    <div className="flex-1 min-h-0 flex">
-      <div className={cx("relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
+    // your bubbles are the Bubble AI violet in every chat, the same as on the iPhone and Android; the
+    // chat's own background (chatBackground.ts) is painted behind it by .chat-wall
+    <div className="chat-wall flex-1 min-h-0 flex">
+      <div className={cx("chat-walled relative flex-1 min-w-0 flex flex-col", route.threadId && "hidden lg:flex")}>
         <BannerSlot.Provider value={bannerSlot}>
-        {/* only the name pill, centred: it opens the panel that holds everything else */}
-        <header className="win-safe shrink-0 px-3 md:px-6 h-[4.75rem] md:h-[80px] pt-[env(safe-area-inset-top)] md:pt-4 md:pb-1 grid grid-cols-[1fr_auto_1fr] items-center gap-2 box-content">
-          <div className="flex items-center">
+        {/* like Messages (round 4): the agent's bubble over a small glass capsule in the middle, round glass
+            buttons on either side. It floats over the chat, whose background runs up behind it */}
+        <header className="chat-top win-safe absolute inset-x-0 top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-start gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] md:px-4 md:pt-3">
+          <div className="flex items-center gap-2 pt-1.5">
             {onBack && (
               <span className="md:hidden">
-                <button className="circle" onClick={onBack} aria-label="Back to chats">
+                <button className="lg-glass lg-round lg-press" onClick={onBack} aria-label="Back to chats">
                   <ChevronLeft size={22} strokeWidth={2} />
                 </button>
               </span>
             )}
-            {/* round new-chat button in the top-left corner (desktop; phones keep Back there) */}
-            <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="m-press hidden size-[34px] place-items-center rounded-[8px] text-muted outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40 md:grid">
-              <SquarePen size={17} strokeWidth={1.7} />
-            </button>
+            {/* new chat in the top-left corner (desktop; phones keep Back there) */}
+            <span className="max-md:hidden">
+              <button type="button" onClick={() => useStore.setState({ newChatOpen: true })} aria-label="New chat" title="New chat" className="lg-glass lg-round lg-press">
+                <SquarePen size={17} strokeWidth={1.8} />
+              </button>
+            </span>
           </div>
           {dmAgent ? (
-            // the agent lives here, in the middle, and nowhere else in its DM
-            <div ref={pillRef} className="flex justify-center min-w-0">
-              <AgentPill agent={dmAgent} open={!!dmPanel} onClick={() => (dmPanel ? setSide(null) : openAgent(dmAgent.id))} />
-              {/* straight from setup: the host flies into the pill */}
+            // the agent lives here, in the middle; it opens the agent's profile
+            <div ref={pillRef} className="flex min-w-0 justify-center">
+              <AgentHead agent={dmAgent} open={!!dmPanel && dmPanel !== "computer"} onClick={() => (dmPanel && dmPanel !== "computer" ? setSide(null) : openAgent(dmAgent.id))} />
+              {/* straight from setup: the host flies into the header */}
               {dmFull && isFirstChat(dmFull, channel.id) && <GhostLanding key={channel.id} agent={dmFull} target={() => pillRef.current} />}
             </div>
           ) : (
-            <TeamPill channel={channel} open={infoOpen} onClick={toggleInfo} />
+            <TeamHead channel={channel} open={infoOpen} onClick={toggleInfo} />
           )}
-          <div className="flex items-center justify-end gap-2">
-            {/* calls start from the composer's round button; Help and the tour live in the account menu */}
+          <div className="flex items-center justify-end gap-2 pt-1.5">
             {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
-            {/* --- DM header tools: model line, computer, ⋯ (app-look) --- */}
-            {dmAgent && <DmModelLine agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
+            <ChatMore agent={dmAgent} channel={channel} onOpen={(tab) => dmAgent && openAgent(dmAgent.id, tab)} onInfo={toggleInfo} />
             {dmAgent?.computerId && (
-              <button type="button" onClick={() => (dmPanel === "computer" ? setSide(null) : openAgent(dmAgent.id, "computer"))} aria-pressed={dmPanel === "computer"} className={cx("circle max-md:hidden", dmPanel === "computer" && "bg-hover text-ink")} aria-label={`${dmAgent.name}'s computer`} title={`${dmAgent.name}'s computer`}>
+              <button type="button" onClick={() => (dmPanel === "computer" ? setSide(null) : openAgent(dmAgent.id, "computer"))} aria-pressed={dmPanel === "computer"} className={cx("lg-glass lg-round lg-press", dmPanel === "computer" && "is-on")} aria-label={`${dmAgent.name}'s screen`} title={`${dmAgent.name}'s screen`}>
                 <Monitor size={18} strokeWidth={1.8} />
               </button>
             )}
-            {dmAgent && <DmMore agent={dmAgent} channel={channel} onOpen={(tab) => openAgent(dmAgent.id, tab)} />}
-            {/* --- end DM header tools --- */}
           </div>
         </header>
         {/* one suggested step floats here, just under the header, over the messages: coming or going it never moves them (SuggestionBanner) */}
-        <div className="relative z-20 h-0 shrink-0">
+        <div className="absolute inset-x-0 top-[var(--chat-top)] z-20 h-0">
           <div ref={setBannerSlot} className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 px-4 empty:hidden" />
         </div>
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
@@ -265,36 +268,23 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
   );
 }
 
-/** A team's name in a pill at the top of its chat, with its agents' ghosts; opens its info page. */
-function TeamPill({ channel, open, onClick }: { channel: ChannelInfo; open: boolean; onClick: () => void }) {
+/** A team's header middle: its overlapped bubbles over the glass capsule; opens its info page. */
+function TeamHead({ channel, open, onClick }: { channel: ChannelInfo; open: boolean; onClick: () => void }) {
+  const n = channel.agentIds?.length ?? 0;
+  const line = channel.archivedAt ? "Archived" : n ? `${n} ${n === 1 ? "agent" : "agents"}` : null;
   return (
-    <button data-tour="team-pill" onClick={onClick} aria-expanded={open} aria-label={`${channel.name}. Team info`} className={cx("h-12 max-w-[min(22rem,60vw)] rounded-[8px] pl-2 pr-5 inline-flex items-center gap-2.5 text-[17px] outline-none focus-visible:ring-2 focus-visible:ring-ring", open ? "bg-side-active" : "hover:bg-hover")}>
-      <ChatAvatar chat={{ kind: "team", agent: null, channel }} size={34} />
-      <span className="min-w-0 truncate font-semibold">{channel.name}</span>
-      {channel.archivedAt && <span className="shrink-0 text-xs text-muted">Archived</span>}
-    </button>
-  );
-}
-
-// --- DM header tools (app-look) ----------------------------------------------------------------
-
-/** How the DM's agent runs, in one faint line beside the ⋯ ("Codex · GPT-6.1 · High"); opens Thinks with. Wide windows only. */
-function DmModelLine({ agentId, channelId, onOpen }: { agentId: string; channelId: string; onOpen: () => void }) {
-  const { ctx, models } = useAgentContext(agentId, channelId);
-  if (!ctx) return null;
-  const line = runLine(ctx, models);
-  return (
-    <button type="button" onClick={onOpen} title="Harness, model and effort" className="hidden h-8 max-w-[220px] items-center truncate rounded-[8px] px-2 text-[13px] text-faint outline-none transition-colors hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40 lg:inline-flex">
-      <span className="truncate">{line}</span>
-    </button>
+    <div data-tour="team-pill" className="flex min-w-0 justify-center">
+      <ChatHead avatar={<ChatAvatar chat={{ kind: "team", agent: null, channel }} size={46} />} name={channel.name} line={line} open={open} onClick={onClick} label={`${channel.name}. Team info`} />
+    </div>
   );
 }
 
 /**
- * The DM's "…", the same five on every app: About, Asks first, its computer (when it has one), Search
- * in chat, Mute. Each says the name of the page it opens. Calls are in the composer, help in the account menu.
+ * The chat's glass ⋯ (round 4): for a DM, About, Permissions, its screen, Search in chat and Mute;
+ * for a team, Team info, Search in chat and Mute. Backgrounds are in Settings and the profile. Each says the page it opens.
+ * Calls are in the composer, help in the account menu, how the agent thinks in its profile.
  */
-function DmMore({ agent, channel, onOpen }: { agent: Agent; channel: ChannelInfo; onOpen: (tab: AgentPanelTab) => void }) {
+function ChatMore({ agent, channel, onOpen, onInfo }: { agent?: Agent; channel: ChannelInfo; onOpen: (tab: AgentPanelTab) => void; onInfo: () => void }) {
   const icon = { size: 17, strokeWidth: 1.8 };
   const [searching, setSearching] = useState(false);
   const muted = channel.notify === "mute";
@@ -303,14 +293,18 @@ function DmMore({ agent, channel, onOpen }: { agent: Agent; channel: ChannelInfo
       <Menu
         align="right"
         trigger={(open, toggle) => (
-          <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="menu" className="circle" aria-label="More" title="More">
+          <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="menu" className={cx("lg-glass lg-round lg-press", open && "is-on")} aria-label="More" title="More">
             <MoreHorizontal size={19} strokeWidth={1.8} />
           </button>
         )}
         items={[
-          { label: `About ${agent.name}`, icon: <Info {...icon} />, onSelect: () => onOpen("details") },
-          { label: "Asks first", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
-          ...(agent.computerId ? [{ label: `${agent.name}'s computer`, icon: <Monitor {...icon} />, onSelect: () => onOpen("computer") }] : []),
+          ...(agent
+            ? [
+                { label: `About ${agent.name}`, icon: <Info {...icon} />, onSelect: () => onOpen("details") },
+                { label: "Permissions", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
+                ...(agent.computerId ? [{ label: `${agent.name}'s screen`, icon: <Monitor {...icon} />, onSelect: () => onOpen("computer") }] : []),
+              ]
+            : [{ label: "Team info", icon: <Info {...icon} />, onSelect: onInfo }]),
           { label: "Search in chat", icon: <Search {...icon} />, onSelect: () => setSearching(true) },
           { label: muted ? "Unmute" : "Mute", icon: muted ? <Bell {...icon} /> : <BellOff {...icon} />, onSelect: () => void setChannelPrefs(channel, { notify: muted ? "default" : "mute" }) },
         ]}
@@ -319,12 +313,11 @@ function DmMore({ agent, channel, onOpen }: { agent: Agent; channel: ChannelInfo
     </>
   );
 }
-// --- end DM header tools --------------------------------------------------------------------------
 
 /** Past this share of its context window a conversation is nearly full (where the context ring used to turn red). */
 const NEARLY_FULL = 85;
 
-/** The context ring, in a DM's header only once the conversation is nearly full. It opens Thinks with, where Compact and Start fresh are. */
+/** The context ring, in a DM's header only once the conversation is nearly full. It opens the Model settings, where Compact and Start fresh are. */
 function DmContext({ agentId, channelId, onOpen }: { agentId: string; channelId: string; onOpen: () => void }) {
   const { ctx } = useAgentContext(agentId, channelId);
   const pct = ctx && ctx.contextUsed !== null && ctx.contextWindow ? Math.min(100, (ctx.contextUsed / ctx.contextWindow) * 100) : null;
@@ -562,8 +555,9 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
     <div className="relative flex-1 min-h-0">
       <div
         ref={ref}
-        className={cx("h-full overflow-y-auto overscroll-x-none pb-2", calling ? "pt-[84px]" : "pt-2")}
-        style={!calling && topRoom ? { paddingTop: topRoom + 8 } : undefined}
+        className="chat-scroll h-full overflow-y-auto overscroll-x-none pb-2"
+        // the header floats over the top of the list (and a call's bar under it): the first message starts below them
+        style={{ paddingTop: `calc(var(--chat-top) + ${calling ? 76 : topRoom + 8}px)` }}
         onScroll={(e) => {
           const el = e.currentTarget;
           const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -571,7 +565,8 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
           if (bottom) setNewSince(0);
         }}
       >
-        <div className="mx-auto w-full max-w-3xl md:max-w-[808px] md:px-6">
+        {/* like Messages: the whole width, yours at the right edge and theirs at the left */}
+        <div className="w-full md:px-2">
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
@@ -1007,7 +1002,7 @@ function PersonMessage({ m, grouped, last = true, replies, onReplies, inThread, 
         }}
         data-dragging={swipe.dragging}
         style={swipe.dx ? { transform: `translateX(${swipe.dx}px)` } : undefined}
-        className={cx("m-swipe relative min-w-0 flex flex-col max-w-[84%] md:max-w-[680px] rounded-[18px] outline-none focus-visible:ring-2 focus-visible:ring-ring touch-pan-y", mine ? "items-end" : "items-start")}
+        className={cx("m-swipe relative min-w-0 flex flex-col max-w-[80%] md:max-w-[min(62%,680px)] rounded-[18px] outline-none focus-visible:ring-2 focus-visible:ring-ring touch-pan-y", mine ? "items-end" : "items-start")}
       >
         {swipe.dx > 0 && (
           <span
@@ -1182,7 +1177,7 @@ function Parts({ parts, body = "", agentName, agentId }: { parts: MessagePart[];
   return (
     <>
       {parts.map((p) => p.type === "discussion" && <DiscussionCard key={p.discussionId} id={p.discussionId} />)}
-      {parts.map((p, i) => p.type === "computer" && <ComputerPart key={`c${i}`} computerId={p.computerId} request={p.request} agentName={agentName} />)}
+      {parts.map((p, i) => p.type === "computer" && <ComputerPart key={`c${i}`} computerId={p.computerId} request={p.request} agentName={agentName} agentId={agentId} />)}
       {parts.map((p) => p.type === "approval" && <ApprovalCard key={p.approvalId} id={p.approvalId} />)}
       {parts.map((p) => p.type === "routine" && <RoutineChip key={p.routineId} id={p.routineId} />)}
       {parts.map((p) => p.type === "task" && <TaskChip key={p.taskId} id={p.taskId} body={body} />)}
@@ -1368,7 +1363,7 @@ function StreamingItem({ run }: { run: LiveRun }) {
       <div className="min-w-0 flex flex-col items-start gap-[3px] max-w-[84%] md:max-w-[680px]">
         {!home && <div className="px-3.5 pb-0.5 text-[12px] text-muted">{agent?.name ?? "Agent"}</div>}
         {html && <div className="bubble them text-[15px] md:text-[16px]"><div className="prose-w" dangerouslySetInnerHTML={{ __html: html }} /></div>}
-        {screen && <ComputerPart computerId={computerId} />}
+        {screen && <ComputerPart computerId={computerId} agentId={run.agentId} />}
       </div>
     </div>
   );
@@ -1931,7 +1926,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   // the icon pops in when what you've typed swaps it (not when the composer first opens)
   const swapped = useChangedSinceMount(action);
   return (
-    <div className="shrink-0 px-4 md:px-11 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-[max(1.5rem,env(safe-area-inset-bottom))] w-full max-w-3xl md:max-w-[808px] mx-auto flex flex-col">
+    <div className="composer-wrap shrink-0 px-2.5 md:px-4 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] md:pb-3 w-full flex flex-col">
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       {/* who's working here and on what, in one line; it opens their panel */}
@@ -1999,8 +1994,8 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             })}
           </div>
         )}
-        {/* one box: plus, the text, dictate and the round button. Past one line the text takes the top row
-            and the buttons sit in a row underneath it, still inside the same box */}
+        {/* one glass bar (board "Chat and sidebar"): + · the text · dictate · the round call or send button.
+            Past one line the text takes the top row and the buttons move under it, in the same bar */}
         <div data-tour="input" className={cx("composer-box", tall && "is-tall")}>
           <span className="composer-plus-slot">
             <Popover
@@ -2092,7 +2087,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
             aria-label={round.label}
             aria-pressed={action === "listening" ? true : undefined}
             title={round.title}
-            className={cx("composer-btn composer-round m-press select-none", action === "listening" ? "is-listening" : action === "stop" ? "is-stop" : "is-go")}
+            className={cx("composer-btn composer-round m-press select-none", action === "listening" ? "is-listening" : action === "stop" ? "is-stop" : action === "call" ? "is-call" : "is-go")}
           >
             <span key={action} className={cx("grid place-items-center", swapped && "m-swap")}>
               {round.icon}
