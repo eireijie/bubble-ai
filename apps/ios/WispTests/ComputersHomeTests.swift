@@ -52,8 +52,8 @@ final class ComputersHomeTests: XCTestCase {
     // the old Devices entry points set this route; the tab then shows the device (or the page)
     XCTAssertEqual(Route.device(id: nil).tab, .computers)
     XCTAssertEqual(Route.computer(id: "c1").tab, .computers)
-    XCTAssertEqual(Route.inbox.tab, .inbox)
-    XCTAssertEqual(Route.approval(id: "a1").tab, .inbox)
+    XCTAssertEqual(Route.inbox.tab, .more)
+    XCTAssertEqual(Route.approval(id: "a1").tab, .more)
     XCTAssertEqual(Route.chat(channelId: "c", threadId: nil).tab, .chats)
     XCTAssertNotEqual(Route.device(id: nil), Route.device(id: "n1"))
     XCTAssertEqual(Route.device(id: "n1"), Route.device(id: "n1"))
@@ -82,7 +82,7 @@ final class ComputersHomeTests: XCTestCase {
     store.me = User(id: "u1", email: "o@example.test", name: "You")
     store.nodes = [try Wire.decoder.decode(AgentNode.self, from: Data(#"{"id":"n1","name":"Mac mini","mine":true,"online":true}"#.utf8))]
     store.computers = [try computer()]
-    let controller = UIHostingController(rootView: ComputersView().environment(store))
+    let controller = UIHostingController(rootView: ComputersView().environment(store).environment(MainBarModel()))
     let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
     let window = UIWindow(windowScene: scene)
     window.rootViewController = controller

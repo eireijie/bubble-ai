@@ -95,7 +95,8 @@ struct MessageMenuOverlay: View {
   @Environment(Store.self) private var store
   @Environment(\.messageActions) private var actions
   var held: MessageActions.Held
-  @ReduceMotion private var reduceMotion
+  /** menus open and close instantly (round 6): only the bubbles move */
+  private let reduceMotion = true
   @State private var shown = false
 
   private struct Item: Identifiable {
@@ -128,8 +129,8 @@ struct MessageMenuOverlay: View {
   private static let tapSize: CGFloat = 40
   private static let tapsHeight: CGFloat = 50
   private static let tapsWidth: CGFloat = CGFloat(Tapbacks.all.count) * tapSize + CGFloat(Tapbacks.all.count - 1) * 2 + 10
-  private static let menuWidth: CGFloat = 236
-  private static let rowHeight: CGFloat = 44
+  private static let menuWidth: CGFloat = 220
+  private static let rowHeight: CGFloat = 40
   private static let gap: CGFloat = 8
 
   var body: some View {
@@ -187,7 +188,7 @@ struct MessageMenuOverlay: View {
     .accessibilityAction(.escape) { close() }
     .onAppear {
       UIImpactFeedbackGenerator(style: .light).impactOccurred()
-      withAnimation(Motion.pick(.spring(response: 0.36, dampingFraction: 0.78), reduceMotion)) { shown = true }
+      shown = true
     }
   }
 
@@ -231,16 +232,13 @@ struct MessageMenuOverlay: View {
         .buttonStyle(.press)
         .scaleEffect(shown || reduceMotion ? 1 : 0.6)
         .opacity(shown ? 1 : 0)
-        .animation(shown ? Motion.pick(Motion.pop.delay(0.06 + Double(i) * 0.03), reduceMotion) : Motion.fade, value: shown)
         .accessibilityLabel(mine.contains(t.emoji) ? "\(t.label), your reaction" : t.label)
         .accessibilityHint(mine.contains(t.emoji) ? "Takes it off" : "Reacts with \(t.emoji)")
         .accessibilityIdentifier("tapback-\(i)")
       }
     }
     .padding(5)
-    .background(.ultraThinMaterial, in: Capsule())
-    .overlay(Capsule().strokeBorder(Palette.hairline))
-    .shadow(color: .black.opacity(0.3), radius: 15, y: 10)
+    .popGlass(radius: 25)
     .scaleEffect(shown || reduceMotion ? 1 : 0.6, anchor: held.mine ? .bottomTrailing : .bottomLeading)
     .opacity(shown ? 1 : 0)
     .accessibilityElement(children: .contain)
@@ -259,26 +257,23 @@ struct MessageMenuOverlay: View {
     }
     .padding(5)
     .frame(width: Self.menuWidth)
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Palette.hairline))
-    .shadow(color: .black.opacity(0.35), radius: 22, y: 16)
+    .popGlass(radius: 15)
     .scaleEffect(shown || reduceMotion ? 1 : 0.6, anchor: held.mine ? .topTrailing : .topLeading)
     .opacity(shown ? 1 : 0)
-    .animation(shown ? Motion.pick(Motion.pop.delay(0.04), reduceMotion) : Motion.fade, value: shown)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Message actions")
   }
 
   private func row(_ item: Item, first: Bool) -> some View {
     Button(action: item.action) {
-      HStack(spacing: 11) {
-        Image(systemName: item.symbol).font(.system(size: 16)).frame(width: 20)
+      HStack(spacing: 10) {
+        Image(systemName: item.symbol).font(.system(size: 15)).frame(width: 18)
           .foregroundStyle(item.destructive ? Palette.red : Palette.muted)
         Text(item.title).font(.system(size: 15))
         Spacer(minLength: 0)
       }
       .foregroundStyle(item.destructive ? Palette.red : Palette.text)
-      .padding(.horizontal, 11)
+      .padding(.horizontal, 10)
       .frame(height: Self.rowHeight)
       .contentShape(Rectangle())
     }
@@ -288,10 +283,9 @@ struct MessageMenuOverlay: View {
 
   /** Puts the bubble back and fades the rest, then does what was picked. */
   private func close(_ then: (() -> Void)? = nil) {
-    withAnimation(Motion.pick(Motion.soft, reduceMotion)) { shown = false } completion: {
-      actions?.held = nil
-      then?()
-    }
+    shown = false
+    actions?.held = nil
+    then?()
   }
 
   private static var windowInsets: UIEdgeInsets {

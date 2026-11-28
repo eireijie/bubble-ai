@@ -15,8 +15,8 @@ final class SettingsShotsTests: XCTestCase {
     app.launchEnvironment["BUBBLE_HUB"] = hub
     app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
-    XCTAssertTrue(app.tabBars.buttons["Chats"].waitForExistence(timeout: 30))
-    app.buttons["profile-button"].firstMatch.tap()
+    XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 30))
+    app.buttons["tab-profile"].tap()
     Thread.sleep(forTimeInterval: 1.5)
     shot("00-sheet")
     // pages the sheet opens

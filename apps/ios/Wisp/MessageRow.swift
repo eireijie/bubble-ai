@@ -489,6 +489,8 @@ struct PartView: View {
       SkillPartLine(action: action, skillId: id, slug: slug)
     case .appleRead(let app, let text):
       AppleReadLine(app: AppleApp(rawValue: app) ?? .messages, text: text)
+    case .connect(let apps):
+      ConnectCard(apps: apps)
     case .closed, .toolCall, .summary, .other:
       EmptyView()
     }

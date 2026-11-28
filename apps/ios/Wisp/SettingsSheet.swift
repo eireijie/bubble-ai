@@ -34,13 +34,25 @@ struct SettingsSheet: View {
   @State private var policyAction = FormAction()
   /** the page Show me around opened */
   @State private var tourPage: Tour.Place?
+  /** the Profile tab (round 10): a title instead of the sheet's close button, and the bottom bar */
+  var inTab = false
 
   private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "" }
 
   var body: some View {
     NavigationStack {
       VStack(spacing: 0) {
-        SheetHeader { dismiss() }
+        if inTab {
+          TopBar {
+            EmptyView()
+          } center: {
+            Text("Profile").font(.system(size: 20, weight: .bold)).foregroundStyle(Palette.text).accessibilityAddTraits(.isHeader)
+          } trailing: {
+            EmptyView()
+          }
+        } else {
+          SheetHeader { dismiss() }
+        }
         ScrollViewReader { scroller in
         ScrollView {
           VStack(spacing: 14) {
@@ -94,6 +106,7 @@ struct SettingsSheet: View {
       }
       .background(Palette.sheet.ignoresSafeArea())
       .toolbar(.hidden, for: .navigationBar)
+      .modifier(MainBarIf(on: inTab))
       .chatDestinations()
       .navigationDestination(isPresented: tourShows(.usage)) { UsageView() }
       .navigationDestination(isPresented: tourShows(.ai)) { HarnessesView() }
@@ -168,6 +181,14 @@ struct SettingsSheet: View {
       Text("Bubble AI").font(.system(size: 15, weight: .semibold)).tracking(-0.45).foregroundStyle(Palette.text)
       if !version.isEmpty { Text(version).font(.system(size: 13)).foregroundStyle(Palette.faint) }
     }.padding(.top, 6)
+  }
+}
+
+/** the bottom bar on a screen that is sometimes a tab's first screen and sometimes a sheet */
+struct MainBarIf: ViewModifier {
+  var on: Bool
+  func body(content: Content) -> some View {
+    if on { content.mainBar() } else { content }
   }
 }
 

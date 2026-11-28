@@ -220,8 +220,7 @@ struct SlashMenuView: View {
       .frame(maxHeight: 300)
     }
     // solid, so a timestamp or message behind it never shows through
-    .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Palette.card))
-    .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
+    .popGlass(radius: 15)
     .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
     .accessibilityIdentifier("slash-menu")
   }

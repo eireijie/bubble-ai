@@ -324,8 +324,8 @@ final class ManagementTests: XCTestCase {
     muted.id = "muted"; muted.name = "ideas"; muted.sectionId = "s1"; muted.notify = "mute"
     store.channels += [general, muted]
     let screens: [(String, AnyView)] = [
-      ("Chats", AnyView(ChatsView().environment(store))),
-      ("Agents", AnyView(AgentsView().environment(store))),
+      ("Chats", AnyView(ChatsView().environment(store).environment(MainBarModel()))),
+      ("Agents", AnyView(NavigationStack { AgentsScreen(push: { _ in }) }.environment(store))),
       ("Agent", AnyView(NavigationStack { AgentPage(agent: store.agents[0]) }.environment(store))),
       ("Channel details", AnyView(NavigationStack { ChannelDetails(channel: store.channels[0]) }.environment(store))),
       ("Add agent", AnyView(AddAgent(onCreated: { _ in }).environment(store))),

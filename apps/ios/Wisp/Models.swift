@@ -23,7 +23,7 @@ struct Workspace: Codable, Hashable {
 }
 
 struct Me: Codable {
-  struct Prefs: Codable { var experience: String?; var sendWith: String?; var clock: String?; var toolCalls: String?; var sidebar: SidebarLayout?; var learn: LearnProgress? }
+  struct Prefs: Codable { var experience: String?; var sendWith: String?; var clock: String?; var toolCalls: String?; var sidebar: SidebarLayout?; var learn: LearnProgress?; var background: OptionalBackground? }
   var prefs: Prefs?
   var kind: String
   var user: User?
@@ -153,6 +153,8 @@ struct Agent: Codable, Identifiable, Hashable {
     var connectionId: String?
     /** its first chat with the person it works for: the hello Bubble AI wrote for it, then a few questions */
     var setup: AgentSetup?
+    /** its own chat background (the profile's Background tab); nil uses the person's default */
+    var background: OptionalBackground?
   }
   enum Status: String, Codable { case online, busy, offline }
 
@@ -318,6 +320,8 @@ enum MessagePart: Codable, Hashable {
   case skill(action: String, skillId: String, slug: String)
   /** what an agent read through the Apple mod during this reply ("Read your last 5 texts with Sam"): a quiet line with the app's icon */
   case appleRead(app: String, text: String)
+  /** apps the agent suggests connecting, each with a one-tap Connect (round 7's connect_suggest; Composio always first) */
+  case connect([ConnectSuggestion])
   case other(String)
 
   /** what an agent saved about someone during a reply (the "Remembered" chip): the kind of note, its words, and the note it went to */
@@ -327,7 +331,7 @@ enum MessagePart: Codable, Hashable {
     var path: String?
   }
 
-  private enum K: String, CodingKey { case runId, retry, fix, reason, why, harness, nodeId, type, name, fileId, text, computerId, request, approvalId, changeId, taskId, routineId, discussionId, usage, input, output, replies, did, saved, next, action, skillId, slug, app }
+  private enum K: String, CodingKey { case runId, retry, fix, reason, why, harness, nodeId, type, name, fileId, text, computerId, request, approvalId, changeId, taskId, routineId, discussionId, usage, input, output, replies, did, saved, next, action, skillId, slug, app, apps }
 
   init(from decoder: Decoder) throws {
     let c = try decoder.container(keyedBy: K.self)
@@ -369,11 +373,30 @@ enum MessagePart: Codable, Hashable {
       let text = (try? c.decode(String.self, forKey: .text)) ?? ""
       guard !text.isEmpty else { self = .other(type); return }
       self = .appleRead(app: (try? c.decode(String.self, forKey: .app)) ?? "", text: text)
+    case "connect":
+      let apps = ((try? c.decode([LossyItem<ConnectSuggestion>].self, forKey: .apps)) ?? []).compactMap(\.value)
+      self = apps.isEmpty ? .other(type) : .connect(apps)
     default: self = .other(type)
     }
   }
 
   func encode(to encoder: Encoder) throws {} // never sent back to the hub
+}
+
+/** One app an agent suggests connecting (ConnectSuggestion in packages/core/src/types.ts). */
+struct ConnectSuggestion: Codable, Hashable, Identifiable {
+  /** a catalog id (ConnectorCatalog.json) */
+  var id: String
+  var name: String
+  var why: String
+  /** always recommended (Composio): shown with a "Recommended" mark */
+  var recommended: Bool?
+}
+
+/** One item of a list that may hold ones this app can't read: those are skipped, not the whole list. */
+struct LossyItem<T: Decodable>: Decodable {
+  var value: T?
+  init(from decoder: Decoder) throws { value = try? T(from: decoder) }
 }
 
 /**

@@ -69,23 +69,27 @@ enum ChatList {
 }
 
 /**
- * Your agents and teams in one list (2026-11-25 "Bubble AI, bubbles", phone list): search and +, up to
- * 9 pins in a 3×3 grid, All / Your turn, then your sections and No section. Pins and sections are
+ * Your agents and teams in one list (2026-11-25 "Bubble AI, bubbles", phone list): up to 9 pins in a
+ * 3×3 grid, then your sections and No section; search pulls down from the top and + is on the bottom
+ * bar (round 10). Pins and sections are
  * kept in the hub (UserPrefs.sidebar), the same as on the desktop. Press and hold a chat for its menu.
  */
 struct ChatsView: View {
   @Environment(Store.self) private var store
-  @Environment(\.openSettings) private var openSettings
-  @Environment(\.openOrganizations) private var openOrganizations
+  @Environment(MainBarModel.self) private var bar
   @State private var path = NavigationPath()
+  /** the standard pull-down search field (round 10: no button for it) */
   @State private var search = ""
   @FocusState private var searchFocused: Bool
+  /** Connect apps, as a sheet (the pill at the bottom of the list) */
+  @State private var connectApps = false
+  /** the pill shows until it's tapped once; after that Connect apps is in More */
+  @AppStorage(ConnectAppsPill.openedKey, store: WispPreferences.standard) private var pillOpened = false
   @State private var sheet: String?
   @State private var action = FormAction()
   /** what the hub found for the search box, with the text it was found for */
   @State private var found: (query: String, results: SearchResults)?
   @State private var searching = false
-  @AppStorage("wisp.chats.filter", store: WispPreferences.standard) private var filter = "all"
   /** "9 pinned is the most…" */
   @State private var notice: String?
   @State private var renaming: ChatEntry?
@@ -95,7 +99,9 @@ struct ChatsView: View {
   @State private var leaving: ChatEntry?
 
   private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
-  private var searchMode: Bool { searchFocused || !query.isEmpty }
+  private var searchMode: Bool { !query.isEmpty }
+  /** one background (round 9): the last chat's, behind the list too, with a see-through tint over it */
+  private var wall: ChatBackground { store.background(of: store.wallChannel.flatMap { id in store.channels.first { $0.id == id } }) }
   private var guest: Bool { store.role == "guest" }
 
   private var entries: [ChatEntry] {
@@ -113,13 +119,17 @@ struct ChatsView: View {
 
   var body: some View {
     NavigationStack(path: $path) {
-      VStack(spacing: 0) {
-        searchRow
-        list
+      list
+      .background {
+        ZStack {
+          ChatWallView(background: wall, frosted: true)
+          WallTint(background: wall)
+        }
       }
-      .background(Palette.ground.ignoresSafeArea())
+      .environment(\.hasWall, true)
+      .sheet(isPresented: $connectApps) { ConnectAppsSheet() }
       .toolbar(.hidden, for: .navigationBar)
-      .animation(Motion.settle, value: searchMode)
+      .mainBar()
       .task(id: query) { await runSearch() }
       .chatDestinations()
       .sheet(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } })) {
@@ -154,70 +164,79 @@ struct ChatsView: View {
       .managementAlert(action)
     }
     .task(id: store.route) { await open(store.route) }
+    // the + on the bottom bar: New chat, New agent, New team or Browse teams
+    .onChange(of: bar.newRequest, initial: true) { _, kind in
+      guard let kind else { return }
+      bar.newRequest = nil
+      path = NavigationPath()
+      sheet = kind
+    }
     .onChange(of: TourRun.shared.nav, initial: true) { tourMove() }
     .task(id: entries.count) { await warmPreviews() }
   }
 
-  // MARK: top of the page
-
-  /** Search and + on one line (and your profile, for Settings and other workspaces). */
-  private var searchRow: some View {
-    HStack(spacing: 8) {
-      if !searchMode {
-        Button { openSettings() } label: { ProfileCircle(size: 38) }
-          .buttonStyle(.press)
-          .accessibilityIdentifier("profile-button")
-          .contextMenu { Button("Switch workspace", systemImage: "building.2") { openOrganizations() } }
-      }
-      HStack(spacing: 8) {
-        Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .medium)).foregroundStyle(Palette.faint)
-        TextField("Search", text: $search)
-          .font(.system(size: 16)).foregroundStyle(Palette.text)
-          .focused($searchFocused)
-          .submitLabel(.search)
-          .textInputAutocapitalization(.never).autocorrectionDisabled()
-          .accessibilityIdentifier("chats-search")
-        if !search.isEmpty {
-          Button { search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Palette.faint) }
-            .buttonStyle(.plain).accessibilityLabel("Clear")
-        }
-      }
-      .padding(.horizontal, 14).frame(height: 38)
-      .background(Capsule().fill(Palette.field))
-      if searchMode {
-        Button("Cancel") { search = ""; searchFocused = false }
-          .font(.system(size: 15)).foregroundStyle(Palette.text).buttonStyle(.plain)
-      } else {
-        Menu {
-          Button("New chat", systemImage: "square.and.pencil") { sheet = "chat" }
-          if store.canManage {
-            Button("New agent", systemImage: "person.crop.circle.badge.plus") { sheet = "agent" }
-            Button("New team", systemImage: "person.2") { sheet = "team" }
-          } else {
-            Button("Browse teams", systemImage: "magnifyingglass") { sheet = "browse" }
-          }
-        } label: { CircleLabel(symbol: "plus", size: 38, weight: .regular) }
-          .accessibilityLabel("New chat, agent or team").accessibilityIdentifier("new-menu")
-          .tourTarget("new")
-      }
-    }
-    .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 8)
-  }
-
   // MARK: the list
 
+  /** the search field, the list's first row: tucked above the top until you pull down (round 10) */
+  private var searchField: some View {
+    HStack(spacing: 8) {
+      Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .medium)).foregroundStyle(Palette.faint)
+      TextField("Search", text: $search)
+        .font(.system(size: 16)).foregroundStyle(Palette.text)
+        .focused($searchFocused)
+        .submitLabel(.search)
+        .textInputAutocapitalization(.never).autocorrectionDisabled()
+        .accessibilityIdentifier("chats-search")
+      if !search.isEmpty {
+        Button { search = ""; searchFocused = false } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Palette.faint) }
+          .buttonStyle(.plain).accessibilityLabel("Clear")
+      }
+    }
+    .padding(.horizontal, 14).frame(height: 40)
+    .background(Capsule().fill(Palette.field))
+    .padding(.horizontal, 4).padding(.top, 4).padding(.bottom, 8)
+  }
+
+  /** about how tall the list is under the search field, so a short list still scrolls the field out of sight */
+  private func roughHeight() -> CGFloat {
+    let l = layout
+    let placed = SideLayout.place(l, chats: layoutChats)
+    let pins = CGFloat((placed.pins.count + 2) / 3) * 128
+    let rows = CGFloat(placed.sections.filter { !$0.folded }.reduce(0) { $0 + $1.keys.count }) * 70
+    let headers = CGFloat(l.sections.isEmpty ? 0 : placed.sections.count) * 36
+    return pins + rows + headers + 20
+  }
+
   private var list: some View {
+    GeometryReader { g in
+    ScrollViewReader { proxy in
     List {
+      plain(searchField).id("chats-search-row")
+      plain(Color.clear.frame(height: 1)).id("list-top")
       if searchMode {
         searchRows
       } else {
         chatRows
+        // room enough to scroll the search field away even when there are only a few chats
+        plain(Color.clear.frame(height: max(0, g.size.height - roughHeight())))
       }
     }
+    // nothing scrolls up under the clock: the tucked search field stays out of sight
+    .clipShape(Rectangle())
+    .onAppear { tuck(proxy) }
+    // the chats arrive after the first layout: tuck the field once they're in
+    .onChange(of: entries.count) { old, new in if old == 0 && new > 0 && query.isEmpty { tuck(proxy) } }
+    .onChange(of: searchFocused) { _, on in if !on && query.isEmpty { tuck(proxy) } }
     .listStyle(.plain)
     .scrollContentBackground(.hidden)
     .listRowSpacing(0)
     .environment(\.defaultMinListRowHeight, 1)
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      if !searchMode && !guest && !pillOpened && !(store.agents.isEmpty && entries.isEmpty) {
+        ConnectAppsPill { pillOpened = true; connectApps = true }
+          .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 8)
+      }
+    }
     .bubbleRefresh {
       await store.refreshChannels()
       await store.refreshApprovals()
@@ -236,6 +255,16 @@ struct ChatsView: View {
         }
       }
     }
+    }
+    }
+  }
+
+  /** scroll the search field just out of sight (the top of the list is the first pin or chat) */
+  private func tuck(_ proxy: ScrollViewProxy) {
+    Task { @MainActor in
+      try? await Task.sleep(for: .milliseconds(60))
+      proxy.scrollTo("list-top", anchor: .top)
+    }
   }
 
   private func plain<V: View>(_ v: V) -> some View {
@@ -253,15 +282,9 @@ struct ChatsView: View {
       plain(SuggestionBanner(symbol: "pin", text: notice, onClose: { self.notice = nil }, closeLabel: "OK").padding(.horizontal, -12).padding(.bottom, 8))
     }
     let pins = placed.pins.compactMap { byKey[$0] }
-    if !pins.isEmpty { plain(pinGrid(pins, layout: l).tourTarget("pins")) }
-    plain(filterTabs(all))
+    if !pins.isEmpty { plain(pinGrid(pins, layout: l).tourTarget("pins").tourTarget("yourturn")) }
     let firstNeeds = all.first(where: needsYou)?.id
-    if filter == "turn" {
-      let waiting = all.filter(needsYou)
-      ForEach(Array(waiting.enumerated()), id: \.element.id) { i, e in rowView(e, i, layout: l, needsFirst: e.id == firstNeeds) }
-      plain(Text(waiting.isEmpty ? "Nobody is waiting on you." : "Everyone else is under All.")
-        .font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 6).padding(.top, 10).padding(.bottom, 6))
-    } else {
+    do {
       let shown = placed.sections.filter { !$0.isNone || !$0.keys.isEmpty || placed.sections.count == 1 }
       let firstNamed = shown.first { !$0.isNone }?.id
       let firstRow = shown.first { !$0.folded && !$0.keys.isEmpty }.flatMap { $0.keys.first }
@@ -290,10 +313,13 @@ struct ChatsView: View {
 
   // MARK: pins
 
+  /** Pinned bubbles read big (round 8 on the web: 80 on phones), the tile leaving even room on every side. */
+  static let pinSize: CGFloat = 80
+
   private func pinCell(_ e: ChatEntry, layout l: SidebarLayout) -> some View {
     VStack(spacing: 6) {
-      ChatAvatar(entry: e, size: 70)
-        .overlay(alignment: .topTrailing) { dot(e, size: 70, layout: l) }
+      ChatAvatar(entry: e, size: Self.pinSize)
+        .dotOnEdge(dotColor(e, layout: l), size: 14)
       Text(e.name).font(.system(size: 14, weight: isUnread(e, l) ? .semibold : .regular))
         .foregroundStyle(isUnread(e, l) ? Palette.text : Palette.muted).lineLimit(1).frame(maxWidth: 96)
     }
@@ -306,7 +332,7 @@ struct ChatsView: View {
         // would all show the first pin's menu, so each pin holds its own.
         Menu { menu(e, layout: l) } label: {
           pinCell(e, layout: l)
-            .frame(maxWidth: .infinity).frame(height: 100)
+            .frame(maxWidth: .infinity).frame(height: 138)
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         } primaryAction: { openEntry(e) }
         .menuStyle(.button)
@@ -319,52 +345,20 @@ struct ChatsView: View {
     .accessibilityElement(children: .contain).accessibilityLabel("Pinned")
   }
 
-  /** a blue dot when unread, orange when a team waits on you (an agent's own bubble shows that) */
-  @ViewBuilder private func dot(_ e: ChatEntry, size: CGFloat, layout l: SidebarLayout) -> some View {
-    let d = max(8, size * 0.22)
-    if needsYou(e) && e.isTeam {
-      Circle().fill(Color(hex: 0xFF9F0A)).frame(width: d, height: d).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
-    } else if !needsYou(e) && isUnread(e, l) {
-      Circle().fill(Color(hex: 0x0A84FF)).frame(width: d, height: d).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
-    }
-  }
-
-  // MARK: All / Your turn
-
-  private func filterTabs(_ all: [ChatEntry]) -> some View {
-    let waiting = all.filter(needsYou).count
-    return HStack(spacing: 0) {
-      ForEach(["all", "turn"], id: \.self) { f in
-        Button { withAnimation(Motion.settle) { filter = f } } label: {
-          HStack(spacing: 4) {
-            Text(f == "all" ? "All" : "Your turn")
-            if f == "turn" && waiting > 0 { Text("\(waiting)").fontWeight(.bold).foregroundStyle(Color(light: 0xB25E00, dark: 0xFF9F0A)) }
-          }
-          .font(.system(size: 15, weight: filter == f ? .semibold : .regular))
-          .foregroundStyle(filter == f ? Palette.text : Palette.muted)
-          .frame(maxWidth: .infinity).frame(height: 32)
-          .background { if filter == f { RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Palette.control).shadow(color: .black.opacity(0.12), radius: 1.5, y: 1) } }
-          .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(filter == f ? [.isSelected] : [])
-        .accessibilityIdentifier(f == "all" ? "filter-all" : "filter-turn")
-        .tourTarget("yourturn", enabled: f == "turn")
-      }
-    }
-    .padding(3)
-    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.field))
-    .padding(.horizontal, 4).padding(.bottom, 6)
+  /** a blue dot when it needs you or there's something unread (the web's one mark, round 4) */
+  private func dotColor(_ e: ChatEntry, layout l: SidebarLayout) -> Color? {
+    needsYou(e) || isUnread(e, l) ? ChatDot.blue : nil
   }
 
   // MARK: rows and sections
 
   private func rowView(_ entry: ChatEntry, _ index: Int = 0, layout l: SidebarLayout? = nil, needsFirst: Bool = false, first: Bool = false) -> some View {
-    ChatRow(entry: entry, unread: l.map { isUnread(entry, $0) } ?? (entry.badge > 0), open: { openEntry(entry) }, path: $path) {
+    ChatRow(entry: entry, unread: l.map { isUnread(entry, $0) } ?? (entry.badge > 0), needs: needsYou(entry), open: { openEntry(entry) }, path: $path) {
       if let l { menu(entry, layout: l) }
     }
     .tourTarget("needs-row", enabled: needsFirst)
     .tourTarget("chat-row", enabled: first)
+    .tourTarget("yourturn", enabled: first)
     .rowEntrance(index)
     .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
     .listRowSeparator(.hidden)
@@ -481,7 +475,6 @@ struct ChatsView: View {
     let l = layout
     let id = "s\(String(Int(Date().timeIntervalSince1970 * 1000), radix: 36))"
     let name = SideLayout.newSectionName(l)
-    filter = "all"
     save(SideLayout.addSection(l, name: name, id: id, key: e?.key))
     newName = name
     renamingSection = SideLayout.Placed(id: id, name: name, folded: false, keys: [])
@@ -603,7 +596,6 @@ struct ChatsView: View {
         path.append(ChatsScreen.note(path: notePath))
       }
       search = ""
-      searchFocused = false
     }
   }
 
@@ -620,7 +612,7 @@ struct ChatsView: View {
       } else { path = NavigationPath() }
     case .chats:
       if sheet == "team" { sheet = nil }
-      search = ""; searchFocused = false
+      search = ""
       path = NavigationPath()
     case .newTeam:
       path = NavigationPath()
@@ -661,6 +653,8 @@ struct ChatRow<Menu: View>: View {
   @Environment(Store.self) private var store
   var entry: ChatEntry
   var unread: Bool
+  /** waiting on you (signing in, an approval, an answer): the blue dot, like unread */
+  var needs = false
   var open: () -> Void
   @Binding var path: NavigationPath
   @ViewBuilder var menu: Menu
@@ -672,14 +666,9 @@ struct ChatRow<Menu: View>: View {
   var body: some View {
     Button(action: open) {
       HStack(spacing: 12) {
+        // needs you, or unread without a count: one blue dot on the bubble's top-left edge (web round 6)
         ChatAvatar(entry: entry, size: 48)
-          .overlay(alignment: .topTrailing) {
-            if unread && !needsTeam && entry.badge == 0 {
-              Circle().fill(Palette.accent).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
-            } else if needsTeam {
-              Circle().fill(Color(hex: 0xFF9F0A)).frame(width: 11, height: 11).overlay(Circle().stroke(Palette.ground, lineWidth: 2)).offset(x: 2, y: -2)
-            }
-          }
+          .dotOnEdge(needs || (unread && entry.badge == 0) ? ChatDot.blue : nil, size: 11)
         VStack(alignment: .leading, spacing: 2) {
           HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(entry.name).font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
@@ -714,12 +703,6 @@ struct ChatRow<Menu: View>: View {
     .managementAlert(action)
   }
 
-  /** a team that waits on you gets the orange dot (an agent's bubble hops with its own) */
-  private var needsTeam: Bool {
-    guard entry.isTeam, store.role != "guest", let id = channel?.id else { return false }
-    return store.pendingApprovals.contains { $0.channelId == id }
-  }
-
   /** an agent is replying in this team right now */
   private var workingHere: Agent? {
     guard let id = channel?.id else { return nil }
@@ -744,21 +727,11 @@ struct ChatRow<Menu: View>: View {
       Text("Needs sign-in · \(HarnessChoice.label(signIn.harness)) on \(signIn.where_)").font(Self.line).foregroundStyle(Palette.statusNeedsText).lineLimit(2)
     } else if let waiting = needsApproval {
       Text("Needs approval" + (waiting.isEmpty ? "" : " · \(waiting)")).font(Self.line).foregroundStyle(Palette.statusNeedsText).lineLimit(2)
-    } else if let line = channel.flatMap({ Loops.listLine($0) }) {
-      // where a chat with an agent stands: waiting on you, when it comes back, or done
-      switch line {
-      case .waiting(let text):
-        Text(text).font(Self.line).foregroundStyle(Palette.statusNeedsText).lineLimit(2)
-      case .back(let text):
-        HStack(spacing: 5) {
-          Image(systemName: "clock").font(.system(size: 13)).foregroundStyle(Palette.faint)
-          Text(text).font(Self.line).foregroundStyle(Palette.muted).lineLimit(2)
-        }
-      case .done:
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-          Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.statusOnline).accessibilityLabel("Done")
-          Text(Self.mentioned(preview)).font(Self.line).foregroundStyle(Palette.muted).lineLimit(2)
-        }
+    } else if let line = channel.flatMap({ Loops.listLine($0) }), case .done = line {
+      // round 6: under the name is its last message, not where the chat stands (waiting on you lights the dot); done keeps its tick
+      HStack(alignment: .firstTextBaseline, spacing: 5) {
+        Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.statusOnline).accessibilityLabel("Done")
+        Text(Self.mentioned(preview)).font(Self.line).foregroundStyle(Palette.muted).lineLimit(2)
       }
     } else {
       Text(Self.mentioned(preview)).font(Self.line).foregroundStyle(Palette.muted).lineLimit(2)
@@ -796,7 +769,10 @@ struct ChatRow<Menu: View>: View {
       }
     }
     switch entry.kind {
-    case .agent(let a): return a.settings?.description.flatMap { $0.isEmpty ? nil : $0 } ?? a.settings?.role.flatMap { $0.isEmpty ? nil : $0 } ?? "No messages yet"
+    // never spoke: what it does, so the row isn't blank
+    case .agent(let a):
+      let live = store.agent(a.id) ?? a
+      return live.settings?.role.flatMap { $0.trimmed.isEmpty ? nil : $0.trimmed } ?? live.settings?.description.flatMap { $0.isEmpty ? nil : $0 } ?? "No messages yet"
     case .team(let c):
       if let leads = c.leadLine(agents: store.agents) { return leads }
       return c.topic.isEmpty ? "No messages yet" : c.topic

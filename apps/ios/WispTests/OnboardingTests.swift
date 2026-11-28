@@ -188,27 +188,24 @@ final class OnboardingTests: XCTestCase {
   // MARK: Make it yours and Connect (BubbleSetup.tsx)
 
   func testTheMessageItWouldSend() {
-    XCTAssertEqual(SetupGoals.sample(["inbox", "cal"], talk: .balanced, when: .morning), "Morning. 3 emails need a reply and your 2pm moved to 3. Want me to handle it?")
-    XCTAssertEqual(SetupGoals.sample(["cal"], talk: .brief, when: .morning), "Morning. Your 2pm moved to 3.")
-    XCTAssertEqual(SetupGoals.sample(["cal"], talk: .brief, when: .needed), "Heads up: your 2pm moved to 3.")
-    XCTAssertEqual(SetupGoals.sample([], talk: .detailed, when: .evening), "Today's wrap-up: Nothing needs you yet.")
-    XCTAssertTrue(SetupGoals.sample(["code", "research", "orders"], talk: .detailed, when: .morning).hasSuffix("Say go and I'll send it."))
+    XCTAssertEqual(SetupGoals.sample(["days"], talk: .short, when: .morning, about: "", person: "Sam Lee"), "Morning, Sam! The dentist is at 10, so I moved the gym to 6.")
+    XCTAssertEqual(SetupGoals.sample(["days"], talk: .short, when: .needed, about: "", person: "Sam Lee"), "Hey Sam, the dentist is at 10, so I moved the gym to 6.")
+    XCTAssertEqual(SetupGoals.sample([], talk: .friendly, when: .evening, about: "", person: ""), "Evening. Tell me what's on your mind and I'll take it from there.")
+    let s = SetupGoals.sample(["days", "people"], talk: .thorough, when: .morning, about: "I work weekends.", person: "Sam")
+    XCTAssertTrue(s.contains("Also, it's your mom's birthday Saturday. Want me to find a gift?"))
+    XCTAssertTrue(s.hasSuffix("say go and I'll handle it. (I'll keep in mind: I work weekends.)"))
   }
 
-  func testInstructionsAndRoleFromWhatWasPicked() {
-    XCTAssertEqual(SetupGoals.role(["inbox", "code"]), "Helps with email and code.")
+  func testPicksGoToTheAgentAndShapeItsInstructions() {
+    XCTAssertEqual(SetupGoals.picksMessage(["days"], about: "  student,  I love hiking. "), "I'd like help with: keeping my days on track. About me: student, I love hiking.")
+    XCTAssertEqual(SetupGoals.picksMessage([], about: ""), "I'm not sure yet what I'd like help with.")
+    XCTAssertEqual(SetupGoals.role(["days"]), "Helps with keeping my days on track.")
     XCTAssertEqual(SetupGoals.role([]), OnboardingText.noGoalRole)
-    let text = SetupGoals.instructions(agent: "Juno", person: "Sam Lee", goals: ["inbox"], talk: .brief, when: .needed)
-    XCTAssertTrue(text.hasPrefix("You are Juno, Sam's agent in Bubble AI. Your job: help with email."))
-    XCTAssertTrue(text.hasSuffix("Keep messages short: one or two lines. Only message Sam when something needs them."))
-  }
-
-  func testConnectListsOnlyAppsThatConnectFromHere() {
-    let opts = ["notion": SignInOption(signIn: true), "linear": SignInOption(signIn: true), "vercel": SignInOption(signIn: true), "github": SignInOption(signIn: false), "gmail": SignInOption(signIn: false)]
-    XCTAssertEqual(SetupGoals.connectable(["code", "research"], options: opts, onMac: false).map(\.id), ["notion", "linear", "vercel"])
-    // Gmail can't sign in yet: nothing to connect for email off a Mac; Messages on one
-    XCTAssertEqual(SetupGoals.connectable(["inbox"], options: opts, onMac: false).map(\.id), [])
-    XCTAssertEqual(SetupGoals.connectable(["inbox", "cal"], options: opts, onMac: true).map(\.id), ["messages", "calendar", "reminders"])
+    let text = SetupGoals.instructions(agent: "Juno", person: "Sam Lee", goals: ["msgs"], talk: .short, when: .needed, about: "I work nights")
+    XCTAssertTrue(text.hasPrefix("You are Juno, Sam's agent in Bubble AI. Your job: help with staying on top of my messages."))
+    XCTAssertTrue(text.contains("About Sam, in their words: \"I work nights.\""))
+    XCTAssertTrue(text.hasSuffix("Keep messages short: one or two lines. Only message Sam when something matters."))
+    XCTAssertEqual(SetupGoals.all.count, 8)
     XCTAssertEqual(SetupPath.simple.features, .simple)
   }
 

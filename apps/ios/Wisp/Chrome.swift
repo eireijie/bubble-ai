@@ -110,10 +110,12 @@ struct TopBar<Leading: View, Center: View, Trailing: View>: View {
  * messages scrolled up under it soften instead of running through the name.
  */
 struct HeaderBackdrop: View {
+  @Environment(\.hasWall) private var hasWall
   var body: some View {
     ZStack {
       Rectangle().fill(.ultraThinMaterial)
-      Palette.ground.opacity(0.72)
+      // over a chat's background, a soft frost of it rather than a grey band
+      if !hasWall { Palette.ground.opacity(0.72) }
     }
     .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.72), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
     .padding(.bottom, -16)

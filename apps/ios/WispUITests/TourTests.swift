@@ -14,9 +14,9 @@ final class TourTests: XCTestCase {
     app.launchEnvironment["BUBBLE_HUB"] = hub
     app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
-    XCTAssertTrue(app.tabBars.buttons["Chats"].waitForExistence(timeout: 30), "The test session must reach Bubble AI.")
-    XCTAssertEqual(app.tabBars.buttons.count, 5, "Inbox, Chats, Agents, Computers and More")
-    app.tabBars.buttons["More"].tap()
+    XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 30), "The test session must reach Bubble AI.")
+    for id in ["tab-chats", "tab-computers", "tab-more", "tab-profile", "new-menu"] { XCTAssertTrue(app.buttons[id].exists, id) }
+    app.buttons["tab-more"].tap()
 
     open("you-tasks")
     shot("tasks")
@@ -43,7 +43,7 @@ final class TourTests: XCTestCase {
     for _ in 0...depth { back() }
 
     // your avatar opens what's about you
-    app.buttons["profile-button"].firstMatch.tap()
+    app.buttons["tab-profile"].tap()
     for (id, name) in [("you-about", "about")] {
       if reveal(id) { open(id); shot(name); back() }
       else { shot(name, note: "Not available in this workspace.") }
@@ -54,8 +54,8 @@ final class TourTests: XCTestCase {
     }
     back()
     app.buttons["Close"].firstMatch.tap()
-    XCTAssertTrue(app.tabBars.buttons["Agents"].waitForExistence(timeout: 5))
-    app.tabBars.buttons["Agents"].tap()
+    XCTAssertTrue(app.buttons["tab-more"].waitForExistence(timeout: 5))
+    app.buttons["tab-more"].tap(); app.buttons["more-agents"].tap()
     if let agent = first("agent-tile") {
       agent.tap()
       for name in ["routines", "background"] { open("agent-\(name)"); shot(name); back() }

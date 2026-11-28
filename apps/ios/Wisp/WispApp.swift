@@ -127,42 +127,36 @@ struct LaunchSplash: View {
   }
 }
 
-/** The five places: Inbox, Chats, Agents, Computers (hidden for guests) and More. */
-enum MainTab: Int { case inbox, chats, agents, computers, more }
+/** The four places on the bottom bar (MainBar.swift): Chats, Computers (hidden for guests), More and Profile. */
+enum MainTab: Int, CaseIterable { case chats, computers, more, profile }
 
 struct MainTabs: View {
   @Environment(Store.self) private var store
-  @State private var tab = MainTab.chats
-  @State private var settings = false
+  @State private var bar = MainBarModel()
   @State private var orgs = false
   /** the first run, over everything, when nobody has made an agent on this Bubble AI yet */
   @State private var onboarding: String?
-  /** how many times each tab was picked, so its icon bounces on each pick */
-  @State private var picks: [MainTab: Int] = [:]
-
-  private func icon(_ symbol: String, _ mine: MainTab) -> some View {
-    Image(systemName: symbol).symbolEffect(.bounce, options: .nonRepeating, value: picks[mine, default: 0])
-  }
+  /** tabs opened so far: each is built on its first visit and then kept, so it stays where you left it */
+  @State private var visited: Set<MainTab> = [.chats]
 
   var body: some View {
-    TabView(selection: $tab) {
-      Tab(value: MainTab.inbox) { InboxTab().tint(Palette.text).tabEntrance(.inbox, current: tab) } label: { Label { Text("Inbox") } icon: { icon("tray", .inbox) } }
-        .badge(store.needsYouCount)
-      Tab(value: MainTab.chats) { ChatsView().tint(Palette.text).tabEntrance(.chats, current: tab) } label: { Label { Text("Chats") } icon: { icon("bubble.left", .chats) } }
-        .badge(store.unreadTotal)
-      Tab(value: MainTab.agents) { AgentsView().tint(Palette.text).tabEntrance(.agents, current: tab) } label: { Label { Text("Agents") } icon: { icon("person.2", .agents) } }
-      if store.canViewComputers {
-        Tab(value: MainTab.computers) { ComputersView().tint(Palette.text).tabEntrance(.computers, current: tab) } label: { Label { Text("Computers") } icon: { icon("desktopcomputer", .computers) } }
+    ZStack {
+      ForEach(MainTab.allCases, id: \.self) { t in
+        if visited.contains(t) {
+          pane(t)
+            .tint(Palette.text)
+            .opacity(bar.tab == t ? 1 : 0)
+            .allowsHitTesting(bar.tab == t)
+            .accessibilityHidden(bar.tab != t)
+        }
       }
-      Tab(value: MainTab.more) { MoreTab().tint(Palette.text).tabEntrance(.more, current: tab) } label: { Label { Text("More") } icon: { icon("ellipsis", .more) } }
     }
+    .environment(bar)
     .tint(Palette.accent)
-    .animation(Motion.fade, value: tab)
-    .onChange(of: tab) { _, new in picks[new, default: 0] += 1 }
-    .environment(\.openSettings, SheetOpener(open: { settings = true }))
+    .onChange(of: bar.tab, initial: true) { _, t in visited.insert(t) }
+    .environment(\.openSettings, SheetOpener(open: { bar.tab = .profile }))
     .environment(\.openOrganizations, SheetOpener(open: { orgs = true }))
     .overlay(alignment: .top) { AppBanners() }
-    .sheet(isPresented: $settings) { SettingsSheet().environment(store) }
     .sheet(isPresented: $orgs) { OrgSwitcherSheet().environment(store) }
     .fullScreenCover(item: Binding(get: { onboarding.map(OnboardingRun.init) }, set: { onboarding = $0?.id })) { run in
       OnboardingFlow(workspaceId: run.id) { channelId in
@@ -176,25 +170,31 @@ struct MainTabs: View {
       .environment(store)
     }
     .task(id: store.workspace?.id) { onboarding = store.wantsOnboarding() ? store.workspace?.id : nil }
-    // Show me around: the tab and the Settings sheet its stop is on
+    // Show me around: the tab its stop is on
     .onChange(of: TourRun.shared.nav) {
       guard TourRun.shared.active, let place = TourRun.shared.place else { return }
-      if place.tab != .computers || store.canViewComputers { tab = place.tab }
-      settings = place.inSettings
+      if place.tab != .computers || store.canViewComputers { bar.tab = place.tab }
       orgs = false
     }
     .onChange(of: store.canViewComputers) { _, allowed in
-      if !allowed && tab == .computers { tab = .chats }
+      if !allowed && bar.tab == .computers { bar.tab = .chats }
     }
     .onChange(of: store.unreadTotal, initial: true) { store.updateBadge() }
     // a tapped notification: go to its tab; the tab's own screen opens the chat, computer or approval
     .onChange(of: store.route, initial: true) { _, route in
-      // a route opens a screen in a tab: close the settings and organization sheets that would hide it
-      if route != nil { settings = false; orgs = false }
+      if route != nil { orgs = false }
       guard let route else { return }
       if route.tab == .computers && !store.canViewComputers { store.route = nil; return }
-      tab = route.tab
-      if route == .inbox { store.route = nil }
+      bar.tab = route.tab
+    }
+  }
+
+  @ViewBuilder private func pane(_ t: MainTab) -> some View {
+    switch t {
+    case .chats: ChatsView()
+    case .computers: if store.canViewComputers { ComputersView() }
+    case .more: MoreTab()
+    case .profile: SettingsSheet(inTab: true)
     }
   }
 }
@@ -207,7 +207,7 @@ extension Route {
   var tab: MainTab {
     switch self {
     case .chat: .chats
-    case .approval, .inbox: .inbox
+    case .approval, .inbox: .more
     case .computer, .device: .computers
     }
   }

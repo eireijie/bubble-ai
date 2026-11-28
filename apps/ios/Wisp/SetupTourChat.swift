@@ -71,8 +71,21 @@ struct SetupTourChat: View {
     return SetupTour.opening(connected: answers.appleApps.compactMap { AppleApp(rawValue: $0)?.name } + answers.appNames)
   }
 
+  /** Make it yours sent the picks to the agent, and the agent answers with the apps it suggests (round 7): it speaks for itself here */
+  private var agentSpeaks: Bool {
+    guard let answers, answers.path == SetupPath.advanced.rawValue else { return false }
+    return answers.appNames.isEmpty && answers.appleApps.isEmpty
+  }
+
   var body: some View {
-    if mine, let s = state {
+    if mine, let s = state, agentSpeaks {
+      // nothing to say, but the tour still starts from here
+      Color.clear.frame(height: 0)
+        .task(id: s.stage) { await advance() }
+        .onChange(of: TourRun.shared.active) { _, on in
+          if !on, state?.stage == "tour" { set("done") }
+        }
+    } else if mine, let s = state {
       VStack(alignment: .leading, spacing: 3) {
         let lines = lines
         ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
@@ -112,6 +125,9 @@ struct SetupTourChat: View {
     try? await Task.sleep(for: .milliseconds(1800))
     guard !Task.isCancelled, state?.stage == "ask", !TourRun.shared.active else { return }
     set("tour")
-    TourRun.shared.start(store, at: 0)
+    // Make it yours already sent the first message (the picks), so "Say hi" is done: start after it
+    let wrote = (store.messages[channel.id] ?? []).contains { $0.author.kind == .user }
+    TourRun.shared.start(store, at: wrote ? 1 : 0)
+    if wrote { TourRun.shared.markSeen("write") }
   }
 }

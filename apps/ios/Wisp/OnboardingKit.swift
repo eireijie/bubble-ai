@@ -555,7 +555,7 @@ struct ObSegmented<T: Hashable>: View {
       ForEach(options, id: \.0) { value, text in
         let on = selection == value
         Button { withAnimation(Motion.pick(Motion.soft, reduceMotion)) { selection = value } } label: {
-          Text(text).font(.system(size: 13, weight: .semibold)).foregroundStyle(on ? Palette.text : Palette.muted)
+          Text(text).font(.system(size: 13, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8).foregroundStyle(on ? Palette.text : Palette.muted)
             .frame(maxWidth: .infinity).frame(height: 32)
             .background {
               if on {
