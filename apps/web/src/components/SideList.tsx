@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AppWindow, BellOff, Check, ChevronDown, ChevronRight, Copy, EyeOff, FileText, Folder, LogOut, Mail, MoreHorizontal, PenLine, Pin, PinOff, Plus, Settings2, Trash2 } from "lucide-react";
+import { AppWindow, BellOff, Check, ChevronDown, ChevronRight, Copy, EyeOff, FileText, Folder, LogOut, Mail, MoreHorizontal, PenLine, Pin, PinOff, Plus, Search, Settings2, Trash2 } from "lucide-react";
+import { requestChatSearch } from "../chatSearch.ts";
 import { MAX_PINS, type SidebarLayout } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
@@ -409,6 +410,11 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
           }}
           onRename={() => setRenaming(menuChat.key)}
           onHide={() => save(hide(layout, menuChat.key))}
+          onSearch={() => {
+            if (!menuChat.channel) return;
+            requestChatSearch(menuChat.channel.id);
+            open(menuChat);
+          }}
           onMute={() => menuChat.channel && void setChannelPrefs(menuChat.channel, { notify: menuChat.channel.notify === "mute" ? "default" : "mute" })}
           onTeamSettings={() => setSettingsFor(menuChat)}
           onLeave={() => menuChat.channel && void leaveChannel(menuChat.channel)}
@@ -519,7 +525,7 @@ function SectionHeader({ name, folded, phone, canEdit, onToggle, onRename, onDel
 
 /**
  * The right-click / press-and-hold menu (round 11, board 11): Mark unread, Pin, Move to (its folders
- * open right in the menu), Share as template (teams), Hide, and More for the rest (Rename, Mute,
+ * open right in the menu), Share as template (teams), Hide, and More for the rest (Rename, Search in chat, Mute,
  * Open in new window, Team settings, Leave team, Copy ID, Delete). It opens and closes at once.
  */
 function SideMenu(p: {
@@ -543,6 +549,7 @@ function SideMenu(p: {
   onRename: () => void;
   onHide: () => void;
   onMute: () => void;
+  onSearch: () => void;
   onTeamSettings: () => void;
   onLeave: () => void;
   onDelete: () => void;
@@ -610,6 +617,11 @@ function SideMenu(p: {
               {!p.guest && (
                 <Item sub icon={<PenLine size={15} />} onClick={() => (close(), p.onRename())}>
                   Rename
+                </Item>
+              )}
+              {chat.channel && (
+                <Item sub icon={<Search size={15} />} onClick={() => (close(), p.onSearch())}>
+                  Search in chat
                 </Item>
               )}
               {chat.channel && (

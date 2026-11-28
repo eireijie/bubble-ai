@@ -85,14 +85,12 @@ export function ChatHead({ avatar, name, line, tone, open, onClick, label }: { a
 export function AgentHead({ agent, open, onClick }: { agent: Agent; open?: boolean; onClick: () => void }) {
   const base = useStore((s) => agentMood(agent, s.approvals, s.computers));
   const look = agent.settings?.appearance ?? defaultAppearance(agent.handle);
+  // the pill is just the name and › (round 11, board 10); the bubble's face shows how it is, and screen readers hear it
   const line = STATUS_LINE[base] ?? null;
-  const tone = base === "waiting" ? "needs" : base === "error" ? "problem" : base === "working" || base === "thinking" ? "working" : null;
   return (
     <ChatHead
       avatar={<Ghost look={look} size={46} mood={base} interactive label={agent.name} seed={agent.handle} />}
       name={agent.name}
-      line={line}
-      tone={tone}
       open={open}
       onClick={onClick}
       label={`${agent.name}${line ? `, ${line.toLowerCase()}` : ""}. Open ${agent.name}'s profile`}
