@@ -123,7 +123,8 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
 
 /** A row of the wide sidebar (60px, a big wisp, a rounded tile when it's the open one), and its square on the rail. Hover eases in; a press gives a little. */
 const ITEM = "relative flex h-[60px] w-full items-center gap-3 rounded-[12px] px-2 text-left text-[16px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
-const TILE = "relative grid size-[52px] place-items-center rounded-full outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
+// the narrow rail (100px): a 56px agent in a 64px highlight leaves 18px either side, like the 20px around the window buttons
+const TILE = "relative grid size-[64px] place-items-center rounded-[16px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
 
 /** How many notes the Memory vault holds (the pill at the foot), fetched again when notes change. */
 function useNoteCount(guest: boolean): number | null {
@@ -232,8 +233,9 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
     <>
       {wide && <span aria-hidden className="side-dot" style={{ background: dot ? BLUE_DOT : "transparent" }} />}
       {/* agents and teams at one size: every bubble shape fills its box (Bubble.tsx) */}
-      <span className={cx("grid shrink-0 place-items-center", wide ? "size-[46px]" : "size-[44px]")}>
-        <ChatAvatar chat={chat} size={wide ? 46 : 44} />
+      <span className={cx("relative grid shrink-0 place-items-center", wide ? "size-[46px]" : "size-[56px]")}>
+        <ChatAvatar chat={chat} size={wide ? 46 : 56} />
+        {!wide && dot && <span aria-hidden className="side-tile-dot" style={{ background: BLUE_DOT }} />}
       </span>
       {wide && (
         <span className={cx("flex min-w-0 flex-1 flex-col", chat.muted && "opacity-60")}>
@@ -247,7 +249,6 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
           )}
         </span>
       )}
-      {!wide && dot && <span aria-hidden className="side-tile-dot" style={{ background: BLUE_DOT, left: 3, top: 4, width: 10, height: 10 }} />}
       {!wide && line.working && <WorkDot corner />}
     </>
   );
@@ -666,7 +667,7 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
           <>
             <div className="r11-railtop shrink-0" />
             {plus(40)}
-            <div className="side-list mt-5 flex min-h-0 w-full flex-1 flex-col items-center gap-3.5 overflow-y-auto overflow-x-hidden py-1">
+            <div className="side-list mt-4 flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto overflow-x-hidden py-1">
               {railChats.map((c) => (
                 <SideRow key={c.key} chat={c} wide={false} active={!!c.channel && c.channel.id === active} line={lines.get(c.key) ?? NO_LINE} sections={sections} onNewSection={() => setWide()} />
               ))}

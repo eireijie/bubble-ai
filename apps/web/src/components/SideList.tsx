@@ -193,14 +193,15 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
   const press = useLongPress((key, x, y) => setMenu({ key, x, y }));
 
   // --- tiles (round 11, boards 8 and 9): every agent and team, pins first --------------------------
-  const tileSize = phone ? 78 : 48;
+  // round 8 sizes (owner, 2026-11-28: "make them bigger"): 68 in the sidebar, the iPhone's 80 on phones
+  const tileSize = phone ? 80 : 68;
   const tiles = home.tiles.map((k) => byKey.get(k)!).filter(Boolean);
   const tileGrid = tiles.length > 0 && (
     <div
       data-tour="pins"
       aria-label="Agents and teams"
       role="list"
-      className={cx("side-tiles grid grid-cols-3 rounded-[14px]", phone ? "gap-y-[18px] px-[10px] pb-1.5 pt-3.5" : "gap-y-5 pb-2.5 pt-6", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
+      className={cx("side-tiles grid grid-cols-3 gap-x-1 gap-y-1 rounded-[14px]", phone ? "px-1 pb-1.5 pt-2.5" : "px-0.5 pb-2 pt-3", hot === "pins" && "bg-[var(--wisp-soft,rgba(122,91,220,.10))]")}
       {...dropProps("pins", (key) => {
         const c = byKey.get(key);
         if (!c || layout.pins.includes(key)) return;
@@ -231,16 +232,16 @@ export function SideList({ chats, lines, active, phone = false }: { chats: Chat[
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
               data-bub-host=""
-              className={cx("side-tile press-row flex max-w-full flex-col items-center gap-[7px] rounded-[14px] px-1.5 py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring/40", menu?.key === c.key && menu.tile && "bg-side-active")}
+              className={cx("side-tile press-row flex w-full flex-col items-center justify-center gap-[5px] rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40", phone ? "h-[138px]" : "h-[122px]", isActive ? "side-row-on" : menu?.key === c.key && menu.tile ? "bg-side-active" : "hover:bg-side-hover")}
             >
               <span className="relative grid place-items-center" style={{ width: tileSize, height: tileSize }}>
                 <ChatAvatar chat={c} size={tileSize} />
-                {loud && <span aria-hidden className={cx("side-tile-dot", phone && "is-phone")} style={{ background: BLUE_DOT }} />}
+                {loud && <span aria-hidden className="side-tile-dot" style={{ background: BLUE_DOT }} />}
               </span>
               {renaming === c.key ? (
-                <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className={cx("text-center", phone ? "w-[92px] text-[13px]" : "w-[80px] text-[12px]")} />
+                <RenameField value={c.name} onDone={(v) => void doRename(c, v)} className={cx("text-center", phone ? "w-[100px] text-[13px]" : "w-[84px] text-[12.5px]")} />
               ) : (
-                <span className={cx("max-w-[86px] truncate", phone ? "text-[13px]" : "text-[12px]", loud || isActive ? "font-semibold text-ink" : "text-muted")}>{c.name}</span>
+                <span className={cx("truncate", phone ? "max-w-[104px] text-[13px]" : "max-w-[88px] text-[12.5px]", loud || isActive ? "font-semibold text-ink" : "text-muted")}>{c.name}</span>
               )}
             </a>
           </div>

@@ -61,9 +61,8 @@
 }
 
 /* Round 11 home (boards 8, 9, 9b): the tiles' blue dot and the short glass menu (board 11) */
-.side-tile-dot { position: absolute; z-index: 1; left: 0; top: 2px; width: 11px; height: 11px; border-radius: 9999px; box-shadow: 0 0 0 2px var(--r11-dot-ring, var(--panel)); }
-.side-tile-dot.is-phone { left: 2px; top: 4px; width: 14px; height: 14px; box-shadow: 0 0 0 2.5px var(--r11-dot-ring, var(--panel)); }
-.side-tile:hover { background: var(--side-hover); }
+/* the blue dot on the avatar's top-left edge (round 8 placement), inside the tile's highlight */
+.side-tile-dot { position: absolute; z-index: 1; left: calc(14.6% - 7px); top: calc(14.6% - 7px); width: 14px; height: 14px; border-radius: 9999px; box-shadow: 0 0 0 2px var(--r11-dot-ring, var(--panel)); }
 .side-menu {
   border-radius: 16px;
   background: var(--r11-glass);
