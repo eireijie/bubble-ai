@@ -151,10 +151,15 @@ export function execCommand(binary: string, args: string[], opts: { timeout?: nu
   });
 }
 
+/**
+ * The version a harness prints, as one short line: its first line, without the build details some
+ * add after a " · " (Hermes: "Hermes Agent v0.21.5 (2026.9.24) · upstream d71a6574 · local …").
+ */
+export function versionLine(out: string): string | null {
+  return out.trim().split("\n")[0].split(" · ")[0].trim() || null;
+}
+
 /** First line of `<binary> --version`, or null when it isn't installed. */
 export function commandVersion(binary: string): Promise<string | null> {
-  return execCommand(binary, ["--version"]).then(
-    (out) => out.trim().split("\n")[0] || null,
-    () => null,
-  );
+  return execCommand(binary, ["--version"]).then(versionLine, () => null);
 }

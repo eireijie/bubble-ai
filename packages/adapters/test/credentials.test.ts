@@ -258,3 +258,12 @@ describe("connecting Hermes's own model after Bubble AI installs it", () => {
     await expect(connectHermesHome(await base("hermes-rot", { "config.yaml": template }), cred("openai", "oauth", { auth: chatgpt("r1") }))).rejects.toThrow(/renews/);
   });
 });
+
+describe("a harness's version, as one short line", () => {
+  it("drops the build details Hermes adds after ' · '", async () => {
+    const { versionLine } = await import("../src/process.ts");
+    expect(versionLine("Hermes Agent v0.21.5 (2026.9.24) · upstream d71a6574 · local f97608f1 (+41514 carried commits)\nInstall directory: /x")).toBe("Hermes Agent v0.21.5 (2026.9.24)");
+    expect(versionLine("codex-cli 0.172.0\n")).toBe("codex-cli 0.172.0");
+    expect(versionLine("  \n")).toBeNull();
+  });
+});

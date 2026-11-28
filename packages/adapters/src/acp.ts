@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { shortDescription, type AccessLevel, type AgentEvent, type CommandOption, type ConnectorSpec, type HarnessCatalog, type ModelOption } from "@bubble-ai/core";
 import type { AdapterEvent, CatalogPlace, HarnessAdapter, McpServerSpec, RunInput, RunResult } from "./types.ts";
-import { commandVersion, launched, spawnCommand, stopProcess } from "./process.ts";
+import { commandVersion, launched, spawnCommand, stopProcess, versionLine } from "./process.ts";
 
 /**
  * Agent Client Protocol (https://agentclientprotocol.com): JSON-RPC 2.0 over stdio, one JSON
@@ -366,7 +366,7 @@ export function acpAdapter(info: { id: string; label: string; binary: string; ar
     async catalog(place?: CatalogPlace): Promise<HarnessCatalog> {
       if (place && !info.vm) return { harness: info.id, version: null, models: [], efforts: [] };
       const cmd = place ? { command: info.vm!.binary, args: info.vm!.args } : command();
-      const version = place ? await place.exec(cmd.command, ["--version"], { timeout: 20_000 }).then((o) => o.trim().split("\n")[0] || null, () => null) : await commandVersion(info.binary);
+      const version = place ? await place.exec(cmd.command, ["--version"], { timeout: 20_000 }).then(versionLine, () => null) : await commandVersion(info.binary);
       const base: HarnessCatalog = { harness: info.id, version, models: [], efforts: [] };
       if (version === null) return base;
       const dir = place ? null : fs.mkdtempSync(path.join(os.tmpdir(), "wisp-acp-"));
