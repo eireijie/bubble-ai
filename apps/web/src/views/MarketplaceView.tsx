@@ -73,6 +73,7 @@ import "../round11-settings.css";
 import { useThisMacRows, isDesktopMac } from "../components/ThisMacRows.tsx";
 import { ConnectRow, Done, FilterChip, GoPill, LineTile, LogoStack, MAIN_CHIPS, MORE_CHIPS, TOPICS, appTopics, connectedLogos, thisComputer, useAgentPicks, type Topic } from "../components/ConnectParts.tsx";
 import { CatalogIcon } from "../components/ShopParts.tsx";
+import { PickApps, noAppsPicked } from "../components/ConnectCard.tsx";
 import { ConnectorForm, registryCatalog } from "./ConnectorsView.tsx";
 import { AppPage, ConnectSignIn, type AppItem } from "./AppPages.tsx";
 import { SkillDetail, SkillEditor, SkillShare, StoreSkillDetail, skillOrigin, type Open } from "./SkillsView.tsx";
@@ -318,6 +319,9 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   const loadShelves = () => (canEdit ? api<DeviceShelf[]>("GET", "/api/shelf").then(setShelves, () => setShelves([])) : Promise.resolve());
   useEffect(() => {
     void loadConnectors().then((list) => {
+      // an app hub (Composio) nobody asked about yet: ask now, so its row can say "No apps picked yet"
+      const unknown = list.filter((c) => c.linkedApps === null && c.auth?.signedIn);
+      if (unknown.length) void Promise.all(unknown.map((c) => api("GET", `/api/connectors/${c.id}/linked-apps`).catch(() => {}))).then(() => loadConnectors());
       // back from an app's sign-in page: its page, now signed in
       if (signedIn === "ok") {
         let id: string | null = null;
@@ -655,6 +659,8 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   // --- the rows (Connect apps, round 8): a 42 px tile, the name, one line, and Connect / ✓ Connected ---
   const lineTile = (icon: ReactNode) => <LineTile>{icon}</LineTile>;
   const connectorWords = (c: Connector) => {
+    // an app hub (Composio) with nothing picked inside it yet says so, with Pick apps at the right
+    if (noAppsPicked(c) && c.enabled && !needsSignIn(c)) return "No apps picked yet";
     const app = appFor(c);
     if (app) return app.description || app.category || "App";
     return c.catalogId?.startsWith("device:") ? `From ${harnessName(c.catalogId.split(":")[2])}` : "Your own app";
@@ -668,6 +674,8 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
       </span>
     ) : !c.enabled ? (
       <span className="shrink-0 pr-1 text-[13px] text-muted">Off</span>
+    ) : noAppsPicked(c) ? (
+      <PickApps connector={c} onBack={() => void loadConnectors()} />
     ) : (
       <Done word="Connected" />
     );
