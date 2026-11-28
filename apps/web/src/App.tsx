@@ -46,7 +46,6 @@ const NewTask = lazyView(() => import("./views/TasksView.tsx").then((m) => m.New
 const CodeView = lazyView(() => import("./views/CodeView.tsx").then((m) => m.CodeView));
 const MarketplaceView = lazyView(() => import("./views/MarketplaceView.tsx").then((m) => m.MarketplaceView));
 const HelpView = lazyView(() => import("./views/HelpView.tsx").then((m) => m.HelpView));
-const TemplatesView = lazyView(() => import("./views/TemplatesView.tsx").then((m) => m.TemplatesView));
 const BuddyView = lazyView(() => import("./views/BuddyView.tsx").then((m) => m.BuddyView));
 const AuthorizeView = lazyView(() => import("./views/AuthorizeView.tsx").then((m) => m.AuthorizeView));
 
@@ -56,7 +55,7 @@ function viewFor(route: Route): Pick<LazyView<object>, "preload"> | null {
   const views: Partial<Record<Route["view"], Pick<LazyView<object>, "preload">>> = {
     more: MorePage, vault: VaultView, agents: AgentsView, you: YouPage, settings: SettingsView, welcome: WelcomeView, here: HereView, about: AboutView,
     computers: ComputersView, tasks: TasksView, code: CodeView, marketplace: MarketplaceView, connectors: MarketplaceView, skills: MarketplaceView, mods: MarketplaceView,
-    help: HelpView, buddy: BuddyView, authorize: AuthorizeView, templates: TemplatesView,
+    help: HelpView, buddy: BuddyView, authorize: AuthorizeView,
   };
   return views[route.view] ?? null;
 }
@@ -305,8 +304,6 @@ function Workspace() {
       case "agents":
         // one agent's page has its own Back to the list
         return route.agentId ? <AgentsView agentId={route.agentId} tab={route.tab ?? null} /> : backBar(<AgentsView agentId={route.agentId} tab={route.tab ?? null} />);
-      case "templates":
-        return backBar(<TemplatesView />, true, { view: "agents", agentId: null });
       case "about":
         return <AboutView onBack={phone ? toYou : undefined} />;
       case "tasks":
@@ -378,7 +375,7 @@ function Workspace() {
           <NewTask onClose={() => useStore.setState({ newTaskOpen: false })} />
         </Suspense>
       )}
-      {channelBrowser && <ChannelBrowser sectionId={channelBrowser.sectionId} create={channelBrowser.create} onClose={() => useStore.setState({ channelBrowser: null })} />}
+      {channelBrowser && <ChannelBrowser sectionId={channelBrowser.sectionId} create={channelBrowser.create} template={channelBrowser.template} onClose={() => useStore.setState({ channelBrowser: null })} />}
     </>
   );
 
@@ -436,8 +433,6 @@ function popupLabel(r: Route): string {
       return "Connect apps";
     case "help":
       return "Help";
-    case "templates":
-      return "Templates";
     case "about":
       return "What agents know";
     default:

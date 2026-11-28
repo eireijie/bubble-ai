@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { create } from "zustand";
-import { channelTeams, type Agent, type AgentEvent, type Approval, type Channel, type ChannelNotify, type ClientEvent, type Computer, type Discussion, type Features, type Message, type LeadStatus, type ModelLogin, type Reaction, type Section, type Team, type User, type UserPrefs } from "@bubble-ai/core";
+import { channelTeams, type Agent, type AgentEvent, type Approval, type Channel, type ChannelNotify, type ClientEvent, type Computer, type Discussion, type Features, type Message, type LeadStatus, type ModelLogin, type Reaction, type Section, type Team, type TeamTemplate, type User, type UserPrefs } from "@bubble-ai/core";
 import { api } from "./api.ts";
 import { notifyOn } from "./notifications.ts";
 import { agentColor } from "./components/ui.tsx";
@@ -147,8 +147,8 @@ interface State {
   orgs: Org[] | null;
   /** the New agent screen should open (sidebar +, ⌘K); the Agents page picks it up */
   newAgentOpen: boolean;
-  /** the channel browser is open, adding to this section (or none) */
-  channelBrowser: { sectionId: string | null; create?: boolean } | null;
+  /** the channel browser is open, adding to this section (or none); `template`: a new team straight into the builder with it loaded (the Marketplace's Use this team) */
+  channelBrowser: { sectionId: string | null; create?: boolean; template?: TeamTemplate } | null;
 
   load(): Promise<void>;
   loadChannel(id: string): Promise<void>;

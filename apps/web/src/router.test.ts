@@ -71,7 +71,7 @@ describe("hash routing", () => {
   });
 
   it("opens most places as a pop-up over the last page that wasn't one", () => {
-    for (const hash of ["#/settings/voice", "#/agents/agt1/look", "#/agents", "#/dashboard", "#/vault", "#/vault/shared/a.md", "#/tasks", "#/marketplace", "#/marketplace/app/b:gmail", "#/connectors", "#/skills", "#/mods", "#/help", "#/templates", "#/about", "#/computers", "#/computers/d/node1"])
+    for (const hash of ["#/settings/voice", "#/agents/agt1/look", "#/agents", "#/dashboard", "#/vault", "#/vault/shared/a.md", "#/tasks", "#/marketplace", "#/marketplace/app/b:gmail", "#/connectors", "#/skills", "#/mods", "#/help", "#/about", "#/computers", "#/computers/d/node1"])
       expect(router.isDialogRoute(router.parseRoute(hash)), hash).toBe(true);
     // chats, Code, a computer's live screen and Teach, onboarding and the phone pages stay pages
     expect(router.isDialogRoute(router.parseRoute("#/computers/pc1")), "a computer's sheet").toBe(true);
@@ -91,7 +91,9 @@ describe("hash routing", () => {
     // Connect apps (round 8): its own 940 × 690 glass pop-up
     for (const hash of ["#/marketplace", "#/marketplace/apps", "#/connectors", "#/skills"]) expect(size(hash), hash).toBe("apps");
     for (const hash of ["#/agents/agt1", "#/agents/agt1/look", "#/agents/agt1/settings"]) expect(size(hash), hash).toBe("profile");
-    for (const hash of ["#/agents", "#/help", "#/templates", "#/about"]) expect(size(hash), hash).toBe("medium");
+    for (const hash of ["#/agents", "#/help", "#/about"]) expect(size(hash), hash).toBe("medium");
+    // the old Templates page is the Marketplace now
+    expect(size("#/templates")).toBe("apps");
     expect(size("#/dashboard")).toBe("medium");
     // the marketplace's sections and app pages are one pop-up: moving inside it isn't a swap
     expect(router.popupKey(router.parseRoute("#/marketplace/app/b:gmail"))).toBe(router.popupKey(router.parseRoute("#/skills")));
@@ -143,8 +145,15 @@ describe("device pages", () => {
     expect(router.href(router.parseRoute("#/computers/vm/watch"))).toBe("#/computers/vm/watch");
   });
 
-  it("sends the old Marketplace Agents address to All", () => {
-    expect(router.parseRoute("#/marketplace/agents")).toEqual({ view: "marketplace", section: null });
+  it("opens the Marketplace's Agents and Teams, and sends the old Templates page to Agents", () => {
+    expect(router.parseRoute("#/marketplace/agents")).toEqual({ view: "marketplace", section: "agents" });
+    expect(router.parseRoute("#/marketplace/teams")).toEqual({ view: "marketplace", section: "teams" });
+    expect(router.href({ view: "marketplace", section: "teams" })).toBe("#/marketplace/teams");
+    // round 12: Templates left More; an old link still works
+    expect(router.parseRoute("#/templates")).toEqual({ view: "marketplace", section: "agents" });
+    expect(router.href(router.parseRoute("#/templates"))).toBe("#/marketplace/agents");
+    expect(router.isDialogRoute(router.parseRoute("#/templates"))).toBe(true);
+    expect(router.parseRoute("#/marketplace/nope")).toEqual({ view: "marketplace", section: null });
     // an app's own page, and back
     expect(router.parseRoute("#/marketplace/app/b%3Agmail")).toEqual({ view: "marketplace", section: null, app: "b:gmail" });
     expect(router.parseRoute("#/marketplace/app/r%3Aio.github%2Fnotion")).toEqual({ view: "marketplace", section: null, app: "r:io.github/notion" });

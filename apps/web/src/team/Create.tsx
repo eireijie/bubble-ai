@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { MIN_TEAM_AGENTS, teamSizeProblem, type ChannelTeam } from "@bubble-ai/core";
+import { MIN_TEAM_AGENTS, teamSizeProblem, type ChannelTeam, type TeamTemplate } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { go } from "../router.ts";
 import { useStore } from "../store.ts";
 import { AgentAvatar, Button, Modal, cx } from "../components/ui.tsx";
 import { EMPTY_TEAM, addToTeam } from "../components/TeamChart.tsx";
 import { TeamBuilder } from "./Builder.tsx";
-import { emptyTeam, seedTeam, teamAgentIds, withChart } from "./flow.ts";
+import { castFrom, emptyTeam, fillTemplate, freeName, seedTeam, teamAgentIds, withChart } from "./flow.ts";
 
 /** The old way a typed name became a channel name; names are kept as typed now (`teamName`). */
 export const teamSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
@@ -39,14 +39,14 @@ export function newTeamProblem(team: ChannelTeam, picked: string[]): string | nu
  * there creates it. Templates and "have an agent build it" are in the builder itself: the
  * Templates button and the field at the bottom.
  */
-export function NewTeamFlow({ onClose, sectionId = null, initialName = "", initialAgents = [] }: { onClose: () => void; sectionId?: string | null; initialName?: string; initialAgents?: string[] }) {
+export function NewTeamFlow({ onClose, sectionId = null, initialName = "", initialAgents = [], template }: { onClose: () => void; sectionId?: string | null; initialName?: string; initialAgents?: string[]; /** from the Marketplace's Teams: open straight in the builder with this template loaded, named after it */ template?: TeamTemplate }) {
   const channels = useStore((s) => s.channels).filter((c) => c.kind === "channel");
   const agents = useStore((s) => s.agents);
   const refreshChannels = useStore((s) => s.refreshChannels);
-  const [page, setPage] = useState<"name" | "builder">("name");
-  const [name, setName] = useState(initialName);
+  const [page, setPage] = useState<"name" | "builder">(template ? "builder" : "name");
+  const [name, setName] = useState(() => (template ? freeName(teamName(template.name), channels.map((c) => c.name)) : initialName));
   const [picked, setPicked] = useState<string[]>(initialAgents);
-  const [team, setTeam] = useState<ChannelTeam>(emptyTeam);
+  const [team, setTeam] = useState<ChannelTeam>(() => (template ? fillTemplate(template, castFrom(agents, initialAgents), emptyTeam()) : emptyTeam()));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const id = teamName(name);

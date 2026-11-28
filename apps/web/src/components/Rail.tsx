@@ -529,13 +529,12 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
     setOrgAt({ left: Math.max(8, r?.left ?? 8), bottom: window.innerHeight - (r?.top ?? window.innerHeight) + 6 });
   };
   // More (round 11): everything that isn't one of the five places — the agents list, what needs you,
-  // tasks and routines, mods' own pages, templates, help, the tour and the rest of the old account menu
+  // tasks and routines, mods' own pages, help, the tour and the rest of the old account menu
   const moreItems = [
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
     ...(!isGuest ? [place(inbox > 0 ? `Needs you · ${inbox > 99 ? "99+" : inbox}` : "Needs you", <Bell {...icon} />, { view: "dashboard" })] : []),
     ...(!isGuest ? [place(features.tasks ? "Tasks and routines" : "Tasks and routines (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" })] : []),
     ...(!isGuest ? modNav(features, "rail").concat(modNav(features, "more")).map((m) => place(m.label, m.icon(18), m.to)) : []),
-    ...(!isGuest ? [place("Templates", <LayoutGrid {...icon} />, { view: "templates" })] : []),
     { label: "Browse teams", icon: <Users {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
     "divider" as const,
     ...(!isGuest && ready.started && ready.left > 0 ? [place(`Finish setup · ${ready.left} left`, <Compass {...icon} />, { view: "settings", page: "learn" })] : []),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Apple,
   AudioLines,
@@ -61,6 +61,7 @@ import {
   type SignInOption,
   type StoreApp,
   type StoreSkill,
+  type TeamTemplate,
 } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useStore } from "../store.ts";
@@ -77,6 +78,15 @@ import { ConnectorForm, registryCatalog } from "./ConnectorsView.tsx";
 import { AppPage, ConnectSignIn, type AppItem } from "./AppPages.tsx";
 import { SkillDetail, SkillEditor, SkillShare, StoreSkillDetail, skillOrigin, type Open } from "./SkillsView.tsx";
 import { LAYER } from "../components/layers.ts";
+import { useTemplates } from "../team/Templates.tsx";
+import type { NodeInfo } from "./AgentSettings.tsx";
+import { lazyView } from "../lazy.tsx";
+import type { AgentTypeId } from "./onboarding/agentTypes.ts";
+import { AgentCards, ShowAll, TeamCards, TeamSheet } from "./MarketTemplates.tsx";
+import { AGENT_TEMPLATES, agentHit, teamHit } from "./marketTemplateData.ts";
+
+// New agent is only needed once Use is pressed on an agent template
+const CreateAgent = lazyView(() => import("./CreateAgent.tsx").then((m) => m.CreateAgent));
 
 const HARNESS_NAMES: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", hermes: "Hermes" };
 const harnessName = (h: string) => HARNESS_NAMES[h] ?? h;
@@ -94,7 +104,7 @@ const BUILT_IN_SHELF: Record<CatalogConnector["category"], AppCategory> = {
 };
 
 /** Which section of the page an address opens at (the old Marketplace sections, #/connectors, #/skills, #/mods). */
-const SECTION_OF: Record<MarketSection | "mods", AddSection | null> = { all: null, apps: "apps", skills: "skills", devices: "found", installed: "added", mods: "mods" };
+const SECTION_OF: Record<MarketSection | "mods", AddSection | null> = { all: null, apps: "apps", skills: "skills", agents: null, teams: null, devices: "found", installed: "added", mods: "mods" };
 const SECTION_TITLE: Record<AddSection, string> = { added: "Added", found: "Found on your computers", apps: "Apps", skills: "Skills", mods: "Mods" };
 
 const MOD_ICON: Record<FeatureKey, LucideIcon> = {
@@ -159,7 +169,7 @@ type Detail =
 /** One row of the pop-up, whatever it is. */
 type RowDef = { key: string; tile: ReactNode; name: string; mark?: string; desc?: string; status?: ReactNode; action?: ReactNode; onOpen?: () => void; topics?: Topic[] };
 /** A section of the pop-up: its title (and a note beside it), its rows two to a line, and how many show before "Show all". */
-type Sec = { id: string; title: string; note?: string; rows: RowDef[]; loading?: boolean; limit?: number; head?: ReactNode; foot?: ReactNode; empty?: string };
+type Sec = { id: string; title: string; note?: string; rows: RowDef[]; loading?: boolean; limit?: number; head?: ReactNode; foot?: ReactNode; empty?: string; /** cards of its own in place of rows (Agents, Teams) */ cards?: ReactNode };
 
 /** One from each maker in turn, so a short list shows a bit of everyone's. */
 function takeTurns<T extends { who: string }>(list: T[]): T[] {
@@ -306,6 +316,11 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   const [bringing, setBringing] = useState<string | null>(null);
   const [looking, setLooking] = useState(false);
   const [modOn, setModOn] = useState<FeatureKey | null>(null);
+  // Agents and Teams (round 12): New agent from a template, a team's sheet, and the builder with a team loaded
+  const [agentFrom, setAgentFrom] = useState<AgentTypeId | null>(null);
+  const [nodes, setNodes] = useState<NodeInfo[]>([]);
+  const [teamOpen, setTeamOpen] = useState<TeamTemplate | null>(null);
+  const teamTemplates = useTemplates();
   const [signedIn] = useState(() => new URLSearchParams(location.search).get("signin"));
   // an old address scrolls to its section as the lists arrive, until the person scrolls or types
   const auto = useRef(true);
@@ -837,6 +852,52 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   const thisMacSec: Sec = { id: "found", title: macName, rows: [...thisMac, ...macRows], head: macHead, foot: macNote || undefined, empty: canEdit ? "Nothing new" : undefined };
   const modsSec: Sec = { id: "mods", title: "Mods", rows: modRows, empty: forA ? "Mods change the whole app; add them for every agent." : undefined };
   const connectedSec: Sec = { id: "added", title: "Connected", rows: addedRows, loading: !loaded, empty: "Nothing connected yet" };
+  // --- Agents and Teams: the templates, for every agent (not when adding to one agent, nor for guests) ---
+  const templatesHere = canEdit && !forA;
+  const agentList = templatesHere ? AGENT_TEMPLATES.filter((t) => !whole && (!searching || agentHit(words, t))) : [];
+  // the person's own saved teams first, marked "yours"
+  const teamList = templatesHere ? [...teamTemplates.all.filter((t) => teamTemplates.own.has(t.id)), ...teamTemplates.all.filter((t) => !teamTemplates.own.has(t.id))].filter((t) => !whole && (!searching || teamHit(words, t))) : [];
+  const startAgent = (id: AgentTypeId) => {
+    setAgentFrom(id);
+    api<NodeInfo[]>("GET", "/api/nodes").then(setNodes, () => setNodes([]));
+  };
+  /** Use this team: the team builder with it loaded, drawn by the app itself so it sits over everything (the pop-up closes first). */
+  const startTeam = (t: TeamTemplate) => {
+    setTeamOpen(null);
+    const open = () => useStore.setState({ channelBrowser: { sectionId: null, create: true, template: t } });
+    if (!inPopup) return open();
+    // the browser closes when the address changes: open it once the pop-up's address is gone
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("hashchange", later);
+      open();
+    };
+    const later = () => setTimeout(run, 0);
+    window.addEventListener("hashchange", later);
+    setTimeout(run, 400);
+    inPopup.close();
+  };
+  const deleteTeam = (t: TeamTemplate) => {
+    if (!confirm(`Delete ${t.name}? Teams already made from it stay.`)) return;
+    teamTemplates.remove(t.id).catch((e) => setError((e as Error).message));
+  };
+  /** Agents (two to a line) and Teams (three), each with "Show all" on All. */
+  const agentsSec = (limit?: number): Sec => ({
+    id: "agents",
+    title: "Agents",
+    rows: [],
+    head: limit && agentList.length > limit ? <ShowAll onClick={() => pickChip("agents")} /> : undefined,
+    cards: agentList.length > 0 && <AgentCards list={agentList.slice(0, limit ?? agentList.length)} canEdit={canEdit} onUse={(t) => startAgent(t.id)} />,
+  });
+  const teamsSec = (limit?: number): Sec => ({
+    id: "teams",
+    title: "Teams",
+    rows: [],
+    head: limit && teamList.length > limit ? <ShowAll onClick={() => pickChip("teams")} /> : undefined,
+    cards: teamList.length > 0 && <TeamCards list={teamList.slice(0, limit ?? teamList.length)} own={teamTemplates.own} canEdit={canEdit} onOpen={setTeamOpen} onDelete={deleteTeam} />,
+  });
   // what shows: Connected; a search (one section by name, or Results over everything); a chip
   const chip: string = topic ?? (section === "mods" ? "mods" : section === "installed" ? "installed" : section);
   const sections: Sec[] = (() => {
@@ -845,19 +906,26 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
     if (searching) {
       // apps someone added themselves (or brought in from a harness) aren't in the catalog: they show too
       const own = addedApps.filter((r) => !appFor(connectorById(r.key.slice(2))!));
-      return [{ id: "results", title: "Results", rows: [...macRows, ...appRows, ...own, ...skillRows, ...modRows], loading: market.entries === null || store === null }];
+      return [agentsSec(), teamsSec(), { id: "results", title: "Results", rows: [...macRows, ...appRows, ...own, ...skillRows, ...modRows], loading: market.entries === null || store === null }];
     }
     switch (chip) {
       case "apps":
         return [appsSec(appRows)];
       case "skills":
         return [skillsSec()];
+      case "agents":
+        return [agentsSec()];
+      case "teams":
+        return [teamsSec()];
       case "devices":
         return [onMac ? thisMacSec : macSec];
       case "mods":
         return [modsSec];
       case "all":
         return [
+          // Agents and Teams near the top, before the apps (board 15): four agents, three teams
+          agentsSec(4),
+          teamsSec(3),
           { id: "recommended", title: "Recommended", note: picker && pickedApps.length ? `${picker.name} picked these from what you told it` : undefined, rows: recRows },
           macSec,
           appsSec(appRows.filter((r) => !recKeys.has(r.key)), 10),
@@ -870,7 +938,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
     }
   })();
   // a section shows when it has rows, is loading, or has something to say when empty (only when it is the one picked)
-  const shownSections = sections.filter((s) => s.rows.length > 0 || (s.loading && s.id !== "added") || (sections.length === 1 && (s.empty || s.foot)));
+  const shownSections = sections.filter((s) => !!s.cards || s.rows.length > 0 || (s.loading && s.id !== "added") || (sections.length === 1 && (s.empty || s.foot)));
   const stillLoading = sections.some((s) => s.loading);
   const connectedCount = (connectors?.length ?? 0) + (skills?.length ?? 0);
   const stackLogos = connectedLogos(connectors ?? []);
@@ -907,7 +975,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   const list = (
     <>
       <div className="flex shrink-0 items-center gap-3 pl-[30px] pr-[22px] pt-6 max-md:pl-5 max-md:pr-3 max-md:pt-[max(1rem,env(safe-area-inset-top))]">
-        <h1 className="min-w-0 flex-1 truncate text-[21px] font-semibold leading-7">Connect apps</h1>
+        <h1 className="min-w-0 flex-1 truncate text-[21px] font-semibold leading-7">Marketplace</h1>
         <button
           type="button"
           aria-pressed={chip === "installed" && !searching}
@@ -937,19 +1005,21 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
       <div className="shrink-0 px-[30px] pt-4 max-md:px-5">
         <label className="r11-float-search flex h-10 items-center gap-[9px] rounded-[12px] bg-hover px-[13px] text-muted">
           <Search size={16} strokeWidth={1.8} aria-hidden className="shrink-0" />
-          <input type="search" value={q} onChange={(e) => ((auto.current = false), setQ(e.target.value))} placeholder="Search apps and skills" aria-label="Search apps and skills" className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted md:text-[14.5px]" />
+          <input type="search" value={q} onChange={(e) => ((auto.current = false), setQ(e.target.value))} placeholder={templatesHere ? "Search apps, skills, agents and teams" : "Search apps and skills"} aria-label="Search the Marketplace" className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted md:text-[14.5px]" />
         </label>
         <nav aria-label="Filter" className="-mx-[30px] mt-3.5 flex gap-[7px] overflow-x-auto px-[30px] pb-1 [scrollbar-width:none] max-md:-mx-5 max-md:px-5">
-          {MAIN_CHIPS.filter(([k]) => k !== "devices" || (canEdit && isDesktopMac())).map(([k, label]) => (
-            <FilterChip key={k} on={!searching && chip === k} onClick={() => pickChip(k)}>
-              {k === "devices" ? macName : label}
-            </FilterChip>
-          ))}
+          {MAIN_CHIPS.filter(([k]) => (k !== "agents" && k !== "teams") || templatesHere)
+            .filter(([k]) => k !== "mods" || !forA)
+            .map(([k, label]) => (
+              <FilterChip key={k} on={!searching && chip === k} onClick={() => pickChip(k)}>
+                {label}
+              </FilterChip>
+            ))}
           <Menu
-            items={MORE_CHIPS.filter(([k]) => k !== "mods" || !forA).map(([k, label]) => ({ label, onSelect: () => pickChip(k) }))}
+            items={MORE_CHIPS.filter(([k]) => k !== "devices" || (canEdit && isDesktopMac())).map(([k, label]) => ({ label: k === "devices" ? macName : label, onSelect: () => pickChip(k) }))}
             trigger={(open, t) => (
               <FilterChip on={!!moreOn} onClick={t} aria-expanded={open} aria-haspopup="menu">
-                {moreOn ? moreOn[1] : "More"}
+                {moreOn ? (moreOn[0] === "devices" ? macName : moreOn[1]) : "More"}
                 <ChevronDown size={12} strokeWidth={2.2} aria-hidden />
               </FilterChip>
             )}
@@ -970,10 +1040,14 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
                 <span className="flex-1" />
                 {s.head}
               </div>
-              <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
-                {s.rows.slice(0, n).map(row)}
-                {s.foot}
-              </div>
+              {s.cards ? (
+                <div className="pt-1">{s.cards}</div>
+              ) : (
+                <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
+                  {s.rows.slice(0, n).map(row)}
+                  {s.foot}
+                </div>
+              )}
               {s.loading && !s.rows.length && <Loader />}
               {!s.loading && !s.rows.length && s.empty && !searching && <p className="px-3 py-2 text-[13px] text-muted">{s.empty}</p>}
               {s.rows.length > n && (
@@ -984,7 +1058,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
             </section>
           );
         })}
-        {searching && !shownSections.some((s) => s.rows.length) && !stillLoading && <p className="py-[60px] text-center text-[14px] text-muted">Nothing matches. Ask your agent to find it.</p>}
+        {searching && !shownSections.some((s) => s.rows.length || s.cards) && !stillLoading && <p className="py-[60px] text-center text-[14px] text-muted">Nothing matches. Ask your agent to find it.</p>}
         {canEdit && !searching && (chip === "all" || chip === "apps" || chip === "skills") && (
           <section aria-label="Make or bring your own" className="mx-3 mt-4 border-t border-[var(--pop-line)]">
             <button type="button" aria-expanded={making} onClick={() => setMaking(!making)} className="flex h-[52px] w-full items-center text-left text-[14px] text-muted outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-ring/40">
@@ -1060,7 +1134,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
       {detail || (routed && appKey) ? (
         <>
           <div className="flex shrink-0 items-center gap-3 px-[22px] pt-5 max-md:px-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]">
-            <button type="button" className="grid size-[34px] place-items-center rounded-full text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40" aria-label="Back to Connect apps" onClick={() => setDetail(null)}>
+            <button type="button" className="grid size-[34px] place-items-center rounded-full text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40" aria-label="Back to Marketplace" onClick={() => setDetail(null)}>
               <ChevronLeft size={20} aria-hidden />
             </button>
             <span className="flex-1" />
@@ -1133,6 +1207,12 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
           }}
         />
       )}
+      {agentFrom && (
+        <Suspense fallback={null}>
+          <CreateAgent nodes={nodes} template={agentFrom} onClose={() => setAgentFrom(null)} />
+        </Suspense>
+      )}
+      {teamOpen && <TeamSheet template={teamOpen} canEdit={canEdit} onClose={() => setTeamOpen(null)} onUse={() => startTeam(teamOpen)} />}
       {modOn && (
         <div role="status" className={`m-toast glass fixed bottom-6 right-6 ${LAYER.toast} flex w-[320px] items-center gap-2.5 rounded-[18px] py-3 pl-4 pr-3 max-md:inset-x-[18px] max-md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:right-auto max-md:w-auto`}>
           <span className="min-w-0 flex-1">

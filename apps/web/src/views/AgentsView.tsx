@@ -133,7 +133,7 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
           {agents.length === 0 && <p className="px-2 py-3 text-[13px] text-muted">No agents yet</p>}
           {canEdit && (
             <div className="mt-3 flex flex-wrap gap-x-1">
-              <a href={href({ view: "templates" })} className="inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">
+              <a href={href({ view: "marketplace", section: "agents" })} className="inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">
                 Start from a template
               </a>
               <button type="button" onClick={() => setBringing(true)} className="inline-flex h-9 items-center px-2 text-[13px] text-muted hover:text-ink">

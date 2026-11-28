@@ -51,7 +51,6 @@ export type Route =
   | { view: "chats" }
   | { view: "you" }
   | { view: "more" }
-  | { view: "templates" };
 
 export const AGENT_TABS = ["overview", "notes", "wallpaper", "settings", "more", "library", "screen", "voice", "role", "harness", "effort", "look", "soul", "instructions", "model", "device", "computer", "access", "background", "routines", "memory", "skills", "apps", "permissions", "connect", "runs", "watches", "remove"] as const;
 export type AgentTab = (typeof AGENT_TABS)[number];
@@ -59,7 +58,7 @@ export const SETTINGS_PAGES = ["profile", "preferences", "notifications", "usage
 export type SettingsPage = (typeof SETTINGS_PAGES)[number];
 /** Settings pages that were merged into another: an old link lands on the page that holds them now. */
 export const SETTINGS_REDIRECTS: Record<string, SettingsPage> = { models: "harnesses", runtimes: "harnesses", computers: "devices", mobile: "devices" };
-export const MARKET_SECTIONS = ["all", "apps", "skills", "devices", "installed"] as const;
+export const MARKET_SECTIONS = ["all", "apps", "skills", "agents", "teams", "devices", "installed"] as const;
 export type MarketSection = (typeof MARKET_SECTIONS)[number];
 
 /** Sent just before Settings (popped over a page) closes back to that page, so the page can tell a close from a visit. */
@@ -141,7 +140,8 @@ export function parseRoute(hash: string): Route {
     case "more":
       return { view: "more" };
     case "templates":
-      return { view: "templates" };
+      // the Templates page moved into the Marketplace (round 12): an old link lands on its Agents
+      return { view: "marketplace", section: "agents" };
     case "c": {
       const messageIndex = parts[2] === "t" ? 4 : parts[2] === "call" ? 3 : 2;
       const messageId = parts[messageIndex] === "m" ? parts[messageIndex + 1] : undefined;
@@ -194,8 +194,6 @@ export function href(r: Route): string {
       return "#/you";
     case "more":
       return "#/more";
-    case "templates":
-      return "#/templates";
     case "chat":
       return r.channelId ? `#/c/${r.channelId}${r.call ? "/call" : r.threadId ? `/t/${r.threadId}` : ""}${r.messageId ? `/m/${encodeURIComponent(r.messageId)}` : ""}` : "#/";
   }
@@ -242,7 +240,6 @@ export function isDialogRoute(r: Route): boolean {
     case "skills":
     case "mods":
     case "help":
-    case "templates":
     case "about":
       return true;
     case "computers":
@@ -265,7 +262,7 @@ export function popupSize(r: Route): PopupSize {
   if (r.view === "agents" && r.agentId) return "profile";
   // Connect apps (round 8): its own 940 × 690 glass pop-up
   if (r.view === "marketplace" || r.view === "connectors" || r.view === "skills" || r.view === "mods") return "apps";
-  if (r.view === "dashboard" || (r.view === "agents" && !r.agentId) || r.view === "help" || r.view === "templates" || r.view === "about") return "medium";
+  if (r.view === "dashboard" || (r.view === "agents" && !r.agentId) || r.view === "help" || r.view === "about") return "medium";
   return "large";
 }
 
