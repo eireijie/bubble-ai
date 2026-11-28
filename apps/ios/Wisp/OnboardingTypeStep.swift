@@ -238,22 +238,24 @@ struct OnboardingYoursStep: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
-
-        // your own first message, on the right like any you send; it is what gets sent
-        HStack {
-          Spacer(minLength: 40)
-          Bubble(side: .mine, tail: true) {
-            Text(message).font(.system(size: 15)).fixedSize(horizontal: false, vertical: true)
-          }
-          .contentTransition(.opacity)
-        }
-        .padding(.top, 18)
-        .animation(Motion.pick(Motion.soft, reduceMotion), value: message)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Your message: \(message)")
-        .accessibilityIdentifier("ob-yours-preview")
       }
     } bottom: {
+      // your own first message, on the right like any you send, pinned just above Send (the picks
+      // scroll under it), so it's in view before the tap; it is what gets sent, word for word
+      HStack {
+        Spacer(minLength: 40)
+        Bubble(side: .mine, tail: true) {
+          // a long one keeps its end (the latest picks) in view
+          Text(message).font(.system(size: 15)).lineLimit(6).truncationMode(.head)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .contentTransition(.opacity)
+      }
+      .padding(.bottom, 8)
+      .animation(Motion.pick(Motion.soft, reduceMotion), value: message)
+      .accessibilityElement(children: .combine)
+      .accessibilityLabel("Your message: \(message)")
+      .accessibilityIdentifier("ob-yours-preview")
       Button {
         aboutFocused = false
         onNext()
