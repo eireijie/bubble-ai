@@ -35,6 +35,18 @@ struct ShelfSkill: Identifiable {
   var id: String { nodeId + "|" + item.key }
 }
 
+/** What a template opens over the Marketplace: a team's sheet, then New team or New agent from it. */
+enum TemplateSheet: Identifiable {
+  case team(MarketTemplates.TeamCard), newTeam(TeamTemplate), newAgent(AgentType)
+  var id: String {
+    switch self {
+    case .team(let c): "team:" + c.id
+    case .newTeam(let t): "new-team:" + t.id
+    case .newAgent(let a): "new-agent:" + a.id
+    }
+  }
+}
+
 /**
  * Connect apps (round 9, the web's 0.1.6 pop-up on the phone): apps, skills and mods in one place,
  * opened as a sheet from the chat list's "Connect apps" pill (and from More). One search; chips for
@@ -67,6 +79,9 @@ struct MarketplaceView: View {
   @State private var bringingSkill: ShelfSkill?
   @State private var settingUp: ShelfApp?
   @State private var started = false
+  /** round 12: the saved team templates, the open team's sheet, and New agent / New team from a template */
+  @State private var ownTeams: [TeamTemplate] = []
+  @State private var templateSheet: TemplateSheet?
 
   private static func squash(_ s: String) -> String { String(s.lowercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }) }
   private var needle: String { query.trimmed }
@@ -131,11 +146,18 @@ struct MarketplaceView: View {
 
   private var searching: Bool { !needle.isEmpty }
   private var topic: AppTopic? { AppTopic(rawValue: chip) }
+  /** agent and team templates (round 12): in the Marketplace tab and pages, for people who can make agents; not in the Connect apps sheet */
+  private var showsTemplates: Bool { !inSheet && store.canManage }
+  private var shownAgents: [AgentType] { MarketTemplates.agents.filter { MarketTemplates.matches($0, needle) } }
+  private var shownTeams: [MarketTemplates.TeamCard] { MarketTemplates.teams(own: ownTeams).filter { MarketTemplates.matches($0.template, needle) } }
+
+  /** All · Apps · Skills · Agents · Teams · Mods (round 12, board 15), then This iPhone, Your computers and topics */
   private var mainChips: [(String, String)] {
-    var out = [("all", "All")]
+    var out = [("all", "All"), ("apps", "Apps"), ("skills", "Skills")]
+    if showsTemplates { out += [("agents", "Agents"), ("teams", "Teams")] }
+    if store.canManage { out.append(("mods", "Mods")) }
     // this phone's own features, each with an Allow (round 11, board 14)
     if store.role != "guest" { out.append(("iphone", "This iPhone")) }
-    out += [("apps", "Apps"), ("skills", "Skills")]
     // what your computers already have: on a phone that's never "This iPhone", so it's named for where it is
     if store.canManage && (!shelves.isEmpty || chip == "devices") { out.append(("devices", "Your computers")) }
     out += [("productivity", "Productivity"), ("communication", "Communication")]
@@ -177,7 +199,7 @@ struct MarketplaceView: View {
       header
       ScrollView {
         VStack(alignment: .leading, spacing: 12) {
-          MarketSearch(text: $query, prompt: chip == "installed" ? "Search apps" : "Search apps and skills")
+          MarketSearch(text: $query, prompt: chip == "installed" ? "Search apps" : showsTemplates ? "Search apps, skills, agents and teams" : "Search apps and skills")
             .tourTarget("market-page")
           chips
           InlineError(error: action.error ?? modAction.error)
@@ -201,6 +223,18 @@ struct MarketplaceView: View {
         "nodeId": AnyEncodable(target.nodeId), "harness": AnyEncodable(target.item.harness), "skillId": AnyEncodable(target.item.skillId)
       ])
     }
+    .sheet(item: $templateSheet) { sheet in
+      switch sheet {
+      case .team(let card):
+        TeamTemplateSheet(card: card) { instantly { templateSheet = .newTeam(card.template) } }
+      case .newTeam(let template):
+        NewChannel(template: template) { channel in store.route = .chat(channelId: channel.id, threadId: nil) }
+      case .newAgent(let type):
+        AddAgent(start: type) { agent in
+          Task { if let ch = try? await store.dm(with: agent) { store.route = .chat(channelId: ch.id, threadId: nil) } }
+        }
+      }
+    }
     .confirmationDialog(askingMod.map { "Turn on \($0.name)?" } ?? "", isPresented: Binding(get: { askingMod != nil }, set: { if !$0 { askingMod = nil } }), titleVisibility: .visible, presenting: askingMod) { key in
       Button("Turn on") { setMod(key) }
     } message: { key in Text(key.detail) }
@@ -210,6 +244,7 @@ struct MarketplaceView: View {
       ConnectorCatalogDetail(entry: ShelfLogic.connector(target.nodeId, target.item), summary: ShelfLogic.summary(target.item), presetEnv: target.item.env ?? [:])
     }
     .task { if !started { started = true; chip = Self.chipFor(start) }; await loadAll() }
+    .task(id: showsTemplates) { if showsTemplates { ownTeams = (try? await store.teamTemplates()) ?? [] } }
     .task(id: query) { await searchRegistry() }
     .onChange(of: scenePhase) { _, phase in if phase == .active { action.run { try await store.refreshConnectors() } } }
   }
@@ -228,7 +263,7 @@ struct MarketplaceView: View {
   private var header: some View {
     HStack(spacing: 10) {
       if !inSheet && !asTab { CircleButton(symbol: "chevron.left", label: "Back") { dismiss() } }
-      Text("Connect apps").font(.system(size: 20, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+      Text(asTab ? "Marketplace" : "Connect apps").font(.system(size: 20, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
         .accessibilityAddTraits(.isHeader)
       Spacer(minLength: 6)
       if connectedCount > 0 {
@@ -256,11 +291,12 @@ struct MarketplaceView: View {
           chipButton(label, on: chip == key, count: key == "devices" ? pending.count : 0) { pick(key) }
         }
         Menu {
-          ForEach(AppTopic.more.filter { $0 != .mods || store.canManage }, id: \.self) { t in
+          // Mods has its own chip now (round 12)
+          ForEach(AppTopic.more.filter { $0 != .mods }, id: \.self) { t in
             Button(t.label) { pick(t.rawValue) }
           }
         } label: {
-          let on = AppTopic.more.contains { $0.rawValue == chip }
+          let on = AppTopic.more.contains { $0 != .mods && $0.rawValue == chip }
           chipLabel(on ? (topic?.label ?? "More") : "More", on: on, chevron: true)
         }
         .accessibilityIdentifier("market-more")
@@ -286,10 +322,10 @@ struct MarketplaceView: View {
       if chevron { Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)) }
     }
     .font(.system(size: 13.5, weight: on ? .semibold : .regular))
-    .foregroundStyle(on ? Palette.sheet : Palette.text)
+    // round 12 (board 15): filled chips, the one that's on in ink
+    .foregroundStyle(on ? Palette.sheet : Palette.muted)
     .padding(.horizontal, 13).frame(height: 32)
-    .background(Capsule().fill(on ? Palette.text : Color.clear))
-    .overlay(Capsule().strokeBorder(on ? Color.clear : Palette.hairline))
+    .background(Capsule().fill(on ? Palette.text : Palette.badge))
     .contentShape(Capsule())
   }
 
@@ -300,6 +336,11 @@ struct MarketplaceView: View {
       installedTab
     } else if searching {
       section("Results") {
+        // agent and team templates first: a handful, and they match by name, not by a registry's guess
+        if showsTemplates {
+          agentRows(shownAgents, quiet: true)
+          teamCards(shownTeams, quiet: true)
+        }
         if store.canManage && !pending.isEmpty { devicesSection(title: nil) }
         appRows(orderedApps, limit: 12)
         skillRows(shownSkills, limit: 12)
@@ -314,6 +355,10 @@ struct MarketplaceView: View {
         skillsTab
       case "devices":
         DeviceShelfList(shelves: shelves, query: needle, onBring: bringIn, onBringAll: { bringingAll = true }, onRefresh: refresh)
+      case "agents":
+        agentRows(shownAgents, quiet: false)
+      case "teams":
+        teamCards(shownTeams, quiet: false)
       case "mods":
         modRows(matching: false)
       case "iphone":
@@ -350,6 +395,10 @@ struct MarketplaceView: View {
     if store.canManage && !pending.isEmpty { devicesSection(title: "Your computers") }
     section("Apps", more: { chip = "apps" }) { appRows(orderedApps.filter { !recIds.contains($0.id) }, limit: 10) }
     section("Skills", more: { chip = "skills" }) { skillRows(takeTurns(shownSkills), limit: 6).tourTarget("market-skills") }
+    if showsTemplates {
+      section("Agents", more: { chip = "agents" }) { agentRows(Array(shownAgents.prefix(3)), quiet: true) }
+      section("Teams", more: { chip = "teams" }) { teamCards(Array(shownTeams.prefix(2)), quiet: true) }
+    }
     makeYourOwn
   }
 
@@ -547,6 +596,32 @@ struct MarketplaceView: View {
     if let have = installed(s) { SkillDetail(skill: have) }
     else if let lib = s.library { SkillDetail(skill: lib, library: true) }
     else if let entry = s.store { StoreSkillDetail(skill: entry) }
+  }
+
+  /** Agent templates: Use opens New agent filled in (round 12). */
+  @ViewBuilder private func agentRows(_ list: [AgentType], quiet: Bool) -> some View {
+    if list.isEmpty && !quiet {
+      Text(needle.isEmpty ? "No agents here yet." : "No agents match \"\(needle)\".").font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
+    }
+    if !list.isEmpty {
+      VStack(spacing: 10) {
+        ForEach(list) { type in MarketAgentRow(type: type) { instantly { templateSheet = .newAgent(type) } } }
+      }
+      .padding(.top, quiet ? 0 : 2)
+    }
+  }
+
+  /** Team templates, yours first: a card opens the team's sheet. */
+  @ViewBuilder private func teamCards(_ list: [MarketTemplates.TeamCard], quiet: Bool) -> some View {
+    if list.isEmpty && !quiet {
+      Text(needle.isEmpty ? "No teams here yet." : "No teams match \"\(needle)\".").font(.system(size: 13)).foregroundStyle(Palette.muted).padding(.horizontal, 4)
+    }
+    if !list.isEmpty {
+      VStack(spacing: 10) {
+        ForEach(list) { card in MarketTeamCard(card: card) { instantly { templateSheet = .team(card) } } }
+      }
+      .padding(.top, quiet ? 0 : 2)
+    }
   }
 
   /** Mods change the whole app: on with one tap for owners (ones that reach outside ask first). */
