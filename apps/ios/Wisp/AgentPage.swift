@@ -1,44 +1,28 @@
+import QuickLook
 import SwiftUI
 
-/** The profile's four tabs, in order (web PROFILE_TAB_TITLES, board ProfileSide). */
-enum ProfileTab: String, CaseIterable, Identifiable {
-  case activity = "Activity", memory = "Memory", background = "Background", settings = "Settings"
-  var id: String { rawValue }
-}
-
 /**
- * An agent's profile, as on the desktop (board ProfileSide, PR 154): a big avatar and its name, then
- * four tabs. Activity: what it's on now, its computer, voice and recent runs. Memory: its notes and
- * skills. Background: its chat's background, previewed before it's set. Settings: Model, Harness,
- * Computer, Permissions; Apps and skills, Routines; then everything else under More.
+ * An agent's profile (round 11, board 12): its bubble, name and what it does, Edit and Message, then
+ * one short list (Library, Computer; Apps and skills, Routines, Memory; Notifications). Edit holds the
+ * name, look, background, voice and brain; the rarer pages (recent runs, who can message, background
+ * checks, connections, permissions, remove) are under ⋯.
  */
 struct AgentPage: View {
   @Environment(Store.self) private var store
   @Environment(\.dismiss) private var dismiss
   var agent: Agent
-  var startTab: ProfileTab = .activity
-  @State private var tab: ProfileTab?
-  @State private var editing = false
-  @State private var editingLook = false
   @State private var removing = false
-  @State private var voice = false
   @State private var chat: Channel?
-  @State private var catalog: AgentModels.Catalog?
+  @State private var editing = false
+  @State private var page: AgentMorePage?
   @State private var action = FormAction()
 
   private var current: Agent { store.agent(agent.id) ?? agent }
-  private var shown: ProfileTab { tab ?? startTab }
   private var device: AgentNode? { store.nodes.first { $0.id == current.nodeId } }
-  private var computer: Computer? { store.computers.first { $0.id == current.computerId } }
-  private var routines: [Routine] { store.routines.filter { $0.agentId == current.id } }
-  private var skillCount: Int { store.skills.filter { $0.has(current.id) }.count }
-  private var appCount: Int { store.connectors.filter { $0.has(current.id) && $0.enabled != false }.count }
   private var canAsk: Bool {
     ((store.isOwner || current.settings?.createdBy == store.me?.id) && (store.features.invite || store.members.count > 1)) ||
     (device != nil && store.harnessOnDevice(current))
   }
-  @State private var run = RunInfo()
-  private var dmChannel: Channel? { store.channels.first { $0.isDM && store.dmAgent($0)?.id == current.id } }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -47,184 +31,154 @@ struct AgentPage: View {
       } center: {
         EmptyView()
       } trailing: {
-        EmptyView()
+        moreMenu
       }
       ScrollView {
         VStack(spacing: 14) {
           header
-          tabs
-          switch shown {
-          case .activity: activityTab
-          case .memory: memoryTab
-          case .background: AgentBackgroundTab(agent: current)
-          case .settings: settingsTab
-          }
+          AgentShortList(agent: current)
           AgentError(text: action.error)
         }
         .padding(.horizontal, 18).padding(.bottom, 60)
       }
-      .bubbleRefresh { await reload() }
+      .bubbleRefresh { await AgentShortList.reload(store, current) }
     }
     .background(Palette.sheet.ignoresSafeArea())
     .toolbar(.hidden, for: .navigationBar)
     .navigationBarBackButtonHidden(true)
     .navigationDestination(item: $chat) { ChannelView(channel: $0) }
-    .sheet(isPresented: $editing) { AgentEditSheet(agent: current) }
-    .sheet(isPresented: $editingLook) { LookEditor(agent: current) }
-    .sheet(isPresented: $voice) { AgentVoiceSheet(agent: current) }
+    .navigationDestination(isPresented: $editing) { AgentEditPage(agent: current) }
+    .navigationDestination(item: $page) { p in
+      switch p {
+      case .runs: AgentActivityPage(agent: current)
+      case .who: AgentWhoPage(agent: current)
+      case .background: BackgroundView(agent: current)
+      case .connections: AgentConnect(agent: current)
+      case .permissions: AgentPermissions(agent: current)
+      }
+    }
     .sheet(isPresented: $removing) {
       AgentConfirm(agent: current, title: "Remove \(current.name)?", message: "Its memory notes and personality stay in the vault. Its routines and chats with you stop.",
                    confirm: "Remove \(current.name)", destructive: true, busy: action.busy, error: action.error) {
         action.run { try await store.deleteAgent(current.id); removing = false; dismiss() }
       }
     }
-    .task { await reload() }
+    .task { await AgentShortList.reload(store, current) }
     .onChange(of: store.agents.contains { $0.id == agent.id }) { _, exists in if !exists { dismiss() } }
   }
 
-  // MARK: tabs
-
-  /** Activity · Memory · Background · Settings, one row of plain words with the picked one underlined */
-  private var tabs: some View {
-    HStack(spacing: 0) {
-      ForEach(ProfileTab.allCases) { t in
-        let on = shown == t
-        Button { tab = t } label: {
-          VStack(spacing: 7) {
-            Text(t.rawValue).font(.system(size: 15, weight: on ? .semibold : .regular))
-              .foregroundStyle(on ? Palette.text : Palette.muted).lineLimit(1).minimumScaleFactor(0.85)
-            Capsule().fill(on ? Palette.text : .clear).frame(height: 2)
-          }
-          .frame(maxWidth: .infinity).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
-        .accessibilityIdentifier("profile-tab-\(t.rawValue.lowercased())")
-      }
-    }
-    .overlay(alignment: .bottom) { Rectangle().fill(Palette.hairline).frame(height: 1) }
-  }
-
-  @ViewBuilder private var activityTab: some View {
-    if current.status == .busy {
-      HStack(spacing: 10) {
-        Circle().fill(Palette.statusWorking).frame(width: 8, height: 8)
-        Text(activityValue ?? "Working").font(.system(size: 15)).foregroundStyle(Palette.text).lineLimit(2)
-        Spacer(minLength: 0)
-      }
-      .padding(.horizontal, 14).frame(minHeight: 48)
-      .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
-      .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
-    }
-    if store.canViewComputers {
-      CardCaption("Computer")
-      CardGroup {
-        link("Computer", id: "agent-computer", icon: "desktopcomputer", value: AgentLine.computer(agent: current, computer: computer, device: device)) { AgentComputerView(agent: current) }
-      }
-    }
-    CardCaption("Voice chat")
-    CardGroup {
-      Button { voice = true } label: { RowLabel(title: "Voice and calls", leading: { rowIcon("waveform") }) }
-        .buttonStyle(.plain).accessibilityIdentifier("agent-voice")
-    }
-    CardGroup {
-      link("Recent runs", id: "agent-activity", icon: "list.bullet") { AgentActivityPage(agent: current) }
-    }
-  }
-
-  @ViewBuilder private var memoryTab: some View {
-    CardGroup {
-      link("Notes", id: "agent-memory", icon: "book") { AgentMemoryPage(agent: current) }
-      link("Skills", id: "agent-skills", icon: "bolt", value: AgentLine.count(skillCount)) { AgentSkillsPage(agent: current) }
-    }
-  }
-
-  @ViewBuilder private var settingsTab: some View {
-    CardGroup {
-      link("Model", id: "agent-model", icon: "dial.medium", value: AgentLine.model(agent: current, catalog: catalog)) { AgentModelPage(agent: current) }
-      NavigationLink { HarnessPicker(agent: current, info: run).task { if let dm = dmChannel { await run.load(store, agent: current, channel: dm.id, thread: nil) } } } label: {
-        RowLabel(title: "Harness", value: HarnessChoice.label(current.harness), leading: { BrandLogo(id: current.harness, size: 20).frame(width: 24) })
-      }.buttonStyle(.plain).accessibilityIdentifier("agent-harness")
-      if store.canViewComputers {
-        link("Computer", id: "agent-computer-settings", icon: "desktopcomputer", value: AgentLine.computer(agent: current, computer: computer, device: device)) { AgentComputerView(agent: current) }
-      }
-      link("Permissions", id: "agent-permissions", icon: "lock") { AgentPermissions(agent: current) }
-    }
-    CardGroup {
-      link("Apps and skills", id: "agent-apps", icon: "square.grid.2x2", value: AgentLine.count(appCount + skillCount)) { AgentAppsPage(agent: current) }
-      if store.features.routines {
-        link("Routines", id: "agent-routines", icon: "clock", value: AgentLine.routines(routines)) { RoutinesView(agent: current) }
-      }
-    }
-    CardCaption("More")
-    CardGroup {
-      if canAsk {
-        link("Who can message", id: "agent-who", icon: "person.2", value: AgentLine.respond(current, device: device)) { AgentWhoPage(agent: current) }
-      }
-      if store.features.background {
-        link("Background checks", id: "agent-background", icon: "moon", value: backgroundValue) { BackgroundView(agent: current) }
-      }
-      link("Connections", id: "agent-connect", icon: "link") { AgentConnect(agent: current) }
+  private var moreMenu: some View {
+    Menu {
+      Button("Recent runs", systemImage: "list.bullet") { page = .runs }.accessibilityIdentifier("agent-activity")
+      if canAsk { Button("Who can message", systemImage: "person.2") { page = .who }.accessibilityIdentifier("agent-who") }
+      if store.features.background { Button("Background checks", systemImage: "moon") { page = .background }.accessibilityIdentifier("agent-background") }
+      Button("Connections", systemImage: "link") { page = .connections }.accessibilityIdentifier("agent-connect")
+      Button("Permissions", systemImage: "lock") { page = .permissions }.accessibilityIdentifier("agent-permissions")
       if store.canManage {
-        Button { editingLook = true } label: { RowLabel(title: "Look", value: nil, leading: { rowIcon("paintpalette") }) }
-          .buttonStyle(.plain).accessibilityIdentifier("agent-look")
+        Divider()
+        Button("Remove \(current.name)", systemImage: "trash", role: .destructive) { removing = true }.accessibilityIdentifier("agent-remove")
       }
-    }
-    notifications
-    if store.canManage {
-      CardGroup {
-        Button { removing = true } label: { RowLabel(title: "Remove \(current.name)", chevron: false, tint: Palette.red, leading: { rowIcon("trash").foregroundStyle(Palette.red) }) }
-          .buttonStyle(.plain).accessibilityIdentifier("agent-remove")
-      }
-    }
+    } label: { CircleLabel(symbol: "ellipsis") }
+    .accessibilityLabel("More").accessibilityIdentifier("agent-more")
   }
-
-  // MARK: top
 
   private var header: some View {
-    VStack(spacing: 8) {
+    VStack(spacing: 6) {
       AgentAvatar(agent: current, size: 104, showStatus: false, interactive: true)
-        .simultaneousGesture(TapGesture().onEnded { if store.canManage { editingLook = true } })
-        .accessibilityLabel("Edit \(current.name)'s look")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { if store.canManage { editingLook = true } }
       Text(current.name).font(.system(size: 24, weight: .bold)).foregroundStyle(Palette.text).accessibilityAddTraits(.isHeader)
-      Text("@\(current.handle) · \(HarnessChoice.label(current.harness))").font(.system(size: 15)).foregroundStyle(Palette.faint)
-      if let description = current.settings?.role ?? current.settings?.roleNotes, !description.isEmpty {
-        Text(description).font(.system(size: 15)).foregroundStyle(Palette.muted).multilineTextAlignment(.center).lineLimit(3).padding(.horizontal, 18)
+      if let description = AgentShortList.does(current) {
+        Text(description).font(.system(size: 15)).foregroundStyle(Palette.muted).multilineTextAlignment(.center).lineLimit(2).padding(.horizontal, 18)
       }
       HStack(spacing: 10) {
         if store.canManage { SmallPill(title: "Edit", id: "agent-edit") { editing = true } }
         SmallPill(title: "Message", symbol: "bubble.left", id: "agent-message") { action.run { chat = try await store.dm(with: current) } }
           .disabled(action.busy)
-      }.padding(.top, 2)
+      }.padding(.top, 4)
     }
     .frame(maxWidth: .infinity)
-    .padding(.top, 2).padding(.bottom, 10)
+    .padding(.top, 2).padding(.bottom, 6)
+  }
+}
+
+/** The pages under the profile's ⋯. */
+enum AgentMorePage: Hashable, Identifiable { case runs, who, background, connections, permissions; var id: Self { self } }
+
+/**
+ * The agent's one short list (boards 10 and 12), the same in the chat's swipe-in panel and on its
+ * profile: Library and Computer; under Set up, Apps and skills, Routines and Memory; then Notifications.
+ */
+struct AgentShortList: View {
+  @Environment(Store.self) private var store
+  var agent: Agent
+  /** the panel says less under the switch */
+  var compact = false
+  @State private var action = FormAction()
+
+  private var current: Agent { store.agent(agent.id) ?? agent }
+  private var device: AgentNode? { store.nodes.first { $0.id == current.nodeId } }
+  private var computer: Computer? { store.computers.first { $0.id == current.computerId } }
+  private var routines: [Routine] { store.routines.filter { $0.agentId == current.id } }
+  private var skillCount: Int { store.skills.filter { $0.has(current.id) }.count }
+  private var appCount: Int { store.connectors.filter { $0.has(current.id) && $0.enabled != false }.count }
+  private var noteCount: Int { store.notes.filter { $0.path.hasPrefix("agents/\(current.id)/") && $0.path != SoulText.path(current.id) }.count }
+  private var dmChannel: Channel? { store.channels.first { $0.isDM && store.dmAgent($0)?.id == current.id } }
+
+  /** what it does, in a line ("Health and sleep") */
+  static func does(_ a: Agent) -> String? {
+    let line = (a.settings?.role ?? a.settings?.roleNotes ?? a.settings?.description ?? "").trimmed
+    return line.isEmpty ? nil : line
   }
 
-  private var notifications: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Toggle(isOn: Binding(get: { dmChannel?.isMuted != true }, set: { on in
-        action.run {
-          let channel: Channel
-          if let existing = dmChannel { channel = existing } else { channel = try await store.dm(with: current) }
-          try await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(on ? "default" : "mute")])
+  var body: some View {
+    VStack(spacing: 14) {
+      CardGroup {
+        link("Library", id: "agent-library", icon: "books.vertical") { AgentLibraryPage(agent: current) }
+        if store.canViewComputers {
+          link("Computer", id: "agent-computer", icon: "desktopcomputer", value: computerValue) { AgentComputerView(agent: current) }
         }
-      })) {
-        Text("Notifications").font(.system(size: 15)).foregroundStyle(Palette.text)
       }
-      .tint(Palette.accent)
-      .padding(.horizontal, 18).frame(minHeight: 60)
-      .background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
-      .disabled(action.busy)
-      .accessibilityIdentifier("agent-notifications")
-      CardCaption("Get told when \(current.name) finishes or needs you")
+      VStack(alignment: .leading, spacing: 6) {
+        Text("Set up").font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 14)
+        CardGroup {
+          link("Apps and skills", id: "agent-apps", icon: "powerplug", value: AgentLine.count(appCount + skillCount)) { AgentAppsPage(agent: current) }
+          if store.features.routines {
+            link("Routines", id: "agent-routines", icon: "clock", value: routinesValue) { RoutinesView(agent: current) }
+          }
+          link("Memory", id: "agent-memory", icon: "book", value: noteCount > 0 ? (compact ? "\(noteCount)" : "\(noteCount) \(noteCount == 1 ? "note" : "notes")") : nil) { AgentMemoryPage(agent: current) }
+        }
+      }
+      VStack(alignment: .leading, spacing: 8) {
+        CardGroup {
+          Toggle(isOn: Binding(get: { dmChannel?.isMuted != true }, set: { on in
+            action.run {
+              let channel: Channel
+              if let existing = dmChannel { channel = existing } else { channel = try await store.dm(with: current) }
+              try await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(on ? "default" : "mute")])
+            }
+          })) {
+            Label { Text("Notifications").font(.system(size: 15)).foregroundStyle(Palette.text) } icon: { rowIcon("bell") }
+          }
+          .tint(Palette.statusOnline)
+          .padding(.horizontal, 14).frame(minHeight: 50)
+          .disabled(action.busy)
+          .accessibilityIdentifier("agent-notifications")
+        }
+        if !compact { CardCaption("Tells you when \(current.name) finishes or needs you.") }
+      }
+      AgentError(text: action.error)
     }
   }
 
-  // MARK: rows
+  private var computerValue: String? {
+    guard let computer else { return AgentLine.computer(agent: current, computer: nil, device: device) }
+    let s = store.state(of: computer)
+    return s.working ? "Working" : computer.isOnline ? "Idle" : s.label
+  }
+
+  private var routinesValue: String? {
+    let on = routines.filter { $0.enabled != false }.count
+    return routines.isEmpty ? nil : "\(on) on"
+  }
 
   private func link<Destination: View>(_ title: String, id: String, icon: String, value: String? = nil, @ViewBuilder _ destination: () -> Destination) -> some View {
     NavigationLink { destination() } label: {
@@ -234,22 +188,308 @@ struct AgentPage: View {
     .accessibilityIdentifier(id)
   }
 
-  private var backgroundValue: String? {
-    guard let work = store.backgrounds[current.id]?.background else { return nil }
-    return work.enabled == true ? "On" : "Off"
-  }
-
-  private var activityValue: String? {
-    if let doing = store.activity[current.id], doing != "started" { return doing }
-    return current.status == .busy ? "Working" : nil
-  }
-
-  private func reload() async {
-    do { try await store.refreshManagement() } catch { action.error = error.localizedDescription }
+  /** Everything the list counts, fetched again. */
+  static func reload(_ store: Store, _ agent: Agent) async {
+    try? await store.refreshManagement()
     try? await store.refreshRoutines()
     try? await store.refreshSkills()
     try? await store.refreshConnectors()
-    try? await store.refreshBackground(current.id)
-    catalog = try? await store.agentModels(current.id).catalog
+    try? await store.refreshNotes()
+  }
+}
+
+/**
+ * Edit (board 12): everything you'd change in one place. The bubble (tap for Bubble look), Name and
+ * handle, Personality and Instructions; Look (Bubble, Chat background); Voice; Brain (Model, Harness,
+ * Computer). Done saves the name and handle.
+ */
+struct AgentEditPage: View {
+  @Environment(Store.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  var agent: Agent
+  @State private var name = ""
+  @State private var handle = ""
+  @State private var loaded = false
+  @State private var voiceSheet = false
+  @State private var catalog: AgentModels.Catalog?
+  @State private var run = RunInfo()
+  @State private var action = FormAction()
+
+  private var current: Agent { store.agent(agent.id) ?? agent }
+  private var device: AgentNode? { store.nodes.first { $0.id == current.nodeId } }
+  private var computer: Computer? { store.computers.first { $0.id == current.computerId } }
+  private var finalHandle: String { ManagementText.handle(handle) }
+  private var handleTaken: Bool { store.agents.contains { $0.handle == finalHandle && $0.id != current.id } }
+  private var handleValid: Bool { finalHandle.range(of: "^[a-z][a-z0-9-]{0,31}$", options: .regularExpression) != nil }
+  private var valid: Bool { !name.trimmed.isEmpty && name.count <= 80 && handleValid && !handleTaken }
+  private var dmChannel: Channel? { store.channels.first { $0.isDM && store.dmAgent($0)?.id == current.id } }
+
+  var body: some View {
+    AgentFrame(title: "Edit \(current.name)", trailing: {
+      Button { save() } label: {
+        Text(action.busy ? "Saving" : "Done").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.sheet)
+          .padding(.horizontal, 16).frame(height: 36).background(Capsule().fill(Palette.text))
+      }
+      .buttonStyle(.press).disabled(!valid || action.busy).opacity(valid ? 1 : 0.4)
+      .accessibilityIdentifier("edit-save")
+    }) {
+      NavigationLink { BubbleLookPage(agent: current) } label: {
+        AgentAvatar(agent: current, size: 96, showStatus: false)
+          .overlay(alignment: .bottomTrailing) {
+            Image(systemName: "pencil").font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.text)
+              .frame(width: 28, height: 28).background(Circle().fill(Palette.card)).overlay(Circle().strokeBorder(Palette.cardBorder))
+          }
+      }
+      .buttonStyle(.press).frame(maxWidth: .infinity).padding(.vertical, 4)
+      .accessibilityLabel("Bubble look").accessibilityIdentifier("edit-look")
+
+      caption("Name")
+      CardGroup {
+        TextField(current.name, text: $name).font(.system(size: 16)).foregroundStyle(Palette.text)
+          .padding(.horizontal, 14).frame(height: 48).accessibilityIdentifier("edit-name")
+        HStack(spacing: 2) {
+          Text("@").foregroundStyle(Palette.faint)
+          TextField("handle", text: Binding(get: { handle }, set: { handle = ManagementText.typingHandle($0.replacingOccurrences(of: "@", with: "")) }))
+            .textInputAutocapitalization(.never).autocorrectionDisabled().foregroundStyle(Palette.muted)
+        }
+        .font(.system(size: 15)).padding(.horizontal, 14).frame(height: 44).accessibilityIdentifier("edit-handle")
+      }
+      if handleTaken { AgentError(text: "@\(finalHandle) is taken. Pick another.") }
+      else if !handle.isEmpty && !handleValid { AgentError(text: "Start with a letter a to z. Use letters, numbers and dashes.") }
+      CardGroup {
+        NavigationLink { AgentPersonalityPage(agent: current) } label: { RowLabel(title: "Personality") }
+          .buttonStyle(.plain).accessibilityIdentifier("edit-personality")
+        NavigationLink { AgentInstructionsPage(agent: current) } label: { RowLabel(title: "Instructions", value: AgentShortList.does(current)) }
+          .buttonStyle(.plain).accessibilityIdentifier("edit-instructions")
+      }
+
+      caption("Look")
+      CardGroup {
+        NavigationLink { BubbleLookPage(agent: current) } label: { RowLabel(title: "Bubble") }
+          .buttonStyle(.plain).accessibilityIdentifier("edit-bubble")
+        NavigationLink {
+          AgentFrame(title: "Chat background", subtitle: current.name) { AgentBackgroundTab(agent: current) }
+        } label: { RowLabel(title: "Chat background", value: backgroundValue) }
+          .buttonStyle(.plain).accessibilityIdentifier("edit-background")
+      }
+
+      caption("Voice calls")
+      CardGroup {
+        Button { voiceSheet = true } label: { RowLabel(title: "Voice", value: voiceValue) }
+          .buttonStyle(.plain).accessibilityIdentifier("edit-voice")
+      }
+
+      caption("Brain")
+      CardGroup {
+        NavigationLink { AgentModelPage(agent: current) } label: { RowLabel(title: "Model", value: AgentLine.model(agent: current, catalog: catalog)) }
+          .buttonStyle(.plain).accessibilityIdentifier("agent-model")
+        NavigationLink { HarnessPicker(agent: current, info: run).task { if let dm = dmChannel { await run.load(store, agent: current, channel: dm.id, thread: nil) } } } label: {
+          RowLabel(title: "Harness", value: HarnessChoice.label(current.harness))
+        }.buttonStyle(.plain).accessibilityIdentifier("agent-harness")
+        if store.canViewComputers {
+          NavigationLink { AgentComputerView(agent: current) } label: {
+            RowLabel(title: "Computer", value: AgentLine.computer(agent: current, computer: computer, device: device))
+          }.buttonStyle(.plain).accessibilityIdentifier("agent-computer-settings")
+        }
+      }
+      AgentError(text: action.error)
+    }
+    .sheet(isPresented: $voiceSheet) { AgentVoiceSheet(agent: current) }
+    .task {
+      guard !loaded else { return }
+      name = current.name; handle = current.handle; loaded = true
+      catalog = try? await store.agentModels(current.id).catalog
+    }
+  }
+
+  private func caption(_ text: String) -> some View {
+    Text(text).font(.system(size: 13)).foregroundStyle(Palette.faint).padding(.horizontal, 14).padding(.bottom, -6)
+  }
+
+  private var backgroundValue: String {
+    switch current.settings?.background?.value {
+    case .none: "Default"
+    case .some(.none): "None"
+    case .some(.color): "Colour"
+    case .some(.photo): "Photo"
+    }
+  }
+
+  private var voiceValue: String {
+    let voice = current.settings?.voice
+    if let id = voice?.openai, !id.isEmpty { return id.prefix(1).uppercased() + id.dropFirst() }
+    if voice?.elevenlabs?.isEmpty == false { return "ElevenLabs" }
+    if voice?.device?.isEmpty == false { return "On device" }
+    return "Automatic"
+  }
+
+  private func save() {
+    action.run {
+      var fields: Fields = [:]
+      if name.trimmed != current.name { fields["name"] = AnyEncodable(name.trimmed) }
+      if finalHandle != current.handle { fields["handle"] = AnyEncodable(finalHandle) }
+      if !fields.isEmpty { _ = try await store.updateAgent(current.id, fields) }
+      dismiss()
+    }
+  }
+}
+
+/**
+ * Bubble look (board 12): the bubble big, then Colour (twelve, your own, or back to its default) or
+ * Shape. Done saves it.
+ */
+struct BubbleLookPage: View {
+  @Environment(Store.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  var agent: Agent
+  @State private var look: GhostLook
+  @State private var tab = "colour"
+  @State private var action = FormAction()
+  private let original: GhostLook
+  private let seed: String
+
+  /** the six bubble colours, then six more (board 12's second row) */
+  static let swatches: [(name: String, hex: String)] = BubbleColors.all + [
+    ("Red", "#ff6b6b"), ("Sand", "#c9a27e"), ("Teal", "#5fd3e6"), ("Purple", "#d38cf5"), ("Lime", "#9ad86b"), ("Rose", "#f7a8d8"),
+  ]
+
+  init(agent: Agent) {
+    self.agent = agent
+    seed = agent.handle
+    original = (agent.settings?.appearance ?? GhostLook.defaultAppearance(agent.handle)).resolved
+    _look = State(initialValue: original)
+  }
+
+  private var color: String { BubbleColors.color(look, seed: seed).lowercased() }
+
+  var body: some View {
+    AgentFrame(title: "Bubble", trailing: {
+      Button { save() } label: {
+        Text(action.busy ? "Saving" : "Done").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.sheet)
+          .padding(.horizontal, 16).frame(height: 36).background(Capsule().fill(Palette.text))
+      }
+      .buttonStyle(.press).disabled(action.busy || !store.canManage)
+      .accessibilityIdentifier("look-save")
+    }) {
+      Segments(options: [("colour", "Colour"), ("shape", "Shape")], selection: $tab, id: "look-tab")
+      GhostView(look: look, seed: seed, size: 120, interactive: true)
+        .frame(width: 120, height: 120).frame(maxWidth: .infinity).padding(.vertical, 8)
+        .accessibilityLabel("\(agent.name)'s bubble")
+      if tab == "colour" { colours } else { shapes }
+      AgentError(text: action.error)
+    }
+  }
+
+  private var colours: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 12) {
+        ForEach(Self.swatches, id: \.hex) { c in
+          let on = c.hex == color
+          Button { look.color = c.hex; look.color2 = nil } label: {
+            Circle().fill(Color(hex: c.hex)).frame(width: 34, height: 34)
+              .overlay { if on { Circle().stroke(Palette.text, lineWidth: 2).padding(-4) } }
+              .frame(width: 44, height: 44).contentShape(Circle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(c.name)
+          .accessibilityAddTraits(on ? .isSelected : [])
+        }
+      }
+      HStack(spacing: 14) {
+        ColorPicker("Your own colour", selection: Binding(get: { Color(hex: color) }, set: { look.color = $0.hexString; look.color2 = nil }), supportsOpacity: false)
+          .font(.system(size: 15)).foregroundStyle(Palette.text)
+      }
+      Button("Reset to default") { look = GhostLook.defaultAppearance(agent.handle).resolved }
+        .font(.system(size: 15, weight: .medium)).foregroundStyle(ChatDot.blue).buttonStyle(.plain)
+        .accessibilityIdentifier("look-reset")
+    }
+    .padding(16)
+    .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Palette.card))
+  }
+
+  private var shapes: some View {
+    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+      ForEach(BubbleForm.allCases) { s in
+        let on = s == BubbleForm(look)
+        Button { look.bubble = s.rawValue } label: {
+          VStack(spacing: 6) {
+            GhostView(look: { var l = look; l.bubble = s.rawValue; return l }(), seed: seed, size: 40, animate: false).frame(width: 40, height: 40)
+            Text(s.name).font(.system(size: 12, weight: on ? .semibold : .regular)).foregroundStyle(on ? Palette.text : Palette.muted)
+          }
+          .frame(maxWidth: .infinity).frame(height: 84)
+          .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(on ? Palette.hairline : .clear))
+          .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Shape: \(s.name)")
+        .accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityIdentifier("look-shape-\(s.rawValue)")
+      }
+    }
+  }
+
+  private func save() {
+    action.run {
+      if look != original { try await store.saveLook(look, for: agent) }
+      dismiss()
+    }
+  }
+}
+
+/** Library (board 12): the files an agent made, newest first, and the notes it keeps. */
+struct AgentLibraryPage: View {
+  @Environment(Store.self) private var store
+  var agent: Agent
+  @State private var files: [LibraryFile]?
+  @State private var preview: URL?
+  @State private var action = FormAction()
+
+  struct LibraryFile: Decodable, Identifiable {
+    struct Who: Decodable { var kind: String; var id: String }
+    var id: String
+    var name: String
+    var size: Int?
+    var createdAt: String?
+    var uploader: Who?
+  }
+
+  var body: some View {
+    AgentFrame(title: "Library", subtitle: agent.name) {
+      CardGroup {
+        NavigationLink { MemoryFolderView(folder: "agents/\(agent.id)") } label: {
+          RowLabel(title: "Pages \(agent.name) wrote", leading: { rowIcon("doc.text") })
+        }.buttonStyle(.plain).accessibilityIdentifier("library-pages")
+      }
+      CardCaption("Files")
+      if let files {
+        if files.isEmpty {
+          AgentCard { Text("No files yet. What \(agent.name) makes for you shows here.").font(.system(size: 15)).foregroundStyle(Palette.muted) }
+        } else {
+          CardGroup {
+            ForEach(files) { f in
+              Button { open(f) } label: {
+                RowLabel(title: f.name, subtitle: f.createdAt.flatMap(Wire.date).map { $0.formatted(.relative(presentation: .named)) }, chevron: false, leading: { rowIcon("doc") })
+              }.buttonStyle(.plain)
+            }
+          }
+        }
+      } else {
+        ProgressView().frame(maxWidth: .infinity).padding(20)
+      }
+      AgentError(text: action.error)
+    }
+    .quickLookPreview($preview)
+    .task { await load() }
+  }
+
+  private func load() async {
+    do {
+      let all: [LibraryFile] = try await store.fetch { try await $0.get("/api/files") }
+      files = all.filter { $0.uploader?.kind == "agent" && $0.uploader?.id == agent.id }.sorted { ($0.createdAt ?? "") > ($1.createdAt ?? "") }
+    } catch { action.error = error.localizedDescription; files = [] }
+  }
+
+  private func open(_ f: LibraryFile) {
+    action.run { preview = try await store.localFile(f.id, name: f.name) }
   }
 }

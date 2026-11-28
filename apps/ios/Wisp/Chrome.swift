@@ -31,6 +31,25 @@ extension View {
     }
   }
 
+  /**
+   * The nearly clear Liquid Glass of the home's initials and + (round 11): Apple's clear glass on
+   * iOS 26, else a thin blur with a bright rim, brighter at the top left and bottom right, and a soft shadow.
+   * Not interactive, so a Button or Menu around it gets the first tap.
+   */
+  @ViewBuilder func clearGlassCircle() -> some View {
+    if #available(iOS 26, *) {
+      self.glassEffect(.clear, in: .circle)
+    } else {
+      self.background(.ultraThinMaterial, in: Circle())
+        .overlay(Circle().strokeBorder(LinearGradient(stops: [
+          .init(color: .white.opacity(0.9), location: 0), .init(color: .white.opacity(0.15), location: 0.3),
+          .init(color: .white.opacity(0), location: 0.5), .init(color: .white.opacity(0.12), location: 0.7),
+          .init(color: .white.opacity(0.6), location: 1),
+        ], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1))
+        .shadow(color: .black.opacity(0.22), radius: 8, y: 6)
+    }
+  }
+
   /** The light surface a pill (name, tab bar) sits on. */
   // inside a Button pass interactive: false: interactive glass takes the first tap for itself, so the button needed two
   @ViewBuilder func glassPill(interactive: Bool = true) -> some View {

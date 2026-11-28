@@ -22,10 +22,10 @@ final class AgentScreensTests: XCTestCase {
     app.buttons["tab-more"].tap(); app.buttons["more-agents"].tap(); settle()
     shot("agents-list")
     app.descendants(matching: .any).matching(identifier: "agent-tile").firstMatch.tap()
-    XCTAssertTrue(app.buttons["agent-model"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.buttons["agent-library"].waitForExistence(timeout: 10))
     settle(); shot("profile")
 
-    for (id, name) in [("agent-model", "model"), ("agent-computer", "computer"), ("agent-routines", "routines"), ("agent-memory", "memory"), ("agent-skills", "skills")] {
+    for (id, name) in [("agent-library", "library"), ("agent-computer", "computer"), ("agent-routines", "routines"), ("agent-memory", "memory"), ("agent-apps", "apps")] {
       open(id); shot(name)
       if id == "agent-model", app.buttons["model-more"].exists { app.buttons["model-more"].tap(); settle(); shot("model-more"); back() }
       if id == "agent-computer", app.buttons["computer-none"].exists {
@@ -37,9 +37,11 @@ final class AgentScreensTests: XCTestCase {
       }
       back()
     }
-    for (id, name) in [("agent-who", "who"), ("agent-background", "background"), ("agent-apps", "apps"), ("agent-permissions", "permissions"), ("agent-connect", "connect"), ("agent-activity", "activity")] {
-      scrollTo(id)
-      guard app.buttons[id].exists else { continue }
+    // the rest is under the profile's ⋯ (round 11)
+    for (id, name) in [("agent-who", "who"), ("agent-background", "background"), ("agent-permissions", "permissions"), ("agent-connect", "connect"), ("agent-activity", "activity")] {
+      scrollTo("agent-more", up: true)
+      app.buttons["agent-more"].tap(); settle()
+      guard app.buttons[id].waitForExistence(timeout: 3) else { app.tap(); continue }
       open(id); shot(name)
       if id == "agent-activity", let run = app.descendants(matching: .any).matching(identifier: "activity-run").firstMatch as XCUIElement?, run.exists {
         run.tap(); settle(); shot("run"); back()
@@ -58,13 +60,13 @@ final class AgentScreensTests: XCTestCase {
       if app.buttons["edit-look"].exists { app.buttons["edit-look"].tap(); settle(); shot("look"); app.buttons["agent-close"].firstMatch.tap(); settle() }
       app.buttons["agent-close"].firstMatch.tap(); settle()
     }
-    scrollTo("agent-remove")
-    if app.buttons["agent-remove"].exists { app.buttons["agent-remove"].tap(); settle(); shot("remove"); app.buttons["Cancel"].firstMatch.tap(); settle() }
+    app.buttons["agent-more"].tap(); settle()
+    if app.buttons["agent-remove"].waitForExistence(timeout: 3) { app.buttons["agent-remove"].tap(); settle(); shot("remove"); app.buttons["Cancel"].firstMatch.tap(); settle() }
     back()
 
     // new agent
     app.buttons["agents-add"].tap(); settle(); shot("create")
-    app.buttons["Customize"].firstMatch.tap(); settle(); shot("create-custom")
+    app.buttons["new-full"].firstMatch.tap(); settle(); shot("create-custom")
     if app.buttons["new-more"].exists { app.buttons["new-more"].tap(); settle(); shot("create-more"); back() }
     app.swipeUp(); settle()
     if app.buttons["new-bring"].exists {

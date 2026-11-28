@@ -1,9 +1,9 @@
 import SwiftUI
 
 /**
- * The bottom of the phone (round 10, after 0.1.6): two floating glass pills. The first holds the
- * four places (Chats, Computers, More, Profile); the second is a round + for a new chat, agent or
- * team. Everything advanced (Agents, Inbox, Memory, Tasks, Connect apps, Mods…) is in More.
+ * The bottom of the phone (round 11, board 8 option C): one floating glass bar with the five places,
+ * Chats, Computers, Memory, Marketplace and More. Your initials and + sit at the top of Chats; a blue
+ * count on Chats and a dot on More when something needs you.
  *
  * The bar sits on each tab's first screen only (`.mainBar()`), so a chat or any page opened from a
  * tab has the whole screen.
@@ -12,7 +12,7 @@ import SwiftUI
 @Observable
 final class MainBarModel {
   var tab: MainTab = .chats
-  /** the + button's pick ("chat", "agent", "team", "browse"); Chats opens it, then clears it */
+  /** a "New…" pick ("chat", "agent", "team", "browse") made somewhere other than Chats; Chats opens it, then clears it */
   var newRequest: String?
 }
 
@@ -23,16 +23,13 @@ struct MainBar: View {
   private var tabs: [MainTab] { MainTab.allCases.filter { $0 != .computers || store.canViewComputers } }
 
   var body: some View {
-    HStack(spacing: 10) {
-      HStack(spacing: 0) {
-        ForEach(tabs, id: \.self) { t in item(t) }
-      }
-      .padding(4)
-      .frame(height: 62)
-      .glassPill(interactive: false)
-      newButton
+    HStack(spacing: 0) {
+      ForEach(tabs, id: \.self) { t in item(t) }
     }
-    .padding(.horizontal, 16)
+    .padding(4)
+    .frame(height: 60)
+    .glassPill(interactive: false)
+    .padding(.horizontal, 14)
     .padding(.bottom, 2)
   }
 
@@ -41,15 +38,15 @@ struct MainBar: View {
     return Button {
       bar.tab = t
     } label: {
-      VStack(spacing: 2) {
-        icon(t)
-          .frame(height: 26)
-          .overlay(alignment: .topTrailing) { badge(t).offset(x: 10, y: -3) }
-        Text(t.title).font(.system(size: 10.5, weight: on ? .semibold : .medium)).lineLimit(1)
+      VStack(spacing: 3) {
+        Image(systemName: t.symbol).font(.system(size: 18, weight: .regular))
+          .frame(height: 24)
+          .overlay(alignment: .topTrailing) { badge(t).offset(x: 11, y: -4) }
+        Text(t.title).font(.system(size: 10, weight: on ? .semibold : .medium)).lineLimit(1).minimumScaleFactor(0.8)
       }
       .foregroundStyle(on ? Palette.text : Palette.muted)
-      .frame(maxWidth: .infinity).frame(height: 54)
-      .background { if on { Capsule().fill(Palette.text.opacity(0.08)) } }
+      .frame(maxWidth: .infinity).frame(height: 52)
+      .background { if on { Capsule().fill(Palette.text.opacity(0.09)) } }
       .contentShape(Capsule())
     }
     .buttonStyle(.plain)
@@ -57,13 +54,6 @@ struct MainBar: View {
     .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
     .accessibilityIdentifier("tab-\(t.id)")
     .tourTarget("tab-\(t.id)")
-  }
-
-  @ViewBuilder private func icon(_ t: MainTab) -> some View {
-    switch t {
-    case .profile: ProfileCircle(size: 26)
-    default: Image(systemName: t.symbol).font(.system(size: 19, weight: .regular))
-    }
   }
 
   /** unread chats on Chats, and a dot on More while something in the Inbox needs you */
@@ -80,31 +70,6 @@ struct MainBar: View {
       EmptyView()
     }
   }
-
-  private var newButton: some View {
-    Menu {
-      Button("New chat", systemImage: "square.and.pencil") { ask("chat") }
-      if store.canManage {
-        Button("New agent", systemImage: "person.crop.circle.badge.plus") { ask("agent") }
-        Button("New team", systemImage: "person.2") { ask("team") }
-      } else {
-        Button("Browse teams", systemImage: "magnifyingglass") { ask("browse") }
-      }
-    } label: {
-      Image(systemName: "plus").font(.system(size: 22, weight: .regular)).foregroundStyle(Palette.text)
-        .frame(width: 62, height: 62)
-        .glassCircle()
-        .contentShape(Circle())
-    }
-    .accessibilityLabel("New chat, agent or team")
-    .accessibilityIdentifier("new-menu")
-    .tourTarget("new")
-  }
-
-  private func ask(_ kind: String) {
-    bar.tab = .chats
-    bar.newRequest = kind
-  }
 }
 
 extension MainTab {
@@ -112,31 +77,71 @@ extension MainTab {
     switch self {
     case .chats: "chats"
     case .computers: "computers"
+    case .memory: "memory"
+    case .marketplace: "marketplace"
     case .more: "more"
-    case .profile: "profile"
     }
   }
   var title: String {
     switch self {
     case .chats: "Chats"
     case .computers: "Computers"
+    case .memory: "Memory"
+    case .marketplace: "Marketplace"
     case .more: "More"
-    case .profile: "Profile"
     }
   }
   var symbol: String {
     switch self {
     case .chats: "bubble.left"
     case .computers: "desktopcomputer"
-    case .more: "square.grid.2x2"
-    case .profile: "person.crop.circle"
+    case .memory: "book"
+    case .marketplace: "bag"
+    case .more: "ellipsis.circle"
     }
   }
 }
 
 extension View {
-  /** a tab's first screen: the two pills float at the bottom, and the page scrolls clear of them */
+  /** a tab's first screen: the bar floats at the bottom, and the page scrolls clear of it */
   func mainBar() -> some View {
     safeAreaInset(edge: .bottom, spacing: 0) { MainBar() }
+  }
+}
+
+/** The "New…" menu's items (the + at the top of Chats): New chat, agent, team, or Browse teams for members. */
+struct NewMenuItems: View {
+  @Environment(Store.self) private var store
+  var pick: (String) -> Void
+  var body: some View {
+    if store.canManage {
+      Button("New agent", systemImage: "person.crop.circle.badge.plus") { pick("agent") }
+      Button("New team", systemImage: "person.2") { pick("team") }
+    } else {
+      Button("Browse teams", systemImage: "magnifyingglass") { pick("browse") }
+    }
+    Button("New chat", systemImage: "square.and.pencil") { pick("chat") }
+  }
+}
+
+/** The Memory tab: Memory's front page with the bar and no Back. */
+struct MemoryTab: View {
+  var body: some View {
+    NavigationStack {
+      MemoryHome(asTab: true)
+        .mainBar()
+        .chatDestinations()
+    }
+  }
+}
+
+/** The Marketplace tab: Connect apps, skills, mods and template agents, always one tap away. */
+struct MarketplaceTab: View {
+  var body: some View {
+    NavigationStack {
+      MarketplaceView(asTab: true)
+        .mainBar()
+        .chatDestinations()
+    }
   }
 }

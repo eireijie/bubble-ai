@@ -33,6 +33,12 @@ struct ChannelView: View {
   @State private var showRun = false
   /** the first batch of messages has settled: from here a new message animates in */
   @State private var settled = false
+  /** scrolled up away from the newest message: the ↓ shows (round 11) */
+  @State private var away = false
+  @State private var jumpDown = 0
+  /** the agent's panel (board 10): how far it has slid in, while dragging and once open */
+  @State private var drag: CGFloat = 0
+  @State private var panelOpen = false
   @Environment(\.dismiss) private var dismiss
   @ReduceMotion private var reduceMotion
 
@@ -86,6 +92,12 @@ struct ChannelView: View {
       .messageArrivals(store.streaming(in: channel.id, thread: nil).map(\.id), settled: settled)
     }
     .defaultScrollAnchor(.bottom)
+    .onScrollGeometryChange(for: Bool.self) { g in
+      g.contentSize.height - (g.contentOffset.y + g.containerSize.height) > 320
+    } action: { _, now in
+      if now != away { withAnimation(.easeOut(duration: 0.15)) { away = now } }
+    }
+    .onChange(of: jumpDown) { Bottom.follow(proxy) }
     .onChange(of: list.last?.id) { Bottom.follow(proxy) }
     .onChange(of: store.liveLength) { Bottom.follow(proxy) }
     // a lazy stack measures tall rows (a long reply) only as they're laid out, so the first scroll
@@ -120,6 +132,17 @@ struct ChannelView: View {
             FirstChatExtras(channel: current)
           }
           ActivityPill(channel: current)
+          // ↓ jumps to the newest message (board 10)
+          if away && !typing {
+            Button { jumpDown += 1 } label: {
+              Image(systemName: "chevron.down").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
+                .frame(width: 38, height: 38).glassCircle()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Jump to the newest message")
+            .accessibilityIdentifier("chat-jump")
+            .transition(.opacity)
+          }
           // one pill, as on the desktop (round 10); the model is changed from the agent's profile or /model
           composer
         }
@@ -183,6 +206,16 @@ struct ChannelView: View {
       if store.openChannel == channel.id { store.openChannel = nil }
     }
     .messageActionsHost()
+    .modifier(AgentPanelHost(agent: store.dmAgent(current), drag: $drag, open: $panelOpen) {
+      if let agent = store.dmAgent(current) {
+        AgentPanel(agent: agent, channelId: channel.id, context: run.context?.fraction, close: { closePanel() }, search: { closePanel(); searching = true },
+                   access: { closePanel(); tool = .access(agent) }, contextTool: { closePanel(); tool = .context(agent) }, profile: { closePanel(); showDetails = true })
+      }
+    })
+  }
+
+  private func closePanel() {
+    withAnimation(.snappy(duration: 0.25)) { panelOpen = false; drag = 0 }
   }
 
   /** "Continue this chat" on a chat's divider: a reply to the chat's last loaded message. */
@@ -238,13 +271,14 @@ struct ChannelView: View {
   /** the top of a chat, with no bar: back on the left, the bubble centred with its name in a small pill under it, call and ... on the right */
   private var chrome: some View {
     // the right side is the ... (44) and, in a DM, the context ring (30 + 6 between)
-    let ring = store.dmAgent(current) != nil && run.context != nil
-    return TopBar(inset: 58 + (ring ? 36 : 0)) {
+    // a chat with one agent (board 10): back, then its face over its name, nothing on the right; the rest is in its panel (swipe left)
+    let dm = store.dmAgent(current) != nil
+    return TopBar(inset: 58) {
       CircleButton(symbol: "chevron.left", label: "Back", id: "chat-back") { dismiss() }
     } center: {
       Button { showDetails = true } label: {
         VStack(spacing: 4) {
-          if let agent = store.dmAgent(current) { AgentAvatar(agent: agent, size: 44, showStatus: false) }
+          if let agent = store.dmAgent(current) { AgentAvatar(agent: agent, size: 46, showStatus: false) }
           else { TeamGhosts(agents: teamAgents, seed: current.name, size: 40, iconFileId: current.settings?.iconFileId) }
           HStack(spacing: 3) {
             Text(store.title(of: current)).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
@@ -262,21 +296,9 @@ struct ChannelView: View {
       .accessibilityIdentifier("chat-title")
       .tourTarget(store.dmAgent(current) != nil ? "agent-pill" : "team-pill")
     } trailing: {
-      HStack(spacing: 6) {
-      // calling lives on the message bar's round button (empty field); the ring opens how full the conversation is,
-      // and the harness and model open only from the chip over the message bar
-      if let agent = store.dmAgent(current), let ctx = run.context { HeaderContextRing(fraction: ctx.fraction) { tool = .context(agent) } }
+      if !dm {
       Menu {
-        // the same five on every app (About, what it may do, its screen, Search in chat, Mute), each named for the page it opens
-        if let agent = store.dmAgent(current) {
-          Button("About \(agent.name)", systemImage: "info.circle") { showDetails = true }
-          Button("What it can do", systemImage: "shield") { tool = .access(agent) }
-          if let computer = agent.computerId, store.canViewComputers { Button("\(agent.name)'s computer", systemImage: "display") { screen = computer } }
-          Button("Search in chat", systemImage: "magnifyingglass") { searching = true }
-          Button(current.isMuted ? "Unmute" : "Mute", systemImage: current.isMuted ? "bell" : "bell.slash") {
-            Task { try? await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(current.isMuted ? "default" : "mute")]) }
-          }
-        } else {
+        Group {
           Menu("Notify me", systemImage: "bell") {
             Picker("Notify me", selection: Binding(get: { current.notify ?? "default" }, set: { v in Task { try? await store.setChannelPrefs(channel.id, ["notify": AnyEncodable(v)]) } })) {
               Text("Every message").tag("all")

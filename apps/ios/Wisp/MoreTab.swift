@@ -1,16 +1,14 @@
 import SwiftUI
 
 /**
- * The More tab (round 10): every place that isn't a chat. Agents and the Inbox live here now, beside
- * Memory, Tasks, Storage, Apple, Connect apps, Mods and Help. Your profile and settings are the
- * Profile tab.
+ * The More tab (round 11): the Agents list, the Inbox, Tasks and routines, Mods, Storage, Apple and
+ * Help. Memory and Marketplace are tabs of their own; you and settings open from your initials on Chats.
  */
 struct MoreTab: View {
   @Environment(Store.self) private var store
   @State private var path = NavigationPath()
   /** the page Show me around opened */
   @State private var tourPage: Tour.Place?
-  @State private var connectApps = false
 
   private var guest: Bool { store.role == "guest" }
 
@@ -41,9 +39,6 @@ struct MoreTab: View {
                 RowLabel(title: "Inbox", value: store.needsYouCount > 0 ? "\(store.needsYouCount) waiting" : nil, leading: { rowIcon("tray") })
               }
               .accessibilityIdentifier("more-inbox")
-              NavigationLink { MemoryView() } label: { RowLabel(title: "Memory", value: guest ? "Shared folder" : nil, leading: { rowIcon("book") }) }
-                .accessibilityIdentifier("you-memory")
-                .tourTarget("more-memory")
               if !guest && store.features.tasks {
                 NavigationLink { TasksView() } label: { RowLabel(title: "Tasks", leading: { rowIcon("checklist") }) }
                   .accessibilityIdentifier("you-tasks")
@@ -51,10 +46,6 @@ struct MoreTab: View {
             }
             if !guest {
               CardGroup {
-                // the same Connect apps sheet as the pill at the bottom of Chats (round 9)
-                Button { connectApps = true } label: { RowLabel(title: "Connect apps", leading: { rowIcon("powerplug") }) }
-                  .buttonStyle(.plain)
-                  .accessibilityIdentifier("you-marketplace")
                 NavigationLink { FeaturesView() } label: { RowLabel(title: "Mods", leading: { rowIcon("square.grid.2x2") }) }
                   .accessibilityIdentifier("you-mods")
                 if store.features.storage {
@@ -84,9 +75,6 @@ struct MoreTab: View {
         case .agents: AgentsScreen { path.append($0) }
         }
       }
-      .sheet(isPresented: $connectApps) { ConnectAppsSheet() }
-      .navigationDestination(isPresented: tourShows(.memory)) { MemoryView() }
-      .navigationDestination(isPresented: tourShows(.marketplace)) { MarketplaceView() }
       .navigationDestination(isPresented: tourShows(.mods)) { FeaturesView() }
       .navigationDestination(isPresented: tourShows(.inbox)) { InboxView() }
     }

@@ -50,6 +50,8 @@ struct MemoryView: View {
 /** The front page of Memory: find a note, see what changed and who changed it, and the folders. */
 struct MemoryHome: View {
   @Environment(Store.self) private var store
+  /** the Memory tab (round 11): no Back, and Import memory at the top */
+  var asTab = false
   @Environment(\.colorScheme) private var scheme
   @State private var browse = MemoryBrowse()
   @State private var query = ""
@@ -78,7 +80,7 @@ struct MemoryHome: View {
   private var canView: Bool { store.isOwner && !store.agents.isEmpty }
 
   var body: some View {
-    MemoryScreen(title: "Memory", id: "memory", trailing: {
+    MemoryScreen(title: "Memory", id: "memory", back: !asTab, trailing: {
       MoreCircle {
         Button("Refresh", systemImage: "arrow.clockwise") { action.run { try await store.connection().post("/api/vault/sync", Empty()); try await store.refreshNotes(); await browse.reload(store) } }
         Button("Graph", systemImage: "point.3.connected.trianglepath.dotted") { route = .graph }
@@ -92,6 +94,15 @@ struct MemoryHome: View {
       InlineError(error: action.error).padding(.horizontal, 4)
       MemorySearchField(prompt: "Search every note…", text: $query, id: "memory-search")
         .tourTarget("memory-search")
+      if query.isEmpty && store.role != "guest" {
+        CardGroup {
+          NavigationLink { ImportMemoryView() } label: {
+            RowLabel(title: "Import memory", subtitle: "Bring what ChatGPT knows about you", leading: { rowIcon("square.and.arrow.down") })
+          }
+          .buttonStyle(.plain)
+          .accessibilityIdentifier("memory-import")
+        }
+      }
       if canView && viewingAgent == nil {
         Button { picking = true } label: {
           HStack(spacing: 8) {

@@ -118,6 +118,9 @@ struct AddAgent: View {
   @State private var placement: ComputerSettings?
   @State private var loaded = false
   @State private var action = FormAction()
+  /** the full form (where it runs, harness, model, templates, more): the one sheet is a bubble, a name and a colour */
+  @State private var full = false
+  @FocusState private var naming: Bool
 
   private var handleTaken: Bool { store.agents.contains { $0.handle == draft.finalHandle() } }
   private var valid: Bool {
@@ -147,6 +150,89 @@ struct AddAgent: View {
 
   var body: some View {
     NavigationStack {
+      Group {
+        if full { fullForm } else { oneSheet }
+      }
+      .sheet(isPresented: $editingLook) { LookEditor(look: $draft.look, name: draft.name, seed: draft.look.color) }
+      .alert("Couldn't create it", isPresented: Binding(get: { action.error != nil }, set: { if !$0 { action.error = nil } })) {
+        Button("OK") { action.error = nil }
+      } message: { Text(action.error ?? "") }
+    }
+    .agentSheet()
+    .interactiveDismissDisabled(action.busy)
+    .task {
+      guard !loaded else { return }
+      await store.refreshAgentDefaults()
+      try? await store.refreshManagement()
+      await store.refreshComputers()
+      try? await store.refreshSkills()
+      try? await store.refreshConnectors()
+      placement = try? await store.computerSettings()
+      draft.nodeId = firstNode
+      draft.harness = store.agentDefaults?.harness ?? AddAgent.preferredHarness(store, node: firstNode) ?? "claude-code"
+      draft.model = store.agentDefaults?.model ?? ""
+      draft.place = AgentPlace.initial(node: node, defaults: store.agentDefaults, computers: store.computers)
+      loaded = true
+    }
+  }
+
+  /**
+   * Round 11 (board 12): making an agent takes five seconds. Its bubble, a name, one of twelve
+   * colours, Create; it says hello and does the rest of the setup in chat. Everything else is under
+   * More options, the full form.
+   */
+  private var oneSheet: some View {
+    AgentFrame(title: "New agent", close: true, scrolls: false) {
+      ScrollView {
+        VStack(spacing: 20) {
+          GhostView(look: draft.look, seed: draft.look.color, size: 118, interactive: true)
+            .frame(width: 118, height: 118).padding(.top, 22).accessibilityHidden(true)
+          TextField("Name your agent", text: $draft.name)
+            .focused($naming)
+            .font(.system(size: 17)).foregroundStyle(Palette.text).multilineTextAlignment(.center)
+            .textInputAutocapitalization(.words).autocorrectionDisabled().submitLabel(.done)
+            .onSubmit { if valid { create() } }
+            .padding(.horizontal, 16).frame(height: 50)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Palette.card))
+            .accessibilityLabel("Name").accessibilityIdentifier("new-name")
+          if handleTaken { AgentError(text: "@\(draft.finalHandle()) is taken. Pick another name.") }
+          LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 10) {
+            ForEach(BubbleLookPage.swatches, id: \.hex) { c in
+              let on = c.hex.lowercased() == draft.look.color.lowercased()
+              Button { draft.look.color = c.hex; draft.look.color2 = nil } label: {
+                Circle().fill(Color(hex: c.hex)).frame(width: 32, height: 32)
+                  .overlay { if on { Circle().stroke(Palette.text, lineWidth: 2).padding(-4) } }
+                  .frame(width: 44, height: 44).contentShape(Circle())
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel(c.name)
+              .accessibilityAddTraits(on ? .isSelected : [])
+              .accessibilityIdentifier("new-colour-\(c.name.lowercased())")
+            }
+          }
+          HStack(spacing: 5) {
+            Text("Or").foregroundStyle(Palette.faint)
+            Button { editingLook = true } label: { Text("change its shape").underline() }.accessibilityIdentifier("new-look")
+            Text("·").foregroundStyle(Palette.faint)
+            Button { naming = false; full = true } label: { Text("more options").underline() }.accessibilityIdentifier("new-full")
+          }
+          .font(.system(size: 14)).foregroundStyle(Palette.muted).buttonStyle(.plain)
+        }
+        .padding(.horizontal, 30)
+      }
+      .scrollDismissesKeyboard(.interactively)
+      Button { create() } label: {
+        Text(action.busy ? "Creating…" : "Create").font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.sheet)
+          .frame(maxWidth: .infinity).frame(height: 52).background(Capsule().fill(Palette.text))
+      }
+      .buttonStyle(.press).disabled(!valid || action.busy).opacity(!valid || action.busy ? 0.4 : 1)
+      .padding(.horizontal, 30).padding(.bottom, 14)
+      .accessibilityLabel("Create agent").accessibilityIdentifier("new-create")
+    }
+  }
+
+  /** Everything: where it runs, what it thinks with, templates, who can ask it, More options. */
+  private var fullForm: some View {
       AgentFrame(title: "New agent", close: true, trailing: {
         Button { create() } label: {
           Text(action.busy ? "Creating" : "Create").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
@@ -209,27 +295,6 @@ struct AddAgent: View {
           }
         }
       }
-      .sheet(isPresented: $editingLook) { LookEditor(look: $draft.look, name: draft.name, seed: draft.look.color) }
-      .alert("Couldn't create it", isPresented: Binding(get: { action.error != nil }, set: { if !$0 { action.error = nil } })) {
-        Button("OK") { action.error = nil }
-      } message: { Text(action.error ?? "") }
-    }
-    .agentSheet()
-    .interactiveDismissDisabled(action.busy)
-    .task {
-      guard !loaded else { return }
-      await store.refreshAgentDefaults()
-      try? await store.refreshManagement()
-      await store.refreshComputers()
-      try? await store.refreshSkills()
-      try? await store.refreshConnectors()
-      placement = try? await store.computerSettings()
-      draft.nodeId = firstNode
-      draft.harness = store.agentDefaults?.harness ?? AddAgent.preferredHarness(store, node: firstNode) ?? "claude-code"
-      draft.model = store.agentDefaults?.model ?? ""
-      draft.place = AgentPlace.initial(node: node, defaults: store.agentDefaults, computers: store.computers)
-      loaded = true
-    }
   }
 
   // MARK: where it runs

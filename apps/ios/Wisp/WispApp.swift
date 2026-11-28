@@ -127,13 +127,15 @@ struct LaunchSplash: View {
   }
 }
 
-/** The four places on the bottom bar (MainBar.swift): Chats, Computers (hidden for guests), More and Profile. */
-enum MainTab: Int, CaseIterable { case chats, computers, more, profile }
+/** The five places on the bottom bar (MainBar.swift, round 11): Chats, Computers (hidden for guests), Memory, Marketplace and More. */
+enum MainTab: Int, CaseIterable { case chats, computers, memory, marketplace, more }
 
 struct MainTabs: View {
   @Environment(Store.self) private var store
   @State private var bar = MainBarModel()
   @State private var orgs = false
+  /** You and settings (round 11): a sheet from your initials at the top of Chats */
+  @State private var settings = false
   /** the first run, over everything, when nobody has made an agent on this Bubble AI yet */
   @State private var onboarding: String?
   /** tabs opened so far: each is built on its first visit and then kept, so it stays where you left it */
@@ -154,10 +156,11 @@ struct MainTabs: View {
     .environment(bar)
     .tint(Palette.accent)
     .onChange(of: bar.tab, initial: true) { _, t in visited.insert(t) }
-    .environment(\.openSettings, SheetOpener(open: { bar.tab = .profile }))
+    .environment(\.openSettings, SheetOpener(open: { settings = true }))
     .environment(\.openOrganizations, SheetOpener(open: { orgs = true }))
     .overlay(alignment: .top) { AppBanners() }
     .sheet(isPresented: $orgs) { OrgSwitcherSheet().environment(store) }
+    .sheet(isPresented: $settings) { SettingsSheet().environment(store).environment(bar) }
     .fullScreenCover(item: Binding(get: { onboarding.map(OnboardingRun.init) }, set: { onboarding = $0?.id })) { run in
       OnboardingFlow(workspaceId: run.id) { channelId in
         onboarding = nil
@@ -174,6 +177,7 @@ struct MainTabs: View {
     .onChange(of: TourRun.shared.nav) {
       guard TourRun.shared.active, let place = TourRun.shared.place else { return }
       if place.tab != .computers || store.canViewComputers { bar.tab = place.tab }
+      settings = place.inSettings
       orgs = false
     }
     .onChange(of: store.canViewComputers) { _, allowed in
@@ -182,7 +186,7 @@ struct MainTabs: View {
     .onChange(of: store.unreadTotal, initial: true) { store.updateBadge() }
     // a tapped notification: go to its tab; the tab's own screen opens the chat, computer or approval
     .onChange(of: store.route, initial: true) { _, route in
-      if route != nil { orgs = false }
+      if route != nil { orgs = false; settings = false }
       guard let route else { return }
       if route.tab == .computers && !store.canViewComputers { store.route = nil; return }
       bar.tab = route.tab
@@ -193,8 +197,9 @@ struct MainTabs: View {
     switch t {
     case .chats: ChatsView()
     case .computers: if store.canViewComputers { ComputersView() }
+    case .memory: MemoryTab()
+    case .marketplace: MarketplaceTab()
     case .more: MoreTab()
-    case .profile: SettingsSheet(inTab: true)
     }
   }
 }
