@@ -12,7 +12,7 @@ export { changeHarnessSettings, editClaude, editCodex, editHermes, HARNESS_SPECS
 export { RunFiles, commandVersion, execCommand, runJsonl, spawnCommand, stopProcess } from "./process.ts";
 export { claudeCode, claudeArgs, claudeEnv, claudeMcpConfig, claudePlan, claudeUsage, parseClaudeLine } from "./claude-code.ts";
 export { codex, codexArgs, codexConfiguredServers, codexConnectionArgs, codexIsolation, codexDefaults, codexEnv, codexMcpConfig, codexPlan, codexTokens, codexUsageFromRollout, parseCodexCatalog, parseCodexLine, runCodexHome } from "./codex.ts";
-export { codexAuthFromHermes, hermesEntryFromCodex, localCredentialFs, prepareCredential, type CredentialFs, type CredentialPlaces, type PreparedCredential } from "./credentials.ts";
+export { codexAuthFromHermes, connectHermesHome, hermesEntryFromCodex, hermesHasModel, localCredentialFs, prepareCredential, type CredentialFs, type CredentialPlaces, type PreparedCredential } from "./credentials.ts";
 export { AcpConnection, acpAdapter, acpIsolationArgs, acpCommands, acpUsage, acpMcpServers, acpModels, parseAcpUpdate, permissionOutcome } from "./acp.ts";
 
 /**

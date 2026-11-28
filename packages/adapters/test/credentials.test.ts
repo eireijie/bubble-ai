@@ -220,3 +220,50 @@ describe("plan usage harnesses report", () => {
     expect(setupTokenFrom("Paste code here if prompted >")).toBeNull();
   });
 });
+
+describe("connecting Hermes's own model after Bubble AI installs it", () => {
+  // what Hermes's installer writes (cli-config.yaml.example at v2026.9.24, trimmed)
+  const template = 'model:\n  # Default model to use\n  default: "anthropic/claude-opus-4.6"\n\n  provider: "auto"\n\n  base_url: "https://openrouter.ai/api/v1"\n\nterminal:\n  backend: local\n';
+
+  it("puts the connection in its config.yaml and .env, and drops the template's OpenRouter address", async () => {
+    const { connectHermesHome, hermesHasModel } = await import("../src/credentials.ts");
+    const home = await base("hermes-fresh", { "config.yaml": template, ".env": "# keys\nOPENROUTER_API_KEY=\n" });
+    expect(await hermesHasModel(home)).toBe(false);
+    await connectHermesHome(home, { ...cred("anthropic", "key", { key: "sk-ant-api-9" }), model: "claude-sonnet-5-5" });
+    const config = await read(path.join(home, "config.yaml"));
+    expect(config).toMatch(/provider: anthropic/);
+    expect(config).toMatch(/default: "?claude-sonnet-5-5"?/);
+    expect(config).not.toMatch(/base_url/);
+    expect(config).toMatch(/terminal:\n  backend: local/);
+    expect(await read(path.join(home, ".env"))).toBe("# keys\nANTHROPIC_API_KEY=sk-ant-api-9\n");
+    expect((await fs.stat(path.join(home, ".env"))).mode & 0o777).toBe(0o600);
+    // now it has one, so a second install leaves it alone
+    expect(await hermesHasModel(home)).toBe(true);
+  });
+
+  it("keeps OpenRouter's address for an OpenRouter key", async () => {
+    const { connectHermesHome } = await import("../src/credentials.ts");
+    const home = await base("hermes-or", { "config.yaml": template });
+    await connectHermesHome(home, cred("openrouter", "key", { key: "sk-or-v1-abc" }));
+    const config = await read(path.join(home, "config.yaml"));
+    expect(config).toMatch(/provider: openrouter/);
+    expect(config).toMatch(/base_url: "https:\/\/openrouter.ai\/api\/v1"/);
+  });
+
+  it("counts a model someone set up themselves, and never takes a sign-in Hermes would renew", async () => {
+    const { connectHermesHome, hermesHasModel } = await import("../src/credentials.ts");
+    expect(await hermesHasModel(await base("hermes-own", { "config.yaml": "model:\n  provider: nous\n" }))).toBe(true);
+    expect(await hermesHasModel(await base("hermes-login", { "config.yaml": template, "auth.json": '{"active_provider":"nous"}' }))).toBe(true);
+    expect(await hermesHasModel(await base("hermes-none", {}))).toBe(false);
+    await expect(connectHermesHome(await base("hermes-rot", { "config.yaml": template }), cred("openai", "oauth", { auth: chatgpt("r1") }))).rejects.toThrow(/renews/);
+  });
+});
+
+describe("a harness's version, as one short line", () => {
+  it("drops the build details Hermes adds after ' · '", async () => {
+    const { versionLine } = await import("../src/process.ts");
+    expect(versionLine("Hermes Agent v0.21.5 (2026.9.24) · upstream d71a6574 · local f97608f1 (+41514 carried commits)\nInstall directory: /x")).toBe("Hermes Agent v0.21.5 (2026.9.24)");
+    expect(versionLine("codex-cli 0.172.0\n")).toBe("codex-cli 0.172.0");
+    expect(versionLine("  \n")).toBeNull();
+  });
+});
