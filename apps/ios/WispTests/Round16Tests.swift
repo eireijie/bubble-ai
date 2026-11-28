@@ -61,7 +61,7 @@ final class Round16Tests: XCTestCase {
 
   func testRunsOnMovesAnAgent() throws {
     let n = try nodes()
-    let screen = try decode(Computer.self, ##"{"id":"c9","name":"Office PC","kind":"device","nodeId":"n2","status":"ready"}"##)
+    let screen = try decode(Computer.self, ##"{"id":"c9","name":"Office PC","kind":"device","nodeId":"n2","status":"ready","statusText":"Ready"}"##)
     let toShared = try XCTUnwrap(RunsOn.patch(.shared, sharedComputerId: "c1", computers: [], nodes: n))
     XCTAssertEqual(json(toShared["computerId"]), "\"c1\"")
     XCTAssertNil(RunsOn.patch(.shared, sharedComputerId: nil, computers: [], nodes: n))

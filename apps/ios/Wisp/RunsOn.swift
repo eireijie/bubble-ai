@@ -73,23 +73,25 @@ struct RunsOnRow: View {
   @Environment(Store.self) private var store
   var selection: RunsOn?
   var id = "runs-on"
+  /** a plain list (All settings) has no icons */
+  var icon = true
   var pick: (RunsOn) -> Void
 
   var body: some View {
-    let options = RunsOn.options(nodes: store.nodes)
     Menu {
-      ForEach(options) { o in
+      ForEach(RunsOn.options(nodes: store.nodes)) { o in
+        // a menu row: its name, the line under it, and a check on the one it runs on
         Button { pick(o.choice) } label: {
-          Label {
-            Text(o.title)
-            Text(o.line)
-          } icon: { Image(systemName: o.choice == selection ? "checkmark" : o.symbol) }
+          Text(o.title)
+          Text(o.line)
+          Image(systemName: o.choice == selection ? "checkmark" : o.symbol)
         }
         .disabled(!o.enabled)
       }
     } label: {
-      RowLabel(title: "Runs on", value: RunsOn.title(selection, nodes: store.nodes) ?? "Pick", leading: { rowIcon("cpu") })
+      RowLabel(title: "Runs on", value: RunsOn.title(selection, nodes: store.nodes) ?? "Pick", leading: { if icon { rowIcon("cpu") } })
     }
+    .menuOrder(.fixed)
     .accessibilityIdentifier(id)
   }
 }
@@ -100,10 +102,11 @@ struct AgentRunsOnRow: View {
   var agent: Agent
   /** the list's own: its error line shows under the list */
   var action: FormAction
+  var icon = true
   @State private var sharedId: String?
 
   var body: some View {
-    RunsOnRow(selection: RunsOn.current(agent, sharedComputerId: sharedId), id: "agent-runs-on") { choice in
+    RunsOnRow(selection: RunsOn.current(agent, sharedComputerId: sharedId), id: "agent-runs-on", icon: icon) { choice in
       action.run {
         var shared = sharedId
         if choice == .shared, shared == nil, store.isOwner {

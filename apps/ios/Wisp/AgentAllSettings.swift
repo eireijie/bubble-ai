@@ -65,7 +65,7 @@ struct AgentAllSettings: View {
         NavigationLink { HarnessPicker(agent: current, info: run).task { if let dm = dmChannel { await run.load(store, agent: current, channel: dm.id, thread: nil) } } } label: {
           RowLabel(title: "Harness", value: HarnessChoice.label(current.harness))
         }.buttonStyle(.plain).accessibilityIdentifier("all-harness")
-        if manage { AgentRunsOnRow(agent: current, action: action) }
+        if manage { AgentRunsOnRow(agent: current, action: action, icon: false) }
         if store.canViewComputers {
           link("Computer", id: "all-computer", value: AgentLine.computer(agent: current, computer: computer, device: device)) { AgentComputerView(agent: current) }
         }
@@ -116,7 +116,7 @@ struct AgentAllSettings: View {
         }
       }
     } label: {
-      RowLabel(title: n.name, value: label, leading: { rowIcon(n.capabilities?.platform == "darwin" ? "laptopcomputer" : "desktopcomputer") })
+      RowLabel(title: n.name, value: label)
     }
     .disabled(action.busy)
     .accessibilityIdentifier("all-use-\(n.id)")

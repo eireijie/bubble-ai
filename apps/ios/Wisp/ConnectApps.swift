@@ -294,9 +294,10 @@ struct ConnectCard: View {
           HStack(spacing: 6) { name(a); if a.recommended == true { RecommendedMark() } }
           VStack(alignment: .leading, spacing: 2) { name(a); if a.recommended == true { RecommendedMark() } }
         }
-        if empty, let hub {
-          Text("Connected\(hub.forAll ? " · all agents" : "")").font(.system(size: 13)).foregroundStyle(Palette.muted)
-          Text("No apps picked yet").font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.text)
+        if empty {
+          // connected, but it reaches nothing until apps are picked on Composio's own page
+          Text("No apps picked yet").font(.system(size: 13)).foregroundStyle(Palette.muted)
+            .fixedSize(horizontal: false, vertical: true)
         } else {
           Text(failed ?? a.why).font(.system(size: 13)).foregroundStyle(failed == nil ? Palette.muted : Palette.red)
             .fixedSize(horizontal: false, vertical: true)
