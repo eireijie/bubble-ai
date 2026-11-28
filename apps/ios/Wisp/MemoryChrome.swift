@@ -22,13 +22,15 @@ struct MemoryScreen<Trailing: View, Content: View>: View {
   /** an X instead of the back chevron (pages that open over others) */
   var close = false
   var scrolls = true
+  /** false on the Memory tab's first page, which has nothing to go back to (round 11) */
+  var back = true
   @ViewBuilder var trailing: Trailing
   @ViewBuilder var content: Content
 
   var body: some View {
     VStack(spacing: 0) {
       TopBar(
-        leading: { CircleButton(symbol: close ? "xmark" : "chevron.left", label: close ? "Close" : "Back", id: "memory-back") { dismiss() } },
+        leading: { if back { CircleButton(symbol: close ? "xmark" : "chevron.left", label: close ? "Close" : "Back", id: "memory-back") { dismiss() } } },
         center: { MemoryPill(title: title) },
         trailing: { trailing })
       if scrolls {

@@ -106,7 +106,7 @@ struct HandBackSheet: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      SheetHeader(title: "Hand back to \(agentName)") { dismiss() }
+      SheetHeader(title: "Give back to \(agentName)") { dismiss() }
       VStack(alignment: .leading, spacing: 14) {
         Text("\(agentName) picks up where you left off. Tell it what you changed so it does not redo or undo it.").font(.system(size: 15)).foregroundStyle(Palette.muted)
         CardCaption("What you did (optional)")
@@ -114,7 +114,7 @@ struct HandBackSheet: View {
           .padding(14).background(Palette.card, in: RoundedRectangle(cornerRadius: Corner.card, style: .continuous))
     .overlay(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).strokeBorder(Palette.cardBorder))
           .accessibilityIdentifier("hand-back-note")
-        Button { onHandBack(note); dismiss() } label: { Text("Hand back").frame(maxWidth: .infinity) }.primaryButton().accessibilityIdentifier("hand-back-go")
+        Button { onHandBack(note); dismiss() } label: { Text("Give back").frame(maxWidth: .infinity) }.primaryButton().accessibilityIdentifier("hand-back-go")
         Button { dismiss() } label: { Text("Keep control").frame(maxWidth: .infinity) }.secondaryButton()
         Spacer(minLength: 0)
       }.padding(.horizontal, 18).padding(.top, 8)

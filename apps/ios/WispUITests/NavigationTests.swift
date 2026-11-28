@@ -20,7 +20,8 @@ final class NavigationTests: XCTestCase {
     app.launch()
 
     XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 30))
-    for id in ["tab-chats", "tab-computers", "tab-more", "tab-profile"] { XCTAssertTrue(app.buttons[id].exists, id) }
+    for id in ["tab-chats", "tab-computers", "tab-memory", "tab-marketplace", "tab-more", "home-initials"] { XCTAssertTrue(app.buttons[id].exists, id) }
+    XCTAssertFalse(app.buttons["tab-profile"].exists, "Profile is a sheet from your initials")
     XCTAssertFalse(app.buttons["tab-you"].exists, "The You tab is gone")
     settle(); shot("home")
 
@@ -28,7 +29,7 @@ final class NavigationTests: XCTestCase {
     app.buttons["new-menu"].tap()
     XCTAssertTrue(app.buttons["New chat"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.buttons["New team"].exists)
-    XCTAssertTrue(app.buttons["New section"].exists)
+    XCTAssertTrue(app.buttons["New agent"].exists || app.buttons["Browse teams"].exists)
     settle(); shot("new-menu")
     app.buttons["New chat"].tap()
     settle(); shot("new-chat")
@@ -41,11 +42,11 @@ final class NavigationTests: XCTestCase {
     app.buttons["tab-computers"].tap(); settle()
     app.buttons["tab-chats"].tap(); settle()
 
-    // settings sheet from the avatar
-    app.buttons["tab-profile"].tap()
+    // settings sheet from your initials
+    app.buttons["home-initials"].tap()
     XCTAssertTrue(app.buttons["you-settings"].waitForExistence(timeout: 5))
     settle(); shot("settings")
-    app.buttons["you-organizations"].tap()
+    app.buttons["you-workspaces"].tap()
     XCTAssertTrue(app.buttons["org-new"].waitForExistence(timeout: 5))
     settle(); shot("organizations")
     app.buttons["Close"].firstMatch.tap(); settle()

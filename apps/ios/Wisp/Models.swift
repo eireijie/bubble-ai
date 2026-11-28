@@ -58,6 +58,8 @@ struct GhostLook: Codable, Hashable {
   var bubble: String? = nil
   /** true once eyes, mouth, hat, wear and motion were picked for the bubble (web PR 132); unset looks show plain eyes and nothing worn */
   var parts: Bool? = nil
+  /** a photo shown instead of the bubble (a hub file, /api/files/<id>; round 11 board 12) */
+  var photo: String? = nil
   /** fields this version doesn't know, kept as they came so saving never drops them */
   var extra: [String: JSONAny] = [:]
 }
@@ -70,14 +72,14 @@ extension GhostLook {
     init?(stringValue: String) { self.stringValue = stringValue }
     init?(intValue: Int) { nil }
   }
-  private static let known: Set<String> = ["color", "color2", "eyes", "mouth", "cheeks", "shape", "glow", "hat", "accessory", "motion", "bubble", "parts"]
+  private static let known: Set<String> = ["color", "color2", "eyes", "mouth", "cheeks", "shape", "glow", "hat", "accessory", "motion", "bubble", "parts", "photo"]
 
   init(from decoder: Decoder) throws {
     let c = try decoder.container(keyedBy: Key.self)
     func s(_ k: String) -> String? { try? c.decodeIfPresent(String.self, forKey: Key(k)) }
     func b(_ k: String) -> Bool? { try? c.decodeIfPresent(Bool.self, forKey: Key(k)) }
     self.init(color: s("color") ?? "#f4f1ff", color2: s("color2"), eyes: s("eyes"), mouth: s("mouth"), cheeks: b("cheeks"), shape: s("shape"),
-              glow: b("glow"), hat: s("hat"), accessory: s("accessory"), motion: s("motion"), bubble: s("bubble"), parts: b("parts"))
+              glow: b("glow"), hat: s("hat"), accessory: s("accessory"), motion: s("motion"), bubble: s("bubble"), parts: b("parts"), photo: s("photo"))
     for key in c.allKeys where !Self.known.contains(key.stringValue) {
       if let v = try? c.decode(JSONAny.self, forKey: key) { extra[key.stringValue] = v }
     }
@@ -97,6 +99,7 @@ extension GhostLook {
     try c.encodeIfPresent(motion, forKey: Key("motion"))
     try c.encodeIfPresent(bubble, forKey: Key("bubble"))
     try c.encodeIfPresent(parts, forKey: Key("parts"))
+    try c.encodeIfPresent(photo, forKey: Key("photo"))
     for (k, v) in extra where !Self.known.contains(k) { try c.encode(v, forKey: Key(k)) }
   }
 }

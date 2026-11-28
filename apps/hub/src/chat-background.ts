@@ -22,7 +22,11 @@ export function backgroundFileIds(store: Store, workspaceId: string): Set<string
   const ids = new Set<string>();
   const add = (bg: ChatBackground | undefined) => bg?.kind === "photo" && ids.add(bg.url.slice("/api/files/".length));
   for (const m of store.members(workspaceId)) add(store.prefs(m.id).background);
-  for (const a of store.agents(workspaceId)) add(a.settings.background);
+  for (const a of store.agents(workspaceId)) {
+    add(a.settings.background);
+    const face = a.settings.appearance?.photo;
+    if (face) ids.add(face.slice("/api/files/".length));
+  }
   return ids;
 }
 
@@ -38,4 +42,12 @@ export function backgroundProblem(store: Store, workspaceId: string, bg: ChatBac
   if (f.channelId) return "background: upload the photo on its own, not into a chat";
   if (!BACKGROUND_IMAGE.test(f.mime)) return "background: pick a photo (PNG, JPEG, GIF, WebP, AVIF or BMP)";
   return null;
+}
+
+/**
+ * Why this photo can't be an agent's face (its bubble look's "Photo", board 12), or null when it can.
+ * The same rules as a chat background: an image uploaded here on its own, not into a chat.
+ */
+export function lookPhotoProblem(store: Store, workspaceId: string, url: string): string | null {
+  return backgroundProblem(store, workspaceId, { kind: "photo", url })?.replace(/^background:/, "appearance.photo:") ?? null;
 }

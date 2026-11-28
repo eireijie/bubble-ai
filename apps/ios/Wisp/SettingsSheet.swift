@@ -21,79 +21,99 @@ extension EnvironmentValues {
 }
 
 /**
- * You, opened from your avatar: your profile and organization, the agent rules, notifications and
- * appearance, and sign out, with the full settings list one row away. Features are in More.
+ * You and settings (round 11, board 14): one sheet from your initials. Your profile and this week's
+ * use at the top, then apps, computers and devices, what your agents get (Import memory, Passwords,
+ * the rules), notifications and appearance; the workspace, Help, Mods and Sign out further down.
  */
 struct SettingsSheet: View {
   @Environment(Store.self) private var store
+  @Environment(MainBarModel.self) private var bar: MainBarModel?
   @Environment(\.dismiss) private var dismiss
   @AppStorage(ThemeSettings.themeKey, store: WispPreferences.standard) private var theme = "mono"
   @Environment(\.openURL) private var openURL
   @State private var confirmSignOut = false
   @State private var orgs = false
+  @State private var connectApps = false
   @State private var policyAction = FormAction()
   /** the page Show me around opened */
   @State private var tourPage: Tour.Place?
-  /** the Profile tab (round 10): a title instead of the sheet's close button, and the bottom bar */
-  var inTab = false
 
   private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "" }
+  private var guest: Bool { store.role == "guest" }
 
   var body: some View {
     NavigationStack {
       VStack(spacing: 0) {
-        if inTab {
-          TopBar {
-            EmptyView()
-          } center: {
-            Text("Profile").font(.system(size: 20, weight: .bold)).foregroundStyle(Palette.text).accessibilityAddTraits(.isHeader)
-          } trailing: {
-            EmptyView()
-          }
-        } else {
-          SheetHeader { dismiss() }
-        }
+        SheetHeader { dismiss() }
         ScrollViewReader { scroller in
         ScrollView {
           VStack(spacing: 14) {
             primary
-            LearnWispCard().id("learn-row")
-            if store.role == "guest" {
+            if guest {
               guestNote
-            }
-            if store.canManage {
-              CardCaption("Agents")
+            } else {
               CardGroup {
-                if store.isOwner {
-                  ToggleRow(title: "Ask before risky actions", subtitle: "Shell, apps and computer use", symbol: "shield", isOn: askBefore, id: "you-ask-before")
-                    .disabled(policyAction.busy)
-                } else {
-                  NavigationLink { AgentPolicyView() } label: { RowLabel(title: "Ask before risky actions", subtitle: "Shell, apps and computer use", leading: { rowIcon("shield") }) }
-                    .accessibilityIdentifier("you-ask-before")
+                Button { connectApps = true } label: {
+                  RowLabel(title: "Connect apps", value: connected > 0 ? "\(connected)" : nil, leading: { rowIcon("square.grid.2x2") })
                 }
-                NavigationLink { AgentDefaultsView() } label: { RowLabel(title: "Agent defaults", value: store.agentDefaults?.model ?? "Each harness", leading: { rowIcon("cpu") }) }
-                  .accessibilityIdentifier("settings-agent-defaults")
+                .buttonStyle(.plain).accessibilityIdentifier("you-marketplace")
+                if store.canViewComputers {
+                  Button { go(.computers) } label: { RowLabel(title: "Computers", value: store.computers.isEmpty ? nil : "\(store.computers.count)", leading: { rowIcon("desktopcomputer") }) }
+                    .buttonStyle(.plain).accessibilityIdentifier("you-computers")
+                  Button { go(.computers) } label: { RowLabel(title: "Devices", value: store.nodes.isEmpty ? nil : "\(store.nodes.count)", leading: { rowIcon("hand.point.up.left") }) }
+                    .buttonStyle(.plain).accessibilityIdentifier("you-devices")
+                }
+              }
+              CardCaption("Your agents")
+              CardGroup {
+                NavigationLink { ImportMemoryView() } label: {
+                  RowLabel(title: "Import memory", subtitle: "Bring what ChatGPT knows about you", leading: { rowIcon("square.and.arrow.down") })
+                }.accessibilityIdentifier("you-import-memory")
+                NavigationLink { LoginsView() } label: {
+                  RowLabel(title: "Passwords", subtitle: "From your password manager", leading: { rowIcon("key") })
+                }.accessibilityIdentifier("you-passwords")
+                NavigationLink { AboutYouView() } label: { RowLabel(title: "About you", subtitle: "What your agents know about you", leading: { rowIcon("brain") }) }
+                  .accessibilityIdentifier("you-about")
+                if store.canManage {
+                  if store.isOwner {
+                    ToggleRow(title: "Ask before risky actions", subtitle: "Shell, apps and computer use", symbol: "shield", isOn: askBefore, id: "you-ask-before")
+                      .disabled(policyAction.busy)
+                  } else {
+                    NavigationLink { AgentPolicyView() } label: { RowLabel(title: "Ask before risky actions", subtitle: "Shell, apps and computer use", leading: { rowIcon("shield") }) }
+                      .accessibilityIdentifier("you-ask-before")
+                  }
+                  NavigationLink { AgentDefaultsView() } label: { RowLabel(title: "Agent defaults", value: store.agentDefaults?.model ?? "Each harness", leading: { rowIcon("cpu") }) }
+                    .accessibilityIdentifier("settings-agent-defaults")
+                }
               }
             }
             CardGroup {
               ToggleRow(title: "Notifications", symbol: "bell", isOn: notifications, id: "you-notifications")
                 .tourTarget("notifications")
-              NavigationLink { AppearanceSettingsView() } label: { RowLabel(title: "Appearance", value: themeName, leading: { rowIcon("paintpalette") }) }
+              NavigationLink { AppearanceSettingsView() } label: { RowLabel(title: "Appearance", value: themeName, leading: { rowIcon("moon") }) }
                 .accessibilityIdentifier("settings-appearance")
-              if store.role != "guest" {
-                NavigationLink { NativeSettingsView() } label: { RowLabel(title: "All settings", leading: { rowIcon("gearshape") }) }.accessibilityIdentifier("you-settings")
-              } else {
-                NavigationLink { NativeSettingsView() } label: { RowLabel(title: "Settings", leading: { rowIcon("gearshape") }) }.accessibilityIdentifier("you-settings")
-              }
             }
             .id("notifications")
+            LearnWispCard().id("learn-row")
+            CardGroup {
+              if !guest {
+                Button { orgs = true } label: { RowLabel(title: "Workspace", value: store.workspace?.name, leading: { rowIcon("building.2") }) }
+                  .buttonStyle(.plain).accessibilityIdentifier("you-workspaces")
+                NavigationLink { FeaturesView() } label: { RowLabel(title: "Mods", leading: { rowIcon("puzzlepiece") }) }
+                  .accessibilityIdentifier("settings-mods")
+              }
+              NavigationLink { HelpView() } label: { RowLabel(title: "Help", leading: { rowIcon("lifepreserver") }) }
+                .accessibilityIdentifier("settings-help")
+              NavigationLink { NativeSettingsView() } label: { RowLabel(title: guest ? "Settings" : "All settings", leading: { rowIcon("gearshape") }) }
+                .accessibilityIdentifier("you-settings")
+            }
             CardGroup {
               Button { confirmSignOut = true } label: { RowLabel(title: "Sign out", chevron: false, tint: Palette.red) }
                 .buttonStyle(.plain).accessibilityIdentifier("you-sign-out")
             }
             footer
           }
-          .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 30)
+          .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 30)
         }
         // Show me around: bring the row the stop points at into the middle of the screen
         .task(id: TourRun.shared.run?.i) {
@@ -106,7 +126,6 @@ struct SettingsSheet: View {
       }
       .background(Palette.sheet.ignoresSafeArea())
       .toolbar(.hidden, for: .navigationBar)
-      .modifier(MainBarIf(on: inTab))
       .chatDestinations()
       .navigationDestination(isPresented: tourShows(.usage)) { UsageView() }
       .navigationDestination(isPresented: tourShows(.ai)) { HarnessesView() }
@@ -120,11 +139,52 @@ struct SettingsSheet: View {
     .presentationCornerRadius(Corner.sheet)
     .presentationDragIndicator(.hidden)
     .sheet(isPresented: $orgs) { OrgSwitcherSheet().environment(store) }
+    .sheet(isPresented: $connectApps) { ConnectAppsSheet() }
     .confirmCard($confirmSignOut, title: "Sign out of Bubble AI on this iPhone?", message: "Your agents keep working. To come back, scan the QR code in Bubble AI on your computer.", confirm: "Sign out") {
       dismiss(); store.signOut()
     }
     .managementAlert(policyAction)
-    .task { try? await store.refreshAgentPolicy(); await store.refreshAgentDefaults(); await store.setUpPush() }
+    .task {
+      try? await store.refreshAgentPolicy(); await store.refreshAgentDefaults(); await store.setUpPush()
+      if !guest { try? await store.refreshAllowance(); try? await store.refreshConnectors() }
+    }
+  }
+
+  private var connected: Int { store.connectors.count }
+
+  /** a place that's a tab (Computers): close the sheet and go there */
+  private func go(_ tab: MainTab) {
+    bar?.tab = tab
+    dismiss()
+  }
+
+  /** "Usage today": the share of the daily limit, or the tokens when there's no limit */
+  @ViewBuilder private var usageRow: some View {
+    let a = store.allowance
+    let share: Double? = a.flatMap { a in a.dailyTokens.map { $0 > 0 ? min(1, Double(a.todayTokens) / Double($0)) : 0 } }
+    NavigationLink { UsageView() } label: {
+      VStack(alignment: .leading, spacing: 8) {
+        HStack {
+          Text("Usage today").font(.system(size: 15)).foregroundStyle(Palette.text)
+          Spacer()
+          if let share { Text("\(Int((share * 100).rounded()))%").font(.system(size: 15)).foregroundStyle(Palette.faint) }
+          else if let a { Text(UsageFormat.compact(a.todayTokens)).font(.system(size: 15)).foregroundStyle(Palette.faint) }
+        }
+        if let share {
+          GeometryReader { g in
+            ZStack(alignment: .leading) {
+              Capsule().fill(Palette.text.opacity(0.12))
+              Capsule().fill(Palette.text).frame(width: max(4, g.size.width * share))
+            }
+          }
+          .frame(height: 4)
+        }
+      }
+      .padding(.horizontal, 14).padding(.vertical, 12)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityIdentifier("you-usage")
   }
 
   private var themeName: String { AppTheme.named(theme).name }
@@ -156,22 +216,17 @@ struct SettingsSheet: View {
       .font(.system(size: 15)).foregroundStyle(Palette.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 6)
   }
 
-  /** profile, organization and what agents know about you (a guest sees their profile) */
+  /** your profile, then today's use */
   private var primary: some View {
     CardGroup {
       if store.me != nil {
         NavigationLink { ProfileSettingsView() } label: {
           RowLabel(title: store.me?.preferredName ?? store.me?.name ?? "You", subtitle: "\(store.role.capitalized) · \(store.workspace?.name ?? "Bubble AI")") {
-            ProfileInitials(size: 46)
+            ProfileInitials(size: 40)
           }
         }.accessibilityIdentifier("you-profile")
       }
-      if store.role != "guest" {
-        Button { orgs = true } label: { RowLabel(title: "Workspace", value: store.workspace?.name, leading: { rowIcon("building.2") }) }
-          .buttonStyle(.plain).accessibilityIdentifier("you-workspaces")
-        NavigationLink { AboutYouView() } label: { RowLabel(title: "About you", leading: { rowIcon("brain") }) }
-          .accessibilityIdentifier("you-about")
-      }
+      if !guest { usageRow }
     }
   }
 
@@ -181,14 +236,6 @@ struct SettingsSheet: View {
       Text("Bubble AI").font(.system(size: 15, weight: .semibold)).tracking(-0.45).foregroundStyle(Palette.text)
       if !version.isEmpty { Text(version).font(.system(size: 13)).foregroundStyle(Palette.faint) }
     }.padding(.top, 6)
-  }
-}
-
-/** the bottom bar on a screen that is sometimes a tab's first screen and sometimes a sheet */
-struct MainBarIf: ViewModifier {
-  var on: Bool
-  func body(content: Content) -> some View {
-    if on { content.mainBar() } else { content }
   }
 }
 

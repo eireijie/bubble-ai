@@ -95,6 +95,7 @@ struct ComputerDetail: View {
     if store.canViewComputers, let c = computer {
       VStack(spacing: 0) {
         header(c)
+        GeometryReader { box in
         ScrollView {
           VStack(alignment: .leading, spacing: 12) {
             if let help = c.help, !helpLater, !inControl { helpCard(c, help) }
@@ -114,15 +115,22 @@ struct ComputerDetail: View {
               .animation(Motion.pick(Motion.soft, reduceMotion), value: inControl)
 
             if inControl { controls(c) }
-            statusLine(c)
+            if inControl || c.controller != nil {
+              Text(hint(c)).font(.footnote).foregroundStyle(Palette.faint).frame(maxWidth: .infinity).multilineTextAlignment(.center)
+            }
             if let error { Text(error).font(.footnote).foregroundStyle(Palette.red) }
             if c.kind == "device" { OwnScreenNote() }
           }
           .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 16)
+          // round 11 (board 13): the screen sits in the middle of a black page
+          .frame(minHeight: box.size.height, alignment: .center)
+        }
+        .scrollBounceBehavior(.basedOnSize)
         }
       }
       .safeAreaInset(edge: .bottom, spacing: 0) { bottomRow(c) }
-      .background(Palette.ground.ignoresSafeArea())
+      .background(Color.black.ignoresSafeArea())
+      .environment(\.colorScheme, .dark)
       .toolbar(.hidden, for: .navigationBar)
       .toolbar(.hidden, for: .tabBar)
       .tint(Palette.text)
@@ -190,13 +198,18 @@ struct ComputerDetail: View {
 
   /** The small header: back, the agent's ghost, the name, the info button and the menu. */
   private func header(_ c: Computer) -> some View {
-    HStack(spacing: 10) {
+    let agent = c.agentIds.count == 1 ? store.agent(c.agentIds[0]) : nil
+    return HStack(spacing: 10) {
       CircleButton(symbol: "chevron.left", label: "Back", size: 40, id: "computer-back") { dismiss() }
-      if let a = c.agentIds.first.flatMap({ store.agent($0) }) { AgentAvatar(agent: a, size: 26, showStatus: false) }
-      Text(c.name).font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+      Spacer(minLength: 8)
+      HStack(spacing: 8) {
+        if let agent { AgentAvatar(agent: agent, size: 24, showStatus: false) }
+        Text(agent.map { "\($0.name)'s computer" } ?? c.name).font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
+      }
+      .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
       Spacer(minLength: 8)
       Button { showInfo.toggle() } label: {
-        Image(systemName: "info.circle").font(.system(size: 17, weight: .medium)).foregroundStyle(Palette.computer)
+        Image(systemName: "questionmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
           .frame(width: 40, height: 40).glassCircle().contentShape(Circle())
       }
       .buttonStyle(.press)
@@ -217,25 +230,12 @@ struct ComputerDetail: View {
     .padding(.horizontal, 12).padding(.top, 6).padding(.bottom, 6)
   }
 
-  /** What's happening, in one line. */
-  @ViewBuilder private func statusLine(_ c: Computer) -> some View {
-    let s = store.state(of: c)
-    VStack(spacing: 4) {
-      HStack(spacing: 8) {
-        if s.working { WorkingDots(color: Palette.statusWorking) }
-        Text(statusText(c, s)).font(.system(size: 13)).foregroundStyle(s.working ? Palette.statusWorkingText : Palette.muted).lineLimit(2)
-      }
-      Text(hint(c)).font(.footnote).foregroundStyle(Palette.faint)
-    }
-    .frame(maxWidth: .infinity)
-    .multilineTextAlignment(.center)
-    .padding(.horizontal, 4)
-  }
-
   private func statusText(_ c: Computer, _ s: ComputerState) -> String {
     let who = c.agentIds.first.flatMap { store.agent($0)?.name } ?? "The agent"
-    if inControl { return "You are in control. \(who) is paused." }
+    if inControl { return "You're in control. \(who) is paused." }
     if s.working, let a = c.activity { return "\(store.agent(a.agentId)?.name ?? who) is working · \(a.text)" }
+    // while it opens, the screen itself says so
+    if c.status == "starting" && c.statusText.isEmpty { return "" }
     if c.status != "ready" { return c.statusText.isEmpty ? "It starts when an agent next uses it." : c.statusText }
     return store.doing(c)
   }
@@ -244,12 +244,17 @@ struct ComputerDetail: View {
   private func bottomRow(_ c: Computer) -> some View {
     let s = store.state(of: c)
     return HStack(spacing: 10) {
-      ComputerPill(text: s.label, tone: s.tone, dot: true)
+      HStack(spacing: 8) {
+        if s.working { WorkingDots(color: Palette.statusWorking) }
+        Text(statusText(c, s)).font(.system(size: 14)).foregroundStyle(Palette.muted).lineLimit(2)
+      }
+      .accessibilityElement(children: .combine)
+      .accessibilityIdentifier("computer-status")
       Spacer(minLength: 8)
       if c.status == "ready", teach == nil { controlButton(c) }
     }
     .padding(.horizontal, 16).padding(.vertical, 10)
-    .background(Palette.ground.opacity(0.92).ignoresSafeArea(edges: .bottom))
+    .background(Color.black.ignoresSafeArea(edges: .bottom))
   }
 
   private func toolIcon(_ symbol: String, _ color: Color) -> some View {
@@ -303,7 +308,7 @@ struct ComputerDetail: View {
 
   private func hint(_ c: Computer) -> String {
     if c.status != "ready" { return c.statusText.isEmpty ? "It starts when an agent next uses it." : c.statusText }
-    if inControl { return "Tap the screen to click. Agents wait until you hand it back." }
+    if inControl { return "Tap the screen to click. Agents wait until you give it back." }
     if c.controller != nil { return "Someone else is using it right now." }
     return c.help != nil ? "Take control, do it on the screen, then hand it back." : "Watching live. Take control to use it yourself."
   }
@@ -492,7 +497,7 @@ struct ComputerDetail: View {
 
   @ViewBuilder private func screen(_ c: Computer) -> some View {
     ZStack {
-      RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(hex: 0x0D0D0F))
+      Color.black
       if let image, c.status == "ready", !needCode, imageCode == c.code {
         GeometryReader { geo in
           let fit = fitted(in: geo.size)
@@ -514,16 +519,21 @@ struct ComputerDetail: View {
           Text("Enter \(c.name)'s \(c.codeLabel) to open it.").font(.callout).foregroundStyle(.white).multilineTextAlignment(.center)
           Button("Enter \(c.codeLabel)") { showCodeSheet = true }.buttonStyle(.bordered).tint(.white).accessibilityIdentifier("computer-enter-code")
         }.padding(20)
-      } else if c.status == "ready" {
-        ProgressView().tint(.white)
+      } else if c.status == "ready" || c.status == "starting" {
+        VStack(spacing: 12) {
+          ProgressView().tint(.white)
+          Text(c.status == "starting" ? "Starting the computer…" : "Connecting…").font(.system(size: 15)).foregroundStyle(.white.opacity(0.85))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("computer-opening")
       } else {
-        Text(c.status == "starting" ? "Starting…" : "This computer isn't running").foregroundStyle(.white.opacity(0.7)).font(.callout)
+        Text("This computer isn't running").foregroundStyle(.white.opacity(0.7)).font(.callout)
       }
     }
     .aspectRatio(frame.map { CGFloat(max($0.width, 1)) / CGFloat(max($0.height, 1)) } ?? 16 / 10, contentMode: .fit)
-    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(inControl ? Palette.statusNeeds : c.isOnline ? Palette.computer.opacity(0.4) : Palette.hairline, lineWidth: inControl ? 2 : 1))
-    .shadow(color: inControl ? Palette.statusNeeds.opacity(0.25) : .clear, radius: 12)
+    // edge to edge; a thin line while you're in control so it's clear your taps go to it
+    .overlay { if inControl { Rectangle().strokeBorder(Palette.red.opacity(0.7), lineWidth: 2) } }
+    .padding(.horizontal, -12)
   }
 
   /** Take control (white pill), or hand back to the agent. */
@@ -536,12 +546,19 @@ struct ComputerDetail: View {
       }
       takeControl(c)
     } label: {
-      Label(inControl ? "Hand back" : "Take control", systemImage: inControl ? "hand.wave" : "hand.point.up.left")
-        .font(.system(size: 15, weight: .semibold))
-        .frame(minHeight: 28)
+      Group {
+        if inControl {
+          Text("Give back\(who.map { " to \($0)" } ?? "")").foregroundStyle(.white)
+            .padding(.horizontal, 18).frame(height: 44).background(Capsule().fill(Palette.red))
+        } else {
+          Text("Take control").foregroundStyle(Palette.text)
+            .padding(.horizontal, 18).frame(height: 44).glassPill(interactive: true)
+        }
+      }
+      .font(.system(size: 15, weight: .semibold)).lineLimit(1)
     }
-    .primaryButton()
-    .accessibilityLabel(inControl ? "Hand back\(who.map { " to \($0)" } ?? "")" : "Take control")
+    .buttonStyle(.press)
+    .accessibilityLabel(inControl ? "Give back\(who.map { " to \($0)" } ?? "")" : "Take control")
     .disabled(busy || (c.controller != nil && !inControl))
     .accessibilityIdentifier("computer-control")
   }

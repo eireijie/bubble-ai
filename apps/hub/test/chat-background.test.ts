@@ -101,4 +101,43 @@ describe("chat backgrounds on the hub", () => {
       expect((await call("PATCH", `/api/agents/${agentId}`, { settings: { background: { kind: "photo", url: `/api/files/${theirs}` } } })).status).toBe(400);
     }
   });
+
+  describe("a photo as the agent's face (bubble look, board 12)", () => {
+    const look = (photo?: string) => ({ shape: "round", color: "#7fb0f0", eyes: "dots", mouth: "none", cheeks: false, hat: "none", accessory: "none", motion: "float", bubble: "round", parts: true, ...(photo ? { photo } : {}) });
+
+    it("keeps an uploaded photo on the appearance and drops it again", async () => {
+      const face = await upload("image/jpeg");
+      let r = await call("PATCH", `/api/agents/${agentId}`, { settings: { appearance: look(`/api/files/${face}`) } });
+      expect(r.status, JSON.stringify(r.json)).toBe(200);
+      expect(r.json.settings.appearance.photo).toBe(`/api/files/${face}`);
+      // a face isn't a shared file either
+      expect((await call("GET", "/api/files")).json.map((f: { id: string }) => f.id)).not.toContain(face);
+      r = await call("PATCH", `/api/agents/${agentId}`, { settings: { appearance: look() } });
+      expect(r.status).toBe(200);
+      expect(r.json.settings.appearance.photo).toBeUndefined();
+    });
+
+    it("takes one when the agent is made", async () => {
+      const face = await upload("image/png");
+      const r = await call("POST", "/api/agents", { handle: "face", name: "Face", harness: "custom", settings: { appearance: look(`/api/files/${face}`) } });
+      expect(r.status, JSON.stringify(r.json)).toBe(200);
+      expect(r.json.settings.appearance.photo).toBe(`/api/files/${face}`);
+    });
+
+    it("refuses outside addresses, unknown files, non-images, chat files and other organizations' files", async () => {
+      const general = (await call("POST", `/api/dm/${agentId}`, {})).json;
+      const bad = [
+        "https://elsewhere.example/x.png",
+        "/api/files/../../etc",
+        "/api/files/nope",
+        `/api/files/${await upload("image/svg+xml")}`,
+        `/api/files/${await upload("image/png", token, general.id)}`,
+        `/api/files/${await upload("image/png", other)}`,
+      ];
+      for (const photo of bad) {
+        expect((await call("PATCH", `/api/agents/${agentId}`, { settings: { appearance: look(photo) } })).status, photo).toBe(400);
+        expect((await call("POST", "/api/agents", { handle: "nope", name: "Nope", harness: "custom", settings: { appearance: look(photo) } })).status, photo).toBe(400);
+      }
+    });
+  });
 });

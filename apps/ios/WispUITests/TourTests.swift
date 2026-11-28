@@ -15,7 +15,7 @@ final class TourTests: XCTestCase {
     app.launchEnvironment["BUBBLE_TOKEN"] = token
     app.launch()
     XCTAssertTrue(app.buttons["tab-chats"].waitForExistence(timeout: 30), "The test session must reach Bubble AI.")
-    for id in ["tab-chats", "tab-computers", "tab-more", "tab-profile", "new-menu"] { XCTAssertTrue(app.buttons[id].exists, id) }
+    for id in ["tab-chats", "tab-computers", "tab-memory", "tab-marketplace", "tab-more", "home-initials", "new-menu"] { XCTAssertTrue(app.buttons[id].exists, id) }
     app.buttons["tab-more"].tap()
 
     open("you-tasks")
@@ -24,7 +24,7 @@ final class TourTests: XCTestCase {
     else { shot("task-detail", note: "No tasks; detail is unavailable in this workspace.") }
     back()
 
-    open("you-memory"); shot("memory")
+    app.buttons["tab-memory"].tap(); shot("memory")
     // Folders are native navigation rows; descend until a note is available.
     var depth = 0
     while first("note-row") == nil && depth < 6 {
@@ -40,10 +40,10 @@ final class TourTests: XCTestCase {
       shot("note", note: "No accessible notes.")
       shot("note-edit", note: "No note is available to edit.")
     }
-    for _ in 0...depth { back() }
+    for _ in 0..<depth { back() }
 
-    // your avatar opens what's about you
-    app.buttons["tab-profile"].tap()
+    // your initials open what's about you
+    app.buttons["tab-chats"].tap(); app.buttons["home-initials"].tap()
     for (id, name) in [("you-about", "about")] {
       if reveal(id) { open(id); shot(name); back() }
       else { shot(name, note: "Not available in this workspace.") }

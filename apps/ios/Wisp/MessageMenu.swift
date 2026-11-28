@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 // Press and hold a message: the chat blurs behind it, the bubble lifts, six quick reactions pop in
-// above it and its actions show below. Swipe a message right to open its thread. Reactions sit on
+// above it and its actions show below ("Reply in thread" opens its thread). Reactions sit on
 // the bubble's top corner. The screen (a chat or a thread) draws the menu over everything, its
 // composer and top bar too, so a row only says which message was held and where it is.
 
@@ -28,7 +28,7 @@ enum Tapbacks {
   var held: Held?
   var editing: Message?
   var deleting: Message?
-  /** a thread to open (the menu's "Reply in thread", a swipe to the right) */
+  /** a thread to open (the menu's "Reply in thread") */
   var thread: ThreadRef?
   var failure: String?
 
@@ -358,79 +358,6 @@ struct HoldGesture: UIGestureRecognizerRepresentable {
   }
 }
 
-/**
- * A drag to the right on a message. It only starts when the finger moves clearly sideways and
- * didn't start at the screen's left edge (that's the swipe back), and the chat's scrolling waits
- * for it to decide, so the two never fight.
- */
-struct SwipeRightGesture: UIGestureRecognizerRepresentable {
-  var changed: (CGFloat) -> Void
-  var ended: (_ translation: CGFloat, _ cancelled: Bool) -> Void
-
-  final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-    func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
-      guard let pan = g as? UIPanGestureRecognizer, let window = pan.view?.window else { return false }
-      let t = pan.translation(in: window)
-      let v = pan.velocity(in: window)
-      let startX = pan.location(in: window).x - t.x
-      guard startX > 24, t.x > 0 || v.x > 0 else { return false }
-      return abs(t.x) > abs(t.y) * 1.4 && abs(v.x) >= abs(v.y)
-    }
-
-    /** the chat's scrolling waits for this to fail first */
-    func gestureRecognizer(_ g: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
-      other.view is UIScrollView && other is UIPanGestureRecognizer
-    }
-  }
-
-  func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
-
-  func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
-    let g = UIPanGestureRecognizer()
-    g.delegate = context.coordinator
-    g.maximumNumberOfTouches = 1
-    return g
-  }
-
-  func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
-    let x = recognizer.translation(in: recognizer.view).x
-    switch recognizer.state {
-    case .began, .changed: changed(x)
-    case .ended: ended(x, false)
-    case .cancelled, .failed: ended(x, true)
-    default: break
-    }
-  }
-}
-
-/** Where a swiped bubble sits: with the finger up to the point it opens, then resisting (no give with Reduce Motion). */
-enum SwipeMath {
-  static let arm: CGFloat = 64
-  static func offset(_ raw: CGFloat, reduceMotion: Bool) -> CGFloat {
-    let x = max(0, raw)
-    if x <= arm { return x }
-    return reduceMotion ? arm : min(arm + (x - arm) * 0.35, 110)
-  }
-}
-
-/** The thread icon that shows on a swiped message's left: fades and grows in, blue once it will open. */
-struct SwipeThreadIcon: View {
-  var dx: CGFloat
-
-  var body: some View {
-    let p = min(dx / SwipeMath.arm, 1)
-    let armed = dx >= SwipeMath.arm
-    Image(systemName: "bubble.left")
-      .font(.system(size: 14, weight: .semibold))
-      .foregroundStyle(armed ? Color.white : Palette.muted)
-      .frame(width: 32, height: 32)
-      .background(Circle().fill(armed ? Palette.accent : Palette.hairline))
-      .scaleEffect(0.6 + 0.4 * p)
-      .opacity(p)
-      .animation(.easeOut(duration: 0.15), value: armed)
-      .accessibilityHidden(true)
-  }
-}
 
 /** A frame kept off to the side: read when a message is held, so scrolling never redraws a row. */
 final class FrameBox {

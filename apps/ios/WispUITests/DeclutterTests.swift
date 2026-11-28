@@ -33,7 +33,7 @@ final class DeclutterTests: XCTestCase {
 
     app.buttons["tab-more"].tap(); app.buttons["more-agents"].tap()
     app.descendants(matching: .any).matching(identifier: "agent-tile").firstMatch.tap()
-    tap("agent-background")
+    tap("agent-more"); tap("agent-background")
     XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "background-sentence").firstMatch.waitForExistence(timeout: 10))
     settle()
     shot("background")
@@ -48,7 +48,7 @@ final class DeclutterTests: XCTestCase {
 
     app.swipeDown(); app.swipeDown(); settle()
     app.buttons["tab-chats"].tap()
-    app.buttons["tab-profile"].tap()
+    app.buttons["home-initials"].tap()
     tap("you-settings")
     tap("settings-usage")
     XCTAssertTrue(app.buttons["allowance-Medium"].waitForExistence(timeout: 10))

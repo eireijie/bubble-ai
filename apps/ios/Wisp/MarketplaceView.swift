@@ -48,6 +48,8 @@ struct MarketplaceView: View {
   var start: MarketSection = .all
   /** opened as the Connect apps sheet: X closes it (a pushed page has Back) */
   var inSheet = false
+  /** the Marketplace tab (round 11): no Back */
+  var asTab = false
   @State private var query = ""
   @State private var library: [HelperSkill] = []
   @State private var builtIn: [AppConnector] = []
@@ -130,7 +132,10 @@ struct MarketplaceView: View {
   private var searching: Bool { !needle.isEmpty }
   private var topic: AppTopic? { AppTopic(rawValue: chip) }
   private var mainChips: [(String, String)] {
-    var out = [("all", "All"), ("apps", "Apps"), ("skills", "Skills")]
+    var out = [("all", "All")]
+    // this phone's own features, each with an Allow (round 11, board 14)
+    if store.role != "guest" { out.append(("iphone", "This iPhone")) }
+    out += [("apps", "Apps"), ("skills", "Skills")]
     // what your computers already have: on a phone that's never "This iPhone", so it's named for where it is
     if store.canManage && (!shelves.isEmpty || chip == "devices") { out.append(("devices", "Your computers")) }
     out += [("productivity", "Productivity"), ("communication", "Communication")]
@@ -222,7 +227,7 @@ struct MarketplaceView: View {
   /** "Connect apps"; at the right the connected logos and "N connected ›"; X closes the sheet (Back on a page). */
   private var header: some View {
     HStack(spacing: 10) {
-      if !inSheet { CircleButton(symbol: "chevron.left", label: "Back") { dismiss() } }
+      if !inSheet && !asTab { CircleButton(symbol: "chevron.left", label: "Back") { dismiss() } }
       Text("Connect apps").font(.system(size: 20, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
         .accessibilityAddTraits(.isHeader)
       Spacer(minLength: 6)
@@ -311,6 +316,8 @@ struct MarketplaceView: View {
         DeviceShelfList(shelves: shelves, query: needle, onBring: bringIn, onBringAll: { bringingAll = true }, onRefresh: refresh)
       case "mods":
         modRows(matching: false)
+      case "iphone":
+        ThisIPhoneList()
       case "all":
         allTab
       default:

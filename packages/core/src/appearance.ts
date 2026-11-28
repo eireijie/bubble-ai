@@ -100,6 +100,8 @@ export interface GhostAppearance {
    * agent suddenly grows a hat.
    */
   parts?: boolean;
+  /** a photo shown instead of the bubble (a hub file, /api/files/<id>); unset = the bubble */
+  photo?: string;
 }
 
 function hash(str: string): number {

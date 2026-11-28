@@ -47,9 +47,11 @@ enum Tour {
       switch self {
       case .chat, .chats, .newTeam, .team: .chats
       case .computers: .computers
-      // the Inbox is a page in More now (round 10)
-      case .more, .inbox, .memory, .marketplace, .mods: .more
-      case .settings, .usage, .ai: .profile
+      // the Inbox is a page in More (round 10); Memory and Marketplace are tabs and Settings a sheet over Chats (round 11)
+      case .more, .inbox, .mods: .more
+      case .memory: .memory
+      case .marketplace: .marketplace
+      case .settings, .usage, .ai: .chats
       }
     }
     var inSettings: Bool { self == .settings || self == .usage || self == .ai }
