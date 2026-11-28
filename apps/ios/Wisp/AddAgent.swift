@@ -111,6 +111,8 @@ struct AddAgent: View {
   @Environment(\.dismiss) private var dismiss
   /** start on this device (from its page) */
   var nodeId: String? = nil
+  /** start from a kind of agent (the Marketplace's Use, round 12): its name, colour, job and the apps it starts with */
+  var start: AgentType? = nil
   var onCreated: (Agent) -> Void
 
   @State private var draft = AgentDraft()
@@ -172,6 +174,7 @@ struct AddAgent: View {
       draft.harness = store.agentDefaults?.harness ?? AddAgent.preferredHarness(store, node: firstNode) ?? "claude-code"
       draft.model = store.agentDefaults?.model ?? ""
       draft.place = AgentPlace.initial(node: node, defaults: store.agentDefaults, computers: store.computers)
+      if let start { fill(from: start) }
       loaded = true
     }
   }
@@ -382,6 +385,15 @@ struct AddAgent: View {
         }
       }
     }
+  }
+
+  /** New agent, already filled in from a kind of agent: a free name, its colour, its job and the apps here it starts with. */
+  private func fill(from type: AgentType) {
+    if draft.name.isEmpty { draft.name = MarketTemplates.freeName(type.name, taken: store.agents.map(\.name)) }
+    draft.look = MarketTemplates.look(type)
+    if draft.does.isEmpty { draft.does = String(type.role.prefix(60)) }
+    draft.apps.formUnion(MarketTemplates.connectorIds(type, connectors: store.connectors))
+    draft.template = type.name
   }
 
   private func apply(_ template: AgentTemplate) {

@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Check, Hash, Lock, Plus, Search, UserPlus, X } from "lucide-react";
-import { teamProblem, type ChannelNotify, type ChannelTeam, type Section } from "@bubble-ai/core";
+import { teamProblem, type ChannelNotify, type ChannelTeam, type Section, type TeamTemplate } from "@bubble-ai/core";
 import { EMPTY_TEAM, TeamChart, addToTeam, liveTeam } from "./TeamChart.tsx";
 import { api } from "../api.ts";
 import { useNames, useStore, type ChannelInfo } from "../store.ts";
@@ -59,7 +59,7 @@ export const NOTIFY: Record<ChannelNotify, { label: string; body: string }> = {
 export { NewAgentForTeam };
 
 /** "Add a channel": one box to search, join, or create (Buzz-style). Creating is the New team flow (team/Create.tsx). */
-export function ChannelBrowser({ onClose, sectionId = null, create: startCreating = false }: { onClose: () => void; sectionId?: string | null; create?: boolean }) {
+export function ChannelBrowser({ onClose, sectionId = null, create: startCreating = false, template }: { onClose: () => void; sectionId?: string | null; create?: boolean; template?: TeamTemplate }) {
   const channels = useStore((s) => s.channels).filter((c) => c.kind === "channel");
   const refreshChannels = useStore((s) => s.refreshChannels);
   const [q, setQ] = useState("");
@@ -94,7 +94,7 @@ export function ChannelBrowser({ onClose, sectionId = null, create: startCreatin
   if (step === "about")
     return (
       <Suspense fallback={null}>
-        <NewTeamFlow onClose={onClose} sectionId={sectionId} initialName={name} />
+        <NewTeamFlow onClose={onClose} sectionId={sectionId} initialName={name} template={template} />
       </Suspense>
     );
 

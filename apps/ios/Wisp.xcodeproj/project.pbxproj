@@ -47,6 +47,7 @@
 		266C4A29FAF623521743A0B5 /* appearance-fixtures.json in Resources */ = {isa = PBXBuildFile; fileRef = 763D7814574EAA5171BC3676 /* appearance-fixtures.json */; };
 		2697D78C305830D2ABF2EBCF /* AppleChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF8794BD8F79D8C938401898 /* AppleChat.swift */; };
 		270442CE78DB08C309EB7257 /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A38BC200A15F9051F7A174A7 /* SettingsSheet.swift */; };
+		271EDE4334779A5428C6729F /* MarketTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11BD31F9F1D79A8FD9FBCAFF /* MarketTemplates.swift */; };
 		2895D8EE60D60AB7138458BE /* ConnectorEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2325426E118CD3C955594E73 /* ConnectorEditor.swift */; };
 		29D258DB824DF5450D6FD2FF /* MarketplaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCBD96D24910314C1CB1A02 /* MarketplaceModels.swift */; };
 		2AAB708664D1F52C34B862E1 /* OrgFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461B0D858BB1689720B5B994 /* OrgFeatureTests.swift */; };
@@ -206,6 +207,7 @@
 		C2C8C78CF39CCE833F97E9F4 /* ChangesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1C5ED729A713227BDFE33B /* ChangesView.swift */; };
 		C2FDE3E16F97C5872592F1C4 /* OnboardingTypeStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E53549F140A2935FAB1183E /* OnboardingTypeStep.swift */; };
 		C3996E4891C45ABFF60EEACC /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD6DE3A8E6EC9FB4A81DD72 /* AppModels.swift */; };
+		C3E0F58AB93B5AC55DE8F4B9 /* MarketTemplatesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A5368CA65084E7FA71FD0B /* MarketTemplatesTests.swift */; };
 		C44AD430DE0DA634747C5549 /* Banners.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CEE8B1E7302EAD0EC060E1 /* Banners.swift */; };
 		C4977B4F1353830F6D47CC14 /* TeamTemplateData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 021FC729BCD970DF94FE1433 /* TeamTemplateData.swift */; };
 		C49BEA756B4708883267E178 /* SetupTourChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7CA8E5E7EDADE1C7F186CA /* SetupTourChat.swift */; };
@@ -297,6 +299,7 @@
 		0EA47825041EA545E5176D37 /* SectionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionViews.swift; sourceTree = "<group>"; };
 		0EE3B6BDC311BBF054D08283 /* TeamInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamInfo.swift; sourceTree = "<group>"; };
 		11B957F68E0CD741BF441D3D /* TourOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourOverlay.swift; sourceTree = "<group>"; };
+		11BD31F9F1D79A8FD9FBCAFF /* MarketTemplates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketTemplates.swift; sourceTree = "<group>"; };
 		133C5CBE4E3F51398346012D /* AgentChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChrome.swift; sourceTree = "<group>"; };
 		13AE60963F6011A5A95B8789 /* InboxSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxSections.swift; sourceTree = "<group>"; };
 		158F33226E0B1E867E3BE8C1 /* Store+Orgs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Orgs.swift"; sourceTree = "<group>"; };
@@ -501,6 +504,7 @@
 		E0D6A7EB51FDE0B1762BD77F /* WorkspaceSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSettingsViews.swift; sourceTree = "<group>"; };
 		E0F13136D461AD498D61F32D /* TourTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourTests.swift; sourceTree = "<group>"; };
 		E108367527963F579D2382A3 /* AgentExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentExtras.swift; sourceTree = "<group>"; };
+		E1A5368CA65084E7FA71FD0B /* MarketTemplatesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketTemplatesTests.swift; sourceTree = "<group>"; };
 		E1D51751030EE7377F89DAB2 /* HarnessesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessesView.swift; sourceTree = "<group>"; };
 		E245F056C2FB7B1A754B4D6D /* HereView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HereView.swift; sourceTree = "<group>"; };
 		E3A016B2F78112857AB3BE55 /* MemoryChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryChrome.swift; sourceTree = "<group>"; };
@@ -590,6 +594,7 @@
 				87B891471520F17D9A6EF286 /* LoopsTests.swift */,
 				8BFD397FED073DBA9C951B94 /* ManagementTests.swift */,
 				4E2970F38CCBC8EE3091D1F2 /* MarketplaceTests.swift */,
+				E1A5368CA65084E7FA71FD0B /* MarketTemplatesTests.swift */,
 				6BFA7A3C218A123E11F4DCB3 /* MarkMotionTests.swift */,
 				B83EDCDF10B8B431A021BE7C /* MemoryParityTests.swift */,
 				6C8F1D9B1DA4520C3EA8E9B1 /* ModelConnectionTests.swift */,
@@ -740,6 +745,7 @@
 				FDCBD96D24910314C1CB1A02 /* MarketplaceModels.swift */,
 				362987C45FEBB11D2F469680 /* MarketplaceParts.swift */,
 				F0EB84A5521C48CEAEFA4FE7 /* MarketplaceView.swift */,
+				11BD31F9F1D79A8FD9FBCAFF /* MarketTemplates.swift */,
 				22183887D494EE01FC23C83C /* MarkView.swift */,
 				436D2142FE91CCAE42633EE1 /* MemoryAccessView.swift */,
 				217D5A678FB609ADC4F1767D /* MemoryActivity.swift */,
@@ -998,6 +1004,7 @@
 				129FB2C0E900AE20220F908C /* LoopsTests.swift in Sources */,
 				C1A79C694F9FE2A81956625A /* ManagementTests.swift in Sources */,
 				496649813558C0772419E6C1 /* MarkMotionTests.swift in Sources */,
+				C3E0F58AB93B5AC55DE8F4B9 /* MarketTemplatesTests.swift in Sources */,
 				065E4C5DC5D76C80D2F255F3 /* MarketplaceTests.swift in Sources */,
 				37D5660977E249F49BB2F1E7 /* MemoryParityTests.swift in Sources */,
 				AB7533C33496C4D479CA4373 /* ModelConnectionTests.swift in Sources */,
@@ -1138,6 +1145,7 @@
 				A2D19661CFBDE8F08D6F816A /* ManagementViews.swift in Sources */,
 				9D487E3427867580092D6EBE /* MarkView.swift in Sources */,
 				0593B3626BE32879C6F0FA10 /* MarketKit.swift in Sources */,
+				271EDE4334779A5428C6729F /* MarketTemplates.swift in Sources */,
 				29D258DB824DF5450D6FD2FF /* MarketplaceModels.swift in Sources */,
 				CAACC8E1210DDB50560EA2CB /* MarketplaceParts.swift in Sources */,
 				00D6F9A48998B777C244A1A7 /* MarketplaceView.swift in Sources */,

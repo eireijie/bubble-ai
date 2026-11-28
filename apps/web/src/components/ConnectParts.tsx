@@ -11,27 +11,29 @@ import { cx } from "./ui.tsx";
  * apps" pill share. The pop-up itself is MarketplaceView.
  */
 
-/** The filter chips past All, Apps, Skills and This Mac: topics an app is about, and Mods. */
+/** The filter chips that pick a topic an app is about, and Mods. */
 export type Topic = "productivity" | "communication" | "passwords" | "developer" | "design" | "money" | "mods";
 
-/** The chips in the row: [key, label]. All, Apps, Skills and This Mac are the page's own sections (the address). */
+/** The chips in the row (round 12, board 15): [key, label]. All, Apps, Skills, Agents and Teams are the page's own sections (the address); Mods is a topic. */
 export const MAIN_CHIPS: readonly [string, string][] = [
   ["all", "All"],
   ["apps", "Apps"],
   ["skills", "Skills"],
+  ["agents", "Agents"],
+  ["teams", "Teams"],
+  ["mods", "Mods"],
+];
+/** The rest, under More: This Mac (a section, on the Mac app) and the app topics. */
+export const MORE_CHIPS: readonly [string, string][] = [
   ["devices", "This Mac"],
   ["productivity", "Productivity"],
   ["communication", "Communication"],
-];
-/** The rest, under More. */
-export const MORE_CHIPS: readonly [Topic, string][] = [
   ["passwords", "Password managers"],
   ["developer", "Developer tools"],
   ["design", "Design and media"],
   ["money", "Money"],
-  ["mods", "Mods"],
 ];
-export const TOPICS = new Set<string>(["productivity", "communication", ...MORE_CHIPS.map(([k]) => k)]);
+export const TOPICS = new Set<string>(["productivity", "communication", "passwords", "developer", "design", "money", "mods"]);
 
 /** What "This Mac" is called on the computer this runs on: Mac, PC or computer. */
 export function thisComputer(platform = typeof navigator === "undefined" ? "" : navigator.platform || navigator.userAgent): string {

@@ -24,9 +24,14 @@ struct NewChannel: View {
   @Environment(\.dismiss) private var dismiss
   /** a link to look through existing teams instead */
   var onBrowse: (() -> Void)?
+  /** start from this template (the Marketplace's Use this team, round 12): named after it and loaded in the builder */
+  var template: TeamTemplate? = nil
   var onCreated: (Channel) -> Void
   @State private var model = NewTeamDraft()
   @State private var path: [NewTeamRoute] = []
+  @State private var loadedTemplate = false
+  /** how many agents there were when the template was filled in */
+  @State private var templateAgents = 0
   @State private var action = FormAction()
   @State private var addingAgent = false
 
@@ -60,11 +65,40 @@ struct NewChannel: View {
         }
     }
     .interactiveDismissDisabled(action.busy)
+    .onAppear { load(template) }
     .sheet(isPresented: $addingAgent) { AddAgent { _ in } }
     .presentationBackground(Palette.sheet)
   }
 
   private func pop() { if !path.isEmpty { path.removeLast() } }
+
+  /**
+   * The same template path as Browse templates, started from outside: the team takes the template's
+   * name (made free if taken) and blurb, and opens on the builder. With too few agents it stays on the
+   * first page, which says to make one.
+   */
+  private func load(_ template: TeamTemplate?) {
+    guard let template, !loadedTemplate else { return }
+    loadedTemplate = true
+    var name = template.name
+    var n = 2
+    while store.channels.contains(where: { $0.name == ManagementText.channelName(name) }) { name = "\(template.name) \(n)"; n += 1 }
+    model.name = name
+    if model.topic.isEmpty { model.topic = String(template.blurb.prefix(250)) }
+    model.team = template.team(agents: store.agents)
+    templateAgents = store.agents.count
+    if !needsAgents { instantly { path = [.builder] } }
+  }
+
+  /** From a template, Next goes back to its builder (filled in again if agents were made meanwhile); else to how to start. */
+  private func next() {
+    guard let template else { path.append(.start); return }
+    if store.agents.count != templateAgents {
+      model.team = template.team(agents: store.agents)
+      templateAgents = store.agents.count
+    }
+    path.append(.builder)
+  }
 
   // MARK: 1. name
 
@@ -114,7 +148,7 @@ struct NewChannel: View {
         .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 24)
       }
       .scrollDismissesKeyboard(.interactively)
-      Button { path.append(.start) } label: { Text("Next").frame(maxWidth: .infinity) }
+      Button { next() } label: { Text("Next").frame(maxWidth: .infinity) }
         .primaryButton().disabled(!validName || needsAgents).padding(.horizontal, 36).padding(.vertical, 10)
         .accessibilityIdentifier("create-next")
     }
