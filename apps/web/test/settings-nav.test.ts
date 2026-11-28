@@ -38,29 +38,17 @@ describe("old settings routes", () => {
 });
 
 describe("agent page", () => {
-  it("has the profile's four tabs, in the board's order", async () => {
-    const { PROFILE_TABS, PROFILE_TAB_TITLES } = await import("../src/views/AgentProfile.tsx");
-    expect(PROFILE_TABS.map((t) => PROFILE_TAB_TITLES[t])).toEqual(["Activity", "Memory", "Background", "Settings"]);
-  });
-
-  it("lands every address on its tab: the old tabs open as parts under the tab they belong to", async () => {
+  it("is one short list: every other address opens a part over it", async () => {
     const { profilePlace } = await import("../src/views/AgentProfile.tsx");
     const { AGENT_TABS } = await import("../src/router.ts");
-    const tabs = Object.fromEntries(AGENT_TABS.map((t) => [t, profilePlace(t).tab]));
-    expect(tabs).toMatchObject({ overview: "activity", screen: "activity", voice: "activity", notes: "memory", library: "memory", wallpaper: "background", settings: "settings", more: "settings", runs: "settings", model: "settings", computer: "settings", permissions: "settings", memory: "settings", soul: "settings", look: "settings", remove: "settings" });
-    expect(profilePlace(null)).toEqual({ tab: "activity", part: null });
-  });
-
-  it("goes back from a part to where its row is: Settings' rows to Settings, More's rows to More, the Activity cards to Activity", async () => {
-    const { PART_PARENT } = await import("../src/views/AgentProfile.tsx");
-    expect(PART_PARENT).toMatchObject({ model: "settings", harness: "settings", computer: "settings", permissions: "settings", apps: "settings", routines: "settings", more: "settings", soul: "more", instructions: "more", memory: "more", watches: "more", access: "more", connect: "more", runs: "more", role: "more", screen: "overview", voice: "overview", library: "notes" });
-  });
-
-  it("opens a part for every Settings row; the tabs themselves and Remove (a confirm) are not parts", async () => {
-    const { profilePlace } = await import("../src/views/AgentProfile.tsx");
-    const { AGENT_TABS } = await import("../src/router.ts");
-    expect(AGENT_TABS.filter((t) => !profilePlace(t).part)).toEqual(["overview", "notes", "wallpaper", "settings", "remove"]);
+    expect(profilePlace(null)).toEqual({ part: null });
+    expect(AGENT_TABS.filter((t) => !profilePlace(t).part)).toEqual(["overview", "remove"]);
     for (const t of AGENT_TABS) expect(profilePlace(t).part ?? t).toBe(t);
+  });
+
+  it("goes back from a part to where its row is: the list's rows to the list, Edit's rows to Edit, the rest to Full profile", async () => {
+    const { PART_PARENT } = await import("../src/views/AgentProfile.tsx");
+    expect(PART_PARENT).toMatchObject({ settings: "overview", library: "overview", screen: "overview", apps: "overview", routines: "overview", notes: "overview", more: "overview", look: "settings", wallpaper: "settings", voice: "settings", model: "settings", harness: "settings", soul: "more", instructions: "more", memory: "more", watches: "more", access: "more", connect: "more", runs: "more", permissions: "more", effort: "more" });
   });
 
   it("opens the chat's old panel tabs on the matching place in the profile", async () => {

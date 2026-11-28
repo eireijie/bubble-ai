@@ -400,7 +400,7 @@ export function sampleGreeting({ name, role, apps, instructions }: { name: strin
  * whose closed row says what's picked. "Bring one in" and "Make it a team" sit by Create.
  */
 /** `onCreated`: hand the new agent back (to a team being built, say) instead of opening its page. `nodeId`: start on this device. `template`: start from one of the agent templates. */
-export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringIn, template: startTemplate }: { nodes: NodeInfo[]; onClose: () => void; onCreated?: (agent: Agent) => void; nodeId?: string; bringIn?: boolean; template?: AgentTypeId }) {
+export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringIn, template: startTemplate, initialName, initialLook }: { nodes: NodeInfo[]; onClose: () => void; onCreated?: (agent: Agent) => void; nodeId?: string; bringIn?: boolean; template?: AgentTypeId; /** from the New agent sheet: what was already picked there */ initialName?: string; initialLook?: GhostAppearance }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
   const agents = useStore((s) => s.agents);
   const computers = useStore((s) => s.computers);
@@ -434,14 +434,14 @@ export function CreateAgent({ nodes, onClose, onCreated, nodeId: startOn, bringI
   }, [view]);
 
   // who it is
-  const [name, setName] = useState(() => suggestName(agents));
+  const [name, setName] = useState(() => initialName?.trim() || suggestName(agents));
   // only what was typed; without it a free handle follows the name
   const [handle, setHandle] = useState("");
   const [role, setRole] = useState("");
   const [instructions, setInstructions] = useState("");
   const [templateId, setTemplateId] = useState<AgentTypeId | null>(null);
   // every new agent gets a bubble of its own: round, in one of the bubble colours
-  const [appearance, setAppearance] = useState<GhostAppearance>(() => newBubbleLook());
+  const [appearance, setAppearance] = useState<GhostAppearance>(() => initialLook ?? newBubbleLook());
 
   // which AI and computer
   const [defaults, setDefaults] = useState<AgentDefaults | null | "error">(null);

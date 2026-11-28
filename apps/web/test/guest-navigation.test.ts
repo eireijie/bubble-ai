@@ -55,24 +55,40 @@ describe("computer navigation access", () => {
     expect(html).not.toContain("Dashboard fallback");
   });
 
-  // phones have no tab bar: Computers is a row on the account page, behind your picture
-  it.each(["owner", "member", "guest"] as const)("lists Computers on the phone's account page only for members and owners (%s)", (role) => {
-    for (const view of ["you", "more"]) {
-      const html = render(role, true, { view });
-      expect(html.includes('href="#/computers"')).toBe(role !== "guest");
-      // everyone can reach memory, help, settings and home from there
-      for (const link of ["#/vault", "#/help", "#/settings"]) expect(html).toContain(`href="${link}"`);
-      expect(html).toContain('aria-label="Back"');
-      expect(html).not.toContain('aria-label="Main"');
+  // phones (round 11): the five places are a tab bar at the bottom of each tab page; guests don't get Computers or Marketplace
+  it.each(["owner", "member", "guest"] as const)("lists Computers and Marketplace in the phone's tab bar only for members and owners (%s)", (role) => {
+    for (const view of ["chats", "more", "vault"]) {
+      const html = render(role, true, { view, path: null });
+      const bar = html.slice(html.indexOf('aria-label="Places"'));
+      expect(bar).toContain('aria-label="Places"');
+      expect(bar.includes('href="#/computers"')).toBe(role !== "guest");
+      expect(bar.includes('href="#/marketplace"')).toBe(role !== "guest");
+      // everyone can reach chats, memory and More from the bar
+      for (const link of ["#/chats", "#/vault", "#/more"]) expect(bar).toContain(`href="${link}"`);
+      expect(bar).toContain('aria-current="page"');
+      // tab pages have no Back button
+      expect(html).not.toContain('aria-label="Back"');
     }
   });
 
-  it("gives the phone's list of computers a way back to the account page", () => {
+  it.each(["owner", "member", "guest"] as const)("keeps help, what's new and settings one tap away on the phone's More tab (%s)", (role) => {
+    const html = render(role, true, { view: "more" });
+    expect(html).toContain(">More<");
+    expect(html).toContain('href="#/help"');
+    expect(html).toContain('href="#/settings/updates/news"');
+    // Computers is a tab of its own (not a row on this page), and guests have none
+    expect(html.includes('href="#/computers"')).toBe(role !== "guest");
+    expect(html).not.toContain('aria-label="Main"');
+  });
+
+  it("gives the phone's list of computers the tab bar, not a Back, and one computer its own page without the bar", () => {
     const html = render("owner", true, { view: "computers", computerId: null });
     expect(html).toContain("Private screen");
-    expect(html).toContain('href="#/you"');
-    // one computer's page has its own Back to the list, and desktops have the sidebar
-    expect(render("owner", true)).not.toContain('href="#/you"');
+    expect(html).toContain('aria-label="Places"');
+    expect(html).not.toContain('aria-label="Back"');
+    // one computer's page is deeper than a tab: no bar; desktops have the sidebar instead
+    expect(render("owner", true)).not.toContain('aria-label="Places"');
+    expect(render("owner", false, { view: "computers", computerId: null })).not.toContain('aria-label="Places"');
     expect(render("owner", false, { view: "computers", computerId: null })).not.toContain('aria-label="Back"');
   });
 });

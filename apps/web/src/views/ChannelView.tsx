@@ -3,7 +3,7 @@ import "./composer.css";
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ChevronDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
 import { SCHEDULE_MARK, teamOf, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -39,7 +39,6 @@ import { workSummary } from "../components/agentActivity.ts";
 import { DeleteMessageDialog, EditMessageDialog, MessageMenu, ReactionBadges, SWIPE_ARM, useLongPress, useMessageActionList, useSwipeToThread } from "../components/MessageActions.tsx";
 import { useChangedSinceMount, useFreshIds } from "../motion.ts";
 import { TeamInfo, type InfoTab } from "../components/TeamInfo.tsx";
-import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
 import { SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
@@ -223,7 +222,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <CallScreen key={`${channel.id}:${callee.id}`} agent={callee} channelId={channel.id} mention={!dmAgent} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
           </Suspense>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={callee && !calling ? () => setCalling(true) : undefined} callName={callee?.name} /></div>}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={callee && !calling ? () => setCalling(true) : undefined} callName={callee?.name} /></div>}
         </BannerSlot.Provider>
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
@@ -560,8 +559,8 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
           if (bottom) setNewSince(0);
         }}
       >
-        {/* like Messages: the whole width, yours at the right edge and theirs at the left */}
-        <div className="w-full md:px-2">
+        {/* one centred column on wider screens (round 11, board 10): yours at its right edge, theirs at its left */}
+        <div className="r11-col w-full md:px-2">
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
@@ -592,9 +591,12 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
             ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
             setNewSince(0);
           }}
-          className="glass absolute bottom-3 left-1/2 -translate-x-1/2 h-9 px-3.5 rounded-[8px] text-xs font-medium inline-flex items-center gap-1.5 hover:bg-hover"
+          aria-label={newSince > 0 ? `${newSince} new ${newSince === 1 ? "message" : "messages"}` : "Jump to latest"}
+          title="Jump to latest"
+          className="gl absolute bottom-2 left-1/2 -translate-x-1/2 z-10 grid size-[34px] place-items-center rounded-full active:scale-95"
         >
-          <ArrowDown size={13} /> {newSince > 0 ? `${newSince} new ${newSince === 1 ? "message" : "messages"}` : "Jump to latest"}
+          <ChevronDown size={16} strokeWidth={2.2} />
+          {newSince > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#0a84ff] px-1 text-[10px] font-bold text-white">{newSince > 99 ? "99+" : newSince}</span>}
         </button>
       )}
     </div>
@@ -717,7 +719,6 @@ function ChatDivider({ at, chat, messages }: { at: string; chat: string; message
 /** What a brand-new chat says: who you're talking to, or how to get a team going. */
 function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo; onAddAgent: () => void; onMembers: () => void }) {
   const names = useNames();
-  const invite = useFeature("invite");
   const canManage = useStore((s) => s.me?.role !== "guest") && !channel.archivedAt;
   if (channel.kind === "dm") {
     const a = names.agent(channel.name.split(":").pop()!);
@@ -731,7 +732,6 @@ function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo
   const cards: { icon: React.ReactNode; title: string; onClick: () => void }[] = [
     ...(canManage ? [{ icon: <Bot size={18} />, title: "Add agent", onClick: onAddAgent }] : []),
     ...(!channel.archivedAt ? [{ icon: <Paperclip size={18} />, title: "Add files", onClick: () => window.dispatchEvent(new CustomEvent(COMPOSER_ATTACH, { detail: channel.id })) }] : []),
-    ...(invite && canManage ? [{ icon: <UserPlus size={18} />, title: "Invite people", onClick: onMembers }] : []),
   ];
   // who's on it, leads first, with the role each has on the chart
   const team = teamOf(channel);
@@ -1922,7 +1922,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   // the icon pops in when what you've typed swaps it (not when the composer first opens)
   const swapped = useChangedSinceMount(action);
   return (
-    <div className="composer-wrap shrink-0 px-2.5 md:px-4 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] md:pb-3 w-full flex flex-col">
+    <div className="composer-wrap r11-col shrink-0 px-2.5 md:px-4 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] md:pb-3 w-full flex flex-col">
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       {/* who's working here and on what, in one line; it opens their panel */}

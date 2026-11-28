@@ -1,0 +1,50 @@
+/*
+ * Round 11, boards 12 and 13: the short profile, Edit, Bubble look, the New agent sheet and an
+ * agent's computer. Groups are the board's .grp/.li; the computer is a black stage with white text.
+ * Nothing here moves: menus, sheets and pills are instant.
+ */
+:root { --r11-page: #f2f2f5; }
+:root[data-mode="dark"] { --r11-page: #0e0e11; }
+.r11-page { background: var(--r11-page); }
+.r11-grp { margin-inline: 14px; border-radius: 16px; background: var(--r11-card); overflow: hidden; }
+.r11-li { display: flex; align-items: center; gap: 12px; min-height: 48px; width: 100%; padding: 0 14px; font-size: 15px; text-align: left; color: var(--ink); border-bottom: 1px solid var(--line); outline: none; }
+.r11-li:last-child { border-bottom: 0; }
+a.r11-li:hover, button.r11-li:hover, a.r11-li:focus-visible, button.r11-li:focus-visible { background: var(--hover); }
+.r11-li > svg { flex-shrink: 0; color: var(--ink); }
+.r11-li .r11-r { margin-left: auto; display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--muted); font-size: 14px; }
+.r11-sec { padding: 14px 28px 6px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.r11-note { padding: 6px 30px; font-size: 13px; line-height: 19px; color: var(--muted); }
+.r11-pill { height: 30px; padding: 0 13px; border-radius: 15px; background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; flex-shrink: 0; outline: none; }
+.r11-pill:hover { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.r11-pill:focus-visible { box-shadow: 0 0 0 2px var(--ring, var(--ink)); }
+.r11-pill.is-quiet { background: transparent; color: var(--muted); }
+.r11-pill.is-quiet:hover { color: var(--ink); }
+.r11-done { height: 36px; padding: 0 16px; border-radius: 18px; background: var(--ink); color: var(--panel); display: inline-flex; align-items: center; font-weight: 600; font-size: 14.5px; flex-shrink: 0; outline: none; }
+.r11-done:disabled { opacity: 0.5; }
+.r11-circle { width: 40px; height: 40px; border-radius: 9999px; display: inline-grid; place-items: center; flex-shrink: 0; outline: none; }
+.r11-circle:focus-visible { box-shadow: 0 0 0 2px var(--ink); }
+.r11-sw { width: 30px; height: 30px; border-radius: 9999px; flex-shrink: 0; outline: none; }
+.r11-sw[aria-checked="true"] { box-shadow: 0 0 0 2px var(--sw-gap, var(--r11-card)), 0 0 0 4px var(--ink); }
+.r11-sw:focus-visible { box-shadow: 0 0 0 2px var(--sw-gap, var(--r11-card)), 0 0 0 4px var(--muted); }
+.r11-field { width: 100%; height: 48px; border-radius: 14px; background: var(--r11-card); text-align: center; font-size: 17px; color: var(--ink); outline: none; }
+.r11-field::placeholder { color: var(--muted); }
+.r11-field:focus-visible { box-shadow: 0 0 0 2px var(--line2, var(--line)); }
+.r11-create { width: 100%; height: 50px; border-radius: 25px; background: var(--ink); color: var(--panel); font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; outline: none; }
+.r11-create:disabled { opacity: 0.45; }
+.r11-link { text-decoration: underline; text-underline-offset: 2px; color: var(--muted); }
+.r11-link:hover { color: var(--ink); }
+
+/* board 13: the computer is always black, whatever the theme */
+.r11-stage { background: #000; color: #fff; }
+.r11-stage .r11-stage-btn { background: rgb(255 255 255 / 0.16); color: #fff; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.r11-stage .r11-stage-btn:hover { background: rgb(255 255 255 / 0.24); }
+.r11-stage .r11-take { height: 40px; padding: 0 16px; border-radius: 20px; font-weight: 600; font-size: 14.5px; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; outline: none; }
+.r11-stage .r11-take:focus-visible { box-shadow: 0 0 0 2px #fff; }
+.r11-stage .r11-giveback { background: #ff453a; color: #fff; }
+.r11-stage .r11-giveback:hover { background: #ff5b52; }
+.r11-spin { width: 22px; height: 22px; border-radius: 9999px; border: 2.5px solid rgb(255 255 255 / 0.25); border-top-color: #fff; animation: spin 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .r11-spin { animation-duration: 2.4s; } }
+
+/* Edit › Voice calls: the voice rows, on the board's card */
+.r11-voice > div { background: var(--r11-card); border-radius: 16px; }
+.r11-voice > div > button, .r11-voice > div > label { min-height: 48px; font-size: 15px; }

@@ -101,7 +101,7 @@ export const ROWS: SettingRow[] = [
   row("privacy", "workspace", "Workspace", "general", "organization org name delete workspace", { ...A, sheet: true }),
   row("privacy", "changes", "Recent changes", "general", "undo changed ask agent", { ...A, sheet: true }),
   row("privacy", "obsidian", "Sync to Obsidian", "memory", "git token notes app", { ...A, sheet: true }),
-  row("privacy", "import", "Import from another AI", "memory", "chatgpt claude gemini bring memory", { ...A, sheet: true }),
+  row("privacy", "import", "Import memory", "memory", "import from another ai chatgpt claude gemini bring memory", { ...A, sheet: true }),
 
   row("about", "version", "Version", "updates", "update updates release check now"),
   row("about", "news", "What's new", "updates", "changes changelog", { sheet: true }),

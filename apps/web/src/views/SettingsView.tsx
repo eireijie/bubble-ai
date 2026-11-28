@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Blocks, ChevronLeft, ChevronRight, Compass, Info, Monitor, Search, ShieldCheck, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { LearnPage } from "../components/tour/Learn.tsx";
-import { BubbleIcon } from "../components/icons.tsx";
 import { useStore } from "../store.ts";
 import { go, href, useRoute, type SettingsPage } from "../router.ts";
 import { cx } from "../components/ui.tsx";
-import { PopNav } from "../components/SettingsDialog.tsx";
+import { SettingsHome } from "./settings/home.tsx";
+import { ImportMemoryPage } from "./settings/importMemory.tsx";
 import { initialsOf } from "../components/Rail.tsx";
 import { findByWords } from "../components/searchIndex.ts";
 import { useFeatures } from "../features.ts";
@@ -15,7 +15,7 @@ import { RuntimesPage } from "./settings/runtimes.tsx";
 import { HarnessesPage } from "./settings/harnesses.tsx";
 import { ModelsPage } from "./settings/models.tsx";
 import { VoicePage } from "./settings/voice.tsx";
-import { ImportFromAI, MemoryFolderPage, ObsidianPage } from "./settings/memory.tsx";
+import { MemoryFolderPage, ObsidianPage } from "./settings/memory.tsx";
 import { SkillsPage } from "./settings/skills.tsx";
 import { OutsideApps } from "./settings/devices.tsx";
 import { PhonePairing } from "./settings/mobile.tsx";
@@ -94,22 +94,11 @@ const SHEETS: Record<string, () => ReactNode> = {
   workspace: () => <GeneralPage />,
   changes: () => <AskAndChanges />,
   obsidian: () => <ObsidianPage />,
-  import: () => <ImportFromAI />,
+  import: () => <ImportMemoryPage />,
   news: () => <WhatsNewPage />,
 };
 /** The rows that have a sheet to open (map.ts marks the same ones `sheet`). */
 export const SHEET_IDS = Object.keys(SHEETS);
-
-/** Each page's line icon in the list down the left. */
-const FIVE_ICON: Record<Five, ReactNode> = {
-  you: <UserRound size={20} strokeWidth={1.8} />,
-  agents: <BubbleIcon size={20} strokeWidth={1.8} />,
-  computers: <Monitor size={20} strokeWidth={1.8} />,
-  privacy: <ShieldCheck size={20} strokeWidth={1.8} />,
-  about: <Info size={20} strokeWidth={1.8} />,
-  learn: <Compass size={20} strokeWidth={1.8} />,
-  mods: <Blocks size={20} strokeWidth={1.8} />,
-};
 
 /** A mod's settings while it's off: one line and the switch that turns it on (owners only). */
 function ModOff({ mod, owner }: { mod: FeatureKey; owner: boolean }) {
@@ -195,7 +184,7 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   const allowed = !!wanted && pages.includes(wanted.page) && !(wantedRow && guest && wantedRow.noGuests);
   const landing = wanted && allowed ? wanted : wanted ? settingsLanding(null) : null;
   const row = landing?.row ? rowById(landing.row) : null;
-  const current: Five | null = landing?.page ?? (fullWindow ? pages[0] : null);
+  const current: Five | null = landing?.page ?? null;
   const sheet = row && landing?.sheet ? row : null;
   // its mod is switched off: say so instead of opening it
   const modOff = !!row && !rowAvailable(row, guest, features);
@@ -260,83 +249,82 @@ export function SettingsView({ page, onBack, fullWindow }: { page: SettingsPage 
   const fills = sheet?.id === "apps" && !modOff;
   const bottom = "pb-[max(2rem,env(safe-area-inset-bottom))]";
 
+  // the search sits on the settings home, above every page; what it finds shows right under it
+  const search = (
+    <div className="flex flex-col gap-2">
+      <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="h-10! rounded-[16px]! bg-[var(--r11-card,var(--card))]!" />
+      {query && results}
+    </div>
+  );
+  // sheets the settings home lists itself (Import memory) go back to the home, not to their page
+  const fromHome = sheet?.id === "import";
+  const backTo = sheet && !fromHome ? { href: pageTop(current!), label: FIVE_LABEL[current!] } : current ? { href: href({ view: "settings", page: null }), label: "Settings" } : null;
+
   if (fullWindow)
     return (
-      <div className="flex-1 min-w-0 min-h-0 flex">
-        <aside className="flex w-[200px] shrink-0 flex-col overflow-y-auto border-r border-line bg-panel px-2.5 pt-5 pb-5">
-          <h2 className="mb-2 px-2.5 text-[13px] font-semibold">Settings</h2>
-          <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="mb-2 !h-[30px] !rounded-[8px] px-2 text-[13px]" />
-          <PopNav label="Settings" current={query ? null : current} onPick={() => setQuery("")} items={pages.map((p) => ({ key: p, label: FIVE_LABEL[p], icon: FIVE_ICON[p], href: pageTop(p) }))} />
-        </aside>
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col" aria-label={query ? "Settings search" : `${sheet?.label ?? FIVE_LABEL[current!]} settings`}>
-          {fills && !query ? (
-            SHEETS.apps()
-          ) : (
-            <div key={query ? "search" : `${current}:${sheet?.id ?? ""}`} className="settings-pop-section flex-1 min-h-0 overflow-y-auto">
-              <div className={cx("max-w-[720px] pl-7 pr-16 pt-6", bottom)}>
-                {query ? (
-                  <>
-                    <h1 className="t-title mb-4">Search</h1>
-                    {results}
-                  </>
-                ) : sheet ? (
-                  <>
-                    <a href={pageTop(current!)} className="-ml-1 mb-1 inline-flex items-center gap-0.5 h-7 text-[13px] text-muted hover:text-ink">
-                      <ChevronLeft size={15} aria-hidden /> {FIVE_LABEL[current!]}
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col" aria-label={current ? `${sheet?.label ?? FIVE_LABEL[current]} settings` : "Settings"}>
+        {fills ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <a href={pageTop(current!)} className="ml-6 mt-4 inline-flex w-fit items-center gap-0.5 h-7 text-[13px] text-muted hover:text-ink">
+              <ChevronLeft size={15} aria-hidden /> {FIVE_LABEL[current!]}
+            </a>
+            {SHEETS.apps()}
+          </div>
+        ) : (
+          <div key={`${current}:${sheet?.id ?? ""}`} className="settings-pop-section flex-1 min-h-0 overflow-y-auto">
+            <div className={cx(current ? "mx-auto max-w-[720px] px-8 pt-6" : "px-6 pt-14", bottom)}>
+              {!current ? (
+                <SettingsHome search={search} />
+              ) : (
+                <>
+                  {backTo && (
+                    <a href={backTo.href} className="-ml-1 mb-1 inline-flex items-center gap-0.5 h-7 text-[13px] text-muted hover:text-ink">
+                      <ChevronLeft size={15} aria-hidden /> {backTo.label}
                     </a>
-                    <h1 className="t-title mb-4">{sheet.label}</h1>
-                    <div data-tour="settings-sheet">{sheetBody(sheet)}</div>
-                  </>
-                ) : (
-                  <>
-                    <h1 className="t-title mb-4">{FIVE_LABEL[current!]}</h1>
-                    {current === "you" && <YouHeader />}
-                    {pageBody(current!)}
-                  </>
-                )}
-              </div>
+                  )}
+                  {sheet ? (
+                    <>
+                      <h1 className="t-title mb-4">{sheet.label}</h1>
+                      <div data-tour="settings-sheet">{sheetBody(sheet)}</div>
+                    </>
+                  ) : (
+                    <>
+                      <h1 className="t-title mb-4">{FIVE_LABEL[current]}</h1>
+                      {current === "you" && <YouHeader />}
+                      {pageBody(current)}
+                    </>
+                  )}
+                </>
+              )}
             </div>
-          )}
-        </main>
-      </div>
+          </div>
+        )}
+      </main>
     );
 
-  // phones: the five pages as a list with the search on top, then a page, then a sheet, each with Back
-  const back = sheet ? () => go({ view: "settings", page: FIVE_ROUTE[current!] }) : current ? () => go({ view: "settings", page: null }) : onBack;
+  // phones: the settings sheet, then a page, then a sheet, each with Back
+  const back = sheet && !fromHome ? () => go({ view: "settings", page: FIVE_ROUTE[current!] }) : current ? () => go({ view: "settings", page: null }) : onBack;
   if (fills) return <MarketplaceView section="installed" embedded onBack={back} />;
+  if (!current)
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className={cx("px-3.5 pt-[max(0.75rem,env(safe-area-inset-top))]", bottom)}>
+          <SettingsHome onClose={onBack} search={search} />
+        </div>
+      </div>
+    );
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <header className="shrink-0 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 flex items-center gap-3">
         {back && (
-          <button className="circle shrink-0" onClick={back} aria-label={sheet ? `Back to ${FIVE_LABEL[current!]}` : current ? "Back to all settings" : "Back"}>
+          <button className="circle shrink-0" onClick={back} aria-label={sheet && !fromHome ? `Back to ${FIVE_LABEL[current]}` : "Back to all settings"}>
             <ChevronLeft size={22} aria-hidden />
           </button>
         )}
-        {current ? <h1 className="t-title truncate">{sheet?.label ?? FIVE_LABEL[current]}</h1> : <SearchField value={query} onChange={setQuery} onEnter={openFirst} className="flex-1" />}
+        <h1 className="t-title truncate">{sheet?.label ?? FIVE_LABEL[current]}</h1>
       </header>
       <div key={`${current}:${sheet?.id ?? ""}`} className="flex-1 min-h-0 overflow-y-auto">
-        <div className={cx("px-4 pt-2", bottom)}>
-          {sheet ? (
-            <div data-tour="settings-sheet">{sheetBody(sheet)}</div>
-          ) : current ? (
-            pageBody(current)
-          ) : query ? (
-            results
-          ) : (
-            <nav data-tour="settings-home" aria-label="Settings" className="rounded-[12px] bg-card divide-y divide-line overflow-hidden">
-              {pages.map((p) => (
-                <a key={p} href={pageTop(p)} className="flex items-center gap-3.5 px-4 min-h-[52px] text-body hover:bg-hover">
-                  {/* the same line icons as the account page's rows */}
-                  <span className="grid size-5 shrink-0 place-items-center text-muted" aria-hidden>
-                    {FIVE_ICON[p]}
-                  </span>
-                  <span className="flex-1">{FIVE_LABEL[p]}</span>
-                  <ChevronRight size={16} className="text-faint" aria-hidden />
-                </a>
-              ))}
-            </nav>
-          )}
-        </div>
+        <div className={cx("px-4 pt-2", bottom)}>{sheet ? <div data-tour="settings-sheet">{sheetBody(sheet)}</div> : pageBody(current)}</div>
       </div>
     </div>
   );

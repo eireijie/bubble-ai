@@ -19,6 +19,7 @@ import { cleanPreview } from "./CommandPalette.tsx";
 import { loopLine } from "./Loops.tsx";
 import { UserAvatarButton } from "./Rail.tsx";
 import { SideList, newSideSection } from "./SideList.tsx";
+import { PlusLine } from "./r11Icons.tsx";
 import { useTeamImage } from "./teamImage.ts";
 
 const COLLAPSE_KEY = "wisp.chats.collapsed";
@@ -174,6 +175,12 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Section | "new" | null>(null);
   const page = variant === "page";
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pullRef = useRef<HTMLDivElement>(null);
+  // the list opens with search tucked away above it: pulling down shows it
+  useLayoutEffect(() => {
+    if (page && scrollRef.current && pullRef.current && scrollRef.current.scrollTop === 0) scrollRef.current.scrollTop = pullRef.current.offsetHeight;
+  }, [page]);
   const isGuest = me.role === "guest";
   const active = route.view === "chat" ? route.channelId : null;
 
@@ -220,16 +227,17 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
     <Menu
       align="right"
       trigger={(isOpen, t) => (
-        <button data-tour="new" onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label="New chat, agent or team" className={page ? "lg-glass lg-round lg-press" : "circle"}>
-          <Plus size={page ? 22 : 20} strokeWidth={2} />
+        <button data-tour="new" onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label="New agent, team or chat" className={page ? "lg grid size-10 place-items-center rounded-full" : "circle"}>
+          {page ? <PlusLine size={18} /> : <Plus size={20} strokeWidth={2} />}
         </button>
       )}
       items={[
-        { label: "New chat", icon: <MessageSquarePlus size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ newChatOpen: true }) },
         ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon size={18} strokeWidth={1.8} />, onSelect: startNewAgent }] : []),
         ...(!isGuest ? [{ label: "New team", icon: <Users size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
+        { label: "New chat", icon: <MessageSquarePlus size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ newChatOpen: true }) },
+        ...(!isGuest ? [{ label: "New folder", icon: <FolderPlus size={18} strokeWidth={1.8} />, onSelect: newSideSection }] : []),
+        "divider" as const,
         { label: "Browse teams", icon: <Search size={18} strokeWidth={1.8} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
-        ...(!isGuest ? [{ label: "New section", icon: <FolderPlus size={18} strokeWidth={1.8} />, onSelect: newSideSection }] : []),
       ]}
     />
   );
@@ -237,9 +245,9 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
   return (
     <nav className={cx("h-full flex flex-col min-h-0", page ? "safe-top" : "pt-[18px] px-3")} aria-label="Chats">
       {page ? (
-        <div className="shrink-0 flex items-center gap-2 px-4 pt-3 pb-2">
-          <UserAvatarButton size={44} />
-          <SearchField page value={q} onChange={setQ} />
+        // board 8 C: your initials (account and settings) top left, + top right; search waits above the list, pulled down
+        <div className="shrink-0 flex items-center justify-between px-[18px] pt-1">
+          <UserAvatarButton size={40} />
           {newMenu}
         </div>
       ) : (
@@ -254,7 +262,14 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
         </>
       )}
 
-      <div data-stagger className={cx("flex-1 min-h-0 overflow-y-auto", page ? "px-2 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))]" : "pb-4 -mx-1 px-1")}>
+      <div ref={scrollRef} data-stagger className={cx("flex-1 min-h-0 overflow-y-auto", page ? "px-2 pb-[calc(96px+env(safe-area-inset-bottom))]" : "pb-4 -mx-1 px-1")}>
+        {page && (
+          // pull down to search: the field sits just above the list, scrolled out of sight until you pull
+          <div ref={pullRef} className="px-2.5 pb-1 pt-2">
+            <SearchField page value={q} onChange={setQ} />
+          </div>
+        )}
+        <div className={page ? "min-h-full" : undefined}>
         {/* phones: pins and your sections, with a blue dot on what waits on you, as in the desktop sidebar; the desktop's
             own Chats column (nothing open yet) is a plain newest-first list, since the sidebar beside it has the rest */}
         {!needle && page && chats.length > 0 && <SideList chats={chats} lines={new Map(chats.map((c) => [c.key, preview(c)]))} active={active} phone />}
@@ -288,6 +303,7 @@ export function ChatList({ route, variant = "column" }: { route: Route; variant?
           </div>
         )}
         {needle && shown.length === 0 && <p className="px-3 py-2 text-sm text-faint">No chats match.</p>}
+        </div>
       </div>
 
       {editing && <SectionDialog section={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
@@ -300,10 +316,13 @@ function SearchField({ page, value, onChange }: { page: boolean; value: string; 
   const setPalette = useStore((s) => s.setPalette);
   if (page)
     return (
-      <button type="button" onClick={() => setPalette(true)} className="flex-1 min-w-0 h-11 flex items-center gap-2.5 rounded-[8px] bg-card px-4 text-left text-body text-faint">
+      <label className="gl flex h-11 min-w-0 items-center gap-2.5 rounded-[22px] px-4 text-muted">
         <Search size={18} strokeWidth={2} className="shrink-0" aria-hidden />
-        Search
-      </button>
+        <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder="Search" aria-label="Search chats" className="min-w-0 flex-1 bg-transparent text-[16px] text-ink outline-none placeholder:text-muted" />
+        <button type="button" onClick={() => setPalette(true)} className="shrink-0 text-[13px] font-medium text-muted">
+          Everything
+        </button>
+      </label>
     );
   return (
     <label className="flex items-center gap-2.5 bg-card text-faint h-9 rounded-[8px] px-3">

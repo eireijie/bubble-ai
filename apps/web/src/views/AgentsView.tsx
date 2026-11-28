@@ -12,6 +12,8 @@ import { prettyModel } from "../components/EffortSlider.tsx";
 import { openDm } from "../openDm.ts";
 
 import { CreateAgent } from "./CreateAgent.tsx";
+import { NewAgentSheet } from "./NewAgentSheet.tsx";
+import type { GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 export { freeHandle, importFound } from "./CreateAgent.tsx";
 
 type ListAgent = ReturnType<typeof useStore.getState>["agents"][number];
@@ -36,6 +38,8 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
   const live = useStore(liveShape);
   const me = useStore((s) => s.me);
   const [creating, setCreating] = useState(false);
+  // "More options" on the sheet: the full New agent dialog, with the sheet's name and look in it
+  const [full, setFull] = useState<{ name: string; look: GhostAppearance } | null>(null);
   const [bringing, setBringing] = useState(false);
   // "New agent" from the + menu or ⌘K opens it here
   const newAgentOpen = useStore((s) => s.newAgentOpen);
@@ -53,7 +57,28 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
   const selected = agents.find((a) => a.id === agentId);
   const canEdit = me?.role !== "guest";
 
-  if (selected) return <AgentDetail key={selected.id} agent={selected} nodes={nodes} tab={tab} />;
+  const newSheets = (
+    <>
+      {creating && (
+        <NewAgentSheet
+          onClose={() => setCreating(false)}
+          onMore={(picked) => {
+            setCreating(false);
+            setFull(picked);
+          }}
+        />
+      )}
+      {full && <CreateAgent nodes={nodes} initialName={full.name} initialLook={full.look} onClose={() => setFull(null)} />}
+    </>
+  );
+
+  if (selected)
+    return (
+      <>
+        <AgentDetail key={selected.id} agent={selected} nodes={nodes} tab={tab} />
+        {newSheets}
+      </>
+    );
 
   const needle = q.trim().toLowerCase();
   const shown = agents.filter((a) => !needle || a.name.toLowerCase().includes(needle) || a.handle.toLowerCase().includes(needle));
@@ -118,7 +143,7 @@ export function AgentsView({ agentId, tab }: { agentId: string | null; tab: Agen
           )}
         </div>
       </div>
-      {creating && <CreateAgent nodes={nodes} onClose={() => setCreating(false)} />}
+      {newSheets}
       {bringing && <CreateAgent bringIn nodes={nodes} onClose={() => setBringing(false)} />}
     </div>
   );

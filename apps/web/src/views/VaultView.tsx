@@ -208,7 +208,7 @@ export function VaultView({ path, onBack }: { path: string | null; onBack?: () =
             view={shownView}
             onView={chooseView}
             phone={phone}
-            onBack={phone ? (onBack ?? (() => go({ view: "more" }))) : undefined}
+            onBack={phone ? onBack : undefined}
             notes={notes}
             total={everything?.length ?? 0}
             authors={authors}

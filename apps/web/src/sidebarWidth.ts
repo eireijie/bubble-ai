@@ -4,12 +4,12 @@
  * The width and whether it's collapsed are remembered on this device.
  */
 export const SIDEBAR = {
-  /** the rail: 58px ghost tiles and round buttons */
-  rail: 82,
+  /** the narrow rail (round 11, board 9b): measured in the Mac app, the traffic lights span x 20–80, so 100 leaves 20px either side */
+  rail: 100,
   min: 256,
   max: 480,
   /** double-click the edge */
-  default: 325,
+  default: 320,
   /** dragged under this, it snaps to the rail; pulled back past it, it springs to min */
   snap: 168,
   /** arrow keys on the edge */

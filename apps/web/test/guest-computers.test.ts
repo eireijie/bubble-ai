@@ -29,8 +29,10 @@ describe("guest computer UI", () => {
     role(viewer);
     const html = renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
     expect(html.includes('href="#/computers"')).toBe(viewer !== "guest");
-    // everyone gets the rest of the sidebar: search, the plus, and the menu behind their picture
-    for (const control of ["Search", "New chat, agent or team", "Account, settings and help"]) expect(html).toContain(`aria-label="${control}"`);
+    // nor is Marketplace theirs; everyone gets the rest of the sidebar: your initials, the plus, and Chats, Memory and More
+    expect(html.includes('aria-label="Marketplace"')).toBe(viewer !== "guest");
+    expect(html.includes('aria-label="Computers"')).toBe(viewer !== "guest");
+    for (const control of ["You and settings", "New agent, team or chat", "Chats", "Memory", "More"]) expect(html).toMatch(new RegExp(`aria-label="${control}[",]`));
   });
 
   it.each([null, "private-screen"])("hides the computers page from guests, including a cached detail (%s)", (computerId) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_PINS, type SidebarLayout } from "@bubble-ai/core";
-import { addSection, baseLayout, clearUnread, deleteSection, forget, hide, markUnread, movePin, moveTo, newSectionName, NONE, pin, pinsFullNotice, placeChats, renameSection, unpin, type LayoutChat } from "./sidebarLayout.ts";
+import { addSection, baseLayout, clearUnread, deleteSection, forget, hide, markUnread, movePin, moveTo, newSectionName, NONE, pin, pinsFullNotice, placeChats, placeHome, renameSection, unpin, type LayoutChat } from "./sidebarLayout.ts";
 
 const chat = (key: string, o: Partial<LayoutChat> = {}): LayoutChat => ({ key, name: key, pinned: false, sectionId: null, unread: 0, ...o });
 const empty: SidebarLayout = { pins: [], sections: [] };
@@ -35,6 +35,18 @@ describe("sidebar layout", () => {
     ]);
   });
 
+  it("round 11 home: every chat is a tile (pins first); only chats with messages sit in folders, pinned ones too", () => {
+    const chats = [chat("a", { at: 5 }), chat("b", { at: 0 }), chat("c", { at: 3 }), chat("d", { at: 2, unread: 1 }), chat("e", { at: 1 })];
+    const l: SidebarLayout = { pins: ["c"], sections: [{ id: "s", name: "Work", items: ["c", "e"] }], hidden: ["e", "d"] };
+    const h = placeHome(l, chats);
+    // e is hidden; d is hidden but has something new, so it's back
+    expect(h.tiles).toEqual(["c", "a", "b", "d"]);
+    expect(h.folders.map((f) => [f.id, f.name, f.keys])).toEqual([
+      ["s", "Work", ["c"]],
+      [NONE, "Unsorted", ["a", "d"]],
+    ]);
+  });
+
   it(`keeps at most ${MAX_PINS} pins; the next one is refused with a plain notice`, () => {
     let l = empty;
     for (let i = 0; i < MAX_PINS; i++) l = pin(l, `a:${i}`)!;
@@ -59,9 +71,9 @@ describe("sidebar layout", () => {
 
   it("new sections get a free name, rename keeps a name, delete keeps the chats", () => {
     let l = addSection(empty, newSectionName(empty), "s1", "a");
-    expect(l.sections[0]).toMatchObject({ name: "New section", items: ["a"] });
-    expect(newSectionName(l)).toBe("New section 2");
-    expect(renameSection(l, "s1", "   ").sections[0].name).toBe("New section");
+    expect(l.sections[0]).toMatchObject({ name: "New folder", items: ["a"] });
+    expect(newSectionName(l)).toBe("New folder 2");
+    expect(renameSection(l, "s1", "   ").sections[0].name).toBe("New folder");
     l = renameSection(l, "s1", "Clients");
     expect(l.sections[0].name).toBe("Clients");
     l = deleteSection(l, "s1");
