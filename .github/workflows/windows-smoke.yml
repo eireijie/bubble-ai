@@ -3,7 +3,7 @@ name: Windows smoke
 # It never publishes: no tags, no releases. The installer is a workflow artifact only.
 on:
   push:
-    branches: [claude/windows-fix]
+    branches: [claude/windows-fix, claude/windows-bundled-git]
   workflow_dispatch:
 permissions:
   contents: read
@@ -63,10 +63,19 @@ jobs:
           Rename-Item apps\desktop\build\wisp-runtime wisp-runtime-hidden
           Rename-Item apps\desktop\dist dist-hidden
           $res = Join-Path (Split-Path $env:BUBBLE_EXE) 'resources\wisp'
-          Get-ChildItem "$res\node_modules\@wisp" | Select-Object Name, LinkType, Target | Format-Table -AutoSize | Out-String -Width 300
+          Get-ChildItem "$res\node_modules\@bubble-ai" | Select-Object Name, LinkType, Target | Format-Table -AutoSize | Out-String -Width 300
+          # most Windows computers have no Git, and the hub can't start without it: the app carries its own
+          & "$res\git\cmd\git.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw "the app's own Git doesn't run" }
+          if (-not (Test-Path "$res\git\ucrt64\libexec\git-core\git-http-backend.exe")) { throw "the app's Git has no http-backend (Obsidian sync)" }
+          # the next two steps run the app with this runner's Git out of sight, as on a computer without it
+          $path = ($env:PATH -split ';' | Where-Object { $_ -and -not (Test-Path (Join-Path $_ 'git.exe')) }) -join ';'
+          "NO_GIT_PATH=$path" >> $env:GITHUB_ENV
       - name: hub starts the way the app runs it (app binary as Node)
         shell: pwsh
         run: |
+          $env:PATH = $env:NO_GIT_PATH
+          if (Get-Command git -ErrorAction SilentlyContinue) { throw "this runner's Git is still on PATH: $((Get-Command git).Source)" }
           $res = Join-Path (Split-Path $env:BUBBLE_EXE) 'resources\wisp'
           $env:ELECTRON_RUN_AS_NODE = '1'; $env:PORT = '4848'; $env:BUBBLE_DATA_DIR = "$env:RUNNER_TEMP\hubdata"
           $p = Start-Process -FilePath $env:BUBBLE_EXE -ArgumentList "`"$res\bin\bubble-ai.mjs`"", 'hub', 'start' -WorkingDirectory $res -RedirectStandardOutput "$env:RUNNER_TEMP\hub.out" -RedirectStandardError "$env:RUNNER_TEMP\hub.err" -PassThru
@@ -90,6 +99,7 @@ jobs:
           Push-Location "$env:RUNNER_TEMP\drive"
           npm init -y | Out-Null
           npm install --no-audit --no-fund playwright-core@1.55.0
+          $env:PATH = $env:NO_GIT_PATH
           node drive.mjs $env:BUBBLE_EXE "$env:GITHUB_WORKSPACE\shots"
           if ($LASTEXITCODE -ne 0) { throw "first-run drive failed" }
       - name: collect logs
