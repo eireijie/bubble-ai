@@ -309,13 +309,21 @@ struct SoloGhost: View {
 extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
   override open func viewDidLoad() {
     super.viewDidLoad()
-    // screens with their own top bar hide the system one; the swipe back from the edge should still work
+    // screens with their own top bar hide the system one; the swipe back should still work
     interactivePopGestureRecognizer?.delegate = self
+    // iOS 26: a swipe right from anywhere on the screen goes back, the last screen following the
+    // finger (round 11, board 10). Earlier versions keep the swipe from the edge.
+    if #available(iOS 26, *) { interactiveContentPopGestureRecognizer?.delegate = self }
   }
 
   public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-    viewControllers.count > 1
+    viewControllers.count > 1 && !BackSwipe.paused
   }
+}
+
+/** While a chat's agent panel is open a swipe right closes the panel, so the swipe back waits. */
+@MainActor enum BackSwipe {
+  static var paused = false
 }
 
 /** Dots that pulse while an agent works. */

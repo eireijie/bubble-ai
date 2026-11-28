@@ -1,5 +1,6 @@
 import QuickLook
 import SwiftUI
+import PhotosUI
 
 /**
  * An agent's profile (round 11, board 12): its bubble, name and what it does, Edit and Message, then
@@ -345,6 +346,9 @@ struct BubbleLookPage: View {
   @State private var look: GhostLook
   @State private var tab = "colour"
   @State private var action = FormAction()
+  @State private var words = ""
+  @State private var photoItem: PhotosPickerItem?
+  @State private var uploading = false
   private let original: GhostLook
   private let seed: String
 
@@ -358,6 +362,7 @@ struct BubbleLookPage: View {
     seed = agent.handle
     original = (agent.settings?.appearance ?? GhostLook.defaultAppearance(agent.handle)).resolved
     _look = State(initialValue: original)
+    _tab = State(initialValue: original.photo == nil ? "colour" : "photo")
   }
 
   private var color: String { BubbleColors.color(look, seed: seed).lowercased() }
@@ -371,11 +376,16 @@ struct BubbleLookPage: View {
       .buttonStyle(.press).disabled(action.busy || !store.canManage)
       .accessibilityIdentifier("look-save")
     }) {
-      Segments(options: [("colour", "Colour"), ("shape", "Shape")], selection: $tab, id: "look-tab")
+      Segments(options: [("colour", "Colour"), ("shape", "Shape"), ("describe", "Describe"), ("photo", "Photo")], selection: $tab, id: "look-tab")
       GhostView(look: look, seed: seed, size: 120, interactive: true)
         .frame(width: 120, height: 120).frame(maxWidth: .infinity).padding(.vertical, 8)
         .accessibilityLabel("\(agent.name)'s bubble")
-      if tab == "colour" { colours } else { shapes }
+      switch tab {
+      case "shape": shapes
+      case "describe": describe
+      case "photo": photo
+      default: colours
+      }
       AgentError(text: action.error)
     }
   }
@@ -385,7 +395,7 @@ struct BubbleLookPage: View {
       LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 12) {
         ForEach(Self.swatches, id: \.hex) { c in
           let on = c.hex == color
-          Button { look.color = c.hex; look.color2 = nil } label: {
+          Button { look.color = c.hex; look.color2 = nil; look.photo = nil } label: {
             Circle().fill(Color(hex: c.hex)).frame(width: 34, height: 34)
               .overlay { if on { Circle().stroke(Palette.text, lineWidth: 2).padding(-4) } }
               .frame(width: 44, height: 44).contentShape(Circle())
@@ -396,7 +406,7 @@ struct BubbleLookPage: View {
         }
       }
       HStack(spacing: 14) {
-        ColorPicker("Your own colour", selection: Binding(get: { Color(hex: color) }, set: { look.color = $0.hexString; look.color2 = nil }), supportsOpacity: false)
+        ColorPicker("Your own colour", selection: Binding(get: { Color(hex: color) }, set: { look.color = $0.hexString; look.color2 = nil; look.photo = nil }), supportsOpacity: false)
           .font(.system(size: 15)).foregroundStyle(Palette.text)
       }
       Button("Reset to default") { look = GhostLook.defaultAppearance(agent.handle).resolved }
@@ -411,9 +421,9 @@ struct BubbleLookPage: View {
     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
       ForEach(BubbleForm.allCases) { s in
         let on = s == BubbleForm(look)
-        Button { look.bubble = s.rawValue } label: {
+        Button { look.bubble = s.rawValue; look.photo = nil } label: {
           VStack(spacing: 6) {
-            GhostView(look: { var l = look; l.bubble = s.rawValue; return l }(), seed: seed, size: 40, animate: false).frame(width: 40, height: 40)
+            GhostView(look: { var l = look; l.bubble = s.rawValue; l.photo = nil; return l }(), seed: seed, size: 40, animate: false).frame(width: 40, height: 40)
             Text(s.name).font(.system(size: 12, weight: on ? .semibold : .regular)).foregroundStyle(on ? Palette.text : Palette.muted)
           }
           .frame(maxWidth: .infinity).frame(height: 84)
@@ -424,6 +434,80 @@ struct BubbleLookPage: View {
         .accessibilityLabel("Shape: \(s.name)")
         .accessibilityAddTraits(on ? .isSelected : [])
         .accessibilityIdentifier("look-shape-\(s.rawValue)")
+      }
+    }
+  }
+
+  /** a few words, four bubbles to pick from (LookWords) */
+  private var describe: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      TextField("A calm green bubble with freckles", text: $words)
+        .font(.system(size: 15)).foregroundStyle(Palette.text)
+        .padding(.horizontal, 14).frame(height: 44)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.hairline))
+        .submitLabel(.done)
+        .accessibilityLabel("Describe its look")
+        .accessibilityIdentifier("look-words")
+      let options = LookWords.looks(words, palette: Self.swatches.map(\.hex))
+      HStack(spacing: 8) {
+        ForEach(Array(options.enumerated()), id: \.offset) { i, option in
+          let on = look.photo == nil && option.color == look.color && option.bubble == look.bubble && option.hat == look.hat
+            && option.eyes == look.eyes && option.mouth == look.mouth && option.accessory == look.accessory
+          Button { look = option } label: {
+            GhostView(look: option, seed: seed, size: 52, animate: false).frame(width: 52, height: 52)
+              .frame(maxWidth: .infinity).frame(height: 84)
+              .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(on ? Palette.hairline : .clear))
+              .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel("Look \(i + 1)")
+          .accessibilityAddTraits(on ? .isSelected : [])
+          .accessibilityIdentifier("look-option-\(i)")
+        }
+      }
+      Text(words.isEmpty ? "Try a colour, a hat, glasses or a smile." : "Tap one to use it.")
+        .font(.system(size: 13)).foregroundStyle(Palette.muted)
+    }
+    .padding(16)
+    .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Palette.card))
+  }
+
+  /** a photo from the phone instead of the bubble */
+  private var photo: some View {
+    VStack(spacing: 10) {
+      PhotosPicker(selection: $photoItem, matching: .images) {
+        Label(uploading ? "Uploading…" : look.photo == nil ? "Choose a photo" : "Choose another photo", systemImage: "photo")
+          .font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
+          .frame(maxWidth: .infinity).frame(height: 44)
+          .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.hairline))
+      }
+      .buttonStyle(.plain).disabled(uploading)
+      .accessibilityIdentifier("look-photo-pick")
+      if look.photo != nil {
+        Button("Use the bubble instead") { look.photo = nil }
+          .font(.system(size: 15, weight: .medium)).foregroundStyle(ChatDot.blue).buttonStyle(.plain)
+          .accessibilityIdentifier("look-photo-remove")
+      }
+    }
+    .padding(16)
+    .background(RoundedRectangle(cornerRadius: Corner.card, style: .continuous).fill(Palette.card))
+    .onChange(of: photoItem) { _, item in if let item { upload(item) } }
+  }
+
+  private func upload(_ item: PhotosPickerItem) {
+    uploading = true
+    action.error = nil
+    Task {
+      defer { uploading = false; photoItem = nil }
+      do {
+        guard let data = try await item.loadTransferable(type: Data.self), let jpeg = LookPhoto.jpeg(data) else {
+          action.error = "That photo couldn't be read."
+          return
+        }
+        let up = try await store.uploadFile(jpeg, name: "face.jpg", mime: "image/jpeg")
+        look.photo = "/api/files/\(up.id)"
+      } catch {
+        action.error = "That photo didn't upload."
       }
     }
   }

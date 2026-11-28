@@ -3,7 +3,7 @@ import SwiftUI
 /**
  * Swipe left in a chat with one agent (round 11, board 10): the chat slides aside and the agent's
  * panel comes in from the right, the same short list as its profile. Tap the chat (or drag it back)
- * to close. Swiping right is the system's back, with Home following your finger.
+ * to close; while it's open a swipe right closes it. Otherwise a swipe right is the system's Back.
  */
 struct AgentPanelHost<Panel: View>: ViewModifier {
   var agent: Agent?
@@ -47,6 +47,8 @@ struct AgentPanelHost<Panel: View>: ViewModifier {
           settle(open: open ? flung < panelWidth * 0.35 : -flung > panelWidth * 0.35)
         }))
         .accessibilityAction(named: "Open \(agent?.name ?? "the agent")'s panel") { settle(open: true) }
+        .onChange(of: open, initial: true) { _, now in BackSwipe.paused = now }
+        .onDisappear { BackSwipe.paused = false }
     }
   }
 

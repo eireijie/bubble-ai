@@ -17,10 +17,7 @@ struct MessageRow: View {
   /** the thread whose message bar "Reply" fills (nil: the chat's own) */
   var composerThread: String? = nil
   @Environment(\.messageActions) private var actions
-  @ReduceMotion private var reduceMotion
   @State private var toolsOpen = false
-  /** how far the message is swiped to the right */
-  @State private var dx: CGFloat = 0
   @State private var bubbleBox = FrameBox()
   @State private var columnBox = FrameBox()
 
@@ -104,13 +101,11 @@ struct MessageRow: View {
 
   private var held: Bool { actions?.held?.message.id == message.id }
   private var hasReactions: Bool { (message.reactions ?? []).contains { !$0.actors.isEmpty } }
-  /** a swipe to the right opens this message's thread */
-  private var swipeThread: ThreadRef? { message.deletedAt == nil ? thread : nil }
+  /** its thread, from the menu's "Reply in thread" (a swipe to the right is the chat's Back) */
+  private var openThread: ThreadRef? { message.deletedAt == nil ? thread : nil }
 
   private var row: some View {
     VStack(spacing: 0) {
-    ZStack(alignment: .leading) {
-      if swipeThread != nil && dx > 0 { SwipeThreadIcon(dx: dx).padding(.leading, mine ? 0 : -4) }
       HStack(alignment: .bottom, spacing: 8) {
         if mine {
           Spacer(minLength: 56)
@@ -126,8 +121,6 @@ struct MessageRow: View {
         column
         if !mine { Spacer(minLength: home ? 56 : 40) }
       }
-      .offset(x: dx)
-    }
       // the agent let the chat go: a quiet line across the chat, not part of the bubble
       if Loops.isClosed(message) { ClosedLine(message: message) }
     }
@@ -142,35 +135,20 @@ struct MessageRow: View {
     .opacity(held ? 0 : 1)
     .id(message.id)
     .gesture(HoldGesture { hold() })
-    .gesture(SwipeRightGesture(changed: swiped, ended: swipeEnded))
     .accessibilityElement(children: .contain)
   }
 
   /** Opens this message's menu over the chat. */
   private func hold() {
-    // a press that turned into a swipe never opens the menu
-    guard let actions, dx == 0, message.author.id != "system", message.deletedAt == nil else { return }
+    guard let actions, message.author.id != "system", message.deletedAt == nil else { return }
     let bubble = showsBubble && bubbleBox.frame != .zero
     actions.held = .init(message: message, frame: bubble ? bubbleBox.frame : columnBox.frame, mine: mine, bubble: bubble, thread: message.deletedAt == nil ? thread : nil, composerThread: composerThread)
-  }
-
-  private func swiped(_ raw: CGFloat) {
-    guard swipeThread != nil else { return }
-    let next = SwipeMath.offset(raw, reduceMotion: reduceMotion)
-    if (next >= SwipeMath.arm) != (dx >= SwipeMath.arm) && next >= SwipeMath.arm { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-    dx = next
-  }
-
-  private func swipeEnded(_ raw: CGFloat, cancelled: Bool) {
-    let open = !cancelled && dx >= SwipeMath.arm
-    withAnimation(reduceMotion ? Motion.reduced : .spring(response: 0.42, dampingFraction: 0.7)) { dx = 0 }
-    if open, let swipeThread { actions?.thread = swipeThread }
   }
 
   /** What VoiceOver offers on a message: the same things as press and hold. */
   @ViewBuilder private var voiceOverActions: some View {
     if store.canReply(message) { Button("Reply") { store.startReply(message, thread: composerThread) } }
-    if let swipeThread { Button("Reply in thread") { actions?.thread = swipeThread } }
+    if let openThread { Button("Reply in thread") { actions?.thread = openThread } }
     if store.canReact(message) { Button("React…") { hold() } }
     if !message.body.isEmpty { Button("Copy") { UIPasteboard.general.string = message.body } }
     if store.canPin(message) { Button(pinned ? "Unpin" : "Pin to team") { actions?.setPinned(message, !pinned, store: store) } }

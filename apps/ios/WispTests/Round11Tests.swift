@@ -76,4 +76,42 @@ final class Round11Tests: XCTestCase {
     let apps = ThisIPhoneList.apps.map(\.0)
     XCTAssertEqual(apps, [.calendar, .reminders, .contacts, .location])
   }
+
+  // MARK: Describe and Photo (board 12)
+
+  func testDescribeKeepsTheWordsItKnowsInAllFour() {
+    let looks = LookWords.looks("a calm green bubble with glasses", palette: ["#111111"])
+    XCTAssertEqual(looks.count, 4)
+    for look in looks {
+      XCTAssertEqual(look.color, "#6cc4a1")
+      XCTAssertEqual(look.accessory, "glasses")
+      XCTAssertEqual(look.motion, "still")
+    }
+    // what the words leave open differs, so there is something to pick
+    XCTAssertEqual(Set(looks.compactMap(\.bubble)).count, 4)
+  }
+
+  func testDescribeIsTheSameForTheSameWords() {
+    let palette = BubbleLookPage.swatches.map(\.hex)
+    XCTAssertEqual(LookWords.looks("cheerful", palette: palette).map(\.color),
+                   LookWords.looks("cheerful", palette: palette).map(\.color))
+    XCTAssertTrue(palette.contains(LookWords.looks("cheerful", palette: palette)[0].color))
+    XCTAssertEqual(LookWords.looks("a top hat", palette: palette)[0].hat, "tophat")
+  }
+
+  func testPhotoOnlyTakesAHubFile() {
+    XCTAssertEqual(LookPhoto.fileId("/api/files/file_myehKOMxu-Ac"), "file_myehKOMxu-Ac")
+    for bad in [nil, "", "https://example.com/a.jpg", "/api/files/../x", "/api/files/a/b", "/api/files/"] {
+      XCTAssertNil(LookPhoto.fileId(bad), bad ?? "nil")
+    }
+  }
+
+  func testPhotoSurvivesARoundTrip() throws {
+    var look = GhostLook(color: "#6cc4a1")
+    look.photo = "/api/files/file_abc"
+    let back = try JSONDecoder().decode(GhostLook.self, from: JSONEncoder().encode(look))
+    XCTAssertEqual(back.photo, "/api/files/file_abc")
+    let none = try JSONDecoder().decode(GhostLook.self, from: JSONEncoder().encode(GhostLook(color: "#6cc4a1")))
+    XCTAssertNil(none.photo)
+  }
 }

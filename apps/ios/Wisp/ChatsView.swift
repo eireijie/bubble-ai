@@ -97,6 +97,8 @@ struct ChatsView: View {
   @State private var leaving: ChatEntry?
   /** Share as template: the team, and the name it's saved under */
   @State private var templating: ChatEntry?
+  /** a chat held down: lifted over the blurred screen with its menu (board 11) */
+  @State private var lifted: LiftedChat?
   @State private var templateName = ""
 
   private var query: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -133,6 +135,11 @@ struct ChatsView: View {
       .environment(\.hasWall, true)
       .toolbar(.hidden, for: .navigationBar)
       .mainBar()
+      .overlay {
+        if let lifted {
+          ChatLift(lifted: lifted, line: ChatRow.line(lifted.entry, store: store), items: liftItems(lifted.entry, layout: layout)) { self.lifted = nil }
+        }
+      }
       .task(id: query) { await runSearch() }
       .chatDestinations()
       .sheet(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } })) {
@@ -357,15 +364,14 @@ struct ChatsView: View {
   private func pinGrid(_ pins: [ChatEntry], layout l: SidebarLayout) -> some View {
     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 3), spacing: 4) {
       ForEach(pins) { e in
-        // A menu whose tap opens the chat: inside one List row, .contextMenu on several pins
-        // would all show the first pin's menu, so each pin holds its own.
-        Menu { menu(e, layout: l) } label: {
+        // tap opens the chat; press and hold lifts it with its menu (board 11)
+        Button { openEntry(e) } label: {
           pinCell(e, layout: l)
             .frame(maxWidth: .infinity).frame(height: 122)
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        } primaryAction: { openEntry(e) }
-        .menuStyle(.button)
+        }
         .buttonStyle(.press)
+        .liftOnHold { lifted = LiftedChat(entry: e, frame: $0) }
         .accessibilityLabel("\(e.name)\(l.pins.contains(e.key) ? ", pinned" : "")\(isUnread(e, l) ? ", unread" : "")\(needsYou(e) ? ", needs you" : "")")
         .accessibilityIdentifier("pin")
       }
@@ -382,9 +388,8 @@ struct ChatsView: View {
   // MARK: rows and sections
 
   private func rowView(_ entry: ChatEntry, _ index: Int = 0, layout l: SidebarLayout? = nil, needsFirst: Bool = false, first: Bool = false) -> some View {
-    ChatRow(entry: entry, unread: l.map { isUnread(entry, $0) } ?? (entry.badge > 0), needs: needsYou(entry), open: { openEntry(entry) }, path: $path) {
-      if let l { menu(entry, layout: l) }
-    }
+    ChatRow(entry: entry, unread: l.map { isUnread(entry, $0) } ?? (entry.badge > 0), needs: needsYou(entry), open: { openEntry(entry) }, path: $path,
+      onHold: l == nil ? nil : { lifted = LiftedChat(entry: entry, frame: $0) })
     .tourTarget("needs-row", enabled: needsFirst)
     .tourTarget("chat-row", enabled: first)
     .tourTarget("yourturn", enabled: first)
@@ -421,46 +426,45 @@ struct ChatsView: View {
    * Press and hold (board 11): Mark unread, Pin, Move to (its folders open in place, inside the menu),
    * Share as template, Hide, and More for the rest (Rename, Mute, Agent profile, Copy ID, Leave, Delete).
    */
-  @ViewBuilder private func menu(_ e: ChatEntry, layout l: SidebarLayout) -> some View {
+  private func liftItems(_ e: ChatEntry, layout l: SidebarLayout) -> [LiftItem] {
+    let done = { (work: @escaping () -> Void) in { lifted = nil; work() } }
     let pinned = l.pins.contains(e.key)
     let channel = e.channel.flatMap { c in store.channels.first { $0.id == c.id } } ?? e.channel
     let muted = channel?.isMuted == true
+    var out: [LiftItem] = []
     if isUnread(e, l) {
-      Button("Mark read", systemImage: "envelope.open") {
+      out.append(LiftItem(title: "Mark read", symbol: "envelope.open", action: done {
         save(SideLayout.clearUnread(l, e.key))
         if let id = channel?.id, e.badge > 0 { action.run { try await store.readChannel(id) } }
-      }
+      }))
     } else {
-      Button("Mark unread", systemImage: "envelope") { save(SideLayout.markUnread(l, e.key)) }
+      out.append(LiftItem(title: "Mark unread", symbol: "envelope", action: done { save(SideLayout.markUnread(l, e.key)) }))
     }
-    if pinned { Button("Unpin", systemImage: "pin.slash") { unpin(e, l) } }
-    else { Button("Pin", systemImage: "pin") { pin(e, l) } }
+    out.append(pinned ? LiftItem(title: "Unpin", symbol: "pin.slash", action: done { unpin(e, l) }) : LiftItem(title: "Pin", symbol: "pin", action: done { pin(e, l) }))
     if !guest {
       let here = l.sections.first { $0.items.contains(e.key) }?.id ?? SideLayout.none
-      Menu("Move to", systemImage: "folder") {
-        ForEach(l.sections, id: \.id) { s in
-          Button { move(e, to: s.id, l) } label: { Label(s.name, systemImage: here == s.id && !pinned ? "checkmark" : "folder") }
-        }
-        Button { move(e, to: SideLayout.none, l) } label: { Label("Unsorted", systemImage: here == SideLayout.none && !pinned ? "checkmark" : "tray") }
-        Button("New folder", systemImage: "plus") { newSection(with: e) }
-      }
+      var folders = l.sections.map { s in LiftItem(title: s.name, symbol: "folder", checked: here == s.id && !pinned, action: done { move(e, to: s.id, l) }) }
+      folders.append(LiftItem(title: "Unsorted", symbol: "tray", checked: here == SideLayout.none && !pinned, action: done { move(e, to: SideLayout.none, l) }))
+      folders.append(LiftItem(title: "New folder", symbol: "plus", action: done { newSection(with: e) }))
+      out.append(LiftItem(title: "Move to", symbol: "folder", children: folders))
     }
     if e.isTeam, store.canManage, channel?.settings?.team?.steps?.isEmpty == false {
-      Button("Share as template", systemImage: "doc.text") { templateName = e.name; templating = e }
+      out.append(LiftItem(title: "Share as template", symbol: "doc.text", action: done { templateName = e.name; templating = e }))
     }
-    Button("Hide", systemImage: "eye.slash", role: .destructive) { save(SideLayout.hide(l, e.key)) }
-    Menu("More", systemImage: "ellipsis") {
-      if canRename(e) { Button("Rename", systemImage: "pencil") { newName = e.name; renaming = e } }
-      Button(muted ? "Unmute" : "Mute", systemImage: muted ? "bell" : "bell.slash") {
-        action.run { let c = try await ensureChannel(e); try await store.setChannelPrefs(c.id, ["notify": AnyEncodable(muted ? "default" : "mute")]) }
-      }
-      if case .agent(let a) = e.kind { Button("Agent profile", systemImage: "person.crop.circle") { path.append(store.agent(a.id) ?? a) } }
-      Button("Copy ID", systemImage: "doc.on.doc") { UIPasteboard.general.string = e.key.dropFirst(2).description }
-      if e.isTeam, channel?.name != "general" { Button("Leave team", systemImage: "rectangle.portrait.and.arrow.right") { leaving = e } }
-      if store.canManage, !(e.isTeam && channel?.name == "general") {
-        Button("Delete", systemImage: "trash", role: .destructive) { deleting = e }
-      }
+    out.append(LiftItem(title: "Hide", symbol: "eye.slash", destructive: true, action: done { save(SideLayout.hide(l, e.key)) }))
+    var more: [LiftItem] = []
+    if canRename(e) { more.append(LiftItem(title: "Rename", symbol: "pencil", action: done { newName = e.name; renaming = e })) }
+    more.append(LiftItem(title: muted ? "Unmute" : "Mute", symbol: muted ? "bell" : "bell.slash", action: done {
+      action.run { let c = try await ensureChannel(e); try await store.setChannelPrefs(c.id, ["notify": AnyEncodable(muted ? "default" : "mute")]) }
+    }))
+    if case .agent(let a) = e.kind { more.append(LiftItem(title: "Agent profile", symbol: "person.crop.circle", action: done { path.append(store.agent(a.id) ?? a) })) }
+    more.append(LiftItem(title: "Copy ID", symbol: "doc.on.doc", action: done { UIPasteboard.general.string = e.key.dropFirst(2).description }))
+    if e.isTeam, channel?.name != "general" { more.append(LiftItem(title: "Leave team", symbol: "rectangle.portrait.and.arrow.right", action: done { leaving = e })) }
+    if store.canManage, !(e.isTeam && channel?.name == "general") {
+      more.append(LiftItem(title: "Delete", symbol: "trash", destructive: true, action: done { deleting = e }))
     }
+    out.append(LiftItem(title: "More", symbol: "ellipsis", children: more))
+    return out
   }
 
   private func saveTemplate(_ channelId: String, _ name: String) {
@@ -611,6 +615,8 @@ struct ChatsView: View {
   }
 
   private func openEntry(_ entry: ChatEntry) {
+    // the finger lifting after a press and hold isn't a tap
+    guard lifted == nil else { return }
     // opening a chat you marked unread clears the mark
     let l = layout
     if (l.unread ?? []).contains(entry.key) { save(SideLayout.clearUnread(l, entry.key)) }
@@ -692,7 +698,7 @@ struct ChatAvatar: View {
 }
 
 /** A row (80pt): the bubble, its name and time, and up to two lines of what was said or what it's doing. */
-struct ChatRow<Menu: View>: View {
+struct ChatRow: View {
   @Environment(Store.self) private var store
   var entry: ChatEntry
   var unread: Bool
@@ -700,7 +706,8 @@ struct ChatRow<Menu: View>: View {
   var needs = false
   var open: () -> Void
   @Binding var path: NavigationPath
-  @ViewBuilder var menu: Menu
+  /** press and hold (board 11): lift it with its menu; nil = no menu (search results) */
+  var onHold: ((CGRect) -> Void)? = nil
   @State private var action = FormAction()
 
   private var channel: Channel? { entry.channel.flatMap { c in store.channels.first { $0.id == c.id } } ?? entry.channel }
@@ -737,7 +744,7 @@ struct ChatRow<Menu: View>: View {
     .accessibilityElement(children: .combine)
     .accessibilityIdentifier(entry.isTeam ? "team-row" : "chat-row")
     // board 11: the chat lifts as a small card (its name and what was said last) and everything else blurs
-    .contextMenu { menu } preview: { ChatPeek(entry: entry, line: preview).environment(store) }
+    .modifier(HoldIf(hold: onHold))
     .swipeActions(edge: .leading, allowsFullSwipe: false) {
       if channel != nil { Button("Mark as read", systemImage: "checkmark") { action.run { try await store.readChannel(channel!.id) } }.tint(Palette.accent) }
     }
@@ -802,7 +809,10 @@ struct ChatRow<Menu: View>: View {
     return out
   }
 
-  private var preview: String {
+  private var preview: String { Self.line(entry, store: store) }
+
+  /** the row's second line: what was said last, or what it does */
+  static func line(_ entry: ChatEntry, store: Store) -> String {
     if let m = entry.last, m.deletedAt == nil {
       var text = SearchText.clean(m.body, max: 120)
       if text.isEmpty, !m.files.isEmpty { text = "Sent \(m.files.count == 1 ? "a file" : "\(m.files.count) files")" }
@@ -841,19 +851,21 @@ struct ChatRow<Menu: View>: View {
 struct ChatPeek: View {
   var entry: ChatEntry
   var line: String
+  var width: CGFloat = 320
+  var lines = 4
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(spacing: 10) {
         ChatAvatar(entry: entry, size: 26)
         Text(entry.name).font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text).lineLimit(1)
       }
-      Text(line).font(.system(size: 15)).foregroundStyle(Palette.text).lineLimit(4)
+      Text(line).font(.system(size: 15)).foregroundStyle(Palette.text).lineLimit(lines)
         .padding(.horizontal, 14).padding(.vertical, 11)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Palette.text.opacity(0.07)))
     }
     .padding(14)
-    .frame(width: 320, alignment: .leading)
+    .frame(width: width, alignment: .leading)
     .background(Palette.sheet)
   }
 }
@@ -921,5 +933,13 @@ struct UnreadBadge: View {
         .badgePop(count)
         .transition(reduceMotion ? .opacity : .scale(scale: 0.4).combined(with: .opacity))
     }
+  }
+}
+
+/** Press and hold on a row when it has a menu (search results have none). */
+private struct HoldIf: ViewModifier {
+  var hold: ((CGRect) -> Void)?
+  func body(content: Content) -> some View {
+    if let hold { content.liftOnHold(hold) } else { content }
   }
 }

@@ -80,6 +80,7 @@
 		460C38EF0B0B3B768E457E9F /* TeamEdit.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5DC0A41DCA648C1D763B8FA /* TeamEdit.swift */; };
 		469DB50C861F204DDAA65B7A /* SettingsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE0761442FD2C9974413E82 /* SettingsModels.swift */; };
 		496649813558C0772419E6C1 /* MarkMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BFA7A3C218A123E11F4DCB3 /* MarkMotionTests.swift */; };
+		4B3E758CC8DCEA6E069D4CC2 /* ChatLift.swift in Sources */ = {isa = PBXBuildFile; fileRef = D787CE12C37EFA9C1638E349 /* ChatLift.swift */; };
 		4BA8ABB4B75FBFCD97127ECC /* Store+Automation.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCCC05A4664C6C41221FACEA /* Store+Automation.swift */; };
 		4C57B32426FE74DBE8568A75 /* AgentConnect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4CB1F04385382FB9DBCAD5 /* AgentConnect.swift */; };
 		4C6CE750703DBD66F4DB56A6 /* VoiceCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85E39295948EA414B9C41A3C /* VoiceCall.swift */; };
@@ -232,6 +233,7 @@
 		DA877C057C7755CF54387A39 /* InboxTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AAAD0BA38B5080FCC9F6562 /* InboxTab.swift */; };
 		DB2EE100B915EDC44D1D0E89 /* AgentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BCCCB707880917B7BC0EBF /* AgentCatalog.swift */; };
 		DBEA60376A1178360EE18EDB /* ThemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30C639F06B8FEA499245122 /* ThemeSettings.swift */; };
+		DCFCD753E1C7A2D19DA14950 /* LookWords.swift in Sources */ = {isa = PBXBuildFile; fileRef = 994F3F00F15546A94670BA22 /* LookWords.swift */; };
 		DE72EF0DF14A854C85E70C06 /* Store+Memory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 462E88A8D90E3BE1B374905F /* Store+Memory.swift */; };
 		DFF28834A9888B42F288D749 /* AddAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A72772F0E88F1096280F7FC1 /* AddAgent.swift */; };
 		E28A77EAD52F4631C48ADFB5 /* NoteExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC85BDF3987C0A606B9EF70 /* NoteExtras.swift */; };
@@ -429,6 +431,7 @@
 		966D47A89D748BEE68A81097 /* Store+Search.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Search.swift"; sourceTree = "<group>"; };
 		976B2DFB10EFCE8DE0A5E548 /* ChannelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelView.swift; sourceTree = "<group>"; };
 		991A2011355F928BFFCFA982 /* FoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationTests.swift; sourceTree = "<group>"; };
+		994F3F00F15546A94670BA22 /* LookWords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookWords.swift; sourceTree = "<group>"; };
 		9A4E6C9A4C7897EA0529FE0B /* SideLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideLayout.swift; sourceTree = "<group>"; };
 		9A7CCCC14E8D7B790B54764E /* ModelConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelConnections.swift; sourceTree = "<group>"; };
 		9B742B5A3A9809BE05B689AE /* WorkspaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTests.swift; sourceTree = "<group>"; };
@@ -478,6 +481,7 @@
 		D1006C4E7E05CCEF6C27228E /* ChatLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatLive.swift; sourceTree = "<group>"; };
 		D1640F6552EED1839F592F9E /* PairingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingTests.swift; sourceTree = "<group>"; };
 		D1C710AD2DB6A90295E125D3 /* Tour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tour.swift; sourceTree = "<group>"; };
+		D787CE12C37EFA9C1638E349 /* ChatLift.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatLift.swift; sourceTree = "<group>"; };
 		D8A78789E06A0D71CECBD81D /* FeaturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeaturesView.swift; sourceTree = "<group>"; };
 		DA52C50F15F9B7F9C3B3E780 /* BubbleField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BubbleField.swift; sourceTree = "<group>"; };
 		DA8179DE73625026B3318B26 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
@@ -670,6 +674,7 @@
 				274589480714482ABB15A9D9 /* ChatBubbles.swift */,
 				5ECC38BC098F4F329AC9AF25 /* ChatCards.swift */,
 				64B962AB99AB5CE63EBCD814 /* ChatFormat.swift */,
+				D787CE12C37EFA9C1638E349 /* ChatLift.swift */,
 				E98C25027164D49176B6F152 /* ChatListParts.swift */,
 				D1006C4E7E05CCEF6C27228E /* ChatLive.swift */,
 				F404713829EFFB1F5C48A5F2 /* ChatsView.swift */,
@@ -713,6 +718,7 @@
 				BE3C6353DEEC3BA5594CD680 /* LearnWisp.swift */,
 				EB5E92340262BD519845C9B8 /* LoginsView.swift */,
 				0604F79F6F442F088E05BC87 /* LookEditor.swift */,
+				994F3F00F15546A94670BA22 /* LookWords.swift */,
 				F226A7AF177EBDFEAFBCD36C /* Loops.swift */,
 				8B4244F6DAFCB920B676D859 /* LoopViews.swift */,
 				01F7F0138AA370C823CF9E69 /* MainBar.swift */,
@@ -1064,6 +1070,7 @@
 				32AC10BB5958CB76EAC59DBA /* ChatBubbles.swift in Sources */,
 				54CA2C7F59F09DB98682DFD7 /* ChatCards.swift in Sources */,
 				9BA1EEBF8C67BA24524A1E0B /* ChatFormat.swift in Sources */,
+				4B3E758CC8DCEA6E069D4CC2 /* ChatLift.swift in Sources */,
 				BCE5AF5663FF0EF3153E3AEB /* ChatListParts.swift in Sources */,
 				2588D41243B495B8DD6EEF34 /* ChatLive.swift in Sources */,
 				5B95FD45F6475A9907AB1E07 /* ChatTools.swift in Sources */,
@@ -1106,6 +1113,7 @@
 				D1D98FB417A8ACE539F996E6 /* LearnWisp.swift in Sources */,
 				11E57C1E8E18D03669B48D73 /* LoginsView.swift in Sources */,
 				64E424410C96A6547CE9F179 /* LookEditor.swift in Sources */,
+				DCFCD753E1C7A2D19DA14950 /* LookWords.swift in Sources */,
 				347F729B116545F40A3DA8BA /* LoopViews.swift in Sources */,
 				18C261449DEB646C2A5CEFC2 /* Loops.swift in Sources */,
 				EBE4C782E7E7B067A9F331F4 /* MainBar.swift in Sources */,
