@@ -57,6 +57,10 @@ export function ViewMenu({ view, onView, onRecent, onSeeAs, close }: { view: Mem
       <a role="menuitem" href={href({ view: "about" })} onClick={close} className={quiet}>
         About you
       </a>
+      {/* round 11: bring what another AI knows about you */}
+      <a role="menuitem" href={href({ view: "settings", page: "memory", item: "import" })} onClick={close} className={quiet}>
+        Import memory
+      </a>
       {/* who can see what, where memory is kept and Obsidian are settings */}
       <a role="menuitem" href={href({ view: "settings", page: "memory" })} onClick={close} className={quiet}>
         Sharing and storage

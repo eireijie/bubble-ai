@@ -21,7 +21,7 @@ vi.mock("react", async (original) => ({
 }));
 vi.mock("../api.ts", () => ({ api: vi.fn() }));
 vi.mock("../theme.ts", () => ({ motionReduced: () => false }));
-vi.mock("../features.ts", () => ({ useFeatures: () => world.features }));
+vi.mock("../features.ts", () => ({ useFeatures: () => world.features, useFeature: (k: string) => !!(world.features as Record<string, boolean>)[k] }));
 vi.mock("../store.ts", () => ({
   useStore: Object.assign((select: (s: unknown) => unknown) => select(world.store), {
     setState: (patch: unknown) => world.setState(patch),

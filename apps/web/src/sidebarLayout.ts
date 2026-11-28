@@ -125,14 +125,35 @@ export const clearUnread = (l: SidebarLayout, key: string): SidebarLayout => ({ 
 /** A chat that was deleted leaves every list. */
 export const forget = (l: SidebarLayout, key: string): SidebarLayout => ({ ...l, pins: without(l.pins, key), hidden: without(l.hidden, key), unread: without(l.unread, key), sections: l.sections.map((s) => ({ ...s, items: without(s.items, key) })) });
 
-/** A name for a new section that isn't taken: "New section", "New section 2"… */
+/** A name for a new folder that isn't taken: "New folder", "New folder 2"… */
 export function newSectionName(l: SidebarLayout): string {
   const taken = new Set(l.sections.map((s) => s.name));
   for (let n = 1; ; n++) {
-    const name = n === 1 ? "New section" : `New section ${n}`;
+    const name = n === 1 ? "New folder" : `New folder ${n}`;
     if (!taken.has(name)) return name;
   }
 }
 
 /** What a 10th pin says. */
 export const pinsFullNotice = (name: string) => `${MAX_PINS} pinned is the most. Unpin one to pin ${name}.`;
+
+/**
+ * Round 11's home (boards 8 and 9): every agent and team as a tile (pins first, in pin order, then the
+ * rest newest first), then the chats that have something in them, in their folders ("Unsorted" last).
+ * A pinned chat stays in its folder too: pinning only puts its tile first. Hidden chats leave both
+ * until something new arrives in them.
+ */
+export function placeHome(layout: SidebarLayout, chats: readonly LayoutChat[]): { tiles: string[]; folders: PlacedSection[] } {
+  const hidden = new Set(layout.hidden ?? []);
+  const shown = chats.filter((c) => !hidden.has(c.key) || c.unread > 0);
+  const keys = new Set(shown.map((c) => c.key));
+  const pins = layout.pins.filter((k) => keys.has(k)).slice(0, MAX_PINS);
+  const pinned = new Set(pins);
+  const tiles = [...pins, ...shown.filter((c) => !pinned.has(c.key)).map((c) => c.key)];
+  const talked = shown.filter((c) => (c.at ?? 0) > 0);
+  const owner = new Map<string, string>();
+  for (const s of layout.sections) for (const k of s.items) if (!owner.has(k)) owner.set(k, s.id);
+  const folders: PlacedSection[] = layout.sections.map((s) => ({ id: s.id, name: s.name, folded: !!s.folded, keys: talked.filter((c) => owner.get(c.key) === s.id).map((c) => c.key) }));
+  folders.push({ id: NONE, name: "Unsorted", folded: !!layout.noneFolded, none: true, keys: talked.filter((c) => !owner.has(c.key)).map((c) => c.key) });
+  return { tiles, folders };
+}

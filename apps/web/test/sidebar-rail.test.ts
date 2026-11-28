@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useStore } from "../src/store.ts";
 import { Rail, sidebarGroups } from "../src/components/Rail.tsx";
+import { SIDEBAR } from "../src/sidebarWidth.ts";
 import type { Chat } from "../src/components/ChatList.tsx";
 
 vi.mock("../src/api.ts", () => ({ api: vi.fn(() => new Promise(() => {})), uploadFile: vi.fn() }));
@@ -63,19 +64,22 @@ describe("docked sidebar", () => {
     return renderToStaticMarkup(createElement(Rail, { route: { view: "dashboard" } }));
   }
 
-  it("opens at the remembered width: search and New on top, Computers + Memory in the icon strip, the list, you at the foot, a resize edge", () => {
+  it("opens at the remembered width: your initials and + on top, the list, five places at the foot, a resize edge", () => {
     const html = render({ width: 360, collapsed: false });
     expect(html).toContain("width:360px");
     expect(html).toContain('role="separator"');
     expect(html).toContain(">Iris<");
-    // round 8: your initial at the foot, beside the Connect apps pill; no apps icon in the strip
-    expect(html).toMatch(/aria-label="Account, settings and help"[^>]*>S</);
-    expect(html).toContain('href="#/marketplace" data-tour="apps"');
-    expect(html).toContain(">Connect apps<");
-    expect(html).not.toContain('aria-label="Connect apps"');
-    expect(html).toContain('href="#/computers" data-tour="computers" aria-label="Computers"');
-    expect(html).toContain('href="#/vault"');
-    for (const control of ["Search", "New chat, agent or team", "Account, settings and help"]) expect(html).toContain(`aria-label="${control}"`);
+    // round 11: your initials open settings, and the + menu sits beside them
+    expect(html).toMatch(/aria-label="You and settings"[^>]*>[^]*?<span>SR<\/span>/);
+    expect(html).toContain('aria-label="New agent, team or chat"');
+    // the five places, icon-only, in the strip at the foot (a guest gets fewer: guest-computers.test.ts)
+    const places = html.slice(html.indexOf('aria-label="Places"'));
+    for (const place of ["Chats", "Computers", "Memory", "Marketplace", "More"]) expect(places).toMatch(new RegExp(`aria-label="${place}[",]`));
+    expect(places).toContain('href="#/computers" aria-label="Computers"');
+    expect(places).toContain('data-tour="vault"');
+    expect(places).toContain('href="#/marketplace" aria-label="Marketplace"');
+    // no search box, no account button, no Connect apps pill
+    for (const gone of ['aria-label="Search"', 'aria-label="Account, settings and help"', ">Connect apps<", "Connect apps"]) expect(html).not.toContain(gone);
     // no All / Your turn filter and no Needs you row (round 4): a blue dot on the chat says it
     expect(html).not.toContain(">All<");
     expect(html).not.toContain(">Your turn<");
@@ -100,29 +104,35 @@ describe("docked sidebar", () => {
     expect(rail).not.toContain(">My pick is Immich.<");
   });
 
-  it("puts one blue dot on the avatar's corner of a chat that waits on you, and none on the rest", () => {
+  it("puts one blue dot on the tile of a chat that waits on you, and none on the rest", () => {
     initial.channels = [{ id: "c1", kind: "dm", name: "dm:person:a1", unread: 0, notify: "default", starred: false, sectionId: null } as unknown as (typeof initial.channels)[number]];
     const quiet = render({ width: 360, collapsed: false });
     expect(quiet).toContain('aria-label="Iris"');
+    expect(quiet).not.toContain("side-tile-dot");
     expect(quiet).not.toContain("background:#0a84ff");
     initial.approvals = { ok: { id: "ok", status: "pending", channelId: "c1", agentId: "a1", summary: "Send it?" } as (typeof initial.approvals)[string] };
     const html = render({ width: 360, collapsed: false });
     expect(html).toContain('aria-label="Iris, needs you"');
-    const row = html.slice(html.indexOf('aria-label="Iris, needs you"'));
-    // the dot sits on the avatar's top-left corner, in the row itself
-    expect(row.indexOf("background:#0a84ff")).toBeGreaterThan(-1);
-    expect(row.indexOf("background:#0a84ff")).toBeLessThan(row.indexOf('class="bub'));
-    // the rail marks it too
+    // exactly one dot, inside Iris's own tile
+    expect(html.match(/side-tile-dot/g)?.length).toBe(1);
+    const tile = html.slice(html.indexOf('aria-label="Iris, needs you"'));
+    expect(tile.indexOf("side-tile-dot")).toBeGreaterThan(-1);
+    expect(tile.indexOf("background:#0a84ff")).toBeGreaterThan(-1);
+    // the narrow rail marks it too
     expect(render({ width: 360, collapsed: true })).toContain("background:#0a84ff");
     initial.approvals = {};
   });
 
-  it("collapsed is an 82px rail of tiles, and every place is still reachable", () => {
+  it("collapsed is a rail of tiles (SIDEBAR.rail wide), and every place is still reachable", () => {
     const html = render({ width: 360, collapsed: true });
-    expect(html).toContain("width:82px");
+    expect(html).toContain(`width:${SIDEBAR.rail}px`);
     expect(html).not.toContain(">Iris<");
-    for (const place of ["Search", "Iris", "New chat, agent or team", "Computers", "Memory vault", "Account, settings and help"]) expect(html).toContain(`aria-label="${place}`);
+    // + at the top, the agent column, and your initials at the foot, which open a menu of the five places
+    for (const place of ["New agent, team or chat", "Iris", "Your profile, settings and places"]) expect(html).toContain(`aria-label="${place}`);
+    expect(html).toContain('aria-haspopup="menu"');
+    // the full sidebar has no such menu button: the places sit in its foot instead
+    expect(render({ width: 360, collapsed: false })).not.toContain("Your profile, settings and places");
   });
 
-  it("starts at 325 with nothing saved", () => expect(render(null)).toContain("width:325px"));
+  it("starts at the default width with nothing saved", () => expect(render(null)).toContain(`width:${SIDEBAR.default}px`));
 });

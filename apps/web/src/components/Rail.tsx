@@ -1,24 +1,23 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { STOPS, TOTAL, seenCount } from "../tour.ts";
 import { createPortal } from "react-dom";
-import { Apple, Bell, BookOpen, Building2, ExternalLink, FolderPlus, Sparkles, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, MessageSquarePlus, Plus, Search, Settings, SquareTerminal, Store, Users, X } from "lucide-react";
+import { Apple, Bell, BookOpen, Building2, Check, ChevronLeft, ChevronRight, ExternalLink, FolderPlus, Sparkles, HardDrive, LayoutGrid, LifeBuoy, ListTodo, Compass, MessageSquarePlus, Search, SquareTerminal, Store, Users } from "lucide-react";
+import { PlaceIcon, PlusLine, type PlaceKey } from "./r11Icons.tsx";
 import { BubbleIcon } from "./icons.tsx";
-import { LogoStack, connectedLogos, useConnectors } from "./ConnectParts.tsx";
 import { GITHUB_URL } from "@bubble-ai/core";
 import { startTour } from "./tour/tourRun.ts";
 import { useReadyChecklist } from "../onboarding.ts";
 import type { FeatureKey, Section } from "@bubble-ai/core";
 import { api } from "../api.ts";
 import { useFeatures } from "../features.ts";
-import { logout } from "../logout.ts";
 import { useStore, useInboxCount, usePrefs } from "../store.ts";
 import { liveShape } from "../liveShape.ts";
 import { machinesOn, useDevices } from "../devices.ts";
 import { go, href, SETTINGS_PAGES, type Route } from "../router.ts";
 import { openDm } from "../openDm.ts";
-import { ComputersIcon, WispGhost } from "./icons.tsx";
-import { NewOrgDialog, OrgList, OrgSwitcher, useOrgs } from "./OrgSwitcher.tsx";
-import { Menu, PopBadge, cx } from "./ui.tsx";
+import { ComputersIcon } from "./icons.tsx";
+import { NewOrgDialog, OrgList, useOrgs } from "./OrgSwitcher.tsx";
+import { Menu, cx } from "./ui.tsx";
 import { ChatAvatar, ChatMenu, chatPreviewLine, startNewAgent, type Chat, type PreviewLine } from "./ChatList.tsx";
 import { BLUE_DOT, SideList, newSideSection, useSideLayout } from "./SideList.tsx";
 import { placeChats } from "../sidebarLayout.ts";
@@ -83,9 +82,9 @@ export function UserAvatarButton({ size, desktop }: { size?: number; desktop?: b
   const { orgs } = useOrgs();
   const elsewhere = orgs.some((o) => o.unread && !o.current && o.id !== me.workspace.id);
   return (
-    <a href={desktop ? href({ view: "settings", page: null }) : href({ view: "you" })} aria-label="You and settings" title="You and settings" className="relative grid shrink-0 place-items-center rounded-full bg-wisp-soft font-semibold text-wisp-strong" style={{ width: size, height: size, fontSize: 13 }}>
-      {initialsOf(me.user.name)}
-      {elsewhere && <span className="absolute right-0 bottom-0 size-3 rounded-full bg-badge border-2 border-app" aria-label="New messages in another workspace" />}
+    <a href={desktop ? href({ view: "settings", page: null }) : href({ view: "you" })} aria-label="You and settings" title="You and settings" data-tour="you" className="lg grid shrink-0 place-items-center rounded-full font-semibold" style={{ width: size, height: size, fontSize: 13 }}>
+      <span>{initialsOf(me.user.name)}</span>
+      {elsewhere && <span className="absolute right-0 bottom-0 z-[2] size-3 rounded-full bg-badge border-2 border-app" aria-label="New messages in another workspace" />}
     </a>
   );
 }
@@ -122,27 +121,10 @@ export function useMoreItems(guest: boolean, size = 16, withAgents = false, with
   ];
 }
 
-/** The bottom of the wide sidebar (round 8): "Connect apps", with up to three connected apps' logos; it opens the Connect apps pop-up. */
-function ConnectPill({ on }: { on: boolean }) {
-  const list = useConnectors();
-  const logos = connectedLogos(list ?? []);
-  return (
-    <a href={href({ view: "marketplace" })} aria-current={on ? "page" : undefined} data-tour="apps" className={cx("connect-pill flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[20px] px-3 text-[14.5px] font-medium text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring/40", on && "is-on")}>
-      <span className="truncate">Connect apps</span>
-      <LogoStack logos={logos} />
-    </a>
-  );
-}
-
-/** A round sidebar button, 40px with a soft fill: search, the plus, Computers on the rail. */
-const ROUND = "relative grid size-[36px] shrink-0 place-items-center rounded-[10px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40";
-const SOFT = "bg-side-active";
-/** one icon in the wide sidebar's top row: 34px, a 10px corner */
-const ICON_BTN = "relative grid size-[34px] shrink-0 place-items-center rounded-[10px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/40";
 /** A row of the wide sidebar (60px, a big wisp, a rounded tile when it's the open one), and its square on the rail. Hover eases in; a press gives a little. */
 const ITEM = "relative flex h-[60px] w-full items-center gap-3 rounded-[12px] px-2 text-left text-[16px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
-const TILE = "relative grid size-[58px] place-items-center rounded-[12px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
-const MENU_ITEM = "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-body hover:bg-hover";
+// the narrow rail (100px): a 56px agent in a 64px highlight leaves 18px either side, like the 20px around the window buttons
+const TILE = "relative grid size-[64px] place-items-center rounded-[16px] outline-none transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40";
 
 /** How many notes the Memory vault holds (the pill at the foot), fetched again when notes change. */
 function useNoteCount(guest: boolean): number | null {
@@ -251,8 +233,9 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
     <>
       {wide && <span aria-hidden className="side-dot" style={{ background: dot ? BLUE_DOT : "transparent" }} />}
       {/* agents and teams at one size: every bubble shape fills its box (Bubble.tsx) */}
-      <span className="grid size-[46px] shrink-0 place-items-center">
-        <ChatAvatar chat={chat} size={46} />
+      <span className={cx("relative grid shrink-0 place-items-center", wide ? "size-[46px]" : "size-[56px]")}>
+        <ChatAvatar chat={chat} size={wide ? 46 : 56} />
+        {!wide && dot && <span aria-hidden className="side-tile-dot" style={{ background: BLUE_DOT }} />}
       </span>
       {wide && (
         <span className={cx("flex min-w-0 flex-1 flex-col", chat.muted && "opacity-60")}>
@@ -266,7 +249,6 @@ const SideRow = memo(function SideRow({ chat, wide, active, line, sections, onNe
           )}
         </span>
       )}
-      {!wide && dot && <span aria-hidden className="side-dot absolute -left-1 top-1/2 -translate-y-1/2" style={{ background: BLUE_DOT }} />}
       {!wide && line.working && <WorkDot corner />}
     </>
   );
@@ -305,25 +287,6 @@ function useNewNotes(notes: number | null, open: boolean): boolean {
     }
   }, [notes, open, seen]);
   return notes != null && seen != null && notes > seen;
-}
-
-/** Finish setup's card at the foot, until its x: after that it lives in the account menu. */
-const SETUP_CARD_KEY = "bubble.setup-card.hidden";
-function useSetupCardHidden(): [boolean, () => void] {
-  const [hidden, setHidden] = useState(() => {
-    try {
-      return localStorage.getItem(SETUP_CARD_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
-  const hide = () => {
-    setHidden(true);
-    try {
-      localStorage.setItem(SETUP_CARD_KEY, "1");
-    } catch {}
-  };
-  return [hidden, hide];
 }
 
 /** One place in the strip under search: a line icon with a tooltip (name, count, shortcut) and a dot when there's news. */
@@ -374,34 +337,6 @@ export function shortcutTarget(n: number, o: { guest: boolean; tasks: boolean; c
   return p?.to ?? null;
 }
 
-function StripButton({ p, align }: { p: StripPlace; align: "left" | "center" | "right" }) {
-  const aria = [p.label, p.count].filter(Boolean).join(", ");
-  return (
-    <a
-      href={p.to}
-      data-tour={p.tour}
-      aria-label={aria}
-      aria-keyshortcuts={`Meta+${p.shortcut}`}
-      aria-current={p.on ? "page" : undefined}
-      className={cx("group/tip relative grid size-[34px] shrink-0 place-items-center rounded-[10px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/40", p.on ? "bg-side-active text-ink" : "text-muted hover:bg-side-active hover:text-ink")}
-    >
-      {p.icon}
-      {p.dot && <span aria-hidden className={cx("absolute right-[6px] top-[4px] box-content size-1.5 rounded-full border-2 border-sidebar", p.dot === "on" ? "bg-[#30d158]" : "bg-wisp")} />}
-      <span
-        aria-hidden
-        className={cx(
-          "pointer-events-none absolute top-[calc(100%+6px)] z-20 whitespace-nowrap rounded-[6px] bg-ink px-2 py-[5px] text-[12px] leading-4 text-panel opacity-0 shadow-float transition-opacity duration-150 group-hover/tip:opacity-100 group-hover/tip:delay-300 group-focus-visible/tip:opacity-100",
-          align === "left" ? "left-0" : align === "right" ? "right-0" : "left-1/2 -translate-x-1/2",
-        )}
-      >
-        {p.label}
-        {p.count ? ` · ${p.count}` : ""}
-        <kbd className="ml-1.5 font-sans text-[11px] opacity-60">⌘{p.shortcut}</kbd>
-      </span>
-    </a>
-  );
-}
-
 function useMedia(query: string, fallback: boolean): boolean {
   const [on, setOn] = useState(() => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(query).matches : fallback));
   useEffect(() => {
@@ -448,7 +383,6 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
   const [orgAt, setOrgAt] = useState<CSSProperties | null>(null);
   const [newOrg, setNewOrg] = useState(false);
   const footRef = useRef<HTMLDivElement>(null);
-  const [setupHidden, hideSetup] = useSetupCardHidden();
   // what's open: the pop-up when there is one, else the page
   const open = popup ?? route;
   const newNotes = useNewNotes(notes, open.view === "vault");
@@ -580,24 +514,35 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
 
   const icon = { size: 18, strokeWidth: 1.8 };
   const place = (label: string, node: ReactNode, to: Route) => ({ label, icon: node, onSelect: () => go(to) });
-  // New, then every place that isn't a chat: the sidebar keeps only search, New, your agents and teams
+  const startFolder = () => (wide ? newSideSection() : (setWide(), setTimeout(newSideSection, SIDEBAR_OPEN_MS)));
+  // + (round 11): a new agent, team or chat, a folder, and browsing teams
   const addItems = [
-    // the chat header's pencil used to do this; it lives here now
-    { label: "New chat", icon: <MessageSquarePlus {...icon} />, onSelect: () => useStore.setState({ newChatOpen: true }) },
     ...(!isGuest ? [{ label: "New agent", icon: <BubbleIcon {...icon} />, onSelect: startNewAgent }] : []),
     ...(!isGuest ? [{ label: "New team", icon: <Users {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null, create: true } }) }] : []),
-    ...(!isGuest ? [{ label: "New section", icon: <FolderPlus {...icon} />, onSelect: () => (wide ? newSideSection() : (setWide(), setTimeout(newSideSection, SIDEBAR_OPEN_MS))) }] : []),
+    { label: "New chat", icon: <MessageSquarePlus {...icon} />, onSelect: () => useStore.setState({ newChatOpen: true }) },
+    ...(!isGuest ? [{ label: "New folder", icon: <FolderPlus {...icon} />, onSelect: startFolder }] : []),
     "divider" as const,
     { label: "Browse teams", icon: <Search {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
-    // the wide sidebar lists the places under search; as a rail they live here
-    // what waits on you shows as blue dots on the chats; the full list is here (and in search)
-    ...(!isGuest && inbox > 0 ? [place(`Needs you (${inbox > 99 ? "99+" : inbox})`, <Bell {...icon} />, { view: "dashboard" })] : []),
-    ...(!wide && !isGuest ? [place("Connect apps", <LayoutGrid {...icon} />, { view: "marketplace" })] : []),
+  ];
+  const switchWorkspace = () => {
+    const r = footRef.current?.getBoundingClientRect();
+    setOrgAt({ left: Math.max(8, r?.left ?? 8), bottom: window.innerHeight - (r?.top ?? window.innerHeight) + 6 });
+  };
+  // More (round 11): everything that isn't one of the five places — the agents list, what needs you,
+  // tasks and routines, mods' own pages, templates, help, the tour and the rest of the old account menu
+  const moreItems = [
     place("All agents", <BubbleIcon {...icon} />, { view: "agents", agentId: null }),
-    ...(!wide && !isGuest ? [place(features.tasks ? "Tasks" : "Tasks (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" })] : []),
-    // mods' own pages (Storage, Apple) live in Settings; Code shows here only while the sidebar is a rail
-    ...(!wide && !isGuest ? MOD_NAV.filter((m) => features[m.feature] && m.place === "rail").map((m) => place(m.label, m.icon(18), m.to)) : []),
-    ...(!wide && ready.started && ready.left > 0 && !isGuest ? [place("Finish setup", <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
+    ...(!isGuest ? [place(inbox > 0 ? `Needs you · ${inbox > 99 ? "99+" : inbox}` : "Needs you", <Bell {...icon} />, { view: "dashboard" })] : []),
+    ...(!isGuest ? [place(features.tasks ? "Tasks and routines" : "Tasks and routines (off)", <ListTodo {...icon} />, features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" })] : []),
+    ...(!isGuest ? modNav(features, "rail").concat(modNav(features, "more")).map((m) => place(m.label, m.icon(18), m.to)) : []),
+    ...(!isGuest ? [place("Templates", <LayoutGrid {...icon} />, { view: "templates" })] : []),
+    { label: "Browse teams", icon: <Users {...icon} />, onSelect: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
+    "divider" as const,
+    ...(!isGuest && ready.started && ready.left > 0 ? [place(`Finish setup · ${ready.left} left`, <Compass {...icon} />, { view: "settings", page: "learn" })] : []),
+    ...(!isGuest ? [{ label: toLearn ? `Show me around · ${learnSeen} of ${TOTAL}` : "Show me around", icon: <Compass {...icon} />, onSelect: () => startTour(learnSeen >= TOTAL ? 0 : undefined) }] : []),
+    place("Help", <LifeBuoy {...icon} />, { view: "help" }),
+    place("What's new", <Sparkles {...icon} />, { view: "settings", page: "updates", item: "news" }),
+    { label: "Report a problem", icon: <ExternalLink {...icon} />, onSelect: () => window.open(`${GITHUB_URL}/issues`, "_blank", "noreferrer") },
     ...(orgs.length > 1
       ? [
           {
@@ -608,152 +553,176 @@ export function Rail({ route, popup = null }: { route: Route; /** the pop-up ope
                 {elsewhere && <span className="absolute -right-1 -top-1 size-2 rounded-full bg-badge" aria-label="New messages in another workspace" />}
               </span>
             ),
-            onSelect: () => {
-              const r = footRef.current?.getBoundingClientRect();
-              setOrgAt({ left: Math.max(8, r?.left ?? 8), bottom: window.innerHeight - (r?.top ?? window.innerHeight) + 6 });
-            },
+            onSelect: switchWorkspace,
           },
         ]
       : []),
   ];
 
-  const plus = (up: boolean) => (
+  const initials = initialsOf(me.user.name);
+  const settingsOn = open.view === "settings" && (open.page as string | null) !== "vault";
+  const plus = (size: 32 | 40) => (
     <Menu
-      up={up}
-      align={up ? "left" : "right"}
+      up={false}
+      align={size === 32 ? "right" : "left"}
       items={addItems}
-      trigger={(open, t) => (
-        <button type="button" data-tour="new" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="New chat, agent or team" title="New" className={cx(ICON_BTN, open ? "bg-side-active text-ink" : "text-ink hover:bg-side-active")}>
-          <Plus size={19} strokeWidth={1.9} />
+      trigger={(isOpen, t) => (
+        <button type="button" data-tour="new" onClick={t} aria-expanded={isOpen} aria-haspopup="menu" aria-label="New agent, team or chat" title="New" className={cx("lg grid shrink-0 place-items-center rounded-full", size === 32 ? "s32 size-8" : "size-10")}>
+          <PlusLine size={16} />
         </button>
       )}
     />
   );
-  const firstName = me.user.name.trim().split(/\s+/)[0] || me.user.name;
-  const settingsOn = open.view === "settings" && (open.page as string | null) !== "vault";
-  // your name in the corner opens the account menu: settings, help, the tour, what's new
-  const accountItems = [
-    { label: "Settings", icon: <Settings {...icon} />, onSelect: () => go({ view: "settings", page: null }) },
-    { label: "Help", icon: <LifeBuoy {...icon} />, onSelect: () => go({ view: "help" }) },
-    // Finish setup's card, once its x was pressed
-    ...(!isGuest && wide && setupHidden && ready.started && ready.left > 0 ? [{ label: `Finish setup · ${ready.left} left`, icon: <Compass {...icon} />, onSelect: () => go({ view: "settings", page: "learn" }) }] : []),
-    ...(!isGuest ? [{ label: toLearn ? `Show me around · ${learnSeen} of ${TOTAL}` : "Show me around", icon: <Compass {...icon} />, onSelect: () => startTour(learnSeen >= TOTAL ? 0 : undefined) }] : []),
-    { label: "What's new", icon: <Sparkles {...icon} />, onSelect: () => go({ view: "settings", page: "updates", item: "news" }) },
-    { label: "Report a problem", icon: <ExternalLink {...icon} />, onSelect: () => window.open(`${GITHUB_URL}/issues`, "_blank", "noreferrer") },
-  ];
-  const you = (
-    <Menu
-      up
-      align="left"
-      items={accountItems}
-      trigger={(open, t) => (
-        wide && !isGuest ? (
-          // round 8: your avatar alone, beside the Connect apps pill
-          <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" title="Account, settings and help" className={cx("relative grid size-10 shrink-0 place-items-center rounded-full bg-wisp-soft text-[14px] font-semibold text-wisp-strong outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring/40", (open || settingsOn) && "ring-2 ring-wisp/40")}>
-            {(firstName[0] ?? "?").toUpperCase()}
-            {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
-          </button>
-        ) : wide ? (
-          // the board's long glass "You" pill: the whole width of the sidebar
-          <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" className={cx("lg-glass lg-press relative flex h-[46px] w-full min-w-0 items-center gap-2.5 rounded-[23px] px-2 text-[14px] text-ink outline-none transition-[background-color,transform] duration-150 hover:bg-[var(--lg-bg-strong)]! focus-visible:ring-2 focus-visible:ring-ring/40", (open || settingsOn) && "is-on")}>
-            <span className="grid size-[30px] shrink-0 place-items-center rounded-full bg-ink text-[12px] font-semibold text-panel">{(firstName[0] ?? "?").toUpperCase()}</span>
-            <span className="min-w-0 flex-1 truncate text-left font-semibold">{firstName}</span>
-            <Settings size={16} strokeWidth={2} className="mr-1 shrink-0 text-muted" aria-hidden />
-            {elsewhere && <span className="absolute left-7 top-1.5 box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
-          </button>
-        ) : (
-          <button type="button" data-tour="you" onClick={t} aria-expanded={open} aria-haspopup="menu" aria-label="Account, settings and help" title="Account, settings and help" className={cx("relative flex h-[36px] w-[36px] min-w-0 shrink-0 items-center justify-center gap-2 rounded-[10px] text-[14px] text-ink outline-none hover:bg-line2 focus-visible:ring-2 focus-visible:ring-ring/40", open || settingsOn ? "bg-line2" : SOFT)}>
-            <span className="grid size-[26px] shrink-0 place-items-center rounded-full text-[12px] font-semibold">{(firstName[0] ?? "?").toUpperCase()}</span>
-            {elsewhere && <span className="absolute -right-px -top-px box-content size-2 rounded-full border-2 border-sidebar bg-badge" aria-label="New messages in another workspace" />}
-          </button>
-        )
-      )}
-    />
-  );
+
+  // the five places (round 11): Chats, Computers, Memory, Marketplace, More
   const computersTo = href({ view: "computers", computerId: null });
-  const computersOn = open.view === "computers";
   // the vault's own settings page (PR 113) when this build has it; the memory notes otherwise
   const vaultPage = (SETTINGS_PAGES as readonly string[]).includes("vault");
   const vaultTo = vaultPage ? "#/settings/vault" : href({ view: "vault", path: null });
   const vaultOn = vaultPage ? open.view === "settings" && (open.page as string | null) === "vault" : open.view === "vault";
   const onCount = machinesOn(isGuest ? [] : devices, computers);
-  const computersLabel = `Computers, ${onCount} on${working ? ", one is working" : ""}`;
-  const strip = stripPlaces({ guest: isGuest, tasks: !!features.tasks, code: !!features.code, computersOn: onCount, notes, newNotes, open, vaultTo });
-  const setupTotal = ready.items.length || 1;
-  const setupCard = wide && !isGuest && ready.started && ready.left > 0 && !setupHidden && (
-    <div className="relative mx-3 mb-2.5 grid shrink-0 grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1.5 rounded-[10px] border border-line2 bg-panel py-2.5 pl-3 pr-2.5 text-[13px]">
-      <a href={href({ view: "settings", page: "learn" })} className="min-w-0 truncate rounded-[10px] outline-none after:absolute after:inset-0 after:rounded-[10px] focus-visible:after:ring-2 focus-visible:after:ring-ring/40">
-        <span className="font-semibold">Finish setup</span> <span className="text-[12px] text-muted">· {ready.left} left</span>
+  const marketOn = open.view === "marketplace" || open.view === "connectors" || open.view === "skills" || open.view === "mods";
+  const moreOn = MORE_VIEWS.includes(open.view) && !vaultOn && !marketOn && open.view !== "more";
+  const chatsOn = !popup && (route.view === "chat" || route.view === "chats");
+  const tabs: { key: PlaceKey; label: string; to?: string; on: boolean; dot?: string | null; count?: string | null }[] = [
+    { key: "chats", label: "Chats", to: chatsTarget(), on: chatsOn, dot: inbox > 0 ? BLUE_DOT : null, count: inbox > 0 ? `${inbox} need you` : null },
+    ...(!isGuest ? [{ key: "computers" as const, label: "Computers", to: computersTo, on: open.view === "computers", dot: onCount > 0 ? "#30d158" : null, count: onCount > 0 ? `${onCount} on${working ? ", one is working" : ""}` : null }] : []),
+    { key: "memory", label: "Memory", to: vaultTo, on: vaultOn, dot: newNotes ? "var(--wisp)" : null, count: notes != null ? `${notes} ${notes === 1 ? "note" : "notes"}` : null },
+    ...(!isGuest ? [{ key: "marketplace" as const, label: "Marketplace", to: href({ view: "marketplace" }), on: marketOn }] : []),
+    { key: "more", label: "More", on: moreOn },
+  ];
+  const tabButton = (t: (typeof tabs)[number], i: number) => {
+    const inner = (
+      <>
+        <PlaceIcon place={t.key} />
+        {t.dot && <span aria-hidden className="absolute right-[7px] top-[7px] box-content size-[7px] rounded-full border-2 border-[var(--r11-dot-ring)]" style={{ background: t.dot }} />}
+        <span aria-hidden className={cx("r11-tip", i === 0 ? "left-0" : i === tabs.length - 1 ? "right-0" : "left-1/2 -translate-x-1/2")}>
+          {t.label}
+          {t.count ? ` · ${t.count}` : ""}
+        </span>
+      </>
+    );
+    const cls = cx("r11-tab group/tip relative grid size-10 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40", t.on ? "bg-side-active text-ink" : "text-muted hover:bg-side-hover hover:text-ink");
+    const aria = [t.label, t.count].filter(Boolean).join(", ");
+    if (t.key === "more")
+      return (
+        <Menu
+          key={t.key}
+          up
+          align="right"
+          items={moreItems}
+          trigger={(isOpen, toggleMenu) => (
+            <button type="button" onClick={toggleMenu} aria-expanded={isOpen} aria-haspopup="menu" aria-label={aria} className={cx(cls, isOpen && "bg-side-active text-ink")}>
+              {inner}
+            </button>
+          )}
+        />
+      );
+    return (
+      <a key={t.key} href={t.to} aria-label={aria} aria-current={t.on ? "page" : undefined} data-tour={t.key === "computers" ? "computers" : t.key === "memory" ? "vault" : t.key === "marketplace" ? "apps" : undefined} className={cls}>
+        {inner}
       </a>
-      <button type="button" onClick={hideSetup} aria-label="Hide Finish setup" title="Hide (it stays in your menu)" className="relative z-10 grid size-5 place-items-center rounded-[6px] text-faint outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40">
-        <X size={14} strokeWidth={1.8} />
-      </button>
-      <span aria-hidden className="col-span-2 h-1 overflow-hidden rounded-full bg-line2">
-        <span className="block h-full rounded-full bg-wisp" style={{ width: `${Math.round(((setupTotal - ready.left) / setupTotal) * 100)}%` }} />
-      </span>
-    </div>
-  );
+    );
+  };
+
+  // the narrow rail: your initials open one menu — your profile and settings, the five places, and Open the sidebar
+  const [railMenu, setRailMenu] = useState<null | "main" | "more">(null);
+  const youRef = useRef<HTMLButtonElement>(null);
+  const railItems: ({ label: string; icon: ReactNode; on?: boolean; onSelect: () => void; muted?: boolean } | "divider")[] =
+    railMenu === "more"
+      ? moreItems.map((m) => (m === "divider" ? m : { label: m.label, icon: m.icon, onSelect: m.onSelect }))
+      : [
+          ...tabs.map((t) => ({
+            label: t.label,
+            icon: <PlaceIcon place={t.key} size={16} />,
+            on: t.on,
+            onSelect: () => (t.key === "more" ? setRailMenu("more") : t.to && (location.hash = t.to.slice(1))),
+          })),
+          "divider" as const,
+          { label: "Open the sidebar", icon: <ChevronRight size={16} strokeWidth={2} />, muted: true, onSelect: setWide },
+        ];
 
   return (
     <div className="relative z-30 flex shrink-0">
-      <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className="side side-glass flex h-full flex-col overflow-hidden pt-[max(20px,env(safe-area-inset-top))] pb-4" style={{ width, transition }}>
-        {/* the rail: search and New stacked at the top */}
-        {!wide && (
-          <div className="side-top mb-4 flex shrink-0 flex-col items-center gap-2.5">
-            <button type="button" onClick={() => useStore.getState().setPalette(true)} aria-label="Search" title="Search" className={cx(ROUND, SOFT)}>
-              <Search size={19} strokeWidth={1.8} />
-            </button>
-            {plus(false)}
-          </div>
-        )}
-
-        {/* the wide sidebar's one row of line icons: the places, Search, and New at the right end (board "Chat and sidebar") */}
-        {wide && (
-          <div className="side-top mb-2.5 flex shrink-0 items-center gap-1 px-3">
-            <nav aria-label="Places" className="-ml-1 flex min-w-0 flex-1 gap-0.5">
-              {strip.map((p, i) => (
-                <StripButton key={p.key} p={p} align={i < 2 ? "left" : i === 2 && strip.length > 3 ? "center" : "right"} />
-              ))}
-              <button type="button" onClick={() => useStore.getState().setPalette(true)} aria-label="Search" aria-keyshortcuts="Meta+K" title="Search  ⌘K" className={cx(ICON_BTN, "text-muted hover:bg-side-active hover:text-ink")}>
-                <Search size={18} strokeWidth={1.8} />
-              </button>
-            </nav>
-            <span className="-mr-1 shrink-0">{plus(false)}</span>
-          </div>
-        )}
-
-        <div className={cx("side-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden", wide ? "px-3" : "px-3")}>
-          {wide ? (
-            <SideList chats={chats} lines={lines} active={active} />
-          ) : (
-            railChats.map((c) => <SideRow key={c.key} chat={c} wide={false} active={!!c.channel && c.channel.id === active} line={lines.get(c.key) ?? NO_LINE} sections={sections} onNewSection={() => setWide()} />)
-          )}
-        </div>
-
+      <nav ref={navRef} aria-label="Bubble AI" data-wide={wide || undefined} className={cx("side side-glass r11-side flex h-full flex-col overflow-hidden", wide ? "px-4 pb-[18px]" : "items-center pb-[18px]")} style={{ width, transition }}>
         {wide ? (
           <>
-            <div className="h-2.5 shrink-0" />
-            {setupCard}
-            <div ref={footRef} className={cx("flex shrink-0 items-center gap-2 px-3 pb-1", isGuest && "*:min-w-0 *:flex-1")}>
-              {you}
-              {!isGuest && <ConnectPill on={open.view === "marketplace" || open.view === "connectors" || open.view === "skills"} />}
+            {/* the window-button row: your initials and + sit beside the traffic lights */}
+            <div className="r11-toprow flex shrink-0 items-center justify-end gap-2" ref={footRef}>
+              <button type="button" data-tour="you" onClick={() => go({ view: "settings", page: null })} aria-label="You and settings" title="You and settings" className={cx("lg s32 grid size-8 shrink-0 place-items-center rounded-full text-[11.5px] font-semibold", settingsOn && "is-on")}>
+                <span>{initials}</span>
+                {elsewhere && <span className="absolute -right-px -top-px z-[2] box-content size-2 rounded-full border-2 border-[var(--r11-dot-ring)] bg-badge" aria-label="New messages in another workspace" />}
+              </button>
+              {plus(32)}
             </div>
+            <div className="side-list -mx-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4">
+              <SideList chats={chats} lines={lines} active={active} />
+            </div>
+            <div className="h-3 shrink-0" />
+            <nav aria-label="Places" className="flex shrink-0 justify-between px-1.5">
+              {tabs.map(tabButton)}
+            </nav>
           </>
         ) : (
-          <div ref={footRef} className="flex shrink-0 flex-col items-center gap-2 pt-2">
-            {!isGuest && (
-              <a href={computersTo} aria-label={computersLabel} title="Computers" aria-current={computersOn ? "page" : undefined} className={cx(ROUND, computersOn ? "bg-line2" : SOFT)}>
-                <ComputersIcon size={20} />
-                {onCount > 0 && <span aria-hidden className="absolute right-0 top-0 box-content size-2 rounded-full border-2 border-sidebar bg-[#30d158]" />}
-              </a>
-            )}
-            <a href={vaultTo} aria-label="Memory vault" title="Memory vault" aria-current={vaultOn ? "page" : undefined} className={cx(ROUND, vaultOn ? "bg-line2" : SOFT)}>
-              <BookOpen size={19} strokeWidth={1.8} />
-            </a>
-            {you}
-          </div>
+          <>
+            <div className="r11-railtop shrink-0" />
+            {plus(40)}
+            <div className="side-list mt-4 flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto overflow-x-hidden py-1">
+              {railChats.map((c) => (
+                <SideRow key={c.key} chat={c} wide={false} active={!!c.channel && c.channel.id === active} line={lines.get(c.key) ?? NO_LINE} sections={sections} onNewSection={() => setWide()} />
+              ))}
+            </div>
+            <div ref={footRef} className="shrink-0 pt-3">
+              <button
+                ref={youRef}
+                type="button"
+                data-tour="you"
+                onClick={() => setRailMenu((m) => (m ? null : "main"))}
+                aria-expanded={!!railMenu}
+                aria-haspopup="menu"
+                aria-label="Your profile, settings and places"
+                title="Everything else"
+                className={cx("lg grid size-10 shrink-0 place-items-center rounded-full text-[12.5px] font-semibold", railMenu && "is-ring")}
+              >
+                <span>{initials}</span>
+                {(elsewhere || inbox > 0) && <span aria-hidden className="absolute -right-px -top-px z-[2] box-content size-2 rounded-full border-2 border-[var(--r11-dot-ring)]" style={{ background: elsewhere ? "var(--badge)" : BLUE_DOT }} />}
+              </button>
+            </div>
+          </>
         )}
       </nav>
+      {railMenu && !wide && (
+        <Float role="menu" label="Everything else" at={{ left: SIDEBAR.rail - 6, bottom: 16 }} className="side-menu w-[236px] p-[5px]" onClose={() => setRailMenu(null)}>
+          {railMenu === "main" && (
+            <>
+              <button type="button" role="menuitem" onClick={() => (setRailMenu(null), go({ view: "settings", page: null }))} className="flex w-full items-center gap-2.5 rounded-[10px] px-[11px] pb-2.5 pt-2 text-left outline-none hover:bg-hover focus-visible:bg-hover">
+                <span className="gl grid size-8 shrink-0 place-items-center rounded-full text-[11.5px] font-semibold">{initials}</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px] font-semibold">{me.user.name}</span>
+                  <span className="block text-[12px] text-muted">Profile and settings</span>
+                </span>
+              </button>
+              <div className="mx-1.5 mb-1 h-px bg-line2" />
+            </>
+          )}
+          {railMenu === "more" && (
+            <button type="button" role="menuitem" onClick={() => setRailMenu("main")} className="flex h-[34px] w-full items-center gap-2.5 rounded-[10px] px-[11px] text-left text-[14px] text-muted outline-none hover:bg-hover focus-visible:bg-hover">
+              <ChevronLeft size={16} strokeWidth={2} /> More
+            </button>
+          )}
+          {railItems.map((m, i) =>
+            m === "divider" ? (
+              <div key={`d${i}`} className="mx-1.5 my-1 h-px bg-line2" />
+            ) : (
+              <button key={m.label} type="button" role="menuitem" onClick={() => (m.label !== "More" && setRailMenu(null), m.onSelect())} className={cx("flex h-[34px] w-full items-center gap-2.5 rounded-[10px] px-[11px] text-left text-[14px] outline-none hover:bg-hover focus-visible:bg-hover", m.muted ? "text-muted" : "text-ink")}>
+                <span className="grid shrink-0">{m.icon}</span>
+                <span className="min-w-0 flex-1 truncate">{m.label}</span>
+                {m.on && <Check size={15} strokeWidth={2} className="shrink-0 text-muted" />}
+              </button>
+            ),
+          )}
+        </Float>
+      )}
       <div
         role="separator"
         aria-orientation="vertical"

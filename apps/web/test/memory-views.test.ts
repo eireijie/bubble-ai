@@ -221,13 +221,14 @@ describe("the Memory page", () => {
     expect(api).not.toHaveBeenCalled();
   });
 
-  it("keeps the ways out of the list in the view menu: recent changes, About you, sharing and storage, seeing as an agent", () => {
+  it("keeps the ways out of the list in the view menu: recent changes, About you, importing memory, sharing and storage, seeing as an agent", () => {
     const menu = (onSeeAs?: () => void) => renderToStaticMarkup(createElement(ViewMenu, { view: "folders", onView: noop, onRecent: noop, onSeeAs, close: noop }));
     const html = menu(noop);
-    expect([...html.matchAll(/role="menuitem(?:radio)?"[^>]*>(?:<svg.*?<\/svg>)?(?:<span[^>]*>)?([^<]+)/g)].map((m) => m[1])).toEqual(["List", "Folders", "Graph", "Recent changes", "About you", "Sharing and storage", "See as an agent…"]);
+    expect([...html.matchAll(/role="menuitem(?:radio)?"[^>]*>(?:<svg.*?<\/svg>)?(?:<span[^>]*>)?([^<]+)/g)].map((m) => m[1])).toEqual(["List", "Folders", "Graph", "Recent changes", "About you", "Import memory", "Sharing and storage", "See as an agent…"]);
     expect(html).toMatch(/aria-checked="true"[^>]*>.*?Folders/);
     expect(html).toContain('href="#/about"');
     expect(html).toContain('href="#/settings/memory"');
+    expect(html).toContain('href="#/settings/memory/import"');
     // seeing as an agent is the owner's; everything else is always there
     expect(menu()).not.toContain("See as an agent");
     expect(menu()).toContain("Recent changes");

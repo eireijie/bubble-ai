@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronDown, Loader2, RotateCcw, Shuffle } from "lucide-reac
 import type { Agent } from "@bubble-ai/core";
 import { BUBBLE_COLORS, BUBBLE_SHAPES, GHOST_ACCESSORIES, GHOST_EYES, GHOST_HATS, GHOST_MOTIONS, GHOST_MOUTHS, defaultAppearance, shuffleBubbleLook, type GhostAppearance } from "@bubble-ai/core/src/appearance.ts";
 import { api } from "../api.ts";
+import { mergeLook } from "../components/lookPhoto.tsx";
 import { useStore } from "../store.ts";
 import { BUBBLE_DEFS, bubbleColor, bubbleParts, bubbleShape } from "../components/Bubble.tsx";
 import { BubbleField } from "../components/BubbleField.tsx";
@@ -312,7 +313,8 @@ export function LookPanel({ agent, onDirty, active }: { agent: Agent; onDirty: (
     setSaving(true);
     setError(null);
     try {
-      await api("PATCH", `/api/agents/${agent.id}`, { settings: { appearance: look } });
+      // laid over what's saved, so a photo (iPhone, or Bubble look) and newer fields aren't lost
+      await api("PATCH", `/api/agents/${agent.id}`, { settings: { appearance: mergeLook(agent.settings.appearance, look) } });
       await refreshAgents();
     } catch (e) {
       setError((e as Error).message);
@@ -324,7 +326,8 @@ export function LookPanel({ agent, onDirty, active }: { agent: Agent; onDirty: (
 
   return (
     <div className="flex flex-col items-center">
-      <LookEditor value={look} onChange={setLook} name={agent.name} onReset={() => setLook(fallback)} />
+      {/* drawing the bubble means using it: a photo face gives way, as on the iPhone */}
+      <LookEditor value={look} onChange={(l) => setLook({ ...l, photo: undefined })} name={agent.name} onReset={() => setLook({ ...fallback, photo: undefined })} />
       {error && <p className="mt-3 text-sm text-bad">{error}</p>}
       <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={() => setLook(saved)} active={active} />
     </div>

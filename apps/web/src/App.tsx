@@ -25,6 +25,8 @@ import { noteAppPage, setupProgress, useDismissed, useOnboarding } from "./onboa
 import { useFeatures } from "./features.ts";
 import { usePageBackground } from "./chatBackground.ts";
 import { useDesktopAgents } from "./desktop.ts";
+import { LensFilters } from "./components/LensFilters.tsx";
+import { PhoneTabs, phoneTab } from "./components/PhoneTabs.tsx";
 import { lazyView, preloadViews, type LazyView } from "./lazy.tsx";
 
 // The shell, the Inbox and the open chat come with the app. Every other page is a file of its own,
@@ -64,9 +66,12 @@ export function App() {
   // a page's file arrives behind the same ghost the app starts with (the desk buddy's window stays clear)
   return (
     // before anyone is signed in (straight from the desktop's setup page) the page just stays clear: no bubble pops in and out
-    <Suspense fallback={route.view === "buddy" ? null : getToken() ? <Loader /> : <div className="h-full w-full bg-panel" />}>
-      <Routed route={route} />
-    </Suspense>
+    <>
+      <LensFilters />
+      <Suspense fallback={route.view === "buddy" ? null : getToken() ? <Loader /> : <div className="h-full w-full bg-panel" />}>
+        <Routed route={route} />
+      </Suspense>
+    </>
   );
 }
 
@@ -259,7 +264,10 @@ function Workspace() {
   if (!me) return <Loader launch />;
 
   const toChats = () => go({ view: "chats" });
-  const toYou = () => go({ view: "you" });
+  // phones (round 11, board 8 C): the five tabs' own pages sit under the tab bar and need no Back
+  const tab = phone ? phoneTab(route) : null;
+  const toYouFn = () => go({ view: "you" });
+  const toYou = tab ? undefined : toYouFn;
   // phones have no tab bar: a page whose own header has no Back gets a slim bar with one
   const backBar = (node: ReactNode, pull = true, to: Route = { view: "you" }) => (phone ? <PhoneBack to={href(to)} pull={pull}>{node}</PhoneBack> : node);
   const viewFor = (route: Route): ReactNode => {
@@ -312,11 +320,11 @@ function Workspace() {
             <ComputersView computerId={route.computerId} teach={route.teach ?? null} deviceId={route.deviceId ?? null} />
           </div>
         );
-        // one computer or device has its own Back to the list
-        return route.computerId || route.deviceId ? computers : backBar(computers);
+        // one computer or device has its own Back to the list; the list itself is a tab on phones
+        return route.computerId || route.deviceId || tab ? computers : backBar(computers);
       }
       case "settings":
-        return <SettingsView page={route.page ?? null} onBack={toYou} fullWindow={!phone} />;
+        return <SettingsView page={route.page ?? null} onBack={toYouFn} fullWindow={!phone} />;
       case "welcome":
         return <WelcomeView intro={route.intro} />;
       case "here":
@@ -389,6 +397,7 @@ function Workspace() {
                 <div ref={baseRef} data-open={chatOpen} inert={chatOpen} className={cx("m-under absolute inset-0 flex flex-col", route.view !== "vault" && "[&_.overflow-y-auto]:pb-[max(1.5rem,env(safe-area-inset-bottom))]")}>
                   {chatOpen ? <ChatsPage route={route} /> : page}
                 </div>
+                {tab && !chatOpen && <PhoneTabs on={tab} />}
                 <div className="m-dim" data-open={chatOpen} aria-hidden />
                 {chatLayer && heldChat.current && (
                   <ChatLayer leaving={!chatOpen} instant={!started.current}>

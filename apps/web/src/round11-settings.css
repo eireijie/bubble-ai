@@ -1,0 +1,51 @@
+/* Round 11, board 14: Settings as one sheet, Import memory, and Connect apps' "This Mac" list. */
+.r11s { color: var(--ink); }
+.r11s-grp { border-radius: 16px; background: var(--r11-card, var(--card)); overflow: hidden; }
+.r11s-li { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; font-size: 15px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; color: var(--ink); outline: none; }
+.r11s-li:last-child { border-bottom: 0; }
+:is(a, button).r11s-li:hover, :is(a, button).r11s-li:focus-visible { background: var(--hover); }
+.r11s-li > svg:first-child, .r11s-li > .r11s-ic { flex: none; color: var(--muted); }
+.r11s-li .r11s-r { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; flex: none; }
+.r11s-sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; line-height: 16px; }
+.r11s-sec { font-size: 12.5px; font-weight: 500; color: var(--muted); padding: 14px 14px 6px; }
+.r11s-note { font-size: 13px; line-height: 19px; color: var(--muted); }
+.r11s-bar { height: 5px; border-radius: 3px; background: var(--btn, var(--line2)); overflow: hidden; }
+.r11s-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--ink); }
+.r11s-pill { height: 30px; padding: 0 13px; border-radius: 15px; background: var(--side-active, var(--line2)); display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; flex: none; color: var(--ink); outline: none; }
+.r11s-pill.is-go { background: #0a84ff; color: #fff; }
+.r11s-pill.is-done { background: transparent; color: var(--muted); }
+.r11s-pill:disabled { opacity: 0.5; }
+.r11s-btn { height: 48px; border-radius: 24px; font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: center; background: var(--ink); color: var(--panel); width: 100%; max-width: 300px; outline: none; }
+.r11s-btn:disabled { background: var(--side-active, var(--line2)); color: var(--muted); }
+.r11s-box { width: 100%; min-height: 150px; resize: vertical; border-radius: 16px; background: var(--r11-card, var(--card)); padding: 14px; font-size: 14px; line-height: 20px; color: var(--ink); outline: none; border: 0; }
+.r11s-box::placeholder { color: var(--muted); }
+.r11s-box:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--wisp-strong) 45%, transparent); }
+.r11s-tile { width: 42px; height: 42px; border-radius: 11px; background: var(--r11-card, var(--card)); box-shadow: 0 0 0 1px var(--line); display: grid; place-items: center; flex: none; color: var(--ink); }
+:root:not([data-mode="dark"]) .r11s { --btn: rgb(0 0 0 / 0.06); }
+:root[data-mode="dark"] .r11s { --btn: rgb(255 255 255 / 0.09); }
+
+/* Connect apps (board 14): on wider screens the search floats at the bottom as a glass bar */
+@media (min-width: 768px) {
+  .r11-float-search {
+    position: absolute;
+    z-index: 10;
+    left: 50%;
+    bottom: 20px;
+    width: min(460px, calc(100% - 60px));
+    height: 44px;
+    transform: translateX(-50%);
+    border-radius: 9999px;
+    padding: 0 16px;
+    background: var(--r11-glass);
+    -webkit-backdrop-filter: blur(24px) saturate(1.7);
+    backdrop-filter: blur(24px) saturate(1.7);
+    box-shadow: 0 0 0 1px var(--side-line, var(--line2)), 0 8px 24px rgb(0 0 0 / 0.16);
+  }
+}
+@media (min-width: 768px) and (prefers-reduced-transparency: reduce) {
+  .r11-float-search { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--panel); }
+}
+
+/* on a white page (light mode) the prompt card and paste box keep a soft edge so they read as boxes */
+:root:not([data-mode="dark"]) .r11s-box,
+:root:not([data-mode="dark"]) .r11s-prompt { box-shadow: inset 0 0 0 1px var(--line); }

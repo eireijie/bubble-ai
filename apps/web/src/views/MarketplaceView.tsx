@@ -69,6 +69,8 @@ import { go, href, SETTINGS_CLOSING, type MarketSection, type Route } from "../r
 import { useInPopup } from "../components/SettingsDialog.tsx";
 import { Button, Loader, Menu, cx } from "../components/ui.tsx";
 import { AppTile, Dlg, FactRow, Item, ItemHead, NeedDot, Panel, RemoveBtn, Rows, TextBtn, Tile, matchWords, queryWords, sectionWord, type AddSection } from "../components/MarketParts.tsx";
+import "../round11-settings.css";
+import { useThisMacRows, isDesktopMac } from "../components/ThisMacRows.tsx";
 import { ConnectRow, Done, FilterChip, GoPill, LineTile, LogoStack, MAIN_CHIPS, MORE_CHIPS, TOPICS, appTopics, connectedLogos, thisComputer, useAgentPicks, type Topic } from "../components/ConnectParts.tsx";
 import { CatalogIcon } from "../components/ShopParts.tsx";
 import { ConnectorForm, registryCatalog } from "./ConnectorsView.tsx";
@@ -827,7 +829,12 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   ));
   const appsSec = (rows: RowDef[], limit?: number): Sec => ({ id: "apps", title: "Apps", rows, loading: market.entries === null, limit, foot: appsFoot });
   const skillsSec = (limit?: number): Sec => ({ id: "skills", title: "Skills", rows: skillRows, loading: store === null, limit, foot: skillsFoot });
+  // the Mac desktop app: what agents may use on this Mac, each with Allow (the chip is hidden elsewhere)
+  const onMac = canEdit && !forA && isDesktopMac();
+  const thisMac = useThisMacRows(onMac && section === "devices" && !q.trim());
+  const macNote = onMac && <p className="col-span-full px-3 pt-2 text-[13px] leading-[18px] text-muted">Let your agents use these on this Mac. Nothing is shared until you click Allow.</p>;
   const macSec: Sec = { id: "found", title: macName, rows: macRows, head: macHead, empty: canEdit ? "Nothing new" : undefined };
+  const thisMacSec: Sec = { id: "found", title: macName, rows: [...thisMac, ...macRows], head: macHead, foot: macNote || undefined, empty: canEdit ? "Nothing new" : undefined };
   const modsSec: Sec = { id: "mods", title: "Mods", rows: modRows, empty: forA ? "Mods change the whole app; add them for every agent." : undefined };
   const connectedSec: Sec = { id: "added", title: "Connected", rows: addedRows, loading: !loaded, empty: "Nothing connected yet" };
   // what shows: Connected; a search (one section by name, or Results over everything); a chip
@@ -846,7 +853,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
       case "skills":
         return [skillsSec()];
       case "devices":
-        return [macSec];
+        return [onMac ? thisMacSec : macSec];
       case "mods":
         return [modsSec];
       case "all":
@@ -928,12 +935,12 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
         </div>
       )}
       <div className="shrink-0 px-[30px] pt-4 max-md:px-5">
-        <label className="flex h-10 items-center gap-[9px] rounded-[12px] bg-hover px-[13px] text-muted">
+        <label className="r11-float-search flex h-10 items-center gap-[9px] rounded-[12px] bg-hover px-[13px] text-muted">
           <Search size={16} strokeWidth={1.8} aria-hidden className="shrink-0" />
           <input type="search" value={q} onChange={(e) => ((auto.current = false), setQ(e.target.value))} placeholder="Search apps and skills" aria-label="Search apps and skills" className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted md:text-[14.5px]" />
         </label>
         <nav aria-label="Filter" className="-mx-[30px] mt-3.5 flex gap-[7px] overflow-x-auto px-[30px] pb-1 [scrollbar-width:none] max-md:-mx-5 max-md:px-5">
-          {MAIN_CHIPS.filter(([k]) => canEdit || k !== "devices").map(([k, label]) => (
+          {MAIN_CHIPS.filter(([k]) => k !== "devices" || (canEdit && isDesktopMac())).map(([k, label]) => (
             <FilterChip key={k} on={!searching && chip === k} onClick={() => pickChip(k)}>
               {k === "devices" ? macName : label}
             </FilterChip>
@@ -951,7 +958,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
       </div>
       {error && <p className="shrink-0 px-[30px] pt-2 text-[13px] text-bad max-md:px-5">{error}</p>}
       {signedIn && signedIn !== "ok" && <p className="shrink-0 px-[30px] pt-2 text-[13px] text-bad max-md:px-5">Sign-in didn't finish: {signedIn}</p>}
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-[max(1.5rem,env(safe-area-inset-bottom))] max-md:px-2" onWheel={stopAuto} onTouchMove={stopAuto}>
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-[max(1.5rem,env(safe-area-inset-bottom))] max-md:px-2 md:pb-24" onWheel={stopAuto} onTouchMove={stopAuto}>
         {shownSections.map((s) => {
           const open = expanded.includes(s.id) || !s.limit;
           const n = open ? s.rows.length : Math.min(s.rows.length, s.limit!);
@@ -1049,7 +1056,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
   const signInC = connectorById(signInFor);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       {detail || (routed && appKey) ? (
         <>
           <div className="flex shrink-0 items-center gap-3 px-[22px] pt-5 max-md:px-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]">

@@ -3,7 +3,8 @@ import "./composer.css";
 import { MotionMark } from "../components/MotionMark.tsx";
 import { FlowStrip } from "../team/Runs.tsx";
 import { contextWords } from "../contextWords.ts";
-import { Monitor, MoreHorizontal, Info, Shield, Search, Bell, BellOff, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ArrowDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, UserPlus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { Monitor, Globe, Archive, Book, Bot, Clock, ChevronLeft, ChevronRight, Check, CircleDot, FileText, GitPullRequest, Brain, ChevronDown, ArrowUp, AtSign, Camera, Loader2, Mic, MessageSquare, Paperclip, Plus, X, AudioLines, CornerUpLeft, Pin, ListChecks, Square, ArrowRightLeft } from "lucide-react";
+import { CHAT_SEARCH, takeChatSearch } from "../chatSearch.ts";
 import { SCHEDULE_MARK, teamOf, type Agent, type ContextUsage, type Message, type MessagePart } from "@bubble-ai/core";
 import { api, fileUrl, uploadFile } from "../api.ts";
 import { conversationKey, useHandleColors, useHandleNames, useNames, usePrefs, useStore, type ChannelInfo, type LiveRun } from "../store.ts";
@@ -12,7 +13,7 @@ import { go, href, type Route } from "../router.ts";
 import type { TaskRow } from "./TasksView.tsx";
 import { renderMarkdown, renderMessage } from "../markdown.ts";
 import { lazyView } from "../lazy.tsx";
-import { ChannelSettings, landingChannel, setArchived, setChannelPrefs, type ChannelSettingsTab } from "../components/Channels.tsx";
+import { ChannelSettings, landingChannel, setArchived, type ChannelSettingsTab } from "../components/Channels.tsx";
 import { ChatSearch } from "../components/ChatSearch.tsx";
 import { ChatAvatar } from "../components/ChatList.tsx";
 import { prettyModel, tokens, useAgentContext } from "../models.ts";
@@ -39,7 +40,6 @@ import { workSummary } from "../components/agentActivity.ts";
 import { DeleteMessageDialog, EditMessageDialog, MessageMenu, ReactionBadges, SWIPE_ARM, useLongPress, useMessageActionList, useSwipeToThread } from "../components/MessageActions.tsx";
 import { useChangedSinceMount, useFreshIds } from "../motion.ts";
 import { TeamInfo, type InfoTab } from "../components/TeamInfo.tsx";
-import { useFeature } from "../features.ts";
 import { chatName, isGrouped, needsStamp, snippetOf, stampLabel, startsChat, toolLine } from "../chatFormat.ts";
 import { SignInNeededBar } from "../components/HarnessSignInButton.tsx";
 import { CheckbackLabel, ClosedLine, LoopParts } from "../components/Loops.tsx";
@@ -199,7 +199,6 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
           )}
           <div className="flex items-center justify-end gap-2 pt-1.5">
             {dmAgent && <DmContext agentId={dmAgent.id} channelId={channel.id} onOpen={() => openAgent(dmAgent.id, "thinks")} />}
-            <ChatMore agent={dmAgent} channel={channel} onOpen={(tab) => dmAgent && openAgent(dmAgent.id, tab)} onInfo={toggleInfo} />
             {dmAgent?.computerId && (
               <button type="button" onClick={() => (dmPanel === "computer" ? setSide(null) : openAgent(dmAgent.id, "computer"))} aria-pressed={dmPanel === "computer"} className={cx("lg-glass lg-round lg-press", dmPanel === "computer" && "is-on")} aria-label={`${dmAgent.name}'s screen`} title={`${dmAgent.name}'s screen`}>
                 <Monitor size={18} strokeWidth={1.8} />
@@ -211,6 +210,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
         <div className="absolute inset-x-0 top-[var(--chat-top)] z-20 h-0">
           <div ref={setBannerSlot} className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center gap-2 px-4 empty:hidden" />
         </div>
+        <ChatSearchHost key={channel.id} channelId={channel.id} />
         <SoloAgent.Provider value={dmAgent?.id ?? null}>
           <MessageList messageId={!route.threadId ? route.messageId : undefined} channel={channel} readMark={readMark?.channelId === channel.id ? readMark.at : null} calling={calling && !!callee} topRoom={bannerH} onAddAgent={() => setSettings("team")} onMembers={() => openSide({ kind: "info", tab: "members" })} />
         </SoloAgent.Provider>
@@ -223,7 +223,7 @@ export function ChannelView({ route, onBack }: { route: Extract<Route, { view: "
             <CallScreen key={`${channel.id}:${callee.id}`} agent={callee} channelId={channel.id} mention={!dmAgent} onClose={(record) => { setCalling(false); if (record) setCallRecord({ ...record, channelId: channel.id }); if (route.call) go({ view: "chat", channelId: channel.id, threadId: null }); }} />
           </Suspense>
         )}
-        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={`Message ${dmAgent ? dmAgent.name : channel.name}`} onDetails={openAgent} onCall={callee && !calling ? () => setCalling(true) : undefined} callName={callee?.name} /></div>}
+        {channel.archivedAt ? <ArchivedBar channel={channel} /> : <div data-tour="composer" className="contents"><Composer channelId={channel.id} agentId={dmAgent?.id} placeholder={dmAgent ? `Ask ${dmAgent.name}` : `Message ${channel.name}`} onDetails={openAgent} onCall={callee && !calling ? () => setCalling(true) : undefined} callName={callee?.name} /></div>}
         </BannerSlot.Provider>
       </div>
       {route.threadId && <ThreadPanel key={route.threadId} messageId={route.messageId} channelId={channel.id} rootId={route.threadId} agentId={dmAgent?.id} />}
@@ -265,48 +265,37 @@ function CallRecordCard({ agent, record, onHide }: { agent: Agent; record: CallR
 
 /** A team's header middle: its overlapped bubbles over the glass capsule; opens its info page. */
 function TeamHead({ channel, open, onClick }: { channel: ChannelInfo; open: boolean; onClick: () => void }) {
-  const n = channel.agentIds?.length ?? 0;
-  const line = channel.archivedAt ? "Archived" : n ? `${n} ${n === 1 ? "agent" : "agents"}` : null;
+  // just the name and › (round 11, board 10); how many agents and the rest are in the team's info
   return (
     <div data-tour="team-pill" className="flex min-w-0 justify-center">
-      <ChatHead avatar={<ChatAvatar chat={{ kind: "team", agent: null, channel }} size={46} />} name={channel.name} line={line} open={open} onClick={onClick} label={`${channel.name}. Team info`} />
+      <ChatHead avatar={<ChatAvatar chat={{ kind: "team", agent: null, channel }} size={46} />} name={channel.name} open={open} onClick={onClick} label={`${channel.name}. Team info`} />
     </div>
   );
 }
 
 /**
- * The chat's glass ⋯ (round 4): for a DM, About, Permissions, its screen, Search in chat and Mute;
- * for a team, Team info, Search in chat and Mute. Backgrounds are in Settings and the profile. Each says the page it opens.
- * Calls are in the composer, help in the account menu, how the agent thinks in its profile.
+ * The chat's search (round 11 dropped the header's ⋯): ⌘F / Ctrl+F here, or "Search in chat" in the
+ * sidebar's right-click More. Mute is in that More too; About, Permissions and the screen are in the
+ * agent's panel from the name pill.
  */
-function ChatMore({ agent, channel, onOpen, onInfo }: { agent?: Agent; channel: ChannelInfo; onOpen: (tab: AgentPanelTab) => void; onInfo: () => void }) {
-  const icon = { size: 17, strokeWidth: 1.8 };
-  const [searching, setSearching] = useState(false);
-  const muted = channel.notify === "mute";
-  return (
-    <>
-      <Menu
-        align="right"
-        trigger={(open, toggle) => (
-          <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="menu" className={cx("lg-glass lg-round lg-press", open && "is-on")} aria-label="More" title="More">
-            <MoreHorizontal size={19} strokeWidth={1.8} />
-          </button>
-        )}
-        items={[
-          ...(agent
-            ? [
-                { label: `About ${agent.name}`, icon: <Info {...icon} />, onSelect: () => onOpen("details") },
-                { label: "Permissions", icon: <Shield {...icon} />, onSelect: () => onOpen("asks") },
-                ...(agent.computerId ? [{ label: `${agent.name}'s screen`, icon: <Monitor {...icon} />, onSelect: () => onOpen("computer") }] : []),
-              ]
-            : [{ label: "Team info", icon: <Info {...icon} />, onSelect: onInfo }]),
-          { label: "Search in chat", icon: <Search {...icon} />, onSelect: () => setSearching(true) },
-          { label: muted ? "Unmute" : "Mute", icon: muted ? <Bell {...icon} /> : <BellOff {...icon} />, onSelect: () => void setChannelPrefs(channel, { notify: muted ? "default" : "mute" }) },
-        ]}
-      />
-      {searching && <ChatSearch channelId={channel.id} onClose={() => setSearching(false)} />}
-    </>
-  );
+function ChatSearchHost({ channelId }: { channelId: string }) {
+  const [searching, setSearching] = useState(() => takeChatSearch(channelId));
+  useEffect(() => {
+    const ask = (e: Event) => (e as CustomEvent<string>).detail === channelId && takeChatSearch(channelId) && setSearching(true);
+    const key = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSearching(true);
+      }
+    };
+    window.addEventListener(CHAT_SEARCH, ask);
+    window.addEventListener("keydown", key);
+    return () => {
+      window.removeEventListener(CHAT_SEARCH, ask);
+      window.removeEventListener("keydown", key);
+    };
+  }, [channelId]);
+  return searching ? <ChatSearch channelId={channelId} onClose={() => setSearching(false)} /> : null;
 }
 
 /** Past this share of its context window a conversation is nearly full (where the context ring used to turn red). */
@@ -560,8 +549,8 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
           if (bottom) setNewSince(0);
         }}
       >
-        {/* like Messages: the whole width, yours at the right edge and theirs at the left */}
-        <div className="w-full md:px-2">
+        {/* one centred column on wider screens (round 11, board 10): yours at its right edge, theirs at its left */}
+        <div className="r11-col w-full md:px-2">
         <LatestChat.Provider value={messages.at(-1)?.conversationId ?? null}>
         {history.controls}
         {!history.error && empty && !runs.length && <ChannelIntro channel={channel} onAddAgent={onAddAgent} onMembers={onMembers} />}
@@ -592,9 +581,12 @@ function MessageList({ channel, readMark, onAddAgent, onMembers, messageId, call
             ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
             setNewSince(0);
           }}
-          className="glass absolute bottom-3 left-1/2 -translate-x-1/2 h-9 px-3.5 rounded-[8px] text-xs font-medium inline-flex items-center gap-1.5 hover:bg-hover"
+          aria-label={newSince > 0 ? `${newSince} new ${newSince === 1 ? "message" : "messages"}` : "Jump to latest"}
+          title="Jump to latest"
+          className="gl absolute bottom-2 left-1/2 -translate-x-1/2 z-10 grid size-[34px] place-items-center rounded-full active:scale-95"
         >
-          <ArrowDown size={13} /> {newSince > 0 ? `${newSince} new ${newSince === 1 ? "message" : "messages"}` : "Jump to latest"}
+          <ChevronDown size={16} strokeWidth={2.2} />
+          {newSince > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#0a84ff] px-1 text-[10px] font-bold text-white">{newSince > 99 ? "99+" : newSince}</span>}
         </button>
       )}
     </div>
@@ -717,7 +709,6 @@ function ChatDivider({ at, chat, messages }: { at: string; chat: string; message
 /** What a brand-new chat says: who you're talking to, or how to get a team going. */
 function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo; onAddAgent: () => void; onMembers: () => void }) {
   const names = useNames();
-  const invite = useFeature("invite");
   const canManage = useStore((s) => s.me?.role !== "guest") && !channel.archivedAt;
   if (channel.kind === "dm") {
     const a = names.agent(channel.name.split(":").pop()!);
@@ -731,7 +722,6 @@ function ChannelIntro({ channel, onAddAgent, onMembers }: { channel: ChannelInfo
   const cards: { icon: React.ReactNode; title: string; onClick: () => void }[] = [
     ...(canManage ? [{ icon: <Bot size={18} />, title: "Add agent", onClick: onAddAgent }] : []),
     ...(!channel.archivedAt ? [{ icon: <Paperclip size={18} />, title: "Add files", onClick: () => window.dispatchEvent(new CustomEvent(COMPOSER_ATTACH, { detail: channel.id })) }] : []),
-    ...(invite && canManage ? [{ icon: <UserPlus size={18} />, title: "Invite people", onClick: onMembers }] : []),
   ];
   // who's on it, leads first, with the role each has on the chart
   const team = teamOf(channel);
@@ -1922,7 +1912,7 @@ export function Composer({ channelId, threadId, agentId, placeholder, onDetails,
   // the icon pops in when what you've typed swaps it (not when the composer first opens)
   const swapped = useChangedSinceMount(action);
   return (
-    <div className="composer-wrap shrink-0 px-2.5 md:px-4 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] md:pb-3 w-full flex flex-col">
+    <div className="composer-wrap r11-col shrink-0 px-2.5 md:px-4 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] md:pb-3 w-full flex flex-col">
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={(e) => (attach(e.target.files), (e.target.value = ""))} />
       {/* who's working here and on what, in one line; it opens their panel */}

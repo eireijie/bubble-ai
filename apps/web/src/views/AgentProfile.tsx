@@ -1,61 +1,54 @@
 import { Suspense, useEffect, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Clock, FileText, Hand, Image as ImageIcon, Loader2, Maximize2, MessageSquarePlus, Plus } from "lucide-react";
-import { harnessLabel, type AccessLevel, type Agent, type Connector, type Routine, type Skill } from "@bubble-ai/core";
-import { defaultAppearance } from "@bubble-ai/core/src/appearance.ts";
+import { ChevronDown, ChevronRight, FileText, Image as ImageIcon, Loader2, MessageSquarePlus, Plus } from "lucide-react";
+import type { AccessLevel, Agent } from "@bubble-ai/core";
 import { api, fileUrl } from "../api.ts";
 import { colorGradient, setAgentBackground, shownColor, useAgentBackground, usePhotoSrc, type ChatBackground } from "../chatBackground.ts";
-import { useStore, type ComputerInfo } from "../store.ts";
+import { useStore } from "../store.ts";
 import { href, go, type AgentTab } from "../router.ts";
 import { liveShape } from "../liveShape.ts";
 import { useFeatures } from "../features.ts";
 import { useAppearance } from "../theme.ts";
 import { lazyView } from "../lazy.tsx";
 import { openDm } from "../openDm.ts";
-import { agentReadiness, isSharedComputer, useDevices, whoCanAsk } from "../devices.ts";
+import { useDevices, whoCanAsk } from "../devices.ts";
 import { setChannelPrefs } from "../components/Channels.tsx";
-import { LiveScreen, ScreenThumb, WorkingBadge } from "../components/Screen.tsx";
-import { ComputerFullscreen } from "../components/AgentPanel.tsx";
-import { Ghost } from "../components/Ghost.tsx";
 import { FilePreview } from "../components/FilePreview.tsx";
 import { fileKind } from "../components/fileKind.ts";
 import { stopRuns, workDetail } from "../components/ActivityPill.tsx";
 import { minutesSince, runStartedAt } from "../components/agentActivity.ts";
-import { effortName, prettyModel } from "../components/EffortSlider.tsx";
-import { Button, cx, timeAgo } from "../components/ui.tsx";
+import { effortName } from "../components/EffortSlider.tsx";
+import { cx, timeAgo } from "../components/ui.tsx";
 import { VoicePicker, recommendVoices } from "../voice/VoicePicker.tsx";
 import { deviceVoices, ELEVEN_VOICES, OPENAI_VOICES } from "../voice/providers.ts";
 import { LANGUAGES, SPEEDS, setCallPrefs, speedLabel, useCallPrefs } from "../voice/prefs.ts";
 import { MemoryGraph, type GraphData, type GraphNode } from "../components/MemoryGraph.tsx";
 import { useBackgroundSheet } from "../components/BackgroundSheet.tsx";
 import { CARD, InPlace, Line, Toggle } from "./AgentSections.tsx";
-import { runsOnDevice, type RoutineDraft } from "./AgentComputer.tsx";
-
-/** The profile's four tabs, in order (board ProfileSide). */
-export const PROFILE_TABS = ["activity", "memory", "background", "settings"] as const;
-export type ProfileTab = (typeof PROFILE_TABS)[number];
-export const PROFILE_TAB_TITLES: Record<ProfileTab, string> = { activity: "Activity", memory: "Memory", background: "Background", settings: "Settings" };
-
-/** The address of each tab (#/agents/<id>/<tab>); Activity is the profile's own address. */
-export const PROFILE_TAB_ROUTE: Record<ProfileTab, AgentTab> = { activity: "overview", memory: "notes", background: "wallpaper", settings: "settings" };
+import { runsOnDevice } from "./AgentComputer.tsx";
 
 /**
- * Parts open inside the profile with a back arrow, over the place they were opened from: the
- * Activity cards (its screen, its voice), Memory (its files), Settings' rows, and More's rows.
- * Look is opened from the avatar and goes back to whichever tab was showing.
+ * The profile (round 11, board 12): one short list, no tabs. Every other address opens a part over it
+ * with a back arrow: Edit (#/agents/<id>/settings) holds the name, look, background, voice and brain;
+ * the short list's rows open Library, Computer, Apps and skills, Routines and Memory; "Full profile"
+ * (more) holds everything else. Old addresses keep working: each lands on its part.
  */
 export const PART_PARENT: Partial<Record<AgentTab, AgentTab>> = {
+  settings: "overview",
+  notes: "overview",
+  library: "overview",
   screen: "overview",
-  voice: "overview",
-  library: "notes",
+  computer: "overview",
+  device: "overview",
+  apps: "overview",
+  skills: "overview",
+  routines: "overview",
+  more: "overview",
+  look: "settings",
+  wallpaper: "settings",
+  voice: "settings",
   model: "settings",
   harness: "settings",
-  device: "settings",
-  computer: "settings",
-  permissions: "settings",
-  apps: "settings",
-  skills: "settings",
-  routines: "settings",
-  more: "settings",
+  role: "settings",
   effort: "more",
   memory: "more",
   soul: "more",
@@ -65,28 +58,14 @@ export const PART_PARENT: Partial<Record<AgentTab, AgentTab>> = {
   connect: "more",
   background: "more",
   runs: "more",
-  role: "more",
+  permissions: "more",
 };
-export const PROFILE_PARTS: readonly AgentTab[] = [...(Object.keys(PART_PARENT) as AgentTab[]), "look"];
+export const PROFILE_PARTS: readonly AgentTab[] = Object.keys(PART_PARENT) as AgentTab[];
 
-/** The tab a part (or a tab's own address) belongs under. */
-function tabOf(tab: AgentTab): ProfileTab {
-  if (tab === "notes") return "memory";
-  if (tab === "wallpaper") return "background";
-  if (tab === "overview") return "activity";
-  const parent = PART_PARENT[tab];
-  return parent ? tabOf(parent) : "settings";
-}
-
-/**
- * Where an address lands in the profile: its tab, and the part open over it (null for the tab itself).
- * Old addresses keep working: the earlier tabs (Library, Computer, Voice) open as parts now, and
- * every old Settings row opens its part.
- */
-export function profilePlace(tab: AgentTab | null | undefined): { tab: ProfileTab; part: AgentTab | null } {
-  if (!tab || tab === "overview") return { tab: "activity", part: null };
-  if (tab === "notes" || tab === "wallpaper" || tab === "settings" || tab === "remove") return { tab: tabOf(tab), part: null };
-  return { tab: tabOf(tab), part: PROFILE_PARTS.includes(tab) ? tab : null };
+/** Where an address lands in the profile: the part open over the short list (null for the list itself). */
+export function profilePlace(tab: AgentTab | null | undefined): { part: AgentTab | null } {
+  if (!tab || tab === "overview" || tab === "remove") return { part: null };
+  return { part: PROFILE_PARTS.includes(tab) ? tab : null };
 }
 
 const ACCESS_LABEL: Record<AccessLevel, string> = { "read-only": "Read only", edit: "Can edit files", full: "Full access" };
@@ -162,112 +141,33 @@ export function tookFor(ms: number): string {
 
 const RUN_DOT: Record<string, string> = { done: "var(--status-online)", failed: "var(--status-error)", running: "var(--status-working)", queued: "var(--status-paused)", cancelled: "var(--status-idle)" };
 
-/** The routine "Create a routine" starts with: every weekday at 8, a plan for the day. */
-export const SUGGESTED_ROUTINE: RoutineDraft = { result: "Send me a plan for the day", schedule: "0 8 * * 1-5" };
-
-const HIDDEN_SUGGESTIONS = "bubble.profile.hide-suggested";
-/** Agents whose "Suggested" the person hid (kept on this device). */
-export function suggestionsHidden(agentId: string): boolean {
-  try {
-    return (JSON.parse(localStorage.getItem(HIDDEN_SUGGESTIONS) ?? "[]") as string[]).includes(agentId);
-  } catch {
-    return false;
-  }
-}
-export function hideSuggestions(agentId: string) {
-  try {
-    const was = JSON.parse(localStorage.getItem(HIDDEN_SUGGESTIONS) ?? "[]") as string[];
-    localStorage.setItem(HIDDEN_SUGGESTIONS, JSON.stringify([...new Set([...was, agentId])]));
-  } catch {
-    /* private window: hidden until reload */
-  }
-}
-
-/**
- * Activity (board ProfileSide): what it's on right now (with Stop), Suggested (Create a routine,
- * which Hide puts away for this agent), its Computer (a small picture of its own screen), and Voice
- * chat (its voice and speed, and the language calls listen for).
- */
-export function ActivityTab({ agent, onRoutine }: { agent: Agent; onRoutine: () => void }) {
-  const features = useFeatures();
+/** What it is on right now, with Stop; nothing while it rests. */
+export function WorkingNow({ agent, className }: { agent: Agent; className?: string }) {
   const live = useStore(liveShape);
   const agents = useStore((s) => s.agents);
   const canEdit = useStore((s) => s.me?.role !== "guest");
   const runsNow = Object.values(live).filter((r) => r.agentId === agent.id);
   const run = runsNow.at(-1);
   const since = runsNow.length ? Math.min(...runsNow.map((r) => runStartedAt(r.runId))) : null;
-  const [hidden, setHidden] = useState(() => suggestionsHidden(agent.id));
-  const suggest = canEdit && features.routines && !hidden;
+  if (!run && agent.status !== "busy") return null;
   return (
-    <div className="space-y-4">
-      {(run || agent.status === "busy") && (
-        <div className={cx(CARD, "flex min-h-[44px] items-center gap-3 px-3 text-[13.5px]")} role="status">
-          <span className="size-2 shrink-0 animate-pulse rounded-full bg-st-working" aria-hidden />
-          <span className="min-w-0 flex-1 truncate">
-            {run ? workDetail(run, agents) : "Working"}
-            {since ? <span className="text-muted"> · {minutesSince(since)}</span> : null}
-          </span>
-          {runsNow.length > 0 && canEdit && (
-            <button type="button" onClick={() => void stopRuns(runsNow)} className="shrink-0 text-[13px] font-medium text-ink hover:underline">
-              Stop
-            </button>
-          )}
-        </div>
+    <div className={cx(CARD, "flex min-h-[44px] items-center gap-3 px-3 text-[13.5px]", className)} role="status">
+      <span className="size-2 shrink-0 animate-pulse rounded-full bg-st-working" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">
+        {run ? workDetail(run, agents) : "Working"}
+        {since ? <span className="text-muted"> · {minutesSince(since)}</span> : null}
+      </span>
+      {runsNow.length > 0 && canEdit && (
+        <button type="button" onClick={() => void stopRuns(runsNow)} className="shrink-0 text-[13px] font-medium text-ink hover:underline">
+          Stop
+        </button>
       )}
-      {suggest && (
-        <Section
-          title="Suggested"
-          action={
-            <button type="button" onClick={() => (hideSuggestions(agent.id), setHidden(true))} className="text-[12px] text-muted hover:text-ink">
-              Hide
-            </button>
-          }
-        >
-          <div className={CARD}>
-            <Line label="Create a routine" icon={<Clock size={17} strokeWidth={1.8} />} onClick={onRoutine} />
-          </div>
-        </Section>
-      )}
-      <Section title="Computer">
-        <ComputerCard agent={agent} />
-      </Section>
-      <Section title="Voice chat">
-        <VoiceChat agent={agent} />
-      </Section>
     </div>
   );
 }
 
-/** Its computer in one row: whether it's asleep or working, and a small picture of its own screen. A click opens the screen. */
-function ComputerCard({ agent }: { agent: Agent }) {
-  const computer = useStore((s) => s.computers.find((c) => c.id === agent.computerId));
-  const live = useStore(liveShape);
-  const to = (t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
-  if (!computer)
-    return (
-      <div className={CARD}>
-        <Line label="Give it a computer" to={to("computer")} />
-      </div>
-    );
-  const c = computer;
-  const working = Object.values(live).some((r) => r.agentId === agent.id) || agent.status === "busy";
-  const status = !c.online ? "Offline" : c.paused ? "Paused" : c.status === "starting" ? "Waking up" : c.status === "stopped" ? "Asleep" : working ? "Working" : "Awake";
-  const awake = c.online && !c.paused && c.status !== "stopped" && c.status !== "starting";
-  return (
-    <a href={to("screen")} className={cx(CARD, "flex min-h-[64px] items-center gap-3 px-3.5 py-2 text-[14px] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40")}>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate">{agent.name}'s computer</span>
-        <span className="block truncate text-[12.5px] text-muted">{status}</span>
-      </span>
-      <span className="relative h-10 w-16 shrink-0 overflow-hidden rounded-[6px] bg-[#2b2d33]" aria-hidden>
-        {awake ? <ScreenThumb computer={c} agentId={agent.id} quiet className="h-full w-full rounded-none" /> : <span className="absolute inset-[5px] rounded-[3px] bg-white/10" />}
-      </span>
-    </a>
-  );
-}
-
 /** Its voice: Automatic, or one of a short list for this engine, and the speed. All voices (with Listen) are one row further. */
-function VoiceChat({ agent }: { agent: Agent }) {
+export function VoiceChat({ agent }: { agent: Agent }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
   const prefs = useCallPrefs();
   const [engine, setEngine] = useState<"device" | "openai" | "elevenlabs">("device");
@@ -554,126 +454,6 @@ function Thumb({ item }: { item: LibraryItem }) {
   );
 }
 
-// --- Computer -----------------------------------------------------------------
-
-/** Its own screen, live: open it full screen, or take control. Without a computer, where to give it one. */
-export function ScreenTab({ agent }: { agent: Agent }) {
-  const computer = useStore((s) => s.computers.find((c) => c.id === agent.computerId));
-  const me = useStore((s) => s.me);
-  const [full, setFull] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const toComputer = href({ view: "agents", agentId: agent.id, tab: "computer" });
-  if (!computer)
-    return (
-      <div className="space-y-3">
-        <p className="px-1 text-[13px] text-muted">{agent.name} has no computer yet</p>
-        <div className={CARD}>
-          <Line label="Give it a computer" to={toComputer} />
-        </div>
-      </div>
-    );
-  const c = computer;
-  const live = c.online && !c.paused && c.status !== "stopped" && c.status !== "starting";
-  const canControl = me?.role !== "guest" && c.online && !c.paused && !(c.controller && c.controller.id !== me?.user.id);
-  const takeControl = async () => {
-    setError(null);
-    setBusy(true);
-    try {
-      await api("POST", `/api/computers/${c.id}/control`, { take: true, ...(c.screens ? { agent: agent.id } : {}) });
-      setFull(true);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="space-y-3">
-      {c.help && c.help.agentId === agent.id && (
-        <div className="rounded-[12px] border border-accent/40 bg-accent-soft px-3.5 py-2.5 text-[14px]">
-          <span className="font-medium">Needs you: </span>
-          {c.help.request}
-        </div>
-      )}
-      <ScreenBox agent={agent} computer={c} live={live} onOpen={() => setFull(true)} />
-      <div className={CARD}>
-        <Line label={`${agent.name}'s screen`} value={isSharedComputer(c) ? "On the shared computer" : c.name} to={toComputer} />
-        {live && canControl && (
-          <Line label="Take control" icon={busy ? <Loader2 size={16} className="animate-spin" /> : <Hand size={16} />} onClick={() => void takeControl()} />
-        )}
-        {live && <Line label="Open full screen" icon={<Maximize2 size={16} />} onClick={() => setFull(true)} />}
-      </div>
-      {error && <p className="px-1 text-[13px] text-bad">{error}</p>}
-      {full && <ComputerFullscreen agent={agent} computer={c} onClose={() => setFull(false)} />}
-    </div>
-  );
-}
-
-function ScreenBox({ agent, computer: c, live, onOpen }: { agent: Agent; computer: ComputerInfo; live: boolean; onOpen: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const asleep = c.online && c.status === "stopped";
-  const look = agent.settings.appearance ?? defaultAppearance(agent.handle);
-  const wake = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api("POST", `/api/computers/${c.id}/start`);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="group relative aspect-[16/10] overflow-hidden rounded-[14px] border border-line bg-[#2b2d33]">
-      {live ? (
-        <>
-          {c.screens && !c.screens.includes(agent.id) ? (
-            // its own screen isn't up: a still, not a live view that would start it
-            <ScreenThumb computer={c} agentId={agent.id} quiet className="h-full w-full rounded-none" />
-          ) : (
-            <LiveScreen computer={c} control={false} compact agentId={c.screens ? agent.id : undefined} />
-          )}
-          <button type="button" onClick={onOpen} className="absolute inset-0" aria-label={`Open ${agent.name}'s screen full screen`} />
-          <span className="pointer-events-none absolute left-2.5 top-2 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2 py-0.5 text-[12px] text-white">
-            <span className="size-1.5 rounded-full bg-[var(--status-online)]" aria-hidden /> Live
-          </span>
-          {c.activity?.text && (
-            <span className="pointer-events-none absolute bottom-2 left-2.5">
-              <WorkingBadge text={c.activity.text} />
-            </span>
-          )}
-          <span className="pointer-events-none absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100">
-            <Maximize2 size={14} />
-          </span>
-        </>
-      ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center text-white/80">
-          {c.status === "starting" ? (
-            <>
-              <Loader2 size={22} className="animate-spin" />
-              <p className="text-[13px]">{c.statusText || "Waking up…"}</p>
-            </>
-          ) : (
-            <>
-              <Ghost look={asleep ? look : { ...look, color: "#8d8d8d", color2: undefined }} size={52} mood="asleep" ambient={false} label="asleep" />
-              <p className="text-[14px] font-medium text-white">{asleep ? "Asleep" : c.paused ? "Paused" : "Offline"}</p>
-              {asleep && (
-                <Button onClick={() => void wake()} disabled={busy}>
-                  {busy ? <Loader2 size={14} className="animate-spin" /> : null} Wake
-                </Button>
-              )}
-              {error && <p className="text-[13px] text-bad">{error}</p>}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // --- Voice --------------------------------------------------------------------
 
 const CallOptions = lazyView(() => import("../voice/CallScreen.tsx").then((m) => m.CallOptions));
@@ -769,48 +549,6 @@ export function BackgroundTab({ agent }: { agent: Agent }) {
   );
 }
 
-// --- Settings -----------------------------------------------------------------
-
-/** Settings (board ProfileSide): Model, Harness, Computer, Permissions; then Apps and skills, Routines and More (everything else). */
-export function SettingsTab({ agent }: { agent: Agent }) {
-  const features = useFeatures();
-  const devices = useDevices();
-  const computers = useStore((s) => s.computers);
-  const routinesVersion = useStore((s) => s.routinesVersion);
-  const skillsVersion = useStore((s) => s.skillsVersion);
-  const [routines, setRoutines] = useState<Routine[] | null>(null);
-  const [usable, setUsable] = useState<string[] | null>(null);
-  useEffect(() => {
-    if (features.routines) api<Routine[]>("GET", `/api/routines?agent=${agent.id}`).then(setRoutines, () => setRoutines([]));
-  }, [agent.id, features.routines, routinesVersion]);
-  useEffect(() => {
-    const has = (i: { agentIds: string[]; allAgents?: boolean }) => !!i.allAgents || i.agentIds.includes(agent.id);
-    Promise.all([api<Connector[]>("GET", "/api/connectors").catch(() => []), api<Skill[]>("GET", "/api/skills").catch(() => [])]).then(([apps, skills]) => setUsable([...apps.filter(has), ...skills.filter(has)].map((i) => i.name)));
-  }, [agent.id, skillsVersion]);
-
-  const to = (t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
-  const device = devices?.find((d) => d.id === agent.nodeId);
-  const computer = computers.find((c) => c.id === agent.computerId);
-  const readiness = agentReadiness(agent, devices);
-  const headless = runsOnDevice(agent.harness);
-  const on = routines?.filter((r) => r.enabled).length ?? 0;
-  return (
-    <div className="space-y-2.5">
-      <div className={CARD}>
-        <Line label="Model" value={headless ? (agent.model ? prettyModel(agent.model) : "Automatic") : `Set in ${harnessLabel(agent.harness)}`} to={to("model")} />
-        <Line label="Harness" value={harnessLabel(agent.harness)} to={to("harness")} />
-        <Line label="Computer" value={!readiness.ready ? (readiness.problem ?? "Setup incomplete") : computer ? (isSharedComputer(computer) ? "Shared" : computer.name) : (device?.name ?? "None yet")} warn={!readiness.ready} to={to("computer")} />
-        <Line label="Permissions" value={ACCESS_LABEL[agent.settings.access ?? "edit"]} to={to("permissions")} />
-      </div>
-      <div className={CARD}>
-        <Line label="Apps and skills" value={usable && usable.length > 0 ? listNames(usable) : undefined} to={to("apps")} />
-        {features.routines && <Line label="Routines" value={routines ? (on ? `${on} on` : undefined) : undefined} to={to("routines")} />}
-        <Line label="More" to={to("more")} />
-      </div>
-    </div>
-  );
-}
-
 const listNames = (names: string[]) => (names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`);
 
 /**
@@ -843,6 +581,8 @@ export function MoreTab({ agent }: { agent: Agent }) {
         <Line label="What it does" value={agent.settings.role || undefined} to={to("role")} />
         <Line label="Personality" to={to("soul")} />
         <Line label="Instructions" to={to("instructions")} />
+        <Line label="Permissions" value={ACCESS_LABEL[agent.settings.access ?? "edit"]} to={to("permissions")} />
+        <Line label="Where it runs" to={to("computer")} />
         <Line label="Memory settings" to={to("memory")} />
         {headless && <Line label="Effort" value={agent.settings.effort ? effortName(agent.settings.effort) : "Default"} to={to("effort")} />}
       </div>

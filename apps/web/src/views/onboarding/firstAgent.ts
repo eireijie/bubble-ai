@@ -6,6 +6,7 @@ import type { ComputerInfo } from "../../store.ts";
 import { WHITE_WISP } from "../../components/onboarding/HostGhost.tsx";
 import type { Askable } from "../../components/MemoryImport.tsx";
 import { freeHandle } from "../CreateAgent.tsx";
+import { mergeLook } from "../../components/lookPhoto.tsx";
 
 /** The device's message when it has no Node.js (see NO_NODE in the node package). */
 export const NO_NODE = /Node\.js isn't installed on this computer/;
@@ -79,7 +80,7 @@ export function makeNamedAgent(shape: AgentShape, harness: string, device: Devic
 }
 
 /** Back on "Your agent" with the agent already made: a new name, look or job is saved to it (its handle follows its name). */
-export async function renameNamedAgent(agent: Pick<Agent, "id" | "name" | "handle">, shape: AgentShape, agents: Pick<Agent, "id" | "handle">[]): Promise<void> {
+export async function renameNamedAgent(agent: Pick<Agent, "id" | "name" | "handle"> & { settings?: Pick<Agent["settings"], "appearance"> }, shape: AgentShape, agents: Pick<Agent, "id" | "handle">[]): Promise<void> {
   const renamed = shape.name !== agent.name;
   await api("PATCH", `/api/agents/${agent.id}`, {
     ...(renamed
@@ -92,7 +93,8 @@ export async function renameNamedAgent(agent: Pick<Agent, "id" | "name" | "handl
         }
       : {}),
     instructions: shape.instructions,
-    settings: { appearance: shape.appearance, role: shape.role || undefined },
+    // laid over its saved look, so a photo or newer fields set elsewhere are kept
+    settings: { appearance: mergeLook(agent.settings?.appearance, shape.appearance), role: shape.role || undefined },
   });
 }
 

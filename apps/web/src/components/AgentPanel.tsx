@@ -1,15 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { isTopOverlay, toBody, useOverlay } from "../overlays.ts";
-import { Eye, Hand, Minimize2, Video } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { harnessLabel, type Agent } from "@bubble-ai/core";
-import { api } from "../api.ts";
-import { useStore, type ComputerInfo } from "../store.ts";
-import { useFeature } from "../features.ts";
+import type { ComputerInfo } from "../store.ts";
 import { go, href, type AgentTab } from "../router.ts";
 import { agentReadiness, agentSignedIn, type DeviceInfo } from "../devices.ts";
-import { useComputerState } from "../views/computerState.ts";
-import { LiveScreen, WorkingBadge } from "./Screen.tsx";
-import { AgentAvatar, Pill, cx } from "./ui.tsx";
+import { ComputerWindow } from "../views/AgentShort.tsx";
+import { Pill } from "./ui.tsx";
 
 /** What the chat asks to open about an agent: the agent itself ("details"), or one part of it. */
 export type AgentPanelTab = "details" | "computer" | "thinks" | "can" | "asks" | "knows" | "more";
@@ -63,92 +58,9 @@ export function SetupIncomplete({ problem }: { problem: string | null }) {
 // --- computer ------------------------------------------------------------------------------------
 
 /**
- * The computer, big. Click the screen to take control; it's yours (blue ring) until you hand it
- * back, leave it alone for a while, or the agent needs it after you've stopped using it.
+ * The computer, big (board 13): the same black stage as the profile's Computer, filling the window.
+ * Watching first; Take control, then "Give back"; leaving hands it back.
  */
-export function ComputerFullscreen({ agent, computer: c, onClose }: { agent: Agent; computer: ComputerInfo; onClose: () => void }) {
-  const me = useStore((s) => s.me);
-  const state = useComputerState(c);
-  const [error, setError] = useState<string | null>(null);
-  const mine = !!me && c.controller?.id === me.user.id;
-  const canControl = me?.role !== "guest" && c.online && !c.paused;
-  const someoneElse = !!c.controller && !mine;
-  const teach = useFeature("teach");
-  const touched = useRef(0);
-
-  const control = async (take: boolean) => {
-    setError(null);
-    try {
-      await api("POST", `/api/computers/${c.id}/control`, { take, ...(c.screens ? { agent: agent.id } : {}) });
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-  // while you work on it, tell the hub now and then that you're still there (VNC input skips the hub)
-  const activity = () => {
-    if (Date.now() - touched.current < 15_000) return;
-    touched.current = Date.now();
-    void api("POST", `/api/computers/${c.id}/control`, { take: true, ...(c.screens ? { agent: agent.id } : {}) }).catch(() => {});
-  };
-  // leaving the big view gives the computer back, so agents aren't stuck waiting on a closed window
-  const close = () => {
-    if (mine) void api("POST", `/api/computers/${c.id}/control`, { take: false }).catch(() => {});
-    onClose();
-  };
-  const overlayId = useRef(Symbol("screen")).current;
-  useOverlay(overlayId, "screen");
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => {
-      // while in control, Escape belongs to the remote computer; a dialog over the screen takes it first
-      if (e.key === "Escape" && !mine && isTopOverlay(overlayId)) close();
-    };
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  });
-
-  return toBody(
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex flex-col p-3 md:p-5 safe-top safe-bottom" role="dialog" aria-modal="true" aria-label={`${c.name}'s screen`}>
-      <div className="shrink-0 relative flex items-center gap-2 pb-3 min-h-11 text-white">
-        <AgentAvatar agent={agent} size={26} live />
-        <span className="font-medium truncate">{c.name}</span>
-        {!mine && (state.working ? <WorkingBadge text={c.activity?.text ?? "Working"} /> : <Pill tone={state.tone}>{state.label}</Pill>)}
-        {mine && (
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 inline-flex items-center gap-2 rounded-[8px] bg-info text-white pl-3.5 pr-1 h-9 text-sm font-medium shadow-panel" role="status">
-            <Hand size={15} /> You are in control
-            <button onClick={() => control(false)} className="h-7 px-3 rounded-[8px] bg-white/20 hover:bg-white/30 text-xs font-medium">
-              Hand back
-            </button>
-          </div>
-        )}
-        {teach && canControl && !someoneElse && (
-          <button onClick={() => go({ view: "computers", computerId: c.id, teach: agent.id })} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-[8px] border border-white/20 text-sm font-medium hover:bg-white/10" title={`Do a task once while ${agent.name} watches; it saves it as a skill`}>
-            <Video size={15} /> Teach a task
-          </button>
-        )}
-        <button onClick={close} className={cx(!(teach && canControl && !someoneElse) && "ml-auto", "size-9 rounded-[8px] hover:bg-white/10 grid place-items-center")} aria-label="Exit full screen" title="Exit full screen">
-          <Minimize2 size={18} />
-        </button>
-      </div>
-      <div className="flex-1 min-h-0">
-        <LiveScreen computer={c} control={mine} onTakeControl={canControl && !someoneElse ? () => void control(true) : undefined} onActivity={activity} agentId={c.screens ? agent.id : undefined} />
-      </div>
-      <div className="shrink-0 mt-3 text-center text-sm text-white/70 min-h-5">
-        {c.help ? (
-          <span>
-            <span className="font-medium text-white">{agent.name} needs you:</span> {c.help.request}
-            {mine ? " Hand back when you're done." : " Click the screen to take control."}
-          </span>
-        ) : mine ? (
-          `${agent.name} gets it back if you hand it back or stop using it.`
-        ) : someoneElse ? (
-          state.label
-        ) : canControl ? (
-          <span className="inline-flex items-center gap-1.5">
-            <Eye size={14} /> Watching · click the screen to take control
-          </span>
-        ) : null}
-      </div>
-      {error && <p className="shrink-0 mt-1 text-center text-sm text-bad">{error}</p>}
-    </div>,
-  );
+export function ComputerFullscreen({ agent, computer, onClose }: { agent: Agent; computer: ComputerInfo; onClose: () => void }) {
+  return <ComputerWindow agent={agent} computer={computer} onClose={onClose} />;
 }

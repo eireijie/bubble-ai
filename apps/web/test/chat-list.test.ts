@@ -45,11 +45,11 @@ describe("chats list", () => {
     expect(html).toContain("You: newer");
     expect(html).toContain("older");
     // the + menu is there, and nothing says Channels or Starred
-    expect(html).toContain("New chat, agent or team");
+    expect(html).toContain('aria-label="New agent, team or chat"');
     expect(html).not.toMatch(/Channels|Starred/);
   });
 
-  it("is the phone's home: you, Search and + on top, then one line per agent or team", () => {
+  it("is the phone's home: your initials left and + right on top, search pulled down above the list, then one line per agent or team", () => {
     Object.assign(initial, {
       me,
       agents: [agent("a1", "Ghosty"), agent("a2", "Nova")],
@@ -61,9 +61,12 @@ describe("chats list", () => {
     });
     const html = render("page");
     const at = (s: string) => html.indexOf(s);
-    // your picture opens the account page, Search opens the full search, then the one + (New chat, agent or team)
-    expect(at('href="#/you"')).toBeLessThan(at(">Search<"));
-    expect(at(">Search<")).toBeLessThan(at('aria-label="New chat, agent or team"'));
+    // your initials (opening the account page) sit top left, the one + (New agent, team or chat) top right,
+    // and the search field waits just above the list, scrolled out of sight until you pull
+    expect(at('href="#/you"')).toBeLessThan(at('aria-label="New agent, team or chat"'));
+    expect(at('aria-label="New agent, team or chat"')).toBeLessThan(at('aria-label="Search chats"'));
+    expect(at('aria-label="Search chats"')).toBeLessThan(at("release-crew"));
+    expect(html).not.toContain(">Search<");
     // newest first, each with its preview and when; unread shows as one dot
     expect(at("release-crew")).toBeLessThan(at("Ghosty"));
     expect(html).toContain("You: newer");
