@@ -674,16 +674,16 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
       </span>
     ) : !c.enabled ? (
       <span className="shrink-0 pr-1 text-[13px] text-muted">Off</span>
-    ) : noAppsPicked(c) ? (
-      <PickApps connector={c} onBack={() => void loadConnectors()} />
-    ) : (
+    ) : noAppsPicked(c) ? null : (
       <Done word="Connected" />
     );
+  /** Pick apps for an app hub with nothing picked inside it: a link of its own, so it sits outside the row's open button. */
+  const pickApps = (c: Connector) => (c.enabled && !needsSignIn(c) && noAppsPicked(c) ? <PickApps connector={c} onBack={() => void loadConnectors()} /> : undefined);
   const addedApps: RowDef[] = [...(connectors ?? [])]
     // a sign-in that lapsed comes first
     .sort((a, b) => Number(needsSignIn(b)) - Number(needsSignIn(a)))
     .filter((c) => hit("added", c.name, c.url, c.command, connectorWords(c), "app"))
-    .map((c) => ({ key: `c:${c.id}`, tile: <AppTile name={c.name} size={42} />, name: c.name, desc: connectorWords(c), status: connectedState(c), onOpen: () => setDetail({ kind: "connector", id: c.id }) }));
+    .map((c) => ({ key: `c:${c.id}`, tile: <AppTile name={c.name} size={42} />, name: c.name, desc: connectorWords(c), status: connectedState(c), action: pickApps(c), onOpen: () => setDetail({ kind: "connector", id: c.id }) }));
   const addedRows: RowDef[] = [
     ...addedApps,
     ...(skills ?? [])
@@ -725,7 +725,7 @@ export function MarketplaceView({ section, app: appKey = null, onBack, embedded 
       desc: why ?? (("builtIn" in a && a.builtIn.recommended) || [unverified ? "Not verified" : "", a.description || a.category || `By ${a.who}`].filter(Boolean).join(" · ")),
       topics: appTopics(a),
       ...(have
-        ? { status: connectedState(have), onOpen: () => setDetail({ kind: "connector", id: have.id }) }
+        ? { status: connectedState(have), action: pickApps(have), onOpen: () => setDetail({ kind: "connector", id: have.id }) }
         : "builtIn" in a && comingSoon(a.builtIn)
           ? { status: <span className="shrink-0 pr-1 text-[13px] text-muted">Coming soon</span>, onOpen: () => setDetail({ kind: "app", app: a }) }
           : {
