@@ -6,6 +6,7 @@ import { useGhostActivity } from "../ghostActivity.ts";
 import { familyColor } from "../ghostFamily.ts";
 import { liteEyes, restingGaze, watchBubble } from "./bubbleMotion.ts";
 import "./bubble.css";
+import { LookPhoto, lookPhotoId } from "./lookPhoto.tsx";
 
 /** How the bubble feels right now; follows the agent's status where it matters. */
 export type BubbleMood = "awake" | "listening" | "thinking" | "asleep" | "working" | "done" | "waiting" | "error";
@@ -50,7 +51,7 @@ export const BUBBLE_DEFS: Record<BubbleShape, ShapeDef> = {
 };
 
 /** What a bubble can wear, as saved in a look. */
-export type BubbleLook = Pick<GhostAppearance, "color"> & Partial<Pick<GhostAppearance, "color2" | "bubble" | "eyes" | "mouth" | "hat" | "accessory" | "motion" | "parts">>;
+export type BubbleLook = Pick<GhostAppearance, "color"> & Partial<Pick<GhostAppearance, "color2" | "bubble" | "eyes" | "mouth" | "hat" | "accessory" | "motion" | "parts" | "photo">>;
 
 /** A look's eyes, mouth, hat, accessory and motion; looks saved before these came back get plain eyes and nothing else. */
 export function bubbleParts(look: BubbleLook | undefined): Required<Pick<GhostAppearance, "eyes" | "mouth" | "hat" | "accessory" | "motion">> {
@@ -168,7 +169,15 @@ export function BubbleBody({ shape, color }: { shape: BubbleShape; color: string
  * waiting (needs you) hops with an orange dot, asleep (offline) goes grey with closed eyes.
  * All motion stops with `animate={false}`, reduced motion, or after the page has been left alone.
  */
-export function Bubble({
+/** An agent's face: its photo in a circle when the look has one (round 11), else the drawn bubble. */
+export function Bubble(props: Parameters<typeof DrawnBubble>[0]) {
+  const id = lookPhotoId(props.look?.photo);
+  // shown as it is, whatever the mood: on the web a sleeping bubble keeps its colour too
+  if (id) return <LookPhoto id={id} size={props.size ?? 40} label={props.label} className={props.className} style={props.style} />;
+  return <DrawnBubble {...props} />;
+}
+
+function DrawnBubble({
   look,
   seed,
   size = 40,

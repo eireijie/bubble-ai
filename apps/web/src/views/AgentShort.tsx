@@ -22,6 +22,7 @@ import { runsOnDevice } from "./AgentComputer.tsx";
 import { LookEditor, withParts } from "./LookEditor.tsx";
 import { VoiceChat } from "./AgentProfile.tsx";
 import { BOARD_COLORS, looksFromWords } from "./lookWords.ts";
+import { mergeLook, uploadFace } from "../components/lookPhoto.tsx";
 import "../round11-agent.css";
 
 const to = (agent: Agent, t: AgentTab) => href({ view: "agents", agentId: agent.id, tab: t });
@@ -243,11 +244,12 @@ export function EditAgent({ agent }: { agent: Agent }) {
   );
 }
 
-type LookMode = "colour" | "describe" | "style";
+type LookMode = "colour" | "describe" | "style" | "photo";
 
 /**
  * Bubble look (board 12): Colour (twelve swatches), Describe (a few words give four bubbles to pick
- * from) or Style (every part: shape, eyes, mouth, hats and the rest). Done saves it.
+ * from), Style (every part: shape, eyes, mouth, hats and the rest) or Photo (a picture in a circle
+ * instead of the bubble, the same as the iPhone). Done saves it over what's saved, keeping other fields.
  */
 export function BubbleLook({ agent, onDirty, active }: { agent: Agent; onDirty: (d: boolean) => void; active: boolean }) {
   const refreshAgents = useStore((s) => s.refreshAgents);
@@ -268,7 +270,8 @@ export function BubbleLook({ agent, onDirty, active }: { agent: Agent; onDirty: 
     setSaving(true);
     setError(null);
     try {
-      await api("PATCH", `/api/agents/${agent.id}`, { settings: { appearance: look } });
+      // laid over what's saved, so fields this page doesn't show are kept (mergeLook)
+      await api("PATCH", `/api/agents/${agent.id}`, { settings: { appearance: mergeLook(agent.settings.appearance, look) } });
       await refreshAgents();
       onDirty(false);
       go({ view: "agents", agentId: agent.id, tab: "settings" });
@@ -281,7 +284,7 @@ export function BubbleLook({ agent, onDirty, active }: { agent: Agent; onDirty: 
   return (
     <div className="r11-page flex min-h-full flex-1 flex-col pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <PageBar back={to(agent, "settings")} title="Bubble" done={() => void done()} busy={saving} />
-      <BubblePicker look={look} onChange={setLook} name={agent.name} onReset={() => setLook(fallback)} />
+      <BubblePicker look={look} onChange={setLook} name={agent.name} onReset={() => setLook({ ...fallback, photo: undefined })} start={saved.photo ? "photo" : "colour"} />
       {error && <p className="mt-3 px-6 text-center text-[13px] text-bad">{error}</p>}
     </div>
   );
@@ -296,7 +299,10 @@ export function BubblePicker({ look, onChange, name, onReset, start = "colour", 
     ["colour", "Colour"],
     ["describe", "Describe"],
     ["style", "Style"],
+    ["photo", "Photo"],
   ];
+  // picking a bubble (a colour, a described look, a style) puts the bubble back, as on the iPhone
+  const bubble = (l: GhostAppearance) => onChange({ ...l, photo: undefined });
   return (
     <div className="flex flex-col">
       <div role="tablist" aria-label="How to pick its look" className="my-2.5 flex justify-center gap-1">
@@ -322,7 +328,7 @@ export function BubblePicker({ look, onChange, name, onReset, start = "colour", 
                 aria-checked={look.color?.toLowerCase() === c.hex}
                 aria-label={c.name}
                 title={c.name}
-                onClick={() => onChange({ ...look, color: c.hex, color2: undefined })}
+                onClick={() => bubble({ ...look, color: c.hex, color2: undefined })}
                 className="r11-sw"
                 style={{ background: `radial-gradient(circle at 34% 28%, color-mix(in srgb, ${c.hex} 35%, white), ${c.hex} 70%)` }}
               />
@@ -352,7 +358,7 @@ export function BubblePicker({ look, onChange, name, onReset, start = "colour", 
           {options && (
             <div role="radiogroup" aria-label="Pick one" className="grid grid-cols-4 gap-2">
               {options.map((o, i) => (
-                <button key={i} type="button" role="radio" aria-checked={JSON.stringify(o) === JSON.stringify(look)} aria-label={`Look ${i + 1}`} onClick={() => onChange(o)} className={cx("grid aspect-square place-items-center rounded-[14px] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40", JSON.stringify(o) === JSON.stringify(look) && "shadow-[inset_0_0_0_2px_var(--ink)]")}>
+                <button key={i} type="button" role="radio" aria-checked={JSON.stringify(o) === JSON.stringify(look)} aria-label={`Look ${i + 1}`} onClick={() => bubble(o)} className={cx("grid aspect-square place-items-center rounded-[14px] outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/40", JSON.stringify(o) === JSON.stringify(look) && "shadow-[inset_0_0_0_2px_var(--ink)]")}>
                   <Ghost look={o} size={52} animate={false} ambient={false} label="" />
                 </button>
               ))}
@@ -361,11 +367,50 @@ export function BubblePicker({ look, onChange, name, onReset, start = "colour", 
           {!options && <p className="text-[13px] text-muted">A few words: a colour, a hat, glasses, a smile. Pick from four.</p>}
         </div>
       )}
+      {mode === "photo" && <PhotoPick look={look} onChange={onChange} />}
       {mode === "style" && (
         <div className="px-3.5">
-          <LookEditor value={look} onChange={onChange} name={name} onReset={onReset} />
+          <LookEditor value={look} onChange={bubble} name={name} onReset={onReset} />
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Photo (board 12, the same as the iPhone): a picture shown in a circle instead of the bubble. It's
+ * cropped to a square of at most 512px and uploaded through the usual file upload; the bubble comes
+ * back with "Use the bubble instead" (or by picking a colour, a described look or a style).
+ */
+function PhotoPick({ look, onChange }: { look: GhostAppearance; onChange: (look: GhostAppearance) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onChange({ ...look, photo: await uploadFace(file) });
+    } catch (e) {
+      setError((e as Error).message || "That photo didn't upload.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="r11-grp flex flex-col items-center gap-3 px-4 py-5">
+      <input ref={input} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp" hidden onChange={(e) => (void pick(e.target.files?.[0]), (e.target.value = ""))} />
+      <button type="button" disabled={busy} onClick={() => input.current?.click()} className="r11-done inline-flex items-center gap-2 disabled:opacity-60">
+        {busy && <Loader2 size={15} className="animate-spin" />}
+        {busy ? "Uploading…" : look.photo ? "Choose another photo" : "Choose a photo"}
+      </button>
+      {look.photo && !busy && (
+        <button type="button" onClick={() => onChange({ ...look, photo: undefined })} className="text-[14px] text-[#0a84ff] hover:underline">
+          Use the bubble instead
+        </button>
+      )}
+      {error ? <p className="text-center text-[13px] text-bad">{error}</p> : <p className="text-center text-[13px] text-muted">A square crop of the middle, shown in a circle.</p>}
     </div>
   );
 }
