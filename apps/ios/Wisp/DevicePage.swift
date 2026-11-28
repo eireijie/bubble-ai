@@ -375,7 +375,7 @@ private struct HarnessesSection: View {
   @State private var installing: String?
   @State private var output: String?
   @State private var action = FormAction()
-  private let installable = ["claude-code", "codex", "gemini", "opencode", "kimi", "qwen", "openclaw"]
+  private let installable = HarnessChoice.oneTapInstall
 
   var body: some View {
     let have = node.harnesses ?? []
@@ -399,7 +399,7 @@ private struct HarnessesSection: View {
             Button("Install") { installing = id }.buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)
               .disabled(!node.online || action.busy).accessibilityIdentifier("install-\(id)")
               .confirmationDialog("Install \(HarnessChoice.label(id)) on \(node.name)?", isPresented: Binding(get: { installing == id }, set: { if !$0 { installing = nil } }), titleVisibility: .visible) {
-                Button("Install \(HarnessChoice.label(id))") { output = nil; action.run { _ = try await store.installHarness(id, node: node.id); output = "\(HarnessChoice.label(id)) is installed." } }
+                Button("Install \(HarnessChoice.label(id))") { output = nil; action.run { output = try await store.installHarness(id, node: node.id) } }
               }
           }
         }

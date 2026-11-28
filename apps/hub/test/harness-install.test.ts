@@ -46,4 +46,42 @@ describe("installing a harness from Settings", () => {
     expect(r.status).toBe(422);
     expect(r.data).toEqual({ error: "Couldn't reach npm from mac. Check its internet and try again.", details: "npm error code ENOTFOUND\nnpm error network request failed" });
   });
+
+  it("installs Hermes with one tap, and hands over the owner's model connection that doesn't rotate", async () => {
+    const { node } = (await api("POST", "/api/nodes", { name: "box" })).data;
+    hub.isNodeOnline = () => true;
+    const me = { id: hub.store.node(node.id)!.ownerId! };
+    const ws = hub.store.node(node.id)!.workspaceId;
+    const sent: any[] = [];
+    hub.computers.nodeRequest = (async (_id: string, make: (requestId: string) => unknown, timeoutMs: number) => {
+      sent.push({ msg: make("rq"), timeoutMs });
+      return { output: "Hermes v2026.9.24 is installed.", connected: "Anthropic key" };
+    }) as typeof hub.computers.nodeRequest;
+    // only a ChatGPT sign-in: Hermes would renew it in ~/.hermes and the hub's copy would stop working
+    hub.models.create({ workspaceId: ws, userId: me.id, provider: "openai", kind: "oauth", label: "ChatGPT", secret: { auth: { tokens: { access_token: "a", refresh_token: "r" } } } });
+    let r = await api("POST", `/api/nodes/${node.id}/install`, { harness: "hermes" });
+    expect(r.status).toBe(200);
+    expect(sent[0].msg).toEqual({ type: "install_harness", requestId: "rq", harness: "hermes" });
+    expect(sent[0].timeoutMs).toBeGreaterThan(16 * 60_000);
+    // a key goes along, so Hermes is ready without `hermes setup`
+    const key = hub.models.create({ workspaceId: ws, userId: me.id, provider: "anthropic", kind: "key", label: "Anthropic", secret: { key: "sk-ant-api-1" } });
+    hub.models.models = (async () => []) as typeof hub.models.models;
+    r = await api("POST", `/api/nodes/${node.id}/install`, { harness: "hermes" });
+    expect(r.data).toEqual({ output: "Hermes v2026.9.24 is installed.", connected: "Anthropic key" });
+    expect(sent[1].msg).toMatchObject({ type: "install_harness", harness: "hermes", credential: { connectionId: key, provider: "anthropic", kind: "key", secret: { key: "sk-ant-api-1" } } });
+    // npm harnesses never carry a connection
+    await api("POST", `/api/nodes/${node.id}/install`, { harness: "codex" });
+    expect(sent[2].msg).toEqual({ type: "install_harness", requestId: "rq", harness: "codex" });
+    // and a harness with only a copy-and-paste command is still refused
+    r = await api("POST", `/api/nodes/${node.id}/install`, { harness: "goose" });
+    expect(r.status).toBe(400);
+    expect(sent).toHaveLength(3);
+  });
+
+  it("offers Install in the chat when Hermes isn't on the device", () => {
+    const agent = { harness: "hermes", computerId: null, settings: {} as any, nodeId: "n1" };
+    const run = { id: "r1", triggerMessageId: "m1", discussionId: null };
+    expect(hub.failurePart(agent as any, run as any, { error: "spawn hermes ENOENT" })).toMatchObject({ reason: "not_installed", fix: "install", harness: "hermes", nodeId: "n1" });
+    expect(hub.failurePart({ ...agent, harness: "goose" } as any, run as any, { error: "spawn goose ENOENT" })).not.toHaveProperty("fix");
+  });
 });

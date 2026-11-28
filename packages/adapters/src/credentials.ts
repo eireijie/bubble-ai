@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { credentialSupport, harnessLabel, hermesProvider, providerLabel, withArticle, type ConnectionSecret, type RunCredential } from "@bubble-ai/core";
+import yaml from "js-yaml";
 import { yamlSetScalar } from "./harness-formats.ts";
 
 /**
@@ -213,4 +214,41 @@ export function hermesEntryFromCodex(auth: Record<string, unknown> | undefined):
 /** Hermes's renewed tokens back in Codex's auth.json shape, keeping what Hermes doesn't track (the id token, account). Exported for tests. */
 export function codexAuthFromHermes(before: Record<string, unknown>, entry: Record<string, any>): Record<string, unknown> {
   return { auth_mode: "chatgpt", OPENAI_API_KEY: null, ...before, tokens: { ...((before.tokens as object) ?? {}), access_token: entry.access_token, refresh_token: entry.refresh_token }, last_refresh: entry.last_refresh ?? new Date().toISOString() };
+}
+
+/**
+ * Whether Hermes in `home` (a HERMES_HOME) already has a model set up by its owner: a provider in
+ * config.yaml other than "auto" (the installer's template), or a sign-in it made itself in auth.json.
+ * Bubble AI only connects a model for Hermes where nobody has, so a person's own setup stays.
+ */
+export async function hermesHasModel(home: string): Promise<boolean> {
+  const config = await fs.readFile(path.join(home, "config.yaml"), "utf8").catch(() => "");
+  let provider: unknown;
+  try {
+    provider = ((yaml.load(config) as { model?: { provider?: unknown } } | undefined)?.model ?? {}).provider;
+  } catch {
+    return true; // a config.yaml Bubble AI can't read is someone's own
+  }
+  if (typeof provider === "string" && provider.trim() && provider.trim() !== "auto") return true;
+  const auth = parseJson(await fs.readFile(path.join(home, "auth.json"), "utf8").catch(() => null));
+  return !!auth?.active_provider;
+}
+
+/**
+ * Make `cred` the model Hermes in `home` uses by itself (its config.yaml provider and model, the key
+ * in its .env), so it's ready without `hermes setup`. Only for connections that don't rotate: a
+ * renewed sign-in in ~/.hermes would never reach the hub, and the hub's copy would stop working.
+ */
+export async function connectHermesHome(home: string, cred: RunCredential): Promise<void> {
+  const support = credentialSupport("hermes", cred.provider, cred.kind);
+  if (!support) throw new Error(`Hermes can't use ${withArticle(providerLabel(cred.provider))} ${cred.kind === "oauth" ? "sign-in" : "key"}`);
+  if (support.rotates) throw new Error(`Hermes renews ${providerLabel(cred.provider)} sign-ins itself, so Bubble AI hands it over for each run instead`);
+  await prepareCredential("hermes", cred, { fs: localCredentialFs, baseHome: home, connectionHome: home });
+  // the installer's template points model.base_url at OpenRouter; a connection to anyone else must not go there
+  const file = path.join(home, "config.yaml");
+  const text = await fs.readFile(file, "utf8");
+  if (hermesProvider(cred.provider, cred.kind) !== "openrouter") {
+    const without = text.replace(/^(model:[^\n]*\n(?:(?:[ \t]+[^\n]*|[ \t]*)\n)*?)[ \t]+base_url:[^\n]*\n/m, "$1");
+    if (without !== text) await localCredentialFs.write(file, without, 0o600);
+  }
 }

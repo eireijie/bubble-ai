@@ -296,8 +296,12 @@ export const HubToNode = z.discriminatedUnion("type", [
   z.object({ type: z.literal("discover") }),
   /** check again what this device has: harnesses and their models, its screen and VM support, agents to import */
   z.object({ type: z.literal("refresh") }),
-  /** install a harness with the device's own recipe (npm only); answered with a result */
-  z.object({ type: z.literal("install_harness"), requestId: z.string(), harness: z.string().max(60) }),
+  /**
+   * install a harness with the device's own recipe (npm, or a pinned official installer); answered
+   * with a result. `credential`: the owner's model connection, for a harness that keeps its model in
+   * its own config (Hermes), put there once it's installed unless the harness has one already
+   */
+  z.object({ type: z.literal("install_harness"), requestId: z.string(), harness: z.string().max(60), credential: RunCredential.optional() }),
   /** send everything about one discovered agent (its soul, instructions and notes), to import it */
   z.object({ type: z.literal("read_agent"), requestId: z.string(), key: z.string() }),
   /** update this device's copy of Bubble AI from GitHub and restart; answered with a result (UpdateResult) */

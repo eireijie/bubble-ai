@@ -62,12 +62,15 @@ extension Store {
   }
   func installHarness(_ harness: String, node: String) async throws -> String {
     let result: HarnessInstall = try await fetch { connection in
-      var api = connection; api.timeout = 16 * 60 + 10
+      var api = connection; api.timeout = (HarnessChoice.usesInstaller(harness) ? 40 : 16) * 60 + 10
       return try await api.post("/api/nodes/\(node)/install", ["harness": harness])
     }
     if result.ok == false { throw API.Failure(status: 0, message: result.output ?? "The installer couldn't finish. Check the device and try again.") }
     try await refreshNodes()
-    return result.output ?? "Installed."
+    let label = HarnessChoice.label(harness)
+    let device = nodes.first { $0.id == node }?.name
+    if let connected = result.connected { return "\(label) is installed\(device.map { " on \($0)" } ?? "") and uses your \(connected)." }
+    return "\(label) is installed\(device.map { " on \($0)" } ?? "")."
   }
   func saveProfile(_ fields: Fields) async throws { me = try await fetch { try await $0.patch("/api/me", fields) } }
   func savePrefs(_ fields: Fields) async throws {

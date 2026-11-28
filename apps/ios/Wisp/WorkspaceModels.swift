@@ -45,7 +45,8 @@ struct MemoryStorage: Decodable {
 }
 struct MemoryToken: Decodable, Identifiable { var id: String; var label: String?; var token: String?; var createdAt: String?; var lastUsed: String? }
 struct DeviceRegistration: Decodable { var token: String }
-struct HarnessInstall: Decodable { var ok: Bool?; var output: String? }
+/// What a device says after an install; `connected` names the model connection Hermes now uses ("Claude key").
+struct HarnessInstall: Decodable { var ok: Bool?; var output: String?; var connected: String? }
 struct AgentConnection: Decodable, Identifiable { var id: String; var agentId: String; var kind: String?; var device: String?; var createdAt: String?; var lastUsed: String? }
 struct ComputerDefaults: Decodable {
   struct Defaults: Decodable { var vmSize: String; var controlIdleMinutes: Int }

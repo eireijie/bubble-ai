@@ -27,15 +27,16 @@ export interface HarnessInfo {
   /**
    * How to install it on a device. `npm` packages Bubble AI can install itself when the device's owner
    * presses Install (the device installs <npm> into its own Bubble AI folder; the hub only names the harness).
-   * Others show `command` to copy, or `docs`.
+   * `installer` harnesses have their own official installer, which the device runs from a copy pinned
+   * to a release (apps/node/src/hermes-install.ts), never the live script. Others show `command` to copy, or `docs`.
    */
-  install?: { npm?: string; command?: string; docs?: string };
+  install?: { npm?: string; installer?: "hermes"; command?: string; docs?: string };
 }
 
 export const HARNESSES: HarnessInfo[] = [
   { id: "claude-code", label: "Claude Code", binary: "claude", protocol: "native", note: "Anthropic's coding agent", blurb: "Made by Anthropic, the company behind Claude.", account: "Needs a Claude subscription (Pro or Max) or an Anthropic API key, signed in on the device.", signup: "https://claude.ai", login: "claude (then /login)", install: { npm: "@anthropic-ai/claude-code" } },
   { id: "codex", label: "Codex", binary: "codex", protocol: "native", note: "OpenAI's coding agent", blurb: "Made by OpenAI, the company behind ChatGPT.", account: "Needs a ChatGPT account (Plus or higher) or an OpenAI API key, signed in on the device.", signup: "https://chatgpt.com", login: "codex login", install: { npm: "@openai/codex" } },
-  { id: "hermes", label: "Hermes", binary: "hermes", protocol: "acp", acpArgs: ["acp"], note: "Nous Research's agent, with its own skills", blurb: "Made by Nous Research. An open-source agent with its own skills.", account: "Use an account from an AI provider you choose; you set it up when you install Hermes.", login: "hermes setup", install: { command: "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash", docs: "https://github.com/NousResearch/hermes-agent" } },
+  { id: "hermes", label: "Hermes", binary: "hermes", protocol: "acp", acpArgs: ["acp"], note: "Nous Research's agent, with its own skills", blurb: "Made by Nous Research. An open-source agent with its own skills.", account: "Use an account from an AI provider you choose. Bubble AI connects it for you.", login: "hermes setup", install: { installer: "hermes", command: "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash", docs: "https://github.com/NousResearch/hermes-agent" } },
   { id: "gemini", label: "Gemini CLI", binary: "gemini", protocol: "acp", acpArgs: ["--acp"], note: "Google's agent", blurb: "Made by Google. Works with Gemini models.", account: "Sign in with a Google account. There is a free tier.", signup: "https://gemini.google.com", login: "gemini (then sign in)", install: { npm: "@google/gemini-cli" } },
   { id: "opencode", label: "OpenCode", binary: "opencode", protocol: "acp", acpArgs: ["acp"], note: "Open-source agent for any model", blurb: "An open-source agent that works with many AI models.", account: "Use an account from an AI provider you choose.", login: "opencode auth login", install: { npm: "opencode-ai" } },
   { id: "goose", label: "Goose", binary: "goose", protocol: "acp", acpArgs: ["acp"], note: "Block's open-source agent", blurb: "Made by Block. An open-source agent that works with many AI models.", account: "Use an account from an AI provider you choose.", login: "goose configure", install: { command: "curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash", docs: "https://block.github.io/goose/docs/getting-started/installation" } },
@@ -61,6 +62,12 @@ export const DEVICE_HARNESS = /^acp:[a-z0-9][a-z0-9-]{0,39}$/;
 
 export function harnessInfo(id: string): HarnessInfo | undefined {
   return HARNESSES.find((h) => h.id === id);
+}
+
+/** Whether Bubble AI can install it on a person's own device with one tap (npm, or a pinned official installer). */
+export function oneTapInstall(id: string): boolean {
+  const i = harnessInfo(id)?.install;
+  return !!(i?.npm || i?.installer);
 }
 
 export function harnessLabel(id: string): string {

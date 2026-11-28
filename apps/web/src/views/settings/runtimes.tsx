@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
-import { HARNESSES, harnessInfo, harnessLabel, type HarnessInfo } from "@bubble-ai/core";
+import { HARNESSES, harnessInfo, harnessLabel, oneTapInstall, type HarnessInfo } from "@bubble-ai/core";
 import { api, errorDetails } from "../../api.ts";
 import { usableDevices, useDevices, type DeviceInfo } from "../../devices.ts";
 import { href } from "../../router.ts";
@@ -25,7 +25,17 @@ async function checkAgain(deviceId: string) {
   await new Promise((r) => setTimeout(r, 2500));
 }
 
-/** Install a harness on a device through Bubble AI (npm ones), or show how to do it by hand. */
+/**
+ * What to say once a harness is installed: Hermes says which of the person's model connections it
+ * now uses (the device puts it in Hermes's config); the others still need their own sign-in.
+ */
+export function installedNote(h: HarnessInfo, deviceName: string, result: unknown): string {
+  const connected = (result as { connected?: unknown } | null)?.connected;
+  if (h.install?.installer) return typeof connected === "string" ? `${h.label} is installed on ${deviceName} and uses your ${connected}.` : `${h.label} is installed on ${deviceName}.`;
+  return `${h.label} is installed on ${deviceName}. Sign it in before agents use it.`;
+}
+
+/** Install a harness on a device through Bubble AI (npm ones and pinned installers), or show how to do it by hand. */
 function useInstall(device: DeviceInfo | undefined) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<{ text: string; details: string | null } | null>(null);
@@ -37,8 +47,7 @@ function useInstall(device: DeviceInfo | undefined) {
     setError(null);
     setNote(null);
     try {
-      await api("POST", `/api/nodes/${device.id}/install`, { harness: h.id });
-      setNote(`${h.label} is installed on ${device.name}. Sign it in before agents use it.`);
+      setNote(installedNote(h, device.name, await api("POST", `/api/nodes/${device.id}/install`, { harness: h.id })));
     } catch (e) {
       setError({ text: (e as Error).message, details: errorDetails(e) });
     } finally {
@@ -51,7 +60,7 @@ function useInstall(device: DeviceInfo | undefined) {
 /** One harness on a device: whether it's installed, and the button that installs it. */
 export function RuntimeRow({ h, device, version, busy, onInstall, onHowTo }: { h: HarnessInfo; device: DeviceInfo; version: string | null | undefined; busy: boolean; onInstall: () => void; onHowTo: () => void }) {
   const ready = version !== undefined;
-  const npm = !!h.install?.npm;
+  const oneTap = oneTapInstall(h.id);
   return (
     <Item
       icon={<Mark id={h.id} />}
@@ -60,7 +69,7 @@ export function RuntimeRow({ h, device, version, busy, onInstall, onHowTo }: { h
       right={
         ready ? (
           <Badge tone="green">Installed</Badge>
-        ) : npm && device.mine ? (
+        ) : oneTap && device.mine ? (
           <Add onClick={onInstall} disabled={busy || !device.online} title={device.online ? undefined : `${device.name} is offline`}>
             {busy ? (
               <>
@@ -115,7 +124,7 @@ export function InstallHarness({ device, onClose }: { device: DeviceInfo; onClos
 
 /**
  * The agent tools (harnesses) each device can run, like a runtime manager: which are ready, which
- * need installing (Bubble AI installs npm ones itself, on its owner's say-so), and how to sign them in.
+ * need installing (Bubble AI installs npm ones and pinned installers itself, on its owner's say-so), and how to sign them in.
  */
 export function RuntimesPage() {
   const devices = useDevices(4000);

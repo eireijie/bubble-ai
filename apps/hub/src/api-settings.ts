@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { MAX_PINS, harnessInfo, splitDetails, type UserPrefs } from "@bubble-ai/core";
+import { MAX_PINS, harnessInfo, oneTapInstall, splitDetails, type UserPrefs } from "@bubble-ai/core";
 import type { Caller } from "./api.ts";
 import { bearer, hashPassword, issueToken, revokeSubjectTokens, verifyPassword } from "./auth.ts";
 import { ComputerError } from "./computers.ts";
@@ -470,7 +470,11 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     return { ok: true };
   });
 
-  /** Install a harness on your device. The device runs its own recipe for it (npm), nothing the hub sends. */
+  /**
+   * Install a harness on your device. The device runs its own recipe for it (npm, or a harness's
+   * official installer pinned in the device's code), nothing the hub sends. A harness that keeps its
+   * model in its own config (Hermes) also gets your model connection, so it's ready to run.
+   */
   app.post("/api/nodes/:id/install", async (req, reply) => {
     const c = need(req, reply, { member: true });
     if (!c) return;
@@ -478,9 +482,13 @@ export function registerSettingsApi(app: FastifyInstance, hub: Hub, h: Helpers) 
     if (!n) return;
     const body = parse(z.object({ harness: z.string().max(60) }), req.body, reply);
     if (!body) return;
-    if (!harnessInfo(body.harness)?.install?.npm) return reply.code(400).send({ error: "Bubble AI can't install that one for you; use its installer on the device" });
+    if (!oneTapInstall(body.harness)) return reply.code(400).send({ error: "Bubble AI can't install that one for you; use its installer on the device" });
+    const installer = !!harnessInfo(body.harness)?.install?.installer;
+    const credential = installer ? await hub.installCredential(c.workspaceId, c.actor.id, n.id, body.harness).catch(() => null) : null;
+    if (credential) hub.models.used(credential.connectionId);
     try {
-      return await hub.computers.nodeRequest(n.id, (requestId) => ({ type: "install_harness", requestId, harness: body.harness }), 16 * 60_000);
+      // an installer sets up Python and the harness's own packages too: it gets longer than npm
+      return await hub.computers.nodeRequest(n.id, (requestId) => ({ type: "install_harness", requestId, harness: body.harness, ...(credential ? { credential } : {}) }), (installer ? 40 : 16) * 60_000);
     } catch (err) {
       // plain words for everyone; npm's own output only under Details
       if (err instanceof ComputerError) {

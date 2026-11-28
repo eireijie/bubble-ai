@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
 import { CONNECTOR_CATALOG, HARNESSES, HubToNode, SETTINGS_HARNESSES, VM_HARNESSES, credentialSupport, harnessInfo, harnessLabel, providerLabel, readTunnelFrame, tunnelFrame, withArticle, TERM_PREFIX, type AccessLevel, type HarnessAccountOp, type HarnessSettings, type Agent, type ComputerSpec, type ConnectorSpec, type CommandOption, type HarnessCatalog, type NodeToHub, type RunCredential, type RunRequest, type VmConfig, signInProblem } from "@bubble-ai/core";
-import { HARNESS_SPECS, HarnessAccounts, adapters as builtinAdapters, changeHarnessSettings, deviceAdapters, harnessConfigured, localCredentialFs, loginCommand, prepareCredential, scanShelf, harnessConfigPath, readHarnessSettings, readHarnessSkill, type CatalogPlace, type CredentialFs, type DeviceHarness, type HarnessAdapter, type McpServerSpec, type PreparedCredential, type RunPlace } from "@bubble-ai/adapters";
+import { HARNESS_SPECS, HarnessAccounts, adapters as builtinAdapters, changeHarnessSettings, connectHermesHome, hermesHasModel, deviceAdapters, harnessConfigured, localCredentialFs, loginCommand, prepareCredential, scanShelf, harnessConfigPath, readHarnessSettings, readHarnessSkill, type CatalogPlace, type CredentialFs, type DeviceHarness, type HarnessAdapter, type McpServerSpec, type PreparedCredential, type RunPlace } from "@bubble-ai/adapters";
 import { WispClient, WispError } from "@bubble-ai/sdk";
 import { MEMORY_ANSWER_MAX, memoryPrompt } from "@bubble-ai/core/src/memory-import.ts";
 import { branchDiff, branchFiles, runChecks } from "./review.ts";
@@ -25,6 +25,7 @@ import { recipeTag, type DockerVm } from "./computers/docker.ts";
 import { screenSlug } from "./computers/agent-screens.ts";
 import { mcpBundle } from "./vm-tools.ts";
 import { NO_NODE, findNpmDir, harnessPrefix, npmInstall, prefixBin, withDir, withHarnessBin } from "./npm.ts";
+import { HERMES_PIN, hermesBinDir, installHermes } from "./hermes-install.ts";
 import { discoverAgents, readDiscovered } from "./discover.ts";
 import { agentFolder } from "./agent-dir.ts";
 import { runFailed, withReason } from "./run-failure.ts";
@@ -177,6 +178,9 @@ export class NodeDaemon {
     fs.mkdirSync(cfg.dir, { recursive: true });
     // harnesses Bubble AI installed: found after the person's own, with the node they run on
     if (fs.existsSync(harnessPrefix(cfg.dir))) for (const dir of [prefixBin(harnessPrefix(cfg.dir)), findNpmDir()]) if (dir) process.env.PATH = withHarnessBin(dir, process.env.PATH);
+    // and the `hermes` command its installer puts in the home folder, which a GUI-launched app's PATH misses
+    const hermesBin = hermesBinDir(cfg.harnessHome ?? os.homedir());
+    if (fs.existsSync(hermesBin)) process.env.PATH = withHarnessBin(hermesBin, process.env.PATH);
     this.sessions = readJson(this.sessionsFile, {});
     this.sessionHarness = readJson(path.join(cfg.dir, "session-harness.json"), {});
     this.agentTokens = readJson(this.tokensFile, {});
@@ -656,8 +660,9 @@ export class NodeDaemon {
       if (this.local.paused) return this.send({ type: "result", requestId: msg.requestId, ok: false, error: `${this.cfg.name} is paused` });
       this.installHarness(msg.harness).then(
         async (output) => {
+          const connected = msg.credential ? await this.connectInstalled(msg.harness, msg.credential) : null;
           await this.refresh();
-          this.send({ type: "result", requestId: msg.requestId, ok: true, result: { output } });
+          this.send({ type: "result", requestId: msg.requestId, ok: true, result: { output, ...(connected ? { connected } : {}) } });
         },
         (err) => this.send({ type: "result", requestId: msg.requestId, ok: false, error: (err as Error).message }),
       );
@@ -1083,6 +1088,14 @@ export class NodeDaemon {
    * HARNESSES[].install), so the hub can name a harness but never choose what runs here.
    */
   private async installHarness(id: string): Promise<string> {
+    if (harnessInfo(id)?.install?.installer === "hermes") {
+      const home = this.cfg.harnessHome ?? os.homedir();
+      this.log(`installing Hermes ${HERMES_PIN.tag} (${HERMES_PIN.commit.slice(0, 12)}) with its own installer`);
+      const output = await installHermes({ home, device: this.cfg.name, log: (l) => this.log(l) });
+      process.env.PATH = withHarnessBin(hermesBinDir(home), process.env.PATH);
+      this.log("installed Hermes");
+      return output;
+    }
     const pkg = harnessInfo(id)?.install?.npm;
     if (!pkg) throw new Error(`${harnessLabel(id)} isn't installed with npm; install it on ${this.cfg.name} with its own installer`);
     // look again each time: someone may have installed Node.js since the last try, and a GUI-launched app has a short PATH
@@ -1098,6 +1111,26 @@ export class NodeDaemon {
     for (const dir of [prefixBin(prefix), npmDir]) process.env.PATH = withHarnessBin(dir, process.env.PATH);
     this.log(`installed ${harnessLabel(id)}`);
     return output;
+  }
+
+  /**
+   * Right after an install: the owner's model connection, as the harness's own default, so it's ready
+   * without its own setup (Hermes's `hermes setup`). Never over a model someone set up there already.
+   * Says which one, or null when it left things as they were; a failure here doesn't undo the install.
+   */
+  private async connectInstalled(harness: string, cred: RunCredential): Promise<string | null> {
+    if (harness !== "hermes") return null;
+    const home = this.accounts.dir("hermes", "default");
+    try {
+      if (await hermesHasModel(home)) return null;
+      await connectHermesHome(home, cred);
+      const what = `${providerLabel(cred.provider)} ${cred.kind === "oauth" ? "sign-in" : "key"}`;
+      this.log(`Hermes now uses your ${what}`);
+      return what;
+    } catch (err) {
+      this.log(`couldn't connect Hermes's model: ${(err as Error).message}`);
+      return null;
+    }
   }
 
   /**

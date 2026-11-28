@@ -654,7 +654,7 @@ struct InstallHarnessSheet: View {
   @State private var output: String?
   @State private var action = FormAction()
   private var node: AgentNode? { store.nodes.first { $0.id == nodeId } }
-  private let installable = ["claude-code", "codex", "gemini", "opencode", "kimi", "qwen", "openclaw"]
+  private let installable = HarnessChoice.oneTapInstall
 
   var body: some View {
     MarketSheet(title: "Install a harness", subtitle: node.map { "On \($0.name)" }, busy: action.busy) {
@@ -680,7 +680,7 @@ struct InstallHarnessSheet: View {
       Button { action.run { try await store.refreshDevice(nodeId) } } label: { Label("Refresh", systemImage: "arrow.clockwise").font(.system(size: 13)).foregroundStyle(Palette.muted) }.buttonStyle(.plain).padding(.horizontal, 4).disabled(node?.online != true || action.busy)
     }
     .confirmationDialog(installing.map { "Install \(HarnessChoice.label($0)) on \(node?.name ?? "the device")?" } ?? "", isPresented: Binding(get: { installing != nil }, set: { if !$0 { installing = nil } }), titleVisibility: .visible, presenting: installing) { harness in
-      Button("Install \(HarnessChoice.label(harness))") { output = nil; action.run { _ = try await store.installHarness(harness, node: nodeId); output = "\(HarnessChoice.label(harness)) is installed." } }
+      Button("Install \(HarnessChoice.label(harness))") { output = nil; action.run { output = try await store.installHarness(harness, node: nodeId) } }
     }
   }
 }

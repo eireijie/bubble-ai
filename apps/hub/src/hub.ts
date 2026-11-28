@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, runFailureReason, runFailureLine, type RunFailureReason, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@bubble-ai/core";
+import { smallestModel, DEFAULT_ROUNDS, hasSteps, migrateTeam, stepAgentId, stepGraph, stepLabel, stepOrder, BUILTIN_SKILLS, HubToNode, agentSkillPath, skillFile, LoopGuard, NodeToHub, agentCommands, parseCommand, skillRequest, type AgentCommand, type ChannelTeam, harnessLabel, runsInVm, signInProblem, plainFailure, runFailureReason, runFailureLine, type RunFailureReason, type Agent, parseMentions, readTunnelFrame, TERM_PREFIX, soulPath, type Actor, type AgentEvent, type ClientEvent, type Computer, type ComputerSpec, type Message, type MessagePart, type RunWorkspace, type ShelfItem, credentialSupport, harnessInfo, oneTapInstall, providerLabel, type HarnessCatalog, type ModelLogin, type ModelProvider, type RunCredential, type AgentSignIn, type ConnectionSecret, compactPlan, plainCompact, startsNewChat, SUMMARY_REQUEST } from "@bubble-ai/core";
 import { id } from "./auth.ts";
 import { Computers } from "./computers.ts";
 import { Terminals } from "./terminals.ts";
@@ -452,6 +452,26 @@ export class Hub {
     const here = agents.filter((a) => (c.kind === "vm" ? a.computerId === c.id && this.runsInComputer(a) : a.nodeId === c.nodeId && !this.runsInComputer(a)));
     const r = [...here, ...agents].map((a) => own(a.settings.connectionId)).find(Boolean) ?? this.models.mine(c.workspaceId, userId).find((m) => own(m.id));
     return r ? this.models.credentialFor(r.id) : null;
+  }
+
+  /**
+   * The connection a harness that keeps its model in its own config (Hermes) is set up with when it's
+   * installed on a device: the owner's own, one that doesn't rotate (a sign-in the harness renews in
+   * its folder would stop working for the hub), preferring the one this person's agents with that
+   * harness use, then one that works. The device only uses it where nobody set up a model already.
+   */
+  async installCredential(workspaceId: string, userId: string, nodeId: string, harness: string): Promise<RunCredential | null> {
+    const usable = this.models.mine(workspaceId, userId).filter((r) => {
+      const s = credentialSupport(harness, r.provider, r.kind);
+      return s && !s.rotates;
+    });
+    if (!usable.length) return null;
+    const used = this.store.agents(workspaceId).filter((a) => a.harness === harness && a.settings.createdBy === userId).sort((a, b) => Number(b.nodeId === nodeId) - Number(a.nodeId === nodeId)).map((a) => a.settings.connectionId);
+    const pick = used.map((cid) => usable.find((r) => r.id === cid)).find(Boolean) ?? usable.find((r) => !r.last_error) ?? usable[0];
+    const cred = this.models.credentialFor(pick.id);
+    if (!cred) return null;
+    const model = await this.connectionDefaultModel({ nodeId, computerId: null, harness, settings: {} as Agent["settings"] }, pick.id).catch(() => undefined);
+    return model ? { ...cred, model } : cred;
   }
 
   /** The connection a run carries: the agent's, when its harness can use it. */
@@ -999,8 +1019,8 @@ export class Hub {
     const why = this.failureWhy(agent, result.error, reason);
     if (reason === "error") return why ? { ...base, why } : base;
     if (reason === "not_installed") {
-      // Bubble AI installs it with the device's own recipe when it can (npm); a computer's image is set up differently
-      const canInstall = !inVm && !!agent.nodeId && !!harnessInfo(agent.harness)?.install?.npm;
+      // Bubble AI installs it with the device's own recipe when it can (npm, a pinned installer); a computer's image is set up differently
+      const canInstall = !inVm && !!agent.nodeId && oneTapInstall(agent.harness);
       return { ...base, why, ...(canInstall ? { fix: "install" as const, harness: agent.harness, nodeId: agent.nodeId! } : {}) };
     }
     if (reason === "signed_out") return { ...base, why, fix: this.failureFix(agent, result.error) ?? (inVm ? "computer" : "signin") };

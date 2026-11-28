@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, ChevronRight, Copy, Download, ExternalLink, Link2, MoreHorizontal, Plus, RefreshCw, Smartphone } from "lucide-react";
-import { HARNESSES, OwnRemoteDesktop, REMOTE_APPS, REMOTE_APP_IDS, formatRustdeskId, harnessLabel, remoteDesktopLink, runsInVm, type Actor, type Agent, type DeviceRole, type HarnessInfo, type RemoteApp } from "@bubble-ai/core";
+import { HARNESSES, OwnRemoteDesktop, REMOTE_APPS, REMOTE_APP_IDS, formatRustdeskId, harnessLabel, oneTapInstall, remoteDesktopLink, runsInVm, type Actor, type Agent, type DeviceRole, type HarnessInfo, type RemoteApp } from "@bubble-ai/core";
 import { api, errorDetails } from "../api.ts";
 import { useStore, type ComputerInfo } from "../store.ts";
 import { go, href } from "../router.ts";
 import { isSharedComputer, useDevices } from "../devices.ts";
 import { useFeature } from "../features.ts";
 import { CreateAgent } from "./CreateAgent.tsx";
-import { HowToInstall } from "./settings/runtimes.tsx";
+import { HowToInstall, installedNote } from "./settings/runtimes.tsx";
 import { HarnessLogo } from "../components/HarnessLogo.tsx";
 import { Toggle } from "./settings/parts.tsx";
 import { SheetHead, StartProblem, TilePicture, startComputer, toneText, useAddFlow, usePhones, useTileStatus } from "./ComputersParts.tsx";
@@ -487,8 +487,8 @@ function Harnesses({ node: n }: { node: NodeInfo }) {
     setError(null);
     setNote(null);
     try {
-      await api("POST", `/api/nodes/${n.id}/install`, { harness: h.id });
-      setNote(`${h.label} is installed. Sign it in on ${n.name}: ${h.login ?? h.binary}`);
+      const result = await api("POST", `/api/nodes/${n.id}/install`, { harness: h.id });
+      setNote(h.install?.installer ? installedNote(h, n.name, result) : `${h.label} is installed. Sign it in on ${n.name}: ${h.login ?? h.binary}`);
     } catch (e) {
       setError({ text: (e as Error).message, details: errorDetails(e) });
     } finally {
@@ -514,7 +514,7 @@ function Harnesses({ node: n }: { node: NodeInfo }) {
               <HarnessLogo harness={h.id} size={18} />
               <span className="min-w-0 flex-1 truncate font-medium">{h.label}</span>
               {!here ? (
-                h.install?.npm && n.mine ? (
+                oneTapInstall(h.id) && n.mine ? (
                   <button type="button" className={act} disabled={busy === h.id || !n.online} onClick={() => void install(h)}>
                     {busy === h.id ? "Installing…" : "Install"}
                   </button>
