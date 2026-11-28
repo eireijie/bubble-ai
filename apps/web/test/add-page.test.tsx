@@ -24,23 +24,47 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const add = (section: "all" | "apps" | "skills" | "devices" | "installed" | "mods" = "all") => renderToStaticMarkup(createElement(MarketplaceView, { section }));
+const add = (section: "all" | "apps" | "skills" | "agents" | "teams" | "devices" | "installed" | "mods" = "all") => renderToStaticMarkup(createElement(MarketplaceView, { section }));
 
 describe("Connect apps: apps, skills and mods in one pop-up (round 8)", () => {
-  it("is titled Connect apps, with one search, the filter chips and the sections of All in order", () => {
+  it("is titled Marketplace, with one search, the filter chips and the sections of All in order (round 12)", () => {
     const html = add();
-    expect(html).toContain(">Connect apps</h1>");
-    expect(html).toContain('placeholder="Search apps and skills"');
+    expect(html).toContain(">Marketplace</h1>");
+    expect(html).toContain('placeholder="Search apps, skills, agents and teams"');
     expect(html).toContain("0 connected");
-    for (const chip of ["All", "Apps", "Skills", "Productivity", "Communication", "More"]) expect(html).toMatch(new RegExp(`aria-pressed="(true|false)"[^>]*>${chip}`));
+    for (const chip of ["All", "Apps", "Skills", "Agents", "Teams", "Mods", "More"]) expect(html).toMatch(new RegExp(`aria-pressed="(true|false)"[^>]*>${chip}`));
     expect(html).toMatch(/aria-pressed="true"[^>]*>All</);
+    // Agents (four, with Use) and Teams (three) come first, each with Show all
+    const agents = html.split('id="add-agents"')[1].split("</section>")[0];
+    expect(agents.match(/aria-label="Use [^"]+"/g)).toEqual(['aria-label="Use Daily assistant"', 'aria-label="Use Work assistant"', 'aria-label="Use Coding assistant"', 'aria-label="Use Business manager"']);
+    expect(agents).toContain(">Show all<");
+    const teams = html.split('id="add-teams"')[1].split("</section>")[0];
+    expect(teams).toContain(">Plan and challenge<");
+    expect(teams).toContain("5 agents");
+    expect(teams).toContain(">Show all<");
+    expect(html.indexOf('id="add-agents"')).toBeLessThan(html.indexOf('id="add-teams"'));
+    expect(html.indexOf('id="add-teams"')).toBeLessThan(html.indexOf('id="add-recommended"'));
     expect(html).toContain('<section id="add-recommended" aria-label="Recommended"');
     expect(html.indexOf('id="add-recommended"')).toBeLessThan(html.indexOf('id="add-apps"'));
     expect(html.indexOf('id="add-apps"')).toBeLessThan(html.indexOf('id="add-skills"'));
     expect(html.indexOf('id="add-skills"')).toBeLessThan(html.indexOf("Make or bring your own"));
-    // mods are under More, not on All; the old side list is gone
+    // mods have their own chip, not a section on All; the old side list is gone
     expect(html).not.toContain('id="add-mods"');
     expect(html).not.toContain('aria-label="Add sections"');
+  });
+
+  it("shows every agent template under Agents and every team under Teams, and none of it to guests", () => {
+    const agents = add("agents");
+    expect(agents).toMatch(/aria-pressed="true"[^>]*>Agents</);
+    expect(agents).toContain('aria-label="Use Research assistant"');
+    expect(agents).not.toContain("Something else");
+    expect(agents).not.toContain('id="add-apps"');
+    const teams = add("teams");
+    for (const name of ["Plan and challenge", "Build and review", "Research desk", "Bug squad", "Support queue", "Release crew"]) expect(teams).toContain(`>${name}<`);
+    expect(teams).not.toContain(">Show all<");
+    world.role = "guest";
+    expect(add()).not.toContain('id="add-agents"');
+    expect(add()).not.toMatch(/>Agents</);
   });
 
   it("puts Composio first, with the Recommended mark and its own line", () => {

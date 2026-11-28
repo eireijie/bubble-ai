@@ -661,3 +661,11 @@ export function seedTeam(team: ChannelTeam, picked: string[]): ChannelTeam {
   }
   return withChart(relayout(next));
 }
+
+/** A name no team here has yet: the name itself, else "Name 2", "Name 3"… */
+export function freeName(name: string, taken: string[]): string {
+  const have = new Set(taken.map((n) => n.toLowerCase()));
+  const base = name.trim();
+  if (!have.has(base.toLowerCase())) return base;
+  for (let n = 2; ; n++) if (!have.has(`${base} ${n}`.toLowerCase())) return `${base} ${n}`;
+}

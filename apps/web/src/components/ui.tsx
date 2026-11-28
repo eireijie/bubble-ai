@@ -71,7 +71,7 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
 /** A phone or tablet: no mouse to hover with. Fields don't take focus on their own there, since that opens the keyboard over the page. */
 export const touchFirst = () => typeof window !== "undefined" && !!window.matchMedia?.("(hover: none), (pointer: coarse)").matches;
 
-export function Modal({ title, onClose, children, wide, drawer = false, headerless = false, className, contentClassName, label }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; drawer?: boolean; headerless?: boolean; className?: string; contentClassName?: string; label?: string }) {
+export function Modal({ title, onClose, children, wide, drawer = false, headerless = false, still = false, className, contentClassName, label }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; drawer?: boolean; headerless?: boolean; /** opens and closes instantly: no sheet slide, no fade, the app behind stays put */ still?: boolean; className?: string; contentClassName?: string; label?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -96,10 +96,10 @@ export function Modal({ title, onClose, children, wide, drawer = false, headerle
     return () => { window.removeEventListener("keydown", k); previous?.focus(); };
   }, []);
   // on phones the app behind a sheet scales back; the sheet lives in <body> so that scale doesn't touch it
-  useSheetBackdrop(!drawer);
+  useSheetBackdrop(!drawer && !still);
   const dialog = (
-    <div className={cx(drawer ? "fixed inset-0 flex justify-end" : "m-scrim fixed inset-0 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-12", LAYER.modal)} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)} tabIndex={-1} className={cx(drawer ? "m-drawer w-full max-w-[480px] h-dvh bg-panel border-l border-line overflow-y-auto safe-bottom" : "m-dialog w-full bg-panel border border-line rounded-t-[16px] sm:rounded-[16px] shadow-panel max-h-[92vh] overflow-y-auto safe-bottom", !drawer && (wide ? "sm:max-w-2xl" : "sm:max-w-md"), className)}>
+    <div className={cx(drawer ? "fixed inset-0 flex justify-end" : cx(!still && "m-scrim", "fixed inset-0 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-12"), LAYER.modal)} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={label ?? (typeof title === "string" ? title : undefined)} tabIndex={-1} className={cx(drawer ? "m-drawer w-full max-w-[480px] h-dvh bg-panel border-l border-line overflow-y-auto safe-bottom" : cx(!still && "m-dialog", "w-full bg-panel border border-line rounded-t-[16px] sm:rounded-[16px] shadow-panel max-h-[92vh] overflow-y-auto safe-bottom"), !drawer && (wide ? "sm:max-w-2xl" : "sm:max-w-md"), className)}>
         {!headerless && <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-3 sm:px-8 sm:pt-7">
           {typeof title === "string" ? <h2 className="text-base font-semibold">{title}</h2> : <div className="text-base font-semibold">{title}</div>}
           <button onClick={onClose} className="ibtn -mr-1.5" aria-label="Close" title="Close (Esc)">

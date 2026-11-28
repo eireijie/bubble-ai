@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Bell, ChevronRight, Compass, ExternalLink, LayoutGrid, LifeBuoy, ListTodo, Sparkles, Users } from "lucide-react";
+import { Bell, ChevronRight, Compass, ExternalLink, LifeBuoy, ListTodo, Sparkles, Users } from "lucide-react";
 import { GITHUB_URL } from "@bubble-ai/core";
 import { BubbleIcon } from "../components/icons.tsx";
 import { useMoreItems } from "../components/Rail.tsx";
@@ -14,7 +14,7 @@ type Row = { label: string; icon: ReactNode; to?: Route; onClick?: () => void; h
 
 /**
  * Phones' More tab (round 11, board 8 C): everything that isn't one of the other four tabs — the agents
- * list, what needs you, tasks and routines, templates, mods' own pages, help and the tour.
+ * list, what needs you, tasks and routines, mods' own pages, help and the tour.
  */
 export function MorePage() {
   const me = useStore((s) => s.me)!;
@@ -30,7 +30,6 @@ export function MorePage() {
       { label: "All agents", icon: <BubbleIcon {...icon} />, to: { view: "agents", agentId: null } as Route },
       ...(!guest ? [{ label: "Needs you", icon: <Bell {...icon} />, to: { view: "dashboard" } as Route, hint: needs > 0 ? String(needs) : null }] : []),
       ...(!guest ? [{ label: "Tasks and routines", icon: <ListTodo {...icon} />, to: (features.tasks ? { view: "tasks" } : { view: "marketplace", app: "m:tasks" }) as Route, hint: features.tasks ? null : "Off" }] : []),
-      ...(!guest ? [{ label: "Templates", icon: <LayoutGrid {...icon} />, to: { view: "templates" } as Route }] : []),
       { label: "Browse teams", icon: <Users {...icon} />, onClick: () => useStore.setState({ channelBrowser: { sectionId: null } }) },
   ];
   const last: Row[] = [
