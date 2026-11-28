@@ -54,7 +54,7 @@ async function hubPage() {
       const url = page.url();
       try {
         if (/^http:\/\/(localhost|127\.0\.0\.1):4747/.test(url)) {
-          if (/Create your account/i.test(await visibleText(page))) return page;
+          if (/Create your account|Make your Bubble AI/i.test(await visibleText(page))) return page;
           continue;
         }
         for (const sel of STEPS) {
@@ -75,7 +75,7 @@ async function hubPage() {
     }
     await sleep(1500);
   }
-  throw new Error('Timed out before "Create your account"');
+  throw new Error('Timed out before the first account page');
 }
 
 const page = await hubPage();
@@ -90,7 +90,7 @@ await page.locator('input[type="password"]').first().fill(`Smoke-${crypto.random
 await shot(page, "create-account-filled");
 await page.locator('input[type="password"]').first().press("Enter");
 await sleep(1500);
-if (/Create your account/i.test(await visibleText(page))) await page.getByRole("button", { name: "Continue" }).first().click({ timeout: 5000 }).catch(() => {});
+if (/Create your account|Make your Bubble AI/i.test(await visibleText(page))) await page.getByRole("button", { name: "Continue" }).first().click({ timeout: 5000 }).catch(() => {});
 await sleep(3000);
 
 // 3. onboarding pages up to the AI page; at each new page, log it, screenshot it, move on

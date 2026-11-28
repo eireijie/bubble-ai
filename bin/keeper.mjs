@@ -5,6 +5,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import "./bundled-git.mjs";
 
 // Scheduled tasks can inherit an older PATH; keep the selected runtime's npm available.
 const runtimeBin = path.dirname(process.execPath);

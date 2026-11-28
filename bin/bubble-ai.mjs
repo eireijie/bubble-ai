@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // `bubble-ai` CLI: run a hub, or connect a device to one. Runs the TypeScript source through tsx; `bubble-ai node
 // start` runs under the keeper so it restarts itself after an update.
+import "./bundled-git.mjs";
+
 const cli = new URL("../apps/node/src/cli.ts", import.meta.url);
 const [cmd, sub] = process.argv.slice(2);
 

@@ -778,6 +778,10 @@ export class Vault {
       cwd: this.root,
       maxBuffer: 32 * 1024 * 1024,
       env: { ...process.env, GIT_COMMITTER_NAME: who.name, GIT_COMMITTER_EMAIL: who.email, GIT_AUTHOR_NAME: who.name, GIT_AUTHOR_EMAIL: who.email },
+    }).catch((err) => {
+      // the vault keeps its notes in git: without it, say so instead of a stack trace
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") throw new Error("Bubble AI needs Git to keep its notes. Install it from git-scm.com, then start Bubble AI again.");
+      throw err;
     });
   }
 }
